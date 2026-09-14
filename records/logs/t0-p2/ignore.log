@@ -1,0 +1,24 @@
+about: P2 phase commit c829494a05b78abcdfe4cf8337bd9b4e2505c94f; HEAD at run: c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+phase: T0 P2 (specs/0001-bootstrap.md) ignore.log; run at 2026-09-14T23:39:44Z
+check-ignore exits 0 when the path is ignored and 1 when it is not.
+
+command: git check-ignore -v a.xlsx
+.gitignore:4:*.xlsx	a.xlsx
+exit: 0
+command: git check-ignore --no-index -v --non-matching a.xlsx
+.gitignore:4:*.xlsx	a.xlsx
+a.xlsx: ignored (expected: ignored) -> as-expected
+
+command: git check-ignore -v sub/b.xlsm
+.gitignore:5:*.xlsm	sub/b.xlsm
+exit: 0
+command: git check-ignore --no-index -v --non-matching sub/b.xlsm
+.gitignore:5:*.xlsm	sub/b.xlsm
+sub/b.xlsm: ignored (expected: ignored) -> as-expected
+
+command: git check-ignore -v tools/x/tests/fixtures/c.xlsx
+.gitignore:11:!**/tests/fixtures/**	tools/x/tests/fixtures/c.xlsx
+exit: 0
+command: git check-ignore --no-index -v --non-matching tools/x/tests/fixtures/c.xlsx
+.gitignore:11:!**/tests/fixtures/**	tools/x/tests/fixtures/c.xlsx
+tools/x/tests/fixtures/c.xlsx: not ignored (expected: not ignored) -> as-expected

@@ -1,0 +1,9 @@
+about: P2 phase commit c829494a05b78abcdfe4cf8337bd9b4e2505c94f; HEAD at run: c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+phase: T0 P2 (specs/0001-bootstrap.md) binary.log; run at 2026-09-14T23:39:44Z
+The i686 unit-test binary, taken from the i686-test step's 'Running unittests' line in build.log.
+test binary: target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0
+command: file target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0
+target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0: ELF 32-bit LSB executable, Intel i386, version 1 (GNU/Linux), statically linked, BuildID[sha1]=ad7b0616635bbe5e3dc94cc97a74343633b44c0f, with debug_info, not stripped
+exit: 0
+command: sha256sum target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0
+42029de0a5329e9c57cbaf208c45aa6c3273bfc31a7117a4d160da779e1ba505  target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0

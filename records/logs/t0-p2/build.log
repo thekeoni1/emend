@@ -1,0 +1,234 @@
+about: P2 phase commit c829494a05b78abcdfe4cf8337bd9b4e2505c94f; HEAD at run: c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+phase: T0 P2 (specs/0001-bootstrap.md) build.log; run at 2026-09-14T23:39:44Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T0 P2 logs: build.log, binary.log and ignore.log in records/logs/t0-p2/.
+    # Usage: p2-logs.sh <phase commit> <target-add output> <auto-install extract> <toolchain transcript>
+    # The first two input files hold rustup output captured earlier in the session;
+    # the third is the implementing session's transcription of toolchain state.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    TARGET_ADD_OUT=${2:?target-add output required}
+    AUTO_INSTALL_OUT=${3:?auto-install extract required}
+    TOOLCHAINS_TXT=${4:?toolchain transcript required}
+    D=records/logs/t0-p2
+    I686=i686-unknown-linux-musl
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    # A missing toolchain or target must fail here, not install silently.
+    export RUSTUP_AUTO_INSTALL=0
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo "tracked changes present" >&2; exit 2; fi
+    mkdir -p "$D"
+    HEADLINE="about: P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    fail=0
+    
+    step() { # step <label> <command...>: prints the command, its full output and exit status
+      local rc
+      echo
+      echo "## $1"
+      echo "command: ${*:2}"
+      "${@:2}" > "$T/out" 2>&1; rc=$?
+      cat "$T/out"
+      echo "exit: $rc"
+      cp "$T/out" "$T/out-$1"
+      [ "$rc" -eq 0 ] || fail=1
+    }
+    
+    {
+      echo "$HEADLINE"
+      echo "phase: T0 P2 (specs/0001-bootstrap.md) build.log; run at $NOW"
+      echo "temporary files live in <scratch> and are deleted on exit"
+      echo
+      echo "## script"
+      sed 's/^/    /' "$0"
+      echo
+      echo "## toolchain installs made for P2, before this run (captured rustup output, not re-run)"
+      echo "1. Unplanned: the implementing session's probe 'rustup +1.98.1 target list --installed'"
+      echo "   auto-installed toolchain 1.98.1-x86_64-unknown-linux-gnu. rustup printed:"
+      sed 's/^/    /' "$AUTO_INSTALL_OUT"
+      echo "   Finding: the spec pins channel 1.98.1, and rustup treats that as a toolchain separate"
+      echo "   from stable even though stable is also rustc 1.98.1. The probe therefore installed it"
+      echo "   without the plan the CLAUDE.md Elevation section requires."
+      echo "2. Planned, after the maintainer chose it in the implementing session:"
+      echo "   command: rustup target add --toolchain 1.98.1-x86_64-unknown-linux-gnu $I686"
+      sed 's/^/    /' "$TARGET_ADD_OUT"
+      echo "3. Toolchain state before and after, and which P2 commands ran without RUSTUP_AUTO_INSTALL=0:"
+      sed 's/^/    /' "$TOOLCHAINS_TXT"
+      echo
+      echo "## guard in this run"
+      echo "RUSTUP_AUTO_INSTALL=${RUSTUP_AUTO_INSTALL} (exported by this script for every rustup and cargo command below)"
+      echo
+      echo "## toolchain in use"
+      echo "rustup show active-toolchain: $(rustup show active-toolchain 2>&1)"
+      echo "rustc --version: $(rustc --version 2>&1)"
+      echo "cargo --version: $(cargo --version 2>&1)"
+      echo "rustup target list --installed: $(rustup target list --installed 2>&1 | tr '\n' ' ')"
+      step clean cargo clean
+      step host-build cargo build --workspace --all-targets
+      step host-test cargo test --workspace
+      step i686-build cargo build --workspace --all-targets --target "$I686"
+      step i686-test cargo test --workspace --target "$I686"
+      echo
+      echo "## summary"
+      for s in host-test i686-test; do
+        ran=$(/usr/bin/grep -c -E '^running [1-9][0-9]* tests?$' "$T/out-$s"); r1=$?
+        ok=$(/usr/bin/grep -c -E '^test result: ok\. [1-9][0-9]* passed' "$T/out-$s"); r2=$?
+        echo "$s: result lines with at least one passed test = ${ok:-none} (grep exit $r2); 'running N test' lines with N >= 1 = ${ran:-none} (grep exit $r1)"
+        { [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ]; } || fail=1
+      done
+      echo "all steps exit 0 and both targets ran at least one passing test: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    } > "$D/build.log" 2>&1
+    
+    bin=$(sed -n "s|^ *Running unittests src/main.rs (\(target/$I686/debug/deps/xlsx_diff-[0-9a-f]*\))$|\1|p" "$T/out-i686-test" | head -1)
+    {
+      echo "$HEADLINE"
+      echo "phase: T0 P2 (specs/0001-bootstrap.md) binary.log; run at $NOW"
+      echo "The i686 unit-test binary, taken from the i686-test step's 'Running unittests' line in build.log."
+      echo "test binary: ${bin:-NOT FOUND}"
+      if [ -n "$bin" ]; then
+        echo "command: file $bin"
+        file "$bin"; echo "exit: $?"
+        echo "command: sha256sum $bin"
+        sha256sum "$bin"
+      else
+        fail=1
+      fi
+    } > "$D/binary.log" 2>&1
+    
+    {
+      echo "$HEADLINE"
+      echo "phase: T0 P2 (specs/0001-bootstrap.md) ignore.log; run at $NOW"
+      echo "check-ignore exits 0 when the path is ignored and 1 when it is not."
+      for spec in "a.xlsx:ignored" "sub/b.xlsm:ignored" "tools/x/tests/fixtures/c.xlsx:not ignored"; do
+        p=${spec%%:*}; want=${spec#*:}
+        echo
+        echo "command: git check-ignore -v $p"
+        git check-ignore -v "$p"; rv=$?
+        echo "exit: $rv"
+        echo "command: git check-ignore --no-index -v --non-matching $p"
+        git check-ignore --no-index -v --non-matching "$p"
+        git check-ignore -q "$p"; rq=$?
+        if [ "$rq" -eq 0 ]; then got=ignored; elif [ "$rq" -eq 1 ]; then got="not ignored"; else got="error $rq"; fi
+        echo "$p: $got (expected: $want) -> $([ "$got" = "$want" ] && echo as-expected || echo UNEXPECTED)"
+        [ "$got" = "$want" ] || fail=1
+      done
+    } > "$D/ignore.log" 2>&1
+    
+    exit "$fail"
+
+## toolchain installs made for P2, before this run (captured rustup output, not re-run)
+1. Unplanned: the implementing session's probe 'rustup +1.98.1 target list --installed'
+   auto-installed toolchain 1.98.1-x86_64-unknown-linux-gnu. rustup printed:
+    info: syncing channel updates for 1.98.1-x86_64-unknown-linux-gnu
+    info: latest update on 2026-09-03 for version 1.98.1 (48a229cea 2026-09-01)
+    info: downloading 6 components
+    warn: the missing active toolchain `1.98.1-x86_64-unknown-linux-gnu` has been auto-installed
+    warn: auto-installation is deprecated for most `rustup` commands
+    warn: scripts relying on this behavior in `rustup` may stop working in the future
+    warn: to install the active toolchain, use `rustup install` instead
+    warn: see <https://github.com/rust-lang/rustup/issues/4836> for more info
+   Finding: the spec pins channel 1.98.1, and rustup treats that as a toolchain separate
+   from stable even though stable is also rustc 1.98.1. The probe therefore installed it
+   without the plan the CLAUDE.md Elevation section requires.
+2. Planned, after the maintainer chose it in the implementing session:
+   command: rustup target add --toolchain 1.98.1-x86_64-unknown-linux-gnu i686-unknown-linux-musl
+    info: downloading component rust-std
+3. Toolchain state before and after, and which P2 commands ran without RUSTUP_AUTO_INSTALL=0:
+    Transcribed by the implementing session from its own tool output (not a
+    machine capture made by this script).
+    
+    rustup toolchain list, before the probe:
+        stable-x86_64-unknown-linux-gnu (active, default)
+        1.96.1-x86_64-unknown-linux-gnu
+    rustup toolchain list, after the auto-install and before the explicit target add:
+        stable-x86_64-unknown-linux-gnu (active, default)
+        1.96.1-x86_64-unknown-linux-gnu
+        1.98.1-x86_64-unknown-linux-gnu
+    rustup toolchain list, after the explicit target add:
+        stable-x86_64-unknown-linux-gnu (active, default)
+        1.96.1-x86_64-unknown-linux-gnu
+        1.98.1-x86_64-unknown-linux-gnu
+    Components of 1.98.1-x86_64-unknown-linux-gnu (lib/rustlib/components):
+        before the target add: clippy-preview, cargo, rust-docs, rust-std (x86_64-unknown-linux-gnu), rustfmt-preview, rustc
+        after the target add:  the same, plus rust-std-i686-unknown-linux-musl
+    
+    Triggering command of the auto-install (T0 P2 toolchain probe, run from a
+    directory outside the repo, without RUSTUP_AUTO_INSTALL=0):
+        rustup +1.98.1 target list --installed
+    
+    RUSTUP_AUTO_INSTALL=0 guard during P2:
+    - Ran WITHOUT the guard, before planning asked for it:
+      - the probe: rustup --version; rustup toolchain list; rustc --version and
+        cargo --version under the default toolchain; rustup +1.98.1 target list
+        --installed (the trigger); rustup +1.98.1 component list --installed;
+      - a state check: rustup toolchain list, plus rustc and cargo --version
+        run directly from each toolchain's bin directory;
+      - the planned install: rustup target add --toolchain
+        1.98.1-x86_64-unknown-linux-gnu i686-unknown-linux-musl, followed by
+        rustup toolchain list.
+    - Ran WITH the guard (exported in the shell): an unlogged pre-flight in the
+      repo (rustup show active-toolchain; cargo build and test on host and i686;
+      cargo fmt --all --check; cargo clippy), and every rustup and cargo command
+      in this script.
+
+## guard in this run
+RUSTUP_AUTO_INSTALL=0 (exported by this script for every rustup and cargo command below)
+
+## toolchain in use
+rustup show active-toolchain: 1.98.1-x86_64-unknown-linux-gnu (overridden by '/home/dev/emend/rust-toolchain.toml')
+rustc --version: rustc 1.98.1 (48a229cea 2026-09-01)
+cargo --version: cargo 1.98.1 (797e8a9bc 2026-08-05)
+rustup target list --installed: i686-unknown-linux-musl x86_64-unknown-linux-gnu 
+
+## clean
+command: cargo clean
+     Removed 135 files, 32.8MiB total
+exit: 0
+
+## host-build
+command: cargo build --workspace --all-targets
+   Compiling xlsx-diff v0.1.0 (/home/dev/emend/tools/xlsx-diff)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+exit: 0
+
+## host-test
+command: cargo test --workspace
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/main.rs (target/debug/deps/xlsx_diff-a7138e40edcc2bd9)
+
+running 1 test
+test tests::prints_usage_and_exits_2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit: 0
+
+## i686-build
+command: cargo build --workspace --all-targets --target i686-unknown-linux-musl
+   Compiling xlsx-diff v0.1.0 (/home/dev/emend/tools/xlsx-diff)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.41s
+exit: 0
+
+## i686-test
+command: cargo test --workspace --target i686-unknown-linux-musl
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0)
+
+running 1 test
+test tests::prints_usage_and_exits_2 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit: 0
+
+## summary
+host-test: result lines with at least one passed test = 1 (grep exit 0); 'running N test' lines with N >= 1 = 1 (grep exit 0)
+i686-test: result lines with at least one passed test = 1 (grep exit 0); 'running N test' lines with N >= 1 = 1 (grep exit 0)
+all steps exit 0 and both targets ran at least one passing test: yes

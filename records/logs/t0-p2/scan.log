@@ -1,0 +1,283 @@
+about: phase diff 88d56443816d3cc747eadea8272ad04b1d0b1c40..c829494a05b78abcdfe4cf8337bd9b4e2505c94f; HEAD at run: c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+phase: T0 P2 (specs/0001-bootstrap.md) scan.log; run at 2026-09-14T23:40:07Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T0 P2 scan over the phase diff: every file changed in <base>..<commit> (contents
+    # at <commit>), every commit message in that range, and the other P2 logs.
+    # Usage: p2-scan.sh <base> <commit>. Output goes to records/logs/t0-p2/scan.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    BASE=${1:?base commit required}
+    C=${2:?phase commit required}
+    G=/usr/bin/grep
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_link()     { LC_ALL=C "$G" -c -E -e 'claude[.]ai/code/session' -e 'session[_][A-Za-z0-9]{20,}' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E -e '/tmp/claude[-]' -e '/mnt/[a-z]/' -e 'DESKTOP[-][A-Z0-9]{5,}' -e 'gh[pousr][_][A-Za-z0-9]{20,}' -e 'github[_]pat[_]' -e 'sk[-]ant[-]' -e 'BEGIN [A-Z ]*PRIVATE[ ]KEY' "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" "$1"; }
+    FORMS="f_nonascii f_emdash f_session f_link f_p6 f_host"
+    
+    run() { # run <form> <file>: count and exit; exit 2 or more is an error, never zero hits
+      local n rc
+      n=$("$1" "$2"); rc=$?
+      echo "  form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <form> <file> <expected exit>
+      local n rc
+      n=$("$1" "$2"); rc=$?
+      echo "  control form=$1 file=$(basename "$2") count=${n:-none} exit=$rc expected_exit=$3"
+      [ "$rc" -eq "$3" ] || ctl_fail=1
+    }
+    
+    echo "about: phase diff $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P2 (specs/0001-bootstrap.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    
+    echo
+    echo "## controls (same functions as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'has %s here\n' "$EMDASH" > "$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s_y\n' 'claude' '.ai/code/' 'session' > "$T/c-link"
+    printf 'x %s%s1234 y\n' '/tmp/' 'claude-' > "$T/c-p6"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl f_nonascii "$T/c-nonascii" 0
+    check_ctl f_emdash   "$T/c-emdash"   0
+    check_ctl f_emdash   "$T/c-nonascii" 1
+    check_ctl f_session  "$T/c-session"  0
+    check_ctl f_link     "$T/c-link"     0
+    check_ctl f_p6       "$T/c-p6"       0
+    check_ctl f_host     "$T/c-host"     0
+    for f in $FORMS; do check_ctl "$f" "$T/c-clean" 1; done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## commits in the phase range"
+    echo "command: git rev-list --parents $BASE..$C"
+    git rev-list --parents "$BASE..$C"
+    
+    echo
+    echo "## files changed in the phase diff (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf+1))
+      if git show "$C:$f" > "$T/f" 2>/dev/null; then nread=$((nread+1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum < "$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    want=$(git diff --name-only --diff-filter=d "$BASE" "$C" | wc -l)
+    echo "files in diff: $want; files scanned: $nf; files read: $nread"
+    { [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; } || bad=1
+    
+    echo
+    echo "## commit messages in the phase range"
+    nm=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm+1))
+      if ! git cat-file commit "$c" > "$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" > "$T/m"
+      last=$(awk 'NF{l=$0} END{print l}' "$T/m")
+      echo "message $c"
+      echo "  last non-empty line is the Co-Authored-By line: $([ "$last" = 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>' ] && echo yes || { echo no; bad=1; })"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    echo "messages scanned: $nm; commits in range: $(git rev-list --count "$BASE..$C")"
+    { [ "$nm" -eq "$(git rev-list --count "$BASE..$C")" ] && [ "$nm" -gt 0 ]; } || bad=1
+    
+    echo
+    echo "## other P2 logs in the working tree (a log cannot scan itself)"
+    nl=0
+    for f in records/logs/t0-p2/build.log records/logs/t0-p2/binary.log records/logs/t0-p2/ignore.log; do
+      if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
+      nl=$((nl+1))
+      echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    echo "logs scanned: $nl (expected 3)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep or read errors: $err"
+    echo "structural checks failed: $bad"
+    if [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+
+## controls (same functions as the scans)
+  control form=f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-emdash count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-nonascii count=0 exit=1 expected_exit=1
+  control form=f_session file=c-session count=1 exit=0 expected_exit=0
+  control form=f_link file=c-link count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6 count=1 exit=0 expected_exit=0
+  control form=f_host file=c-host count=1 exit=0 expected_exit=0
+  control form=f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_emdash file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_session file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_link file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_host file=c-clean count=0 exit=1 expected_exit=1
+controls: all as expected
+
+## commits in the phase range
+command: git rev-list --parents 88d56443816d3cc747eadea8272ad04b1d0b1c40..c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+c829494a05b78abcdfe4cf8337bd9b4e2505c94f 1a985a1de2284b45266850dac5c8baf20f9ef2e2
+1a985a1de2284b45266850dac5c8baf20f9ef2e2 88d56443816d3cc747eadea8272ad04b1d0b1c40
+
+## files changed in the phase diff (contents at c829494a05b78abcdfe4cf8337bd9b4e2505c94f)
+command: git diff --name-status 88d56443816d3cc747eadea8272ad04b1d0b1c40 c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+    A	.gitignore
+    A	Cargo.lock
+    A	Cargo.toml
+    A	LICENSE-APACHE
+    A	LICENSE-MIT
+    M	ROADMAP.md
+    A	rust-toolchain.toml
+    M	specs/0001-bootstrap.md
+    A	tools/xlsx-diff/Cargo.toml
+    A	tools/xlsx-diff/src/main.rs
+file .gitignore (sha256 53601a986ecba2bc659e860aaaa202b9b63b2fac62bc9cf6afbd319ddc1a0a9a)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file Cargo.lock (sha256 277fd1f53071993737096bbdec1cbb7afa2c6b122066fd5fe42ff97093d9ff94)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file Cargo.toml (sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file LICENSE-APACHE (sha256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file LICENSE-MIT (sha256 ab1c75b39a8664d1b9628000acc303881c58723735c37f08a4528118667ad6f1)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file ROADMAP.md (sha256 aa48524aed5badde449c86ef611150aa08c261cc1f9c6e72d166bbe6c01e6999)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file rust-toolchain.toml (sha256 ad2a710fcbc39c9d708864c4dca26d191c019e4703cf90b221ce44dbb54a7c61)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file specs/0001-bootstrap.md (sha256 9ebafdbe34163452234179bbe9fb784210c833c97700952c48adc4e46b920886)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file tools/xlsx-diff/Cargo.toml (sha256 f749dca44d9a36322d40c00b58314e78823c89ace5ee63da01d4f570e22283a0)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+file tools/xlsx-diff/src/main.rs (sha256 cc3700bf22f78b0929d279bed3f6d10a8153c0df4dd110eafd67a718b872017d)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+files in diff: 10; files scanned: 10; files read: 10
+
+## commit messages in the phase range
+message c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+message 1a985a1de2284b45266850dac5c8baf20f9ef2e2
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+messages scanned: 2; commits in range: 2
+
+## other P2 logs in the working tree (a log cannot scan itself)
+log records/logs/t0-p2/build.log (sha256 416603aff00f5f30c6000f05054f4e8e0a71e8375771bcab07968c1a89c84a61)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+log records/logs/t0-p2/binary.log (sha256 908b998afe38551bc414a279e18cb2b4d9e0ee986f25c4c50b15fc3473618411)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+log records/logs/t0-p2/ignore.log (sha256 fccf7d762972d173e5f76105b72c1f20485d831a82f004b56b15ea9655f67236)
+  form=f_nonascii count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_link count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+logs scanned: 3 (expected 3)
+
+total hits: 0
+grep or read errors: 0
+structural checks failed: 0
+RESULT: PASS
