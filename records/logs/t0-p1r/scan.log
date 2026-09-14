@@ -1,0 +1,181 @@
+about: doc commit d495f0a477821d429984a4a86634adcaf13d9463 and every commit message on main; HEAD at run: d495f0a477821d429984a4a86634adcaf13d9463
+phase: T0 P1R (specs/0001-bootstrap.md); run at 2026-09-14T22:47:22Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T0 P1R scan: files in the doc commit, every commit message on main, and the
+    # other P1R logs. Three forms: non-ASCII bytes, U+2014 bytes, ^Claude-Session: lines.
+    # Usage: p1r-scan.sh <doc commit>. Output goes to records/logs/t0-p1r/scan.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    DOC=${1:?doc commit required}
+    G=/usr/bin/grep
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    err=0
+    hits=0
+    
+    # One function per form, each the exact command used for controls and scans.
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    
+    run() { # run <form> <label> <file>; prints count and exit, tallies hits and errors
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    
+    echo "about: doc commit $DOC and every commit message on main; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P1R (specs/0001-bootstrap.md); run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "LANG=${LANG:-} (every scan sets LC_ALL=C)"
+    
+    echo
+    echo "## positive and negative controls (same functions as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/ctl-nonascii"
+    printf 'plain\nhas %s here\n' "$EMDASH" > "$T/ctl-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/ctl-session"
+    printf 'plain ascii only\nno session line\n' > "$T/ctl-clean"
+    ctl_fail=0
+    check_ctl() { # check_ctl <form> <file> <expected exit>
+      local n rc
+      n=$("$1" "$2"); rc=$?
+      echo "  control form=$1 file=$(basename "$2") count=${n:-none} exit=$rc expected_exit=$3"
+      [ "$rc" -eq "$3" ] || ctl_fail=1
+    }
+    check_ctl f_nonascii "$T/ctl-nonascii" 0
+    check_ctl f_emdash   "$T/ctl-emdash"   0
+    check_ctl f_session  "$T/ctl-session"  0
+    check_ctl f_nonascii "$T/ctl-clean"    1
+    check_ctl f_emdash   "$T/ctl-clean"    1
+    check_ctl f_session  "$T/ctl-clean"    1
+    # The U+2014 form must not fire on other non-ASCII bytes.
+    check_ctl f_emdash   "$T/ctl-nonascii" 1
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## files in the doc commit (git show $DOC:<path>)"
+    echo "command: git show --name-status --format= $DOC"
+    git show --name-status --format= "$DOC" | sed 's/^/    /'
+    for f in $(git show --name-only --format= "$DOC"); do
+      git show "$DOC:$f" > "$T/f" || { echo "  ERROR reading $f"; err=1; continue; }
+      echo "file $f"
+      run f_nonascii non-ascii "$T/f"
+      run f_emdash u2014 "$T/f"
+      run f_session claude-session "$T/f"
+    done
+    
+    echo
+    echo "## every commit message on main (git cat-file commit, headers dropped)"
+    for c in $(git rev-list main); do
+      git cat-file commit "$c" | sed '1,/^$/d' > "$T/m"
+      echo "message $c"
+      run f_nonascii non-ascii "$T/m"
+      run f_emdash u2014 "$T/m"
+      run f_session claude-session "$T/m"
+    done
+    
+    echo
+    echo "## other P1R logs in the working tree (a log cannot scan itself)"
+    for f in records/logs/t0-p1r/*; do
+      [ "$f" = records/logs/t0-p1r/scan.log ] && continue
+      [ -f "$f" ] || continue
+      echo "log $f"
+      run f_nonascii non-ascii "$f"
+      run f_emdash u2014 "$f"
+      run f_session claude-session "$f"
+    done
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep errors (exit 2 or more): $err"
+    if [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ]; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+LANG=C.UTF-8 (every scan sets LC_ALL=C)
+
+## positive and negative controls (same functions as the scans)
+  control form=f_nonascii file=ctl-nonascii count=1 exit=0 expected_exit=0
+  control form=f_emdash file=ctl-emdash count=1 exit=0 expected_exit=0
+  control form=f_session file=ctl-session count=1 exit=0 expected_exit=0
+  control form=f_nonascii file=ctl-clean count=0 exit=1 expected_exit=1
+  control form=f_emdash file=ctl-clean count=0 exit=1 expected_exit=1
+  control form=f_session file=ctl-clean count=0 exit=1 expected_exit=1
+  control form=f_emdash file=ctl-nonascii count=0 exit=1 expected_exit=1
+controls: all as expected
+
+## files in the doc commit (git show d495f0a477821d429984a4a86634adcaf13d9463:<path>)
+command: git show --name-status --format= d495f0a477821d429984a4a86634adcaf13d9463
+    M	CLAUDE.md
+    M	ROADMAP.md
+    M	specs/0000-step-zero-plan.md
+    M	specs/0001-bootstrap.md
+file CLAUDE.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+file ROADMAP.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+file specs/0000-step-zero-plan.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+file specs/0001-bootstrap.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+
+## every commit message on main (git cat-file commit, headers dropped)
+message d495f0a477821d429984a4a86634adcaf13d9463
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+message d3754dcd49bedd6f2b37da5778a4db738511fe69
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+message 582d8b608e9a93fed2cc0a076eab770e637290ec
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+message 8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+message f41b87dfbe88483c9b4d02ae22372890d4fdc331
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+message af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+
+## other P1R logs in the working tree (a log cannot scan itself)
+log records/logs/t0-p1r/rewrite.log
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+
+total hits: 0
+grep errors (exit 2 or more): 0
+RESULT: PASS

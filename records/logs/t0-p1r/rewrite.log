@@ -1,0 +1,267 @@
+about: rewrite of main from old head 15c120a7b54fc2f803836066d179ad3359c5ec72; HEAD at run start: 15c120a7b54fc2f803836066d179ad3359c5ec72
+phase: T0 P1R step 1 (specs/0001-bootstrap.md); run at 2026-09-14T22:46:17Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T0 P1R step 1: rewrite the five P1 commit messages without their
+    # ^Claude-Session: line. Trees, authors, committers and dates are kept.
+    # Output goes to records/logs/t0-p1r/rewrite.log. Removed lines are never printed.
+    set -euo pipefail
+    cd "$(git rev-parse --show-toplevel)"
+    
+    OLD=15c120a7b54fc2f803836066d179ad3359c5ec72
+    BACKUP=refs/backup/t0-p1-pre-rewrite
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    
+    echo "about: rewrite of main from old head $OLD; HEAD at run start: $(git rev-parse HEAD)"
+    echo "phase: T0 P1R step 1 (specs/0001-bootstrap.md); run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## preconditions"
+    cur=$(git rev-parse refs/heads/main)
+    if [ "$cur" != "$OLD" ]; then echo "FAIL: main is $cur, expected $OLD"; exit 2; fi
+    echo "main equals old head: yes"
+    echo "HEAD symbolic ref: $(git symbolic-ref HEAD)"
+    echo "git --version: $(git --version)"
+    echo "command: git status --short"
+    git status --short | sed 's/^/    /'
+    git status --porcelain > "$T/status-before"
+    echo "command: git for-each-ref refs/backup"
+    git for-each-ref refs/backup | sed 's/^/    /'
+    echo "    (end of list)"
+    
+    echo
+    echo "## backup ref"
+    echo "command: git update-ref $BACKUP $OLD \"\"   (empty old value: create only, fail if it exists)"
+    git update-ref "$BACKUP" "$OLD" ""
+    git for-each-ref refs/backup | sed 's/^/    /'
+    
+    echo
+    echo "## replay, oldest first"
+    parent=""
+    fail=0
+    total_removed=0
+    i=0
+    for c in $(git rev-list --reverse "$OLD"); do
+      i=$((i+1))
+      git cat-file commit "$c" > "$T/raw"
+      sed '/^$/q' "$T/raw" | sed '$d' > "$T/hdr"
+      sed '1,/^$/d' "$T/raw" > "$T/msg-old"
+    
+      other=$(awk '$1!="tree" && $1!="parent" && $1!="author" && $1!="committer"' "$T/hdr" | wc -l)
+      tree=$(sed -n 's/^tree //p' "$T/hdr")
+      aline=$(sed -n 's/^author //p' "$T/hdr")
+      cline=$(sed -n 's/^committer //p' "$T/hdr")
+      an=${aline% <*}; ar=${aline#* <}; ae=${ar%%>*}; ad=${ar#*> }
+      cn=${cline% <*}; cr=${cline#* <}; ce=${cr%%>*}; cd=${cr#*> }
+    
+      : > "$T/msg-new"
+      removed=$(awk -v out="$T/msg-new" '/^Claude-Session:/{r++; next} {print > out} END{print r+0}' "$T/msg-old")
+      total_removed=$((total_removed+removed))
+    
+      if [ -n "$parent" ]; then
+        new=$(GIT_AUTHOR_NAME="$an" GIT_AUTHOR_EMAIL="$ae" GIT_AUTHOR_DATE="$ad" \
+              GIT_COMMITTER_NAME="$cn" GIT_COMMITTER_EMAIL="$ce" GIT_COMMITTER_DATE="$cd" \
+              git commit-tree "$tree" -p "$parent" -F "$T/msg-new")
+      else
+        new=$(GIT_AUTHOR_NAME="$an" GIT_AUTHOR_EMAIL="$ae" GIT_AUTHOR_DATE="$ad" \
+              GIT_COMMITTER_NAME="$cn" GIT_COMMITTER_EMAIL="$ce" GIT_COMMITTER_DATE="$cd" \
+              git commit-tree "$tree" -F "$T/msg-new")
+      fi
+    
+      git cat-file commit "$new" > "$T/raw2"
+      sed '/^$/q' "$T/raw2" | sed '$d' > "$T/hdr2"
+      sed '1,/^$/d' "$T/raw2" > "$T/msg2"
+      tree2=$(sed -n 's/^tree //p' "$T/hdr2")
+      parent2=$(sed -n 's/^parent //p' "$T/hdr2")
+      a2=$(sed -n 's/^author //p' "$T/hdr2")
+      c2=$(sed -n 's/^committer //p' "$T/hdr2")
+      an2=${a2% <*}; ar2=${a2#* <}; ae2=${ar2%%>*}; ad2=${ar2#*> }
+      cn2=${c2% <*}; cr2=${c2#* <}; ce2=${cr2%%>*}; cd2=${cr2#*> }
+      if cmp -s "$T/msg2" "$T/msg-new"; then msgeq=yes; else msgeq=no; fi
+      lb=$(wc -l < "$T/msg-old"); la=$(wc -l < "$T/msg2")
+    
+      r_tree=$(yn "$tree" "$tree2")
+      r_an=$(yn "$an" "$an2"); r_ae=$(yn "$ae" "$ae2"); r_ad=$(yn "$ad" "$ad2")
+      r_cn=$(yn "$cn" "$cn2"); r_ce=$(yn "$ce" "$ce2"); r_cd=$(yn "$cd" "$cd2")
+      r_par=$(yn "$parent" "$parent2")
+    
+      echo "pair $i"
+      echo "  old: $c"
+      echo "  new: $new"
+      echo "  tree equal: $r_tree"
+      echo "  author name equal: $r_an; author email equal: $r_ae; author date equal: $r_ad"
+      echo "  committer name equal: $r_cn; committer email equal: $r_ce; committer date equal: $r_cd"
+      echo "  parent is previous new commit (none for the root): $r_par"
+      echo "  extra header lines besides tree/parent/author/committer: $other"
+      echo "  new message bytes equal old message minus removed lines: $msgeq"
+      echo "  message lines before: $lb; after: $la; removed ^Claude-Session: lines: $removed"
+    
+      for v in "$r_tree" "$r_an" "$r_ae" "$r_ad" "$r_cn" "$r_ce" "$r_cd" "$r_par" "$msgeq"; do
+        [ "$v" = yes ] || fail=1
+      done
+      [ "$other" -eq 0 ] || fail=1
+      [ "$removed" -eq 1 ] || fail=1
+      [ $((lb-la)) -eq 1 ] || fail=1
+      parent=$new
+    done
+    NEW=$parent
+    echo "total removed lines: $total_removed (commits replayed: $i)"
+    
+    if [ "$fail" -ne 0 ]; then
+      echo "FAIL: at least one pair check failed; main NOT updated; backup ref left in place"
+      exit 1
+    fi
+    echo "all pair checks: yes"
+    
+    echo
+    echo "## update main"
+    echo "command: git update-ref refs/heads/main $NEW $OLD"
+    git update-ref refs/heads/main "$NEW" "$OLD"
+    echo "main now: $(git rev-parse refs/heads/main)"
+    echo "HEAD now: $(git rev-parse HEAD)"
+    
+    echo
+    echo "## afterwards"
+    echo "command: git rev-list --parents main"
+    git rev-list --parents main
+    echo "per-commit count of ^Claude-Session: lines on main (git cat-file commit | message | LC_ALL=C /usr/bin/grep -c):"
+    set +e
+    for c in $(git rev-list main); do
+      git cat-file commit "$c" | sed '1,/^$/d' > "$T/m"
+      n=$(LC_ALL=C /usr/bin/grep -c '^Claude-Session:' "$T/m"); rc=$?
+      echo "  $c count=$n exit=$rc"
+      if [ "$rc" -ge 2 ]; then fail=2; fi
+    done
+    set -e
+    echo "command: git diff --stat $OLD $NEW"
+    git diff --stat "$OLD" "$NEW"
+    echo "  (end of git diff --stat output)"
+    set +e; git diff --quiet "$OLD" "$NEW"; dq=$?; set -e
+    echo "git diff --quiet exit: $dq (0 means no difference)"
+    echo "command: git status --short"
+    git status --short | sed 's/^/    /'
+    git status --porcelain > "$T/status-after"
+    if cmp -s "$T/status-before" "$T/status-after"; then echo "status unchanged by the rewrite: yes"; else echo "status unchanged by the rewrite: no"; fail=1; fi
+    echo "command: git for-each-ref refs/backup (backup kept until the logs are reviewed)"
+    git for-each-ref refs/backup | sed 's/^/    /'
+    [ "$fail" -eq 0 ] || { echo "FAIL: post-update checks"; exit "$fail"; }
+    echo "RESULT: rewrite complete; new head $NEW"
+
+## preconditions
+main equals old head: yes
+HEAD symbolic ref: refs/heads/main
+git --version: git version 2.53.0
+command: git status --short
+     M CLAUDE.md
+     M ROADMAP.md
+     M specs/0000-step-zero-plan.md
+     M specs/0001-bootstrap.md
+    ?? records/logs/t0-p1r/
+command: git for-each-ref refs/backup
+    (end of list)
+
+## backup ref
+command: git update-ref refs/backup/t0-p1-pre-rewrite 15c120a7b54fc2f803836066d179ad3359c5ec72 ""   (empty old value: create only, fail if it exists)
+    15c120a7b54fc2f803836066d179ad3359c5ec72 commit	refs/backup/t0-p1-pre-rewrite
+
+## replay, oldest first
+pair 1
+  old: 5f15d55641d77b2087ec9686700829d5a7897181
+  new: af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+  tree equal: yes
+  author name equal: yes; author email equal: yes; author date equal: yes
+  committer name equal: yes; committer email equal: yes; committer date equal: yes
+  parent is previous new commit (none for the root): yes
+  extra header lines besides tree/parent/author/committer: 0
+  new message bytes equal old message minus removed lines: yes
+  message lines before: 6; after: 5; removed ^Claude-Session: lines: 1
+pair 2
+  old: a1246af5019035782e02cb18e2971291338f5696
+  new: f41b87dfbe88483c9b4d02ae22372890d4fdc331
+  tree equal: yes
+  author name equal: yes; author email equal: yes; author date equal: yes
+  committer name equal: yes; committer email equal: yes; committer date equal: yes
+  parent is previous new commit (none for the root): yes
+  extra header lines besides tree/parent/author/committer: 0
+  new message bytes equal old message minus removed lines: yes
+  message lines before: 6; after: 5; removed ^Claude-Session: lines: 1
+pair 3
+  old: 8caddb4f978fa8a082a56c674646209ef5bfd120
+  new: 8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6
+  tree equal: yes
+  author name equal: yes; author email equal: yes; author date equal: yes
+  committer name equal: yes; committer email equal: yes; committer date equal: yes
+  parent is previous new commit (none for the root): yes
+  extra header lines besides tree/parent/author/committer: 0
+  new message bytes equal old message minus removed lines: yes
+  message lines before: 7; after: 6; removed ^Claude-Session: lines: 1
+pair 4
+  old: 1fffb0dce869b9fcd843c6b1a0fb81b1beaa4396
+  new: 582d8b608e9a93fed2cc0a076eab770e637290ec
+  tree equal: yes
+  author name equal: yes; author email equal: yes; author date equal: yes
+  committer name equal: yes; committer email equal: yes; committer date equal: yes
+  parent is previous new commit (none for the root): yes
+  extra header lines besides tree/parent/author/committer: 0
+  new message bytes equal old message minus removed lines: yes
+  message lines before: 11; after: 10; removed ^Claude-Session: lines: 1
+pair 5
+  old: 15c120a7b54fc2f803836066d179ad3359c5ec72
+  new: d3754dcd49bedd6f2b37da5778a4db738511fe69
+  tree equal: yes
+  author name equal: yes; author email equal: yes; author date equal: yes
+  committer name equal: yes; committer email equal: yes; committer date equal: yes
+  parent is previous new commit (none for the root): yes
+  extra header lines besides tree/parent/author/committer: 0
+  new message bytes equal old message minus removed lines: yes
+  message lines before: 8; after: 7; removed ^Claude-Session: lines: 1
+total removed lines: 5 (commits replayed: 5)
+all pair checks: yes
+
+## update main
+command: git update-ref refs/heads/main d3754dcd49bedd6f2b37da5778a4db738511fe69 15c120a7b54fc2f803836066d179ad3359c5ec72
+main now: d3754dcd49bedd6f2b37da5778a4db738511fe69
+HEAD now: d3754dcd49bedd6f2b37da5778a4db738511fe69
+
+## afterwards
+command: git rev-list --parents main
+d3754dcd49bedd6f2b37da5778a4db738511fe69 582d8b608e9a93fed2cc0a076eab770e637290ec
+582d8b608e9a93fed2cc0a076eab770e637290ec 8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6
+8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6 f41b87dfbe88483c9b4d02ae22372890d4fdc331
+f41b87dfbe88483c9b4d02ae22372890d4fdc331 af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+per-commit count of ^Claude-Session: lines on main (git cat-file commit | message | LC_ALL=C /usr/bin/grep -c):
+  d3754dcd49bedd6f2b37da5778a4db738511fe69 count=0 exit=1
+  582d8b608e9a93fed2cc0a076eab770e637290ec count=0 exit=1
+  8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6 count=0 exit=1
+  f41b87dfbe88483c9b4d02ae22372890d4fdc331 count=0 exit=1
+  af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c count=0 exit=1
+command: git diff --stat 15c120a7b54fc2f803836066d179ad3359c5ec72 d3754dcd49bedd6f2b37da5778a4db738511fe69
+  (end of git diff --stat output)
+git diff --quiet exit: 0 (0 means no difference)
+command: git status --short
+     M CLAUDE.md
+     M ROADMAP.md
+     M specs/0000-step-zero-plan.md
+     M specs/0001-bootstrap.md
+    ?? records/logs/t0-p1r/
+status unchanged by the rewrite: yes
+command: git for-each-ref refs/backup (backup kept until the logs are reviewed)
+    15c120a7b54fc2f803836066d179ad3359c5ec72 commit	refs/backup/t0-p1-pre-rewrite
+RESULT: rewrite complete; new head d3754dcd49bedd6f2b37da5778a4db738511fe69
+
+## backup ref deletion, 2026-09-14T22:46:55Z
+The rewrite checks above all passed (all pair checks yes, git diff --quiet exit 0, zero ^Claude-Session: lines on main).
+command: git update-ref -d refs/backup/t0-p1-pre-rewrite 15c120a7b54fc2f803836066d179ad3359c5ec72   (deletes only if the ref still points at the old head)
+exit=0
+command: git for-each-ref refs/backup
+    (end of list)
