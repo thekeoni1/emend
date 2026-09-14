@@ -27,8 +27,8 @@ from measurements. Plan and decision criteria:
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | DONE in content (verified at 15c120a); hashes change in P1R |
-| P1R | Rewrite the P1 commit messages without the Claude-Session line, trees unchanged; commit the maintainer and planning doc updates | READY |
+| P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | DONE (rewritten in P1R; now af5a2c6 to d3754dc) |
+| P1R | Rewrite the P1 commit messages without the Claude-Session line, trees unchanged; commit the maintainer and planning doc updates | DONE (doc commit d495f0a; records through 88d5644) |
 | P2 | Cargo workspace, toolchain pin, licence files, xlsx-diff skeleton, .gitignore; build and test on host and i686 by hand | READY |
 | P3 | `scripts/check.sh` steps host, i686, fmt, clippy; negative tests | READY |
 | P4 | `check.sh` steps native (no C, `-sys` allowlist) and licences; negative tests | READY |

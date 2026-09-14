@@ -1,7 +1,8 @@
 # 0001: T0 repo bootstrap
 
-Status: P1 content verified by planning 2026-09-14 (commits 5f15d55 to
-15c120a). P1R and P2 to P7 READY.
+Status: P1 and P1R DONE, verified by planning 2026-09-14. After the
+rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
+records through 88d5644. P2 to P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -108,7 +109,40 @@ committed. Its output goes in the phase's `negative.log`.
 - The P1 commit messages carry a Claude-Session line. The maintainer
   ruled that commit messages carry none, so P1R rewrites them.
 
-## P1: commit what exists (content DONE; hashes change in P1R)
+## Planning rulings on P1R (2026-09-14)
+
+- P1R is verified from primaries by planning's own checks:
+  - All five old and new pairs have equal trees, authors, committers and
+    dates. Each message lost exactly one line, the Claude-Session line,
+    and gained none.
+  - Doc commit d495f0a holds exactly the pending maintainer and planning
+    changes: 4 files, 327 insertions, 41 deletions.
+  - Every commit message on main ends with the Co-Authored-By line and
+    has no session line or link. The body of d424f81 mentions the word
+    in a sentence; git parses no such trailer there.
+  - Every file in every commit on main, and every message, has zero
+    hits against the private denylist, the P6 patterns and the
+    non-ASCII scan, each with a positive control.
+  - The GitHub repository still has no branches.
+- Question 1, the backup ref deleted before the later logs and checks:
+  accepted. rewrite.log had already shown the rewrite correct, which is
+  what the spec asked for. Do not expire the reflog before T0 is done.
+- Question 2, `/home/dev` paths: accepted. The Linux user name `dev`
+  identifies no person. The P6 goal now says which host paths are
+  covered. No further rewrite.
+- Question 3: a check file whose header names the phase on line 1 and
+  the commit on line 2 satisfies the first-line rule.
+- Question 4: planning updated this status line and ROADMAP.md to the
+  new hashes. Committed P1 logs keep their original hashes as history;
+  rewrite.log maps old to new.
+- The messages of ce8c6b6 and 88d5644 have no scan in a primary;
+  planning's own scan covers them. The form weaknesses listed in the
+  report are accepted as recorded.
+- From P2 on, planning's doc updates waiting in the working tree are
+  committed unedited as the first commit of the next phase, and that
+  phase's scan.log covers them.
+
+## P1: commit what exists (DONE; rewritten in P1R)
 
 - Commit `CLAUDE.md`, `ROADMAP.md` and `specs/` exactly as they are in
   the working tree. Do not edit them; if something looks wrong, stop and
@@ -309,7 +343,9 @@ full gate passed at.
 
 Goal: nothing personal reaches GitHub. That covers names, email
 addresses other than the GitHub noreply address, host paths, session
-links, and tokens.
+links, and tokens. Host paths means Windows host paths, paths inside
+Claude Code's temporary session directories, and hostnames. `/home/dev`
+identifies no person and is allowed.
 
 Deliverables:
 - Repo-local identity: `git config --local user.name thekeoni1` and
