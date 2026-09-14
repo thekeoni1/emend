@@ -1,0 +1,443 @@
+about: P2 phase commit c829494a05b78abcdfe4cf8337bd9b4e2505c94f and record commit 3965842b981f6bcfd0f8df32cdca80b71262196d; HEAD at run: 3965842b981f6bcfd0f8df32cdca80b71262196d
+phase: T0 P2 (specs/0001-bootstrap.md) verify.log; run at 2026-09-14T23:50:34Z
+temporary files live in <scratch> and are deleted on exit
+
+Fixes in this log, from records/logs/t0-p2/independent-check-1.md:
+  1. The files in each P2 commit (1a985a1de2284b45266850dac5c8baf20f9ef2e2 and c829494a05b78abcdfe4cf8337bd9b4e2505c94f) are listed separately (Q1 doc-commit ruling; Q3 commits, note 6).
+  2. The committed logs at 3965842b981f6bcfd0f8df32cdca80b71262196d are hashed and compared with the hashes scan.log recorded (Q2 item 4; Q3 logs).
+  3. LICENSE-APACHE and LICENSE-MIT are compared with references fetched at run time (Q1 licences).
+  4. The built binaries' real stdout, stderr and exit status are recorded, after cargo shows them fresh (Q1 main; Q3 item 5).
+  5. git check-ignore -q exit codes are logged for the three spec paths and the other extensions (Q2 item 1).
+  6. Uppercase office extensions are checked: a finding for planning, not a spec requirement (Q1 .gitignore).
+  7. Every pattern in the multi-pattern forms has its own positive control (Q2 controls).
+  8. The committed logs are scanned against the private denylist and the fully qualified hostname (Q2 privacy).
+Not fixable by a later log: the unlogged final exit status of the build.log script, the provenance of the
+rustup input files quoted in build.log, the maintainer's choice, and the pre-commit state of the doc files.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P2 verify: evidence that independent check 1 found missing from the P2
+    # logs. Output goes to records/logs/t0-p2/verify.log. Prints counts, yes/no,
+    # hashes and public licence text only; never denylist entries or matched text.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    G=/usr/bin/grep
+    BASE=88d56443816d3cc747eadea8272ad04b1d0b1c40
+    DOC=1a985a1de2284b45266850dac5c8baf20f9ef2e2
+    PH=c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+    REC1=3965842b981f6bcfd0f8df32cdca80b71262196d
+    I686=i686-unknown-linux-musl
+    APACHE_URL=https://www.apache.org/licenses/LICENSE-2.0.txt
+    MIT_URL=https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt
+    DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+    export RUSTUP_AUTO_INSTALL=0
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_link()     { LC_ALL=C "$G" -c -E -e 'claude[.]ai/code/session' -e 'session[_][A-Za-z0-9]{20,}' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E -e '/tmp/claude[-]' -e '/mnt/[a-z]/' -e 'DESKTOP[-][A-Z0-9]{5,}' -e 'gh[pousr][_][A-Za-z0-9]{20,}' -e 'github[_]pat[_]' -e 'sk[-]ant[-]' -e 'BEGIN [A-Z ]*PRIVATE[ ]KEY' "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -c -i -w -F -f "$T/deny" "$1"; }
+    f_ignored()  { git check-ignore -q "$1"; }
+    
+    run() { # run <form> <label> <file>
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <form> <label> <file> <expected exit>
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  control form=$1 $2 count=${n:-none} exit=$rc expected_exit=$4"
+      [ "$rc" -eq "$4" ] || ctl_fail=1
+    }
+    
+    echo "about: P2 phase commit $PH and record commit $REC1; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P2 (specs/0001-bootstrap.md) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p2/independent-check-1.md:"
+    echo "  1. The files in each P2 commit ($DOC and $PH) are listed separately (Q1 doc-commit ruling; Q3 commits, note 6)."
+    echo "  2. The committed logs at $REC1 are hashed and compared with the hashes scan.log recorded (Q2 item 4; Q3 logs)."
+    echo "  3. LICENSE-APACHE and LICENSE-MIT are compared with references fetched at run time (Q1 licences)."
+    echo "  4. The built binaries' real stdout, stderr and exit status are recorded, after cargo shows them fresh (Q1 main; Q3 item 5)."
+    echo "  5. git check-ignore -q exit codes are logged for the three spec paths and the other extensions (Q2 item 1)."
+    echo "  6. Uppercase office extensions are checked: a finding for planning, not a spec requirement (Q1 .gitignore)."
+    echo "  7. Every pattern in the multi-pattern forms has its own positive control (Q2 controls)."
+    echo "  8. The committed logs are scanned against the private denylist and the fully qualified hostname (Q2 privacy)."
+    echo "Not fixable by a later log: the unlogged final exit status of the build.log script, the provenance of the"
+    echo "rustup input files quoted in build.log, the maintainer's choice, and the pre-commit state of the doc files."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "curl: $(curl --version | head -1 | cut -d' ' -f1-2)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL"
+    echo "fully qualified hostname differs from short hostname: $([ "$FQDN" = "$HOST" ] && echo no || echo yes)"
+    
+    echo
+    echo "## private denylist (entries are never printed)"
+    deny_ok=0
+    if [ -f "$DENY_FILE" ]; then
+      echo "present: yes; mode: $(stat -c %a "$DENY_FILE")"
+      LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" > "$T/deny"
+      ne=$(wc -l < "$T/deny")
+      echo "entries: $ne"
+      if [ "$ne" -gt 0 ]; then deny_ok=1; fi
+    else
+      echo "present: no (the denylist scans below are skipped)"
+    fi
+    
+    echo
+    echo "## controls (same functions as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'has %s here\n' "$EMDASH" > "$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s_y\n' 'claude' '.ai/code/' 'session' > "$T/c-link1"
+    printf 'x %s_%s\n' 'session' "$(printf 'A%.0s' $(seq 1 24))" > "$T/c-link2"
+    printf 'x %s%s1234 y\n' '/tmp/' 'claude-' > "$T/c-p6-1"
+    printf 'x %s%s y\n' '/mnt/' 'c/' > "$T/c-p6-2"
+    printf 'x %s%s%s y\n' 'DESKTOP' '-' 'ABC12' > "$T/c-p6-3"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(printf 'a%.0s' $(seq 1 24))" > "$T/c-p6-4"
+    printf 'x %s%s y\n' 'github' '_pat_' > "$T/c-p6-5"
+    printf 'x %s%s y\n' 'sk' '-ant-' > "$T/c-p6-6"
+    printf '%s%s%s\n' 'BEGIN RSA ' 'PRIVATE' ' KEY' > "$T/c-p6-7"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'x %s y\n' "$FQDN" > "$T/c-fqdn"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl f_nonascii "file=c-nonascii" "$T/c-nonascii" 0
+    check_ctl f_emdash   "file=c-emdash"   "$T/c-emdash"   0
+    check_ctl f_emdash   "file=c-nonascii" "$T/c-nonascii" 1
+    check_ctl f_session  "file=c-session"  "$T/c-session"  0
+    check_ctl f_link     "file=c-link1"    "$T/c-link1"    0
+    check_ctl f_link     "file=c-link2"    "$T/c-link2"    0
+    for i in 1 2 3 4 5 6 7; do check_ctl f_p6 "file=c-p6-$i" "$T/c-p6-$i" 0; done
+    check_ctl f_host     "file=c-host"     "$T/c-host"     0
+    check_ctl f_host     "file=c-fqdn"     "$T/c-fqdn"     0
+    if [ "$deny_ok" -eq 1 ]; then
+      head -1 "$T/deny" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | awk '{print "x " $0 " y"}' > "$T/c-deny"
+      check_ctl f_deny "file=c-deny (first entry, not printed)" "$T/c-deny" 0
+    fi
+    for f in f_nonascii f_emdash f_session f_link f_p6 f_host; do check_ctl "$f" "file=c-clean" "$T/c-clean" 1; done
+    [ "$deny_ok" -eq 1 ] && check_ctl f_deny "file=c-clean" "$T/c-clean" 1
+    printf 'x\n' > "$T/c-ign"
+    check_ctl f_ignored "path=ctl/probe.xlsx (ignored by *.xlsx)" "ctl/probe.xlsx" 0
+    check_ctl f_ignored "path=ctl/probe.txt (no pattern)" "ctl/probe.txt" 1
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## files in each P2 commit"
+    for c in "$DOC" "$PH"; do
+      echo "command: git show --name-status --format='%H parents=%P %s' $c"
+      git show --name-status --format='%H parents=%P %s' "$c" | sed 's/^/    /'
+      echo "command: git show --shortstat --format= $c"
+      git show --shortstat --format= "$c" | sed 's/^/    /'
+    done
+    doc_files=$(git show --name-only --format= "$DOC" | sort | tr '\n' ' ')
+    ph_files=$(git show --name-only --format= "$PH" | sort | tr '\n' ' ')
+    echo "doc commit touches exactly ROADMAP.md and specs/0001-bootstrap.md: $(yn "$doc_files" "ROADMAP.md specs/0001-bootstrap.md ")"
+    [ "$doc_files" = "ROADMAP.md specs/0001-bootstrap.md " ] || bad=1
+    ph_doc=$(git show --name-only --format= "$PH" | "$G" -c -E '^(ROADMAP[.]md|CLAUDE[.]md|specs/)'); rc=$?
+    echo "phase commit files under ROADMAP.md, CLAUDE.md or specs/: count=${ph_doc:-none} grep exit=$rc (expect count 0, exit 1)"
+    [ "$rc" -eq 1 ] || bad=1
+    echo "phase commit file count: $(git show --name-only --format= "$PH" | wc -l) (expect 8)"
+    [ "$(git show --name-only --format= "$PH" | wc -l)" -eq 8 ] || bad=1
+    
+    echo
+    echo "## committed P2 logs at $REC1 against the hashes in scan.log"
+    git show "$REC1:records/logs/t0-p2/scan.log" > "$T/scan" || { echo "READ ERROR scan.log"; err=1; }
+    echo "records/logs/t0-p2/scan.log sha256 at $REC1: $(sha256sum < "$T/scan" | cut -d' ' -f1)"
+    for f in build.log binary.log ignore.log; do
+      p=records/logs/t0-p2/$f
+      if ! git show "$REC1:$p" > "$T/log"; then echo "READ ERROR $p"; err=1; continue; fi
+      committed=$(sha256sum < "$T/log" | cut -d' ' -f1)
+      scanned=$(sed -n "s|^log $p (sha256 \([0-9a-f]*\))$|\1|p" "$T/scan")
+      echo "$p committed=$committed scanned=${scanned:-none} equal: $(yn "$committed" "$scanned")"
+      [ "$committed" = "$scanned" ] || bad=1
+      run f_deny denylist "$T/log"
+      run f_host hostname-short-or-fqdn "$T/log"
+      run f_p6 p6-forms "$T/log"
+      run f_link session-link-or-id "$T/log"
+    done
+    [ "$deny_ok" -eq 1 ] || { echo "denylist scans: skipped (no denylist)"; }
+    
+    echo
+    echo "## LICENSE-APACHE against $APACHE_URL"
+    curl -sS -f -A 'emend-dev' -o "$T/apache" "$APACHE_URL"; rc=$?
+    echo "curl exit: $rc"
+    [ "$rc" -eq 0 ] || err=1
+    git show "$PH:LICENSE-APACHE" > "$T/apache-repo"
+    echo "reference sha256: $(sha256sum < "$T/apache" | cut -d' ' -f1)"
+    echo "committed sha256: $(sha256sum < "$T/apache-repo" | cut -d' ' -f1)"
+    if cmp -s "$T/apache" "$T/apache-repo"; then echo "byte-identical: yes"; else echo "byte-identical: no"; bad=1; fi
+    
+    echo
+    echo "## LICENSE-MIT against the SPDX MIT text ($MIT_URL)"
+    curl -sS -f -A 'emend-dev' -o "$T/mit" "$MIT_URL"; rc=$?
+    echo "curl exit: $rc"
+    [ "$rc" -eq 0 ] || err=1
+    git show "$PH:LICENSE-MIT" > "$T/mit-repo"
+    echo "SPDX lines 1-3 (template):"
+    sed -n '1,3p' "$T/mit" | sed 's/^/    | /'
+    echo "committed lines 1-3:"
+    sed -n '1,3p' "$T/mit-repo" | sed 's/^/    | /'
+    sed '1,/^Copyright/d' "$T/mit" > "$T/mit-body"
+    sed '1,/^Copyright/d' "$T/mit-repo" > "$T/mit-repo-body"
+    echo "body after the Copyright line, byte-identical: $(cmp -s "$T/mit-body" "$T/mit-repo-body" && echo yes || echo no)"
+    a=$(tr -s ' \n' ' ' < "$T/mit-body"); b=$(tr -s ' \n' ' ' < "$T/mit-repo-body")
+    echo "body after the Copyright line, equal with whitespace folded: $(yn "$a" "$b")"
+    [ "$a" = "$b" ] || bad=1
+    echo "diff of the bodies (empty means identical):"
+    diff "$T/mit-body" "$T/mit-repo-body" | sed 's/^/    /'
+    echo "    (end of diff)"
+    
+    echo
+    echo "## built binaries: freshness, then real behaviour"
+    if git diff --quiet "$PH" HEAD -- Cargo.toml Cargo.lock rust-toolchain.toml tools; then echo "source unchanged between $PH and HEAD: yes"; else echo "source unchanged between $PH and HEAD: no"; bad=1; fi
+    for tgt in host "$I686"; do
+      if [ "$tgt" = host ]; then args=(); bin=target/debug/xlsx-diff; else args=(--target "$I686"); bin=target/$I686/debug/xlsx-diff; fi
+      echo "command: cargo build --workspace --all-targets ${args[*]}"
+      cargo build --workspace --all-targets "${args[@]}" > "$T/b" 2>&1; rc=$?
+      sed 's/^/    /' "$T/b"
+      echo "exit: $rc; recompiled: $("$G" -c -E '^ *Compiling ' "$T/b")"
+      [ "$rc" -eq 0 ] || bad=1
+      echo "binary: $bin sha256 $(sha256sum "$bin" | cut -d' ' -f1)"
+      echo "command: file $bin"; file "$bin"
+      for argv in "none" "a.xlsx b.xlsx"; do
+        if [ "$argv" = none ]; then "$bin" > "$T/out" 2> "$T/errout"; rc=$?; else "$bin" a.xlsx b.xlsx > "$T/out" 2> "$T/errout"; rc=$?; fi
+        echo "run $bin with args: $argv"
+        echo "  exit: $rc (expect 2)"
+        echo "  stdout bytes: $(wc -c < "$T/out") (expect 0)"
+        echo "  stderr: $(cat "$T/errout")"
+        [ "$rc" -eq 2 ] && [ ! -s "$T/out" ] && [ "$(cat "$T/errout")" = "usage: xlsx-diff <input.xlsx> <output.xlsx>" ] || bad=1
+      done
+    done
+    
+    echo
+    echo "## git check-ignore -q exit codes (0 ignored, 1 not ignored)"
+    for spec in "a.xlsx:0" "sub/b.xlsm:0" "tools/x/tests/fixtures/c.xlsx:1" \
+                "a.xltx:0" "a.xltm:0" "a.xlsb:0" "a.xls:0" "a.ods:0" "tests/fixtures/e.ods:1" "target/x.o:0"; do
+      p=${spec%%:*}; want=${spec#*:}
+      git check-ignore -q "$p"; rc=$?
+      echo "  command: git check-ignore -q $p -> exit $rc (expect $want) $([ "$rc" = "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" = "$want" ] || bad=1
+    done
+    echo "finding for planning (not a spec requirement): uppercase extensions"
+    for p in X.XLSX sub/Y.Xlsm Z.ODS; do
+      git check-ignore -q "$p"; rc=$?
+      echo "  command: git check-ignore -q $p -> exit $rc ($([ "$rc" -eq 0 ] && echo ignored || echo 'NOT ignored'))"
+      [ "$rc" -ge 2 ] && err=1
+    done
+    echo "  core.ignorecase: $(git config --get core.ignorecase || echo unset)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep, read or fetch errors: $err"
+    echo "structural checks failed: $bad"
+    if [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+curl: curl 8.18.0
+RUSTUP_AUTO_INSTALL=0
+fully qualified hostname differs from short hostname: yes
+
+## private denylist (entries are never printed)
+present: yes; mode: 600
+entries: 6
+
+## controls (same functions as the scans)
+  control form=f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-emdash count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-nonascii count=0 exit=1 expected_exit=1
+  control form=f_session file=c-session count=1 exit=0 expected_exit=0
+  control form=f_link file=c-link1 count=1 exit=0 expected_exit=0
+  control form=f_link file=c-link2 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-1 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-2 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-3 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-4 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-5 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-6 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6-7 count=1 exit=0 expected_exit=0
+  control form=f_host file=c-host count=1 exit=0 expected_exit=0
+  control form=f_host file=c-fqdn count=1 exit=0 expected_exit=0
+  control form=f_deny file=c-deny (first entry, not printed) count=1 exit=0 expected_exit=0
+  control form=f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_emdash file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_session file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_link file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_host file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_deny file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_ignored path=ctl/probe.xlsx (ignored by *.xlsx) count=none exit=0 expected_exit=0
+  control form=f_ignored path=ctl/probe.txt (no pattern) count=none exit=1 expected_exit=1
+controls: all as expected
+
+## files in each P2 commit
+command: git show --name-status --format='%H parents=%P %s' 1a985a1de2284b45266850dac5c8baf20f9ef2e2
+    1a985a1de2284b45266850dac5c8baf20f9ef2e2 parents=88d56443816d3cc747eadea8272ad04b1d0b1c40 T0 P2: commit planning doc updates (P1R rulings)
+    
+    M	ROADMAP.md
+    M	specs/0001-bootstrap.md
+command: git show --shortstat --format= 1a985a1de2284b45266850dac5c8baf20f9ef2e2
+     2 files changed, 42 insertions(+), 6 deletions(-)
+command: git show --name-status --format='%H parents=%P %s' c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+    c829494a05b78abcdfe4cf8337bd9b4e2505c94f parents=1a985a1de2284b45266850dac5c8baf20f9ef2e2 T0 P2: workspace skeleton, toolchain pin, licences, xlsx-diff stub
+    
+    A	.gitignore
+    A	Cargo.lock
+    A	Cargo.toml
+    A	LICENSE-APACHE
+    A	LICENSE-MIT
+    A	rust-toolchain.toml
+    A	tools/xlsx-diff/Cargo.toml
+    A	tools/xlsx-diff/src/main.rs
+command: git show --shortstat --format= c829494a05b78abcdfe4cf8337bd9b4e2505c94f
+     8 files changed, 289 insertions(+)
+doc commit touches exactly ROADMAP.md and specs/0001-bootstrap.md: yes
+phase commit files under ROADMAP.md, CLAUDE.md or specs/: count=0 grep exit=1 (expect count 0, exit 1)
+phase commit file count: 8 (expect 8)
+
+## committed P2 logs at 3965842b981f6bcfd0f8df32cdca80b71262196d against the hashes in scan.log
+records/logs/t0-p2/scan.log sha256 at 3965842b981f6bcfd0f8df32cdca80b71262196d: e3de68aed0e6babbc3c50d3ffeede6ee0d8880441c16e31c4ffc6fed550d007a
+records/logs/t0-p2/build.log committed=416603aff00f5f30c6000f05054f4e8e0a71e8375771bcab07968c1a89c84a61 scanned=416603aff00f5f30c6000f05054f4e8e0a71e8375771bcab07968c1a89c84a61 equal: yes
+  denylist: form=f_deny count=0 exit=1
+  hostname-short-or-fqdn: form=f_host count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+records/logs/t0-p2/binary.log committed=908b998afe38551bc414a279e18cb2b4d9e0ee986f25c4c50b15fc3473618411 scanned=908b998afe38551bc414a279e18cb2b4d9e0ee986f25c4c50b15fc3473618411 equal: yes
+  denylist: form=f_deny count=0 exit=1
+  hostname-short-or-fqdn: form=f_host count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+records/logs/t0-p2/ignore.log committed=fccf7d762972d173e5f76105b72c1f20485d831a82f004b56b15ea9655f67236 scanned=fccf7d762972d173e5f76105b72c1f20485d831a82f004b56b15ea9655f67236 equal: yes
+  denylist: form=f_deny count=0 exit=1
+  hostname-short-or-fqdn: form=f_host count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+
+## LICENSE-APACHE against https://www.apache.org/licenses/LICENSE-2.0.txt
+curl exit: 0
+reference sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+committed sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+byte-identical: yes
+
+## LICENSE-MIT against the SPDX MIT text (https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt)
+curl exit: 0
+SPDX lines 1-3 (template):
+    | MIT License
+    | 
+    | Copyright (c) <year> <copyright holders>
+committed lines 1-3:
+    | MIT License
+    | 
+    | Copyright (c) 2026 emend contributors
+body after the Copyright line, byte-identical: no
+body after the Copyright line, equal with whitespace folded: yes
+diff of the bodies (empty means identical):
+    2,6c2,7
+    < Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+    < associated documentation files (the "Software"), to deal in the Software without restriction, including
+    < without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    < copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
+    < following conditions:
+    ---
+    > Permission is hereby granted, free of charge, to any person obtaining a copy
+    > of this software and associated documentation files (the "Software"), to deal
+    > in the Software without restriction, including without limitation the rights
+    > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    > copies of the Software, and to permit persons to whom the Software is
+    > furnished to do so, subject to the following conditions:
+    8,9c9,10
+    < The above copyright notice and this permission notice shall be included in all copies or substantial
+    < portions of the Software.
+    ---
+    > The above copyright notice and this permission notice shall be included in all
+    > copies or substantial portions of the Software.
+    11,15c12,18
+    < THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+    < LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+    < EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+    < IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+    < USE OR OTHER DEALINGS IN THE SOFTWARE.
+    ---
+    > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    > SOFTWARE.
+    (end of diff)
+
+## built binaries: freshness, then real behaviour
+source unchanged between c829494a05b78abcdfe4cf8337bd9b4e2505c94f and HEAD: yes
+command: cargo build --workspace --all-targets 
+        Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+exit: 0; recompiled: 0
+binary: target/debug/xlsx-diff sha256 4ecec085f1931ac0330959ab98e88213d6d8b559b962b80f5cf6b624c5c7c2a1
+command: file target/debug/xlsx-diff
+target/debug/xlsx-diff: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=290dc8d5d1feafc1f5e80d0843bcfbff2bc11fb7, with debug_info, not stripped
+run target/debug/xlsx-diff with args: none
+  exit: 2 (expect 2)
+  stdout bytes: 0 (expect 0)
+  stderr: usage: xlsx-diff <input.xlsx> <output.xlsx>
+run target/debug/xlsx-diff with args: a.xlsx b.xlsx
+  exit: 2 (expect 2)
+  stdout bytes: 0 (expect 0)
+  stderr: usage: xlsx-diff <input.xlsx> <output.xlsx>
+command: cargo build --workspace --all-targets --target i686-unknown-linux-musl
+        Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+exit: 0; recompiled: 0
+binary: target/i686-unknown-linux-musl/debug/xlsx-diff sha256 97c59acf63bb14389afde2b86152f9207b09496e1f8972eec58f61e20dce626c
+command: file target/i686-unknown-linux-musl/debug/xlsx-diff
+target/i686-unknown-linux-musl/debug/xlsx-diff: ELF 32-bit LSB executable, Intel i386, version 1 (GNU/Linux), statically linked, BuildID[sha1]=da3981372befc822378a42db5e1269dd051be9cc, with debug_info, not stripped
+run target/i686-unknown-linux-musl/debug/xlsx-diff with args: none
+  exit: 2 (expect 2)
+  stdout bytes: 0 (expect 0)
+  stderr: usage: xlsx-diff <input.xlsx> <output.xlsx>
+run target/i686-unknown-linux-musl/debug/xlsx-diff with args: a.xlsx b.xlsx
+  exit: 2 (expect 2)
+  stdout bytes: 0 (expect 0)
+  stderr: usage: xlsx-diff <input.xlsx> <output.xlsx>
+
+## git check-ignore -q exit codes (0 ignored, 1 not ignored)
+  command: git check-ignore -q a.xlsx -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q sub/b.xlsm -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q tools/x/tests/fixtures/c.xlsx -> exit 1 (expect 1) as-expected
+  command: git check-ignore -q a.xltx -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q a.xltm -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q a.xlsb -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q a.xls -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q a.ods -> exit 0 (expect 0) as-expected
+  command: git check-ignore -q tests/fixtures/e.ods -> exit 1 (expect 1) as-expected
+  command: git check-ignore -q target/x.o -> exit 0 (expect 0) as-expected
+finding for planning (not a spec requirement): uppercase extensions
+  command: git check-ignore -q X.XLSX -> exit 1 (NOT ignored)
+  command: git check-ignore -q sub/Y.Xlsm -> exit 1 (NOT ignored)
+  command: git check-ignore -q Z.ODS -> exit 1 (NOT ignored)
+  core.ignorecase: unset
+
+total hits: 0
+grep, read or fetch errors: 0
+structural checks failed: 0
+RESULT: PASS
