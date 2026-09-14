@@ -27,11 +27,14 @@ from measurements. Plan and decision criteria:
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | READY |
+| P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | DONE in content (verified at 15c120a); hashes change in P1R |
+| P1R | Rewrite the P1 commit messages without the Claude-Session line, trees unchanged; commit the maintainer and planning doc updates | READY |
 | P2 | Cargo workspace, toolchain pin, licence files, xlsx-diff skeleton, .gitignore; build and test on host and i686 by hand | READY |
 | P3 | `scripts/check.sh` steps host, i686, fmt, clippy; negative tests | READY |
 | P4 | `check.sh` steps native (no C, `-sys` allowlist) and licences; negative tests | READY |
 | P5 | `check.sh` step hygiene (U+2014, office files, corpus paths, API key); toolchain record; negative tests | READY |
+| P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` as `check.sh` step privacy, pre-push hook, private denylist outside the repo; negative tests | READY |
+| P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | READY |
 
 ### T1: xlsx-diff, the fidelity harness
 
@@ -92,6 +95,9 @@ Private, in `/home/dev/emend-testing`. Nothing from it is committed.
   emend's increase over a consumer that already links `zip` and
   `quick-xml`. Re-ruled after T3 P3 records the baseline.
 - Licence: MIT OR Apache-2.0, copyright holder "emend contributors".
+- GitHub: `thekeoni1/emend`, private. Every push passes the privacy gate
+  (T0 P6) and needs planning's word plus the maintainer's authorisation
+  in the implementing session. Commit messages carry no session links.
 
 ## After step zero (UNSCOPED)
 

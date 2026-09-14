@@ -98,6 +98,8 @@ Excel" alone:
 - One task at a time. Test before proceeding; do not stack unverified
   changes. Commit messages are ASCII; no U+2014 in anything authored;
   no `cargo fmt` runs that reformat files the change did not touch.
+- Commit messages end with the Co-Authored-By line only. No
+  Claude-Session line or any other session link.
 
 ## Independent check before reporting
 
@@ -109,6 +111,16 @@ nothing else; do the logs contain every line the spec requires; does
 the report's every number and quoted string appear in a primary. Its
 answer goes in the report verbatim, disagreements included. This check
 does not replace planning's own verification from primaries.
+
+## Elevation and system changes
+
+- Before any system-level change (package installs, container operations,
+  toolchain installs, anything needing elevation), print a short plan of
+  what you will run and what needs elevation, then proceed. Report
+  results per stage.
+- You do not have blanket sudo. If something needs elevation, stop and
+  ask rather than working around it. Do not try to escalate around a
+  boundary the OS enforces.
 
 ## Secrets and boundaries
 

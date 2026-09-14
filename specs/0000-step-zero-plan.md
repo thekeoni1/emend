@@ -229,5 +229,12 @@ fidelity harness.
 5. LibreOffice: a container pinned by image digest, version recorded.
 6. Corpus: the three sources listed under T2.
 7. Copyright holder in the licence files: emend contributors.
+8. `memory/` in CLAUDE.md means Claude Code's memory folder for this
+   project, outside the repo.
+9. Commit messages carry no Claude-Session line. The P1 commits are
+   rewritten to remove it (T0 P1R).
+10. GitHub: `thekeoni1/emend`, private. A privacy gate is T0 P6, and
+    the first push is T0 P7, right after P6 verifies. Nothing personal
+    (names, email addresses, host paths, session links) is ever pushed.
 
 Still open: MSRV policy (after step zero).
