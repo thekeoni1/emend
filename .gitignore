@@ -1,0 +1,11 @@
+/target
+
+# Office files never enter the repository, except under tests/fixtures/.
+*.xlsx
+*.xlsm
+*.xltx
+*.xltm
+*.xlsb
+*.xls
+*.ods
+!**/tests/fixtures/**
