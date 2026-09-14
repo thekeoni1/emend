@@ -1,0 +1,471 @@
+about: T0 P1R result on main (doc commit d495f0a477821d429984a4a86634adcaf13d9463, record commit d424f81318cafe25b49b555883d9fdf836d546bd); HEAD at run: 07db36a015e7fe8f718ca8e576ded40f234137c3
+phase: T0 P1R (specs/0001-bootstrap.md); run at 2026-09-14T22:56:02Z
+temporary files live in <scratch> and are deleted on exit
+
+Fixes in this log, from records/logs/t0-p1r/independent-check-1.md:
+  1. Doc commit parent, identity and message, and the record commit's message, are shown (check 1 Q1 item 4, Q3).
+  2. git status after the doc commit and working-tree vs committed hashes of the four doc files (Q2 acceptance 5).
+  3. A same-form control for rewrite.log's per-commit form, then that form re-run over main (Q2 rules).
+  4. Every message on main ends with the Co-Authored-By line; session links and ids scanned anywhere in a line (Q2 commit-message rule, Q3 note 9).
+  5. The committed logs are scanned for session links, P6 forms and the hostname, not only line-start forms (Q2 removed lines).
+  6. sha256 of rewrite.log and scan.log as committed at d424f81318cafe25b49b555883d9fdf836d546bd (Q3 sha256 values).
+  7. refs/backup, all refs, remotes and the old head's reachability are re-checked by script (Q2 unscripted deletion).
+  8. Every file in the HEAD tree is scanned, with asserted file and message counts (Q2 scan scope, loop counts).
+  9. /home/dev counts per file at HEAD (Q3 note 6).
+Not fixable by a later log: that the doc files were unedited before git add, and that no command ran outside the logged scripts.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P1R verify: evidence that independent check 1 found missing from
+    # rewrite.log and scan.log. Output goes to records/logs/t0-p1r/verify.log.
+    # Prints counts, yes/no and hashes only; never message lines of the old
+    # commits, identities, the hostname, or matched text.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    G=/usr/bin/grep
+    OLD=15c120a7b54fc2f803836066d179ad3359c5ec72
+    NEWP1=d3754dcd49bedd6f2b37da5778a4db738511fe69
+    DOC=d495f0a477821d429984a4a86634adcaf13d9463
+    REC1=d424f81318cafe25b49b555883d9fdf836d546bd
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    nok() { bad=1; }
+    
+    # Scan forms. Each is the exact command used by its controls and its scans.
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    # The form rewrite.log used for its per-commit count, spelled exactly as there.
+    f_rwsession() { LC_ALL=C /usr/bin/grep -c '^Claude-Session:' "$1"; }
+    # Session links or ids anywhere in a line, and the other P6 privacy forms.
+    f_link()     { LC_ALL=C "$G" -c -E -e 'claude[.]ai/code/session' -e 'session[_][A-Za-z0-9]{20,}' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E -e '/tmp/claude[-]' -e '/mnt/[a-z]/' -e 'DESKTOP[-][A-Z0-9]{5,}' -e 'gh[pousr][_][A-Za-z0-9]{20,}' -e 'github[_]pat[_]' -e 'sk[-]ant[-]' -e 'BEGIN [A-Z ]*PRIVATE[ ]KEY' "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" "$1"; }
+    
+    run() { # run <form> <label> <file>
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <form> <label> <file> <expected exit>
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  control form=$1 $2 count=${n:-none} exit=$rc expected_exit=$4"
+      [ "$rc" -eq "$4" ] || ctl_fail=1
+    }
+    
+    echo "about: T0 P1R result on main (doc commit $DOC, record commit $REC1); HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P1R (specs/0001-bootstrap.md); run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p1r/independent-check-1.md:"
+    echo "  1. Doc commit parent, identity and message, and the record commit's message, are shown (check 1 Q1 item 4, Q3)."
+    echo "  2. git status after the doc commit and working-tree vs committed hashes of the four doc files (Q2 acceptance 5)."
+    echo "  3. A same-form control for rewrite.log's per-commit form, then that form re-run over main (Q2 rules)."
+    echo "  4. Every message on main ends with the Co-Authored-By line; session links and ids scanned anywhere in a line (Q2 commit-message rule, Q3 note 9)."
+    echo "  5. The committed logs are scanned for session links, P6 forms and the hostname, not only line-start forms (Q2 removed lines)."
+    echo "  6. sha256 of rewrite.log and scan.log as committed at $REC1 (Q3 sha256 values)."
+    echo "  7. refs/backup, all refs, remotes and the old head's reachability are re-checked by script (Q2 unscripted deletion)."
+    echo "  8. Every file in the HEAD tree is scanned, with asserted file and message counts (Q2 scan scope, loop counts)."
+    echo "  9. /home/dev counts per file at HEAD (Q3 note 6)."
+    echo "Not fixable by a later log: that the doc files were unedited before git add, and that no command ran outside the logged scripts."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1); git: $(git --version)"
+    
+    echo
+    echo "## controls"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'has %s here\n' "$EMDASH" > "$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s_y\n' 'claude' '.ai/code/' 'session' > "$T/c-link1"
+    printf 'x %s_%s\n' 'session' "$(printf 'A%.0s' $(seq 1 24))" > "$T/c-link2"
+    printf 'x %s%s1234 y\n' '/tmp/' 'claude-' > "$T/c-p6"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl f_nonascii "file=c-nonascii" "$T/c-nonascii" 0
+    check_ctl f_emdash   "file=c-emdash"   "$T/c-emdash"   0
+    check_ctl f_emdash   "file=c-nonascii" "$T/c-nonascii" 1
+    check_ctl f_session  "file=c-session"  "$T/c-session"  0
+    check_ctl f_rwsession "file=c-session" "$T/c-session"  0
+    check_ctl f_link     "file=c-link1"    "$T/c-link1"    0
+    check_ctl f_link     "file=c-link2"    "$T/c-link2"    0
+    check_ctl f_p6       "file=c-p6"       "$T/c-p6"       0
+    check_ctl f_host     "file=c-host"     "$T/c-host"     0
+    for f in f_nonascii f_emdash f_session f_rwsession f_link f_p6 f_host; do
+      check_ctl "$f" "file=c-clean" "$T/c-clean" 1
+    done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## commit graph and refs"
+    echo "command: git rev-list --parents main"
+    git rev-list --parents main
+    echo "main: $(git rev-parse main); HEAD: $(git rev-parse HEAD)"
+    echo "command: git for-each-ref"
+    git for-each-ref | sed 's/^/    /'
+    nb=$(git for-each-ref refs/backup | wc -l)
+    echo "refs/backup count: $nb (expect 0)"; [ "$nb" -eq 0 ] || nok
+    echo "remote count (git remote | wc -l): $(git remote | wc -l)"
+    echo "old head $OLD object type: $(git cat-file -t "$OLD" 2>&1)"
+    nc=$(git for-each-ref --contains "$OLD" | wc -l)
+    echo "refs containing the old head: $nc (expect 0)"; [ "$nc" -eq 0 ] || nok
+    nr=$(git reflog show --format=%H refs/heads/main | "$G" -c -F -x "$OLD"); echo "reflog entries of main at the old head: $nr (exit $?)"
+    
+    echo
+    echo "## doc commit and record commit objects"
+    id_p1=$(git cat-file commit "$NEWP1" | sed -n 's/^author \(.*>\) .*/\1/p')
+    for c in "$DOC" "$REC1"; do
+      git cat-file commit "$c" > "$T/raw"
+      sed '/^$/q' "$T/raw" | sed '$d' > "$T/hdr"
+      sed '1,/^$/d' "$T/raw" > "$T/msg"
+      echo "commit $c"
+      echo "  parent: $(sed -n 's/^parent //p' "$T/hdr")"
+      echo "  header lines besides tree/parent/author/committer: $(awk '$1!="tree" && $1!="parent" && $1!="author" && $1!="committer"' "$T/hdr" | wc -l)"
+      a=$(sed -n 's/^author \(.*>\) .*/\1/p' "$T/hdr"); cm=$(sed -n 's/^committer \(.*>\) .*/\1/p' "$T/hdr")
+      echo "  author name and email equal to the P1 commits' identity: $(yn "$a" "$id_p1")"
+      echo "  committer name and email equal to the P1 commits' identity: $(yn "$cm" "$id_p1")"
+      echo "  message (full):"
+      sed 's/^/    | /' "$T/msg"
+    done
+    [ "$(git cat-file commit "$DOC" | sed -n 's/^parent //p')" = "$NEWP1" ] || nok
+    [ "$(git cat-file commit "$REC1" | sed -n 's/^parent //p')" = "$DOC" ] || nok
+    
+    echo
+    echo "## the doc commit's files"
+    echo "command: git show --name-status --format= $DOC"
+    git show --name-status --format= "$DOC" | sed 's/^/    /'
+    for f in CLAUDE.md ROADMAP.md specs/0000-step-zero-plan.md specs/0001-bootstrap.md; do
+      w=$(sha256sum "$f" | cut -d' ' -f1); d=$(git show "$DOC:$f" | sha256sum | cut -d' ' -f1); h=$(git show "HEAD:$f" | sha256sum | cut -d' ' -f1)
+      echo "  $f doc-commit=$d head=$h worktree=$w equal: $(yn "$d" "$w")"
+      [ "$d" = "$w" ] || nok
+    done
+    echo "command: git status --short (after the doc and record commits; empty means clean except the new verify files)"
+    git status --short | sed 's/^/    /'
+    echo "  (end of status)"
+    nm=$(git status --porcelain -- CLAUDE.md ROADMAP.md specs | wc -l)
+    echo "uncommitted changes under CLAUDE.md, ROADMAP.md, specs/: $nm (expect 0)"; [ "$nm" -eq 0 ] || nok
+    
+    echo
+    echo "## committed P1R logs at $REC1"
+    for f in records/logs/t0-p1r/rewrite.log records/logs/t0-p1r/scan.log; do
+      git show "$REC1:$f" > "$T/log"
+      echo "file $f"
+      echo "  sha256 at $REC1: $(sha256sum < "$T/log" | cut -d' ' -f1)"
+      echo "  equal to working tree: $(yn "$(sha256sum < "$T/log" | cut -d' ' -f1)" "$(sha256sum "$f" | cut -d' ' -f1)")"
+      run f_link session-link-or-id "$T/log"
+      run f_p6 p6-forms "$T/log"
+      run f_host hostname "$T/log"
+    done
+    
+    echo
+    echo "## every commit message on main"
+    nmsg=0
+    for c in $(git rev-list main); do
+      nmsg=$((nmsg+1))
+      git cat-file commit "$c" | sed '1,/^$/d' > "$T/m"
+      last=$(awk 'NF{l=$0} END{print l}' "$T/m")
+      echo "message $c"
+      echo "  last non-empty line is the Co-Authored-By line: $(yn "$last" "$COAUTHOR")"
+      [ "$last" = "$COAUTHOR" ] || nok
+      run f_rwsession claude-session-rewrite-form "$T/m"
+      run f_session claude-session "$T/m"
+      run f_link session-link-or-id "$T/m"
+      run f_nonascii non-ascii "$T/m"
+      run f_emdash u2014 "$T/m"
+    done
+    echo "messages scanned: $nmsg; commits on main: $(git rev-list --count main)"
+    [ "$nmsg" -eq "$(git rev-list --count main)" ] && [ "$nmsg" -gt 0 ] || nok
+    
+    echo
+    echo "## every file in the HEAD tree"
+    nf=0
+    while IFS= read -r f; do
+      nf=$((nf+1))
+      git show "HEAD:$f" > "$T/f"
+      echo "file $f"
+      run f_nonascii non-ascii "$T/f"
+      run f_emdash u2014 "$T/f"
+      run f_session claude-session "$T/f"
+      run f_link session-link-or-id "$T/f"
+      run f_p6 p6-forms "$T/f"
+      run f_host hostname "$T/f"
+    done < <(git ls-tree -r --name-only HEAD)
+    echo "files scanned: $nf; files in HEAD tree: $(git ls-tree -r --name-only HEAD | wc -l)"
+    [ "$nf" -eq "$(git ls-tree -r --name-only HEAD | wc -l)" ] && [ "$nf" -gt 0 ] || nok
+    
+    echo
+    echo "## /home/dev occurrences per file at HEAD (information for planning; not a P6 form)"
+    echo "command: git grep -c -F /home/dev HEAD -- ."
+    git grep -c -F /home/dev HEAD -- . | sed 's/^/    /'
+    echo "  (end of list)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep errors (exit 2 or more): $err"
+    echo "structural checks failed: $bad"
+    if [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12; git: git version 2.53.0
+
+## controls
+  control form=f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-emdash count=1 exit=0 expected_exit=0
+  control form=f_emdash file=c-nonascii count=0 exit=1 expected_exit=1
+  control form=f_session file=c-session count=1 exit=0 expected_exit=0
+  control form=f_rwsession file=c-session count=1 exit=0 expected_exit=0
+  control form=f_link file=c-link1 count=1 exit=0 expected_exit=0
+  control form=f_link file=c-link2 count=1 exit=0 expected_exit=0
+  control form=f_p6 file=c-p6 count=1 exit=0 expected_exit=0
+  control form=f_host file=c-host count=1 exit=0 expected_exit=0
+  control form=f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_emdash file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_session file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_rwsession file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_link file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control form=f_host file=c-clean count=0 exit=1 expected_exit=1
+controls: all as expected
+
+## commit graph and refs
+command: git rev-list --parents main
+07db36a015e7fe8f718ca8e576ded40f234137c3 d424f81318cafe25b49b555883d9fdf836d546bd
+d424f81318cafe25b49b555883d9fdf836d546bd d495f0a477821d429984a4a86634adcaf13d9463
+d495f0a477821d429984a4a86634adcaf13d9463 d3754dcd49bedd6f2b37da5778a4db738511fe69
+d3754dcd49bedd6f2b37da5778a4db738511fe69 582d8b608e9a93fed2cc0a076eab770e637290ec
+582d8b608e9a93fed2cc0a076eab770e637290ec 8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6
+8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6 f41b87dfbe88483c9b4d02ae22372890d4fdc331
+f41b87dfbe88483c9b4d02ae22372890d4fdc331 af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+main: 07db36a015e7fe8f718ca8e576ded40f234137c3; HEAD: 07db36a015e7fe8f718ca8e576ded40f234137c3
+command: git for-each-ref
+    07db36a015e7fe8f718ca8e576ded40f234137c3 commit	refs/heads/main
+refs/backup count: 0 (expect 0)
+remote count (git remote | wc -l): 0
+old head 15c120a7b54fc2f803836066d179ad3359c5ec72 object type: commit
+refs containing the old head: 0 (expect 0)
+reflog entries of main at the old head: 1 (exit 0)
+
+## doc commit and record commit objects
+commit d495f0a477821d429984a4a86634adcaf13d9463
+  parent: d3754dcd49bedd6f2b37da5778a4db738511fe69
+  header lines besides tree/parent/author/committer: 0
+  author name and email equal to the P1 commits' identity: yes
+  committer name and email equal to the P1 commits' identity: yes
+  message (full):
+    | T0 P1R: commit maintainer and planning doc updates
+    | 
+    | CLAUDE.md gains the Elevation and system changes section (maintainer)
+    | and the commit message rule (planning). ROADMAP.md, specs/0000 and
+    | specs/0001 carry planning's P1 rulings and the P1R, P6 and P7 phases.
+    | All four files are committed unedited from the working tree.
+    | 
+    | Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+commit d424f81318cafe25b49b555883d9fdf836d546bd
+  parent: d495f0a477821d429984a4a86634adcaf13d9463
+  header lines besides tree/parent/author/committer: 0
+  author name and email equal to the P1 commits' identity: yes
+  committer name and email equal to the P1 commits' identity: yes
+  message (full):
+    | T0 P1R record: rewrite.log and scan.log
+    | 
+    | rewrite.log: the commit-tree replay of the five P1 commits (old and new
+    | hashes, tree, author and committer equality, message line counts), the
+    | main update, post-checks, and the backup ref deletion.
+    | scan.log: non-ASCII, U+2014 and Claude-Session scans with controls over
+    | the doc commit d495f0a and every commit message on main; PASS.
+    | 
+    | Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+## the doc commit's files
+command: git show --name-status --format= d495f0a477821d429984a4a86634adcaf13d9463
+    M	CLAUDE.md
+    M	ROADMAP.md
+    M	specs/0000-step-zero-plan.md
+    M	specs/0001-bootstrap.md
+  CLAUDE.md doc-commit=12026868458a1350d86ba2dadb6924f23d018a2d4d341749550ea20b3e1a1918 head=12026868458a1350d86ba2dadb6924f23d018a2d4d341749550ea20b3e1a1918 worktree=12026868458a1350d86ba2dadb6924f23d018a2d4d341749550ea20b3e1a1918 equal: yes
+  ROADMAP.md doc-commit=444299dfbd3055691bdd40b8025a2cb194591beee40df590eaaadc75e3d181dc head=444299dfbd3055691bdd40b8025a2cb194591beee40df590eaaadc75e3d181dc worktree=444299dfbd3055691bdd40b8025a2cb194591beee40df590eaaadc75e3d181dc equal: yes
+  specs/0000-step-zero-plan.md doc-commit=e65a448f9a45675830ee040330442f60a5c6046470ed7f6682ff21c9a91491e2 head=e65a448f9a45675830ee040330442f60a5c6046470ed7f6682ff21c9a91491e2 worktree=e65a448f9a45675830ee040330442f60a5c6046470ed7f6682ff21c9a91491e2 equal: yes
+  specs/0001-bootstrap.md doc-commit=0ff6147fb3c66031f634b3a523fa0aacafbc16ceb104b4b7b219c1df1e44d11b head=0ff6147fb3c66031f634b3a523fa0aacafbc16ceb104b4b7b219c1df1e44d11b worktree=0ff6147fb3c66031f634b3a523fa0aacafbc16ceb104b4b7b219c1df1e44d11b equal: yes
+command: git status --short (after the doc and record commits; empty means clean except the new verify files)
+    ?? records/logs/t0-p1r/verify.log
+  (end of status)
+uncommitted changes under CLAUDE.md, ROADMAP.md, specs/: 0 (expect 0)
+
+## committed P1R logs at d424f81318cafe25b49b555883d9fdf836d546bd
+file records/logs/t0-p1r/rewrite.log
+  sha256 at d424f81318cafe25b49b555883d9fdf836d546bd: c0799ed84e0341d6f70b9ed86f465ae83c386e2cbb9abda54baa341ec2c4ec83
+  equal to working tree: yes
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1r/scan.log
+  sha256 at d424f81318cafe25b49b555883d9fdf836d546bd: 62d56f63ffd0b567bbb52ed2d04454caf9f4a497b443949619e9ca82cb145e33
+  equal to working tree: yes
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+
+## every commit message on main
+message 07db36a015e7fe8f718ca8e576ded40f234137c3
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message d424f81318cafe25b49b555883d9fdf836d546bd
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message d495f0a477821d429984a4a86634adcaf13d9463
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message d3754dcd49bedd6f2b37da5778a4db738511fe69
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message 582d8b608e9a93fed2cc0a076eab770e637290ec
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message 8b28d47d4bf7b62b67b6a2e645f157ffb2f8d1f6
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message f41b87dfbe88483c9b4d02ae22372890d4fdc331
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+message af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c
+  last non-empty line is the Co-Authored-By line: yes
+  claude-session-rewrite-form: form=f_rwsession count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+messages scanned: 8; commits on main: 8
+
+## every file in the HEAD tree
+file CLAUDE.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file ROADMAP.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1/independent-check-2.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1/independent-check.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1/scan.log
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1r/independent-check-1.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1r/rewrite.log
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file records/logs/t0-p1r/scan.log
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file specs/0000-step-zero-plan.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+file specs/0001-bootstrap.md
+  non-ascii: form=f_nonascii count=0 exit=1
+  u2014: form=f_emdash count=0 exit=1
+  claude-session: form=f_session count=0 exit=1
+  session-link-or-id: form=f_link count=0 exit=1
+  p6-forms: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+files scanned: 10; files in HEAD tree: 10
+
+## /home/dev occurrences per file at HEAD (information for planning; not a P6 form)
+command: git grep -c -F /home/dev HEAD -- .
+    HEAD:CLAUDE.md:1
+    HEAD:ROADMAP.md:1
+    HEAD:records/logs/t0-p1/independent-check.md:1
+    HEAD:records/logs/t0-p1/scan.log:1
+    HEAD:records/logs/t0-p1r/independent-check-1.md:2
+    HEAD:specs/0000-step-zero-plan.md:4
+  (end of list)
+
+total hits: 0
+grep errors (exit 2 or more): 0
+structural checks failed: 0
+RESULT: PASS
