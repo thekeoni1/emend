@@ -34,3 +34,253 @@ commit message non-ASCII hits: 0
  specs/0000-step-zero-plan.md | 233 +++++++++++++++++++++++++++++++++++++++++++
  specs/0001-bootstrap.md      | 180 +++++++++++++++++++++++++++++++++
  4 files changed, 652 insertions(+)
+
+================================================================
+## run 2, 2026-09-14T19:37:56Z, commit scanned: 5f15d55641d77b2087ec9686700829d5a7897181
+HEAD when run 2 started: 8caddb4f978fa8a082a56c674646209ef5bfd120
+Fixes in this run, taken from independent-check.md (first check):
+  1. The exact script is printed below. Run 1 printed only command templates.
+  2. Each grep's exit status is recorded per file (0 match, 1 no match, 2 or more error).
+  3. The locale and the grep binary in use are recorded.
+  4. Positive controls prove both scans can find a hit.
+  5. The --stat command is recorded with its --format option.
+  6. The evidence the draft report relied on is recorded: root commit,
+     the record commit and its parent, the remote count, and hashes of the
+     working tree compared with the commit.
+The run 1 results above are left as they were.
+
+### script
+    #!/usr/bin/env bash
+    # T0 P1 scan, run 2. Appended to records/logs/t0-p1/scan.log.
+    # Positive controls use grep -c so no non-ASCII byte is written to the log.
+    set -uo pipefail
+    cd /home/dev/emend
+    C=5f15d55641d77b2087ec9686700829d5a7897181
+    T=$(mktemp -d)
+    FILES="CLAUDE.md ROADMAP.md specs/0000-step-zero-plan.md specs/0001-bootstrap.md"
+    
+    echo
+    echo "================================================================"
+    echo "## run 2, $(date -u +%Y-%m-%dT%H:%M:%SZ), commit scanned: $C"
+    echo "HEAD when run 2 started: $(git rev-parse HEAD)"
+    echo "Fixes in this run, taken from independent-check.md (first check):"
+    echo "  1. The exact script is printed below. Run 1 printed only command templates."
+    echo "  2. Each grep's exit status is recorded per file (0 match, 1 no match, 2 or more error)."
+    echo "  3. The locale and the grep binary in use are recorded."
+    echo "  4. Positive controls prove both scans can find a hit."
+    echo "  5. The --stat command is recorded with its --format option."
+    echo "  6. The evidence the draft report relied on is recorded: root commit,"
+    echo "     the record commit and its parent, the remote count, and hashes of the"
+    echo "     working tree compared with the commit."
+    echo "The run 1 results above are left as they were."
+    echo
+    echo "### script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "### environment"
+    echo "LANG=${LANG:-} LC_ALL=${LC_ALL:-} LC_CTYPE(locale)=$(locale 2>/dev/null | sed -n 's/^LC_CTYPE=//p')"
+    echo "type -a grep:"; type -a grep 2>&1 | sed 's/^/    /'
+    echo "readlink -f \$(command -v grep): $(readlink -f "$(command -v grep)")"
+    echo "grep --version: $(grep --version 2>&1 | head -1)"
+    echo "git --version: $(git --version)"
+    
+    echo
+    echo "### positive controls (a temp file holding bytes e2 80 94 = U+2014)"
+    printf 'a\xe2\x80\x94b\n' > "$T/ctl"
+    grep -cP '\x{2014}' "$T/ctl"; echo "control U+2014, session locale: exit=$? (expect count 1, exit 0)"
+    LC_ALL=C grep -cP '\x{2014}' "$T/ctl"; echo "control U+2014, LC_ALL=C: exit=$? (expect count 1, exit 0)"
+    LC_ALL=C grep -cP '[^\x00-\x7F]' "$T/ctl"; echo "control non-ASCII, LC_ALL=C: exit=$? (expect count 1, exit 0)"
+    printf 'plain ascii\n' > "$T/neg"
+    grep -cP '\x{2014}' "$T/neg"; echo "control U+2014 on ASCII-only file: exit=$? (expect count 0, exit 1)"
+    
+    echo
+    echo "### per-file scans of committed content (git show $C:<file> > tmpfile)"
+    tot_u=0; tot_n=0
+    for f in $FILES; do
+      git show "$C:$f" > "$T/f"; echo "git show $C:$f exit=$?"
+      u=$(grep -cP '\x{2014}' "$T/f"); ru=$?
+      echo "  grep -cP '\\x{2014}' $f: count=$u exit=$ru"
+      n=$(LC_ALL=C grep -cP '[^\x00-\x7F]' "$T/f"); rn=$?
+      echo "  LC_ALL=C grep -cP '[^\\x00-\\x7F]' $f: count=$n exit=$rn"
+      tot_u=$((tot_u+u)); tot_n=$((tot_n+n))
+    done
+    echo "run 2 U+2014 hits: $tot_u"
+    echo "run 2 non-ASCII hits: $tot_n"
+    
+    echo
+    echo "### commit message scans"
+    for c in $(git rev-list HEAD); do
+      git log -1 --format=%B "$c" > "$T/m"
+      n=$(LC_ALL=C grep -cP '[^\x00-\x7F]' "$T/m"); rn=$?
+      echo "  $c message non-ASCII: count=$n exit=$rn"
+    done
+    
+    echo
+    echo "### record files other than this log"
+    for f in records/logs/t0-p1/independent-check.md; do
+      u=$(grep -cP '\x{2014}' "$f"); ru=$?
+      n=$(LC_ALL=C grep -cP '[^\x00-\x7F]' "$f"); rn=$?
+      echo "  $f: U+2014 count=$u exit=$ru; non-ASCII count=$n exit=$rn"
+    done
+    
+    echo
+    echo "### commit graph and remotes"
+    echo "command: git rev-list --parents $C"; git rev-list --parents "$C"
+    echo "command: git rev-list --max-parents=0 HEAD"; git rev-list --max-parents=0 HEAD
+    echo "command: git log --format='%H parents=%P %s'"; git log --format='%H parents=%P %s'
+    echo "remote count (git remote | wc -l): $(git remote | wc -l)"
+    
+    echo
+    echo "### stat of the phase commit"
+    echo "command: git show --stat --format='%H %s' $C"
+    git show --stat --format='%H %s' "$C"
+    
+    echo
+    echo "### working tree compared with the committed content"
+    echo "The pre-add sha256 values in the draft report came from session output and were not logged in run 1."
+    echo "What can be logged now is the working tree after the commit, compared with the commit:"
+    for f in $FILES; do
+      a=$(sha256sum "$f" | cut -d' ' -f1); b=$(git show "$C:$f" | sha256sum | cut -d' ' -f1)
+      echo "  $f worktree=$a commit=$b $([ "$a" = "$b" ] && echo same || echo DIFFERENT)"
+    done
+    echo "git ls-files --others --ignored --exclude-standard specs/ (untracked or ignored files under specs/):"
+    git ls-files --others --exclude-standard specs/ | sed 's/^/    /'; echo "  (end of list)"
+    
+    echo
+    echo "### observation for planning: trailing whitespace in committed files (not edited, per P1)"
+    echo "command: grep -n ' \$' on each committed file"
+    for f in $FILES; do git show "$C:$f" | grep -n ' $' | sed "s|^|  $f:|"; done
+    echo "  (end of list)"
+    rm -rf "$T"
+
+### environment
+LANG=C.UTF-8 LC_ALL= LC_CTYPE(locale)="C.UTF-8"
+type -a grep:
+    grep is /usr/bin/grep
+    grep is /bin/grep
+readlink -f $(command -v grep): /usr/bin/grep
+grep --version: grep (GNU grep) 3.12
+git --version: git version 2.53.0
+
+### positive controls (a temp file holding bytes e2 80 94 = U+2014)
+1
+control U+2014, session locale: exit=0 (expect count 1, exit 0)
+grep: character code point value in \x{} or \o{} is too large
+control U+2014, LC_ALL=C: exit=2 (expect count 1, exit 0)
+1
+control non-ASCII, LC_ALL=C: exit=0 (expect count 1, exit 0)
+0
+control U+2014 on ASCII-only file: exit=1 (expect count 0, exit 1)
+
+### per-file scans of committed content (git show 5f15d55641d77b2087ec9686700829d5a7897181:<file> > tmpfile)
+git show 5f15d55641d77b2087ec9686700829d5a7897181:CLAUDE.md exit=0
+  grep -cP '\x{2014}' CLAUDE.md: count=0 exit=1
+  LC_ALL=C grep -cP '[^\x00-\x7F]' CLAUDE.md: count=0 exit=1
+git show 5f15d55641d77b2087ec9686700829d5a7897181:ROADMAP.md exit=0
+  grep -cP '\x{2014}' ROADMAP.md: count=0 exit=1
+  LC_ALL=C grep -cP '[^\x00-\x7F]' ROADMAP.md: count=0 exit=1
+git show 5f15d55641d77b2087ec9686700829d5a7897181:specs/0000-step-zero-plan.md exit=0
+  grep -cP '\x{2014}' specs/0000-step-zero-plan.md: count=0 exit=1
+  LC_ALL=C grep -cP '[^\x00-\x7F]' specs/0000-step-zero-plan.md: count=0 exit=1
+git show 5f15d55641d77b2087ec9686700829d5a7897181:specs/0001-bootstrap.md exit=0
+  grep -cP '\x{2014}' specs/0001-bootstrap.md: count=0 exit=1
+  LC_ALL=C grep -cP '[^\x00-\x7F]' specs/0001-bootstrap.md: count=0 exit=1
+run 2 U+2014 hits: 0
+run 2 non-ASCII hits: 0
+
+### commit message scans
+  8caddb4f978fa8a082a56c674646209ef5bfd120 message non-ASCII: count=0 exit=1
+  a1246af5019035782e02cb18e2971291338f5696 message non-ASCII: count=0 exit=1
+  5f15d55641d77b2087ec9686700829d5a7897181 message non-ASCII: count=0 exit=1
+
+### record files other than this log
+  records/logs/t0-p1/independent-check.md: U+2014 count=0 exit=1; non-ASCII count=0 exit=1
+
+### commit graph and remotes
+command: git rev-list --parents 5f15d55641d77b2087ec9686700829d5a7897181
+5f15d55641d77b2087ec9686700829d5a7897181
+command: git rev-list --max-parents=0 HEAD
+5f15d55641d77b2087ec9686700829d5a7897181
+command: git log --format='%H parents=%P %s'
+8caddb4f978fa8a082a56c674646209ef5bfd120 parents=a1246af5019035782e02cb18e2971291338f5696 T0 P1 record: independent check 1 answer, verbatim
+a1246af5019035782e02cb18e2971291338f5696 parents=5f15d55641d77b2087ec9686700829d5a7897181 T0 P1 record: scan.log at 5f15d55
+5f15d55641d77b2087ec9686700829d5a7897181 parents= T0 P1: commit CLAUDE.md, ROADMAP.md and specs as they stand
+remote count (git remote | wc -l): 0
+
+### stat of the phase commit
+command: git show --stat --format='%H %s' 5f15d55641d77b2087ec9686700829d5a7897181
+5f15d55641d77b2087ec9686700829d5a7897181 T0 P1: commit CLAUDE.md, ROADMAP.md and specs as they stand
+
+ CLAUDE.md                    | 132 ++++++++++++++++++++++++
+ ROADMAP.md                   | 107 ++++++++++++++++++++
+ specs/0000-step-zero-plan.md | 233 +++++++++++++++++++++++++++++++++++++++++++
+ specs/0001-bootstrap.md      | 180 +++++++++++++++++++++++++++++++++
+ 4 files changed, 652 insertions(+)
+
+### working tree compared with the committed content
+The pre-add sha256 values in the draft report came from session output and were not logged in run 1.
+What can be logged now is the working tree after the commit, compared with the commit:
+  CLAUDE.md worktree=29aaee7eca7e1ff58aeb5edcef09d5f1dcb0b5731db4a30353fa6c3ce6ba28bd commit=29aaee7eca7e1ff58aeb5edcef09d5f1dcb0b5731db4a30353fa6c3ce6ba28bd same
+  ROADMAP.md worktree=5548a051c789bc163dbe67aa7b8f5bb1a9c0c299afab900840387e7e6a0e5da4 commit=5548a051c789bc163dbe67aa7b8f5bb1a9c0c299afab900840387e7e6a0e5da4 same
+  specs/0000-step-zero-plan.md worktree=7c0c5652d9d4797a5657a7310f793b21fe36f5accd13ab39dd2d932008129ef8 commit=7c0c5652d9d4797a5657a7310f793b21fe36f5accd13ab39dd2d932008129ef8 same
+  specs/0001-bootstrap.md worktree=193f80b2b6f3145b415532e50b183d3e285c36c5ac93a7608900d6bf964c09f2 commit=193f80b2b6f3145b415532e50b183d3e285c36c5ac93a7608900d6bf964c09f2 same
+git ls-files --others --ignored --exclude-standard specs/ (untracked or ignored files under specs/):
+  (end of list)
+
+### observation for planning: trailing whitespace in committed files (not edited, per P1)
+command: grep -n ' $' on each committed file
+  CLAUDE.md:125:- If memory is degrading, write the current state to memory/progress.md 
+  CLAUDE.md:128:- After long conversations, re-read relevant files before editing. For large 
+  (end of list)
+
+================================================================
+## run 2 addendum, 2026-09-14T19:39:16Z: which grep ran in run 1 and in run 2
+HEAD: 8caddb4f978fa8a082a56c674646209ef5bfd120
+Run 1 ran in the Claude Code tool shell. Run 2 ran as a script (#!/usr/bin/env bash).
+The commands below ran in the tool shell, the same kind of shell as run 1.
+
+### tool shell: what 'grep' is
+command: type -t grep
+function
+command: type -a grep | command grep -nE '^grep is|exec -a ugrep'
+1:grep is a function
+26:            ( exec -a ugrep "$_cc_bin" -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl ${1+"$@"} );
+30:grep is /usr/bin/grep
+31:grep is /bin/grep
+command: grep --version | head -1
+ugrep 7.8.4 x86_64-pc-linux-gnu +sse2; -P:pcre2jit; -z:zlib,bzip2,zstd,brotli,7z,tar/pax/cpio/zip
+command: /usr/bin/grep --version | head -1
+grep (GNU grep) 3.12
+
+### tool shell controls (the file holds bytes e2 80 94 = U+2014; counts only)
+1
+tool-shell grep (ugrep), U+2014, session locale: exit=0
+1
+tool-shell grep (ugrep), U+2014, LC_ALL=C: exit=0
+1
+tool-shell grep (ugrep), non-ASCII, LC_ALL=C: exit=0
+1
+/usr/bin/grep (GNU), U+2014, session locale: exit=0
+/usr/bin/grep: character code point value in \x{} or \o{} is too large
+/usr/bin/grep (GNU), U+2014, LC_ALL=C: exit=2
+1
+/usr/bin/grep (GNU), non-ASCII, LC_ALL=C: exit=0
+
+### what this means
+- Run 1's scans used ugrep through the tool-shell function. Every ugrep control above exits 0 with count 1.
+- Run 2's scans used GNU grep 3.12. Its U+2014 per-file scans ran in the session locale (C.UTF-8), where the control passes.
+- GNU grep with LC_ALL=C rejects \x{2014} (exit 2). A scan written that way reports 0 hits whatever the input.
+  This is the failed 'control U+2014, LC_ALL=C' line in run 2. Neither run's per-file U+2014 scan used that form.
+- In both runs the non-ASCII byte scan (LC_ALL=C, [^\x00-\x7F]) passed its control and found 0 hits.
+  U+2014 is non-ASCII, so that result alone rules out U+2014.
+- For the P3-P5 gate script: plain scripts get GNU grep, so the hygiene step must not use grep -P '\x{2014}' under LC_ALL=C,
+  and must check grep exit status 2 and above as an error, not as no hits.
+
+### correction to run 2's text
+- The label 'git ls-files --others --ignored --exclude-standard specs/' in run 2 is wrong. The command that ran
+  (see the script printed in run 2) was 'git ls-files --others --exclude-standard specs/', without --ignored.
+  Run now with --ignored, in the tool shell:
+command: git ls-files --others --ignored --exclude-standard specs/
+  (end of list, exit=0)
+command: git ls-files --others specs/
+  (end of list, exit=0)
