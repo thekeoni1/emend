@@ -1,0 +1,36 @@
+commit: 5f15d55641d77b2087ec9686700829d5a7897181
+phase: T0 P1 (specs/0001-bootstrap.md)
+scope: files in the tree of 5f15d55641d77b2087ec9686700829d5a7897181, read from git objects (git show 5f15d55641d77b2087ec9686700829d5a7897181:<path>), not the working tree
+
+## files scanned
+CLAUDE.md
+ROADMAP.md
+specs/0000-step-zero-plan.md
+specs/0001-bootstrap.md
+
+## sha256 of committed content
+29aaee7eca7e1ff58aeb5edcef09d5f1dcb0b5731db4a30353fa6c3ce6ba28bd  CLAUDE.md
+5548a051c789bc163dbe67aa7b8f5bb1a9c0c299afab900840387e7e6a0e5da4  ROADMAP.md
+7c0c5652d9d4797a5657a7310f793b21fe36f5accd13ab39dd2d932008129ef8  specs/0000-step-zero-plan.md
+193f80b2b6f3145b415532e50b183d3e285c36c5ac93a7608900d6bf964c09f2  specs/0001-bootstrap.md
+
+## U+2014 scan
+command: git show 5f15d55641d77b2087ec9686700829d5a7897181:<path> | grep -nP '\x{2014}'
+U+2014 hits: 0
+
+## non-ASCII scan
+command: git show 5f15d55641d77b2087ec9686700829d5a7897181:<path> | LC_ALL=C grep -nP '[^\x00-\x7F]'
+non-ASCII hits: 0
+
+## commit message ASCII check
+command: git log -1 --format=%B 5f15d55641d77b2087ec9686700829d5a7897181 | LC_ALL=C grep -nP '[^\x00-\x7F]'
+commit message non-ASCII hits: 0
+
+## git show --stat 5f15d55641d77b2087ec9686700829d5a7897181
+5f15d55641d77b2087ec9686700829d5a7897181 T0 P1: commit CLAUDE.md, ROADMAP.md and specs as they stand
+
+ CLAUDE.md                    | 132 ++++++++++++++++++++++++
+ ROADMAP.md                   | 107 ++++++++++++++++++++
+ specs/0000-step-zero-plan.md | 233 +++++++++++++++++++++++++++++++++++++++++++
+ specs/0001-bootstrap.md      | 180 +++++++++++++++++++++++++++++++++
+ 4 files changed, 652 insertions(+)
