@@ -38,8 +38,9 @@ private corpus and a measured passthrough baseline. Plan:
 | P5 | `check.sh` step hygiene (U+2014, office files in any case, corpus paths, API key); `--all-features` and `_sys` fixes to native and licences; toolchain record; negative tests | DONE (d8c1ee1 to 9b7aef1) |
 | P5b | Hygiene hardening: read the index, fail control bytes in paths, case-insensitive corpus-path match, API key check before step 1, in-script controls; negative tests | DONE (873851f to 65cdeae) |
 | P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` with shape-based patterns as `check.sh` step privacy, pre-push hook, private denylist outside the repo; scans ignore git attributes and fail on read errors; corpus paths never printed; negative tests | DONE (10a42d6 to 28a44aa) |
-| P6b | Privacy gate hardening: corpus and office paths checked across history, denylist override refused, per-pattern self-test, email and path patterns, count-only office line; negative tests | READY |
+| P6b | Privacy gate hardening: corpus and office paths checked across history, denylist override refused, per-pattern self-test, email and path patterns, count-only office line; negative tests | DONE (690c0f5 to cf5240b) |
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | READY |
+| P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | READY |
 
 ### T1: xlsx-diff, the fidelity harness
 
@@ -129,5 +130,8 @@ approval.
   core, with the byte delta recorded against the commit measured.
 - A machine with desktop Excel for the per-milestone check. Milestone 1
   cannot be accepted without it.
+- Gate self-test script: a committed script that reruns every phase's
+  negative tests. The maintainer approved scoping it after T0
+  (2026-09-15).
 - MSRV policy.
 - README, where every fidelity, speed or size sentence cites a record.

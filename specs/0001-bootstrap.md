@@ -1,10 +1,11 @@
 # 0001: T0 repo bootstrap
 
-Status: P1 to P5 and P5b DONE, verified by planning 2026-09-14. After
+Status: P1 to P6b DONE, verified by planning 2026-09-14 and 15. After
 the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
 records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
-873851f to 65cdeae; P6 is 10a42d6 to 28a44aa. P6b and P7 READY.
+873851f to 65cdeae; P6 is 10a42d6 to 28a44aa; P6b is 690c0f5 to
+cf5240b. P7 and P6c READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -17,8 +18,8 @@ task writes no workbook model and no harness logic.
 
 ## How this task runs
 
-T0 is P1, P1R, P2 to P5, P5b, P6, P6b and P7, in that order. Each phase
-ends with:
+T0 is P1, P1R, P2 to P5, P5b, P6, P6b, P7 and P6c, in that order. Each
+phase ends with:
 
 1. The phase commit(s).
 2. The phase's logs, written to `records/logs/t0-<phase>/` (for example
@@ -438,6 +439,62 @@ committed. Its output goes in the phase's `negative.log`.
 - The lower-severity items are accepted as recorded. Compressed
   workbooks are covered by P6b's path check. Committed fixtures are
   fictional or generated, per CLAUDE.md.
+
+## Planning rulings on P6b (2026-09-15)
+
+- P6b is verified from primaries by planning's own checks:
+  - Doc commit 690c0f5 holds the two pending paths (159 insertions, 6
+    deletions).
+  - Phase commit a087307 changes `scripts/check.sh`,
+    `scripts/install-hooks.sh`, `scripts/privacy-patterns.txt` and
+    `scripts/privacy.sh`. The record commits touch only
+    `records/logs/t0-p6b/`. All five messages end with the
+    Co-Authored-By trailer only.
+  - The installed hook is identical to the installer's heredoc,
+    `core.hooksPath` is unset, and the local identity matches.
+  - Planning ran `scripts/check.sh` from `/`: all eight steps PASS, zero
+    control bytes. `scripts/privacy.sh` over the full history: PASS, 51
+    commits, 106 blobs.
+  - Planning reproduced these cases in scratch clones, and no fixture
+    text appeared in any output:
+    - a gzip-compressed corpus workbook committed and then deleted gives
+      two count-only FAIL lines naming the first commit;
+    - an address at `example.com` in a file gives FAIL email;
+    - patterns 10 and 11 each fire under their own number;
+    - removing one pattern gives exit 2 at the count check;
+    - with `EMEND_PRIVATE_DENYLIST` set, the NOTICE line comes first;
+    - with it set, the pre-push hook prints the FAIL line and a local
+      bare remote gets no ref;
+    - without it, the push succeeds.
+  - Planning scanned exactly what P7 pushes: one ref and 51 commits.
+    - No commit has a header field beyond tree, parent, author and
+      committer.
+    - There are zero denylist, pattern and non-ASCII hits in raw
+      commits, paths and blobs.
+    - There is no office, CSV or archive path, and no zip or gzip
+      content.
+    - The only email addresses are the two noreply addresses and
+      addresses at `example.invalid`.
+  - On 2026-09-15 the maintainer reviewed the private denylist and added
+    an entry (now 7 entries, none with whitespace). Neither that entry
+    nor any other appears anywhere in the history or the working tree.
+- Departures 1 to 7 are accepted.
+- Findings 1, 2, 3, 5, 7 and 9 are fixed in P6c, after P7:
+  - 1: email addresses in path names;
+  - 2: more Windows path spellings;
+  - 3: more spreadsheet types;
+  - 5: the full commit header;
+  - 7: office names followed by a suffix;
+  - 9: archives detected by content signature.
+  None of these forms exists in the history P7 pushes, and no push after
+  P7 happens until P6c is verified (maintainer ruling 2026-09-15).
+- Finding 4 (a redirected HOME) is accepted. It is a deliberate change
+  to the environment and out of scope.
+- Finding 6 (addresses next to non-ASCII bytes or in UTF-16) is accepted.
+- Finding 8 (the U+2014 FAIL line prints paths) is accepted. It cannot
+  print a path containing `emend-testing`, as check 2 corrected, and the
+  hygiene step is closed.
+- Finding 10 (unusual address forms) is accepted.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -934,6 +991,8 @@ Changes to `scripts/check.sh` and `scripts/install-hooks.sh`:
 
 Preconditions, all required:
 - P6 and P6b are DONE.
+- The maintainer has reviewed the private denylist (done 2026-09-15, 7
+  entries).
 - The maintainer confirms both GitHub email settings are on.
 - Planning gives its word.
 - The maintainer types authorisation for this push in the implementing
@@ -963,8 +1022,66 @@ Acceptance: the remote `main` equals the pushed commit, the repository
 is still private, and the hook's `PASS privacy` line appears in
 `push.log`.
 
+## P6c: privacy gate, remaining gaps
+
+This phase runs after P7 (maintainer ruling 2026-09-15). No push happens
+after P7 until P6c is verified.
+
+Changes to `scripts/privacy.sh`, with the matching step 7 and
+`.gitignore` forms:
+- Office names followed by a suffix: match an office extension followed
+  by the end of the name or by `#`, `~` or `.`. That catches
+  `.~lock.<name>.xlsx#`, `<name>.xlsx~` and `<name>.xlsx.bak`. Add the
+  same forms to `.gitignore`.
+- More spreadsheet types count as office files outside
+  `tests/fixtures/`: `csv`, `tsv`, `fods`, `ots`, `xlt`, `xla`, `xlam`,
+  `numbers`.
+- Archives by content: fail on any blob outside `tests/fixtures/` that
+  starts with a zip (`50 4B 03 04`), gzip (`1F 8B`) or 7z
+  (`37 7A BC AF 27 1C`) signature, whatever its name.
+- Full commit object: run the pattern, denylist and email checks over
+  every header line of the raw commit, not only author, committer and
+  message.
+- Email addresses in path names are checked like content.
+- Windows path forms: pattern 10 becomes
+  `[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]`, and pattern 11 becomes
+  `[.]claude[\\/]+projects[\\/]`. The pattern count stays 11.
+
+- Logs:
+  - `gate.log`: a full run, all eight steps.
+  - `privacy.log`: `scripts/privacy.sh` over every commit on main.
+    Expected: PASS.
+  - `hook.log`: the installed hook, compared with the installer's
+    output.
+  - `negative.log`: each case in a scratch clone. No output may contain
+    any fixture text.
+    - (a) `.~lock.name.xlsx#`, `name.xlsx~` and `name.xlsx.bak`, each
+      committed and deleted: count-only FAIL. Untracked, each is
+      ignored.
+    - (b) `data.csv` at the root: FAIL. `tests/fixtures/data.csv`:
+      PASS.
+    - (c) A blob with a zip signature named `notes.txt` outside
+      `tests/fixtures/`: FAIL. The same under `tests/fixtures/`: PASS. A
+      gzip signature blob and a 7z signature blob: FAIL.
+    - (d) A commit object carrying an extra header line with an address
+      at `example.com`, built at run time: FAIL.
+    - (e) A file whose name contains an address at `example.com`: FAIL,
+      with the name not printed.
+    - (f) Each built at run time, each FAIL patterns:
+      - a drive-letter path with doubled backslashes;
+      - one with `USERS` in capitals;
+      - a Claude Code project path with backslash separators.
+    - (g) Repeat P6b negatives (a), (d) and (g), and show they still
+      fail.
+  - `scan.log`: per the scan rules.
+- Acceptance:
+  - All eight `PASS` in `gate.log`.
+  - `privacy.log` passes over the full history.
+  - Every negative case shows its expected result, and no fixture text
+    appears in any output.
+
 ## Done
 
-T0 is done when planning has verified P7 from primaries. For each phase,
+T0 is done when planning has verified P6c from primaries. For each phase,
 that includes running `scripts/check.sh` (from P3 on) and the privacy
 scan itself.
