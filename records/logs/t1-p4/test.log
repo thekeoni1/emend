@@ -1,5 +1,6 @@
-about: T1 P4 phase commit 74b2bf0f2328b33a729d46105a33712e495992f1; HEAD at run: 74b2bf0f2328b33a729d46105a33712e495992f1
-phase: T1 P4 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T18:39:19Z
+about: T1 P4 phase commit c35112b396407414d9321c1e5eb9d31ff9e76e9d; HEAD at run: c35112b396407414d9321c1e5eb9d31ff9e76e9d
+phase: T1 P4 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T19:15:46Z
+rerun: replaces the logs committed in b11c221 (first run at 74b2bf0), after the fixes for independent check 1 in c35112b396407414d9321c1e5eb9d31ff9e76e9d
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -42,6 +43,7 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-0
     
     echo "about: T1 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T1 P4 (specs/0004-xlsx-diff.md) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; $(rustc --version)"
     echo
     echo "## script that wrote this log"
@@ -126,30 +128,30 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
-    test non_zip_file_is_an_error ... ok
     test missing_file_is_an_error ... ok
-    test dropped_entry ... ok
     test duplicate_name_is_an_error ... ok
-    test names_are_escaped ... ok
+    test non_zip_file_is_an_error ... ok
+    test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
     test added_entry ... ok
     test binary_usage_error ... ok
+    test names_are_escaped ... ok
+    test equal_archives_are_identical ... ok
     test binary_exit_status_follows_the_comparison ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
-    test equal_archives_are_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
     test unsupported_method_is_an_error ... ok
     test short_raw_stream_is_an_error ... ok
     test recompressed_entry_with_equal_metadata ... ok
     test encrypted_entry_is_an_error ... ok
-    test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
     test recompressed_entry ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
     Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
     test data_descriptor_on_one_side ... ok
     test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
@@ -157,20 +159,21 @@ Running lines, test lines and summary lines:
     test leading_junk_bytes ... ok
     test output_side_rows_take_the_output_values ... ok
     test each_flag_alone ... ok
-    test every_archive_row_in_order ... ok
     test reordered_entries ... ok
+    test every_archive_row_in_order ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
     Running tests/p4.rs (target/debug/deps/p4-f12276f4a3797377)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_running_past_the_end_is_an_error ... ok
     test local_header_fields_each_alone ... ok
     test files_identical_no_from_one_byte_inside_a_prefix ... ok
     test no_sentinel_in_any_output ... ok
-    test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-host: passed 34; failed 0; ignored 1; test lines ending ok: 34
+host: passed 35; failed 0; ignored 1; test lines ending ok: 35
 host: failed is 0: yes
 host: passed is more than 0 and equals the ok test lines: yes
 host: control bytes in the cargo output: 0 (expect 0): yes
@@ -185,11 +188,11 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
-    test binary_usage_error ... ok
     test missing_file_is_an_error ... ok
+    test binary_usage_error ... ok
     test non_zip_file_is_an_error ... ok
-    test added_entry ... ok
     test duplicate_name_is_an_error ... ok
+    test added_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
     test dropped_entry ... ok
     test binary_exit_status_follows_the_comparison ... ok
@@ -210,8 +213,8 @@ Running lines, test lines and summary lines:
     test recompressed_entry ... ok
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
     Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
-    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test data_descriptor_on_one_side ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test leading_junk_bytes ... ok
     test output_side_rows_take_the_output_values ... ok
     test changed_archive_comment ... ok
@@ -223,19 +226,20 @@ Running lines, test lines and summary lines:
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
     Running tests/p4.rs (target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_running_past_the_end_is_an_error ... ok
     test local_header_fields_each_alone ... ok
     test files_identical_no_from_one_byte_inside_a_prefix ... ok
     test no_sentinel_in_any_output ... ok
-    test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-i686-unknown-linux-musl: passed 34; failed 0; ignored 1; test lines ending ok: 34
+i686-unknown-linux-musl: passed 35; failed 0; ignored 1; test lines ending ok: 35
 i686-unknown-linux-musl: failed is 0: yes
 i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
 i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
 
 ## the two runs
-host executed 34 tests; i686-unknown-linux-musl executed 34 tests
+host executed 35 tests; i686-unknown-linux-musl executed 35 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 
@@ -251,14 +255,14 @@ output:
     running 1 test
     test zip64_entry_over_4_gib ... ok
     
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 669.18s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 670.91s
     
 /usr/bin/time -v, selected lines:
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 11:09.18
-    Maximum resident set size (kbytes): 5728
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 11:10.91
+    Maximum resident set size (kbytes): 5752
     Exit status: 0
 host: exit 0, zip64_entry_over_4_gib ok, 1 passed and 0 failed: yes
-host: maximum resident set size 5728 kB is under 65536 kB (64 MiB): yes
+host: maximum resident set size 5752 kB is under 65536 kB (64 MiB): yes
 host: control bytes in the zip64 output: 0 (expect 0): yes
 command: cargo test --no-run -p xlsx-diff --test p4 --target i686-unknown-linux-musl
 exit: 0
@@ -271,15 +275,15 @@ output:
     running 1 test
     test zip64_entry_over_4_gib ... ok
     
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 872.06s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 864.84s
     
 /usr/bin/time -v, selected lines:
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 14:32.06
-    Maximum resident set size (kbytes): 3364
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 14:24.84
+    Maximum resident set size (kbytes): 3344
     Exit status: 0
 i686-unknown-linux-musl: exit 0, zip64_entry_over_4_gib ok, 1 passed and 0 failed: yes
-i686-unknown-linux-musl: maximum resident set size 3364 kB is under 65536 kB (64 MiB): yes
+i686-unknown-linux-musl: maximum resident set size 3344 kB is under 65536 kB (64 MiB): yes
 i686-unknown-linux-musl: control bytes in the zip64 output: 0 (expect 0): yes
 status after the runs (expect empty): : yes
-run ended at 2026-09-15T19:05:01Z
+run ended at 2026-09-15T19:41:23Z
 test log checks all as expected: yes

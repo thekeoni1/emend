@@ -1,5 +1,6 @@
-about: phase diff 827766a..74b2bf0f2328b33a729d46105a33712e495992f1; HEAD at run: 74b2bf0f2328b33a729d46105a33712e495992f1
-phase: T1 P4 (specs/0004-xlsx-diff.md) scan.log; run at 2026-09-15T19:05:07Z
+about: phase diff 827766a..c35112b396407414d9321c1e5eb9d31ff9e76e9d; HEAD at run: c35112b396407414d9321c1e5eb9d31ff9e76e9d
+phase: T1 P4 (specs/0004-xlsx-diff.md) scan.log; run at 2026-09-15T19:41:29Z
+rerun: replaces the logs committed in b11c221 (first run at 74b2bf0), after the fixes for independent check 1 in c35112b396407414d9321c1e5eb9d31ff9e76e9d
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -90,6 +91,7 @@ temporary files live in <scratch> and are deleted on exit
     
     echo "about: phase diff $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T1 P4 (specs/0004-xlsx-diff.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "temporary files live in <scratch> and are deleted on exit"
     echo
     echo "## script"
@@ -245,7 +247,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 74b2bf0f2328b33a729d46105a33712e495992f1: yes
+this script's patterns equal scripts/privacy-patterns.txt at c35112b396407414d9321c1e5eb9d31ff9e76e9d: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -308,7 +310,10 @@ this script's patterns equal scripts/privacy-patterns.txt at 74b2bf0f2328b33a729
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 827766a..74b2bf0f2328b33a729d46105a33712e495992f1
+command: git rev-list --parents 827766a..c35112b396407414d9321c1e5eb9d31ff9e76e9d
+c35112b396407414d9321c1e5eb9d31ff9e76e9d d09c354415f5d1ffa89778f1b573ef15663f3f63
+d09c354415f5d1ffa89778f1b573ef15663f3f63 b11c221246100537e46463c97c8fa920699651d9
+b11c221246100537e46463c97c8fa920699651d9 74b2bf0f2328b33a729d46105a33712e495992f1
 74b2bf0f2328b33a729d46105a33712e495992f1 564af3bdb757bffa4253a0d90b69d416fc7ffd90
 564af3bdb757bffa4253a0d90b69d416fc7ffd90 827766ad4f87a68422751d2252d08f057a790f34
 command: git show --name-status --format='%H parents=%P %s' 564af3bdb757bffa4253a0d90b69d416fc7ffd90
@@ -325,10 +330,30 @@ command: git show --name-status --format='%H parents=%P %s' 74b2bf0f2328b33a729d
     M	tools/xlsx-diff/tests/p2.rs
     M	tools/xlsx-diff/tests/p3.rs
     A	tools/xlsx-diff/tests/p4.rs
+command: git show --name-status --format='%H parents=%P %s' b11c221246100537e46463c97c8fa920699651d9
+    b11c221246100537e46463c97c8fa920699651d9 parents=74b2bf0f2328b33a729d46105a33712e495992f1 T1 P4 record: gate, test, negative and scan logs at 74b2bf0
+    
+    A	records/logs/t1-p4/gate.log
+    A	records/logs/t1-p4/negative.log
+    A	records/logs/t1-p4/scan.log
+    A	records/logs/t1-p4/test.log
+command: git show --name-status --format='%H parents=%P %s' d09c354415f5d1ffa89778f1b573ef15663f3f63
+    d09c354415f5d1ffa89778f1b573ef15663f3f63 parents=b11c221246100537e46463c97c8fa920699651d9 T1 P4 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t1-p4/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' c35112b396407414d9321c1e5eb9d31ff9e76e9d
+    c35112b396407414d9321c1e5eb9d31ff9e76e9d parents=d09c354415f5d1ffa89778f1b573ef15663f3f63 T1 P4: fixes from independent check 1
+    
+    M	tools/xlsx-diff/tests/p4.rs
 
-## files changed in the phase diff (contents at 74b2bf0f2328b33a729d46105a33712e495992f1)
-command: git diff --name-status 827766a 74b2bf0f2328b33a729d46105a33712e495992f1
+## files changed in the phase diff (contents at c35112b396407414d9321c1e5eb9d31ff9e76e9d)
+command: git diff --name-status 827766a c35112b396407414d9321c1e5eb9d31ff9e76e9d
     M	ROADMAP.md
+    A	records/logs/t1-p4/gate.log
+    A	records/logs/t1-p4/independent-check-1.md
+    A	records/logs/t1-p4/negative.log
+    A	records/logs/t1-p4/scan.log
+    A	records/logs/t1-p4/test.log
     M	specs/0001-bootstrap.md
     M	specs/0004-xlsx-diff.md
     M	tools/xlsx-diff/src/lib.rs
@@ -337,6 +362,51 @@ command: git diff --name-status 827766a 74b2bf0f2328b33a729d46105a33712e495992f1
     M	tools/xlsx-diff/tests/p3.rs
     A	tools/xlsx-diff/tests/p4.rs
 file ROADMAP.md (sha256 442f6225a6b3ffd8404aa5930013864e5ddf743afb96fa730d792ce3f24f444f)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p4/gate.log (sha256 47877feed833d0c14f8edcb427ffb64966833c68a8edc60865c391f12c6f4643)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p4/independent-check-1.md (sha256 e27bfa5e0683fe864de53baa93061a50f5c75a5bb62fc6fad2c28ad2bf83fc30)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p4/negative.log (sha256 87c8fc7471f40a306640ed4cc4e5f030ea2882dc1e9718049dc031786770eaf3)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p4/scan.log (sha256 67bfe29ecfcef311273a9b3c7d92772d8f1b5a4cf8211a7d8649dd2f4b3f5ade)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p4/test.log (sha256 561967c4aed19f994b63718c59a507fb12716b34c237c1d37ce8ebcd7f923817)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -399,7 +469,7 @@ file tools/xlsx-diff/tests/p3.rs (sha256 ca7fdd760879896ad25a19955e9df4307af2229
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file tools/xlsx-diff/tests/p4.rs (sha256 400387c77370a63c1f271dc8958a923ee0a860d7ab4dbb9a5f98a481e22308c1)
+file tools/xlsx-diff/tests/p4.rs (sha256 ae1330aef872fa55507ca349835403b75ec351d838c1767b5af97fe82fe3bd79)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -408,9 +478,39 @@ file tools/xlsx-diff/tests/p4.rs (sha256 400387c77370a63c1f271dc8958a923ee0a860d
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 8; files scanned: 8; files read: 8: yes
+files in diff: 13; files scanned: 13; files read: 13: yes
 
 ## commit messages in the phase range
+message c35112b396407414d9321c1e5eb9d31ff9e76e9d
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message d09c354415f5d1ffa89778f1b573ef15663f3f63
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message b11c221246100537e46463c97c8fa920699651d9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 74b2bf0f2328b33a729d46105a33712e495992f1
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -431,10 +531,10 @@ message 564af3bdb757bffa4253a0d90b69d416fc7ffd90
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 2; commits in range: 2: yes
+messages scanned: 5; commits in range: 5: yes
 
 ## other T1 P4 logs in the working tree (a log cannot scan itself)
-log records/logs/t1-p4/gate.log (sha256 47877feed833d0c14f8edcb427ffb64966833c68a8edc60865c391f12c6f4643)
+log records/logs/t1-p4/gate.log (sha256 490a8642e3ab60254f69061bc794a2d26a94380abeaa8c2db4afd215bd60d75c)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -443,7 +543,7 @@ log records/logs/t1-p4/gate.log (sha256 47877feed833d0c14f8edcb427ffb64966833c68
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t1-p4/test.log (sha256 561967c4aed19f994b63718c59a507fb12716b34c237c1d37ce8ebcd7f923817)
+log records/logs/t1-p4/test.log (sha256 0a076c1ded5eb3aa6afe6c604d5f195624309f0a3b423d86a9608f87f2067a60)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -452,7 +552,7 @@ log records/logs/t1-p4/test.log (sha256 561967c4aed19f994b63718c59a507fb12716b34
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t1-p4/negative.log (sha256 87c8fc7471f40a306640ed4cc4e5f030ea2882dc1e9718049dc031786770eaf3)
+log records/logs/t1-p4/negative.log (sha256 391e6b0ce3cd4d5f68dea1adae134757d590dd9b72b8b149c66b9c634543a414)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -466,5 +566,5 @@ T1 P4 logs scanned: 3 (expected 3): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-15T19:05:07Z
+run ended at 2026-09-15T19:41:29Z
 RESULT: PASS

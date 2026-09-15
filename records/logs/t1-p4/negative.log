@@ -1,7 +1,8 @@
-about: T1 P4 phase commit 74b2bf0f2328b33a729d46105a33712e495992f1; HEAD at run: 74b2bf0f2328b33a729d46105a33712e495992f1
-phase: T1 P4 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T19:05:01Z
+about: T1 P4 phase commit c35112b396407414d9321c1e5eb9d31ff9e76e9d; HEAD at run: c35112b396407414d9321c1e5eb9d31ff9e76e9d
+phase: T1 P4 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T19:41:23Z
+rerun: replaces the logs committed in b11c221 (first run at 74b2bf0), after the fixes for independent check 1 in c35112b396407414d9321c1e5eb9d31ff9e76e9d
 The clone and its build live under <scratch> and are deleted on exit.
-fixture strings counted in every captured output: 1 (the sentinel string, built at run time; value never printed)
+fixture strings counted in every captured output: 3 (the sentinel string and two fictional templates of tests/p4.rs, all built at run time; values never printed)
 
 ## script
     #!/usr/bin/env bash
@@ -36,7 +37,7 @@ fixture strings counted in every captured output: 1 (the sentinel string, built 
     if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
     
     SENT="zq""-sent""inel-""t1p4"
-    FORBIDDEN=("$SENT")
+    FORBIDDEN=("$SENT" "fictional"" row" "fictional""-password")
     
     hide() {
       local line f
@@ -79,8 +80,9 @@ fixture strings counted in every captured output: 1 (the sentinel string, built 
     
     echo "about: T1 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T1 P4 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "The clone and its build live under <scratch> and are deleted on exit."
-    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (the sentinel string, built at run time; value never printed)"
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (the sentinel string and two fictional templates of tests/p4.rs, all built at run time; values never printed)"
     echo
     echo "## script"
     sed 's/^/    /' "$0"
@@ -91,7 +93,7 @@ fixture strings counted in every captured output: 1 (the sentinel string, built 
     printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
     printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
     ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
-    ctl "lines with a fixture string in a file holding it once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
     ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
     ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
     ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
@@ -163,23 +165,23 @@ fixture strings counted in every captured output: 1 (the sentinel string, built 
     exit "$fail"
 
 ## counter controls
-  control lines with a fixture string in a file holding it once: 1 (expect 1): as-expected
+  control lines with a fixture string in a file holding each once: 3 (expect 3): as-expected
   control lines with a fixture string in a clean file: 0 (expect 0): as-expected
   control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
   control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
 
 ## the scratch copy
-command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet --detach 74b2bf0f2328b33a729d46105a33712e495992f1
+command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet --detach c35112b396407414d9321c1e5eb9d31ff9e76e9d
   clone exit: 0; checkout exit: 0
   clone and checkout exit 0: as-expected
-  the clone is at 74b2bf0f2328b33a729d46105a33712e495992f1: as-expected
+  the clone is at c35112b396407414d9321c1e5eb9d31ff9e76e9d: as-expected
 
 ## control: the sentinel test in the unchanged clone
 command: (cd <scratch>/clone && cargo test --offline -p xlsx-diff --test p4 no_sentinel_in_any_output)
   exit: 0
   test lines, summary lines and panic messages:
     test no_sentinel_in_any_output ... ok
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.02s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.03s
   captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
   exit 0, no_sentinel_in_any_output ok, 1 passed and 0 failed: as-expected
 
@@ -217,14 +219,14 @@ command: (cd <scratch>/clone && cargo test --offline -p xlsx-diff --test p4 no_s
   exit: 101
   test lines, summary lines and panic messages:
     test no_sentinel_in_any_output ... FAILED
-    thread 'no_sentinel_in_any_output' (1562484) panicked at tools/xlsx-diff/tests/p4.rs:221:9:
+    thread 'no_sentinel_in_any_output' (1577978) panicked at tools/xlsx-diff/tests/p4.rs:229:9:
     every status: the raw sentinel name appears in stdout
-    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.02s
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.02s
     error: test failed, to rerun pass `-p xlsx-diff --test p4`
   captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
   exit 101, no_sentinel_in_any_output FAILED, 0 passed and 1 failed: as-expected
   the failure names the leak check on the raw sentinel name: as-expected
 
   main working tree status (expect empty): : as-expected
-run ended at 2026-09-15T19:05:07Z
+run ended at 2026-09-15T19:41:29Z
 all negative cases as expected: yes
