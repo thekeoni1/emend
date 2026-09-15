@@ -1,0 +1,179 @@
+about: T0b P2 CI run for ci-negative at afd3a8c7dd96cc34acf3ba02500f115e2c75bd58; HEAD of this repository at run: 41a99a16d114c1ea7ba8105f7a3d6ac67c9a9207
+phase: T0b P2 (specs/0003-ci.md) ci-run.log; run at 2026-09-15T15:53:34Z
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0b P2 ci-run.log (specs/0003-ci.md "P2: prove CI can fail"): the CI run on
+    # the throwaway branch ci-negative. It waits for the run to complete, then
+    # records gh run list --branch ci-negative, the run's facts as JSON (expected
+    # conclusion failure, with the gate step failing), the runner labels from the
+    # jobs API, and from the run's log only the lines that start with PASS, SKIP
+    # or FAIL plus the rustc --version line. The full log is read into a temporary
+    # file, filtered and deleted; it is never printed or saved.
+    # Usage: t0bp2-ci-run.sh <ci-negative commit> > <scratch file>; the caller
+    # moves the file into records/logs/t0b-p2/ afterwards. Each check is evaluated
+    # once and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    SHA=${1:?ci-negative commit required}
+    REPO=thekeoni1/emend
+    BRANCH=ci-negative
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    show() { echo "$1:"; sed 's/^/    /' "$2"; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    nonascii() { LC_ALL=C tr -cd '\200-\377' < "$1" | wc -c; }
+    jfield() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$1" "$2"; }
+    
+    echo "about: T0b P2 CI run for $BRANCH at $SHA; HEAD of this repository at run: $(git rev-parse HEAD)"
+    echo "phase: T0b P2 (specs/0003-ci.md) ci-run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    
+    echo "## waiting for the run on $SHA to complete (polled every 30 seconds, at most 90 times)"
+    polls=0
+    state=none
+    while [ "$polls" -lt 90 ]; do
+      polls=$((polls + 1))
+      if gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --commit "$SHA" --json databaseId,status,conclusion > "$T/runs.json" 2>/dev/null </dev/null; then
+        state=$(jfield "$T/runs.json" '"none" if not d else ("completed" if all(r["status"] == "completed" for r in d) else "pending")' 2>/dev/null || echo error)
+        [ "$state" = completed ] && break
+      fi
+      sleep 30
+    done
+    echo "polls: $polls; last state: $state"
+    check "the run completed" "$(yn [ "$state" = completed ])"
+    N=$(jfield "$T/runs.json" 'len(d)' 2>/dev/null || echo 0)
+    check "runs for the commit on $BRANCH: $N (expect 1)" "$(yn [ "$N" = 1 ])"
+    ID=$(jfield "$T/runs.json" 'd[0]["databaseId"]' 2>/dev/null || echo none)
+    echo "run id: $ID"
+    echo
+    
+    echo "## gh run list --branch $BRANCH"
+    echo "command: gh run list --repo $REPO --workflow ci.yml --branch $BRANCH"
+    gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    n=$(nonascii "$T/out")
+    if [ "$n" -eq 0 ]; then
+      show stdout "$T/out"
+    else
+      echo "stdout: not printed, because it holds $n non-ASCII bytes (the logs hold ASCII only); the same facts follow as JSON"
+      gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --json databaseId,headSha,headBranch,event,status,conclusion \
+        --jq '.[] | "\(.databaseId) \(.headSha) \(.headBranch) \(.event) \(.status) \(.conclusion)"' 2>&1 </dev/null | sed 's/^/    /'
+    fi
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    echo
+    
+    echo "## the run's facts"
+    echo "command: gh run view $ID --repo $REPO --json headSha,headBranch,event,status,conclusion,workflowName,jobs"
+    gh run view "$ID" --repo "$REPO" --json headSha,headBranch,event,status,conclusion,workflowName,jobs > "$T/view.json" 2> "$T/err" </dev/null
+    rc=$?
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    python3 - "$T/view.json" <<'PY' | sed 's/^/    /'
+    import json, sys
+    d = json.load(open(sys.argv[1]))
+    print("workflow %s; branch %s; event %s; head %s" % (d["workflowName"], d["headBranch"], d["event"], d["headSha"]))
+    print("status %s; conclusion %s" % (d["status"], d["conclusion"]))
+    for j in d["jobs"]:
+        print("job %s: status %s; conclusion %s" % (j["name"], j["status"], j["conclusion"]))
+        for s in j["steps"]:
+            print("  step %s %s: status %s; conclusion %s" % (s["number"], s["name"], s["status"], s["conclusion"]))
+    PY
+    v=$(jfield "$T/view.json" '"%s %s %s %s" % (d["headSha"], d["headBranch"], d["event"], d["conclusion"])' 2>/dev/null)
+    check "head, branch, event and conclusion: $v (expect $SHA $BRANCH push failure)" "$(yn [ "$v" = "$SHA $BRANCH push failure" ])"
+    v=$(jfield "$T/view.json" '"|".join(s["name"] for j in d["jobs"] for s in j["steps"] if s["conclusion"] == "failure")' 2>/dev/null)
+    check "failed steps: $v (expect exactly Gate in CI mode)" "$(yn [ "$v" = "Gate in CI mode" ])"
+    v=$(jfield "$T/view.json" '"|".join(s["name"] + "=" + s["conclusion"] for j in d["jobs"] for s in j["steps"] if s["name"] in ("Check out", "Install the pinned toolchain"))' 2>/dev/null)
+    check "earlier steps: $v (expect Check out=success|Install the pinned toolchain=success)" "$(yn [ "$v" = "Check out=success|Install the pinned toolchain=success" ])"
+    echo
+    
+    echo "## runner labels (jobs API)"
+    echo "command: gh api repos/$REPO/actions/runs/$ID/jobs --jq '.jobs[] | name, labels, conclusion'"
+    gh api "repos/$REPO/actions/runs/$ID/jobs" --jq '.jobs[] | "job \(.name): labels \(.labels | join(",")); conclusion \(.conclusion)"' > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    check "the job ran on label ubuntu-24.04" "$(yn env LC_ALL=C /usr/bin/grep -q -F 'labels ubuntu-24.04;' "$T/out")"
+    echo
+    
+    echo "## the run's log, filtered"
+    echo "command: gh run view $ID --repo $REPO --log (read into a temporary file; only the lines below are printed)"
+    gh run view "$ID" --repo "$REPO" --log > "$T/full" 2> "$T/err" </dev/null
+    rc=$?
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    echo "full log: $(wc -l < "$T/full") lines (not printed)"
+    LC_ALL=C awk -F'\t' '{ t = $3; sub(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z /, "", t); sub(/\r$/, "", t); print t }' "$T/full" > "$T/text"
+    LC_ALL=C /usr/bin/grep -E '^(PASS|SKIP|FAIL)( |$)' "$T/text" > "$T/gate"
+    LC_ALL=C /usr/bin/grep -E '^rustc [0-9]+[.][0-9]+[.][0-9]+ ' "$T/text" > "$T/rustc"
+    show "lines starting with PASS, SKIP or FAIL" "$T/gate"
+    show "the rustc --version line" "$T/rustc"
+    check "exactly three such lines: PASS host, PASS i686, then a FAIL fmt line" \
+      "$(yn [ "$(wc -l < "$T/gate")" = 3 -a "$(sed -n 1p "$T/gate")" = "PASS host" -a "$(sed -n 2p "$T/gate")" = "PASS i686" ] && env LC_ALL=C /usr/bin/grep -q -E '^FAIL fmt: ' <(sed -n 3p "$T/gate"))"
+    check "no SKIP or PASS privacy line (the gate stopped at fmt)" "$(yn [ "$(LC_ALL=C /usr/bin/grep -c -E 'privacy' "$T/gate")" = 0 ])"
+    check "rustc --version is rustc 1.98.1 (48a229cea 2026-09-01), once" "$(yn [ "$(cat "$T/rustc")" = "rustc 1.98.1 (48a229cea 2026-09-01)" ])"
+    n=$(( $(nonascii "$T/gate") + $(nonascii "$T/rustc") ))
+    check "non-ASCII bytes in the printed lines: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    echo
+    echo "ci-run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## waiting for the run on afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 to complete (polled every 30 seconds, at most 90 times)
+polls: 2; last state: completed
+the run completed: yes
+runs for the commit on ci-negative: 1 (expect 1): yes
+run id: 34991440664
+
+## gh run list --branch ci-negative
+command: gh run list --repo thekeoni1/emend --workflow ci.yml --branch ci-negative
+stdout:
+    completed	failure	T0b P2: one deliberately misformatted line, for the CI failure test	ci	ci-negative	push	34991440664	21s	2026-09-15T15:53:25Z
+stderr:
+exit 0 (expect 0): yes
+
+## the run's facts
+command: gh run view 34991440664 --repo thekeoni1/emend --json headSha,headBranch,event,status,conclusion,workflowName,jobs
+exit 0 (expect 0): yes
+    workflow ci; branch ci-negative; event push; head afd3a8c7dd96cc34acf3ba02500f115e2c75bd58
+    status completed; conclusion failure
+    job check: status completed; conclusion failure
+      step 1 Set up job: status completed; conclusion success
+      step 2 Check out: status completed; conclusion success
+      step 3 Install the pinned toolchain: status completed; conclusion success
+      step 4 Gate in CI mode: status completed; conclusion failure
+      step 8 Post Check out: status completed; conclusion success
+      step 9 Complete job: status completed; conclusion success
+head, branch, event and conclusion: afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 ci-negative push failure (expect afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 ci-negative push failure): yes
+failed steps: Gate in CI mode (expect exactly Gate in CI mode): yes
+earlier steps: Check out=success|Install the pinned toolchain=success (expect Check out=success|Install the pinned toolchain=success): yes
+
+## runner labels (jobs API)
+command: gh api repos/thekeoni1/emend/actions/runs/34991440664/jobs --jq '.jobs[] | name, labels, conclusion'
+stdout:
+    job check: labels ubuntu-24.04; conclusion failure
+stderr:
+exit 0 (expect 0): yes
+the job ran on label ubuntu-24.04: yes
+
+## the run's log, filtered
+command: gh run view 34991440664 --repo thekeoni1/emend --log (read into a temporary file; only the lines below are printed)
+exit 0 (expect 0): yes
+full log: 193 lines (not printed)
+lines starting with PASS, SKIP or FAIL:
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+the rustc --version line:
+    rustc 1.98.1 (48a229cea 2026-09-01)
+exactly three such lines: PASS host, PASS i686, then a FAIL fmt line: yes
+no SKIP or PASS privacy line (the gate stopped at fmt): yes
+rustc --version is rustc 1.98.1 (48a229cea 2026-09-01), once: yes
+non-ASCII bytes in the printed lines: 0 (expect 0): yes
+
+ci-run log checks all as expected: yes

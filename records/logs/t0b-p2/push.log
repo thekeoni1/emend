@@ -1,0 +1,336 @@
+about: T0b P2 branch ci-negative from 401a2f73c3ac03d948e7c297ba117a5268b323af; HEAD of this repository at run: 41a99a16d114c1ea7ba8105f7a3d6ac67c9a9207
+phase: T0b P2 (specs/0003-ci.md) push.log part 1, setup; run at 2026-09-15T14:12:28Z
+ANTHROPIC_API_KEY set in this shell: no
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0b P2 push.log (specs/0003-ci.md "P2: prove CI can fail"), in two parts.
+    # Every check is evaluated once and that single result is printed.
+    # Usage: t0bp2-push.sh setup <clone dir> > <scratch file>
+    #          part 1: the scratch clone guarded like main, branch ci-negative
+    #          from 401a2f7 with one misformatted line, and the local fmt failure
+    #        t0bp2-push.sh push <clone dir> >> <scratch file>
+    #          part 2: push only ci-negative (only after the maintainer's
+    #          authorisation), then check the remote refs
+    # The clone dir prints as <scratch>/<name>. The caller moves the file into
+    # records/logs/t0b-p2/ afterwards. Authentication uses the existing git
+    # credential helper; no authentication output is captured.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?setup or push}
+    CLONE=${2:?clone dir required}
+    REPO_DIR=$(pwd)
+    REPO=thekeoni1/emend
+    URL=https://github.com/thekeoni1/emend.git
+    BASE=401a2f73c3ac03d948e7c297ba117a5268b323af
+    BRANCH=ci-negative
+    FILE=tools/xlsx-diff/src/main.rs
+    OLD_LINE='    eprintln!("{message}");'
+    NEW_LINE='    eprintln!(   "{message}"   );'
+    export GIT_TERMINAL_PROMPT=0 RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    SHOWN="<scratch>/$(basename "$CLONE")"
+    hide() { sed -e "s#$CLONE#$SHOWN#g" -e "s#$REPO_DIR#<repo>#g"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    show() { echo "$1:"; hide < "$2" | sed 's/^/    /'; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    G() { git -C "$CLONE" "$@"; }
+    
+    case "$MODE" in
+      setup)
+        echo "about: T0b P2 branch $BRANCH from $BASE; HEAD of this repository at run: $(git rev-parse HEAD)"
+        echo "phase: T0b P2 (specs/0003-ci.md) push.log part 1, setup; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+        echo
+        echo "## script that wrote this log"
+        sed 's/^/    /' "$0"
+        echo
+        check "the clone directory does not exist yet ($SHOWN)" "$(yn [ ! -e "$CLONE" ])"
+        [ "$fail" -eq 0 ] || { echo "part 1 checks all as expected: no"; exit 1; }
+    
+        echo "## scratch clone"
+        echo "command: git clone -q <repo> $SHOWN"
+        git clone -q "$REPO_DIR" "$CLONE" > "$T/out" 2>&1 </dev/null
+        rc=$?
+        show output "$T/out"
+        check "clone exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        echo "command: git -C $SHOWN remote set-url origin $URL"
+        G remote set-url origin "$URL" > "$T/out" 2>&1
+        rc=$?
+        check "set-url exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        echo "command: git -C $SHOWN remote -v"
+        G remote -v | hide | sed 's/^/    /'
+        check "origin fetch and push URLs are the GitHub URL, and origin is the only remote" \
+          "$(yn [ "$(G remote -v | awk '{print $1" "$2" "$3}' | tr '\n' '|')" = "origin $URL (fetch)|origin $URL (push)|" ])"
+        NAME=$(sed -n 1p "$CLONE/scripts/privacy-identity.txt")
+        EMAIL=$(sed -n 2p "$CLONE/scripts/privacy-identity.txt")
+        G config user.name "$NAME"
+        G config user.email "$EMAIL"
+        echo "command: git -C $SHOWN config --local --get user.name / user.email"
+        echo "    $(G config --local --get user.name)"
+        echo "    $(G config --local --get user.email)"
+        check "local identity equals scripts/privacy-identity.txt lines 1 and 2" \
+          "$(yn [ "$(G config --local --get user.name)|$(G config --local --get user.email)" = "$NAME|$EMAIL" ])"
+        echo "command: scripts/install-hooks.sh (in the clone)"
+        (cd "$CLONE" && scripts/install-hooks.sh) > "$T/out" 2>&1 </dev/null
+        rc=$?
+        show output "$T/out"
+        check "installer exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        HOOK=$CLONE/.git/hooks/pre-push
+        echo "command: ls -l $SHOWN/.git/hooks/pre-push"
+        ls -l "$HOOK" | hide | sed 's/^/    /'
+        check "clone hook is executable" "$(yn [ -x "$HOOK" ])"
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' "$CLONE/scripts/install-hooks.sh" > "$T/heredoc"
+        echo "clone hook sha256 $(sha256sum < "$HOOK" | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1); lines $(wc -l < "$T/heredoc")"
+        check "clone hook equals what scripts/install-hooks.sh writes" "$(yn cmp -s "$HOOK" "$T/heredoc")"
+        HP=$(G config --get core.hooksPath)
+        check "core.hooksPath in the clone's git config (all levels) is empty" "$(yn [ -z "$HP" ])"
+        DSET=$([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no)
+        check "EMEND_PRIVATE_DENYLIST is unset (set: $DSET)" "$(yn [ "$DSET" = no ])"
+        echo
+    
+        echo "## GitHub before the push"
+        echo "command: git -C $SHOWN ls-remote origin refs/heads/main refs/heads/$BRANCH"
+        G ls-remote origin refs/heads/main "refs/heads/$BRANCH" > "$T/ls" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/ls"
+        show stderr "$T/err"
+        check "ls-remote exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        check "remote main is $BASE and remote $BRANCH does not exist" "$(yn [ "$(tr '\t' ' ' < "$T/ls")" = "$BASE refs/heads/main" ])"
+        echo
+    
+        echo "## branch $BRANCH from $BASE, with one misformatted line"
+        check "$BASE exists in the clone" "$(yn G cat-file -e "$BASE^{commit}")"
+        echo "command: git -C $SHOWN checkout -q -b $BRANCH $BASE"
+        G checkout -q -b "$BRANCH" "$BASE" > "$T/out" 2>&1
+        rc=$?
+        check "checkout exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        OLD="$OLD_LINE" NEW="$NEW_LINE" awk '$0 == ENVIRON["OLD"] { print ENVIRON["NEW"]; n++; next } { print } END { exit n != 1 }' \
+          "$CLONE/$FILE" > "$T/new"
+        rc=$?
+        check "exactly one line of $FILE matched the line to misformat (awk exit $rc)" "$(yn [ "$rc" -eq 0 ])"
+        cat "$T/new" > "$CLONE/$FILE"
+        echo "command: git -C $SHOWN diff"
+        G diff > "$T/out" 2>&1
+        show output "$T/out"
+        G add "$FILE"
+        G -c commit.gpgsign=false commit -q -F - <<'MSG'
+    T0b P2: one deliberately misformatted line, for the CI failure test
+    
+    This commit exists only on the throwaway branch ci-negative, to show
+    that CI fails on a formatting error. It never reaches main, and the
+    branch is deleted after the run is recorded.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+    MSG
+        rc=$?
+        check "commit exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        NEG=$(G rev-parse HEAD)
+        echo "$BRANCH is $NEG"
+        echo "command: git -C $SHOWN log --format='%H %P %an <%ae> | %cn <%ce> | %s' -1"
+        G log --format='%H %P %an <%ae> | %cn <%ce> | %s' -1 | sed 's/^/    /'
+        N=$(G rev-list --count "$BASE..$BRANCH")
+        check "git rev-list --count $BASE..$BRANCH: $N (expect 1)" "$(yn [ "$N" = 1 ])"
+        NALL=$(G rev-list --count "$BRANCH")
+        echo "git rev-list --count $BRANCH: $NALL (the pre-push hook scans all of these, because the remote does not have the branch yet)"
+        echo "command: git -C $SHOWN diff --stat $BASE $BRANCH"
+        G diff --stat "$BASE" "$BRANCH" | sed 's/^/    /'
+        check "the branch changes only $FILE, by one line" \
+          "$(yn [ "$(G diff --numstat "$BASE" "$BRANCH" | tr '\t' ' ')" = "1 1 $FILE" ])"
+        echo
+    
+        echo "## the formatting check fails locally"
+        echo "command: cargo fmt --all --check -- --color never (in the clone)"
+        (cd "$CLONE" && cargo fmt --all --check -- --color never) > "$T/out" 2>&1 </dev/null
+        rc=$?
+        show output "$T/out"
+        check "cargo fmt --check exit $rc (expect non-zero)" "$(yn [ "$rc" -ne 0 ])"
+        check "the reported file is $FILE" "$(yn env LC_ALL=C /usr/bin/grep -q -F "$FILE" "$T/out")"
+        n=$(ctrl_bytes "$T/out"); check "fmt output control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        STATUS=$(G status --porcelain | tr '\n' ' ')
+        check "clone working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+        STATUS=$(git status --porcelain | tr '\n' ' ')
+        check "this repository's working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+        echo "part 1 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+    
+      push)
+        echo
+        echo "# push.log part 2, push only $BRANCH; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; fi
+        if [ -n "$(G config --get core.hooksPath)" ]; then echo "refusing: core.hooksPath is set in the clone"; exit 1; fi
+        echo "EMEND_PRIVATE_DENYLIST unset and core.hooksPath empty in the clone (the script refuses otherwise)"
+        NEG=$(G rev-parse "refs/heads/$BRANCH")
+        NALL=$(G rev-list --count "$BRANCH")
+        echo "$BRANCH is $NEG; commits in its history: $NALL; new relative to $BASE: $(G rev-list --count "$BASE..$BRANCH")"
+        echo
+        echo "## push"
+        echo "command: git -C $SHOWN push origin refs/heads/$BRANCH:refs/heads/$BRANCH"
+        G push origin "refs/heads/$BRANCH:refs/heads/$BRANCH" > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        show stderr "$T/err"
+        echo "exit: $rc"
+        check "push exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        cat "$T/out" "$T/err" > "$T/both"
+        check "the hook printed PASS privacy" "$(yn env LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' "$T/both")"
+        check "the hook's range is $NEG (the whole branch, a new ref)" "$(yn env LC_ALL=C /usr/bin/grep -q -x "pre-push: scripts/privacy.sh --range $NEG (refs/heads/$BRANCH)" "$T/both")"
+        check "the hook scanned $NALL commits with 0 findings" "$(yn env LC_ALL=C /usr/bin/grep -q -E "^privacy: $NALL commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]\$" "$T/both")"
+        check "git reported only the new branch $BRANCH" "$(yn [ "$(LC_ALL=C /usr/bin/grep -c -E ' -> ' "$T/err")" = 1 -a "$(LC_ALL=C /usr/bin/grep -c -E "^ [*] \[new branch\] +$BRANCH -> $BRANCH\$" "$T/err")" = 1 ])"
+        n=$(ctrl_bytes "$T/both"); check "push output control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        echo
+        echo "## remote refs after the push"
+        echo "command: git -C $SHOWN ls-remote origin refs/heads/*"
+        G ls-remote origin 'refs/heads/*' > "$T/ls" 2> "$T/lserr" </dev/null
+        rc=$?
+        show stdout "$T/ls"
+        show stderr "$T/lserr"
+        check "ls-remote exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+        check "remote heads are exactly main at $BASE and $BRANCH at $NEG" \
+          "$(yn [ "$(tr '\t' ' ' < "$T/ls" | tr '\n' '|')" = "$NEG refs/heads/$BRANCH|$BASE refs/heads/main|" ])"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/vis" 2> "$T/viserr" </dev/null
+        rc=$?
+        show stdout "$T/vis"
+        show stderr "$T/viserr"
+        check "gh exit $rc (expect 0) and still PRIVATE" "$(yn [ "$rc" -eq 0 ] && env LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/vis")"
+        STATUS=$(git status --porcelain | tr '\n' ' ')
+        check "this repository's working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+        echo "part 2 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    exit "$fail"
+
+the clone directory does not exist yet (<scratch>/t0bp2-clone): yes
+## scratch clone
+command: git clone -q <repo> <scratch>/t0bp2-clone
+output:
+clone exit 0 (expect 0): yes
+command: git -C <scratch>/t0bp2-clone remote set-url origin https://github.com/thekeoni1/emend.git
+set-url exit 0 (expect 0): yes
+command: git -C <scratch>/t0bp2-clone remote -v
+    origin	https://github.com/thekeoni1/emend.git (fetch)
+    origin	https://github.com/thekeoni1/emend.git (push)
+origin fetch and push URLs are the GitHub URL, and origin is the only remote: yes
+command: git -C <scratch>/t0bp2-clone config --local --get user.name / user.email
+    thekeoni1
+    55367154+thekeoni1@users.noreply.github.com
+local identity equals scripts/privacy-identity.txt lines 1 and 2: yes
+command: scripts/install-hooks.sh (in the clone)
+output:
+    install-hooks: wrote .git/hooks/pre-push
+installer exit 0 (expect 0): yes
+command: ls -l <scratch>/t0bp2-clone/.git/hooks/pre-push
+    -rwxr-xr-x 1 dev dev 1349 Sep 15 07:12 <scratch>/t0bp2-clone/.git/hooks/pre-push
+clone hook is executable: yes
+clone hook sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; installer heredoc sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; lines 39
+clone hook equals what scripts/install-hooks.sh writes: yes
+core.hooksPath in the clone's git config (all levels) is empty: yes
+EMEND_PRIVATE_DENYLIST is unset (set: no): yes
+
+## GitHub before the push
+command: git -C <scratch>/t0bp2-clone ls-remote origin refs/heads/main refs/heads/ci-negative
+stdout:
+    401a2f73c3ac03d948e7c297ba117a5268b323af	refs/heads/main
+stderr:
+ls-remote exit 0 (expect 0): yes
+remote main is 401a2f73c3ac03d948e7c297ba117a5268b323af and remote ci-negative does not exist: yes
+
+## branch ci-negative from 401a2f73c3ac03d948e7c297ba117a5268b323af, with one misformatted line
+401a2f73c3ac03d948e7c297ba117a5268b323af exists in the clone: yes
+command: git -C <scratch>/t0bp2-clone checkout -q -b ci-negative 401a2f73c3ac03d948e7c297ba117a5268b323af
+checkout exit 0 (expect 0): yes
+exactly one line of tools/xlsx-diff/src/main.rs matched the line to misformat (awk exit 0): yes
+command: git -C <scratch>/t0bp2-clone diff
+output:
+    diff --git a/tools/xlsx-diff/src/main.rs b/tools/xlsx-diff/src/main.rs
+    index f42c60c..3ef80c5 100644
+    --- a/tools/xlsx-diff/src/main.rs
+    +++ b/tools/xlsx-diff/src/main.rs
+    @@ -15,7 +15,7 @@ fn run() -> (&'static str, u8) {
+     
+     fn main() -> ExitCode {
+         let (message, status) = run();
+    -    eprintln!("{message}");
+    +    eprintln!(   "{message}"   );
+         ExitCode::from(status)
+     }
+     
+commit exit 0 (expect 0): yes
+ci-negative is afd3a8c7dd96cc34acf3ba02500f115e2c75bd58
+command: git -C <scratch>/t0bp2-clone log --format='%H %P %an <%ae> | %cn <%ce> | %s' -1
+    afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 401a2f73c3ac03d948e7c297ba117a5268b323af thekeoni1 <55367154+thekeoni1@users.noreply.github.com> | thekeoni1 <55367154+thekeoni1@users.noreply.github.com> | T0b P2: one deliberately misformatted line, for the CI failure test
+git rev-list --count 401a2f73c3ac03d948e7c297ba117a5268b323af..ci-negative: 1 (expect 1): yes
+git rev-list --count ci-negative: 71 (the pre-push hook scans all of these, because the remote does not have the branch yet)
+command: git -C <scratch>/t0bp2-clone diff --stat 401a2f73c3ac03d948e7c297ba117a5268b323af ci-negative
+     tools/xlsx-diff/src/main.rs | 2 +-
+     1 file changed, 1 insertion(+), 1 deletion(-)
+the branch changes only tools/xlsx-diff/src/main.rs, by one line: yes
+
+## the formatting check fails locally
+command: cargo fmt --all --check -- --color never (in the clone)
+output:
+    Diff in <scratch>/t0bp2-clone/tools/xlsx-diff/src/main.rs:15:
+     
+     fn main() -> ExitCode {
+         let (message, status) = run();
+    -    eprintln!(   "{message}"   );
+    +    eprintln!("{message}");
+         ExitCode::from(status)
+     }
+     
+cargo fmt --check exit 1 (expect non-zero): yes
+the reported file is tools/xlsx-diff/src/main.rs: yes
+fmt output control bytes: 0 (expect 0): yes
+clone working tree clean (expect empty): : yes
+this repository's working tree clean (expect empty): : yes
+part 1 checks all as expected: yes
+
+# push.log part 2, push only ci-negative; run at 2026-09-15T15:53:08Z
+EMEND_PRIVATE_DENYLIST unset and core.hooksPath empty in the clone (the script refuses otherwise)
+ci-negative is afd3a8c7dd96cc34acf3ba02500f115e2c75bd58; commits in its history: 71; new relative to 401a2f73c3ac03d948e7c297ba117a5268b323af: 1
+
+## push
+command: git -C <scratch>/t0bp2-clone push origin refs/heads/ci-negative:refs/heads/ci-negative
+stdout:
+    pre-push: scripts/privacy.sh --range afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 (refs/heads/ci-negative)
+    PASS privacy
+stderr:
+    privacy: 71 commit(s), 146 blob(s) scanned, 0 finding(s)
+    remote: 
+    remote: Create a pull request for 'ci-negative' on GitHub by visiting:        
+    remote:      https://github.com/thekeoni1/emend/pull/new/ci-negative        
+    remote: 
+    To https://github.com/thekeoni1/emend.git
+     * [new branch]      ci-negative -> ci-negative
+exit: 0
+push exit is 0: yes
+the hook printed PASS privacy: yes
+the hook's range is afd3a8c7dd96cc34acf3ba02500f115e2c75bd58 (the whole branch, a new ref): yes
+the hook scanned 71 commits with 0 findings: yes
+git reported only the new branch ci-negative: yes
+push output control bytes: 0 (expect 0): yes
+
+## remote refs after the push
+command: git -C <scratch>/t0bp2-clone ls-remote origin refs/heads/*
+stdout:
+    afd3a8c7dd96cc34acf3ba02500f115e2c75bd58	refs/heads/ci-negative
+    401a2f73c3ac03d948e7c297ba117a5268b323af	refs/heads/main
+stderr:
+ls-remote exit 0 (expect 0): yes
+remote heads are exactly main at 401a2f73c3ac03d948e7c297ba117a5268b323af and ci-negative at afd3a8c7dd96cc34acf3ba02500f115e2c75bd58: yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+gh exit 0 (expect 0) and still PRIVATE: yes
+this repository's working tree clean (expect empty): : yes
+part 2 checks all as expected: yes

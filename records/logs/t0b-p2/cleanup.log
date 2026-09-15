@@ -1,0 +1,145 @@
+about: T0b P2 cleanup of ci-negative; HEAD of this repository at run: 41a99a16d114c1ea7ba8105f7a3d6ac67c9a9207
+phase: T0b P2 (specs/0003-ci.md) cleanup.log; run at 2026-09-15T15:54:25Z
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0b P2 cleanup.log (specs/0003-ci.md "P2: prove CI can fail"): delete the
+    # remote branch ci-negative from the scratch clone (the pre-push hook skips
+    # deletions), confirm GitHub lists only main at 401a2f7, confirm main's latest
+    # CI run is still 34977885012 with conclusion success, confirm no run was
+    # started by the deletion, and delete the scratch clone.
+    # Usage: t0bp2-cleanup.sh <clone dir> > <scratch file> (only after the
+    # maintainer's authorisation). The clone dir prints as <scratch>/<name>. Each
+    # check is evaluated once and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    CLONE=${1:?clone dir required}
+    REPO=thekeoni1/emend
+    BASE=401a2f73c3ac03d948e7c297ba117a5268b323af
+    MAIN_RUN=34977885012
+    BRANCH=ci-negative
+    export GIT_TERMINAL_PROMPT=0
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    SHOWN="<scratch>/$(basename "$CLONE")"
+    hide() { sed -e "s#$CLONE#$SHOWN#g"; }
+    show() { echo "$1:"; hide < "$2" | sed 's/^/    /'; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    jfield() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$1" "$2"; }
+    
+    echo "about: T0b P2 cleanup of $BRANCH; HEAD of this repository at run: $(git rev-parse HEAD)"
+    echo "phase: T0b P2 (specs/0003-ci.md) cleanup.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; fi
+    check "the scratch clone exists" "$(yn [ -d "$CLONE/.git" ])"
+    N_BEFORE=$(gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --json databaseId --jq 'length' 2>/dev/null </dev/null)
+    echo "runs on $BRANCH before the deletion: $N_BEFORE"
+    echo
+    
+    echo "## delete the remote branch"
+    echo "command: git -C $SHOWN push origin --delete $BRANCH"
+    git -C "$CLONE" push origin --delete "$BRANCH" > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    show stderr "$T/err"
+    echo "exit: $rc"
+    check "push --delete exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    cat "$T/out" "$T/err" > "$T/both"
+    check "the hook skipped the deletion" "$(yn env LC_ALL=C /usr/bin/grep -q -x "pre-push: skipping the deletion of refs/heads/$BRANCH" "$T/both")"
+    check "the hook ran no privacy scan" "$(yn [ "$(LC_ALL=C /usr/bin/grep -c -E '^(PASS privacy|privacy: )' "$T/both")" = 0 ])"
+    check "git reported the deleted branch" "$(yn env LC_ALL=C /usr/bin/grep -q -E "^ - \[deleted\] +$BRANCH\$" "$T/err")"
+    echo
+    
+    echo "## GitHub after the deletion"
+    echo "command: gh api repos/$REPO/branches --jq '.[] | name commit.sha'"
+    gh api "repos/$REPO/branches" --jq '.[] | "\(.name) \(.commit.sha)"' > "$T/br" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/br"
+    show stderr "$T/err"
+    check "gh api exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    check "branches are exactly main at $BASE" "$(yn [ "$(cat "$T/br")" = "main $BASE" ])"
+    echo "command: git -C $SHOWN ls-remote origin"
+    git -C "$CLONE" ls-remote origin > "$T/ls" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/ls"
+    show stderr "$T/err"
+    check "ls-remote exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    check "remote refs are exactly HEAD and refs/heads/main at $BASE" \
+      "$(yn [ "$(tr '\t' ' ' < "$T/ls" | tr '\n' '|')" = "$BASE HEAD|$BASE refs/heads/main|" ])"
+    echo "command: gh run list --repo $REPO --workflow ci.yml --branch main --limit 1 --json databaseId,headSha,conclusion"
+    gh run list --repo "$REPO" --workflow ci.yml --branch main --limit 1 --json databaseId,headSha,conclusion > "$T/main.json" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/main.json"
+    show stderr "$T/err"
+    v=$(jfield "$T/main.json" '"%s %s %s" % (d[0]["databaseId"], d[0]["headSha"], d[0]["conclusion"])' 2>/dev/null)
+    check "gh exit $rc (expect 0); main's latest run: $v (expect $MAIN_RUN $BASE success)" "$(yn [ "$rc" -eq 0 -a "$v" = "$MAIN_RUN $BASE success" ])"
+    N_AFTER=$(gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --json databaseId --jq 'length' 2>/dev/null </dev/null)
+    check "runs on $BRANCH after the deletion: $N_AFTER (expect the same as before, $N_BEFORE)" "$(yn [ -n "$N_AFTER" -a "$N_AFTER" = "$N_BEFORE" ])"
+    echo "command: gh repo view $REPO --json visibility"
+    gh repo view "$REPO" --json visibility > "$T/vis" 2> "$T/viserr" </dev/null
+    rc=$?
+    show stdout "$T/vis"
+    check "gh exit $rc (expect 0) and still PRIVATE" "$(yn [ "$rc" -eq 0 ] && env LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/vis")"
+    echo
+    
+    echo "## delete the scratch clone"
+    echo "command: rm -rf $SHOWN"
+    rm -rf "$CLONE"
+    check "the scratch clone no longer exists" "$(yn [ ! -e "$CLONE" ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "this repository's working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "cleanup log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+the scratch clone exists: yes
+runs on ci-negative before the deletion: 1
+
+## delete the remote branch
+command: git -C <scratch>/t0bp2-clone push origin --delete ci-negative
+stdout:
+    pre-push: skipping the deletion of refs/heads/ci-negative
+stderr:
+    To https://github.com/thekeoni1/emend.git
+     - [deleted]         ci-negative
+exit: 0
+push --delete exit is 0: yes
+the hook skipped the deletion: yes
+the hook ran no privacy scan: yes
+git reported the deleted branch: yes
+
+## GitHub after the deletion
+command: gh api repos/thekeoni1/emend/branches --jq '.[] | name commit.sha'
+stdout:
+    main 401a2f73c3ac03d948e7c297ba117a5268b323af
+stderr:
+gh api exit 0 (expect 0): yes
+branches are exactly main at 401a2f73c3ac03d948e7c297ba117a5268b323af: yes
+command: git -C <scratch>/t0bp2-clone ls-remote origin
+stdout:
+    401a2f73c3ac03d948e7c297ba117a5268b323af	HEAD
+    401a2f73c3ac03d948e7c297ba117a5268b323af	refs/heads/main
+stderr:
+ls-remote exit 0 (expect 0): yes
+remote refs are exactly HEAD and refs/heads/main at 401a2f73c3ac03d948e7c297ba117a5268b323af: yes
+command: gh run list --repo thekeoni1/emend --workflow ci.yml --branch main --limit 1 --json databaseId,headSha,conclusion
+stdout:
+    [{"conclusion":"success","databaseId":34977885012,"headSha":"401a2f73c3ac03d948e7c297ba117a5268b323af"}]
+stderr:
+gh exit 0 (expect 0); main's latest run: 34977885012 401a2f73c3ac03d948e7c297ba117a5268b323af success (expect 34977885012 401a2f73c3ac03d948e7c297ba117a5268b323af success): yes
+runs on ci-negative after the deletion: 1 (expect the same as before, 1): yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+gh exit 0 (expect 0) and still PRIVATE: yes
+
+## delete the scratch clone
+command: rm -rf <scratch>/t0bp2-clone
+the scratch clone no longer exists: yes
+this repository's working tree clean (expect empty): : yes
+cleanup log checks all as expected: yes
