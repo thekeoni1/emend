@@ -23,12 +23,16 @@ LABELS = ("host", "i686")
 OUTCOMES = ("ok", "error", "timeout", "panic", "crash")
 FLAGS = ("mtime", "extra", "gpflags", "descriptor", "attrs", "comment", "local")
 STATUSES = ("identical", "recompressed", "changed", "dropped", "added")
+# The LibreOffice open check of specs/0006-passthrough.md P3: "-" when no image
+# was given, or when there was no ok output to convert.
+LO_VALUES = ("ok", "fail", "-")
 
 SUMMARY_HEADER = [
     "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
     "peak_rss_kb", "in_bytes", "out_bytes", "diff_exit", "identical",
     "recompressed", "changed", "dropped", "added", "flagged",
-    "order_preserved", "comment_equal", "files_identical", "leftover",
+    "order_preserved", "comment_equal", "files_identical", "leftover", "lo",
+    "lo_in",
 ]
 ENTRIES_HEADER = [
     "id", "label", "row", "name", "status", "index_in", "index_out",
@@ -152,6 +156,9 @@ def load(run_dir):
                 raise Failure("summary.%s.tsv has an unknown outcome" % label)
             if row["leftover"] not in ("yes", "no"):
                 raise Failure("summary.%s.tsv has a leftover value other than yes or no" % label)
+            for column in ("lo", "lo_in"):
+                if row[column] not in LO_VALUES:
+                    raise Failure("summary.%s.tsv has a %s value other than ok, fail or -" % (label, column))
         for row in entries:
             if row["label"] != label or row["id"] not in seen:
                 raise Failure("entries.%s.tsv holds a row without a summary row" % label)
@@ -204,13 +211,15 @@ def write_md(path, run_name, labels, data):
         "",
         "## Files by outcome",
         "",
-        md_row(("label", "files") + OUTCOMES + ("leftover",)),
-        md_row(("---",) * (3 + len(OUTCOMES))),
+        md_row(("label", "files") + OUTCOMES + ("leftover", "lo fail", "lo_in fail")),
+        md_row(("---",) * (5 + len(OUTCOMES))),
     ]
     for label in labels:
         summary = data[label][0]
         out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]
-                          + [sum(1 for r in summary if r["leftover"] == "yes")]))
+                          + [sum(1 for r in summary if r["leftover"] == "yes"),
+                             sum(1 for r in summary if r["lo"] == "fail"),
+                             sum(1 for r in summary if r["lo_in"] == "fail")]))
 
     columns = ("family", "entries") + STATUSES + ("flagged",) + FLAGS
     for label in labels:
@@ -237,16 +246,18 @@ def write_md(path, run_name, labels, data):
 
     out += [
         "",
-        "## Files not ok, with a diff exit other than 0, or with a leftover temporary file",
+        "## Files not ok, with a diff exit other than 0, with a leftover temporary"
+        " file, or failing the LibreOffice open check",
         "",
         md_row(("id", "label", "producer", "tags", "outcome", "exit", "signal", "diff_exit", "leftover",
-                "differs from the expectation")),
-        md_row(("---",) * 10),
+                "lo", "lo_in", "differs from the expectation")),
+        md_row(("---",) * 12),
     ]
     listed = 0
     for label in labels:
         for row in data[label][0]:
-            if row["outcome"] == "ok" and row["diff_exit"] == "0" and row["leftover"] == "no":
+            if (row["outcome"] == "ok" and row["diff_exit"] == "0" and row["leftover"] == "no"
+                    and row["lo"] != "fail" and row["lo_in"] != "fail"):
                 continue
             listed += 1
             if row["outcome"] != "ok":
@@ -257,9 +268,9 @@ def write_md(path, run_name, labels, data):
                 differs = ", ".join("%s=%s" % (k, row[k]) for k, want in EXPECTED if row[k] != want) or "-"
             out.append(md_row([row["id"], label, row["producer"], row["tags"], row["outcome"],
                                row["exit"] or "-", row["signal"] or "-", row["diff_exit"] or "-",
-                               row["leftover"], differs]))
+                               row["leftover"], row["lo"], row["lo_in"], differs]))
     if not listed:
-        out.append(md_row(("none",) + ("",) * 9))
+        out.append(md_row(("none",) + ("",) * 11))
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(out) + "\n")
 

@@ -18,12 +18,16 @@
 set -uo pipefail
 umask 077
 
-readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>]"
+readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>]"
 readonly G=/usr/bin/grep
 readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
-readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover'
+readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in'
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
 readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
+# The image has no Java by design, so every conversion writes this one line to
+# stderr. Planning ruled on 2026-09-15 that it is the only allowed line holding
+# Error or Warning, matched whole (records/libreoffice-2026-09-15.md).
+readonly LO_ALLOWED_STDERR='Warning: failed to launch javaldx - java may not function correctly'
 
 DIE_FD=2
 die() {
@@ -31,10 +35,10 @@ die() {
   exit 2
 }
 
-LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS=""
+LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS="" LO_IMAGE=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids)
+    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice)
       [ "$#" -ge 2 ] || die "$1 needs a value; $USAGE"
       case "$1" in
         --label) LABEL=$2 ;;
@@ -45,6 +49,7 @@ while [ "$#" -gt 0 ]; do
         --timeout) TIMEOUT=$2 ;;
         --memory) MEMORY=$2 ;;
         --ids) IDS=$2 ;;
+        --libreoffice) LO_IMAGE=$2 ;;
       esac
       shift 2
       ;;
@@ -60,6 +65,11 @@ esac
 [ -n "$XD" ] && [ -f "$XD" ] && [ -x "$XD" ] || die "--xlsx-diff must name an executable file"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive whole number of seconds"
 [[ "$MEMORY" =~ ^[1-9][0-9]*$ ]] || die "--memory must be a positive whole number of MiB"
+if [ -n "$LO_IMAGE" ]; then
+  [[ "$LO_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@-]*$ ]] || die "--libreoffice must name an image"
+  command -v podman >/dev/null 2>&1 || die "--libreoffice needs podman"
+  command -v python3 >/dev/null 2>&1 || die "--libreoffice needs python3 to count sheets and tables"
+fi
 
 exec 3>&2 2>/dev/null
 DIE_FD=3
@@ -155,6 +165,64 @@ seconds() {
   }'
 }
 
+# lo_check <file> <work dir> <reason file> <reference workbook>: the open check
+# of specs/0006-passthrough.md P3. The file's directory is mounted read-only as
+# /in and the work directory's ods/ as /out, and the copy is converted to ODS
+# under the same timeout. It is ok when the conversion exits 0, its stderr holds
+# no line with Error or Warning other than the allowed javaldx line, the ODS
+# exists, and its content.xml holds as many <table:table elements as the
+# reference workbook's xl/workbook.xml holds <sheet elements. It prints nothing:
+# the reason for a fail goes to the reason file, which stays in the run
+# directory. Returns 0 for ok, 1 for fail.
+lo_check() {
+  local file=$1 work=$2 reason=$3 reference=$4
+  local indir base outdir ods rc counts sheets tables
+  indir=$(dirname -- "$file")
+  base=$(basename -- "$file")
+  outdir=$work/ods
+  mkdir -p "$work" && rm -rf "$outdir" && mkdir -p "$outdir" ||
+    { printf 'cannot prepare the conversion directory\n' >"$reason"; return 1; }
+  timeout --signal=KILL "$TIMEOUT" podman run --rm --network=none --userns=keep-id \
+    -v "$indir":/in:ro -v "$outdir":/out "$LO_IMAGE" \
+    --convert-to ods --outdir /out "/in/$base" \
+    </dev/null >"$work/stdout.txt" 2>"$work/stderr.txt" 3>&-
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'the conversion exited %s\n' "$rc" >"$reason"
+    return 1
+  fi
+  if LC_ALL=C "$G" -a -E 'Error|Warning' "$work/stderr.txt" |
+    LC_ALL=C "$G" -a -q -v -x -F -e "$LO_ALLOWED_STDERR"; then
+    printf 'stderr holds a line with Error or Warning other than the allowed javaldx line\n' >"$reason"
+    return 1
+  fi
+  ods=$outdir/${base%.*}.ods
+  if [ ! -f "$ods" ]; then
+    printf 'no ods file was written\n' >"$reason"
+    return 1
+  fi
+  counts=$(LO_REFERENCE=$reference LO_ODS=$ods python3 -c '
+import os, re, sys, zipfile
+try:
+    workbook = zipfile.ZipFile(os.environ["LO_REFERENCE"]).read("xl/workbook.xml").decode("utf-8", "replace")
+    content = zipfile.ZipFile(os.environ["LO_ODS"]).read("content.xml").decode("utf-8", "replace")
+except Exception as err:
+    sys.stdout.write("error %s" % type(err).__name__)
+else:
+    sys.stdout.write("%d %d" % (len(re.findall(r"<sheet ", workbook)), len(re.findall(r"<table:table ", content))))
+') || { printf 'cannot count sheets and tables\n' >"$reason"; return 1; }
+  read -r sheets tables <<<"$counts"
+  if ! [[ "$sheets" =~ ^[0-9]+$ ]] || ! [[ "${tables:-}" =~ ^[0-9]+$ ]]; then
+    printf 'cannot read the ods or the workbook part\n' >"$reason"
+    return 1
+  fi
+  if [ "$sheets" -eq 0 ] || [ "$sheets" -ne "$tables" ]; then
+    printf 'the ods holds %s table elements and the workbook %s sheet elements\n' "$tables" "$sheets" >"$reason"
+    return 1
+  fi
+  return 0
+}
+
 n_files=0 n_ok=0 n_error=0 n_timeout=0 n_panic=0 n_crash=0
 while IFS=$'\t' read -r id ext producer tags; do
   n_files=$((n_files + 1))
@@ -165,6 +233,7 @@ while IFS=$'\t' read -r id ext producer tags; do
   timefile=$dir/time.$LABEL.txt
   rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
     die "cannot remove an earlier output"
+  rm -rf "$dir/lo.$LABEL" "$dir/lo-in.$LABEL" || die "cannot remove an earlier conversion directory"
   # A temporary file from an earlier, stopped run into this directory is
   # removed first, so leftover below counts only this child's.
   for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
@@ -233,8 +302,27 @@ while IFS=$'\t' read -r id ext producer tags; do
     fi
   fi
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
-    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" "$leftover" >>"$SUMMARY" ||
+  # The open check, when an image was given: once on the input, and on the copy
+  # when there is one. The reasons stay in the run subdirectory.
+  lo=- lo_in=-
+  if [ -n "$LO_IMAGE" ]; then
+    if lo_check "$input" "$dir/lo-in.$LABEL" "$dir/lo-in-reason.$LABEL.txt" "$input"; then
+      lo_in=ok
+    else
+      lo_in=fail
+    fi
+    if [ "$outcome" = ok ]; then
+      if lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$input"; then
+        lo=ok
+      else
+        lo=fail
+      fi
+    fi
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
+    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" "$leftover" \
+    "$lo" "$lo_in" >>"$SUMMARY" ||
     die "cannot append to summary.$LABEL.tsv"
   printf '%s %s %s %s %s %s\n' "$id" "$LABEL" "$outcome" "${diff_exit:--}" "${wall:--}" "${rss:--}"
   case "$outcome" in
