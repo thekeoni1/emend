@@ -53,7 +53,7 @@ alongside T1.
 | T0 | Repo bootstrap: workspace, gate script, privacy gate, first push | `0001-bootstrap.md` |
 | T1 | `xlsx-diff`: the entry-level fidelity harness | `0004-xlsx-diff.md` |
 | T2 | Corpus assembly and manifest (maintainer-led) | `0005-corpus.md` |
-| T3 | Passthrough baseline: zip raw-copy run over the corpus, size baseline | written after T1 verifies |
+| T3 | Passthrough baseline: zip raw-copy run over the corpus, size baseline | `0006-passthrough.md` |
 | T4 | Moved into Milestone 1 (names-only XML comparison) | - |
 | T5 | Architecture decision record | `records/decision-architecture.md` |
 

@@ -53,7 +53,7 @@ Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 | P2 | Prove CI fails: a throwaway branch with a formatting error, the red run recorded, the branch deleted | DONE (41a99a1 to c053374; run 34991440664 failure on the deleted branch; main unchanged at 401a2f7) |
 | Close | Push the local T0b P1 and P2 record commits and the P2 rulings, using the T0 close-out steps; record the CI run on the pushed commit | DONE (pushed 199b468; run 34993434019 success; record 62c4e80 local) |
 
-### T1: xlsx-diff, the fidelity harness (`specs/0004-xlsx-diff.md`)
+### T1: xlsx-diff, the fidelity harness (`specs/0004-xlsx-diff.md`), DONE 2026-09-15
 
 | Phase | Part | Status |
 |-------|------|--------|
@@ -63,7 +63,7 @@ Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 | P4 | No-leak sentinel test on stdout and stderr; the `local` flag; a prefix-only `files_identical` test; zip64 entry over 4 GiB uncompressed compared by streaming on i686 (ignored by default, run explicitly and logged) | DONE (564af3b to b5180be) |
 | Close | Push T1 P1 to P4 with their records, after P4 (maintainer decision); record the CI run | DONE (pushed 83c9852; run 35017518231 success; record 343e91f local) |
 | P5 | Flag completeness: `local` narrowed to local-only differences, `attrs` with internal attributes and disk number, `descriptor` with the bytes after the data; records go with the next push | DONE (b58c086 to 4f6f347) |
-| P6 | Closing the exit-0 guarantee: `attrs` covers raw central size, CRC and method bytes that decode equal (zip64 placeholders); `order_preserved` covers the file order; the data-overrun case tested; the last T1 phase, after which harness findings go to a backlog unless a real data flow is affected | READY |
+| P6 | Closing the exit-0 guarantee: `attrs` covers raw central size, CRC and method bytes that decode equal (zip64 placeholders); `order_preserved` covers the file order; the data-overrun case tested; the last T1 phase | DONE (8a898b3 to 8c979bc; records local until the next push) |
 
 ### T2: corpus (runs alongside T1; `specs/0005-corpus.md`)
 
@@ -83,14 +83,14 @@ implementing session does P1 and P7.
 | P6 | Maintainer: desktop Excel files for pivots, macros (.xlsm), threaded comments and slicers, plus any own workbooks | PLANNED |
 | P7 | Coverage check: every tag covered, or gaps listed for a planning ruling on starting T3 anyway | PLANNED |
 
-### T3: passthrough baseline
+### T3: passthrough baseline (`specs/0006-passthrough.md`)
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Subprocess isolation (timeout, panic, abort, memory) and the zip raw-copy passthrough run over the corpus on host | PLANNED |
-| P2 | i686 musl runs; stripped size of minimal `zip` and `zip` plus `quick-xml` consumers (size baseline); dependency and licence tree of the `zip` features used | PLANNED |
-| P3 | LibreOffice open check: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
-| P4 | First full recorded run: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
+| P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | READY |
+| P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited | PLANNED |
+| P3 | LibreOffice open check with the corpus session's image: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
+| P4 | First full recorded run over the corpus: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
 
 ### T4: moved into Milestone 1
 
@@ -155,6 +155,16 @@ approval.
   concern a real data flow (a corpus file in T3, or an emend output).
   - The zip64 test is rerun only when the gap or size code changes, not
     per phase (T1 P5 gap 3).
+  - No test tells the two size branches of `raw_only` apart, since every
+    fixture is stored with equal sizes; the method and CRC-32 branches
+    are unreachable with zip 8.6.0 (T1 P6 gap 1).
+  - The file-order tie handling has no test; the byte builder writes one
+    local header per entry (T1 P6 gap 2).
+  - The data-overrun test shows no error and exit 0 but not where the
+    gap starts (T1 P6 gap 3).
+  - The single-field zip64 placeholder fixtures use a field layout the
+    zip specification does not describe (T1 P6 gap 4).
+  - A tautological precondition in `tests/p6.rs` (T1 P6 gap 5).
 - Privacy gate backlog: findings raised after T2 P0 that do not concern a
   data flow this project has.
   - Unchecked `sed`, `tr` and `cut` exit statuses in two helper

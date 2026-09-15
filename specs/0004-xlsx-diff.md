@@ -5,8 +5,9 @@ Status: P1 to P4 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
 phase commits 8d3c2aa, ac10ff6 and ed5f1f7; P3: f0adb45 to 827766a,
 phase commits 9f124c7 and 401bb98; P4: 564af3b to b5180be, phase
 commits 74b2bf0 and c35112b; P5: b58c086 to 4f6f347, phase commits
-1c8eca1 and b3534cc). The T1 close-out push went after P4 (maintainer
-decision, 2026-09-15). P6 READY, the last T1 phase. Runs after T0b. T2
+1c8eca1 and b3534cc; P6: 8a898b3 to 8c979bc, phase commits 5d98cdc and
+dbe108c). T1 DONE 2026-09-15. The close-out push went after P4
+(maintainer decision); the P5 and P6 records go with the next push. Runs after T0b. T2
 (corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
@@ -609,6 +610,40 @@ Deliverables:
   from a local header to the next header, and the order in both the
   central directory and the file, are inside the status, the flags and
   the archive rows.
+
+### Planning rulings on P6 (2026-09-15)
+
+- P6 is verified from primaries by planning's own checks:
+  - Doc commit 8a898b3 holds exactly planning's two doc files (88
+    insertions, 11 deletions), unchanged since. The two phase commits
+    touch only `tools/xlsx-diff/`; the four record commits only
+    `records/logs/t1-p6/`. All seven messages end with the
+    Co-Authored-By trailer only, under the noreply identity. No mode
+    changes, no tracked archive.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 41 passed and 1 ignored on each, same names.
+  - Planning read the `lib.rs` diff and the outline of `tests/p6.rs`
+    against this spec: `raw_only` over the four raw fields against the
+    decoded values, and the file-order check over adjacent pairs sorted
+    by offset on both sides.
+  - Planning built its own archives byte by byte, every entry stored
+    with a zip64 extra field in each central record, readable by
+    Python's zipfile: a placeholder pair (`attrs` on that row alone,
+    exit 1); the local entries permuted with the central order kept
+    (no flags, `order_preserved` `no`, exit 1); the permuted archive
+    against its byte copy (exit 0); the plain archive against its byte
+    copy (exit 0).
+  - The six record files, the nine source files, `Cargo.lock` and the
+    seven messages have zero hits on every scan; the superseded logs at
+    e8280e3 hold no home path and no non-ASCII byte. `scripts/privacy.sh`
+    over the 125 local commits: PASS.
+- Departures 1 to 4 accepted as recorded. On 2: the method and CRC-32
+  branches of `raw_only` follow the Output section's wording and stay,
+  unreachable with zip 8.6.0.
+- Remaining gaps 1 to 5 go to the xlsx-diff backlog in `ROADMAP.md`:
+  none concerns a real data flow.
+- T1 is DONE. From now on, harness findings go to that backlog unless
+  they concern a corpus file in T3 or an emend output.
 
 ### Close-out push (after P4)
 
