@@ -1,0 +1,160 @@
+about: T1 P2 phase commit 8d3c2aaab93ef9ed36502edef09a1a7297be4d6a; HEAD at run: 8d3c2aaab93ef9ed36502edef09a1a7297be4d6a
+phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:11:10Z
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T1 P2 test.log (specs/0004-xlsx-diff.md, "Every phase writes"): cargo test
+    # for the workspace on the host and with --target i686-unknown-linux-musl,
+    # colour off. The log shows the test names, the "Running" lines and the
+    # summary lines of each run, both executed counts, and checks the two runs
+    # executed the same tests. Each check is evaluated once.
+    # Usage: t1p2-test.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p2/test.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # passed_matches: $passed is more than 0 and equals $nok (one check, two conditions).
+    passed_matches() { [ "$passed" -gt 0 ] && [ "$passed" -eq "$nok" ]; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: T1 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; $(rustc --version)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    for target in host i686-unknown-linux-musl; do
+      echo
+      echo "## cargo test --workspace ($target)"
+      if [ "$target" = host ]; then
+        echo "command: cargo test --workspace"
+        cargo test --workspace >"$T/$target.out" 2>&1 </dev/null
+      else
+        echo "command: cargo test --workspace --target $target"
+        cargo test --workspace --target "$target" >"$T/$target.out" 2>&1 </dev/null
+      fi
+      rc=$?
+      echo "exit: $rc"
+      check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+      echo "Running lines, test lines and summary lines:"
+      LC_ALL=C "$G" -E '^ *Running |^ *Doc-tests |^test .* \.\.\. |^test result: ' "$T/$target.out" | sed 's/^ */    /'
+      LC_ALL=C "$G" -E '^test .* \.\.\. ok$' "$T/$target.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | sort >"$T/$target.names"
+      passed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      failed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^failed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      ignored=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^ignored;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      nok=$(wc -l <"$T/$target.names")
+      echo "$target: passed $passed; failed $failed; ignored $ignored; test lines ending ok: $nok"
+      check "$target: failed is 0" "$(yn [ "$failed" -eq 0 ])"
+      check "$target: passed is more than 0 and equals the ok test lines" "$(yn passed_matches)"
+      n=$(ctrl_bytes "$T/$target.out")
+      check "$target: control bytes in the cargo output: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+      echo "$passed" >"$T/$target.count"
+    done
+    
+    echo
+    echo "## the two runs"
+    echo "host executed $(cat "$T/host.count") tests; i686-unknown-linux-musl executed $(cat "$T/i686-unknown-linux-musl.count") tests"
+    check "the i686 run executed the same test names as the host run" "$(yn cmp -s "$T/host.names" "$T/i686-unknown-linux-musl.names")"
+    check "the two counts are equal" "$(yn [ "$(cat "$T/host.count")" = "$(cat "$T/i686-unknown-linux-musl.count")" ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the runs (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## cargo test --workspace (host)
+command: cargo test --workspace
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/debug/deps/xlsx_diff-e695ed04bc917c73)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
+    test missing_file_is_an_error ... ok
+    test duplicate_name_is_an_error ... ok
+    test dropped_entry ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test non_zip_file_is_an_error ... ok
+    test added_entry ... ok
+    test binary_usage_error ... ok
+    test names_are_escaped ... ok
+    test equal_archives_are_identical ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
+    test short_raw_stream_is_an_error ... ok
+    test unsupported_method_is_an_error ... ok
+    test encrypted_entry_is_an_error ... ok
+    test changed_entry_with_different_lengths ... ok
+    test changed_entry_with_equal_length ... ok
+    test wrong_crc_is_an_error ... ok
+    test recompressed_entry ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+host: passed 19; failed 0; ignored 0; test lines ending ok: 19
+host: failed is 0: yes
+host: passed is more than 0 and equals the ok test lines: yes
+host: control bytes in the cargo output: 0 (expect 0): yes
+
+## cargo test --workspace (i686-unknown-linux-musl)
+command: cargo test --workspace --target i686-unknown-linux-musl
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-272b4e4343c36511)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
+    test missing_file_is_an_error ... ok
+    test binary_usage_error ... ok
+    test duplicate_name_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test added_entry ... ok
+    test dropped_entry ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
+    test unsupported_method_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
+    test encrypted_entry_is_an_error ... ok
+    test changed_entry_with_different_lengths ... ok
+    test changed_entry_with_equal_length ... ok
+    test wrong_crc_is_an_error ... ok
+    test recompressed_entry ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+i686-unknown-linux-musl: passed 19; failed 0; ignored 0; test lines ending ok: 19
+i686-unknown-linux-musl: failed is 0: yes
+i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
+i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
+
+## the two runs
+host executed 19 tests; i686-unknown-linux-musl executed 19 tests
+the i686 run executed the same test names as the host run: yes
+the two counts are equal: yes
+status after the runs (expect empty): : yes
+test log checks all as expected: yes
