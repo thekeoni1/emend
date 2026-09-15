@@ -111,6 +111,13 @@ def main(argv):
     for field in (pver, note, os.path.basename(src)):
         if re.search(r"[\t\r\n]", field):
             die("tab or newline in a text field")
+        # A file name or argument the file system gave us as undecodable bytes
+        # carries surrogates, which the manifest write would refuse after the
+        # copy was made, leaving a corpus file with no row.
+        try:
+            field.encode("utf-8")
+        except UnicodeEncodeError:
+            die("a text field is not valid UTF-8")
 
     h = hashlib.sha256()
     with open(src, "rb") as f:
