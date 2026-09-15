@@ -38,7 +38,7 @@ fn equal_archives_are_identical() {
             assert_tail(row, ["", "", "", ""]);
         }
         assert_eq!(
-            archive_rows(&result.stdout),
+            status_counts(&result.stdout),
             expected_archive([2, 2, 2, 0, 0, 0, 0])
         );
     }
@@ -122,7 +122,7 @@ fn dropped_entry() {
         assert_tail(row, ["", "", "", ""]);
     }
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([3, 2, 2, 0, 0, 1, 0])
     );
 }
@@ -146,7 +146,7 @@ fn added_entry() {
         assert_tail(row, ["", "", "", ""]);
     }
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([1, 2, 1, 0, 0, 0, 1])
     );
 }

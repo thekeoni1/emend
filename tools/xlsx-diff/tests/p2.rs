@@ -60,20 +60,38 @@ fn recompressed_entry() {
         "precondition: equal CRC-32 values"
     );
 
+    // The zip writer records version-made-by 0x0314 for a deflated entry and
+    // 0x030a for a stored one, so the method change also sets `attrs` (P3).
+    let (bytes_in, bytes_out) = (
+        fs::read(&input).expect("read"),
+        fs::read(&output).expect("read"),
+    );
+    assert_eq!(
+        central_version_made_by(&bytes_in, b"level.xml"),
+        central_version_made_by(&bytes_out, b"level.xml"),
+        "precondition: the level entry keeps its version-made-by"
+    );
+    assert_ne!(
+        central_version_made_by(&bytes_in, b"method.xml"),
+        central_version_made_by(&bytes_out, b"method.xml"),
+        "precondition: the method entry's version-made-by differs"
+    );
+
     let result = run(&input, &output);
     assert_eq!(result.status, 1);
     assert_eq!(result.stderr, "");
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 2);
+    let flags = ["", "attrs"];
     for (i, row) in entry_rows.iter().enumerate() {
         assert_eq!(row[2], "recompressed");
         assert_columns(row, Some((i, &mi[i])), Some((i, &mo[i])));
-        assert_tail(row, ["", "", "", ""]);
+        assert_tail(row, ["", "", "", flags[i]]);
     }
     assert_eq!((entry_rows[0][5], entry_rows[0][6]), ("8", "8"), "methods");
     assert_eq!((entry_rows[1][5], entry_rows[1][6]), ("8", "0"), "methods");
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([2, 2, 0, 2, 0, 0, 0])
     );
 }
@@ -117,7 +135,7 @@ fn changed_entry_with_equal_length() {
         assert_tail(row, expected[i]);
     }
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([3, 3, 0, 0, 3, 0, 0])
     );
 }
@@ -141,7 +159,7 @@ fn changed_entry_with_different_lengths() {
             deflated("shorter-out.txt", &data[..600]),
             deflated("longer-out.txt", &data),
             // A byte before the shorter length differs as well; column 14 is
-            // still the shorter length (Streaming).
+            // the first differing offset (P2 departure 4 ruling).
             deflated("earlier-byte.txt", &flipped(&data[..600], &[5])),
         ],
     );
@@ -149,17 +167,20 @@ fn changed_entry_with_different_lengths() {
     let result = run(&input, &output);
     assert_eq!(result.status, 1);
     assert_eq!(result.stderr, "");
+    let (mi, mo) = (meta(&input), meta(&output));
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 3);
-    for row in &entry_rows {
+    let expected = [
+        ("1000", "600", ["600", "", "", ""]),
+        ("600", "1000", ["600", "", "", ""]),
+        ("1000", "600", ["5", "", "", ""]),
+    ];
+    for (i, row) in entry_rows.iter().enumerate() {
         assert_eq!(row[2], "changed");
-        assert_tail(row, ["600", "", "", ""]);
+        assert_columns(row, Some((i, &mi[i])), Some((i, &mo[i])));
+        assert_eq!((row[7], row[8]), (expected[i].0, expected[i].1), "sizes");
+        assert_tail(row, expected[i].2);
     }
-    assert_eq!(
-        (entry_rows[0][7], entry_rows[0][8]),
-        ("1000", "600"),
-        "uncompressed sizes"
-    );
 }
 
 #[test]
@@ -174,12 +195,14 @@ fn large_entry_with_differences_in_first_middle_and_last_chunk() {
     let result = run(&input, &output);
     assert_eq!(result.status, 1);
     assert_eq!(result.stderr, "");
+    let (mi, mo) = (meta(&input), meta(&output));
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 1);
     assert_eq!(entry_rows[0][2], "changed");
+    assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
     assert_tail(&entry_rows[0], ["10", "5", "299999", ""]);
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([1, 1, 0, 0, 1, 0, 0])
     );
 }
@@ -345,7 +368,7 @@ fn recompressed_entry_with_equal_metadata() {
     assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
     assert_tail(&entry_rows[0], ["", "", "", ""]);
     assert_eq!(
-        archive_rows(&result.stdout),
+        status_counts(&result.stdout),
         expected_archive([1, 1, 0, 1, 0, 0, 0])
     );
 }
@@ -381,10 +404,11 @@ fn entry_of_exactly_two_buffers() {
     );
     let result = run(&input, &changed);
     assert_eq!(result.status, 1);
-    assert_tail(
-        &rows(&result.stdout, "entry")[0],
-        ["131071", "1", "131071", ""],
-    );
+    assert_eq!(result.stderr, "");
+    let entry_rows = rows(&result.stdout, "entry");
+    assert_eq!(entry_rows.len(), 1);
+    assert_eq!(entry_rows[0][2], "changed");
+    assert_tail(&entry_rows[0], ["131071", "1", "131071", ""]);
 
     let bad = dir.path("bad-crc.zip");
     let mut bytes = fs::read(&output).expect("read");

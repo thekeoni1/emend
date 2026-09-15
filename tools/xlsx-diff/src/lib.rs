@@ -2,12 +2,12 @@
 //!
 //! Compares two zip archives entry by entry and prints tab-separated rows on
 //! stdout. It never prints entry content: rows carry names, indices,
-//! compression methods, sizes, CRC-32 values and offsets, and an error line
-//! names the side and at most an escaped entry name.
+//! compression methods, sizes, CRC-32 values, offsets and flag names, and an
+//! error line names the side and at most an escaped entry name.
 //!
-//! T1 P2 fills columns 1 to 16 of the `entry` rows with the statuses
-//! `identical`, `recompressed`, `changed`, `dropped` and `added`. Flags
-//! (column 17) and the remaining `archive` rows come in P3.
+//! T1 P3 fills every column of the `entry` rows, including the flags, writes
+//! every `archive` row, and sets the exit status as the spec's "Exit status"
+//! section says.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -21,7 +21,8 @@ use zip::{HasZipMetadata, ZipArchive};
 /// The usage line printed on a usage error.
 pub const USAGE: &str = "usage: xlsx-diff <input.xlsx> <output.xlsx>";
 
-/// Exit status when every entry is identical.
+/// Exit status when every entry is identical with no flags, the order is
+/// preserved and the archive comments are equal.
 pub const EXIT_SAME: u8 = 0;
 
 /// Exit status when the archives were compared and a difference exists.
@@ -30,7 +31,7 @@ pub const EXIT_DIFFERENT: u8 = 1;
 /// Exit status for usage errors and every other failure.
 pub const EXIT_ERROR: u8 = 2;
 
-/// Size of each of the two buffers used to compare entry bytes side by side.
+/// Size of each of the two buffers used to compare bytes side by side.
 const CHUNK: usize = 64 * 1024;
 
 /// Signature of a central directory file header.
@@ -38,6 +39,15 @@ const CENTRAL_HEADER_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x01, 0x02];
 
 /// Length of the fixed part of a central directory file header.
 const CENTRAL_HEADER_LEN: usize = 46;
+
+/// Signature of a local file header.
+const LOCAL_HEADER_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x03, 0x04];
+
+/// Length of the fixed part of a local file header.
+const LOCAL_HEADER_LEN: usize = 30;
+
+/// General purpose bit 3: sizes and CRC-32 follow the data in a descriptor.
+const DATA_DESCRIPTOR_FLAG: u16 = 0x0008;
 
 /// Which of the two archives a message or a value belongs to.
 #[derive(Clone, Copy)]
@@ -161,36 +171,70 @@ pub fn escape_name(raw: &[u8]) -> String {
     out
 }
 
-/// Metadata of one entry, as the central directory and the zip crate give it.
-struct Meta {
+/// The fields of one central directory file header that the flags compare,
+/// taken from the record's own bytes: the zip crate decodes the comment,
+/// turns an invalid DOS date into no date, and does not keep the central
+/// extra field apart.
+struct Record {
     name: Vec<u8>,
+    version_made_by: u16,
+    flags: u16,
+    time: u16,
+    date: u16,
+    external_attributes: u32,
+    extra: Vec<u8>,
+    comment: Vec<u8>,
+}
+
+/// Metadata of one entry: the central directory record, the zip crate's
+/// method, sizes and CRC-32, and the local header's extra field.
+struct Meta {
+    record: Record,
     method: u16,
     size: u64,
     compressed: u64,
     crc: u32,
+    local_extra: Vec<u8>,
 }
 
-/// An opened archive and the metadata of its entries, by index.
+impl Meta {
+    fn name(&self) -> &[u8] {
+        &self.record.name
+    }
+}
+
+/// An opened archive, its archive-level values, and the metadata of its
+/// entries, by index.
 struct Archive {
     side: Side,
     zip: ZipArchive<BufReader<File>>,
     entries: Vec<Meta>,
+    comment: Vec<u8>,
+    prefix: u64,
+    central_start: u64,
+    bytes: u64,
 }
 
-/// Opens one archive, reads its central directory names, rejects a duplicate
-/// raw name and an encrypted entry, and collects every entry's metadata.
+/// Opens one archive, reads its central directory records, rejects a
+/// duplicate raw name and an encrypted entry, and collects every entry's
+/// metadata and local extra field.
 fn open(path: &Path, side: Side) -> Result<Archive, Error> {
     let file = File::open(path).map_err(|e| Error::Open(side, e.kind()))?;
+    let bytes = file
+        .metadata()
+        .map_err(|e| Error::Open(side, e.kind()))?
+        .len();
     let mut zip = ZipArchive::new(BufReader::new(file)).map_err(|e| zip_error(side, e))?;
 
     // The zip crate keys its entries by name, so a repeated name collapses
     // into one entry. The central directory is read directly to find it.
     let mut raw = BufReader::new(File::open(path).map_err(|e| Error::Open(side, e.kind()))?);
-    let records = central_names(&mut raw, zip.central_directory_start(), zip.len(), side)?;
+    let central_start = zip.central_directory_start();
+    let records = central_records(&mut raw, central_start, zip.len(), side)?;
     let mut seen = HashSet::with_capacity(records.len());
-    for name in &records {
-        if !seen.insert(name.as_slice()) {
-            return Err(Error::Duplicate(side, name.clone()));
+    for record in &records {
+        if !seen.insert(record.name.as_slice()) {
+            return Err(Error::Duplicate(side, record.name.clone()));
         }
     }
     if records.len() != zip.len() {
@@ -201,42 +245,59 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
     for (index, record) in records.into_iter().enumerate() {
         let entry = zip
             .by_index_raw(index)
-            .map_err(|_| Error::Entry(side, record.clone()))?;
-        if entry.name_raw() != record.as_slice() {
+            .map_err(|_| Error::Entry(side, record.name.clone()))?;
+        let metadata = entry.get_metadata();
+        // The record read here and the crate's entry at the same index must
+        // be the same central directory header.
+        if entry.name_raw() != record.name.as_slice()
+            || metadata.flags != record.flags
+            || metadata.external_attributes != record.external_attributes
+        {
             return Err(Error::CentralDirectory(side));
         }
-        if entry.get_metadata().encrypted {
-            return Err(Error::Encrypted(side, record));
+        if metadata.encrypted {
+            return Err(Error::Encrypted(side, record.name));
         }
         // zip 8.6.0 gives the method number only through this deprecated call.
         #[allow(deprecated)]
         let method = entry.compression().to_u16();
+        let (size, compressed, crc) = (entry.size(), entry.compressed_size(), entry.crc32());
+        let local_extra = local_extra(&mut raw, entry.header_start(), side, &record.name)?;
         entries.push(Meta {
+            record,
             method,
-            size: entry.size(),
-            compressed: entry.compressed_size(),
-            crc: entry.crc32(),
-            name: record,
+            size,
+            compressed,
+            crc,
+            local_extra,
         });
     }
-    Ok(Archive { side, zip, entries })
+    Ok(Archive {
+        side,
+        comment: zip.comment().to_vec(),
+        prefix: zip.offset(),
+        central_start,
+        bytes,
+        zip,
+        entries,
+    })
 }
 
-/// Reads the raw names of the central directory file headers, in order, from
-/// `start` (an absolute file offset, as `ZipArchive::central_directory_start`
-/// gives it, prefix included) until the first record that is not a central
-/// file header. `expected` is the entry count the zip crate reports.
-fn central_names(
+/// Reads the central directory file headers, in order, from `start` (an
+/// absolute file offset, as `ZipArchive::central_directory_start` gives it,
+/// prefix included) until the first record that is not a central file
+/// header. `expected` is the entry count the zip crate reports.
+fn central_records(
     reader: &mut BufReader<File>,
     start: u64,
     expected: usize,
     side: Side,
-) -> Result<Vec<Vec<u8>>, Error> {
+) -> Result<Vec<Record>, Error> {
     let bad = |_| Error::CentralDirectory(side);
-    let mut position = start;
-    let mut names = Vec::with_capacity(expected);
+    let le16 = |b: &[u8], at: usize| u16::from_le_bytes([b[at], b[at + 1]]);
+    reader.seek(SeekFrom::Start(start)).map_err(bad)?;
+    let mut records = Vec::with_capacity(expected);
     loop {
-        reader.seek(SeekFrom::Start(position)).map_err(bad)?;
         let mut header = [0u8; CENTRAL_HEADER_LEN];
         let got = read_full(reader, &mut header).map_err(bad)?;
         if got < 4 || header[..4] != CENTRAL_HEADER_SIGNATURE {
@@ -245,19 +306,57 @@ fn central_names(
         if got < CENTRAL_HEADER_LEN {
             return Err(Error::CentralDirectory(side));
         }
-        let name_len = u16::from_le_bytes([header[28], header[29]]);
-        let extra_len = u16::from_le_bytes([header[30], header[31]]);
-        let comment_len = u16::from_le_bytes([header[32], header[33]]);
-        let mut name = vec![0u8; usize::from(name_len)];
-        if read_full(reader, &mut name).map_err(bad)? != name.len() {
-            return Err(Error::CentralDirectory(side));
-        }
-        names.push(name);
-        position = position
-            .checked_add(46 + u64::from(name_len) + u64::from(extra_len) + u64::from(comment_len))
-            .ok_or(Error::CentralDirectory(side))?;
+        let mut field = |len: u16| -> Result<Vec<u8>, Error> {
+            let mut bytes = vec![0u8; usize::from(len)];
+            if read_full(reader, &mut bytes).map_err(bad)? != bytes.len() {
+                return Err(Error::CentralDirectory(side));
+            }
+            Ok(bytes)
+        };
+        let name = field(le16(&header, 28))?;
+        let extra = field(le16(&header, 30))?;
+        let comment = field(le16(&header, 32))?;
+        records.push(Record {
+            name,
+            version_made_by: le16(&header, 4),
+            flags: le16(&header, 8),
+            time: le16(&header, 12),
+            date: le16(&header, 14),
+            external_attributes: u32::from_le_bytes([
+                header[38], header[39], header[40], header[41],
+            ]),
+            extra,
+            comment,
+        });
     }
-    Ok(names)
+    Ok(records)
+}
+
+/// Reads the extra field of the local file header at `start` (an absolute
+/// file offset, as `ZipFile::header_start` gives it).
+fn local_extra(
+    reader: &mut BufReader<File>,
+    start: u64,
+    side: Side,
+    name: &[u8],
+) -> Result<Vec<u8>, Error> {
+    let bad = || Error::Entry(side, name.to_vec());
+    reader.seek(SeekFrom::Start(start)).map_err(|_| bad())?;
+    let mut header = [0u8; LOCAL_HEADER_LEN];
+    let got = read_full(reader, &mut header).map_err(|_| bad())?;
+    if got != LOCAL_HEADER_LEN || header[..4] != LOCAL_HEADER_SIGNATURE {
+        return Err(bad());
+    }
+    let name_len = u16::from_le_bytes([header[26], header[27]]);
+    let extra_len = u16::from_le_bytes([header[28], header[29]]);
+    reader
+        .seek_relative(i64::from(name_len))
+        .map_err(|_| bad())?;
+    let mut extra = vec![0u8; usize::from(extra_len)];
+    if read_full(reader, &mut extra).map_err(|_| bad())? != extra.len() {
+        return Err(bad());
+    }
+    Ok(extra)
 }
 
 /// Reads until `buf` is full or the reader ends, and returns the count read.
@@ -279,8 +378,14 @@ fn read_full<R: Read + ?Sized>(reader: &mut R, buf: &mut [u8]) -> io::Result<usi
 /// compressed size is a read error, never a difference.
 fn raw_equal(input: &mut Archive, i: usize, output: &mut Archive, j: usize) -> Result<bool, Error> {
     let (side_in, side_out) = (input.side, output.side);
-    let (name_in, declared_in) = (input.entries[i].name.clone(), input.entries[i].compressed);
-    let (name_out, declared_out) = (output.entries[j].name.clone(), output.entries[j].compressed);
+    let (name_in, declared_in) = (
+        input.entries[i].name().to_vec(),
+        input.entries[i].compressed,
+    );
+    let (name_out, declared_out) = (
+        output.entries[j].name().to_vec(),
+        output.entries[j].compressed,
+    );
     let mut a = input
         .zip
         .by_index_raw(i)
@@ -321,7 +426,8 @@ enum Content {
     /// Equal lengths; the first differing offset, the count of differing
     /// bytes and the last differing offset.
     Differs { first: u64, count: u64, last: u64 },
-    /// Different lengths; the shorter length.
+    /// Different lengths; the first differing offset, which is the shorter
+    /// length when the bytes agree up to there.
     Length(u64),
 }
 
@@ -336,8 +442,8 @@ fn content(
     j: usize,
 ) -> Result<Content, Error> {
     let (side_in, side_out) = (input.side, output.side);
-    let (name_in, size_in) = (input.entries[i].name.clone(), input.entries[i].size);
-    let (name_out, size_out) = (output.entries[j].name.clone(), output.entries[j].size);
+    let (name_in, size_in) = (input.entries[i].name().to_vec(), input.entries[i].size);
+    let (name_out, size_out) = (output.entries[j].name().to_vec(), output.entries[j].size);
     let mut a = input
         .zip
         .by_index(i)
@@ -388,12 +494,39 @@ fn content(
         return Err(Error::Data(side_out, name_out));
     }
     if total_a != total_b {
-        return Ok(Content::Length(total_a.min(total_b)));
+        return Ok(Content::Length(first.unwrap_or(total_a.min(total_b))));
     }
     Ok(match first {
         None => Content::Equal,
         Some(first) => Content::Differs { first, count, last },
     })
+}
+
+/// Column 17 for an entry present on both sides: the names of the flags that
+/// are set, in the spec's order, comma-separated.
+fn flags(a: &Meta, b: &Meta) -> String {
+    let (ra, rb) = (&a.record, &b.record);
+    let mut set = Vec::new();
+    if (ra.time, ra.date) != (rb.time, rb.date) {
+        set.push("mtime");
+    }
+    if a.local_extra != b.local_extra || ra.extra != rb.extra {
+        set.push("extra");
+    }
+    if ra.flags != rb.flags {
+        set.push("gpflags");
+    }
+    if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) {
+        set.push("descriptor");
+    }
+    if ra.external_attributes != rb.external_attributes || ra.version_made_by != rb.version_made_by
+    {
+        set.push("attrs");
+    }
+    if ra.comment != rb.comment {
+        set.push("comment");
+    }
+    set.join(",")
 }
 
 /// The columns of one side of an `entry` row: index, method, uncompressed
@@ -417,12 +550,12 @@ fn offset_columns(content: Option<&Content>) -> [String; 3] {
         Some(Content::Differs { first, count, last }) => {
             [first.to_string(), count.to_string(), last.to_string()]
         }
-        Some(Content::Length(shorter)) => [shorter.to_string(), String::new(), String::new()],
+        Some(Content::Length(first)) => [first.to_string(), String::new(), String::new()],
         Some(Content::Equal) | None => Default::default(),
     }
 }
 
-/// Writes one `entry` row: columns 1 to 16 filled where they apply, 17 empty.
+/// Writes one `entry` row.
 fn write_entry(
     out: &mut dyn Write,
     name: &[u8],
@@ -430,24 +563,29 @@ fn write_entry(
     input: Option<(usize, &Meta)>,
     output: Option<(usize, &Meta)>,
     content: Option<&Content>,
+    flags: &str,
 ) -> Result<(), Error> {
     let [ia, ma, ua, ca, ka] = side_columns(input);
     let [ib, mb, ub, cb, kb] = side_columns(output);
     let [first, count, last] = offset_columns(content);
     writeln!(
         out,
-        "entry\t{}\t{status}\t{ia}\t{ib}\t{ma}\t{mb}\t{ua}\t{ub}\t{ca}\t{cb}\t{ka}\t{kb}\t{first}\t{count}\t{last}\t",
+        "entry\t{}\t{status}\t{ia}\t{ib}\t{ma}\t{mb}\t{ua}\t{ub}\t{ca}\t{cb}\t{ka}\t{kb}\t{first}\t{count}\t{last}\t{flags}",
         escape_name(name)
     )
     .map_err(|e| Error::Write(e.kind()))
 }
 
 /// Writes one `archive` row.
-fn write_archive(out: &mut dyn Write, key: &str, value: u64) -> Result<(), Error> {
+fn write_archive(out: &mut dyn Write, key: &str, value: impl fmt::Display) -> Result<(), Error> {
     writeln!(out, "archive\t{key}\t{value}").map_err(|e| Error::Write(e.kind()))
 }
 
-/// Row counts by status.
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+/// Row counts by status, and the count of entries with a flag set.
 #[derive(Default)]
 struct Counts {
     identical: u64,
@@ -455,10 +593,47 @@ struct Counts {
     changed: u64,
     dropped: u64,
     added: u64,
+    flagged: u64,
 }
 
-/// Compares the two archives and writes every row. Returns whether every
-/// entry is identical.
+/// The sums of the uncompressed and compressed sizes of an archive's entries.
+fn size_sums(archive: &Archive) -> Result<(u64, u64), Error> {
+    let overflow = || Error::CentralDirectory(archive.side);
+    let mut sums = (0u64, 0u64);
+    for meta in &archive.entries {
+        sums.0 = sums.0.checked_add(meta.size).ok_or_else(overflow)?;
+        sums.1 = sums.1.checked_add(meta.compressed).ok_or_else(overflow)?;
+    }
+    Ok(sums)
+}
+
+/// Whether the two files are byte-equal, compared through two 64 KiB
+/// buffers once their lengths are known equal.
+fn files_identical(input: &Path, output: &Path, len_in: u64, len_out: u64) -> Result<bool, Error> {
+    if len_in != len_out {
+        return Ok(false);
+    }
+    let mut a = File::open(input).map_err(|e| Error::Open(Side::Input, e.kind()))?;
+    let mut b = File::open(output).map_err(|e| Error::Open(Side::Output, e.kind()))?;
+    let mut buf_a = vec![0u8; CHUNK];
+    let mut buf_b = vec![0u8; CHUNK];
+    loop {
+        let got_a =
+            read_full(&mut a, &mut buf_a).map_err(|e| Error::Open(Side::Input, e.kind()))?;
+        let got_b =
+            read_full(&mut b, &mut buf_b).map_err(|e| Error::Open(Side::Output, e.kind()))?;
+        if got_a != got_b || buf_a[..got_a] != buf_b[..got_b] {
+            return Ok(false);
+        }
+        if got_a < CHUNK {
+            return Ok(true);
+        }
+    }
+}
+
+/// Compares the two archives and writes every row. Returns whether the exit
+/// status is 0: every entry `identical` with no flags, the order preserved
+/// and the archive comments equal.
 fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Error> {
     let mut a = open(input, Side::Input)?;
     let mut b = open(output, Side::Output)?;
@@ -466,15 +641,21 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
         .entries
         .iter()
         .enumerate()
-        .map(|(j, meta)| (meta.name.clone(), j))
+        .map(|(j, meta)| (meta.name().to_vec(), j))
         .collect();
 
     let mut counts = Counts::default();
     let mut matched = vec![false; b.entries.len()];
+    let mut order_preserved = true;
+    let mut previous: Option<usize> = None;
     for i in 0..a.entries.len() {
-        match out_index.get(&a.entries[i].name).copied() {
+        match out_index.get(a.entries[i].name()).copied() {
             Some(j) => {
                 matched[j] = true;
+                if previous.is_some_and(|p| j < p) {
+                    order_preserved = false;
+                }
+                previous = Some(j);
                 let (ea, eb) = (&a.entries[i], &b.entries[j]);
                 let same_meta = ea.method == eb.method
                     && ea.crc == eb.crc
@@ -495,37 +676,67 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
                     }
                 };
                 let (ea, eb) = (&a.entries[i], &b.entries[j]);
+                let set = flags(ea, eb);
+                if !set.is_empty() {
+                    counts.flagged += 1;
+                }
                 write_entry(
                     out,
-                    &ea.name,
+                    ea.name(),
                     status,
                     Some((i, ea)),
                     Some((j, eb)),
                     found.as_ref(),
+                    &set,
                 )?;
             }
             None => {
                 counts.dropped += 1;
                 let ea = &a.entries[i];
-                write_entry(out, &ea.name, "dropped", Some((i, ea)), None, None)?;
+                write_entry(out, ea.name(), "dropped", Some((i, ea)), None, None, "")?;
             }
         }
     }
     for (j, eb) in b.entries.iter().enumerate() {
         if !matched[j] {
             counts.added += 1;
-            write_entry(out, &eb.name, "added", None, Some((j, eb)), None)?;
+            write_entry(out, eb.name(), "added", None, Some((j, eb)), None, "")?;
         }
     }
 
-    write_archive(out, "entries_in", a.entries.len() as u64)?;
-    write_archive(out, "entries_out", b.entries.len() as u64)?;
+    let comment_equal = a.comment == b.comment;
+    let (uncompressed_in, compressed_in) = size_sums(&a)?;
+    let (uncompressed_out, compressed_out) = size_sums(&b)?;
+    let same_files = files_identical(input, output, a.bytes, b.bytes)?;
+
+    write_archive(out, "entries_in", a.entries.len())?;
+    write_archive(out, "entries_out", b.entries.len())?;
     write_archive(out, "identical", counts.identical)?;
     write_archive(out, "recompressed", counts.recompressed)?;
     write_archive(out, "changed", counts.changed)?;
     write_archive(out, "dropped", counts.dropped)?;
     write_archive(out, "added", counts.added)?;
-    Ok(counts.recompressed == 0 && counts.changed == 0 && counts.dropped == 0 && counts.added == 0)
+    write_archive(out, "flagged", counts.flagged)?;
+    write_archive(out, "order_preserved", yes_no(order_preserved))?;
+    write_archive(out, "comment_equal", yes_no(comment_equal))?;
+    write_archive(out, "prefix_in", a.prefix)?;
+    write_archive(out, "prefix_out", b.prefix)?;
+    write_archive(out, "central_start_in", a.central_start)?;
+    write_archive(out, "central_start_out", b.central_start)?;
+    write_archive(out, "uncompressed_in", uncompressed_in)?;
+    write_archive(out, "uncompressed_out", uncompressed_out)?;
+    write_archive(out, "compressed_in", compressed_in)?;
+    write_archive(out, "compressed_out", compressed_out)?;
+    write_archive(out, "bytes_in", a.bytes)?;
+    write_archive(out, "bytes_out", b.bytes)?;
+    write_archive(out, "files_identical", yes_no(same_files))?;
+
+    let every_entry_identical = counts.recompressed == 0
+        && counts.changed == 0
+        && counts.dropped == 0
+        && counts.added == 0
+        && counts.flagged == 0;
+    Ok(every_entry_identical && order_preserved && comment_equal)
 }
 
 /// Compares `input` with `output`, writing the rows to `stdout` and at most

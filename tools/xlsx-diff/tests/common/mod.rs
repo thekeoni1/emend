@@ -137,6 +137,31 @@ pub fn rows<'a>(stdout: &'a str, kind: &str) -> Vec<Vec<&'a str>> {
     selected
 }
 
+/// Every `archive` key, in the spec's order.
+pub const ARCHIVE_KEYS: [&str; 21] = [
+    "entries_in",
+    "entries_out",
+    "identical",
+    "recompressed",
+    "changed",
+    "dropped",
+    "added",
+    "flagged",
+    "order_preserved",
+    "comment_equal",
+    "prefix_in",
+    "prefix_out",
+    "central_start_in",
+    "central_start_out",
+    "uncompressed_in",
+    "uncompressed_out",
+    "compressed_in",
+    "compressed_out",
+    "bytes_in",
+    "bytes_out",
+    "files_identical",
+];
+
 /// The `archive` rows as `key=value` strings, in order.
 pub fn archive_rows(stdout: &str) -> Vec<String> {
     rows(stdout, "archive")
@@ -145,7 +170,30 @@ pub fn archive_rows(stdout: &str) -> Vec<String> {
         .collect()
 }
 
-/// The `archive` rows expected for the given counts, in the P2 order.
+/// The first seven `archive` rows (the entry counts and the status counts)
+/// as `key=value` strings, after checking that every key is present in order.
+pub fn status_counts(stdout: &str) -> Vec<String> {
+    let keys: Vec<String> = rows(stdout, "archive")
+        .iter()
+        .map(|c| c[1].to_string())
+        .collect();
+    assert_eq!(keys, ARCHIVE_KEYS, "archive keys in order");
+    archive_rows(stdout).into_iter().take(7).collect()
+}
+
+/// The value of the one `archive` row with `key`.
+pub fn archive_value(stdout: &str, key: &str) -> String {
+    let found: Vec<String> = rows(stdout, "archive")
+        .iter()
+        .filter(|c| c[1] == key)
+        .map(|c| c[2].to_string())
+        .collect();
+    assert_eq!(found.len(), 1, "one archive row {key}");
+    found[0].clone()
+}
+
+/// The entry counts and status counts expected, as `status_counts` gives
+/// them.
 pub fn expected_archive(counts: [u64; 7]) -> Vec<String> {
     let keys = [
         "entries_in",
@@ -338,42 +386,152 @@ pub fn stored_blocks(data: &[u8], splits: &[usize]) -> Vec<u8> {
 }
 
 /// A zip archive with one deflated entry whose raw stream is `raw`, written
-/// byte by byte: local header, data, central directory header and end of
-/// central directory record, with the CRC-32 and size of `data`.
+/// byte by byte by `raw_zip`, with the CRC-32 and size of `data`.
 pub fn single_deflate_entry_zip(name: &str, data: &[u8], raw: &[u8]) -> Vec<u8> {
-    let name = name.as_bytes();
-    let crc = crc32(data).to_le_bytes();
-    let compressed = u32::try_from(raw.len()).expect("small entry").to_le_bytes();
-    let size = u32::try_from(data.len())
-        .expect("small entry")
-        .to_le_bytes();
-    let name_len = u16::try_from(name.len()).expect("short name").to_le_bytes();
-    // Version 2.0, no flags, method 8, DOS time 00:00:00 and date 1980-01-01.
-    let common = |out: &mut Vec<u8>| {
-        out.extend_from_slice(&[20, 0, 0, 0, 8, 0, 0, 0, 0x21, 0]);
-        out.extend_from_slice(&crc);
-        out.extend_from_slice(&compressed);
-        out.extend_from_slice(&size);
-        out.extend_from_slice(&name_len);
-    };
-    let mut out = vec![0x50, 0x4b, 0x03, 0x04];
-    common(&mut out);
-    out.extend_from_slice(&[0, 0]);
-    out.extend_from_slice(name);
-    out.extend_from_slice(raw);
-    let central = u32::try_from(out.len()).expect("small archive");
-    out.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02, 20, 0]);
-    common(&mut out);
-    // Extra and comment lengths, disk, internal and external attributes,
-    // local header offset 0.
-    out.extend_from_slice(&[0; 16]);
-    out.extend_from_slice(name);
-    let central_len = u32::try_from(out.len()).expect("small archive") - central;
-    out.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 1, 0, 1, 0]);
-    out.extend_from_slice(&central_len.to_le_bytes());
-    out.extend_from_slice(&central.to_le_bytes());
-    out.extend_from_slice(&[0, 0]);
+    raw_zip(&[], &[raw_deflated(name, data, raw)], &[])
+}
+
+/// One entry of an archive written byte by byte by `raw_zip`. Every header
+/// field the flags compare is set here directly.
+#[derive(Clone)]
+pub struct RawEntry {
+    pub name: Vec<u8>,
+    /// The uncompressed bytes, for the CRC-32 and the uncompressed size.
+    pub data: Vec<u8>,
+    /// 0 (stored, `raw` equals `data`) or 8 (`raw` is the deflate stream).
+    pub method: u16,
+    /// The bytes stored for the entry.
+    pub raw: Vec<u8>,
+    pub version_made_by: u16,
+    /// General purpose flags; bit 3 writes a data descriptor after the data
+    /// and zeros in the local header's CRC-32 and size fields.
+    pub flags: u16,
+    pub time: u16,
+    pub date: u16,
+    pub local_extra: Vec<u8>,
+    pub central_extra: Vec<u8>,
+    pub comment: Vec<u8>,
+    pub external_attributes: u32,
+}
+
+/// A stored entry: version 2.0 made by MS-DOS, no flags, DOS time 00:00:00
+/// on 1980-01-01, no extra fields, no comment and no attributes.
+pub fn raw_stored(name: &str, data: &[u8]) -> RawEntry {
+    RawEntry {
+        name: name.as_bytes().to_vec(),
+        data: data.to_vec(),
+        method: 0,
+        raw: data.to_vec(),
+        version_made_by: 20,
+        flags: 0,
+        time: 0,
+        date: 0x0021,
+        local_extra: Vec::new(),
+        central_extra: Vec::new(),
+        comment: Vec::new(),
+        external_attributes: 0,
+    }
+}
+
+/// A deflated entry whose deflate stream is `raw`, otherwise as `raw_stored`.
+pub fn raw_deflated(name: &str, data: &[u8], raw: &[u8]) -> RawEntry {
+    RawEntry {
+        method: 8,
+        raw: raw.to_vec(),
+        ..raw_stored(name, data)
+    }
+}
+
+/// An archive written byte by byte: `prefix` bytes, then each entry's local
+/// header, extra field, data and (for flag bit 3) data descriptor, then the
+/// central directory and the end of central directory record with
+/// `comment`. Offsets in the headers count from the end of `prefix`.
+pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
+    fn u16_of(n: usize) -> [u8; 2] {
+        u16::try_from(n).expect("a 16-bit field").to_le_bytes()
+    }
+    fn u32_of(n: usize) -> [u8; 4] {
+        u32::try_from(n).expect("a 32-bit field").to_le_bytes()
+    }
+    let mut out = prefix.to_vec();
+    let mut local_offsets = Vec::with_capacity(entries.len());
+    for e in entries {
+        local_offsets.push(out.len() - prefix.len());
+        let descriptor = e.flags & 0x0008 != 0;
+        let crc = crc32(&e.data).to_le_bytes();
+        out.extend_from_slice(&[0x50, 0x4b, 0x03, 0x04, 20, 0]);
+        out.extend_from_slice(&e.flags.to_le_bytes());
+        out.extend_from_slice(&e.method.to_le_bytes());
+        out.extend_from_slice(&e.time.to_le_bytes());
+        out.extend_from_slice(&e.date.to_le_bytes());
+        if descriptor {
+            out.extend_from_slice(&[0; 12]);
+        } else {
+            out.extend_from_slice(&crc);
+            out.extend_from_slice(&u32_of(e.raw.len()));
+            out.extend_from_slice(&u32_of(e.data.len()));
+        }
+        out.extend_from_slice(&u16_of(e.name.len()));
+        out.extend_from_slice(&u16_of(e.local_extra.len()));
+        out.extend_from_slice(&e.name);
+        out.extend_from_slice(&e.local_extra);
+        out.extend_from_slice(&e.raw);
+        if descriptor {
+            out.extend_from_slice(&[0x50, 0x4b, 0x07, 0x08]);
+            out.extend_from_slice(&crc);
+            out.extend_from_slice(&u32_of(e.raw.len()));
+            out.extend_from_slice(&u32_of(e.data.len()));
+        }
+    }
+    let central = out.len() - prefix.len();
+    for (e, &offset) in entries.iter().zip(&local_offsets) {
+        out.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
+        out.extend_from_slice(&e.version_made_by.to_le_bytes());
+        out.extend_from_slice(&[20, 0]);
+        out.extend_from_slice(&e.flags.to_le_bytes());
+        out.extend_from_slice(&e.method.to_le_bytes());
+        out.extend_from_slice(&e.time.to_le_bytes());
+        out.extend_from_slice(&e.date.to_le_bytes());
+        out.extend_from_slice(&crc32(&e.data).to_le_bytes());
+        out.extend_from_slice(&u32_of(e.raw.len()));
+        out.extend_from_slice(&u32_of(e.data.len()));
+        out.extend_from_slice(&u16_of(e.name.len()));
+        out.extend_from_slice(&u16_of(e.central_extra.len()));
+        out.extend_from_slice(&u16_of(e.comment.len()));
+        // Disk number start and internal attributes.
+        out.extend_from_slice(&[0; 4]);
+        out.extend_from_slice(&e.external_attributes.to_le_bytes());
+        out.extend_from_slice(&u32_of(offset));
+        out.extend_from_slice(&e.name);
+        out.extend_from_slice(&e.central_extra);
+        out.extend_from_slice(&e.comment);
+    }
+    let central_len = out.len() - prefix.len() - central;
+    out.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0]);
+    out.extend_from_slice(&u16_of(entries.len()));
+    out.extend_from_slice(&u16_of(entries.len()));
+    out.extend_from_slice(&u32_of(central_len));
+    out.extend_from_slice(&u32_of(central));
+    out.extend_from_slice(&u16_of(comment.len()));
+    out.extend_from_slice(comment);
     out
+}
+
+/// The central directory offset recorded in the end of central directory
+/// record (the last one in `bytes`), read independently of the tool.
+pub fn recorded_central_offset(bytes: &[u8]) -> u64 {
+    let eocd = (0..bytes.len() - 21)
+        .rev()
+        .find(|&i| bytes[i..i + 4] == [0x50, 0x4b, 0x05, 0x06])
+        .expect("the end of central directory record");
+    u64::from(le32(bytes, eocd + 16))
+}
+
+/// The version-made-by field of the central directory record of the entry
+/// named `name`, read independently of the tool.
+pub fn central_version_made_by(bytes: &[u8], name: &[u8]) -> u16 {
+    let (_, central) = header_offsets(bytes, name);
+    u16::from_le_bytes([bytes[central + 4], bytes[central + 5]])
 }
 
 pub fn binary(args: &[&Path]) -> (Option<i32>, String, String) {
