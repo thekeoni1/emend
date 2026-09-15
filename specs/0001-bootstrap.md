@@ -6,7 +6,8 @@ records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
 873851f to 65cdeae; P6 is 10a42d6 to 28a44aa; P6b is 690c0f5 to
 cf5240b; P7 pushed af4b355, with records 9c63579 to 302b1b2; P6c is
-a371cff to 8e7e665. Close-out push READY. Next task: T2 P0
+a371cff to 8e7e665; the close-out push is e0a5175 (pushed), with local
+records 00c64bb and 41e2919. Next task: T2 P0
 (`specs/0002-gate-corpus-additions.md`).
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
@@ -1193,6 +1194,21 @@ Logs:
 - `records/logs/t0-close/push.log`, with every check evaluated once. It
   goes in a local record commit that is pushed with the next push.
 - Report and STOP. The next task is T2 P0.
+
+Planning ruling (2026-09-15): the close-out push is verified and DONE.
+- GitHub `thekeoni1/emend` is PRIVATE, with one branch, `main` at
+  e0a5175, 61 commits and no tags. All 122 author and committer emails
+  are the noreply address.
+- `push.log` shows 22 checks and 2 part summaries, each evaluated once
+  and each yes. The hook printed `PASS privacy` over 9 commits, and git
+  reported `af4b355..e0a5175  main -> main`.
+- The two record files have zero hits on every scan. `scripts/privacy.sh`
+  over the 63 local commits: PASS.
+- Planning's message gave "83 insertions" for the two edited doc files,
+  but the diff planning had run showed 85. The error was planning's; the
+  committed files are unaffected.
+- The double colon `push.log` prints for an empty status is accepted as
+  cosmetic.
 
 ## Done
 
