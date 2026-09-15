@@ -1,7 +1,8 @@
 # 0004: T1 xlsx-diff, the entry-level fidelity harness
 
-Status: P1 DONE, verified by planning 2026-09-15 (8356f9a to 6ccae09;
-phase commits 2df5f6e and dc22f78). P2 READY. Runs after T0b. T2
+Status: P1 and P2 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
+6ccae09, phase commits 2df5f6e and dc22f78; P2: a3166a5 to 24f4ef0,
+phase commits 8d3c2aa, ac10ff6 and ed5f1f7). P3 READY. Runs after T0b. T2
 (corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
@@ -74,7 +75,7 @@ output has, in the output's index order.
 | 8, 9 | uncompressed size in input, in output |
 | 10, 11 | compressed size in input, in output |
 | 12, 13 | CRC-32 in input, in output, 8 lowercase hex digits |
-| 14 | first differing offset in the uncompressed bytes (`changed` only) |
+| 14 | first differing offset in the uncompressed bytes (`changed` only); when the streams agree up to the shorter length, the shorter length |
 | 15 | count of differing bytes (`changed` with equal uncompressed sizes only) |
 | 16 | last differing offset (same condition as column 15) |
 | 17 | flags, comma-separated, empty when none (below) |
@@ -140,8 +141,9 @@ above) but never quotes entry content.
   fixed 64 KiB buffers, side by side, never loading an entry whole. The
   first differing offset, the count and the last differing offset come
   from that single pass. A shorter stream on one side makes the status
-  `changed` with column 14 set to the shorter length and columns 15 and
-  16 empty.
+  `changed`; column 14 is the first differing offset, which is the
+  shorter length when the bytes agree up to there; columns 15 and 16
+  are empty (ruled on P2 departure 4; P3 implements it).
 - Raw compressed bytes are compared the same way through
   `by_index_raw`, only when method, CRC-32 and both sizes are equal.
 - `files_identical` is a chunked byte comparison of the two files after
@@ -160,7 +162,10 @@ at most two independent checks, report, STOP. Every phase writes:
   the summary lines. The i686 run must execute the same tests as the
   host run, and the log states both counts.
 - `negative.log`: the phase's negative cases, run in a scratch copy or
-  against temporary files, never committed. No fixture text may appear.
+  against temporary files, never committed. No fixture text may appear
+  in any captured tool output; the printed generator may hold fictional
+  content templates, and sentinel values are built at run time and
+  never printed (ruled on P1 gap 2 and P2 gap 3).
 - `scan.log`: per the scan rules, over the phase diff, the commit
   messages and the other logs.
 
@@ -276,10 +281,71 @@ Deliverables:
   entry is loaded whole.
 - Acceptance: as P1, plus the offset assertions and the memory bound.
 
+### Planning rulings on P2 (2026-09-15)
+
+- P2 is verified from primaries by planning's own checks:
+  - Doc commit a3166a5 holds exactly planning's four doc files (105
+    insertions, 35 deletions), unchanged since. The three phase commits
+    touch only `tools/xlsx-diff/`; the six record commits only
+    `records/logs/t1-p2/`. All ten messages end with the Co-Authored-By
+    trailer only, under the noreply identity. No mode changes, no
+    tracked archive.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 21 passed on each, same names.
+  - Planning read the `lib.rs` diff and `tests/p2.rs` against this
+    spec: one streaming pass through two 64 KiB buffers, the longer
+    stream drained so both CRC-32 values are checked, declared-size
+    checks, the encrypted check at open time, `u64` throughout, and
+    error lines with no path, content or crate text.
+  - Planning reproduced with its own archives and the built binary: a
+    one-byte difference at offset 123457 (columns 14 to 16 `123457`,
+    `1`, `123457`); the same bytes at deflate levels 1 and 9
+    (`recompressed`); a 600-byte output against a 200000-byte input
+    with byte 5 also differing (column 14 `600`, the P2 behaviour ruled
+    on below); a CRC-32 field changed in both headers (exit 2, the
+    decompress line); and a 256 MiB entry at two levels (`recompressed`,
+    peak resident set 3540 kB, wall time about 5 s).
+  - The seven record files, the five source files, `Cargo.lock` and
+    the ten messages have zero hits on every scan; the `/home/u/` string
+    in the scan logs is the scan's own control. The superseded logs in
+    history hold no home path; the first I1 record (e472c39) holds the
+    two lines with U+2192 named in its header and nothing else
+    non-ASCII. `scripts/privacy.sh` over the 95 local commits: PASS.
+- Departure 4 is not accepted as the final behaviour. Column 14 is the
+  first differing offset in every `changed` case; with different
+  lengths it equals the shorter length only when the bytes agree up to
+  there. The column table and the Streaming section now say so, and P3
+  implements it and changes the `earlier-byte` case of
+  `changed_entry_with_different_lengths` to expect `5`. The P2 code and
+  test were a fair reading of the old wording and are accepted as the
+  P2 state.
+- Departure 12 is accepted as committed: the check answer with four
+  U+2192 characters written as `->`, with the positions, byte count and
+  sha256 of the extracted bytes in the header. From now on the checker
+  is asked to answer in plain ASCII, and any remaining non-ASCII
+  character is replaced the same documented, reversible way (see "How
+  this task runs" in `specs/0001-bootstrap.md`). The scan stays strict.
+- Departures 1 to 3 and 5 to 11 are accepted as recorded. On 1: the
+  wrong statement in 8d3c2aa's message stays in history and is
+  corrected by ac10ff6 and by T's fixture section. On 5: the debug
+  profile is the right one to bound; a release build uses less.
+- Remaining gaps: 1 accepted, with a new rule that a rerun log's header
+  names the committed log of the failed run it replaces; 2 ruled above;
+  3 ruled above (the "Every phase writes" wording is clarified); 4, 5
+  and 6 accepted. P3 tightens the three loose assertions in gap 5 while
+  it touches those tests.
+
 ### P3: archive rows, flags, exit status
 
 - All remaining `archive` rows and all six flags.
 - Exit status exactly as in "Exit status".
+- Column 14 for different lengths becomes the first differing offset
+  (P2 departure 4 ruling): `changed_entry_with_different_lengths`
+  expects `5` for its `earlier-byte` case and `600` for the other two.
+- The three loose assertions from P2 gap 5 are tightened:
+  `entry_of_exactly_two_buffers` asserts stderr and the status word in
+  its changed section; the different-lengths test checks both sizes on
+  every row; the large-entry test asserts columns 4 to 13.
 - Tests: reordered entries (`order_preserved` `no`, every entry
   `identical`, exit 1); a changed archive comment; a changed entry
   mtime, extra field, comment and external attributes, each alone; a

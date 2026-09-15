@@ -45,7 +45,12 @@ phase ends with:
    `independent-check-N.md`, with N counting from 1. The file starts
    with a header written by the implementing session: the checked
    commit, HEAD, and each input file with its sha256. Then comes a line
-   `---`, then the answer verbatim. Run at most two checks per phase. If
+   `---`, then the answer verbatim. The checker is asked to answer in
+   plain ASCII; if the answer still holds a non-ASCII character, it is
+   replaced by an ASCII equivalent before the commit, and the header
+   names every position, the original code point, the replacement, and
+   the byte count and sha256 of the extracted answer, so the change is
+   reversible (T1 P2 departure 12). Run at most two checks per phase. If
    check 2 still finds gaps, record them in the report and stop; do not
    start a third round.
 4. A report to planning: commit hashes, log paths, anything that
@@ -56,7 +61,8 @@ phase ends with:
 
 If a phase fails its checks, record the failure in the phase log, fix
 it, and re-run with the fix named in the log. Do not re-run until it
-passes without saying what changed.
+passes without saying what changed. When the failed run is committed as
+its own log, the rerun's header names that log (T1 P2 gap 1).
 
 Every negative test runs in a scratch copy (a `git worktree` or a clone
 outside the repo), never in the main working tree, and is never
