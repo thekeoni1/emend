@@ -86,32 +86,38 @@ else
   echo "PASS clippy"
 fi
 
-# Step 5: no C build tooling in the dependency tree, and no -sys crate
-# outside the allowlist. Adding to the allowlist needs a planning ruling.
+# Step 5: no C build tooling in the dependency tree, and no -sys or _sys
+# crate outside the allowlist. Adding to the allowlist needs a planning
+# ruling. --all-features shows crates behind features nothing enables.
 [ -f "$SYS_ALLOWLIST" ] || fail native "$SYS_ALLOWLIST is missing"
-cargo tree --workspace --target all -e normal,build --prefix none \
+cargo tree --workspace --target all -e normal,build --all-features --prefix none \
   >"$OUT/tree" 2>"$OUT/tree-err" ||
   fail native "'cargo tree' exited non-zero" "$OUT/tree-err"
 names=$(awk 'NF { print $1 }' "$OUT/tree" | sort -u)
-banned=$(printf '%s\n' "$names" | awk '$0 == "cc" || $0 == "cmake" || $0 == "pkg-config"' | tr '\n' ' ')
+banned=$(printf '%s\n' "$names" |
+  awk '$0 == "cc" || $0 == "cmake" || $0 == "pkg-config" || $0 == "pkg_config"' | tr '\n' ' ')
 if [ -n "$banned" ]; then
   fail native "C build tooling in the dependency tree: ${banned% }" "$OUT/tree"
 fi
+allowlisted=""
 unlisted=""
-for crate in $(printf '%s\n' "$names" | awk '/-sys$/'); do
-  if ! awk -v c="$crate" '$0 !~ /^[[:space:]]*(#|$)/ && $1 == c { found = 1 } END { exit !found }' "$SYS_ALLOWLIST"; then
+for crate in $(printf '%s\n' "$names" | awk '/[-_]sys$/'); do
+  if awk -v c="$crate" '$0 !~ /^[[:space:]]*(#|$)/ && $1 == c { found = 1 } END { exit !found }' "$SYS_ALLOWLIST"; then
+    allowlisted="$allowlisted $crate"
+  else
     unlisted="$unlisted $crate"
   fi
 done
 if [ -n "$unlisted" ]; then
-  fail native "-sys crate not in $SYS_ALLOWLIST:$unlisted" "$OUT/tree"
+  fail native "-sys or _sys crate not in $SYS_ALLOWLIST:$unlisted" "$OUT/tree"
 fi
-echo "PASS native"
+allowlisted=${allowlisted# }
+echo "PASS native (allowlisted -sys: ${allowlisted:-none})"
 
 # Step 6: every package's licence expression, workspace members included,
 # passes against the allowed identifiers. Do not widen the list without a
 # planning ruling.
-cargo metadata --format-version 1 >"$OUT/metadata.json" 2>"$OUT/metadata-err" ||
+cargo metadata --format-version 1 --all-features >"$OUT/metadata.json" 2>"$OUT/metadata-err" ||
   fail licences "'cargo metadata' exited non-zero" "$OUT/metadata-err"
 if ! python3 - "$OUT/metadata.json" >"$OUT/licences" 2>&1 <<'PY'; then
 import json
@@ -208,3 +214,57 @@ PY
   fail licences "$(tail -n 1 "$OUT/licences")" "$OUT/licences"
 fi
 echo "PASS licences"
+
+# Step 7: repository hygiene. Every grep follows the scan rules: bytes under
+# LC_ALL=C, /usr/bin/grep, and exit 2 or more is an error, never zero hits.
+EMDASH=$(printf '\342\200\224')
+printf 'control %s line\n' "$EMDASH" >"$OUT/emdash-control"
+rc=0
+LC_ALL=C /usr/bin/grep -l -I -F -e "$EMDASH" -- "$OUT/emdash-control" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail hygiene "U+2014 positive control not detected (grep exit $rc)"
+
+git ls-files -z >"$OUT/tracked.z" 2>"$OUT/tracked-err" ||
+  fail hygiene "'git ls-files' exited non-zero" "$OUT/tracked-err"
+mapfile -d '' -t tracked <"$OUT/tracked.z"
+: >"$OUT/tracked.txt"
+present=()
+for f in "${tracked[@]}"; do
+  printf '%s\n' "$f" >>"$OUT/tracked.txt"
+  if [ -f "$f" ]; then
+    present+=("$f")
+  fi
+done
+
+if [ "${#present[@]}" -gt 0 ]; then
+  rc=0
+  LC_ALL=C /usr/bin/grep -l -I -F -e "$EMDASH" -- "${present[@]}" >"$OUT/emdash-hits" 2>"$OUT/emdash-err" || rc=$?
+  if [ "$rc" -ge 2 ]; then
+    fail hygiene "grep error while scanning tracked files for U+2014 (exit $rc)" "$OUT/emdash-err"
+  fi
+  if [ "$rc" -eq 0 ]; then
+    fail hygiene "U+2014 in tracked file(s): $(tr '\n' ' ' <"$OUT/emdash-hits" | sed 's/ $//')"
+  fi
+fi
+
+rc=0
+LC_ALL=C /usr/bin/grep -i -E '\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$' "$OUT/tracked.txt" >"$OUT/office-all" || rc=$?
+[ "$rc" -lt 2 ] || fail hygiene "grep error while matching office extensions (exit $rc)"
+rc=0
+LC_ALL=C /usr/bin/grep -v -E '(^|/)tests/fixtures/' "$OUT/office-all" >"$OUT/office" || rc=$?
+[ "$rc" -lt 2 ] || fail hygiene "grep error while applying the tests/fixtures/ exception (exit $rc)"
+if [ -s "$OUT/office" ]; then
+  fail hygiene "office file(s) tracked outside tests/fixtures/: $(tr '\n' ' ' <"$OUT/office" | sed 's/ $//')"
+fi
+
+rc=0
+LC_ALL=C /usr/bin/grep -F -e emend-testing "$OUT/tracked.txt" >"$OUT/corpus" || rc=$?
+[ "$rc" -lt 2 ] || fail hygiene "grep error while matching tracked paths (exit $rc)"
+if [ "$rc" -eq 0 ]; then
+  fail hygiene "tracked path(s) containing emend-testing: $(tr '\n' ' ' <"$OUT/corpus" | sed 's/ $//')"
+fi
+
+# The value is never printed.
+if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
+  fail hygiene "ANTHROPIC_API_KEY is set in the environment"
+fi
+echo "PASS hygiene"
