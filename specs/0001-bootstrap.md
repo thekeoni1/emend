@@ -1,10 +1,10 @@
 # 0001: T0 repo bootstrap
 
-Status: P1, P1R, P2, P3, P4 and P5 DONE, verified by planning
-2026-09-14. After the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc
-commit d495f0a with records through 88d5644; P2 is 1a985a1 to 9daa4c6;
-P3 is ced7f91 to 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to
-9b7aef1. P5b, P6 and P7 READY.
+Status: P1 to P5 and P5b DONE, verified by planning 2026-09-14. After
+the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
+records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
+53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
+873851f to 65cdeae. P6 and P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -324,6 +324,52 @@ committed. Its output goes in the phase's `negative.log`.
   workspace member can enable. A feature that only a dependency's own
   configuration could enable is in no build of this workspace.
 - P5 as committed stays as recorded; the changes above are P5b.
+
+## Planning rulings on P5b (2026-09-14)
+
+- P5b is verified from primaries by planning's own checks:
+  - Doc commit 873851f holds exactly the two pending paths.
+  - Phase commit aca5d3a changes only `scripts/check.sh`. The record
+    commits touch only `records/logs/t0-p5b/`. All six messages end
+    with the Co-Authored-By trailer only.
+  - Planning ran `scripts/check.sh` from `/`: all seven steps PASS, exit
+    0, zero control bytes in the output.
+  - Planning reproduced these cases in fresh clones:
+    - a staged U+2014 file deleted from the working tree gives FAIL
+      hygiene;
+    - an office file under a directory whose name holds a newline gives
+      the count-only FAIL line, with zero control bytes;
+    - a dummy `ANTHROPIC_API_KEY` for one command gives a single hygiene
+      FAIL line before any other step.
+  - Every file in every commit on main, and every message, has zero
+    hits against the denylist, the shape-based P6 patterns and non-ASCII
+    bytes. The GitHub repository still has no branches.
+  - Planning also confirmed the risk behind question 7. A tracked path
+    `Emend-Testing/corpus/private-name.txt` is printed in full in the
+    hygiene FAIL line, so a captured log could carry a corpus file name.
+- Scope of the gates, from now on:
+  - The gates catch accidental mistakes by sessions on this machine.
+    Deliberate repository misconfiguration, corrupted objects and a
+    hostile environment are out of scope for `scripts/check.sh`.
+  - The exception is the privacy gate: anything that could let private
+    data reach GitHub is in scope.
+- The hygiene step is closed with P5b. Edge cases that later checks find
+  in it are recorded as findings and accepted, unless they could leak
+  private data or let a push through. Those go to planning.
+- Question 1, read errors: accepted for step 7. Required for
+  `scripts/privacy.sh` (P6).
+- Question 2: a bad argument with the key set gives the usage line and
+  exit 2. Accepted, since nothing builds.
+- Question 3, git attributes: accepted for step 7. `scripts/privacy.sh`
+  ignores attributes (P6).
+- Question 4, git environment variables: the throwaway repositories in
+  `scripts/privacy.sh` and in step 7 run with them unset (P6). Git sets
+  some of them when it runs hooks.
+- Question 5: the raw stderr dump in error branches is accepted, as in
+  P3 question 6.
+- Question 6: unguarded commands in the control block are accepted.
+- Question 7: yes. The corpus-path FAIL line prints a count, not the
+  paths (P6).
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -670,6 +716,33 @@ Deliverables:
   `<remote sha>..<local sha>`, or over all of `<local sha>` when the
   remote sha is all zeros. It skips deletions. A non-zero exit blocks
   the push. Run the installer in this phase.
+
+Also in this phase (planning rulings on P5b):
+
+- `scripts/privacy.sh` scans every blob as bytes, whatever git
+  attributes say, so no `.gitattributes` or `.git/info/attributes` entry
+  can exempt a file. A read error, or git reporting that it cannot read
+  an object, makes the script exit 2. It never counts as zero hits.
+- Its self-test, and any throwaway repository it creates, run with
+  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES` and `GIT_COMMON_DIR` unset.
+- A finding in a path containing `emend-testing`, in any case, prints
+  `<corpus path>` instead of the path.
+- In step 7 of `scripts/check.sh`, the corpus-path FAIL line prints a
+  count, not the paths. The step's throwaway control repository also
+  runs with the git variables above unset.
+
+Add to `negative.log`:
+- (h) With `* binary` in `.git/info/attributes`, a committed file
+  holding a realistic fake token: FAIL patterns.
+- (i) A blob made unreadable in a scratch clone (for example by removing
+  its object file): exit 2.
+- (j) Run `scripts/privacy.sh` with `GIT_INDEX_FILE` exported to a
+  scratch path: the self-test still passes, and the scratch index is
+  unchanged.
+- (k) A tracked path `Emend-Testing/corpus/name.txt`: the hygiene FAIL
+  line gives a count, and the captured output does not contain
+  `name.txt`.
 
 Logs:
 - `gate.log`: a full run, all eight steps.
