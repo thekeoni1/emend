@@ -1,6 +1,6 @@
-about: T3 P1 phase commit 79d17ba81eca7b4a64633e26c799c776a5fecdef; HEAD at run: 79d17ba81eca7b4a64633e26c799c776a5fecdef
-phase: T3 P1 (specs/0006-passthrough.md) test.log; run at 2026-09-15T21:30:51Z
-rerun: replaces the logs of record commit ba79abf (runs at 9eaee47); rerun at phase commit 2, 79d17ba81eca7b4a64633e26c799c776a5fecdef, which strengthens one test assertion (tools/passthrough/tests/copies.rs, the small zip64 entry's plain output sizes)
+about: T3 P1 phase commit cb94097d4d4b4dbd0f296760b70036bda0093731; HEAD at run: cb94097d4d4b4dbd0f296760b70036bda0093731
+phase: T3 P1 (specs/0006-passthrough.md) test.log; run at 2026-09-15T21:44:11Z
+rerun: replaces the logs of record commit 8d202cd (runs at 79d17ba); rerun at phase commit 3, cb94097d4d4b4dbd0f296760b70036bda0093731, the fixes for independent check 1 (record commit 4e38962): the runner runs /usr/bin/time outside timeout, so the timeout's SIGKILL reaches the tool (with time inside timeout the tool survived the kill), silences its own stderr after the argument checks, and refuses an id already in the summary; the negative log adds a survivor check to case 2, the note sentinel count, and cases 9 and 10; copies.rs asserts two more fields
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -85,32 +85,32 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/debug/deps/passthrough-e8c6c8b4c0c0c76f)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/copies.rs (target/debug/deps/copies-4727fe09e25d80de)
-    test data_descriptor_is_folded_into_the_local_header ... ok
+    test duplicate_names_keep_only_the_last_entry ... ok
     test empty_archive_is_copied_byte_identical ... ok
     test leading_junk_bytes_are_dropped ... ok
-    test duplicate_names_keep_only_the_last_entry ... ok
-    test stored_entries_are_copied_byte_identical ... ok
+    test data_descriptor_is_folded_into_the_local_header ... ok
     test ms_dos_made_by_and_version_needed_are_rewritten ... ok
-    test directory_entry_loses_its_directory_mode ... ok
     test archive_comment_is_kept ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test stored_entries_are_copied_byte_identical ... ok
     test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
     test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
     test deflated_entries_are_copied_byte_identical ... ok
     test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
     test two_hundred_entries_are_copied_byte_identical ... ok
-    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
     Running tests/faults.rs (target/debug/deps/faults-3b9aaf22a475dd47)
-    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
-    test abort_fault ... ok
     test input_that_is_not_a_zip_archive ... ok
+    test output_directory_missing ... ok
+    test exit3_fault ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
     test existing_output_is_replaced ... ok
     test missing_input ... ok
-    test exit3_fault ... ok
+    test abort_fault ... ok
     test failed_rename_removes_the_temporary_file ... ok
     test output_path_without_a_file_name ... ok
-    test panic_fault ... ok
-    test output_directory_missing ... ok
     test unknown_fault_value ... ok
+    test panic_fault ... ok
     test usage_errors ... ok
     test fault_variable_is_refused_without_the_allow_variable ... ok
     test alloc_fault_without_a_limit_then_copies ... ok
@@ -121,15 +121,15 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
-    test missing_file_is_an_error ... ok
     test non_zip_file_is_an_error ... ok
-    test duplicate_name_is_an_error ... ok
     test added_entry ... ok
     test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
+    test duplicate_name_is_an_error ... ok
+    test missing_file_is_an_error ... ok
     test binary_usage_error ... ok
-    test names_are_escaped ... ok
     test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
     test binary_exit_status_follows_the_comparison ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
@@ -138,8 +138,8 @@ Running lines, test lines and summary lines:
     test short_raw_stream_is_an_error ... ok
     test recompressed_entry_with_equal_metadata ... ok
     test encrypted_entry_is_an_error ... ok
-    test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
@@ -147,8 +147,8 @@ Running lines, test lines and summary lines:
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
     Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
     test data_descriptor_on_one_side ... ok
-    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test changed_archive_comment ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test leading_junk_bytes ... ok
     test output_side_rows_take_the_output_values ... ok
     test each_flag_alone ... ok
@@ -156,7 +156,7 @@ Running lines, test lines and summary lines:
     test every_archive_row_in_order ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
     Running tests/p4.rs (target/debug/deps/p4-f12276f4a3797377)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
     test local_header_running_past_the_end_is_an_error ... ok
@@ -173,7 +173,7 @@ Running lines, test lines and summary lines:
     test declared_size_running_over_the_next_header_alike_on_both_sides ... ok
     test zip64_placeholder_against_plain_sizes ... ok
     test local_entries_permuted_with_the_central_order_kept ... ok
-    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 host: passed 69; failed 0; ignored 1; test lines ending ok: 69
@@ -189,37 +189,37 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/passthrough-cda17d434f7bb250)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/copies.rs (target/i686-unknown-linux-musl/debug/deps/copies-abfbb1bae38c85f8)
-    test empty_archive_is_copied_byte_identical ... ok
     test duplicate_names_keep_only_the_last_entry ... ok
-    test archive_comment_is_kept ... ok
+    test empty_archive_is_copied_byte_identical ... ok
     test data_descriptor_is_folded_into_the_local_header ... ok
     test ms_dos_made_by_and_version_needed_are_rewritten ... ok
+    test archive_comment_is_kept ... ok
     test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
-    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
-    test stored_entries_are_copied_byte_identical ... ok
-    test directory_entry_loses_its_directory_mode ... ok
-    test leading_junk_bytes_are_dropped ... ok
-    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
     test deflated_entries_are_copied_byte_identical ... ok
+    test leading_junk_bytes_are_dropped ... ok
+    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
+    test stored_entries_are_copied_byte_identical ... ok
     test two_hundred_entries_are_copied_byte_identical ... ok
     test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
     Running tests/faults.rs (target/i686-unknown-linux-musl/debug/deps/faults-ab8cf4f35e4e77b1)
-    test abort_fault ... ok
-    test missing_input ... ok
     test input_that_is_not_a_zip_archive ... ok
-    test panic_fault ... ok
-    test existing_output_is_replaced ... ok
-    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
-    test failed_rename_removes_the_temporary_file ... ok
     test exit3_fault ... ok
-    test output_path_without_a_file_name ... ok
+    test existing_output_is_replaced ... ok
+    test missing_input ... ok
+    test failed_rename_removes_the_temporary_file ... ok
+    test abort_fault ... ok
     test output_directory_missing ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
+    test panic_fault ... ok
+    test output_path_without_a_file_name ... ok
     test unknown_fault_value ... ok
     test usage_errors ... ok
     test fault_variable_is_refused_without_the_allow_variable ... ok
     test alloc_fault_without_a_limit_then_copies ... ok
     test sleep_fault_is_still_running_after_a_second ... ok
-    test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+    test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
     Running unittests src/lib.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-272b4e4343c36511)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
@@ -227,36 +227,36 @@ Running lines, test lines and summary lines:
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
     test missing_file_is_an_error ... ok
     test binary_usage_error ... ok
-    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
     test added_entry ... ok
-    test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
     test binary_exit_status_follows_the_comparison ... ok
     test names_are_escaped ... ok
-    test equal_archives_are_identical ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
+    test equal_archives_are_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
     Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
     test unsupported_method_is_an_error ... ok
     test short_raw_stream_is_an_error ... ok
     test encrypted_entry_is_an_error ... ok
     test recompressed_entry_with_equal_metadata ... ok
-    test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
-    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
     test recompressed_entry ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
     Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
-    test data_descriptor_on_one_side ... ok
     test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test data_descriptor_on_one_side ... ok
     test leading_junk_bytes ... ok
-    test output_side_rows_take_the_output_values ... ok
     test changed_archive_comment ... ok
-    test reordered_entries ... ok
+    test output_side_rows_take_the_output_values ... ok
     test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
     test each_flag_alone ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
@@ -267,7 +267,7 @@ Running lines, test lines and summary lines:
     test local_header_fields_each_alone ... ok
     test files_identical_no_from_one_byte_inside_a_prefix ... ok
     test no_sentinel_in_any_output ... ok
-    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
     Running tests/p5.rs (target/i686-unknown-linux-musl/debug/deps/p5-2f1ee927e7bd76b8)
     test descriptors_that_differ_only_in_the_signature ... ok
     test narrowed_and_extended_flags_each_alone ... ok
@@ -290,5 +290,5 @@ host executed 69 tests; i686-unknown-linux-musl executed 69 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 status after the runs (expect empty): : yes
-run ended at 2026-09-15T21:30:55Z
+run ended at 2026-09-15T21:44:14Z
 test log checks all as expected: yes

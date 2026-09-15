@@ -1,6 +1,6 @@
-about: T3 P1 phase commit 79d17ba81eca7b4a64633e26c799c776a5fecdef; HEAD at run: 79d17ba81eca7b4a64633e26c799c776a5fecdef
-phase: T3 P1 (specs/0006-passthrough.md) negative.log; run at 2026-09-15T21:30:55Z
-rerun: replaces the logs of record commit ba79abf (runs at 9eaee47); rerun at phase commit 2, 79d17ba81eca7b4a64633e26c799c776a5fecdef, which strengthens one test assertion (tools/passthrough/tests/copies.rs, the small zip64 entry's plain output sizes)
+about: T3 P1 phase commit cb94097d4d4b4dbd0f296760b70036bda0093731; HEAD at run: cb94097d4d4b4dbd0f296760b70036bda0093731
+phase: T3 P1 (specs/0006-passthrough.md) negative.log; run at 2026-09-15T21:44:14Z
+rerun: replaces the logs of record commit 8d202cd (runs at 79d17ba); rerun at phase commit 3, cb94097d4d4b4dbd0f296760b70036bda0093731, the fixes for independent check 1 (record commit 4e38962): the runner runs /usr/bin/time outside timeout, so the timeout's SIGKILL reaches the tool (with time inside timeout the tool survived the kill), silences its own stderr after the argument checks, and refuses an id already in the summary; the negative log adds a survivor check to case 2, the note sentinel count, and cases 9 and 10; copies.rs asserts two more fields
 The scratch corpus and every run output live under <scratch> and are deleted on exit.
 fixture strings counted in every captured output and written file: 4 (random sentinels for original_name, note and content, and the content phrase; all built at run time; values never printed)
 
@@ -22,7 +22,11 @@ fixture strings counted in every captured output and written file: 4 (random sen
     #   case 7: the fault variable without PASSTHROUGH_FAULT_ALLOWED: the tool
     #           refuses with exit 2 and the runner records error;
     #   case 8: the record script over that run directory: the .md and .tsv written
-    #           under <scratch>, with the family table and the non-ok list.
+    #           under <scratch>, with the family table and the non-ok list;
+    #   case 9 (added on check 1): a run directory that cannot be created: one
+    #           error line without a path, exit 2;
+    #   case 10 (added on check 1): an id that already has a summary row in the
+    #           run directory: refused with exit 2, the summary unchanged.
     # Each check is evaluated once, and a check with more than one condition is
     # evaluated inside one function. Every captured output is counted for the
     # sentinels, the scratch path, control bytes and non-ASCII bytes.
@@ -199,6 +203,7 @@ fixture strings counted in every captured output and written file: 4 (random sen
     note "seven workbooks, every entry readable by zipfile" "$(is [ "$(LC_ALL=C "$G" -c -E '^[a-z0-9]+: id [0-9a-f]{12}, [0-9]+ bytes, zipfile testzip ok$' "$BASE/gen.out")" = 7 ])"
     note "manifest: a header and seven rows of twelve columns" "$(is [ "$(awk -F'\t' 'NF == 12' "$CORPUS/manifest.tsv" | wc -l)" = 8 ])"
     note "the name sentinel is in the original_name column of all seven rows and not in the header" "$(is [ "$(LC_ALL=C "$G" -c -F -e "$S_NAME" "$CORPUS/manifest.tsv")" = 7 ])"
+    note "the note sentinel is in the note column of all seven rows and not in the header" "$(is [ "$(LC_ALL=C "$G" -c -F -e "$S_NOTE" "$CORPUS/manifest.tsv")" = 7 ])"
     id_of() { tr -d '\n' <"$CORPUS/ids-$1"; }
     for case in normal sleep panic abort exit3 alloc unguarded; do echo "  id for case $case: $(id_of "$case")"; done
     
@@ -263,6 +268,11 @@ fixture strings counted in every captured output and written file: 4 (random sen
     note "count line: one timeout" "$(is count_line_is "$BASE/sleep.out" timeout)"
     note "the runner took under 10 s (the fault sleeps 30 s): $SECONDS_TAKEN" "$(is [ "$SECONDS_TAKEN" -lt 10 ])"
     note "no output file left for the case" "$(is [ ! -e "$RUNS_DIR/$ID/out.host.xlsx" ])"
+    # A passthrough child that survived the timeout would still hold the scratch
+    # path in its command line (added on check 1).
+    sleep 1
+    SURVIVORS=$(pgrep -f -c -- "$BASE")
+    note "processes whose command line holds the scratch path, 1 s after the runner returned: ${SURVIVORS} (expect 0)" "$(is [ "$SURVIVORS" -eq 0 ])"
     
     echo
     echo "## case 3: panic"
@@ -312,6 +322,23 @@ fixture strings counted in every captured output and written file: 4 (random sen
     echo "  the child's stderr, kept in the run directory:"
     hide <"$RUNS_DIR/$ID/stderr.host.txt" | sed 's/^/    /'
     note "the child's stderr is the refusal line" "$(is [ "$(cat "$RUNS_DIR/$ID/stderr.host.txt")" = "error: PASSTHROUGH_FAULT is set without PASSTHROUGH_FAULT_ALLOWED=1 (test-only)" ])"
+    
+    echo
+    echo "## case 9: a run directory that cannot be created"
+    : >"$BASE/blocker"
+    run_case no-out-dir -- --ids "$CORPUS/ids-normal" --out "$BASE/blocker/run"
+    note "runner exit 2" "$(is [ "$RC" -eq 2 ])"
+    note "stdout is empty" "$(is [ ! -s "$BASE/no-out-dir.out" ])"
+    note "stderr is exactly the error line" "$(is [ "$(cat "$BASE/no-out-dir.err")" = "error: cannot create the run directory" ])"
+    
+    echo
+    echo "## case 10: an id that already has a summary row in the run directory"
+    BEFORE=$(sha256sum <"$SUMMARY" | cut -d' ' -f1)
+    run_case again -- --ids "$CORPUS/ids-normal"
+    note "runner exit 2" "$(is [ "$RC" -eq 2 ])"
+    note "stdout is empty" "$(is [ ! -s "$BASE/again.out" ])"
+    note "stderr is exactly the refusal line" "$(is [ "$(cat "$BASE/again.err")" = "error: id $(id_of normal) already has a row in summary.host.tsv; use a new run directory" ])"
+    note "summary.host.tsv unchanged" "$(is [ "$(sha256sum <"$SUMMARY" | cut -d' ' -f1)" = "$BEFORE" ])"
     
     echo
     echo "## the run directory after the seven runs"
@@ -389,34 +416,35 @@ command: cargo build -p passthrough -p xlsx-diff
 ## scratch corpus
 command: python3 <scratch>/gen.py <scratch>/corpus <sentinel> <sentinel> <sentinel> <phrase>
   exit: 0
-    normal: id db311887995b, 2022 bytes, zipfile testzip ok
-    sleep: id cbdcf61db461, 2014 bytes, zipfile testzip ok
-    panic: id b4a727268e5b, 2014 bytes, zipfile testzip ok
-    abort: id d509bb88d579, 2022 bytes, zipfile testzip ok
-    exit3: id 8c3d7e77c5c6, 2014 bytes, zipfile testzip ok
-    alloc: id f8983ded725e, 2014 bytes, zipfile testzip ok
-    unguarded: id adf76e26bf08, 2046 bytes, zipfile testzip ok
+    normal: id cf639fdf5282, 2022 bytes, zipfile testzip ok
+    sleep: id adc6fa49045d, 2022 bytes, zipfile testzip ok
+    panic: id c1e23115669b, 2014 bytes, zipfile testzip ok
+    abort: id 57688d32fb6a, 2022 bytes, zipfile testzip ok
+    exit3: id a5fdf204362a, 2022 bytes, zipfile testzip ok
+    alloc: id 9d553797ffac, 2014 bytes, zipfile testzip ok
+    unguarded: id cfa1c7f339f8, 2038 bytes, zipfile testzip ok
   gen.py exit 0: as-expected
   seven workbooks, every entry readable by zipfile: as-expected
   manifest: a header and seven rows of twelve columns: as-expected
   the name sentinel is in the original_name column of all seven rows and not in the header: as-expected
-  id for case normal: db311887995b
-  id for case sleep: cbdcf61db461
-  id for case panic: b4a727268e5b
-  id for case abort: d509bb88d579
-  id for case exit3: 8c3d7e77c5c6
-  id for case alloc: f8983ded725e
-  id for case unguarded: adf76e26bf08
+  the note sentinel is in the note column of all seven rows and not in the header: as-expected
+  id for case normal: cf639fdf5282
+  id for case sleep: adc6fa49045d
+  id for case panic: c1e23115669b
+  id for case abort: 57688d32fb6a
+  id for case exit3: a5fdf204362a
+  id for case alloc: 9d553797ffac
+  id for case unguarded: cfa1c7f339f8
 
 ## case 1: a normal file
 command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal
   stdout:
-    db311887995b host ok 0 0.00 3340
+    cf639fdf5282 host ok 0 0.10 7852
     files 1 ok 1 error 0 timeout 0 panic 0 crash 0
   stderr:
-  exit: 0; runner seconds: 0
+  exit: 0; runner seconds: 1
   runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
-  run directory: <scratch>/corpus/runs/2026-09-15-79d17ba
+  run directory: <scratch>/corpus/runs/2026-09-15-cb94097
   runner exit 0: as-expected
   one run directory under <corpus>/runs/, named <utc-date>-<shortsha of HEAD>: as-expected
   xlsx-diff run by hand on the same pair: exit 0; entry rows 8; stderr bytes 0
@@ -427,12 +455,12 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --labe
   entries.host.tsv rows equal the by-hand rows after the prefix: as-expected
   summary.host.tsv so far:
     id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical
-    db311887995b	host	libreoffice	plain,strings	ok	0		0.00	3340	2022	2022	0	8	0	0	0	0	0	yes	yes	yes
+    cf639fdf5282	host	libreoffice	plain,strings	ok	0		0.10	7852	2022	2022	0	8	0	0	0	0	0	yes	yes	yes
 
 ## case 2: sleep with --timeout 2
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-sleep --timeout 2
   stdout:
-    cbdcf61db461 host timeout - - -
+    adc6fa49045d host timeout - 2.00 7620
     files 1 ok 0 error 0 timeout 1 panic 0 crash 0
   stderr:
   exit: 0; runner seconds: 2
@@ -443,11 +471,12 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep PASSTHROU
   count line: one timeout: as-expected
   the runner took under 10 s (the fault sleeps 30 s): 2: as-expected
   no output file left for the case: as-expected
+  processes whose command line holds the scratch path, 1 s after the runner returned: 0 (expect 0): as-expected
 
 ## case 3: panic
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=panic PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-panic
   stdout:
-    b4a727268e5b host panic - 0.00 3392
+    c1e23115669b host panic - 0.10 7636
     files 1 ok 0 error 0 timeout 0 panic 1 crash 0
   stderr:
   exit: 0; runner seconds: 0
@@ -460,10 +489,10 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=panic PASSTHROU
 ## case 4: abort
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=abort PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-abort
   stdout:
-    d509bb88d579 host crash - 0.00 3132
+    57688d32fb6a host crash - 0.10 7548
     files 1 ok 0 error 0 timeout 0 panic 0 crash 1
   stderr:
-  exit: 0; runner seconds: 0
+  exit: 0; runner seconds: 1
   runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
   runner exit 0: as-expected
   summary row: crash, no exit, signal 6, no diff exit: as-expected
@@ -473,10 +502,10 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=abort PASSTHROU
 ## case 5: exit3
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-exit3
   stdout:
-    8c3d7e77c5c6 host crash - 0.00 3228
+    a5fdf204362a host crash - 0.10 7816
     files 1 ok 0 error 0 timeout 0 panic 0 crash 1
   stderr:
-  exit: 0; runner seconds: 1
+  exit: 0; runner seconds: 0
   runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
   runner exit 0: as-expected
   summary row: crash, exit 3, no signal, no diff exit: as-expected
@@ -486,7 +515,7 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 PASSTHROU
 ## case 6: alloc with --memory 256
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=alloc PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-alloc --memory 256
   stdout:
-    f8983ded725e host crash - 0.00 3120
+    9d553797ffac host crash - 0.10 7592
     files 1 ok 0 error 0 timeout 0 panic 0 crash 1
   stderr:
   exit: 0; runner seconds: 0
@@ -501,7 +530,7 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=alloc PASSTHROU
 ## case 7: the fault variable without PASSTHROUGH_FAULT_ALLOWED
 command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-unguarded
   stdout:
-    adf76e26bf08 host error - 0.00 3036
+    cfa1c7f339f8 host error - 0.10 7900
     files 1 ok 0 error 1 timeout 0 panic 0 crash 0
   stderr:
   exit: 0; runner seconds: 0
@@ -514,73 +543,96 @@ command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 scripts/p
     error: PASSTHROUGH_FAULT is set without PASSTHROUGH_FAULT_ALLOWED=1 (test-only)
   the child's stderr is the refusal line: as-expected
 
+## case 9: a run directory that cannot be created
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal --out <scratch>/blocker/run
+  stdout:
+  stderr:
+    error: cannot create the run directory
+  exit: 2; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 2: as-expected
+  stdout is empty: as-expected
+  stderr is exactly the error line: as-expected
+
+## case 10: an id that already has a summary row in the run directory
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal
+  stdout:
+  stderr:
+    error: id cf639fdf5282 already has a row in summary.host.tsv; use a new run directory
+  exit: 2; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 2: as-expected
+  stdout is empty: as-expected
+  stderr is exactly the refusal line: as-expected
+  summary.host.tsv unchanged: as-expected
+
 ## the run directory after the seven runs
   files (names relative to the run directory):
-    ./8c3d7e77c5c6/stderr.host.txt
-    ./8c3d7e77c5c6/stdout.host.txt
-    ./8c3d7e77c5c6/time.host.txt
-    ./adf76e26bf08/stderr.host.txt
-    ./adf76e26bf08/stdout.host.txt
-    ./adf76e26bf08/time.host.txt
-    ./b4a727268e5b/stderr.host.txt
-    ./b4a727268e5b/stdout.host.txt
-    ./b4a727268e5b/time.host.txt
-    ./cbdcf61db461/stderr.host.txt
-    ./cbdcf61db461/stdout.host.txt
-    ./cbdcf61db461/time.host.txt
-    ./d509bb88d579/stderr.host.txt
-    ./d509bb88d579/stdout.host.txt
-    ./d509bb88d579/time.host.txt
-    ./db311887995b/diff-stderr.host.txt
-    ./db311887995b/diff.host.tsv
-    ./db311887995b/out.host.xlsx
-    ./db311887995b/stderr.host.txt
-    ./db311887995b/stdout.host.txt
-    ./db311887995b/time.host.txt
+    ./57688d32fb6a/stderr.host.txt
+    ./57688d32fb6a/stdout.host.txt
+    ./57688d32fb6a/time.host.txt
+    ./9d553797ffac/stderr.host.txt
+    ./9d553797ffac/stdout.host.txt
+    ./9d553797ffac/time.host.txt
+    ./a5fdf204362a/stderr.host.txt
+    ./a5fdf204362a/stdout.host.txt
+    ./a5fdf204362a/time.host.txt
+    ./adc6fa49045d/stderr.host.txt
+    ./adc6fa49045d/stdout.host.txt
+    ./adc6fa49045d/time.host.txt
+    ./c1e23115669b/stderr.host.txt
+    ./c1e23115669b/stdout.host.txt
+    ./c1e23115669b/time.host.txt
+    ./cf639fdf5282/diff-stderr.host.txt
+    ./cf639fdf5282/diff.host.tsv
+    ./cf639fdf5282/out.host.xlsx
+    ./cf639fdf5282/stderr.host.txt
+    ./cf639fdf5282/stdout.host.txt
+    ./cf639fdf5282/time.host.txt
+    ./cfa1c7f339f8/stderr.host.txt
+    ./cfa1c7f339f8/stdout.host.txt
+    ./cfa1c7f339f8/time.host.txt
     ./entries.host.tsv
-    ./f8983ded725e/stderr.host.txt
-    ./f8983ded725e/stdout.host.txt
-    ./f8983ded725e/time.host.txt
     ./run.host.tsv
     ./summary.host.tsv
   summary.host.tsv:
     id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical
-    db311887995b	host	libreoffice	plain,strings	ok	0		0.00	3340	2022	2022	0	8	0	0	0	0	0	yes	yes	yes
-    cbdcf61db461	host	libreoffice	plain,strings	timeout	124	9			2014											
-    b4a727268e5b	host	libreoffice	plain,strings	panic	101		0.00	3392	2014											
-    d509bb88d579	host	libreoffice	plain,strings	crash		6	0.00	3132	2022											
-    8c3d7e77c5c6	host	libreoffice	plain,strings	crash	3		0.00	3228	2014											
-    f8983ded725e	host	libreoffice	plain,strings	crash		6	0.00	3120	2014											
-    adf76e26bf08	host	libreoffice	plain,strings	error	2		0.00	3036	2046											
+    cf639fdf5282	host	libreoffice	plain,strings	ok	0		0.10	7852	2022	2022	0	8	0	0	0	0	0	yes	yes	yes
+    adc6fa49045d	host	libreoffice	plain,strings	timeout	124	9	2.00	7620	2022											
+    c1e23115669b	host	libreoffice	plain,strings	panic	101		0.10	7636	2014											
+    57688d32fb6a	host	libreoffice	plain,strings	crash		6	0.10	7548	2022											
+    a5fdf204362a	host	libreoffice	plain,strings	crash	3		0.10	7816	2022											
+    9d553797ffac	host	libreoffice	plain,strings	crash		6	0.10	7592	2014											
+    cfa1c7f339f8	host	libreoffice	plain,strings	error	2		0.10	7900	2038											
   run.host.tsv:
     commit	started	ended	rustc	zip	timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:55Z	2026-09-15T21:30:55Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:55Z	2026-09-15T21:30:57Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	2	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:58Z	2026-09-15T21:30:58Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:58Z	2026-09-15T21:30:58Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:58Z	2026-09-15T21:30:59Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:59Z	2026-09-15T21:30:59Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	256	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
-    79d17ba81eca7b4a64633e26c799c776a5fecdef	2026-09-15T21:30:59Z	2026-09-15T21:30:59Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:14Z	2026-09-15T21:44:15Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:15Z	2026-09-15T21:44:17Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	2	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:18Z	2026-09-15T21:44:18Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:18Z	2026-09-15T21:44:19Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:19Z	2026-09-15T21:44:19Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:19Z	2026-09-15T21:44:19Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	256	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
+    cb94097d4d4b4dbd0f296760b70036bda0093731	2026-09-15T21:44:20Z	2026-09-15T21:44:20Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	2048	0188371dec9a39213760396c4f9d873bf905927f642eea01f14e2cae5b731094	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1
   summary.host.tsv: a header and seven rows: as-expected
   run.host.tsv: a header and seven rows: as-expected
   text files in the run directory (26, copies excluded): lines with a fixture string=0 (expect 0): as-expected
 
 ## case 8: the record script over the run directory
-command: python3 scripts/passthrough-record.py --run <scratch>/corpus/runs/2026-09-15-79d17ba --out <scratch>/record
+command: python3 scripts/passthrough-record.py --run <scratch>/corpus/runs/2026-09-15-cb94097 --out <scratch>/record
   stdout:
-    wrote step0-2026-09-15-79d17ba.tsv and step0-2026-09-15-79d17ba.md: labels host; files 7; entry rows 8
+    wrote step0-2026-09-15-cb94097.tsv and step0-2026-09-15-cb94097.md: labels host; files 7; entry rows 8
   stderr:
   exit: 0
   record exit 0: as-expected
-  exactly step0-2026-09-15-79d17ba.md and step0-2026-09-15-79d17ba.tsv written under <scratch>/record: as-expected
-  step0-2026-09-15-79d17ba.md:
-    # step0 passthrough run 2026-09-15-79d17ba
+  exactly step0-2026-09-15-cb94097.md and step0-2026-09-15-cb94097.tsv written under <scratch>/record: as-expected
+  step0-2026-09-15-cb94097.md:
+    # step0 passthrough run 2026-09-15-cb94097
     
-    Written by `scripts/passthrough-record.py` from the run directory `2026-09-15-79d17ba` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`).
+    Written by `scripts/passthrough-record.py` from the run directory `2026-09-15-cb94097` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`).
     
-    - Record written: 2026-09-15T21:30:59Z
-    - Commit: 79d17ba81eca7b4a64633e26c799c776a5fecdef
-    - Runs: 7, from 2026-09-15T21:30:55Z to 2026-09-15T21:30:59Z
+    - Record written: 2026-09-15T21:44:20Z
+    - Commit: cb94097d4d4b4dbd0f296760b70036bda0093731
+    - Runs: 7, from 2026-09-15T21:44:14Z to 2026-09-15T21:44:20Z
     - Targets: host
     - Tool versions: rustc 1.98.1 (48a229cea 2026-09-01); zip 8.6.0
     - Settings: timeout 300, 2 s; memory 2048, 256 MiB
@@ -608,23 +660,23 @@ command: python3 scripts/passthrough-record.py --run <scratch>/corpus/runs/2026-
     
     | id | label | producer | tags | outcome | exit | signal | diff_exit | differs from the expectation |
     | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | cbdcf61db461 | host | libreoffice | plain,strings | timeout | 124 | 9 | - | not compared |
-    | b4a727268e5b | host | libreoffice | plain,strings | panic | 101 | - | - | not compared |
-    | d509bb88d579 | host | libreoffice | plain,strings | crash | - | 6 | - | not compared |
-    | 8c3d7e77c5c6 | host | libreoffice | plain,strings | crash | 3 | - | - | not compared |
-    | f8983ded725e | host | libreoffice | plain,strings | crash | - | 6 | - | not compared |
-    | adf76e26bf08 | host | libreoffice | plain,strings | error | 2 | - | - | not compared |
-  step0-2026-09-15-79d17ba.tsv: 18 lines; first line and the line after the blank line:
+    | adc6fa49045d | host | libreoffice | plain,strings | timeout | 124 | 9 | - | not compared |
+    | c1e23115669b | host | libreoffice | plain,strings | panic | 101 | - | - | not compared |
+    | 57688d32fb6a | host | libreoffice | plain,strings | crash | - | 6 | - | not compared |
+    | a5fdf204362a | host | libreoffice | plain,strings | crash | 3 | - | - | not compared |
+    | 9d553797ffac | host | libreoffice | plain,strings | crash | - | 6 | - | not compared |
+    | cfa1c7f339f8 | host | libreoffice | plain,strings | error | 2 | - | - | not compared |
+  step0-2026-09-15-cb94097.tsv: 18 lines; first line and the line after the blank line:
     id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical
     id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
   md: the family table heading for host: as-expected
   md: the total row counts 8 entries: as-expected
   md: families content-types, rels, workbook, worksheet, sharedStrings, styles and docProps present: as-expected
-  ids in the non-ok list: 8c3d7e77c5c6 adf76e26bf08 b4a727268e5b cbdcf61db461 d509bb88d579 f8983ded725e 
+  ids in the non-ok list: 57688d32fb6a 9d553797ffac a5fdf204362a adc6fa49045d c1e23115669b cfa1c7f339f8 
   md: the non-ok list holds exactly the six fault cases (and case 1 when its diff exit is not 0): as-expected
   tsv: a summary header, seven rows, a blank line, an entries header and eight rows: as-expected
   record files and output: lines with a fixture string=0, with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
 
   main working tree status (expect empty): : as-expected
-run ended at 2026-09-15T21:31:00Z
+run ended at 2026-09-15T21:44:20Z
 all negative cases as expected: yes

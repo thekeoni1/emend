@@ -1,6 +1,6 @@
-about: phase diff 8c979bc..79d17ba81eca7b4a64633e26c799c776a5fecdef; HEAD at run: 79d17ba81eca7b4a64633e26c799c776a5fecdef
-phase: T3 P1 (specs/0006-passthrough.md) scan.log; run at 2026-09-15T21:31:13Z
-rerun: replaces the scan log of record commit ba79abf (range 8c979bc..9eaee47); rerun over 8c979bc..79d17ba after phase commit 2
+about: phase diff 8c979bc..cb94097d4d4b4dbd0f296760b70036bda0093731; HEAD at run: cb94097d4d4b4dbd0f296760b70036bda0093731
+phase: T3 P1 (specs/0006-passthrough.md) scan.log; run at 2026-09-15T21:44:57Z
+rerun: replaces the scan log of record commit 8d202cd (range 8c979bc..79d17ba); rerun over 8c979bc..cb94097 after phase commit 3, the fixes for independent check 1
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -247,7 +247,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 79d17ba81eca7b4a64633e26c799c776a5fecdef: yes
+this script's patterns equal scripts/privacy-patterns.txt at cb94097d4d4b4dbd0f296760b70036bda0093731: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -310,7 +310,10 @@ this script's patterns equal scripts/privacy-patterns.txt at 79d17ba81eca7b4a646
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 8c979bc..79d17ba81eca7b4a64633e26c799c776a5fecdef
+command: git rev-list --parents 8c979bc..cb94097d4d4b4dbd0f296760b70036bda0093731
+cb94097d4d4b4dbd0f296760b70036bda0093731 4e389628e956bdc50c158051aabfe7e60bd91f37
+4e389628e956bdc50c158051aabfe7e60bd91f37 8d202cda7fb89b209a305cde80adb99d7d813b43
+8d202cda7fb89b209a305cde80adb99d7d813b43 79d17ba81eca7b4a64633e26c799c776a5fecdef
 79d17ba81eca7b4a64633e26c799c776a5fecdef ba79abf40625155f26b98f1cb32736ca66361312
 ba79abf40625155f26b98f1cb32736ca66361312 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
 9eaee4778f16f172d4a1b2414d147542b6bfcbc1 d63ad31eb9957bf5c3293d04d16d6f85622732d3
@@ -346,14 +349,31 @@ command: git show --name-status --format='%H parents=%P %s' 79d17ba81eca7b4a6463
     79d17ba81eca7b4a64633e26c799c776a5fecdef parents=ba79abf40625155f26b98f1cb32736ca66361312 T3 P1: assert the zip64 test's plain output sizes
     
     M	tools/passthrough/tests/copies.rs
+command: git show --name-status --format='%H parents=%P %s' 8d202cda7fb89b209a305cde80adb99d7d813b43
+    8d202cda7fb89b209a305cde80adb99d7d813b43 parents=79d17ba81eca7b4a64633e26c799c776a5fecdef T3 P1 record: logs rerun at 79d17ba after phase commit 2
+    
+    M	records/logs/t3-p1/gate.log
+    M	records/logs/t3-p1/negative.log
+    M	records/logs/t3-p1/scan.log
+    M	records/logs/t3-p1/test.log
+command: git show --name-status --format='%H parents=%P %s' 4e389628e956bdc50c158051aabfe7e60bd91f37
+    4e389628e956bdc50c158051aabfe7e60bd91f37 parents=8d202cda7fb89b209a305cde80adb99d7d813b43 T3 P1 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t3-p1/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' cb94097d4d4b4dbd0f296760b70036bda0093731
+    cb94097d4d4b4dbd0f296760b70036bda0093731 parents=4e389628e956bdc50c158051aabfe7e60bd91f37 T3 P1: fixes from independent check 1
+    
+    M	scripts/passthrough-run.sh
+    M	tools/passthrough/tests/copies.rs
 
-## files changed in the phase diff (contents at 79d17ba81eca7b4a64633e26c799c776a5fecdef)
-command: git diff --name-status 8c979bc 79d17ba81eca7b4a64633e26c799c776a5fecdef
+## files changed in the phase diff (contents at cb94097d4d4b4dbd0f296760b70036bda0093731)
+command: git diff --name-status 8c979bc cb94097d4d4b4dbd0f296760b70036bda0093731
     M	Cargo.lock
     M	Cargo.toml
     M	ROADMAP.md
     A	records/logs/t3-p1/gate-attempt1.log
     A	records/logs/t3-p1/gate.log
+    A	records/logs/t3-p1/independent-check-1.md
     A	records/logs/t3-p1/negative.log
     A	records/logs/t3-p1/scan.log
     A	records/logs/t3-p1/test.log
@@ -403,7 +423,7 @@ file records/logs/t3-p1/gate-attempt1.log (sha256 965f7029d77d6cb42922a6e6ab8863
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p1/gate.log (sha256 8613a83ca52b8515ff4e4b86ea69b30d7449af0601f9d8f7e6013e8bb77643a5)
+file records/logs/t3-p1/gate.log (sha256 b21aad3a4a7e69493e4da0669be102324f4a2bd6ef6f9b0942d9af71fde50b17)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -412,7 +432,7 @@ file records/logs/t3-p1/gate.log (sha256 8613a83ca52b8515ff4e4b86ea69b30d7449af0
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p1/negative.log (sha256 a083d70d3b31370ac17ed037089a29ce47586590d0852170e8f76d7160758d48)
+file records/logs/t3-p1/independent-check-1.md (sha256 3d0558212a9754bc8122b9f9041ab0214edb02f5f1937c99b9a7bd8a5056c882)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -421,7 +441,7 @@ file records/logs/t3-p1/negative.log (sha256 a083d70d3b31370ac17ed037089a29ce475
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p1/scan.log (sha256 ff6e42e9d6b1d4efd5769d9b68963c8f758a4d53c5b4b26cf9ec54a4802ac65d)
+file records/logs/t3-p1/negative.log (sha256 fd3bf138e6556280a7c046511db605cf5f9752180eb18076b2af813faa8413d9)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -430,7 +450,16 @@ file records/logs/t3-p1/scan.log (sha256 ff6e42e9d6b1d4efd5769d9b68963c8f758a4d5
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p1/test.log (sha256 d392a5f24b0f19f2f1cdcdc4da13bd27a38f4ba6f5b1ef9c47dfe4a59d51e08f)
+file records/logs/t3-p1/scan.log (sha256 5bdd61c2c9f880a4836f70c0e63075aae454a0d36c976dc4242037052e1e1fa0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/test.log (sha256 ea9373a8c6ffd7022ddab1c31f3fc7410fe3eebd08dbb43f1c26dfb4bf720abc)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -448,7 +477,7 @@ file scripts/passthrough-record.py (sha256 5336eae4488aa978b7060e1833e190633bf01
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file scripts/passthrough-run.sh (sha256 685eef7b6f8c48904278298918b427973a9caf896d3986dd244ec5f3103a31e9)
+file scripts/passthrough-run.sh (sha256 8e76f17261a5a2cfed3317c7b836b10310536a8ee5cbae13bab4900eb3dc8a65)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -511,7 +540,7 @@ file tools/passthrough/tests/common/mod.rs (sha256 3f1054ef72d7cee8fd152210bdca2
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file tools/passthrough/tests/copies.rs (sha256 d5c4c368e3fc07019303b75625f16681f41ad7731eea1940d1416c9f790fd372)
+file tools/passthrough/tests/copies.rs (sha256 59676c2972b746c6fc975798890488b351eaa8cbc2a17566bd11370feeeb91e0)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -529,9 +558,39 @@ file tools/passthrough/tests/faults.rs (sha256 355a406aee9abd43fdc5361e19de4f960
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 18; files scanned: 18; files read: 18: yes
+files in diff: 19; files scanned: 19; files read: 19: yes
 
 ## commit messages in the phase range
+message cb94097d4d4b4dbd0f296760b70036bda0093731
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4e389628e956bdc50c158051aabfe7e60bd91f37
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 8d202cda7fb89b209a305cde80adb99d7d813b43
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 79d17ba81eca7b4a64633e26c799c776a5fecdef
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -572,7 +631,7 @@ message d63ad31eb9957bf5c3293d04d16d6f85622732d3
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 4; commits in range: 4: yes
+messages scanned: 7; commits in range: 7: yes
 
 ## other T3 P1 logs in the working tree (a log cannot scan itself)
 log records/logs/t3-p1/gate-attempt1.log (sha256 965f7029d77d6cb42922a6e6ab8863e29cf7eb5e50c720e5713774b72ce4ba9d)
@@ -584,7 +643,7 @@ log records/logs/t3-p1/gate-attempt1.log (sha256 965f7029d77d6cb42922a6e6ab8863e
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t3-p1/gate.log (sha256 b21aad3a4a7e69493e4da0669be102324f4a2bd6ef6f9b0942d9af71fde50b17)
+log records/logs/t3-p1/gate.log (sha256 028a210a9150b7d4907625b40b8e71b24270a3284bd2650234127a46e6b0ec5a)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -593,7 +652,7 @@ log records/logs/t3-p1/gate.log (sha256 b21aad3a4a7e69493e4da0669be102324f4a2bd6
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t3-p1/test.log (sha256 ea9373a8c6ffd7022ddab1c31f3fc7410fe3eebd08dbb43f1c26dfb4bf720abc)
+log records/logs/t3-p1/test.log (sha256 7dc2d63757a6de6704238dcb04c27276e1a90a25171610fb9a026b05ccb70936)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -602,7 +661,7 @@ log records/logs/t3-p1/test.log (sha256 ea9373a8c6ffd7022ddab1c31f3fc7410fe3eebd
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t3-p1/negative.log (sha256 fd3bf138e6556280a7c046511db605cf5f9752180eb18076b2af813faa8413d9)
+log records/logs/t3-p1/negative.log (sha256 302bb223e85c6b874c1d5d946538463bc8ed95a7d4e05edebba6ab0f57720424)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -616,5 +675,5 @@ T3 P1 logs scanned: 4 (expected 4): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-15T21:31:13Z
+run ended at 2026-09-15T21:44:58Z
 RESULT: PASS
