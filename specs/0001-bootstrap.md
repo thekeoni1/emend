@@ -1,9 +1,10 @@
 # 0001: T0 repo bootstrap
 
-Status: P1, P1R, P2, P3 and P4 DONE, verified by planning 2026-09-14.
-After the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a
-with records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
-53b99d8; P4 is 977635b to a00d6fd. P5 to P7 READY.
+Status: P1, P1R, P2, P3, P4 and P5 DONE, verified by planning
+2026-09-14. After the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc
+commit d495f0a with records through 88d5644; P2 is 1a985a1 to 9daa4c6;
+P3 is ced7f91 to 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to
+9b7aef1. P5b, P6 and P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -16,7 +17,8 @@ task writes no workbook model and no harness logic.
 
 ## How this task runs
 
-T0 is P1, P1R, then P2 to P7, in that order. Each phase ends with:
+T0 is P1, P1R, P2 to P5, P5b, P6 and P7, in that order. Each phase ends
+with:
 
 1. The phase commit(s).
 2. The phase's logs, written to `records/logs/t0-<phase>/` (for example
@@ -277,6 +279,52 @@ committed. Its output goes in the phase's `negative.log`.
   weak controls are accepted as recorded. Planning's own scans cover
   both verify logs.
 
+## Planning rulings on P5 (2026-09-14)
+
+- P5 is verified from primaries by planning's own checks:
+  - Doc commit d8c1ee1 holds exactly the two pending paths.
+  - Phase commit 346385c changes only `scripts/check.sh`. The record
+    commits touch only `records/logs/t0-p5/` and
+    `records/toolchain-2026-09-15.md`. All six messages end with the
+    Co-Authored-By trailer only.
+  - Planning ran `scripts/check.sh` from `/`: all seven steps PASS,
+    including `PASS native (allowlisted -sys: none)`, exit 0, zero
+    control bytes in the output.
+  - Planning reproduced negatives (a) to (f) in fresh clones. Each gives
+    its expected FAIL: a staged U+2014 file, `Y.XLSM`, a dummy
+    `ANTHROPIC_API_KEY` for one command, `cc` behind a feature nothing
+    enables, `fake_sys`, and an `MPL-2.0` crate behind a feature nothing
+    enables.
+  - The toolchain record gives the kernel from `uname -r` and no
+    hostname.
+  - Every file in every commit on main, and every message, has zero
+    hits against the denylist, the shape-based P6 patterns and non-ASCII
+    bytes. The GitHub repository still has no branches.
+  - Planning also reproduced two gaps with the committed script. A
+    staged U+2014 file deleted from the working tree passes. An office
+    file under a directory whose name contains a newline before
+    `tests/fixtures/` passes.
+- Questions 1 and 6: any tracked path containing a control byte fails.
+  Paths in FAIL lines are printed git-quoted (P5b).
+- Questions 2, 3 and 4: the U+2014 check reads the index with
+  `git grep --cached -I`. A symlink is then checked as its target
+  string, never followed. A file git treats as binary is not a text file
+  for this rule (P5b).
+- Question 5: match `emend-testing` case-insensitively. The
+  `tests/fixtures/` exception stays case-sensitive, so it fails closed
+  (P5b).
+- Question 7: check `ANTHROPIC_API_KEY` before step 1 (P5b).
+- Question 8: every grep form in step 7 gets an in-script positive
+  control (P5b). Negative tests for grep error branches are not
+  required.
+- Question 9: not in T0. Logged negative runs are the evidence for every
+  phase. A committed self-test script for the gate is an idea to put to
+  the maintainer.
+- Question 10: accepted. `--all-features` covers every feature a
+  workspace member can enable. A feature that only a dependency's own
+  configuration could enable is in no build of this workspace.
+- P5 as committed stays as recorded; the changes above are P5b.
+
 ## P1: commit what exists (DONE; rewritten in P1R)
 
 - Commit `CLAUDE.md`, `ROADMAP.md` and `specs/` exactly as they are in
@@ -507,6 +555,51 @@ full gate passed at.
   - `scan.log`: per the scan rules.
 - Acceptance: all seven `PASS`; every negative case shows its expected
   result; `git status` is clean afterwards.
+
+## P5b: hygiene hardening
+
+This phase applies the planning rulings on P5 to step 7 of
+`scripts/check.sh`:
+
+- Read what would be committed, not the working tree. Find U+2014 with
+  `git grep --cached -I` on the byte pattern, under `LC_ALL=C`. A
+  symlink is then checked as its target string and never followed. A
+  file git treats as binary is not a text file for this rule.
+- Before any other path check, fail if any tracked path contains a
+  control byte, newline included. Report how many such paths exist, not
+  the paths themselves.
+- Match `emend-testing` in tracked paths case-insensitively. The
+  `tests/fixtures/` exception stays case-sensitive.
+- FAIL lines print paths the way `git ls-files` prints them without
+  `-z`, so non-ASCII bytes appear quoted.
+- Check `ANTHROPIC_API_KEY` before step 1, so a key never reaches a
+  build script or test. It prints `FAIL hygiene: ANTHROPIC_API_KEY is
+  set in the environment` and exits 1 before any other step runs. The
+  value is never printed.
+- Every grep form in step 7 has an in-script positive control, as the
+  U+2014 scan already does.
+
+- Logs:
+  - `gate.log`: a full run, all seven steps.
+  - `negative.log`: each case in a scratch clone.
+    - (a) Stage a file containing U+2014, then delete it from the
+      working tree: `FAIL hygiene`.
+    - (b) Track an office file under a directory whose name contains a
+      newline, before `tests/fixtures/`: `FAIL hygiene`. The captured
+      output has zero control bytes.
+    - (c) Track a symlink to a file outside the repository that
+      contains U+2014: `PASS hygiene`.
+    - (d) Track `Emend-Testing/x.txt`: `FAIL hygiene`.
+    - (e) Run with `ANTHROPIC_API_KEY=dummy` for that one command only.
+      The first output line is the hygiene FAIL line, and no `PASS
+      host` line appears.
+    - (f) Track an office file with a non-ASCII byte in its name:
+      `FAIL hygiene`, naming the path in quoted form. The captured
+      output has zero non-ASCII bytes.
+    - (g) Repeat P5 negatives (a) and (b), and show they still fail.
+  - `scan.log`: per the scan rules.
+- Acceptance: all seven `PASS` in `gate.log`; every negative case shows
+  its expected result.
 
 ## P6: privacy gate
 
