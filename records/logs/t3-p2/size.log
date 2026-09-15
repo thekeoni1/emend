@@ -1,5 +1,6 @@
-about: T3 P2 phase commit 2845fab9ba5ebbea759313de66c7eda2699b84e6; HEAD at run: 2845fab9ba5ebbea759313de66c7eda2699b84e6
-phase: T3 P2 (specs/0006-passthrough.md) size.log; run at 2026-09-15T22:10:00Z
+about: T3 P2 phase commit 6a7533e6e47656111f69e2b08adab9454a75dbc4; HEAD at run: 6a7533e6e47656111f69e2b08adab9454a75dbc4
+phase: T3 P2 (specs/0006-passthrough.md) size.log; run at 2026-09-15T22:27:32Z
+rerun: replaces the logs of record commit 434e714 (runs at 2845fab); rerun at phase commit 2, 6a7533e6e47656111f69e2b08adab9454a75dbc4, after independent check 1 (record commit dd1c4cd): the runner removes stale temporary files before the child; the gate log adds the zip and quick-xml features, the tools' zip lines and check.sh's own commands and allowed list; the size log's tree checks require cargo tree's exit 0; the negative log compares the case 13 binaries by sha256 with a control, tightens case 12, and adds cases 14 and 15
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## script
@@ -32,6 +33,14 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
       local d
       d=$(file -b "$1")
       [[ "$d" == *"ELF 32-bit LSB executable, Intel i386"* ]] && [[ "$d" == *"statically linked"* ]] && [[ "$d" == *", stripped"* ]]
+    }
+    # tree_has <file> <exit> <count predicate>: cargo tree exited 0 and the number
+    # of quick-xml lines satisfies the predicate (none or some).
+    tree_has() {
+      local n
+      [ "$2" -eq 0 ] || return 1
+      n=$(LC_ALL=C "$G" -c '^quick-xml v0.42.0' "$1")
+      if [ "$3" = none ]; then [ "$n" -eq 0 ]; else [ "$n" -ge 1 ]; fi
     }
     # probe_output_is <file> <exit> <expected>: the exit and the exact output.
     probe_output_is() { [ "$2" -eq 0 ] && [ "$(cat "$1")" = "$3" ]; }
@@ -79,10 +88,13 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
       cargo tree -p size-probe $feat -e features --prefix none --target "$I686" --offline 2>/dev/null |
         LC_ALL=C "$G" -E '^(zip|quick-xml) ' | sort -u | sed -e "s#$(pwd)#<repo>#g" -e 's/^/    /'
     done
-    cargo tree -p size-probe -e normal --prefix none --target "$I686" --offline 2>/dev/null >"$T/tree-plain"
-    cargo tree -p size-probe --features xml -e normal --prefix none --target "$I686" --offline 2>/dev/null >"$T/tree-xml"
-    check "without the xml feature quick-xml is not in the tree" "$(yn [ "$(LC_ALL=C "$G" -c '^quick-xml ' "$T/tree-plain")" -eq 0 ])"
-    check "with the xml feature quick-xml v0.42.0 is in the tree" "$(yn [ "$(LC_ALL=C "$G" -c '^quick-xml v0.42.0' "$T/tree-xml")" -ge 1 ])"
+    cargo tree -p size-probe -e normal --prefix none --target "$I686" --offline >"$T/tree-plain" 2>"$T/tree-plain-err"
+    TP=$?
+    cargo tree -p size-probe --features xml -e normal --prefix none --target "$I686" --offline >"$T/tree-xml" 2>"$T/tree-xml-err"
+    TX=$?
+    echo "cargo tree exits for the two checks: without xml $TP; with xml $TX"
+    check "without the xml feature cargo tree exits 0 and quick-xml is not in the tree" "$(yn tree_has "$T/tree-plain" "$TP" none)"
+    check "with the xml feature cargo tree exits 0 and quick-xml v0.42.0 is in the tree" "$(yn tree_has "$T/tree-xml" "$TX" some)"
     
     echo
     echo "## size builds for $I686"
@@ -175,7 +187,7 @@ installed targets for the pinned toolchain:
     i686-unknown-linux-musl
     x86_64-unknown-linux-gnu
 
-## manifests at 2845fab9ba5ebbea759313de66c7eda2699b84e6
+## manifests at 6a7533e6e47656111f69e2b08adab9454a75dbc4
 Cargo.toml (sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98):
     [workspace]
     resolver = "3"
@@ -265,8 +277,9 @@ command: cargo tree -p size-probe --features xml -e features --prefix none --tar
     zip feature "flate2"
     zip v8.6.0
     zip v8.6.0 (*)
-without the xml feature quick-xml is not in the tree: yes
-with the xml feature quick-xml v0.42.0 is in the tree: yes
+cargo tree exits for the two checks: without xml 0; with xml 0
+without the xml feature cargo tree exits 0 and quick-xml is not in the tree: yes
+with the xml feature cargo tree exits 0 and quick-xml v0.42.0 is in the tree: yes
 
 ## size builds for i686-unknown-linux-musl
 command: cargo clean -p size-probe --profile size --target i686-unknown-linux-musl
@@ -294,8 +307,8 @@ probe-zip prints the entry count: yes
 probe-zip-xml prints the entry and element counts: yes
 probe-zip-xml exits 2 for a missing entry: yes
 
-## the size record written to <scratch> (committed as records/size-baseline-2026-09-15-2845fab.md)
-    # Size baseline 2026-09-15-2845fab
+## the size record written to <scratch> (committed as records/size-baseline-2026-09-15-6a7533e.md)
+    # Size baseline 2026-09-15-6a7533e
     
     The stripped `i686-unknown-linux-musl` sizes of the two size probes
     (`specs/0006-passthrough.md`, "Size baseline"), measured by
@@ -303,7 +316,7 @@ probe-zip-xml exits 2 for a missing entry: yes
     increase over `probe-zip-xml` built the same way (maintainer ruling 4,
     `specs/0000-step-zero-plan.md`).
     
-    - Commit: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+    - Commit: 6a7533e6e47656111f69e2b08adab9454a75dbc4
     - Date: 2026-09-15 (UTC)
     - Toolchain: rustc 1.98.1 (48a229cea 2026-09-01); cargo 1.98.1 (797e8a9bc 2026-08-05)
     - Target: i686-unknown-linux-musl
@@ -326,5 +339,5 @@ probe-zip-xml exits 2 for a missing entry: yes
     licences step (`records/logs/t3-p2/gate.log`).
 the record is ASCII: yes
 status after the run (expect empty): : yes
-run ended at 2026-09-15T22:10:08Z
+run ended at 2026-09-15T22:27:41Z
 size log checks all as expected: yes

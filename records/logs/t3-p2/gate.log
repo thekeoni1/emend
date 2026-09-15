@@ -1,5 +1,6 @@
-about: T3 P2 phase commit 2845fab9ba5ebbea759313de66c7eda2699b84e6; HEAD at run: 2845fab9ba5ebbea759313de66c7eda2699b84e6
-phase: T3 P2 (specs/0006-passthrough.md) gate.log; run at 2026-09-15T22:08:39Z
+about: T3 P2 phase commit 6a7533e6e47656111f69e2b08adab9454a75dbc4; HEAD at run: 6a7533e6e47656111f69e2b08adab9454a75dbc4
+phase: T3 P2 (specs/0006-passthrough.md) gate.log; run at 2026-09-15T22:26:03Z
+rerun: replaces the logs of record commit 434e714 (runs at 2845fab); rerun at phase commit 2, 6a7533e6e47656111f69e2b08adab9454a75dbc4, after independent check 1 (record commit dd1c4cd): the runner removes stale temporary files before the child; the gate log adds the zip and quick-xml features, the tools' zip lines and check.sh's own commands and allowed list; the size log's tree checks require cargo tree's exit 0; the negative log compares the case 13 binaries by sha256 with a control, tightens case 12, and adds cases 14 and 15
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
 EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
@@ -34,6 +35,15 @@ private denylist: present, mode 600, entries 7 (never printed)
     ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
     # check <label> <yes|no>: print a result evaluated once.
     check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    # features_ok <features file>: zip has the deflate-flate2-zlib-rs feature and
+    # not its default feature set, and quick-xml has no feature enabled.
+    features_ok() {
+      /usr/bin/grep -q -x -F 'zip feature "deflate-flate2-zlib-rs"' "$1" &&
+        ! /usr/bin/grep -q -x -F 'zip feature "default"' "$1" &&
+        ! /usr/bin/grep -q -E '^quick-xml feature ' "$1"
+    }
+    # zip_lines_equal <file>: the file holds three zip dependency lines, all equal.
+    zip_lines_equal() { [ "$(wc -l <"$1")" -eq 3 ] && [ "$(sort -u "$1" | wc -l)" -eq 1 ]; }
     yn() { if "$@"; then echo yes; else echo no; fi; }
     
     echo "about: T3 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
@@ -74,7 +84,26 @@ private denylist: present, mode 600, entries 7 (never printed)
     printf '%s\n' "quick-xml v0.42.0" | cat - "$T/tree-want" | sort > "$T/tree-all-want"
     check "with all features the tree adds exactly quick-xml v0.42.0" "$(yn cmp -s "$T/tree-all-got" "$T/tree-all-want")"
     echo
-    echo "## licence listing (the same cargo metadata call and allowed list as check.sh step 6)"
+    echo "## zip and quick-xml features, and the tools' dependency lines"
+    echo "command: cargo tree -e features --prefix none --all-features (zip and quick-xml feature lines)"
+    cargo tree -e features --prefix none --all-features > "$T/tree-features" 2> "$T/tree-features-err"
+    echo "exit: $?"
+    /usr/bin/grep -E '^(zip|quick-xml)( v| feature )' "$T/tree-features" | sed -E 's/ \(\*\)$//' | sort -u > "$T/features"
+    sed 's/^/    /' "$T/features"
+    check "zip has deflate-flate2-zlib-rs and not its default features; quick-xml has no feature enabled" "$(yn features_ok "$T/features")"
+    : > "$T/zip-lines"
+    for f in tools/xlsx-diff/Cargo.toml tools/passthrough/Cargo.toml tools/size-probe/Cargo.toml; do
+      echo "$f dependency lines:"
+      /usr/bin/grep -E '^(zip|quick-xml|xlsx-diff) = ' "$f" | sed 's/^/    /'
+      /usr/bin/grep -E '^zip = ' "$f" >> "$T/zip-lines"
+    done
+    check "the three tools declare zip with the same line" "$(yn zip_lines_equal "$T/zip-lines")"
+    echo
+    echo "## check.sh's own commands for steps 5 and 6, and its allowed licence list"
+    /usr/bin/grep -n -E 'cargo (tree|metadata) ' scripts/check.sh | sed 's/^/    /'
+    awk '/^ALLOWED = \{/,/^\}/ { printf "    %d:%s\n", NR, $0 }' scripts/check.sh
+    echo
+    echo "## licence listing (the same cargo metadata call as check.sh step 6; check.sh applies the allowed list above and printed PASS licences below)"
     echo "command: cargo metadata --format-version 1 --all-features"
     cargo metadata --format-version 1 --all-features > "$T/metadata.json" 2> "$T/metadata-err"
     echo "exit: $?"
@@ -116,20 +145,20 @@ private denylist: present, mode 600, entries 7 (never printed)
     echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
     exit "$fail"
 
-## gate files at 2845fab9ba5ebbea759313de66c7eda2699b84e6
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
-scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
-tools/xlsx-diff/Cargo.toml on disk sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; bytes 223
-tools/passthrough/Cargo.toml on disk sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a; bytes 359
-tools/size-probe/Cargo.toml on disk sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f; at 2845fab9ba5ebbea759313de66c7eda2699b84e6 sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f; bytes 567
+## gate files at 6a7533e6e47656111f69e2b08adab9454a75dbc4
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+tools/xlsx-diff/Cargo.toml on disk sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; bytes 223
+tools/passthrough/Cargo.toml on disk sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a; bytes 359
+tools/size-probe/Cargo.toml on disk sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f; at 6a7533e6e47656111f69e2b08adab9454a75dbc4 sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f; bytes 567
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## dependency tree (the three workspace packages and the ten crates of T1 P1; quick-xml is optional, behind size-probe's xml feature)
@@ -176,7 +205,41 @@ exit: 0
     zip v8.6.0 (*)
 with all features the tree adds exactly quick-xml v0.42.0: yes
 
-## licence listing (the same cargo metadata call and allowed list as check.sh step 6)
+## zip and quick-xml features, and the tools' dependency lines
+command: cargo tree -e features --prefix none --all-features (zip and quick-xml feature lines)
+exit: 0
+    quick-xml v0.42.0
+    zip feature "_deflate-any"
+    zip feature "deflate-flate2"
+    zip feature "deflate-flate2-zlib-rs"
+    zip feature "flate2"
+    zip v8.6.0
+zip has deflate-flate2-zlib-rs and not its default features; quick-xml has no feature enabled: yes
+tools/xlsx-diff/Cargo.toml dependency lines:
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+tools/passthrough/Cargo.toml dependency lines:
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    xlsx-diff = { path = "../xlsx-diff" }
+tools/size-probe/Cargo.toml dependency lines:
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    quick-xml = { version = "=0.42.0", default-features = false, optional = true }
+the three tools declare zip with the same line: yes
+
+## check.sh's own commands for steps 5 and 6, and its allowed licence list
+    111:cargo tree --workspace --target all -e normal,build --all-features --prefix none \
+    138:cargo metadata --format-version 1 --all-features >"$OUT/metadata.json" 2>"$OUT/metadata-err" ||
+    145:ALLOWED = {
+    146:    "MIT",
+    147:    "Apache-2.0",
+    148:    "Apache-2.0 WITH LLVM-exception",
+    149:    "BSD-2-Clause",
+    150:    "BSD-3-Clause",
+    151:    "Zlib",
+    152:    "Unicode-3.0",
+    153:    "Unicode-DFS-2016",
+    154:}
+
+## licence listing (the same cargo metadata call as check.sh step 6; check.sh applies the allowed list above and printed PASS licences below)
 command: cargo metadata --format-version 1 --all-features
 exit: 0
     cfg-if 1.0.4: MIT OR Apache-2.0
@@ -197,7 +260,7 @@ quick-xml 0.42.0 is listed with licence MIT: yes
 
 ## full run on a cold cache, started from / by absolute path
 command: cargo clean
-         Removed 4354 files, 775.9MiB total
+         Removed 3613 files, 696.2MiB total
 command: (cd / && <repo>/scripts/check.sh)
 stdout:
     PASS host
@@ -220,5 +283,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-15T22:09:19Z
+run ended at 2026-09-15T22:26:44Z
 gate log checks all as expected: yes

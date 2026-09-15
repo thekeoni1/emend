@@ -1,4 +1,4 @@
-# Size baseline 2026-09-15-2845fab
+# Size baseline 2026-09-15-6a7533e
 
 The stripped `i686-unknown-linux-musl` sizes of the two size probes
 (`specs/0006-passthrough.md`, "Size baseline"), measured by
@@ -6,7 +6,7 @@ The stripped `i686-unknown-linux-musl` sizes of the two size probes
 increase over `probe-zip-xml` built the same way (maintainer ruling 4,
 `specs/0000-step-zero-plan.md`).
 
-- Commit: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+- Commit: 6a7533e6e47656111f69e2b08adab9454a75dbc4
 - Date: 2026-09-15 (UTC)
 - Toolchain: rustc 1.98.1 (48a229cea 2026-09-01); cargo 1.98.1 (797e8a9bc 2026-08-05)
 - Target: i686-unknown-linux-musl
