@@ -1,8 +1,9 @@
 # 0004: T1 xlsx-diff, the entry-level fidelity harness
 
-Status: P1 and P2 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
+Status: P1 to P3 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
 6ccae09, phase commits 2df5f6e and dc22f78; P2: a3166a5 to 24f4ef0,
-phase commits 8d3c2aa, ac10ff6 and ed5f1f7). P3 READY. Runs after T0b. T2
+phase commits 8d3c2aa, ac10ff6 and ed5f1f7; P3: f0adb45 to 827766a,
+phase commits 9f124c7 and 401bb98). P4 READY. Runs after T0b. T2
 (corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
@@ -94,8 +95,23 @@ Flags, set only for entries present on both sides, whatever the status:
 - `extra`: the local extra field or the central extra field differs;
 - `gpflags`: the general purpose bit flags differ;
 - `descriptor`: one side uses a data descriptor and the other does not;
-- `attrs`: the external attributes, version-made-by or system differ;
-- `comment`: the entry comment differs.
+- `attrs`: the external attributes, version-made-by (whose high byte is
+  the system) or version-needed-to-extract in the central record differ;
+- `comment`: the entry comment differs;
+- `local`: the fixed fields of the local file header other than the
+  signature and the name and extra lengths (version needed, general
+  purpose flags, method, DOS time, DOS date, CRC-32, compressed size,
+  uncompressed size) differ, or the name bytes in the local headers
+  differ (added in P4, on P3's spec observation).
+
+The flags `mtime`, `extra`, `gpflags`, `descriptor`, `attrs` and
+`comment` read the central directory record's own bytes, plus the local
+header's extra field for `extra`. With `local`, exit status 0 means that
+every common entry's local header, extra fields, data and central record
+are byte-equal, the order is preserved and the archive comment is equal;
+a `files_identical` of `no` beside exit 0 can then come only from bytes
+outside the entries and the comment: a prefix, padding between entries,
+or end-of-central-directory fields other than the comment.
 
 `archive` rows, after the entry rows: `archive<TAB>key<TAB>value`, in
 this order:
@@ -162,10 +178,13 @@ at most two independent checks, report, STOP. Every phase writes:
   the summary lines. The i686 run must execute the same tests as the
   host run, and the log states both counts.
 - `negative.log`: the phase's negative cases, run in a scratch copy or
-  against temporary files, never committed. No fixture text may appear
-  in any captured tool output; the printed generator may hold fictional
-  content templates, and sentinel values are built at run time and
-  never printed (ruled on P1 gap 2 and P2 gap 3).
+  against temporary files, never committed. The tool under test may be
+  built and run from the main working tree behind a HEAD and clean-tree
+  guard, with its archives in temporary directories (ruled on P2 gap 6,
+  P3 gap 2). No fixture text may appear in any captured tool output;
+  the printed generator may hold fictional content templates, and
+  sentinel values are built at run time and never printed (ruled on P1
+  gap 2 and P2 gap 3).
 - `scan.log`: per the scan rules, over the phase diff, the commit
   messages and the other logs.
 
@@ -358,6 +377,52 @@ Deliverables:
 - Acceptance: as P1, plus every flag and archive row exercised by a
   test.
 
+### Planning rulings on P3 (2026-09-15)
+
+- P3 is verified from primaries by planning's own checks:
+  - Doc commit f0adb45 holds exactly planning's three doc files (82
+    insertions, 10 deletions), unchanged since. The two phase commits
+    touch only `tools/xlsx-diff/`; the four record commits only
+    `records/logs/t1-p3/`. All seven messages end with the
+    Co-Authored-By trailer only, under the noreply identity. No mode
+    changes, no tracked archive.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 31 passed on each, same names.
+  - Planning read the `lib.rs` diff and `tests/p3.rs` against this
+    spec: the central records read from their own bytes, the local
+    extra field read at `header_start`, the six flags in order, every
+    `archive` row in order, `order_preserved` from rising output
+    indices, checked sums, `files_identical` through two buffers, the
+    exit status rule, and column 14 as the first differing offset.
+  - Planning reproduced with its own archives and the built binary:
+    equal archives (exit 0, `files_identical` `yes`); a comment-only
+    difference (exit 1, all `identical`, `comment_equal` `no`);
+    reordered entries (`order_preserved` `no`); a changed DOS time
+    (`mtime` on every entry, `flagged` 3); an extra field, external
+    attributes and an entry comment each alone (`extra`, `attrs`,
+    `comment`); a 10-byte prefix (`prefix_out` 10, exit 0); a 600-byte
+    output with byte 5 differing (column 14 `5`); and the same file
+    twice (exit 0). A first extra-field attempt used header id 0x9901,
+    the AES id, and got the unsupported-feature error, which is right.
+  - The six record files, the six source files, `Cargo.lock` and the
+    seven messages have zero hits on every scan; the superseded logs at
+    171f980 hold no home path and no non-ASCII byte. `scripts/privacy.sh`
+    over the 102 local commits: PASS.
+- The spec observation (local header time, flags and version needed,
+  and the central version needed, are compared nowhere) is taken up: P4
+  adds the flag `local` and extends `attrs`, as the Output section now
+  says.
+- Departures 1 to 8 are accepted as recorded. On 1: reading the central
+  record's own bytes is the right choice; the Facts section's list of
+  crate fields was a pointer, not a requirement. On 2: the `attrs` flag
+  on the stored-against-deflated entry is real, since the writer's
+  version-made-by differs.
+- Remaining gaps: 1 is carried into P4 as a `files_identical` test whose
+  only difference lies in a prefix longer than two buffers; 2 is
+  confirmed, and the "Every phase writes" wording now says so; 3 is
+  accepted, and the rerun rule in `specs/0001-bootstrap.md` now covers
+  superseded as well as failed runs; 4 accepted.
+
 ### P4: no-leak test, zip64
 
 - Sentinel test: fixture entries contain a sentinel string and sentinel
@@ -377,10 +442,28 @@ Deliverables:
   on `i686-unknown-linux-musl` (`cargo test ... -- --ignored zip64`),
   and put both runs' output, wall time and peak RSS in `test.log`. The
   temporary files are deleted by the test.
+- The seventh flag `local` and the `attrs` extension (P3 ruling), with
+  tests on the byte-level builder: each of the local header's version
+  needed, flags, time and date alone gives `local` and nothing else,
+  except that a local flags change with the central flags equal is
+  `local` alone; a central version-needed change alone gives `attrs`;
+  a local name that differs from the central name is `local`.
+- A `files_identical` test whose only difference is one byte inside a
+  prefix longer than 131072 bytes on both sides (P3 gap 1): every
+  entry `identical` with no flags, exit 0, `prefix_in` equal to
+  `prefix_out`, `files_identical` `no`.
+- The zip64 test writes its entry in fixed-size chunks and never holds
+  the entry in memory, so it runs on i686.
 - Negative case: run the sentinel test with the escaping deliberately
   disabled in a scratch copy, and show it fails.
 - Acceptance: as P1, plus the zip64 test passes on both targets with the
   peak RSS under 64 MiB.
+
+After P4 verifies, the T1 close-out push follows the T0b close-out steps
+(`specs/0003-ci.md`, "Close-out push (after P2)"), with logs in
+`records/logs/t1-close/` and the CI run recorded. It needs planning's
+word and the maintainer's authorisation typed in the implementing
+session.
 
 ## Out of scope for T1
 

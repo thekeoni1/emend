@@ -62,7 +62,9 @@ phase ends with:
 If a phase fails its checks, record the failure in the phase log, fix
 it, and re-run with the fix named in the log. Do not re-run until it
 passes without saying what changed. When the failed run is committed as
-its own log, the rerun's header names that log (T1 P2 gap 1).
+its own log, the rerun's header names that log (T1 P2 gap 1). A rerun
+that replaces logs committed at an earlier phase commit names that
+record commit in its header (T1 P3 gap 3).
 
 Every negative test runs in a scratch copy (a `git worktree` or a clone
 outside the repo), never in the main working tree, and is never
