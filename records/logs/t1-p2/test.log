@@ -1,5 +1,5 @@
-about: T1 P2 phase commit 8d3c2aaab93ef9ed36502edef09a1a7297be4d6a; HEAD at run: 8d3c2aaab93ef9ed36502edef09a1a7297be4d6a
-phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:11:10Z
+about: T1 P2 phase commit ac10ff6298707eb93802d21b003276d101f0e7b9; HEAD at run: ac10ff6298707eb93802d21b003276d101f0e7b9
+phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:16:36Z
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -24,6 +24,10 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-0
     yn() { if "$@"; then echo yes; else echo no; fi; }
     # passed_matches: $passed is more than 0 and equals $nok (one check, two conditions).
     passed_matches() { [ "$passed" -gt 0 ] && [ "$passed" -eq "$nok" ]; }
+    # all_zero <n>...: every count given is 0.
+    all_zero() { local v; for v in "$@"; do [ "$v" -eq 0 ] || return 1; done; }
+    # both_ran <test name>: the test passed in the host run and in the i686 run.
+    both_ran() { LC_ALL=C "$G" -q -x -F -e "$1" "$T/host.names" && LC_ALL=C "$G" -q -x -F -e "$1" "$T/i686-unknown-linux-musl.names"; }
     ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
     
     if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
@@ -69,6 +73,23 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-0
     echo "host executed $(cat "$T/host.count") tests; i686-unknown-linux-musl executed $(cat "$T/i686-unknown-linux-musl.count") tests"
     check "the i686 run executed the same test names as the host run" "$(yn cmp -s "$T/host.names" "$T/i686-unknown-linux-musl.names")"
     check "the two counts are equal" "$(yn [ "$(cat "$T/host.count")" = "$(cat "$T/i686-unknown-linux-musl.count")" ])"
+    echo
+    echo "## encrypted fixture (P2 Tests: the log says which)"
+    echo "encrypted_entry_is_an_error makes its encrypted entry with the crate's ZipCrypto writer, zip::unstable::write::FileOptionsExt::with_deprecated_encryption, not with hand-set general purpose bit 0."
+    echo "command: cargo tree -e features --prefix none -p xlsx-diff (zip lines only)"
+    cargo tree -e features --prefix none -p xlsx-diff >"$T/features" 2>&1 </dev/null
+    echo "exit: $?"
+    LC_ALL=C "$G" -E '^zip ' "$T/features" | sort -u | sed 's/^/    /'
+    naes=$(LC_ALL=C "$G" -c -F 'zip feature "aes-crypto"' "$T/features")
+    check "zip feature aes-crypto lines: $naes (expect 0; the writer needs no extra feature)" "$(yn [ "$naes" -eq 0 ])"
+    git show "$C:tools/xlsx-diff/tests/p2.rs" >"$T/p2.rs"
+    git show "$C:tools/xlsx-diff/tests/common/mod.rs" >"$T/common.rs"
+    nw=$(LC_ALL=C "$G" -c -F 'with_deprecated_encryption(' "$T/p2.rs")
+    check "lines calling with_deprecated_encryption in tests/p2.rs at $C: $nw (expect 1)" "$(yn [ "$nw" -eq 1 ])"
+    nh=$(LC_ALL=C "$G" -c -F 'set_encrypted_flag' "$T/p2.rs")
+    nc=$(LC_ALL=C "$G" -c -F 'set_encrypted_flag' "$T/common.rs")
+    check "lines naming set_encrypted_flag at $C: tests/p2.rs $nh, tests/common/mod.rs $nc (expect 0 and 0)" "$(yn all_zero "$nh" "$nc")"
+    check "encrypted_entry_is_an_error passed on the host and on i686" "$(yn both_ran encrypted_entry_is_an_error)"
     STATUS=$(git status --porcelain | tr '\n' ' ')
     check "status after the runs (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
     echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
@@ -85,22 +106,22 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
     test missing_file_is_an_error ... ok
-    test duplicate_name_is_an_error ... ok
-    test dropped_entry ... ok
-    test stored_entry_beside_deflated_entry ... ok
-    test non_zip_file_is_an_error ... ok
     test added_entry ... ok
+    test duplicate_name_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
     test binary_usage_error ... ok
     test names_are_escaped ... ok
-    test equal_archives_are_identical ... ok
     test binary_exit_status_follows_the_comparison ... ok
+    test equal_archives_are_identical ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
-    test short_raw_stream_is_an_error ... ok
     test unsupported_method_is_an_error ... ok
-    test encrypted_entry_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
     test changed_entry_with_different_lengths ... ok
+    test encrypted_entry_is_an_error ... ok
     test changed_entry_with_equal_length ... ok
     test wrong_crc_is_an_error ... ok
     test recompressed_entry ... ok
@@ -125,13 +146,13 @@ Running lines, test lines and summary lines:
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
     test missing_file_is_an_error ... ok
     test binary_usage_error ... ok
-    test duplicate_name_is_an_error ... ok
     test non_zip_file_is_an_error ... ok
-    test stored_entry_beside_deflated_entry ... ok
+    test duplicate_name_is_an_error ... ok
     test added_entry ... ok
     test dropped_entry ... ok
-    test binary_exit_status_follows_the_comparison ... ok
+    test stored_entry_beside_deflated_entry ... ok
     test equal_archives_are_identical ... ok
+    test binary_exit_status_follows_the_comparison ... ok
     test names_are_escaped ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
@@ -156,5 +177,20 @@ i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
 host executed 19 tests; i686-unknown-linux-musl executed 19 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
+
+## encrypted fixture (P2 Tests: the log says which)
+encrypted_entry_is_an_error makes its encrypted entry with the crate's ZipCrypto writer, zip::unstable::write::FileOptionsExt::with_deprecated_encryption, not with hand-set general purpose bit 0.
+command: cargo tree -e features --prefix none -p xlsx-diff (zip lines only)
+exit: 0
+    zip feature "_deflate-any"
+    zip feature "deflate-flate2"
+    zip feature "deflate-flate2-zlib-rs"
+    zip feature "flate2"
+    zip v8.6.0
+    zip v8.6.0 (*)
+zip feature aes-crypto lines: 0 (expect 0; the writer needs no extra feature): yes
+lines calling with_deprecated_encryption in tests/p2.rs at ac10ff6298707eb93802d21b003276d101f0e7b9: 1 (expect 1): yes
+lines naming set_encrypted_flag at ac10ff6298707eb93802d21b003276d101f0e7b9: tests/p2.rs 0, tests/common/mod.rs 0 (expect 0 and 0): yes
+encrypted_entry_is_an_error passed on the host and on i686: yes
 status after the runs (expect empty): : yes
 test log checks all as expected: yes
