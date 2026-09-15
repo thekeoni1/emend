@@ -1,7 +1,7 @@
-about: T1 P1 phase commit 2df5f6e5c6d872a26f6f747b53bd7fd8467570c3; HEAD at run: 2df5f6e5c6d872a26f6f747b53bd7fd8467570c3
-phase: T1 P1 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T16:35:24Z
+about: T1 P1 phase commit dc22f78167f188441098c94d982a94f031635ea5; HEAD at run: dc22f78167f188441098c94d982a94f031635ea5
+phase: T1 P1 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T16:47:17Z
 Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
-fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase; values never printed)
+fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
 
 ## script
     #!/usr/bin/env bash
@@ -18,6 +18,11 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     # sentinels, control bytes and non-ASCII bytes.
     # Usage: t1p1-negative.sh <phase commit> > <scratch file>; the caller moves the
     # output to records/logs/t1-p1/negative.log. Paths print as <scratch>.
+    # Fixes named after check 1 on the first run: the content phrase is built at
+    # run time, so the printed script no longer holds it; the check that stderr is
+    # one line starting with "error: " now tests both parts (the first run's
+    # $(is [ ... ] && grep) captured only the line count); and the count of
+    # differing bytes in case (a) is evaluated once.
     set -uo pipefail
     cd "$(git rev-parse --show-toplevel)" || exit 2
     
@@ -33,7 +38,8 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
     SENT1="zq$(rnd 'a-z0-9' 14)"
     SENT2="zq$(rnd 'a-z0-9' 14)"
-    FORBIDDEN=("$SENT1" "$SENT2" "fictional negative content")
+    PHRASE="fictional neg""ative content"
+    FORBIDDEN=("$SENT1" "$SENT2" "$PHRASE")
     
     hide() {
       local line f
@@ -52,7 +58,7 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     echo "about: T1 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T1 P1 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit."
-    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two random content sentinels and the content phrase; values never printed)"
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two random content sentinels and the content phrase, all built at run time; values never printed)"
     echo
     echo "## script"
     sed 's/^/    /' "$0"
@@ -81,11 +87,11 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     echo "## generated archives"
     cat >"$BASE/gen.py" <<'PY'
     import sys, zipfile
-    out_dir, s1, s2 = sys.argv[1], sys.argv[2], sys.argv[3]
+    out_dir, s1, s2, phrase = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
     entries = [
-        ("xl/worksheets/sheet1.xml", ("fictional negative content row %d " + s1 + "\n") * 1, 400),
-        ("xl/sharedStrings.xml", ("fictional negative content string %d " + s2 + "\n") * 1, 300),
-        ("docProps/app.xml", "fictional negative content app %d\n", 5),
+        ("xl/worksheets/sheet1.xml", phrase + " row %d " + s1 + "\n", 400),
+        ("xl/sharedStrings.xml", phrase + " string %d " + s2 + "\n", 300),
+        ("docProps/app.xml", phrase + " app %d\n", 5),
     ]
     for name in ("input.zip", "output.zip"):
         with zipfile.ZipFile(out_dir + "/" + name, "w") as z:
@@ -104,8 +110,8 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     start = info.header_offset + 30 + name_len + extra_len
     print(start, info.compress_size, info.filename)
     PY
-    echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel>"
-    read -r DATA_START CSIZE ENTRY < <(python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2")
+    echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>"
+    read -r DATA_START CSIZE ENTRY < <(python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2" "$PHRASE")
     echo "  first entry $ENTRY: compressed stream starts at byte $DATA_START, $CSIZE bytes"
     note "input and output archives exist" "$(is [ -s "$BASE/input.zip" -a -s "$BASE/output.zip" ])"
     echo "  sizes: input.zip $(wc -c <"$BASE/input.zip") bytes, output.zip $(wc -c <"$BASE/output.zip") bytes"
@@ -153,7 +159,8 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     AFTER=$(od -An -tx1 -j "$OFFSET" -N1 "$BASE/flipped.zip" | tr -d ' \n')
     echo "  byte offset $OFFSET (inside $ENTRY's compressed stream, which starts at $DATA_START): $BEFORE before, $AFTER after"
     note "the byte changed" "$(is [ "$BEFORE" != "$AFTER" ])"
-    note "the rest of the file is unchanged ($(cmp -l "$BASE/output.zip" "$BASE/flipped.zip" 2>/dev/null | wc -l) byte differs)" "$(is [ "$(cmp -l "$BASE/output.zip" "$BASE/flipped.zip" 2>/dev/null | wc -l)" = 1 ])"
+    NDIFF=$(cmp -l "$BASE/output.zip" "$BASE/flipped.zip" 2>/dev/null | wc -l)
+    note "the rest of the file is unchanged ($NDIFF byte differs)" "$(is [ "$NDIFF" = 1 ])"
     run_tool a "$BASE/input.zip" "$BASE/flipped.zip"
     note "exit 1" "$(is [ "$RC" -eq 1 ])"
     note "the first entry's row says differs" "$(is env LC_ALL=C "$G" -q -P "^entry\t${ENTRY//./[.]}\tdiffers\t" "$BASE/a.out")"
@@ -168,7 +175,8 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     echo "  truncated.zip: $(wc -c <"$BASE/truncated.zip") bytes"
     run_tool b "$BASE/input.zip" "$BASE/truncated.zip"
     note "exit 2" "$(is [ "$RC" -eq 2 ])"
-    note "stderr is one line starting with error: " "$(is [ "$(wc -l <"$BASE/b.err")" = 1 ] && env LC_ALL=C "$G" -q '^error: ' "$BASE/b.err")"
+    one_error_line() { [ "$(wc -l <"$1")" = 1 ] && LC_ALL=C "$G" -q '^error: ' "$1"; }
+    note "stderr is one line starting with error: " "$(is one_error_line "$BASE/b.err")"
     note "no entry rows and no archive rows on stdout" "$(is [ ! -s "$BASE/b.out" ])"
     
     echo
@@ -190,16 +198,16 @@ command: cargo build -p xlsx-diff
   binary target/debug/xlsx-diff exists: as-expected
 
 ## generated archives
-command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel>
-  first entry xl/worksheets/sheet1.xml: compressed stream starts at byte 54, 1087 bytes
+command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>
+  first entry xl/worksheets/sheet1.xml: compressed stream starts at byte 54, 1085 bytes
   input and output archives exist: as-expected
-  sizes: input.zip 2308 bytes, output.zip 2308 bytes
+  sizes: input.zip 2307 bytes, output.zip 2307 bytes
 
 ## case 0 (control): input and output generated alike; expect every entry identical, exit 0
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/output.zip
   stdout:
-    entry	xl/worksheets/sheet1.xml	identical	0	0	8	8	20690	20690	1087	1087	989bf204	989bf204				
-    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	801	801	41302261	41302261				
+    entry	xl/worksheets/sheet1.xml	identical	0	0	8	8	20690	20690	1085	1085	c62a29d5	c62a29d5				
+    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	802	802	6755a9c0	6755a9c0				
     entry	docProps/app.xml	identical	2	2	8	8	165	165	50	50	dac104a5	dac104a5				
     archive	entries_in	3
     archive	entries_out	3
@@ -215,13 +223,13 @@ command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/output.zip
   stderr is empty: as-expected
 
 ## case a: one byte flipped in the compressed stream of the first entry, in a copy of the output
-  byte offset 597 (inside xl/worksheets/sheet1.xml's compressed stream, which starts at 54): b0 before, b1 after
+  byte offset 596 (inside xl/worksheets/sheet1.xml's compressed stream, which starts at 54): 1c before, 1d after
   the byte changed: as-expected
   the rest of the file is unchanged (1 byte differs): as-expected
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/flipped.zip
   stdout:
-    entry	xl/worksheets/sheet1.xml	differs	0	0	8	8	20690	20690	1087	1087	989bf204	989bf204				
-    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	801	801	41302261	41302261				
+    entry	xl/worksheets/sheet1.xml	differs	0	0	8	8	20690	20690	1085	1085	c62a29d5	c62a29d5				
+    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	802	802	6755a9c0	6755a9c0				
     entry	docProps/app.xml	identical	2	2	8	8	165	165	50	50	dac104a5	dac104a5				
     archive	entries_in	3
     archive	entries_out	3
@@ -239,7 +247,7 @@ command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/flipped.zip
   stderr is empty: as-expected
 
 ## case b: the output truncated to half its length
-  truncated.zip: 1154 bytes
+  truncated.zip: 1153 bytes
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/truncated.zip
   stdout:
   stderr:
