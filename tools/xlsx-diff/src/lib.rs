@@ -2,12 +2,12 @@
 //!
 //! Compares two zip archives entry by entry and prints tab-separated rows on
 //! stdout. It never prints entry content: rows carry names, indices,
-//! compression methods, sizes and CRC-32 values, and an error line names the
-//! side and at most an escaped entry name.
+//! compression methods, sizes, CRC-32 values and offsets, and an error line
+//! names the side and at most an escaped entry name.
 //!
-//! T1 P1 fills columns 1 to 13 of the `entry` rows. For an entry present on
-//! both sides the status is `identical` or the provisional `differs`, which
-//! P2 replaces with `recompressed` and `changed`.
+//! T1 P2 fills columns 1 to 16 of the `entry` rows with the statuses
+//! `identical`, `recompressed`, `changed`, `dropped` and `added`. Flags
+//! (column 17) and the remaining `archive` rows come in P3.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -15,8 +15,8 @@ use std::fs::File;
 use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use zip::ZipArchive;
 use zip::result::ZipError;
+use zip::{HasZipMetadata, ZipArchive};
 
 /// The usage line printed on a usage error.
 pub const USAGE: &str = "usage: xlsx-diff <input.xlsx> <output.xlsx>";
@@ -65,6 +65,9 @@ enum Error {
     CentralDirectory(Side),
     Duplicate(Side, Vec<u8>),
     Entry(Side, Vec<u8>),
+    Encrypted(Side, Vec<u8>),
+    Method(Side, Vec<u8>, u16),
+    Data(Side, Vec<u8>),
     Write(io::ErrorKind),
 }
 
@@ -89,12 +92,28 @@ impl fmt::Display for Error {
                 "cannot read entry {} in the {side} archive",
                 escape_name(name)
             ),
+            Error::Encrypted(side, name) => write!(
+                f,
+                "entry {} in the {side} archive is encrypted",
+                escape_name(name)
+            ),
+            Error::Method(side, name, method) => write!(
+                f,
+                "entry {} in the {side} archive uses unsupported compression method {method}",
+                escape_name(name)
+            ),
+            Error::Data(side, name) => write!(
+                f,
+                "entry {} in the {side} archive failed to decompress or its CRC-32 does not match",
+                escape_name(name)
+            ),
             Error::Write(kind) => write!(f, "cannot write the rows: {kind}"),
         }
     }
 }
 
-/// Maps an error from the zip crate to a message that carries no crate text.
+/// Maps an error from the zip crate while opening an archive to a message
+/// that carries no crate text.
 fn zip_error(side: Side, err: ZipError) -> Error {
     match err {
         ZipError::Io(e) => Error::Open(side, e.kind()),
@@ -102,6 +121,17 @@ fn zip_error(side: Side, err: ZipError) -> Error {
             Error::Unsupported(side)
         }
         _ => Error::NotZip(side),
+    }
+}
+
+/// Maps an error from the zip crate while opening an entry for decompression.
+fn entry_error(side: Side, name: Vec<u8>, err: ZipError) -> Error {
+    match err {
+        ZipError::UnsupportedArchive(message) if message == ZipError::PASSWORD_REQUIRED => {
+            Error::Encrypted(side, name)
+        }
+        ZipError::CompressionMethodNotSupported(method) => Error::Method(side, name, method),
+        _ => Error::Entry(side, name),
     }
 }
 
@@ -142,7 +172,7 @@ struct Archive {
 }
 
 /// Opens one archive, reads its central directory names, rejects a duplicate
-/// raw name, and collects every entry's metadata.
+/// raw name and an encrypted entry, and collects every entry's metadata.
 fn open(path: &Path, side: Side) -> Result<Archive, Error> {
     let file = File::open(path).map_err(|e| Error::Open(side, e.kind()))?;
     let mut zip = ZipArchive::new(BufReader::new(file)).map_err(|e| zip_error(side, e))?;
@@ -168,6 +198,9 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
             .map_err(|_| Error::Entry(side, record.clone()))?;
         if entry.name_raw() != record.as_slice() {
             return Err(Error::CentralDirectory(side));
+        }
+        if entry.get_metadata().encrypted {
+            return Err(Error::Encrypted(side, record));
         }
         // zip 8.6.0 gives the method number only through this deprecated call.
         #[allow(deprecated)]
@@ -275,6 +308,88 @@ fn raw_equal(input: &mut Archive, i: usize, output: &mut Archive, j: usize) -> R
     }
 }
 
+/// How the uncompressed bytes of two entries compare.
+enum Content {
+    /// The same bytes.
+    Equal,
+    /// Equal lengths; the first differing offset, the count of differing
+    /// bytes and the last differing offset.
+    Differs { first: u64, count: u64, last: u64 },
+    /// Different lengths; the shorter length.
+    Length(u64),
+}
+
+/// Decompresses both entries through two 64 KiB buffers, side by side, in
+/// one pass. The longer stream is read to its end, so every CRC-32 is
+/// checked. A decompression or CRC-32 error, or a stream whose length is not
+/// its declared uncompressed size, is an error.
+fn content(
+    input: &mut Archive,
+    i: usize,
+    output: &mut Archive,
+    j: usize,
+) -> Result<Content, Error> {
+    let (side_in, side_out) = (input.side, output.side);
+    let (name_in, size_in) = (input.entries[i].name.clone(), input.entries[i].size);
+    let (name_out, size_out) = (output.entries[j].name.clone(), output.entries[j].size);
+    let mut a = input
+        .zip
+        .by_index(i)
+        .map_err(|e| entry_error(side_in, name_in.clone(), e))?;
+    let mut b = output
+        .zip
+        .by_index(j)
+        .map_err(|e| entry_error(side_out, name_out.clone(), e))?;
+    let mut buf_a = vec![0u8; CHUNK];
+    let mut buf_b = vec![0u8; CHUNK];
+    let (mut total_a, mut total_b) = (0u64, 0u64);
+    let (mut done_a, mut done_b) = (false, false);
+    let mut first = None;
+    let (mut count, mut last) = (0u64, 0u64);
+    while !(done_a && done_b) {
+        let got_a = if done_a {
+            0
+        } else {
+            read_full(&mut a, &mut buf_a).map_err(|_| Error::Data(side_in, name_in.clone()))?
+        };
+        let got_b = if done_b {
+            0
+        } else {
+            read_full(&mut b, &mut buf_b).map_err(|_| Error::Data(side_out, name_out.clone()))?
+        };
+        // Until one stream has ended, both have delivered the same number of
+        // bytes, so `total_a` is the offset of this chunk on both sides.
+        let common = got_a.min(got_b);
+        if buf_a[..common] != buf_b[..common] {
+            for k in 0..common {
+                if buf_a[k] != buf_b[k] {
+                    let at = total_a + k as u64;
+                    first.get_or_insert(at);
+                    count += 1;
+                    last = at;
+                }
+            }
+        }
+        total_a += got_a as u64;
+        total_b += got_b as u64;
+        done_a |= got_a < CHUNK;
+        done_b |= got_b < CHUNK;
+    }
+    if total_a != size_in {
+        return Err(Error::Data(side_in, name_in));
+    }
+    if total_b != size_out {
+        return Err(Error::Data(side_out, name_out));
+    }
+    if total_a != total_b {
+        return Ok(Content::Length(total_a.min(total_b)));
+    }
+    Ok(match first {
+        None => Content::Equal,
+        Some(first) => Content::Differs { first, count, last },
+    })
+}
+
 /// The columns of one side of an `entry` row: index, method, uncompressed
 /// size, compressed size and CRC-32, or five empty columns.
 fn side_columns(side: Option<(usize, &Meta)>) -> [String; 5] {
@@ -290,19 +405,32 @@ fn side_columns(side: Option<(usize, &Meta)>) -> [String; 5] {
     }
 }
 
-/// Writes one `entry` row: columns 1 to 13 filled, 14 to 17 empty.
+/// Columns 14 to 16 of an `entry` row for a content comparison result.
+fn offset_columns(content: Option<&Content>) -> [String; 3] {
+    match content {
+        Some(Content::Differs { first, count, last }) => {
+            [first.to_string(), count.to_string(), last.to_string()]
+        }
+        Some(Content::Length(shorter)) => [shorter.to_string(), String::new(), String::new()],
+        Some(Content::Equal) | None => Default::default(),
+    }
+}
+
+/// Writes one `entry` row: columns 1 to 16 filled where they apply, 17 empty.
 fn write_entry(
     out: &mut dyn Write,
     name: &[u8],
     status: &str,
     input: Option<(usize, &Meta)>,
     output: Option<(usize, &Meta)>,
+    content: Option<&Content>,
 ) -> Result<(), Error> {
     let [ia, ma, ua, ca, ka] = side_columns(input);
     let [ib, mb, ub, cb, kb] = side_columns(output);
+    let [first, count, last] = offset_columns(content);
     writeln!(
         out,
-        "entry\t{}\t{status}\t{ia}\t{ib}\t{ma}\t{mb}\t{ua}\t{ub}\t{ca}\t{cb}\t{ka}\t{kb}\t\t\t\t",
+        "entry\t{}\t{status}\t{ia}\t{ib}\t{ma}\t{mb}\t{ua}\t{ub}\t{ca}\t{cb}\t{ka}\t{kb}\t{first}\t{count}\t{last}\t",
         escape_name(name)
     )
     .map_err(|e| Error::Write(e.kind()))
@@ -311,6 +439,16 @@ fn write_entry(
 /// Writes one `archive` row.
 fn write_archive(out: &mut dyn Write, key: &str, value: u64) -> Result<(), Error> {
     writeln!(out, "archive\t{key}\t{value}").map_err(|e| Error::Write(e.kind()))
+}
+
+/// Row counts by status.
+#[derive(Default)]
+struct Counts {
+    identical: u64,
+    recompressed: u64,
+    changed: u64,
+    dropped: u64,
+    added: u64,
 }
 
 /// Compares the two archives and writes every row. Returns whether every
@@ -325,7 +463,7 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
         .map(|(j, meta)| (meta.name.clone(), j))
         .collect();
 
-    let (mut identical, mut differs, mut dropped, mut added) = (0u64, 0u64, 0u64, 0u64);
+    let mut counts = Counts::default();
     let mut matched = vec![false; b.entries.len()];
     for i in 0..a.entries.len() {
         match out_index.get(&a.entries[i].name).copied() {
@@ -336,38 +474,52 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
                     && ea.crc == eb.crc
                     && ea.size == eb.size
                     && ea.compressed == eb.compressed;
-                let same = same_meta && raw_equal(&mut a, i, &mut b, j)?;
-                let status = if same {
-                    identical += 1;
-                    "identical"
+                let identical = same_meta && raw_equal(&mut a, i, &mut b, j)?;
+                let (status, found) = if identical {
+                    counts.identical += 1;
+                    ("identical", None)
                 } else {
-                    differs += 1;
-                    "differs"
+                    let found = content(&mut a, i, &mut b, j)?;
+                    if matches!(found, Content::Equal) {
+                        counts.recompressed += 1;
+                        ("recompressed", None)
+                    } else {
+                        counts.changed += 1;
+                        ("changed", Some(found))
+                    }
                 };
                 let (ea, eb) = (&a.entries[i], &b.entries[j]);
-                write_entry(out, &ea.name, status, Some((i, ea)), Some((j, eb)))?;
+                write_entry(
+                    out,
+                    &ea.name,
+                    status,
+                    Some((i, ea)),
+                    Some((j, eb)),
+                    found.as_ref(),
+                )?;
             }
             None => {
-                dropped += 1;
+                counts.dropped += 1;
                 let ea = &a.entries[i];
-                write_entry(out, &ea.name, "dropped", Some((i, ea)), None)?;
+                write_entry(out, &ea.name, "dropped", Some((i, ea)), None, None)?;
             }
         }
     }
     for (j, eb) in b.entries.iter().enumerate() {
         if !matched[j] {
-            added += 1;
-            write_entry(out, &eb.name, "added", None, Some((j, eb)))?;
+            counts.added += 1;
+            write_entry(out, &eb.name, "added", None, Some((j, eb)), None)?;
         }
     }
 
     write_archive(out, "entries_in", a.entries.len() as u64)?;
     write_archive(out, "entries_out", b.entries.len() as u64)?;
-    write_archive(out, "identical", identical)?;
-    write_archive(out, "differs", differs)?;
-    write_archive(out, "dropped", dropped)?;
-    write_archive(out, "added", added)?;
-    Ok(differs == 0 && dropped == 0 && added == 0)
+    write_archive(out, "identical", counts.identical)?;
+    write_archive(out, "recompressed", counts.recompressed)?;
+    write_archive(out, "changed", counts.changed)?;
+    write_archive(out, "dropped", counts.dropped)?;
+    write_archive(out, "added", counts.added)?;
+    Ok(counts.recompressed == 0 && counts.changed == 0 && counts.dropped == 0 && counts.added == 0)
 }
 
 /// Compares `input` with `output`, writing the rows to `stdout` and at most

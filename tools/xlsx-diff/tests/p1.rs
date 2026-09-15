@@ -1,178 +1,14 @@
-//! T1 P1 tests (`specs/0004-xlsx-diff.md`). Every archive is generated here
-//! from fictional content, in a temporary directory that is removed when the
-//! test ends. Nothing is committed.
+//! T1 P1 tests (`specs/0004-xlsx-diff.md`), with the P2 statuses and archive
+//! rows. Every archive is generated from fictional content in a temporary
+//! directory; nothing is committed. The P1 recompression case (then
+//! `differs`) is now `recompressed_entry` in `p2.rs`, and the P1 flipped
+//! stored byte is part of `wrong_crc_is_an_error` there.
+
+mod common;
 
 use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
 
-use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, DateTime, ZipArchive, ZipWriter};
-
-/// A temporary directory, removed when dropped.
-struct TempDir(PathBuf);
-
-impl TempDir {
-    fn new(label: &str) -> TempDir {
-        static COUNTER: AtomicU32 = AtomicU32::new(0);
-        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let dir =
-            std::env::temp_dir().join(format!("xlsx-diff-test-{}-{label}-{n}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("create the temporary directory");
-        TempDir(dir)
-    }
-
-    fn path(&self, name: &str) -> PathBuf {
-        self.0.join(name)
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
-}
-
-/// One entry to write: its name, bytes, method and deflate level.
-#[derive(Clone)]
-struct Spec {
-    name: String,
-    data: Vec<u8>,
-    method: CompressionMethod,
-    level: Option<i64>,
-}
-
-fn deflated(name: &str, data: &[u8]) -> Spec {
-    Spec {
-        name: name.to_string(),
-        data: data.to_vec(),
-        method: CompressionMethod::Deflated,
-        level: None,
-    }
-}
-
-fn stored(name: &str, data: &[u8]) -> Spec {
-    Spec {
-        method: CompressionMethod::Stored,
-        ..deflated(name, data)
-    }
-}
-
-/// Fictional text of a given number of lines.
-fn text(lines: usize) -> Vec<u8> {
-    (0..lines)
-        .map(|i| format!("fictional row {i}: alpha beta gamma {}\n", i * 7 % 13))
-        .collect::<String>()
-        .into_bytes()
-}
-
-fn write_zip(path: &Path, entries: &[Spec]) {
-    let file = fs::File::create(path).expect("create the archive");
-    let mut writer = ZipWriter::new(file);
-    for entry in entries {
-        let options = SimpleFileOptions::default()
-            .compression_method(entry.method)
-            .compression_level(entry.level)
-            .last_modified_time(DateTime::default());
-        writer
-            .start_file(entry.name.as_str(), options)
-            .expect("start an entry");
-        writer.write_all(&entry.data).expect("write an entry");
-    }
-    writer.finish().expect("finish the archive");
-}
-
-/// What `run` returned and printed.
-struct Outcome {
-    status: u8,
-    stdout: String,
-    stderr: String,
-}
-
-fn run(input: &Path, output: &Path) -> Outcome {
-    let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
-    let status = xlsx_diff::run(input, output, &mut stdout, &mut stderr);
-    Outcome {
-        status,
-        stdout: String::from_utf8(stdout).expect("stdout is UTF-8"),
-        stderr: String::from_utf8(stderr).expect("stderr is UTF-8"),
-    }
-}
-
-/// The rows of one kind, split into columns. Every line must be an `entry`
-/// row of 17 columns or an `archive` row of 3.
-fn rows<'a>(stdout: &'a str, kind: &str) -> Vec<Vec<&'a str>> {
-    let mut selected = Vec::new();
-    for line in stdout.lines() {
-        let columns: Vec<&str> = line.split('\t').collect();
-        match columns[0] {
-            "entry" => assert_eq!(columns.len(), 17, "entry row width: {line}"),
-            "archive" => assert_eq!(columns.len(), 3, "archive row width: {line}"),
-            other => panic!("unexpected row kind {other}"),
-        }
-        if columns[0] == kind {
-            selected.push(columns);
-        }
-    }
-    selected
-}
-
-/// The `archive` rows as `key=value` strings, in order.
-fn archive_rows(stdout: &str) -> Vec<String> {
-    rows(stdout, "archive")
-        .into_iter()
-        .map(|c| format!("{}={}", c[1], c[2]))
-        .collect()
-}
-
-/// Method, uncompressed size, compressed size and CRC-32 of every entry, read
-/// independently of the tool.
-fn meta(path: &Path) -> Vec<[String; 4]> {
-    let mut archive = ZipArchive::new(fs::File::open(path).expect("open")).expect("read");
-    (0..archive.len())
-        .map(|i| {
-            let entry = archive.by_index_raw(i).expect("entry");
-            #[allow(deprecated)]
-            let method = entry.compression().to_u16();
-            [
-                method.to_string(),
-                entry.size().to_string(),
-                entry.compressed_size().to_string(),
-                format!("{:08x}", entry.crc32()),
-            ]
-        })
-        .collect()
-}
-
-/// Asserts columns 4 to 13 of an entry row against the independent metadata,
-/// and columns 14 to 17 empty.
-fn assert_columns(
-    row: &[&str],
-    input: Option<(usize, &[String; 4])>,
-    output: Option<(usize, &[String; 4])>,
-) {
-    let side = |s: Option<(usize, &[String; 4])>| match s {
-        Some((index, m)) => [
-            index.to_string(),
-            m[0].clone(),
-            m[1].clone(),
-            m[2].clone(),
-            m[3].clone(),
-        ],
-        None => Default::default(),
-    };
-    let (a, b) = (side(input), side(output));
-    assert_eq!(row[3], a[0], "column 4");
-    assert_eq!(row[4], b[0], "column 5");
-    for k in 0..4 {
-        assert_eq!(row[5 + 2 * k], a[k + 1], "column {}", 6 + 2 * k);
-        assert_eq!(row[6 + 2 * k], b[k + 1], "column {}", 7 + 2 * k);
-    }
-    assert_eq!(&row[13..], ["", "", "", ""], "columns 14 to 17");
-}
+use common::*;
 
 #[test]
 fn equal_archives_are_identical() {
@@ -199,17 +35,11 @@ fn equal_archives_are_identical() {
             assert_eq!(row[1], entries[i].name);
             assert_eq!(row[2], "identical");
             assert_columns(row, Some((i, &mi[i])), Some((i, &mo[i])));
+            assert_tail(row, ["", "", "", ""]);
         }
         assert_eq!(
             archive_rows(&result.stdout),
-            [
-                "entries_in=2",
-                "entries_out=2",
-                "identical=2",
-                "differs=0",
-                "dropped=0",
-                "added=0"
-            ]
+            expected_archive([2, 2, 2, 0, 0, 0, 0])
         );
     }
 }
@@ -235,6 +65,28 @@ fn stored_entry_beside_deflated_entry() {
     assert_eq!(
         entry_rows[0][7], entry_rows[0][9],
         "a stored entry's sizes are equal"
+    );
+}
+
+#[test]
+fn stored_entry_across_several_buffers_is_identical() {
+    let dir = TempDir::new("buffers");
+    let entries = [
+        stored("big.bin", &pattern(200_000)),
+        deflated("small.xml", &text(30)),
+    ];
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    write_zip(&input, &entries);
+    write_zip(&output, &entries);
+    let result = run(&input, &output);
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stderr, "");
+    assert_eq!(
+        summary(&result.stdout),
+        [
+            ("big.bin".to_string(), "identical".to_string()),
+            ("small.xml".to_string(), "identical".to_string())
+        ]
     );
 }
 
@@ -266,16 +118,12 @@ fn dropped_entry() {
     assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
     assert_columns(&entry_rows[1], Some((1, &mi[1])), None);
     assert_columns(&entry_rows[2], Some((2, &mi[2])), Some((1, &mo[1])));
+    for row in &entry_rows {
+        assert_tail(row, ["", "", "", ""]);
+    }
     assert_eq!(
         archive_rows(&result.stdout),
-        [
-            "entries_in=3",
-            "entries_out=2",
-            "identical=2",
-            "differs=0",
-            "dropped=1",
-            "added=0"
-        ]
+        expected_archive([3, 2, 2, 0, 0, 1, 0])
     );
 }
 
@@ -294,65 +142,12 @@ fn added_entry() {
     assert_eq!(summary, [("a.xml", "identical"), ("d.xml", "added")]);
     assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
     assert_columns(&entry_rows[1], None, Some((1, &mo[1])));
+    for row in &entry_rows {
+        assert_tail(row, ["", "", "", ""]);
+    }
     assert_eq!(
         archive_rows(&result.stdout),
-        [
-            "entries_in=1",
-            "entries_out=2",
-            "identical=1",
-            "differs=0",
-            "dropped=0",
-            "added=1"
-        ]
-    );
-}
-
-#[test]
-fn recompressed_content_differs() {
-    let dir = TempDir::new("recompressed");
-    let data = text(2000);
-    let fast = Spec {
-        level: Some(1),
-        ..deflated("level.xml", &data)
-    };
-    let best = Spec {
-        level: Some(9),
-        ..deflated("level.xml", &data)
-    };
-    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
-    write_zip(&input, &[fast, deflated("method.xml", &data)]);
-    write_zip(&output, &[best, stored("method.xml", &data)]);
-    let (mi, mo) = (meta(&input), meta(&output));
-    assert_eq!(
-        mi[0][3], mo[0][3],
-        "precondition: equal CRC-32 for the level entry"
-    );
-    assert_ne!(
-        mi[0][2], mo[0][2],
-        "precondition: different compressed sizes for the level entry"
-    );
-
-    let result = run(&input, &output);
-    assert_eq!(result.status, 1);
-    let entry_rows = rows(&result.stdout, "entry");
-    let summary: Vec<(&str, &str)> = entry_rows.iter().map(|r| (r[1], r[2])).collect();
-    assert_eq!(
-        summary,
-        [("level.xml", "differs"), ("method.xml", "differs")]
-    );
-    assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
-    assert_columns(&entry_rows[1], Some((1, &mi[1])), Some((1, &mo[1])));
-    assert_eq!((entry_rows[1][5], entry_rows[1][6]), ("8", "0"));
-    assert_eq!(
-        archive_rows(&result.stdout),
-        [
-            "entries_in=2",
-            "entries_out=2",
-            "identical=0",
-            "differs=2",
-            "dropped=0",
-            "added=0"
-        ]
+        expected_archive([1, 2, 1, 0, 0, 0, 1])
     );
 }
 
@@ -386,23 +181,6 @@ fn names_are_escaped() {
             "back\\\\slash.txt"
         ]
     );
-}
-
-/// Replaces every occurrence of `from` with `to` (same length) and returns
-/// the count.
-fn patch(bytes: &mut [u8], from: &[u8], to: &[u8]) -> usize {
-    assert_eq!(from.len(), to.len());
-    let (mut count, mut i) = (0, 0);
-    while i + from.len() <= bytes.len() {
-        if &bytes[i..i + from.len()] == from {
-            bytes[i..i + from.len()].copy_from_slice(to);
-            count += 1;
-            i += from.len();
-        } else {
-            i += 1;
-        }
-    }
-    count
 }
 
 #[test]
@@ -475,18 +253,6 @@ fn missing_file_is_an_error() {
     );
 }
 
-fn binary(args: &[&Path]) -> (Option<i32>, String, String) {
-    let out = Command::new(env!("CARGO_BIN_EXE_xlsx-diff"))
-        .args(args)
-        .output()
-        .expect("run the binary");
-    (
-        out.status.code(),
-        String::from_utf8(out.stdout).expect("stdout is UTF-8"),
-        String::from_utf8(out.stderr).expect("stderr is UTF-8"),
-    )
-}
-
 #[test]
 fn binary_usage_error() {
     let dir = TempDir::new("usage");
@@ -528,83 +294,4 @@ fn binary_exit_status_follows_the_comparison() {
     let (code, stdout, _) = binary(&[&input, &fewer]);
     assert_eq!(code, Some(1));
     assert!(archive_rows(&stdout).contains(&"dropped=1".to_string()));
-}
-
-/// Fictional bytes of a given length, with a marker at a given offset.
-fn marked_bytes(len: usize, marker_at: usize, marker: &[u8]) -> Vec<u8> {
-    let mut data: Vec<u8> = (0..len).map(|i| b"fictional-bytes-"[i % 16]).collect();
-    data[marker_at..marker_at + marker.len()].copy_from_slice(marker);
-    data
-}
-
-#[test]
-fn raw_bytes_alone_differ_across_several_buffers() {
-    let dir = TempDir::new("raw");
-    let marker = b"zq-marker-t1p1";
-    let big = marked_bytes(200_000, 150_000, marker);
-    let entries = [stored("big.bin", &big), deflated("small.xml", &text(30))];
-    let (input, same, patched) = (
-        dir.path("in.zip"),
-        dir.path("same.zip"),
-        dir.path("patched.zip"),
-    );
-    write_zip(&input, &entries);
-    write_zip(&same, &entries);
-
-    // Equal archives whose stored entry spans more than three 64 KiB buffers.
-    let result = run(&input, &same);
-    assert_eq!(result.status, 0);
-    assert_eq!(result.stderr, "");
-    let summary: Vec<(String, String)> = rows(&result.stdout, "entry")
-        .iter()
-        .map(|r| (r[1].to_string(), r[2].to_string()))
-        .collect();
-    assert_eq!(
-        summary,
-        [
-            ("big.bin".to_string(), "identical".to_string()),
-            ("small.xml".to_string(), "identical".to_string())
-        ]
-    );
-
-    // One byte flipped inside the stored data, past the second buffer. The
-    // central directory still records the same method, CRC-32 and sizes, so
-    // only the raw byte comparison can find it.
-    let mut bytes = fs::read(&same).expect("read");
-    let at = bytes
-        .windows(marker.len())
-        .position(|w| w == &marker[..])
-        .expect("the marker is in the stored data");
-    assert!(
-        at > 2 * 64 * 1024,
-        "precondition: the flipped byte is past the second buffer"
-    );
-    bytes[at] ^= 0x01;
-    fs::write(&patched, bytes).expect("write");
-    assert_eq!(
-        meta(&input),
-        meta(&patched),
-        "precondition: same method, sizes and CRC-32"
-    );
-
-    let result = run(&input, &patched);
-    assert_eq!(result.status, 1);
-    assert_eq!(result.stderr, "");
-    let entry_rows = rows(&result.stdout, "entry");
-    let summary: Vec<(&str, &str)> = entry_rows.iter().map(|r| (r[1], r[2])).collect();
-    assert_eq!(
-        summary,
-        [("big.bin", "differs"), ("small.xml", "identical")]
-    );
-    assert_eq!(
-        archive_rows(&result.stdout),
-        [
-            "entries_in=2",
-            "entries_out=2",
-            "identical=1",
-            "differs=1",
-            "dropped=0",
-            "added=0"
-        ]
-    );
 }
