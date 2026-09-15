@@ -370,7 +370,14 @@ fn zip64_extra_fields_of_a_small_entry_are_dropped() {
         (0x0314, 20, 0),
         "output: plain sizes, no extra field"
     );
-    assert_eq!(b[0].compressed, a[0].compressed.min(b[0].compressed));
+    assert_eq!(
+        (b[0].compressed.to_string(), b[0].uncompressed.to_string()),
+        (
+            archive_value(&outcome.stdout, "compressed_out"),
+            archive_value(&outcome.stdout, "uncompressed_out")
+        ),
+        "output: the plain sizes in the central record"
+    );
     assert_eq!(locals(&output)[0][5], 0, "no local extra field");
 }
 
