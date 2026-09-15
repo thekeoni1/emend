@@ -1,0 +1,9 @@
+gh[pousr][_][A-Za-z0-9]{20,}
+github[_]pat[_][A-Za-z0-9_]{20,}
+sk[-]ant[-][A-Za-z0-9_-]{20,}
+-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----
+claude[.]ai/code/session[_][A-Za-z0-9]+
+session[_][A-Za-z0-9]{20,}
+/tmp/claude[-][0-9]+/
+/mnt/[a-z]/[Uu]sers/
+DESKTOP[-][A-Z0-9]{5,}

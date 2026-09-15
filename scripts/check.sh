@@ -231,6 +231,11 @@ readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$'
 readonly FIXTURES_RE='(^|/)tests/fixtures/'
 : >"$OUT/hygiene-err"
 rc=0
+# The control repository runs with the caller's git environment unset; git
+# sets some of these variables when it runs hooks. index_dash uses GITC.
+readonly GIT_CLEAN=(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE
+  -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_COMMON_DIR git)
+GITC=(git)
 
 # hgrep <output file> <grep args...>: /usr/bin/grep under LC_ALL=C; sets rc.
 hgrep() {
@@ -248,12 +253,12 @@ hgrep() {
 index_dash() {
   local repo=$1 out=$2 entry meta path sha lrc
   rc=0
-  (cd "$repo" && LC_ALL=C git grep --cached --no-color -I -l -z -F -e "$EMDASH") \
+  (cd "$repo" && LC_ALL=C "${GITC[@]}" grep --cached --no-color -I -l -z -F -e "$EMDASH") \
     >"$out" 2>>"$OUT/hygiene-err" || rc=$?
   if [ "$rc" -ge 2 ]; then
     return 0
   fi
-  if ! git -C "$repo" ls-files -s -z >"$OUT/stage.z" 2>>"$OUT/hygiene-err"; then
+  if ! "${GITC[@]}" -C "$repo" ls-files -s -z >"$OUT/stage.z" 2>>"$OUT/hygiene-err"; then
     rc=2
     return 0
   fi
@@ -264,7 +269,7 @@ index_dash() {
       continue
     fi
     sha=$(printf '%s\n' "$meta" | awk '{ print $2 }')
-    if ! git -C "$repo" cat-file blob "$sha" >"$OUT/link-target" 2>>"$OUT/hygiene-err"; then
+    if ! "${GITC[@]}" -C "$repo" cat-file blob "$sha" >"$OUT/link-target" 2>>"$OUT/hygiene-err"; then
       rc=2
       return 0
     fi
@@ -306,16 +311,18 @@ if [ "$rc" -ne 0 ] || [ "$(tr '\000' '\n' <"$CTL/o-fixtures")" != b.xlsx ]; then
   fail hygiene "positive control failed: tests/fixtures/ exception (grep exit $rc)" "$OUT/hygiene-err"
 fi
 printf 'docs/Emend-Testing/x.txt\000' >"$CTL/corpus.z"
-hgrep "$CTL/o-corpus" -z -i -F -e emend-testing "$CTL/corpus.z"
+hgrep "$CTL/o-corpus" -z -c -i -F -e emend-testing "$CTL/corpus.z"
 [ "$rc" -eq 0 ] || fail hygiene "positive control failed: emend-testing in any case (grep exit $rc)" "$OUT/hygiene-err"
-git init -q "$CTL/repo" 2>>"$OUT/hygiene-err" ||
+"${GIT_CLEAN[@]}" init -q "$CTL/repo" 2>>"$OUT/hygiene-err" ||
   fail hygiene "could not create the control repository" "$OUT/hygiene-err"
 printf 'dash %s here\n' "$EMDASH" >"$CTL/repo/text.txt"
 ln -s "target-$EMDASH" "$CTL/repo/link"
-git -C "$CTL/repo" add text.txt link 2>>"$OUT/hygiene-err" ||
+"${GIT_CLEAN[@]}" -C "$CTL/repo" add text.txt link 2>>"$OUT/hygiene-err" ||
   fail hygiene "could not stage the control repository" "$OUT/hygiene-err"
 rm "$CTL/repo/text.txt"
+GITC=("${GIT_CLEAN[@]}")
 index_dash "$CTL/repo" "$CTL/o-index"
+GITC=(git)
 if [ "$rc" -ne 0 ] || [ "$(tr '\000' ' ' <"$CTL/o-index")" != "text.txt link " ]; then
   fail hygiene "positive control failed: U+2014 in the index and in a symlink target (exit $rc)" "$OUT/hygiene-err"
 fi
@@ -339,10 +346,11 @@ if [ -s "$OUT/office.z" ]; then
   fail hygiene "office file(s) tracked outside tests/fixtures/: $(quoted "$OUT/office.z")"
 fi
 
-hgrep "$OUT/corpus.z" -z -i -F -e emend-testing "$OUT/tracked.z"
+# A corpus path could carry a private name, so only the count is printed.
+hgrep "$OUT/corpus-count" -z -c -i -F -e emend-testing "$OUT/tracked.z"
 [ "$rc" -lt 2 ] || fail hygiene "grep error while matching tracked paths (exit $rc)" "$OUT/hygiene-err"
 if [ "$rc" -eq 0 ]; then
-  fail hygiene "tracked path(s) containing emend-testing: $(quoted "$OUT/corpus.z")"
+  fail hygiene "$(tr -d '\000\n' <"$OUT/corpus-count") tracked path(s) containing emend-testing (paths not printed)"
 fi
 
 index_dash . "$OUT/dash.z"
@@ -351,3 +359,14 @@ if [ "$rc" -eq 0 ]; then
   fail hygiene "U+2014 in tracked file(s): $(quoted "$OUT/dash.z")"
 fi
 echo "PASS hygiene"
+
+# Step 8: the privacy gate over every commit reachable from HEAD.
+rc=0
+scripts/privacy.sh >"$OUT/privacy" 2>&1 </dev/null || rc=$?
+if [ "$rc" -eq 1 ]; then
+  fail privacy "scripts/privacy.sh reported findings" "$OUT/privacy"
+fi
+if [ "$rc" -ne 0 ]; then
+  fail privacy "scripts/privacy.sh exited $rc" "$OUT/privacy"
+fi
+echo "PASS privacy"
