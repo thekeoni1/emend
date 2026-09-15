@@ -57,23 +57,26 @@ Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `zip` 8.6.0 pinned with the pure-Rust deflate backend; lib and bin split; `entry` rows with indexes, methods, sizes and CRCs; statuses `identical` (raw bytes equal), `dropped`, `added` and the provisional `differs`; name escaping; tests on generated zips | READY |
-| P2 | Streaming content comparison through fixed buffers: `recompressed` vs `changed`, first and last differing offset, differing-byte count, all `u64`; memory bound shown | PLANNED |
+| P1 | `zip` 8.6.0 pinned with the pure-Rust deflate backend; lib and bin split; `entry` rows with indexes, methods, sizes and CRCs; statuses `identical` (raw bytes equal), `dropped`, `added` and the provisional `differs`; name escaping; tests on generated zips | DONE (8356f9a to 6ccae09) |
+| P2 | Streaming content comparison through fixed buffers: `recompressed` vs `changed`, first and last differing offset, differing-byte count, all `u64`; memory bound shown; the short-stream error tested | READY |
 | P3 | All `archive` rows (counts, order, comment, offsets, totals, `files_identical`), the six flags, exit status 0/1/2 as specified | PLANNED |
 | P4 | No-leak sentinel test on stdout and stderr; zip64 entry over 4 GiB uncompressed compared by streaming on i686 (ignored by default, run explicitly and logged) | PLANNED |
 | Close | Push T1 with its records; record the CI run | PLANNED |
 
-### T2: corpus (maintainer-led, runs alongside T1; `specs/0005-corpus.md`)
+### T2: corpus (runs alongside T1; `specs/0005-corpus.md`)
 
-Private, in `/home/dev/emend-testing`. Nothing from it is committed.
+Private, in `/home/dev/emend-testing`. Nothing from it is committed. A
+separate CORPUS session generates and downloads files (P2 to P4,
+maintainer decision 2026-09-15); the maintainer supplies P5 and P6; the
+implementing session does P1 and P7.
 
 | Phase | Part | Status |
 |-------|------|--------|
 | P0 | Privacy gate corpus-era additions: Zone.Identifier files, OLE2 and other archive signatures, both forms of patterns 10 and 11 in the self-test, checked pipeline exits (`specs/0002-gate-corpus-additions.md`); runs before T1 and before any corpus file | DONE (9324e64 to 0870c36) |
-| P1 | Manifest format (in the spec) and two scripts in the repo, `corpus-add.sh` and `corpus-coverage.sh`, that print only ids, producers, sources, tags and counts | READY |
-| P2 | LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | PLANNED |
-| P3 | LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | PLANNED |
-| P4 | Microsoft's downloadable Excel templates added, with sources noted in the private manifest | PLANNED |
+| P1 | Manifest format (in the spec) and two scripts in the repo, `corpus-add.sh` and `corpus-coverage.sh`, that print only ids, producers, sources, tags and counts; after the corpus session's first report | READY |
+| P2 | Corpus session: LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | ACTIVE |
+| P3 | Corpus session: LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | ACTIVE |
+| P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | ACTIVE |
 | P5 | Maintainer: about 5 Google Sheets exports covering the tag list | PLANNED |
 | P6 | Maintainer: desktop Excel files for pivots, macros (.xlsm), threaded comments and slicers, plus any own workbooks | PLANNED |
 | P7 | Coverage check: every tag covered, or gaps listed for a planning ruling on starting T3 anyway | PLANNED |

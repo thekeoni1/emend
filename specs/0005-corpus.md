@@ -1,8 +1,17 @@
 # 0005: T2 corpus (maintainer-led)
 
-Status: P1 READY (planning, 2026-09-15). Runs alongside T1. The maintainer
-may start collecting files as soon as the manifest format below exists;
-the scripts in P1 make that easier but are not required to start.
+Status: P2 to P4 assigned to the CORPUS session (maintainer decision,
+2026-09-15); P1 READY, scheduled after the corpus session's first
+report. Runs alongside T1.
+
+The CORPUS session is a third session, separate from planning and
+implementing. It works only under the corpus directory, never changes
+the repository, and follows the brief the maintainer keeps privately in
+that directory. It generates the LibreOffice files (P2, P3) and
+downloads Microsoft's public templates (P4) with its own private
+helper that follows the manifest format below. Planning verifies its
+report from the directory itself. The repository scripts of P1 come
+afterwards, so they can replace that helper.
 Context: `CLAUDE.md` ("Corpus rules"), `specs/0000-step-zero-plan.md`
 (the T2 outline, the producers, the tag list, ruling 6),
 `specs/0002-gate-corpus-additions.md` (T2 P0, done).
@@ -68,11 +77,14 @@ to `sha256`.
 
 ## Phases
 
-T2 phases run between T1 phases when the implementing session is free.
-Each implementing phase follows `specs/0001-bootstrap.md` "How this
-task runs", with logs in `records/logs/t2-<phase>/`. Maintainer-led
-phases (P4 to P6) have no implementing work and no logs; the coverage
-report of P7 records their result.
+P1 and P7 are implementing phases and run between T1 phases when the
+implementing session is free, following `specs/0001-bootstrap.md` "How
+this task runs", with logs in `records/logs/t2-<phase>/`. P2, P3 and P4
+belong to the CORPUS session; P5 and P6 to the maintainer. These have
+no repository commits and no logs; the coverage record of P7 reports
+their result. If the Containerfile and generators of P2 and P3 are to
+enter the repository, that is a deliberate, recorded import step that
+planning rules on (CLAUDE.md, "Secrets and boundaries").
 
 ### P1: manifest scripts
 
@@ -137,33 +149,34 @@ worksheets):
 
 Logs: `gate.log`, `positive.log`, `negative.log`, `scan.log`. No push.
 
-### P2: LibreOffice, pinned
+### P2: LibreOffice, pinned (CORPUS session)
 
-A Containerfile in the repository that builds a headless LibreOffice
-image from a base image pinned by digest, with the package version
-pinned; `soffice --version` recorded; a smoke test that converts a
-generated flat ODS to xlsx headless and back, on a fictional file. The
-digest, the package version and the conversion command go in
-`records/libreoffice-<date>.md`. Scoped in its own spec section when
-T1 P2 verifies.
+A Containerfile, kept in the corpus directory's `tools/`, that builds a
+headless LibreOffice image from a base image pinned by digest, with the
+package version pinned; `soffice --version` recorded; a smoke test that
+converts a generated flat ODS to xlsx headless and back, on a fictional
+file. The digest, the package version and the conversion command are
+recorded privately first, and copied into `records/libreoffice-<date>.md`
+by the implementing session at P7.
 
-### P3: LibreOffice exports with fictional content
+### P3: LibreOffice exports with fictional content (CORPUS session)
 
 A script generates flat ODS files, one per tag LibreOffice can produce
 (at least `plain`, `strings`, `formulas`, `names`, `merge`,
 `validation`, `hyperlinks`, `autofilter`, `freeze`, `cf`, `charts`,
 `comments`, `images`, `protection`, `date1904`, `large`), converts each
-with the P2 image, and adds the results with `corpus-add.sh` under
-producer `libreoffice`, source `libreoffice-export`. Fictional content
+with the P2 image, and adds the results under producer `libreoffice`,
+source `libreoffice-export`, with the corpus session's helper (later
+`corpus-add.sh`). Fictional content
 only, so these files could be public, but they are kept in the corpus
 like everything else.
 
-### P4: Microsoft templates (maintainer)
+### P4: Microsoft templates (CORPUS session)
 
-The maintainer downloads Excel templates from Microsoft's template site,
-adds them with `corpus-add.sh` (producer `excel-win` unless the file
-says otherwise, source `ms-template`), and keeps the source URLs in a
-private note. Target tags: `tables`, `charts`, `cf`, `names`, `strings`,
+The corpus session downloads Excel templates from Microsoft's public
+template site, adds them (producer from `docProps/app.xml`, `excel-win`
+unless the file says otherwise; source `ms-template`), and keeps the
+source URLs in the private note column. Target tags: `tables`, `charts`, `cf`, `names`, `strings`,
 `formulas`, `images`, `sparklines`.
 
 ### P5: Google Sheets exports (maintainer)

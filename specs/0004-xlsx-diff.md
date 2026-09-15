@@ -1,7 +1,8 @@
 # 0004: T1 xlsx-diff, the entry-level fidelity harness
 
-Status: P1 READY (planning, 2026-09-15). Runs after T0b. T2 (corpus,
-`specs/0005-corpus.md`) runs alongside it.
+Status: P1 DONE, verified by planning 2026-09-15 (8356f9a to 6ccae09;
+phase commits 2df5f6e and dc22f78). P2 READY. Runs after T0b. T2
+(corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
 phase"; the logs directory is `records/logs/t1-<phase>/`).
@@ -206,12 +207,59 @@ Deliverables:
   negative cases behave as stated; the escaping test covers `\x00`,
   `\x7f`, `\xc3` bytes and `\\`.
 
+### Planning rulings on P1 (2026-09-15)
+
+- P1 is verified from primaries by planning's own checks:
+  - Doc commit 8356f9a holds exactly planning's five doc files (529
+    insertions, 16 deletions), unchanged since. Phase commits 2df5f6e
+    and dc22f78 touch only `Cargo.lock` and `tools/xlsx-diff/`; the four
+    record commits touch only `records/logs/t1-p1/`. All seven messages
+    end with the Co-Authored-By trailer only, under the noreply identity.
+  - `Cargo.lock` holds xlsx-diff, zip 8.6.0 and exactly the nine crates
+    under "Facts". No tracked zip, office or fixture file.
+  - Planning ran the full gate: eight PASS. Planning ran `cargo test` on
+    the host and on i686: 12 passed on each, same names.
+  - Planning read `lib.rs`, `main.rs` and `tests/p1.rs` against this
+    spec: the escaping, the column layout, the `identical` definition
+    with the raw comparison through `by_index_raw` and two 64 KiB
+    buffers, the provisional `differs`, the exit statuses, the
+    duplicate-name detection from the central directory, and error
+    lines that carry no path, no content and no crate text.
+  - Planning reproduced, with its own generated archives and the built
+    binary: equal archives (exit 0, all `identical`); one byte flipped
+    inside a compressed stream (that entry `differs`, exit 1, empty
+    stderr); a truncated output (exit 2, one `error: ` line, no rows);
+    and both archives with a 10-byte prefix (exit 0, all `identical`),
+    which confirms the absolute `central_directory_start` in departure
+    7. No fixture text appeared in any output.
+  - The six record files, the four source files, `Cargo.lock` and the
+    seven messages have zero hits on every scan. `scripts/privacy.sh`
+    over the 85 local commits: PASS. The superseded first-run logs at
+    4d17a68 hold no home path either.
+- Departures 1 to 11 are accepted as recorded. On 11: an ad hoc loop
+  must never run `chmod` over a file list; the mode change was caught
+  by check 1 and reverted in dc22f78.
+- Remaining gap 1 (the short-stream error in `raw_equal` is untested)
+  is carried into P2 as a required test. Gaps 2 and 3 are accepted:
+  the fixture text is fictional, and the label is narrower than its
+  check but the exit check beside it closes the hole. Gap 4 is closed
+  by planning's scan above.
+- The note on the T0b P2 log scripts is accepted: three checks of the
+  form `$(yn [ ... ] && grep ...)` captured only their first test, and
+  the literal lines they were meant to test are printed in the same
+  logs and were verified by planning on GitHub. From now on a compound
+  check is evaluated inside one function that returns yes or no (see
+  "Rules for every phase" in `specs/0001-bootstrap.md`).
+
 ### P2: content comparison
 
 - `recompressed` and `changed` replace `differs`. Columns 14 to 16 are
   filled by the streaming pass; the archive rows `recompressed` and
   `changed` replace `differs`.
-- Tests: recompressed entry (equal bytes, different raw stream);
+- Tests: the short-stream error in `raw_equal` (an output whose local
+  entry data is cut short while its central record keeps the declared
+  sizes gives exit 2 and one `error: ` line; carried over from P1);
+  recompressed entry (equal bytes, different raw stream);
   changed entry with equal length (first, count and last offsets
   asserted exactly, including a difference at offset 0 and at the last
   byte); changed entry with different lengths (column 14 is the shorter

@@ -83,6 +83,12 @@ committed. Its output goes in the phase's `negative.log`.
 - A run stopped by the environment (for example for low memory) is noted
   in the header of the log that reruns it: its start time, the last
   check it completed, and the reason given.
+- A check with more than one condition is evaluated inside one function
+  that returns yes or no. The form `$(yn [ ... ] && cmd ...)` captures
+  only the first test (T0b P2, T1 P1 check 1).
+- A push script records the base (the remote ref before the push) and
+  compares against that afterwards; the tracking ref moves with a
+  successful push (T0b close-out).
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,
