@@ -342,8 +342,9 @@ hgrep "$OUT/office-all.z" -z -i -E "$OFFICE_RE" "$OUT/tracked.z"
 [ "$rc" -lt 2 ] || fail hygiene "grep error while matching office extensions (exit $rc)" "$OUT/hygiene-err"
 hgrep "$OUT/office.z" -z -v -E "$FIXTURES_RE" "$OUT/office-all.z"
 [ "$rc" -lt 2 ] || fail hygiene "grep error while applying the tests/fixtures/ exception (exit $rc)" "$OUT/hygiene-err"
+# A workbook's file name could be private, so only the count is printed.
 if [ -s "$OUT/office.z" ]; then
-  fail hygiene "office file(s) tracked outside tests/fixtures/: $(quoted "$OUT/office.z")"
+  fail hygiene "$(tr -cd '\000' <"$OUT/office.z" | wc -c) office file(s) tracked outside tests/fixtures/ (paths not printed)"
 fi
 
 # A corpus path could carry a private name, so only the count is printed.
@@ -360,7 +361,11 @@ if [ "$rc" -eq 0 ]; then
 fi
 echo "PASS hygiene"
 
-# Step 8: the privacy gate over every commit reachable from HEAD.
+# Step 8: the privacy gate over every commit reachable from HEAD. The denylist
+# override is for negative tests only, so the gate refuses to run with it.
+if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
+  fail privacy "EMEND_PRIVATE_DENYLIST is set"
+fi
 rc=0
 scripts/privacy.sh >"$OUT/privacy" 2>&1 </dev/null || rc=$?
 if [ "$rc" -eq 1 ]; then

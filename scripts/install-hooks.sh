@@ -23,6 +23,12 @@ cat >"$hook" <<'HOOK'
 # skipped. Any non-zero exit from scripts/privacy.sh blocks the push.
 set -uo pipefail
 
+# The denylist override is for negative tests only; no push runs with it.
+if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
+  echo "FAIL privacy: EMEND_PRIVATE_DENYLIST is set"
+  exit 1
+fi
+
 root=$(git rev-parse --show-toplevel) || exit 1
 status=0
 while read -r local_ref local_sha remote_ref remote_sha; do

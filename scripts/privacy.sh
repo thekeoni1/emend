@@ -1,24 +1,36 @@
 #!/usr/bin/env bash
-# emend privacy gate. Checks the commits in scope for identity, message and
-# content problems before anything reaches GitHub.
+# emend privacy gate. Checks the commits in scope for identity, message, path
+# and content problems before anything reaches GitHub.
 #
 # Usage: scripts/privacy.sh [--range <rev>]
 #   Default scope: every commit reachable from HEAD. <rev> is what git
 #   rev-list accepts: A..B, or one commit for all of its history.
 #
 # Output: "PASS privacy", or one "FAIL <check>: ..." line per finding, or one
-# "ERROR privacy: ..." line. A one-line summary goes to stderr.
+# "ERROR privacy: ..." line. When EMEND_PRIVATE_DENYLIST is set, the first line
+# is a NOTICE. A one-line summary goes to stderr.
 # Exit codes: 0 pass, 1 findings, 2 error.
 #
 # Findings name only the check, the pattern or entry number, the commit, the
 # path and the line number, never the matched text. A path that itself hits
-# prints as <private path>, and a path containing emend-testing prints as
-# <corpus path>. The private denylist is never printed, copied to a file or
-# passed on a command line.
+# prints as <private path>, a path containing emend-testing as <corpus path>,
+# and an office file outside tests/fixtures/ as <office path>. The private
+# denylist is never printed, copied to a file or passed on a command line.
 set -uo pipefail
 
 readonly G=/usr/bin/grep
 readonly USAGE="usage: scripts/privacy.sh [--range <rev>]"
+# scripts/privacy-patterns.txt must hold exactly this many patterns. The
+# self-test plants one fake value per pattern, in the file's order.
+readonly EXPECTED_PATTERNS=11
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$'
+readonly FIXTURES_RE='(^|/)tests/fixtures/'
+readonly EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+
+# The denylist override is for negative tests only, so it is always announced.
+if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
+  echo "NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST"
+fi
 
 RANGE=HEAD
 case "$#" in
@@ -53,7 +65,7 @@ export GIT_NO_REPLACE_OBJECTS=1
 
 readonly IDENTITY_FILE=scripts/privacy-identity.txt
 readonly PATTERNS_FILE=scripts/privacy-patterns.txt
-readonly DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+readonly DENY_FILE=${EMEND_PRIVATE_DENYLIST-$HOME/.config/emend/private-denylist.txt}
 # Throwaway repositories never see the caller's git environment; git sets
 # some of these variables when it runs hooks.
 readonly GIT_CLEAN=(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE
@@ -84,6 +96,8 @@ rc=0
 LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$PATTERNS_FILE" >"$T/patterns" 2>/dev/null || rc=$?
 [ "$rc" -lt 2 ] || error "grep failed while reading $PATTERNS_FILE"
 mapfile -t PATTERNS <"$T/patterns"
+[ "${#PATTERNS[@]}" -eq "$EXPECTED_PATTERNS" ] ||
+  error "$PATTERNS_FILE holds ${#PATTERNS[@]} pattern(s); expected $EXPECTED_PATTERNS"
 PATTERN_ARGS=()
 for i in "${!PATTERNS[@]}"; do
   rc=0
@@ -101,6 +115,9 @@ while IFS= read -r entry || [ -n "$entry" ]; do
   entry=${entry%"${entry##*[![:space:]]}"}
   case "$entry" in
     '' | '#'*) ;;
+    # Matching is per line, so an entry with whitespace could miss text
+    # split across lines. Each name, address or word is its own entry.
+    *[[:space:]]*) error "denylist entry $((${#DENY[@]} + 1)) contains whitespace" ;;
     *) DENY+=("$entry") ;;
   esac
 done <"$DENY_FILE" || error "cannot read the private denylist"
@@ -122,40 +139,82 @@ screen() {
   return "$rc"
 }
 
-# hit_lines <file> <result file> <label> <grep args...>: append
-# "<label> <line number>" per matching line. Only the line numbers leave the
+# z_indices <NUL-separated file> <output file> <grep args...>: write the
+# number of each matching record, one per line.
+z_indices() {
+  local file=$1 out=$2 rc
+  shift 2
+  LC_ALL=C "$G" -a -z -n "$@" -- "$file" 2>/dev/null </dev/null |
+    LC_ALL=C sed -z 's/:.*//' | tr '\000' '\n' >"$out"
+  rc=${PIPESTATUS[0]}
+  [ "$rc" -lt 2 ] || error "grep failed while scanning"
+}
+
+# hit_lines <file> <result file> <label> [-z] <grep args...>: append
+# "<label> <line or record number>" per match. Only the numbers leave the
 # pipe; the matched text is never stored.
 hit_lines() {
   local file=$1 res=$2 label=$3 rc l
   shift 3
-  LC_ALL=C "$G" -a -n "$@" -- "$file" 2>/dev/null </dev/null | cut -d: -f1 >"$T/lines"
-  rc=${PIPESTATUS[0]}
-  [ "$rc" -lt 2 ] || error "grep failed while scanning"
+  if [ "$1" = -z ]; then
+    shift
+    z_indices "$file" "$T/lines" "$@"
+  else
+    LC_ALL=C "$G" -a -n "$@" -- "$file" 2>/dev/null </dev/null | cut -d: -f1 >"$T/lines"
+    rc=${PIPESTATUS[0]}
+    [ "$rc" -lt 2 ] || error "grep failed while scanning"
+  fi
   while read -r l; do
     echo "$label $l" >>"$res"
   done <"$T/lines"
 }
 
-# scan_file <file> <result file>: write "patterns <n> <line>" and
-# "denylist <n> <line>" for every hit.
-scan_file() {
-  local file=$1 res=$2 i
-  : >"$res"
-  if [ "${#PATTERNS[@]}" -gt 0 ] && screen "$file" -E "${PATTERN_ARGS[@]}"; then
-    for i in "${!PATTERNS[@]}"; do
-      hit_lines "$file" "$res" "patterns $((i + 1))" -E -e "${PATTERNS[$i]}"
-    done
-  fi
-  if screen "$file" -i -w -F -f <(printf '%s\n' "${DENY_ACTIVE[@]}"); then
-    for i in "${!DENY_ACTIVE[@]}"; do
-      hit_lines "$file" "$res" "denylist $((i + 1))" -i -w -F -f <(printf '%s\n' "${DENY_ACTIVE[$i]}")
-    done
-  fi
+# email_lines <file> <result file>: append "email - <line>" for every line
+# holding an address outside the allowlist: the identity address,
+# noreply@anthropic.com and addresses at example.invalid. Addresses pass only
+# through the pipe.
+email_lines() {
+  local file=$1 res=$2 rc l
+  screen "$file" -E -e "$EMAIL_RE" || return 0
+  LC_ALL=C "$G" -a -o -n -E -e "$EMAIL_RE" -- "$file" 2>/dev/null </dev/null |
+    LC_ALL=C awk -v id="$ID_EMAIL" '
+      { i = index($0, ":"); a = tolower(substr($0, i + 1)) }
+      a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+      { print substr($0, 1, i - 1) }' | sort -un >"$T/lines"
+  rc=${PIPESTATUS[0]}
+  [ "$rc" -lt 2 ] || error "grep failed while scanning"
+  while read -r l; do
+    echo "email - $l" >>"$res"
+  done <"$T/lines"
 }
 
-# what <kind>: the word printed before the number.
+# scan_file <file> <result file> [-z]: write "patterns <n> <line>",
+# "denylist <n> <line>" and, for text files, "email - <line>" for every hit.
+# With -z the file is NUL-separated records and numbers are record numbers.
+scan_file() {
+  local file=$1 res=$2 z=() i
+  [ "${3:-}" != -z ] || z=(-z)
+  : >"$res"
+  if screen "$file" "${z[@]}" -E "${PATTERN_ARGS[@]}"; then
+    for i in "${!PATTERNS[@]}"; do
+      hit_lines "$file" "$res" "patterns $((i + 1))" "${z[@]}" -E -e "${PATTERNS[$i]}"
+    done
+  fi
+  if screen "$file" "${z[@]}" -i -w -F -f <(printf '%s\n' "${DENY_ACTIVE[@]}"); then
+    for i in "${!DENY_ACTIVE[@]}"; do
+      hit_lines "$file" "$res" "denylist $((i + 1))" "${z[@]}" -i -w -F -f <(printf '%s\n' "${DENY_ACTIVE[$i]}")
+    done
+  fi
+  [ "${#z[@]}" -gt 0 ] || email_lines "$file" "$res"
+}
+
+# what <kind> <n>: the words printed before the line number.
 what() {
-  if [ "$1" = patterns ]; then echo pattern; else echo "denylist entry"; fi
+  case "$1" in
+    patterns) echo "pattern $2" ;;
+    denylist) echo "denylist entry $2" ;;
+    *) echo email ;;
+  esac
 }
 
 # emit <finding>: record one FAIL line in $SINK.
@@ -178,12 +237,12 @@ check_identity() {
   done
 }
 
-# check_commit <commit> <identity|no-identity>: the message and content checks
-# for one commit, with "${GITX[@]}" as the git command.
+# check_commit <commit> <identity|no-identity>: the message, path and content
+# checks for one commit, with "${GITX[@]}" as the git command.
 declare -A BLOB_RESULT=()
 BLOBS=0
 check_commit() {
-  local commit=$1 kind n l idx entry meta path type sha shown rc
+  local commit=$1 kind n l idx entry meta type sha shown count entries
   run_git "$T/raw" cat-file commit "$commit"
   [ "$2" != identity ] || check_identity "$commit"
 
@@ -193,25 +252,43 @@ check_commit() {
   if screen "$T/msg" -e '^Claude-Session:'; then emit "message: commit $commit has a Claude-Session line"; fi
   scan_file "$T/msg" "$T/msg-res"
   while read -r kind n l; do
-    emit "message: commit $commit $(what "$kind") $n line $l"
+    emit "message: commit $commit $(what "$kind" "$n") line $l"
   done <"$T/msg-res"
 
-  # Path names in the tree. A path that hits is never printed.
-  run_git "$T/tree" -c core.quotepath=true ls-tree -r --full-tree "$commit"
-  cut -f2- "$T/tree" >"$T/paths"
-  scan_file "$T/paths" "$T/paths-res"
-  : >"$T/private-lines"
+  # The tree, listed three times in the same order: entries and raw paths
+  # (NUL-separated) for matching, git-quoted paths for printing.
+  run_git "$T/tree.z" ls-tree -r -z --full-tree "$commit"
+  run_git "$T/paths.z" ls-tree -r -z --full-tree --name-only "$commit"
+  run_git "$T/quoted" -c core.quotepath=true ls-tree -r --full-tree --name-only "$commit"
+  mapfile -t QUOTED <"$T/quoted"
+  entries=$(tr -cd '\000' <"$T/paths.z" | wc -c)
+  [ "${#QUOTED[@]}" -eq "$entries" ] || error "tree listings disagree for commit $commit"
+
+  # Corpus and office paths: counts only.
+  z_indices "$T/paths.z" "$T/corpus-idx" -i -F -e emend-testing
+  count=$(wc -l <"$T/corpus-idx")
+  [ "$count" -eq 0 ] || emit "paths: commit $commit $count path(s) containing emend-testing (paths not printed)"
+  z_indices "$T/paths.z" "$T/office-all-idx" -i -E -e "$OFFICE_RE"
+  z_indices "$T/paths.z" "$T/fixtures-idx" -E -e "$FIXTURES_RE"
+  rc=0
+  LC_ALL=C "$G" -v -x -F -f "$T/fixtures-idx" "$T/office-all-idx" >"$T/office-idx" 2>/dev/null || rc=$?
+  [ "$rc" -lt 2 ] || error "grep failed while checking office paths"
+  count=$(wc -l <"$T/office-idx")
+  [ "$count" -eq 0 ] || emit "paths: commit $commit $count office file path(s) outside tests/fixtures/ (paths not printed)"
+
+  # Path names against patterns and denylist. A path that hits is never printed.
+  scan_file "$T/paths.z" "$T/paths-res" -z
+  : >"$T/private-idx"
   while read -r kind n l; do
-    emit "paths: commit $commit tree entry $l $(what "$kind") $n (path not printed)"
-    echo "$l" >>"$T/private-lines"
+    emit "paths: commit $commit tree entry $l $(what "$kind" "$n") (path not printed)"
+    echo "$l" >>"$T/private-idx"
   done <"$T/paths-res"
 
   # Content: every blob in the tree, read as bytes whatever git attributes say.
   idx=0
-  while IFS= read -r entry; do
+  while IFS= read -r -d '' entry; do
     idx=$((idx + 1))
     meta=${entry%%$'\t'*}
-    path=${entry#*$'\t'}
     read -r _ type sha <<<"$meta"
     [ "$type" = blob ] || continue
     if [ -z "${BLOB_RESULT[$sha]+set}" ]; then
@@ -221,33 +298,67 @@ check_commit() {
       BLOBS=$((BLOBS + 1))
     fi
     [ -s "${BLOB_RESULT[$sha]}" ] || continue
-    if screen "$T/private-lines" -x -F -e "$idx"; then
+    if screen "$T/private-idx" -x -F -e "$idx"; then
       shown='<private path>'
+    elif screen "$T/corpus-idx" -x -F -e "$idx"; then
+      shown='<corpus path>'
+    elif screen "$T/office-idx" -x -F -e "$idx"; then
+      shown='<office path>'
     else
-      rc=0
-      printf '%s\n' "$path" | LC_ALL=C "$G" -q -i -F -e emend-testing 2>/dev/null || rc=$?
-      [ "$rc" -lt 2 ] || error "grep failed while checking a path"
-      if [ "$rc" -eq 0 ]; then shown='<corpus path>'; else shown=$path; fi
+      shown=${QUOTED[$((idx - 1))]}
     fi
     while read -r kind n l; do
-      emit "$kind: commit $commit path $shown $(what "$kind") $n line $l"
+      if [ "$kind" = email ]; then
+        emit "email: commit $commit path $shown line $l"
+      else
+        emit "$kind: commit $commit path $shown $(what "$kind" "$n") line $l"
+      fi
     done <"${BLOB_RESULT[$sha]}"
-  done <"$T/tree"
+  done <"$T/tree.z"
 }
 
-# --- self-test: a throwaway repository with a pattern hit and a sentinel ----
+# --- self-test ---------------------------------------------------------------
+hex() { od -An -N"$1" -tx1 /dev/urandom | tr -d ' \n'; }
+
+# A throwaway repository with one realistic fake value per pattern, a
+# denylist sentinel, a disallowed and allowed email addresses, and corpus,
+# office, fixture and private paths. Every planted hit must be reported, each
+# pattern under its own number, and no allowed address.
 selftest() {
-  local repo=$T/selftest sentinel token head want
-  sentinel="zq$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
-  token="gh""p_$(od -An -N18 -tx1 /dev/urandom | tr -d ' \n')"
+  local repo=$T/selftest sentinel email head w i
+  local -a fakes want
+  sentinel="zq$(hex 8)"
+  email="zq$(hex 4)@example"".com"
+  fakes=(
+    "gh""p_$(hex 18)"
+    "github""_pat_$(hex 11)_$(hex 30)"
+    "sk""-ant-api03-$(hex 40)"
+    "-----BEGIN OPENSSH ""PRIVATE"" KEY-----"
+    "https://claude"".ai/code/""session_$(hex 12)"
+    "session""_$(hex 13)"
+    "/tmp/""claude-$((RANDOM + 1000))/-home-user-project/$(hex 4)"
+    "/mnt/""c/""Users/user$(hex 2)/Documents"
+    "DESKTOP""-$(hex 4 | tr a-f A-F)"
+    "C:""\\Users\\user$(hex 2)\\Documents"
+    "/home/user/"".claude""/projects/-home-user-project/$(hex 8).jsonl"
+  )
+  [ "${#fakes[@]}" -eq "$EXPECTED_PATTERNS" ] || error "self-test holds ${#fakes[@]} fake values; expected $EXPECTED_PATTERNS"
+
   GITX=("${GIT_CLEAN[@]}" -c init.defaultBranch=selftest)
   run_git "$T/git-out" init -q "$repo"
-  printf 'self-test token %s\n' "$token" >"$repo/a.txt"
+  mkdir -p "$repo/Emend-Testing" "$repo/tools/tests/fixtures" || error "mkdir failed"
+  printf '%s\n' "${fakes[@]}" >"$repo/a.txt"
   printf 'self-test sentinel %s\n' "$sentinel" >"$repo/b.txt"
+  printf 'contact %s\n' "$email" >"$repo/e.txt"
+  printf '%s noreply@anthropic.com zq%s@example.invalid\n' "$ID_EMAIL" "$(hex 2)" >"$repo/ok.txt"
+  printf '%s\n' "${fakes[0]}" >"$repo/Emend-Testing/x.txt"
+  printf '%s\n' "${fakes[0]}" >"$repo/r.XLSX"
+  printf '%s\n' "${fakes[0]}" >"$repo/n-$sentinel.txt"
+  printf 'fixture\n' >"$repo/tools/tests/fixtures/f.xlsx"
   GITX=("${GIT_CLEAN[@]}" -C "$repo" -c user.name=selftest -c user.email=selftest@example.invalid
     -c commit.gpgsign=false -c core.hooksPath=/dev/null)
-  run_git "$T/git-out" add a.txt b.txt
-  run_git "$T/git-out" commit -q -m "self-test $token"
+  run_git "$T/git-out" add -f .
+  run_git "$T/git-out" commit -q -m "self-test ${fakes[0]}" -m "$email"
   run_git "$T/git-out" rev-parse HEAD
   head=$(cat "$T/git-out")
 
@@ -256,14 +367,32 @@ selftest() {
   : >"$SINK"
   mkdir "$T/res" || error "mkdir failed"
   check_commit "$head" no-identity
-  for want in \
-    "^FAIL patterns: commit $head path a[.]txt pattern [0-9]+ line 1\$" \
-    "^FAIL denylist: commit $head path b[.]txt denylist entry 1 line 1\$" \
-    "^FAIL message: commit $head pattern [0-9]+ line 1\$"; do
-    screen "$SINK" -E -e "$want" || error "self-test failed: a planted hit was not detected"
-  done
-
   GITX=(git)
+
+  for i in "${!fakes[@]}"; do
+    screen "$SINK" -x -F -e "FAIL patterns: commit $head path a.txt pattern $((i + 1)) line $((i + 1))" ||
+      error "self-test failed: pattern $((i + 1)) did not detect its fake value"
+  done
+  want=(
+    "FAIL denylist: commit $head path b.txt denylist entry 1 line 1"
+    "FAIL email: commit $head path e.txt line 1"
+    "FAIL message: commit $head pattern 1 line 1"
+    "FAIL message: commit $head email line 3"
+    "FAIL paths: commit $head 1 path(s) containing emend-testing (paths not printed)"
+    "FAIL paths: commit $head 1 office file path(s) outside tests/fixtures/ (paths not printed)"
+    "FAIL patterns: commit $head path <corpus path> pattern 1 line 1"
+    "FAIL patterns: commit $head path <office path> pattern 1 line 1"
+    "FAIL patterns: commit $head path <private path> pattern 1 line 1"
+  )
+  for w in "${want[@]}"; do
+    screen "$SINK" -x -F -e "$w" || error "self-test failed: a planted hit was not detected"
+  done
+  screen "$SINK" -E -e "^FAIL paths: commit $head tree entry [0-9]+ denylist entry 1 [(]path not printed[)]\$" ||
+    error "self-test failed: a planted hit was not detected"
+  if screen "$SINK" -F -e "path ok.txt"; then
+    error "self-test failed: an allowed address was reported"
+  fi
+
   DENY_ACTIVE=("${DENY[@]}")
   BLOB_RESULT=()
   BLOBS=0
