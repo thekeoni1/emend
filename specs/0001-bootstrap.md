@@ -1,8 +1,9 @@
 # 0001: T0 repo bootstrap
 
-Status: P1, P1R and P2 DONE, verified by planning 2026-09-14. After the
-rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
-records through 88d5644; P2 is 1a985a1 to 9daa4c6. P3 to P7 READY.
+Status: P1, P1R, P2 and P3 DONE, verified by planning 2026-09-14. After
+the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
+records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
+53b99d8. P4 to P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -64,6 +65,12 @@ committed. Its output goes in the phase's `negative.log`.
   of downloading. The pinned channel `1.98.1` is a separate rustup
   toolchain from `stable`, even though both are rustc 1.98.1. Any install
   is a planned, logged step under the CLAUDE.md Elevation section.
+- Logs contain no control bytes other than tab, line feed and carriage
+  return. Tools run with colour off (`CARGO_TERM_COLOR=never`, and
+  `--color never` for rustfmt). Each phase's scan.log counts control
+  bytes in its logs, with a positive control, and expects 0. The three
+  lines with escape and shift-in bytes in
+  `records/logs/t0-p3/negative.log` are accepted as recorded.
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,
@@ -182,6 +189,48 @@ committed. Its output goes in the phase's `negative.log`.
   messages.
 - The P6 patterns are now shape-based (see P6). Check answers are
   committed verbatim.
+
+## Planning rulings on P3 (2026-09-14)
+
+- P3 is verified from primaries by planning's own checks:
+  - Doc commit ced7f91 holds exactly the five pending paths. Its
+    decision record is byte-identical to planning's draft.
+  - Planning ran `scripts/check.sh` itself, from `/` by absolute path:
+    PASS host, i686, fmt and clippy, exit 0. `--quick` prints PASS and
+    SKIP lines and exits 0. A bad argument prints the usage line and
+    exits 2.
+  - Planning reproduced the three negative tests in fresh clones, and
+    each exits 1:
+    - a misformatted line gives FAIL fmt;
+    - a test compiled out on x86 gives FAIL i686 with zero tests
+      executed;
+    - a failing assertion gives FAIL host.
+  - `.gitignore` ignores `X.XLSX`, `sub/Y.Xlsm`, `Z.ODS` and `q.XlSb`.
+    It does not ignore office files under `tests/fixtures/`, in either
+    case.
+  - Every file in every commit on main, and every message, has zero
+    hits against the denylist, the shape-based P6 patterns and non-ASCII
+    bytes.
+  - The only control bytes in the tree are escape and shift-in bytes on
+    three lines of `records/logs/t0-p3/negative.log`.
+  - The GitHub repository still has no branches.
+- Question 1: the SKIP lines under `--quick`, and exit 2 on a bad
+  argument, are accepted.
+- Question 2: the escape and shift-in bytes in the P3 negative.log are
+  accepted as recorded. From P4 on, logs carry no colour and scans count
+  control bytes (see "Rules for every phase"). P4 turns colour off in
+  `scripts/check.sh`.
+- Question 3: invoking `check.sh` through a symlink is out of scope. The
+  script is run by its path.
+- Question 4: a failure before the first step (for example a failed
+  `mktemp`) exits non-zero without a FAIL line. Accepted.
+- Question 5: the executed-tests count summed across the workspace is
+  accepted while the workspace has one member. The T1 spec revisits it
+  if T1 adds members.
+- Question 6: `fail()` passing tool output to stderr unfiltered is
+  accepted. A log that captures such output is committed only after its
+  phase scan passes, and P6 scans the whole history before any push.
+- Question 7: the P3 Logs list now names `ignore.log`.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -310,6 +359,7 @@ any letter case (for example `*.[xX][lL][sS][xX]`), keeping the
 
 - Logs:
   - `gate.log`: a full `scripts/check.sh` run.
+  - `ignore.log`: the case-insensitive ignore results described above.
   - `negative.log`: in a scratch copy, (a) misformat a line, then show
     `FAIL fmt`; (b) make the i686 step run zero tests (for example with
     a test filter that matches nothing), then show `FAIL i686`;
@@ -338,6 +388,11 @@ Add to `scripts/check.sh`:
    Any other identifier (ISC, 0BSD, CC0-1.0, MPL-2.0, and so on) fails
    and is reported for a planning ruling. Do not widen the list
    yourself.
+
+Also in this phase, turn colour off for every tool `check.sh` runs:
+export `CARGO_TERM_COLOR=never`, and pass `-- --color never` to
+`cargo fmt`. Rerun the fmt negative case, and show that its captured
+output has zero control bytes.
 
 - Logs:
   - `gate.log`: a full run, steps 1 to 6.

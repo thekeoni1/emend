@@ -33,8 +33,8 @@ private corpus and a measured passthrough baseline. Plan:
 | P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | DONE (rewritten in P1R; now af5a2c6 to d3754dc) |
 | P1R | Rewrite the P1 commit messages without the Claude-Session line, trees unchanged; commit the maintainer and planning doc updates | DONE (doc commit d495f0a; records through 88d5644) |
 | P2 | Cargo workspace, toolchain pin, licence files, xlsx-diff skeleton, .gitignore; build and test on host and i686 by hand | DONE (1a985a1 to 9daa4c6) |
-| P3 | `scripts/check.sh` steps host, i686, fmt, clippy; case-insensitive `.gitignore`; negative tests | READY |
-| P4 | `check.sh` steps native (no C, `-sys` allowlist) and licences; negative tests | READY |
+| P3 | `scripts/check.sh` steps host, i686, fmt, clippy; case-insensitive `.gitignore`; negative tests | DONE (ced7f91 to 53b99d8) |
+| P4 | `check.sh` steps native (no C, `-sys` allowlist) and licences; colour off; negative tests | READY |
 | P5 | `check.sh` step hygiene (U+2014, office files in any case, corpus paths, API key); toolchain record; negative tests | READY |
 | P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` with shape-based patterns as `check.sh` step privacy, pre-push hook, private denylist outside the repo; negative tests | READY |
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | READY |
@@ -80,7 +80,7 @@ ruling 12, 2026-09-14).
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `records/decision-architecture.md`: the maintainer chose greenfield on 2026-09-14, before any measurement | READY (drafted by planning; committed in T0 P3's first commit) |
+| P1 | `records/decision-architecture.md`: the maintainer chose greenfield on 2026-09-14, before any measurement | DONE (committed in ced7f91, byte-identical to planning's draft) |
 
 ## Standing items (maintainer rulings 2026-09-14)
 
