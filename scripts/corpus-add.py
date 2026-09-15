@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Add one workbook to the private emend corpus (private stand-in for the
-repository's future scripts/corpus-add.sh, following specs/0005 P1).
+"""Add one workbook to the private emend corpus (specs/0005-corpus.md, P1).
+Imported from the corpus session's private helper through a recorded step.
 
 usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]
 
 Prints exactly one line on success: added <id> <ext> <bytes> <producer> <tags>
 Never prints the original name, the note, the corpus path or file content.
+A refusal prints one "refused: " line on stderr and exits 1; any other error
+prints one "error: " line naming only the exception class and exits 2.
 """
 import datetime
 import hashlib
@@ -18,6 +20,7 @@ import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
+USAGE = "usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]"
 EXTS = {"xlsx", "xlsm", "xltx", "xltm"}
 PRODUCERS = {"excel-win", "excel-mac", "google-sheets", "libreoffice", "unknown"}
 SOURCES = {"libreoffice-export", "ms-template", "google-sheets-export", "maintainer"}
@@ -39,9 +42,14 @@ def read_app(path):
     try:
         with zipfile.ZipFile(path) as z:
             data = z.read("docProps/app.xml")
-    except (KeyError, zipfile.BadZipFile):
+    except KeyError:
         return "none"
-    root = ET.fromstring(data)
+    except zipfile.BadZipFile:
+        die("not a zip-based workbook")
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        die("docProps/app.xml is not well-formed")
     vals = []
     for tag in ("Application", "AppVersion"):
         el = root.find(EP + tag)
@@ -50,25 +58,47 @@ def read_app(path):
     return " ".join(vals) if vals else "none"
 
 
+def outside_git(corpus):
+    # The caller's git environment must not point git at another repository.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    try:
+        r = subprocess.run(["git", "-C", corpus, "rev-parse"], capture_output=True, env=env)
+    except OSError:
+        die("git could not be run")
+    return r.returncode != 0
+
+
 def main(argv):
     if len(argv) not in (6, 7):
-        print(__doc__.strip().splitlines()[3], file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(2)
     src, producer, pver, source, tags = argv[1:6]
     note = argv[6] if len(argv) == 7 else ""
 
-    corpus = os.environ.get("EMEND_CORPUS_DIR") or os.path.join(os.environ["HOME"], "emend-testing")
-    st = os.stat(corpus)
+    corpus = os.environ.get("EMEND_CORPUS_DIR")
+    if not corpus:
+        if not os.environ.get("HOME"):
+            die("HOME is not set")
+        corpus = os.path.join(os.environ["HOME"], "emend-testing")
+    try:
+        st = os.stat(corpus)
+    except OSError:
+        die("corpus directory missing")
+    if not stat.S_ISDIR(st.st_mode):
+        die("corpus directory is not a directory")
     if stat.S_IMODE(st.st_mode) != 0o700:
         die("corpus directory is not mode 700")
-    if subprocess.run(["git", "-C", corpus, "rev-parse"], capture_output=True).returncode == 0:
+    if not outside_git(corpus):
         die("corpus directory is inside a git work tree")
 
     ext = os.path.splitext(src)[1].lstrip(".").lower()
     if ext not in EXTS:
         die("extension not one of xlsx, xlsm, xltx, xltm")
-    with open(src, "rb") as f:
-        magic = f.read(4)
+    try:
+        with open(src, "rb") as f:
+            magic = f.read(4)
+    except OSError:
+        die("the file cannot be read")
     if magic != b"PK\x03\x04":
         die("not a zip-based workbook")
     if producer not in PRODUCERS:
@@ -93,18 +123,23 @@ def main(argv):
     manifest = os.path.join(corpus, "manifest.tsv")
     if os.path.exists(manifest):
         with open(manifest, encoding="utf-8") as f:
-            lines = f.read().splitlines()
+            text = f.read()
+        lines = text.splitlines()
         if not lines or lines[0].split("\t") != HEADER:
             die("manifest header mismatch")
+        if not text.endswith("\n"):
+            die("manifest does not end with a newline")
         if any(l.split("\t")[0] == fid for l in lines[1:]):
             die("duplicate id")
-    dest = os.path.join(corpus, "corpus", f"{fid}.{ext}")
+    dest_dir = os.path.join(corpus, "corpus")
+    dest = os.path.join(dest_dir, f"{fid}.{ext}")
     if os.path.exists(dest):
         die("duplicate id")
 
     app = read_app(src)
     old = os.umask(0o077)
     try:
+        os.makedirs(dest_dir, mode=0o700, exist_ok=True)
         shutil.copyfile(src, dest)
         os.chmod(dest, 0o600)
         new = not os.path.exists(manifest)
@@ -122,4 +157,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    try:
+        main(sys.argv)
+    except Exception as e:  # noqa: BLE001 - never print a path or a value
+        print(f"error: {type(e).__name__}", file=sys.stderr)
+        sys.exit(2)
