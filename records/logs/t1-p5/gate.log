@@ -1,0 +1,154 @@
+about: T1 P5 phase commit 1c8eca19d055a11dea1b83613ff7125b865ef13d; HEAD at run: 1c8eca19d055a11dea1b83613ff7125b865ef13d
+phase: T1 P5 (specs/0004-xlsx-diff.md) gate.log; run at 2026-09-15T20:15:17Z
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T1 P5 gate log: a full run of all eight steps.
+    # Usage: t1p5-gate.sh <phase commit> [<stopped-run note>] > <gate log scratch file>
+    # The note records an earlier run of this log that the environment stopped
+    # (specs/0001 "Rules for every phase": start time, last completed check, reason).
+    # The caller moves the file into records/logs/t1-p5/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    STOPPED=${2:-}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    # check <label> <yes|no>: print a result evaluated once.
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    
+    echo "about: T1 P5 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P5 (specs/0004-xlsx-diff.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml Cargo.toml Cargo.lock tools/xlsx-diff/Cargo.toml; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo
+    echo "## dependency tree (unchanged since T1 P1: the ten crates under Facts)"
+    echo "command: cargo tree -e normal --prefix none"
+    cargo tree -e normal --prefix none > "$T/tree" 2>&1
+    echo "exit: $?"
+    # The repository root prints as <repo>: the log rules require repo-relative
+    # paths (T1 P1 gate log fix).
+    sed -e "s#$ROOT#<repo>#g" -e 's/^/    /' "$T/tree"
+    printf '%s\n' "xlsx-diff v0.1.0" "zip v8.6.0" "crc32fast v1.5.2" "cfg-if v1.0.4" "flate2 v1.1.10" "zlib-rs v0.6.8" "indexmap v2.14.2" "equivalent v1.0.2" "hashbrown v0.17.1" "memchr v2.8.3" "typed-path v0.12.3" | sort > "$T/tree-want"
+    sed -E 's/ \(.*\)$//' "$T/tree" | sort -u > "$T/tree-got"
+    check "the tree is exactly xlsx-diff and the ten crates" "$(yn cmp -s "$T/tree-got" "$T/tree-want")"
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(ctrl_bytes "$T/ctl"); check "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$n (expect bytes 3)" "$(yn [ "$n" -eq 3 ])"
+    n=$(ctrl_bytes "$T/clean"); check "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    for s in out err; do
+      n=$(ctrl_bytes "$T/$s"); check "std$s: lines=$(f_ctrl "$T/$s") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## gate files at 1c8eca19d055a11dea1b83613ff7125b865ef13d
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; bytes 125
+Cargo.lock on disk sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; bytes 2290
+tools/xlsx-diff/Cargo.toml on disk sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; at 1c8eca19d055a11dea1b83613ff7125b865ef13d sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; bytes 223
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## dependency tree (unchanged since T1 P1: the ten crates under Facts)
+command: cargo tree -e normal --prefix none
+exit: 0
+    xlsx-diff v0.1.0 (<repo>/tools/xlsx-diff)
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+the tree is exactly xlsx-diff and the ten crates: yes
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 4177 files, 604.1MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect bytes 3): yes
+control: tab and CR file -> lines=0 bytes=0 (expect 0): yes
+stdout: lines=0 bytes=0 (expect 0): yes
+stderr: lines=0 bytes=0 (expect 0): yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-15T20:15:50Z
+gate log checks all as expected: yes

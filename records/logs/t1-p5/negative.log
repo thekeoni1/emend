@@ -1,0 +1,291 @@
+about: T1 P5 phase commit 1c8eca19d055a11dea1b83613ff7125b865ef13d; HEAD at run: 1c8eca19d055a11dea1b83613ff7125b865ef13d
+phase: T1 P5 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T20:15:51Z
+Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
+fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
+
+## script
+    #!/usr/bin/env bash
+    # T1 P5 negative.log (specs/0004-xlsx-diff.md, P5 "Negative cases"): the tool
+    # run by hand on archives generated in a scratch directory with Python's
+    # zipfile module from fictional content.
+    #   case a: an archive with padding bytes inserted between its first and
+    #           second entries, against its unpadded twin; expect exit 1, every
+    #           entry `identical`, and `descriptor` on exactly one row.
+    #   case b: the unpadded twin against a byte copy of it; expect exit 0 and
+    #           `files_identical` `yes`.
+    # The padded twin is made by inserting the bytes before the second local
+    # header and moving every later offset (central records and the end of
+    # central directory record) by the same count.
+    # Each check is evaluated once, and a check with more than one condition is
+    # evaluated inside one function. The content phrase and sentinels are built at
+    # run time; every captured output is counted for them, control bytes and
+    # non-ASCII bytes.
+    # Usage: t1p5-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p5/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    BIN=target/debug/xlsx-diff
+    PAD=37
+    
+    # The binary is built from the working tree, so the run starts only at the
+    # phase commit with a clean tree.
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
+    SENT1="zq$(rnd 'a-z0-9' 14)"
+    SENT2="zq$(rnd 'a-z0-9' 14)"
+    PHRASE="fictional neg""ative content"
+    FORBIDDEN=("$SENT1" "$SENT2" "$PHRASE")
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # all_zero <n>...: every count given is 0.
+    all_zero() { local v; for v in "$@"; do [ "$v" -eq 0 ] || return 1; done; }
+    # row_is <file> <exact row>: the file holds that exact line.
+    row_is() { LC_ALL=C "$G" -q -x -F -e "$2" "$1"; }
+    # rows_flagged <file> <entries> <with descriptor>: exactly <entries> entry
+    # rows, all `identical`, exactly <with descriptor> of them with the flags
+    # column `descriptor` and the rest with an empty flags column.
+    rows_flagged() {
+      local total identical flagged empty
+      total=$(LC_ALL=C "$G" -c -P '^entry\t' "$1")
+      identical=$(LC_ALL=C "$G" -c -P '^entry\t[^\t]*\tidentical\t' "$1")
+      flagged=$(LC_ALL=C "$G" -c -P '^entry\t[^\t]*\tidentical\t([^\t]*\t){13}descriptor$' "$1")
+      empty=$(LC_ALL=C "$G" -c -P '^entry\t[^\t]*\tidentical\t([^\t]*\t){13}$' "$1")
+      [ "$total" = "$2" ] && [ "$identical" = "$2" ] && [ "$flagged" = "$3" ] && [ "$empty" = "$(($2 - $3))" ]
+    }
+    # padded_by <padded> <unpadded> <n>: the padded file is exactly n bytes longer.
+    padded_by() { [ "$(wc -c <"$1")" -eq "$(($(wc -c <"$2") + $3))" ]; }
+    
+    echo "about: T1 P5 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P5 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit."
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two random content sentinels and the content phrase, all built at run time; values never printed)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p xlsx-diff"
+    cargo build -p xlsx-diff >"$BASE/build.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "build exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "binary $BIN exists" "$(is [ -x "$BIN" ])"
+    
+    run_tool() { # run_tool <name> <input> <output>
+      local name=$1 fb c n r
+      echo "command: $BIN $(printf '%s' "$2" | hide) $(printf '%s' "$3" | hide)"
+      "$BIN" "$2" "$3" >"$BASE/$name.out" 2>"$BASE/$name.err" </dev/null
+      RC=$?
+      echo "  stdout:"
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  stderr:"
+      hide <"$BASE/$name.err" | sed 's/^/    /'
+      echo "  exit: $RC"
+      cat "$BASE/$name.out" "$BASE/$name.err" >"$BASE/$name.both"
+      fb=$(count_forbidden "$BASE/$name.both")
+      c=$(ctrl_bytes "$BASE/$name.both")
+      n=$(nonascii_bytes "$BASE/$name.both")
+      r=$(is all_zero "$fb" "$c" "$n")
+      echo "  captured output: lines with a fixture string=$fb, control bytes=$c, non-ASCII bytes=$n (expect 0, 0 and 0): $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    
+    echo
+    echo "## generated archives"
+    cat >"$BASE/gen.py" <<'PY'
+    import struct, sys, zipfile
+    out_dir, s1, s2, phrase, pad = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
+    names = ("[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml")
+    plain = out_dir + "/unpadded.zip"
+    with zipfile.ZipFile(plain, "w") as z:
+        for k, name in enumerate(names):
+            body = "".join(phrase + " %s row %d %s %s\n" % (name, i, s1, s2) for i in range(150 * (k + 1))).encode()
+            info = zipfile.ZipInfo(name, date_time=(2026, 9, 15, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(info, body)
+    data = bytearray(open(plain, "rb").read())
+    eocd = data.rindex(b"PK\x05\x06")
+    count, cd_size, cd_offset = struct.unpack_from("<HII", data, eocd + 10)
+    # Local header offsets from the central records, in central order.
+    offsets, at = [], cd_offset
+    for _ in range(count):
+        assert data[at:at + 4] == b"PK\x01\x02"
+        name_len, extra_len, comment_len = struct.unpack_from("<HHH", data, at + 28)
+        offsets.append((at + 42, struct.unpack_from("<I", data, at + 42)[0]))
+        at += 46 + name_len + extra_len + comment_len
+    insert_at = sorted(o for _, o in offsets)[1]
+    padded = bytearray(data)
+    for field, value in offsets:
+        if value >= insert_at:
+            struct.pack_into("<I", padded, field, value + pad)
+    struct.pack_into("<I", padded, eocd + 16, cd_offset + pad)
+    padded[insert_at:insert_at] = bytes(pad)
+    open(out_dir + "/padded.zip", "wb").write(padded)
+    open(out_dir + "/copy.zip", "wb").write(data)
+    with zipfile.ZipFile(out_dir + "/padded.zip") as z:
+        bad = z.testzip()
+    print("entries %d; padding of %d zero bytes inserted at offset %d; zipfile testzip of the padded archive: %s" % (count, pad, insert_at, "ok" if bad is None else "failed"))
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase> $PAD"
+    python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2" "$PHRASE" "$PAD" >"$BASE/gen.out" 2>&1
+    echo "  exit: $?"
+    hide <"$BASE/gen.out" | sed 's/^/    /'
+    echo "  unpadded.zip $(wc -c <"$BASE/unpadded.zip") bytes; padded.zip $(wc -c <"$BASE/padded.zip") bytes; copy.zip $(wc -c <"$BASE/copy.zip") bytes"
+    note "padded.zip is $PAD bytes longer than unpadded.zip" "$(is padded_by "$BASE/padded.zip" "$BASE/unpadded.zip" "$PAD")"
+    note "zipfile reads every entry of padded.zip" "$(is row_is "$BASE/gen.out" "entries 3; padding of $PAD zero bytes inserted at offset $(LC_ALL=C "$G" -o -E 'inserted at offset [0-9]+' "$BASE/gen.out" | LC_ALL=C "$G" -o -E '[0-9]+$'); zipfile testzip of the padded archive: ok")"
+    note "copy.zip is a byte copy of unpadded.zip" "$(is cmp -s "$BASE/copy.zip" "$BASE/unpadded.zip")"
+    
+    echo
+    echo "## case a: padding between entries against the unpadded twin"
+    run_tool a "$BASE/padded.zip" "$BASE/unpadded.zip"
+    note "exit 1" "$(is [ "$RC" -eq 1 ])"
+    note "three entry rows, all identical, descriptor on exactly one" "$(is rows_flagged "$BASE/a.out" 3 1)"
+    note "archive row flagged is 1" "$(is row_is "$BASE/a.out" "$(printf 'archive\tflagged\t1')")"
+    note "archive row files_identical is no" "$(is row_is "$BASE/a.out" "$(printf 'archive\tfiles_identical\tno')")"
+    note "stderr is empty" "$(is [ ! -s "$BASE/a.err" ])"
+    
+    echo
+    echo "## case b: the unpadded twin against a byte copy"
+    run_tool b "$BASE/unpadded.zip" "$BASE/copy.zip"
+    note "exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "three entry rows, all identical, none flagged" "$(is rows_flagged "$BASE/b.out" 3 0)"
+    note "archive row files_identical is yes" "$(is row_is "$BASE/b.out" "$(printf 'archive\tfiles_identical\tyes')")"
+    note "stderr is empty" "$(is [ ! -s "$BASE/b.err" ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 3 (expect 3): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+
+## build
+command: cargo build -p xlsx-diff
+  exit: 0
+  build exit 0: as-expected
+  binary target/debug/xlsx-diff exists: as-expected
+
+## generated archives
+command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase> 37
+  exit: 0
+    entries 3; padding of 37 zero bytes inserted at offset 549; zipfile testzip of the padded archive: ok
+  unpadded.zip 3100 bytes; padded.zip 3137 bytes; copy.zip 3100 bytes
+  padded.zip is 37 bytes longer than unpadded.zip: as-expected
+  zipfile reads every entry of padded.zip: as-expected
+  copy.zip is a byte copy of unpadded.zip: as-expected
+
+## case a: padding between entries against the unpadded twin
+command: target/debug/xlsx-diff <scratch>/padded.zip <scratch>/unpadded.zip
+  stdout:
+    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	500	500	40a63a61	40a63a61				descriptor
+    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	907	907	f579de1a	f579de1a				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1327	1327	c52650fe	c52650fe				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	3
+    archive	recompressed	0
+    archive	changed	0
+    archive	dropped	0
+    archive	added	0
+    archive	flagged	1
+    archive	order_preserved	yes
+    archive	comment_equal	yes
+    archive	prefix_in	0
+    archive	prefix_out	0
+    archive	central_start_in	2919
+    archive	central_start_out	2882
+    archive	uncompressed_in	80820
+    archive	uncompressed_out	80820
+    archive	compressed_in	2734
+    archive	compressed_out	2734
+    archive	bytes_in	3137
+    archive	bytes_out	3100
+    archive	files_identical	no
+  stderr:
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 1: as-expected
+  three entry rows, all identical, descriptor on exactly one: as-expected
+  archive row flagged is 1: as-expected
+  archive row files_identical is no: as-expected
+  stderr is empty: as-expected
+
+## case b: the unpadded twin against a byte copy
+command: target/debug/xlsx-diff <scratch>/unpadded.zip <scratch>/copy.zip
+  stdout:
+    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	500	500	40a63a61	40a63a61				
+    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	907	907	f579de1a	f579de1a				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1327	1327	c52650fe	c52650fe				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	3
+    archive	recompressed	0
+    archive	changed	0
+    archive	dropped	0
+    archive	added	0
+    archive	flagged	0
+    archive	order_preserved	yes
+    archive	comment_equal	yes
+    archive	prefix_in	0
+    archive	prefix_out	0
+    archive	central_start_in	2882
+    archive	central_start_out	2882
+    archive	uncompressed_in	80820
+    archive	uncompressed_out	80820
+    archive	compressed_in	2734
+    archive	compressed_out	2734
+    archive	bytes_in	3100
+    archive	bytes_out	3100
+    archive	files_identical	yes
+  stderr:
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 0: as-expected
+  three entry rows, all identical, none flagged: as-expected
+  archive row files_identical is yes: as-expected
+  stderr is empty: as-expected
+
+  main working tree status (expect empty): : as-expected
+run ended at 2026-09-15T20:15:51Z
+all negative cases as expected: yes
