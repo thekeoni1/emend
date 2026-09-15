@@ -1,0 +1,251 @@
+about: T0b P1 phase commit 401a2f73c3ac03d948e7c297ba117a5268b323af; HEAD at run: 401a2f73c3ac03d948e7c297ba117a5268b323af
+phase: T0b P1 (specs/0003-ci.md) ci-local.log; run at 2026-09-15T13:43:34Z
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0b P1 ci-local.log (specs/0003-ci.md): scripts/check.sh --ci, the --ci
+    # --quick combination, the secrets grep over the workflow with a positive
+    # control, the workflow's required settings, the checkout action's tag looked
+    # up read-only through gh api, and scripts/privacy.sh over main, which now
+    # holds the workflow file.
+    # Usage: t0bp1-ci-local.sh <phase commit> > <scratch file>; the caller moves
+    # the file into records/logs/t0b-p1/ afterwards. Each check is evaluated once
+    # and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    ROOT=$(pwd)
+    WF=.github/workflows/ci.yml
+    PIN=3d3c42e5aac5ba805825da76410c181273ba90b1
+    USAGE_LINE="usage: scripts/check.sh [--quick | --ci]"
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    show() { echo "$1:"; sed 's/^/    /' "$2"; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    count() { # count <ERE> <file>: matching lines; a grep error prints ERROR
+      local n rc
+      n=$(LC_ALL=C /usr/bin/grep -c -E -e "$1" "$2"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo ERROR; else echo "$n"; fi
+    }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: T0b P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0b P1 (specs/0003-ci.md) ci-local.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    
+    echo "## scripts/check.sh --ci, started from / by absolute path"
+    echo "command: (cd / && <repo>/scripts/check.sh --ci)"
+    (cd / && "$ROOT/scripts/check.sh" --ci) > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    printf '%s\n' 'PASS host' 'PASS i686' 'PASS fmt' 'PASS clippy' 'PASS native (allowlisted -sys: none)' 'PASS licences' 'PASS hygiene' \
+      "SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)" > "$T/want"
+    check "stdout is exactly the seven PASS lines, then the SKIP privacy line" "$(yn cmp -s "$T/out" "$T/want")"
+    n=$(ctrl_bytes "$T/out"); check "stdout control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    n=$(ctrl_bytes "$T/err"); check "stderr control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    echo
+    
+    for args in "--ci --quick" "--quick --ci"; do
+      echo "## scripts/check.sh $args"
+      echo "command: scripts/check.sh $args"
+      # shellcheck disable=SC2086
+      scripts/check.sh $args > "$T/out" 2> "$T/err" </dev/null
+      rc=$?
+      show stdout "$T/out"
+      show stderr "$T/err"
+      echo "exit: $rc"
+      check "exit is 2" "$(yn [ "$rc" -eq 2 ])"
+      check "stdout is empty" "$(yn [ ! -s "$T/out" ])"
+      check "stderr is exactly the usage line" "$(yn [ "$(cat "$T/err")" = "$USAGE_LINE" ])"
+      echo
+    done
+    
+    echo "## the workflow file"
+    check "$WF at HEAD equals the working tree copy" "$(yn cmp -s <(git show "HEAD:$WF") "$WF")"
+    echo "command: cat $WF"
+    sed 's/^/    /' "$WF"
+    echo "command: grep -n secrets $WF"
+    LC_ALL=C /usr/bin/grep -n secrets "$WF" > "$T/out" 2>&1
+    rc=$?
+    show output "$T/out"
+    check "grep exit $rc (expect 1, no match)" "$(yn [ "$rc" -eq 1 ])"
+    printf 'env:\n  X: ${{ %s.TOKEN }}\n' 'secrets' > "$T/ctl"
+    LC_ALL=C /usr/bin/grep -n secrets "$T/ctl" > /dev/null 2>&1
+    rc=$?
+    check "control: the same grep on a file that references a secret exits $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    n=$(count '^[[:space:]]*(pull_request|pull_request_target|schedule|workflow_dispatch|workflow_run|repository_dispatch):' "$WF")
+    check "trigger lines other than push: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    n=$(count '^  push:$' "$WF")
+    check "push trigger lines: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count '^permissions:$' "$WF"); m=$(count '^  contents: read$' "$WF")
+    check "top-level permissions with contents: read: $n and $m (expect 1 and 1)" "$(yn [ "$n" = 1 -a "$m" = 1 ])"
+    n=$(count '^    runs-on: ubuntu-24[.]04$' "$WF"); m=$(count 'latest' "$WF")
+    check "runs-on ubuntu-24.04: $n (expect 1); lines with latest: $m (expect 0)" "$(yn [ "$n" = 1 -a "$m" = 0 ])"
+    n=$(count '^    timeout-minutes: 30$' "$WF")
+    check "timeout-minutes 30: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count 'uses:' "$WF"); m=$(count "^        uses: actions/checkout@$PIN # v7[.]0[.]1\$" "$WF")
+    check "uses lines: $n (expect 1); the pinned checkout line: $m (expect 1)" "$(yn [ "$n" = 1 -a "$m" = 1 ])"
+    n=$(count '^          persist-credentials: false$' "$WF")
+    check "persist-credentials false: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count 'rustup toolchain install 1[.]98[.]1 --profile minimal --component rustfmt,clippy --target i686-unknown-linux-musl$' "$WF")
+    check "explicit toolchain install line: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count '^        run: RUSTUP_AUTO_INSTALL=0 scripts/check[.]sh --ci$' "$WF")
+    check "gate step line: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count 'cache|artifact' "$WF")
+    check "lines mentioning cache or artifact: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    echo
+    
+    echo "## the checkout action's tag, read through gh api (read-only)"
+    echo "command: gh api repos/actions/checkout/commits/v7.0.1 --jq .sha"
+    gh api repos/actions/checkout/commits/v7.0.1 --jq .sha > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    show stderr "$T/err"
+    check "exit $rc (expect 0) and tag v7.0.1 is $PIN" "$(yn [ "$rc" -eq 0 -a "$(cat "$T/out")" = "$PIN" ])"
+    echo
+    
+    echo "## scripts/privacy.sh over main, including the workflow file"
+    NMAIN=$(git rev-list --count main)
+    check "the workflow file is tracked at HEAD" "$(yn git cat-file -e "HEAD:$WF")"
+    echo "command: scripts/privacy.sh"
+    scripts/privacy.sh > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    show stderr "$T/err"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    check "stdout is exactly PASS privacy" "$(yn [ "$(cat "$T/out")" = "PASS privacy" ])"
+    check "commits scanned equal commits on main ($NMAIN)" "$(yn env LC_ALL=C /usr/bin/grep -q -E "^privacy: $NMAIN commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]\$" "$T/err")"
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "ci-local log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## scripts/check.sh --ci, started from / by absolute path
+command: (cd / && <repo>/scripts/check.sh --ci)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the seven PASS lines, then the SKIP privacy line: yes
+stdout control bytes: 0 (expect 0): yes
+stderr control bytes: 0 (expect 0): yes
+
+## scripts/check.sh --ci --quick
+command: scripts/check.sh --ci --quick
+stdout:
+stderr:
+    usage: scripts/check.sh [--quick | --ci]
+exit: 2
+exit is 2: yes
+stdout is empty: yes
+stderr is exactly the usage line: yes
+
+## scripts/check.sh --quick --ci
+command: scripts/check.sh --quick --ci
+stdout:
+stderr:
+    usage: scripts/check.sh [--quick | --ci]
+exit: 2
+exit is 2: yes
+stdout is empty: yes
+stderr is exactly the usage line: yes
+
+## the workflow file
+.github/workflows/ci.yml at HEAD equals the working tree copy: yes
+command: cat .github/workflows/ci.yml
+    # emend CI: an independent build and test of every push on a clean runner
+    # (specs/0003-ci.md). It is not a privacy guard: it runs after the push, the
+    # private denylist never leaves the maintainer's machine, and no corpus data
+    # ever reaches CI. The local pre-push hook is the privacy guard.
+    name: ci
+    
+    on:
+      push:
+        branches:
+          - "**"
+    
+    permissions:
+      contents: read
+    
+    jobs:
+      check:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+          - name: Check out
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              persist-credentials: false
+    
+          - name: Install the pinned toolchain
+            run: |
+              rustup toolchain install 1.98.1 --profile minimal --component rustfmt,clippy --target i686-unknown-linux-musl
+              rustc --version
+              rustup target list --installed --toolchain 1.98.1
+    
+          - name: Gate in CI mode
+            run: RUSTUP_AUTO_INSTALL=0 scripts/check.sh --ci
+command: grep -n secrets .github/workflows/ci.yml
+output:
+grep exit 1 (expect 1, no match): yes
+control: the same grep on a file that references a secret exits 0 (expect 0): yes
+trigger lines other than push: 0 (expect 0): yes
+push trigger lines: 1 (expect 1): yes
+top-level permissions with contents: read: 1 and 1 (expect 1 and 1): yes
+runs-on ubuntu-24.04: 1 (expect 1); lines with latest: 0 (expect 0): yes
+timeout-minutes 30: 1 (expect 1): yes
+uses lines: 1 (expect 1); the pinned checkout line: 1 (expect 1): yes
+persist-credentials false: 1 (expect 1): yes
+explicit toolchain install line: 1 (expect 1): yes
+gate step line: 1 (expect 1): yes
+lines mentioning cache or artifact: 0 (expect 0): yes
+
+## the checkout action's tag, read through gh api (read-only)
+command: gh api repos/actions/checkout/commits/v7.0.1 --jq .sha
+stdout:
+    3d3c42e5aac5ba805825da76410c181273ba90b1
+stderr:
+exit 0 (expect 0) and tag v7.0.1 is 3d3c42e5aac5ba805825da76410c181273ba90b1: yes
+
+## scripts/privacy.sh over main, including the workflow file
+the workflow file is tracked at HEAD: yes
+command: scripts/privacy.sh
+stdout:
+    PASS privacy
+stderr:
+    privacy: 70 commit(s), 145 blob(s) scanned, 0 finding(s)
+exit: 0
+exit is 0: yes
+stdout is exactly PASS privacy: yes
+commits scanned equal commits on main (70): yes
+
+status after the run (expect empty): : yes
+ci-local log checks all as expected: yes

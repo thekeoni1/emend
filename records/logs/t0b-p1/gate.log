@@ -1,0 +1,117 @@
+about: T0b P1 phase commit 401a2f73c3ac03d948e7c297ba117a5268b323af; HEAD at run: 401a2f73c3ac03d948e7c297ba117a5268b323af
+phase: T0b P1 (specs/0003-ci.md) gate.log; run at 2026-09-15T13:42:33Z
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0b P1 gate log: a full run of all eight steps.
+    # Usage: t0bp1-gate.sh <phase commit> > <gate log scratch file>
+    # The caller moves the file into records/logs/t0b-p1/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    # check <label> <yes|no>: print a result evaluated once.
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    
+    echo "about: T0b P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0b P1 (specs/0003-ci.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(ctrl_bytes "$T/ctl"); check "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$n (expect bytes 3)" "$(yn [ "$n" -eq 3 ])"
+    n=$(ctrl_bytes "$T/clean"); check "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    for s in out err; do
+      n=$(ctrl_bytes "$T/$s"); check "std$s: lines=$(f_ctrl "$T/$s") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## gate files at 401a2f73c3ac03d948e7c297ba117a5268b323af
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 401a2f73c3ac03d948e7c297ba117a5268b323af sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 135 files, 32.8MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect bytes 3): yes
+control: tab and CR file -> lines=0 bytes=0 (expect 0): yes
+stdout: lines=0 bytes=0 (expect 0): yes
+stderr: lines=0 bytes=0 (expect 0): yes
+
+status after the run (expect empty): : yes
+gate log checks all as expected: yes
