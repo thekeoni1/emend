@@ -12,15 +12,18 @@ Status values:
 - `READY`: phase spec written.
 - `PLANNED`: outlined here and in `specs/0000-step-zero-plan.md`; the
   phase spec is written when the previous task verifies.
+- `PROPOSED`: an outline the maintainer approved as a proposal; each part
+  is scoped into phases before work on it starts.
 - `UNSCOPED`: an idea. Scoping it needs the maintainer's approval.
 
 Planning updates this file when it verifies a phase. New milestones or
 ideas are added only after they are scoped and the maintainer approves.
 
-## Milestone 0: step zero (architecture decision)
+## Milestone 0: step zero (foundations)
 
-Goal: decide between extending umya-spreadsheet and a greenfield hybrid,
-from measurements. Plan and decision criteria:
+Architecture decided 2026-09-14: greenfield hybrid
+(`records/decision-architecture.md`). Goal: the fidelity harness, the
+private corpus and a measured passthrough baseline. Plan:
 `specs/0000-step-zero-plan.md`.
 
 ### T0: repo bootstrap (`specs/0001-bootstrap.md`)
@@ -29,11 +32,11 @@ from measurements. Plan and decision criteria:
 |-------|------|--------|
 | P1 | Commit CLAUDE.md, ROADMAP.md and specs as they stand; ASCII and U+2014 scan | DONE (rewritten in P1R; now af5a2c6 to d3754dc) |
 | P1R | Rewrite the P1 commit messages without the Claude-Session line, trees unchanged; commit the maintainer and planning doc updates | DONE (doc commit d495f0a; records through 88d5644) |
-| P2 | Cargo workspace, toolchain pin, licence files, xlsx-diff skeleton, .gitignore; build and test on host and i686 by hand | READY |
-| P3 | `scripts/check.sh` steps host, i686, fmt, clippy; negative tests | READY |
+| P2 | Cargo workspace, toolchain pin, licence files, xlsx-diff skeleton, .gitignore; build and test on host and i686 by hand | DONE (1a985a1 to 9daa4c6) |
+| P3 | `scripts/check.sh` steps host, i686, fmt, clippy; case-insensitive `.gitignore`; negative tests | READY |
 | P4 | `check.sh` steps native (no C, `-sys` allowlist) and licences; negative tests | READY |
-| P5 | `check.sh` step hygiene (U+2014, office files, corpus paths, API key); toolchain record; negative tests | READY |
-| P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` as `check.sh` step privacy, pre-push hook, private denylist outside the repo; negative tests | READY |
+| P5 | `check.sh` step hygiene (U+2014, office files in any case, corpus paths, API key); toolchain record; negative tests | READY |
+| P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` with shape-based patterns as `check.sh` step privacy, pre-push hook, private denylist outside the repo; negative tests | READY |
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | READY |
 
 ### T1: xlsx-diff, the fidelity harness
@@ -59,55 +62,70 @@ Private, in `/home/dev/emend-testing`. Nothing from it is committed.
 | P6 | Maintainer: desktop Excel files for pivots, macros (.xlsm), threaded comments and slicers, plus any own workbooks | PLANNED |
 | P7 | Coverage check: every tag covered, or gaps listed for a planning ruling on starting T3 anyway | PLANNED |
 
-### T3: step-zero runner and first recorded run
+### T3: passthrough baseline
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Subprocess isolation (timeout, panic, abort, memory) and arm A0 zip-raw on host; run over the corpus | PLANNED |
-| P2 | Arms A1 umya `read` and A2 umya `lazy_read` | PLANNED |
-| P3 | i686 musl builds and runs of all arms; stripped size of minimal A0 and A1 binaries (size baseline); umya dependency and licence tree | PLANNED |
-| P4 | LibreOffice open check: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
-| P5 | First full recorded run: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
+| P1 | Subprocess isolation (timeout, panic, abort, memory) and the zip raw-copy passthrough run over the corpus on host | PLANNED |
+| P2 | i686 musl runs; stripped size of minimal `zip` and `zip` plus `quick-xml` consumers (size baseline); dependency and licence tree of the `zip` features used | PLANNED |
+| P3 | LibreOffice open check: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
+| P4 | First full recorded run: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
 
-### T4: names-only XML comparison
+### T4: moved into Milestone 1
 
-| Phase | Part | Status |
-|-------|------|--------|
-| P1 | Namespace-resolved element and attribute name multisets; tests showing prefix, attribute-order and whitespace noise count as no difference | PLANNED |
-| P2 | Canonical value-stream hashing: match yes/no and differing count, never values; leak sentinel test | PLANNED |
-| P3 | Run over T3 outputs and record | PLANNED |
+The names-only XML comparison is now Milestone 1 part 7 (maintainer
+ruling 12, 2026-09-14).
 
 ### T5: architecture decision
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Planning drafts `records/decision-architecture.md` from primaries against E1 to E5 | PLANNED |
-| P2 | Independent check of the draft by a fresh subagent given only the draft, the criteria and the records | PLANNED |
-| P3 | Maintainer rules; this file gains the Milestone 1 scope | PLANNED |
+| P1 | `records/decision-architecture.md`: the maintainer chose greenfield on 2026-09-14, before any measurement | READY (drafted by planning; committed in T0 P3's first commit) |
 
 ## Standing items (maintainer rulings 2026-09-14)
 
+- Architecture: greenfield hybrid. umya-spreadsheet and rust_xlsxwriter
+  are reference material only.
 - Excel: no Excel checks during step zero. From Milestone 1 on, once per
   milestone, the maintainer opens outputs listed by sha256 in desktop
   Excel, and pass or fail per hash is recorded. Excel for the web is not
   a substitute.
 - Size budget: provisional 250 KiB, stripped, i686 musl, measured as
   emend's increase over a consumer that already links `zip` and
-  `quick-xml`. Re-ruled after T3 P3 records the baseline.
+  `quick-xml`. Re-ruled after T3 records the baseline.
 - Licence: MIT OR Apache-2.0, copyright holder "emend contributors".
 - GitHub: `thekeoni1/emend`, private. Every push passes the privacy gate
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## After step zero (UNSCOPED)
+## Milestone 1: greenfield core (PROPOSED)
 
-Listed so they are not lost. None is scoped until T5 is ruled and the
-maintainer approves.
+Outline approved as a proposal by the maintainer on 2026-09-14. Each
+part is scoped into phases, with its own spec, before work on it starts.
+The core depends on `zip` and `quick-xml` only.
 
-- Milestone 1: the core (open, read, edit, write back) on the
-  architecture T5 picks, depending on `zip` and `quick-xml` only.
+1. Zip layer: read the central directory with `u64` sizes and offsets,
+   copy untouched entries as their original compressed bytes in the
+   original order, and rewrite touched entries by streaming.
+2. Relationships and content types, parsed only when an edit needs them.
+3. Reading cells: values, cached formula results, formulas and shared
+   strings.
+4. Editing cells: a streaming rewrite of only the affected worksheet.
+5. Styles: add new ones without renumbering existing ones.
+6. Calculation chain: remove it when formulas change, so Excel rebuilds
+   it.
+7. Names-only XML comparison (formerly T4), added to the harness.
+8. LibreOffice open checks for every edit test; the per-milestone Excel
+   check.
+
+## Unscoped
+
+Listed so they are not lost. Scoping any of them needs the maintainer's
+approval.
+
 - Size-measurement consumer: a small i686 musl binary that links the
   core, with the byte delta recorded against the commit measured.
-- Where the per-milestone Excel check runs (which machine).
+- A machine with desktop Excel for the per-milestone check. Milestone 1
+  cannot be accepted without it.
 - MSRV policy.
 - README, where every fidelity, speed or size sentence cites a record.

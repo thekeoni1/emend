@@ -19,21 +19,14 @@ emend is built so that its core can be embedded in small, static,
 three rules below (dependencies, sizes, 32-bit); it is not a promise to
 any particular consumer.
 
-## Architecture is decided by data, not by preference
+## Architecture: greenfield hybrid (maintainer decision, 2026-09-14)
 
-The architecture question (extend umya-spreadsheet, or a greenfield
-hybrid that parses only what it edits and passes every other zip entry
-through byte for byte) is OPEN until step zero has run:
-
-- Step zero: round-trip a corpus of real workbooks (Excel, Google Sheets
-  and LibreOffice exports; charts, pivots, conditional formatting, macros)
-  through umya-spreadsheet with NO edits, and diff output against input
-  at the ZIP ENTRY level: which entries changed, and by how many bytes.
-- Small, localisable loss means extend. Loss the architecture cannot
-  tame means greenfield. Either way, the entry-level diff tool from step
-  zero is the project's fidelity harness for the rest of its life.
-
-Until step zero reports, nobody writes a workbook model.
+emend parses only what an edit touches and passes every other zip entry
+through byte for byte. The maintainer chose this before any step-zero
+measurements, based on a reading of umya-spreadsheet 3.1.0's source
+(see `records/decision-architecture.md`). umya-spreadsheet and
+rust_xlsxwriter are reference material only. The entry-level diff tool
+is the project's fidelity harness for the rest of its life.
 
 ## The fidelity harness is the acceptance instrument
 
@@ -69,9 +62,8 @@ Excel" alone:
   two crates must be able to link the core without adding a third.
   Anything heavier (images, encryption, HTML, dates) lives behind a
   Cargo feature that is off by default, or in a separate crate.
-- umya-spreadsheet and rust_xlsxwriter are reference material and, if
-  step zero says so, a fork base. They are never a linked dependency of
-  the core.
+- umya-spreadsheet and rust_xlsxwriter are reference material only and
+  are never a linked dependency.
 
 ## 32-bit and sizes
 

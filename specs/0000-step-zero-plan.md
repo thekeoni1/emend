@@ -1,14 +1,23 @@
 # 0000: Step zero plan
 
-Status: rulings recorded 2026-09-14 (see the end of this file). Phase
-breakdown and status: `ROADMAP.md`.
+Status: the architecture was decided on 2026-09-14. The maintainer chose
+the greenfield hybrid before any step-zero measurement (maintainer
+ruling 11; `records/decision-architecture.md`). Step zero is reduced to
+what the greenfield build still needs. Phase breakdown and status:
+`ROADMAP.md`.
 
-## Question step zero answers
+## What step zero is now
 
-Extend umya-spreadsheet, or build a greenfield hybrid that parses only
-what it edits and passes every other zip entry through byte for byte.
-The answer comes from measurements over a private corpus. No workbook
-model is written until the decision record (T5) is ruled on.
+Step zero was planned to decide, from measurements, between extending
+umya-spreadsheet and building a greenfield hybrid. That question is
+closed. Step zero now delivers three things the greenfield build needs:
+
+- the fidelity harness `xlsx-diff` (T1);
+- a private corpus of real workbooks (T2);
+- one measured run proving plain zip passthrough on that corpus, on the
+  host and on 32-bit, plus the size baseline for the core (T3).
+
+The names-only XML comparison (formerly T4) moves into Milestone 1.
 
 ## Facts at planning time
 
@@ -16,23 +25,19 @@ Checked 2026-09-14 on the development machine (WSL2, kernel
 6.18.33.2-microsoft-standard-WSL2):
 
 - rustc 1.98.1, cargo 1.98.1. Installed targets include
-  `i686-unknown-linux-musl`. A scratch hello-world built for that target
-  is a static 32-bit ELF, and its `cargo test` runs natively on this
-  kernel (unstripped release binary: 561880 bytes). T0 re-proves this
-  inside the repo.
-- umya-spreadsheet 3.1.0: MIT, `rust-version = 1.88.0`, 21 normal
-  dependencies (aes, base64, byteorder, cbc, cfb, chrono, encoding_rs,
-  fancy-regex, hmac, html5gum, imagesize, jiff, md-5, num-traits, phf,
-  quick-xml ^0.41, rand, rgb, sha2, thousands, zip ^8.6). It offers
-  `reader::xlsx::read` and `reader::xlsx::lazy_read`.
-- Current releases: zip 8.6.0 (MIT), quick-xml 0.42.0 (MIT). umya pins
-  quick-xml ^0.41, so a consumer on 0.42 would link two quick-xml
-  copies. That bears on the core dependency rule regardless of fidelity.
+  `i686-unknown-linux-musl`. A static 32-bit test binary builds and its
+  tests run natively on this kernel (T0 P2 re-proved this in the repo).
+- rustup 1.29.1 has auto-install on. A toolchain named `1.98.1` is
+  separate from `stable`, even though both are rustc 1.98.1. emend
+  commands run with `RUSTUP_AUTO_INSTALL=0`.
+- umya-spreadsheet 3.1.0: MIT, 21 normal dependencies, quick-xml ^0.41.
+  Its source was read for the architecture decision; see
+  `records/decision-architecture.md`.
+- Current releases: zip 8.6.0 (MIT), quick-xml 0.42.0 (MIT).
 - No Excel on this machine or its Windows host. LibreOffice is not
   installed. podman and docker are available.
 - Private corpus directory: `/home/dev/emend-testing` (mode 700, outside
   the repo), with `corpus/` for inputs and `runs/` for raw outputs.
-  Currently empty.
 
 ## Task sequence
 
@@ -45,12 +50,12 @@ alongside T1.
 
 | Task | What | Spec |
 |------|------|------|
-| T0 | Repo bootstrap: workspace, gate script, 32-bit test proof | `0001-bootstrap.md` |
+| T0 | Repo bootstrap: workspace, gate script, privacy gate, first push | `0001-bootstrap.md` |
 | T1 | `xlsx-diff`: the entry-level fidelity harness | written after T0 verifies |
 | T2 | Corpus assembly and manifest (maintainer-led) | written alongside T1 |
-| T3 | Step-zero runner and first recorded run | written after T1 verifies |
-| T4 | Names-only XML comparison for changed entries | written after T3 reports |
-| T5 | Decision record: extend or greenfield | planning writes, maintainer rules |
+| T3 | Passthrough baseline: zip raw-copy run over the corpus, size baseline | written after T1 verifies |
+| T4 | Moved into Milestone 1 (names-only XML comparison) | - |
+| T5 | Architecture decision record | `records/decision-architecture.md` |
 
 ### T1: xlsx-diff (outline)
 
@@ -93,7 +98,7 @@ never appear in the repo, because filenames can leak contents.
 
 Producers: `excel-win`, `excel-mac`, `google-sheets`, `libreoffice`.
 
-Sources (ruling 2026-09-14):
+Sources (ruling 6):
 
 1. LibreOffice exports with fictional content, produced on this machine
    from a pinned LibreOffice container.
@@ -131,48 +136,43 @@ Out of scope for step zero: encrypted workbooks (CFB container), .xlsb,
 
 Starting size: 20 to 40 files, enough that every tag above is covered.
 
-### T3: runner (outline)
+### T3: passthrough baseline (outline)
 
-`tools/step0`, a non-default workspace member, so umya never enters the
-build of anything else. For every corpus file, three arms, each in a
-subprocess with a timeout (default 300 s) to isolate panics, aborts and
-memory exhaustion:
+A runner in `tools/`, named in the T3 spec. For every corpus file it
+copies every entry with the `zip` crate's raw copy, in the original
+order, in a subprocess with a timeout (default 300 s) that isolates
+panics, aborts and memory exhaustion. Then it runs `xlsx-diff` on input
+and output.
 
-- `A0 zip-raw` (control): copy every entry with the `zip` crate's raw
-  copy, in the original order. It shows what a pure passthrough
-  container achieves, which is the greenfield ceiling. It also separates
-  container noise from model loss.
-- `A1 umya-read`: `reader::xlsx::read` then `writer::xlsx::write`, no
-  edits.
-- `A2 umya-lazy`: `reader::xlsx::lazy_read` then write, no edits.
-
-Per file and arm, record: outcome (ok, error, panic, timeout, crash),
-wall time, peak RSS, output size, then the `xlsx-diff` rows.
-
-The runner runs both host and `i686-unknown-linux-musl` builds. It also
-records the stripped i686 musl release size of a minimal A0 binary and a
-minimal A1 binary, plus the full dependency and licence tree of umya as
-built. The A0 binary is the baseline for the size budget.
+- The expectation is that every entry is `identical`. Any other status,
+  error or crash is a finding about real archives (zip64, data
+  descriptors, extra fields, comments, entry order, unusual producers)
+  that the greenfield zip layer has to handle.
+- Per file, record: outcome (ok, error, panic, timeout, crash), wall
+  time, peak RSS, output size, and the `xlsx-diff` rows.
+- Run on the host and on `i686-unknown-linux-musl`.
+- Size baseline: the stripped i686 musl release size of a minimal
+  consumer linking `zip` only, and of one linking `zip` and
+  `quick-xml`. The core's budget (ruling 4) is measured against the
+  second.
+- Record the dependency and licence tree of the `zip` features used.
+- LibreOffice open check: the pinned container from T2 P2 opens each
+  output headless. LibreOffice has no repair prompt, so the T3 spec pins
+  what "opens without repair" means. Candidate: headless conversion
+  exits 0, stderr has no load errors, and the sheet count matches the
+  input.
+- No Excel checks during step zero (ruling 3).
 
 Raw outputs go to `/home/dev/emend-testing/runs/<utc-date>-<shortsha>/`.
-The committed record is
-`records/step0-<utc-date>-<shortsha>.md` plus a `.tsv` of entry rows
-keyed by corpus id. The record aggregates rows by part family:
-content-types, rels, workbook, worksheet, sharedStrings, styles, theme,
-calcChain, drawing, chart, pivotTable, pivotCache, table, queryTable,
-connections, externalLink, comments, threadedComments, persons, vml,
-media, embeddings, vbaProject, customXml, docProps, printerSettings,
-slicer, timeline, richData, metadata, other.
+The committed record is `records/step0-<utc-date>-<shortsha>.md` plus a
+`.tsv` of entry rows keyed by corpus id. The record aggregates rows by
+part family: content-types, rels, workbook, worksheet, sharedStrings,
+styles, theme, calcChain, drawing, chart, pivotTable, pivotCache, table,
+queryTable, connections, externalLink, comments, threadedComments,
+persons, vml, media, embeddings, vbaProject, customXml, docProps,
+printerSettings, slicer, timeline, richData, metadata, other.
 
-LibreOffice open check: the pinned container from T2 P2 opens each
-output headless. What counts as "opens without repair" for LibreOffice
-has to be pinned down, because LibreOffice has no repair prompt.
-Candidate: headless conversion exits 0, stderr is empty of load errors,
-and the sheet count matches the input. T3 P4 settles this.
-
-No Excel checks during step zero (ruling 2026-09-14).
-
-### T4: names-only XML comparison (outline)
+### Moved to Milestone 1: names-only XML comparison (outline)
 
 For `changed` XML entries, parse both sides with quick-xml in streaming
 mode and compare multisets of element names (namespace URI plus local
@@ -180,52 +180,28 @@ name) and of (element, attribute) names. Ignore attribute order, prefix
 choice, whitespace-only text and the XML declaration. Report names and
 count deltas only. Values are compared by hashing a canonical value
 stream per side; the report says only whether they match and how many
-differ, never what they are. This distinguishes serialisation noise from
-information loss, which byte diffs alone cannot.
+differ, never what they are. In Milestone 1 this shows that edited
+entries differ only where the edit requires.
 
-## Decision criteria (accepted 2026-09-14)
+## Decision criteria (retired 2026-09-14)
 
-Fixed before data arrives, so the result is not argued after the fact.
-
-Hard criteria. If either fails, the answer is greenfield:
-
-- E4 Reachable byte identity (the deciding criterion): a credible route
-  exists for umya to emit the original bytes of every entry an edit
-  does not touch, without replacing its writer wholesale. A0 shows the
-  container side is achievable; the question is umya's writer.
-- E5 Rules compliance, pass or fail: umya's dependencies other than zip
-  and quick-xml can move behind off-by-default features, the quick-xml
-  version skew can be resolved, and the core's i686 musl size delta
-  fits the budget below.
-
-Supporting criteria. If E4 and E5 pass, these decide whether the
-extension is localisable; a failure that is not localisable means
-greenfield:
-
-- E1 Robustness: A1 or A2 reads and writes every corpus file without
-  error, panic, timeout or crash, on host and i686. Failures that do
-  occur trace to a small number of local reader defects.
-- E2 No structural loss: no `dropped` entries, or dropped entries belong
-  to part families that could be carried as raw passthrough with a
-  change local to one module.
-- E3 Localised semantic loss: T4 name-level differences are confined to
-  a short, enumerable list of names, each traceable to one umya module.
-
-Either way, `xlsx-diff` and the T4 comparison remain the project's
-fidelity harness.
+Criteria E1 to E5 (robustness, structural loss, localised semantic loss,
+reachable byte identity, rules compliance) were fixed before any data
+arrived. They were retired unevaluated when the maintainer chose the
+greenfield hybrid (ruling 11).
 
 ## Maintainer rulings (2026-09-14)
 
 1. Licence: MIT OR Apache-2.0.
-2. Decision criteria: accepted as above, with E4 deciding and E5 a hard
-   pass or fail.
+2. Decision criteria E1 to E5 accepted, with E4 deciding and E5 a hard
+   pass or fail. Retired by ruling 11.
 3. Excel: no Excel checks during step zero. From Milestone 1, once per
    milestone, the maintainer opens outputs listed by sha256 in desktop
    Excel; pass or fail per hash is recorded. Excel for the web is not a
    substitute.
 4. Size budget: provisional 250 KiB, stripped, i686 musl, measured as
    emend's increase over a consumer that already links `zip` and
-   `quick-xml`. Re-ruled after T3 P3 records the baseline.
+   `quick-xml`. Re-ruled after T3 records the baseline.
 5. LibreOffice: a container pinned by image digest, version recorded.
 6. Corpus: the three sources listed under T2.
 7. Copyright holder in the licence files: emend contributors.
@@ -236,5 +212,14 @@ fidelity harness.
 10. GitHub: `thekeoni1/emend`, private. A privacy gate is T0 P6, and
     the first push is T0 P7, right after P6 verifies. Nothing personal
     (names, email addresses, host paths, session links) is ever pushed.
+11. Architecture: greenfield hybrid, chosen before any step-zero
+    measurement, based on planning's reading of umya-spreadsheet
+    3.1.0's source. CLAUDE.md records the decision.
+12. Restructure: T3 keeps only the zip raw-copy passthrough run and the
+    size baseline; the umya-spreadsheet runs are dropped; T4 moves into
+    Milestone 1; T5 is the decision record; the Milestone 1 outline goes
+    on ROADMAP.md as a proposal.
+13. The machine-wide rustup auto-install setting stays as it is. emend
+    uses the per-command `RUSTUP_AUTO_INSTALL=0` guard.
 
 Still open: MSRV policy (after step zero).

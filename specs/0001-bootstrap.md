@@ -1,8 +1,8 @@
 # 0001: T0 repo bootstrap
 
-Status: P1 and P1R DONE, verified by planning 2026-09-14. After the
+Status: P1, P1R and P2 DONE, verified by planning 2026-09-14. After the
 rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
-records through 88d5644. P2 to P7 READY.
+records through 88d5644; P2 is 1a985a1 to 9daa4c6. P3 to P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -59,6 +59,11 @@ committed. Its output goes in the phase's `negative.log`.
 
 - Commit messages are ASCII and end with the Co-Authored-By line only,
   with no Claude-Session line or other session link (CLAUDE.md).
+- Toolchain: run every rustup and cargo command with
+  `RUSTUP_AUTO_INSTALL=0`, so a missing toolchain or target fails instead
+  of downloading. The pinned channel `1.98.1` is a separate rustup
+  toolchain from `stable`, even though both are rustc 1.98.1. Any install
+  is a planned, logged step under the CLAUDE.md Elevation section.
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,
@@ -141,6 +146,42 @@ committed. Its output goes in the phase's `negative.log`.
 - From P2 on, planning's doc updates waiting in the working tree are
   committed unedited as the first commit of the next phase, and that
   phase's scan.log covers them.
+
+## Planning rulings on P2 (2026-09-14)
+
+- P2 is verified from primaries by planning's own checks:
+  - Planning built and tested the workspace itself, on the host and on
+    `i686-unknown-linux-musl`, with auto-install off and a separate
+    target directory. One test passed on each target. The i686 binary is
+    a static 32-bit ELF. Both binaries exit 2 with the usage line on
+    stderr and nothing on stdout.
+  - `LICENSE-APACHE` has the same sha256 as the text apache.org
+    publishes. `LICENSE-MIT` is the standard MIT text with the ruled
+    copyright line.
+  - `cargo tree` shows no dependencies. The package licence is
+    `MIT OR Apache-2.0`, with `publish = false`.
+  - All six P2 commit messages end with the Co-Authored-By trailer only.
+  - Every file in every commit on main, and every message, has zero hits
+    against the private denylist (each entry tested as a control), the
+    shape-based P6 patterns and non-ASCII bytes. The GitHub repository
+    still has no branches.
+- Question 1: `Cargo.lock`, `version = "0.1.0"`, `publish = false`, the
+  `run()` helper with its constants, and the `.gitignore` comment are
+  accepted. `publish = false` also guards against an accidental publish.
+- Question 2: yes. Office extensions must be ignored in any letter case.
+  P3 updates `.gitignore`, and the P5 hygiene step matches extensions
+  case-insensitively.
+- Question 3: the 80-column wrap of `LICENSE-MIT` is the standard text.
+  Line wrapping is not part of the licence.
+- Question 4: a unit test on `run()`, plus verify.log's process-level
+  check, meets "one unit test asserting that behaviour".
+- The unplanned toolchain install is recorded as a finding. Its root
+  cause was this spec's pin; "Rules for every phase" now covers it.
+- The remaining check 2 gaps are accepted as recorded. Planning's own
+  scans cover the denylist, the hostname and the record commits'
+  messages.
+- The P6 patterns are now shape-based (see P6). Check answers are
+  committed verbatim.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -261,6 +302,12 @@ the scan rules. This phase adds steps 1 to 4:
 `--quick` may skip steps 2 and 4 for local iteration. Every log handed
 to planning comes from a full run.
 
+Also in this phase, change `.gitignore` so the office extensions match in
+any letter case (for example `*.[xX][lL][sS][xX]`), keeping the
+`tests/fixtures/` exception. Add `ignore.log` to this phase's logs:
+`X.XLSX`, `sub/Y.Xlsm` and `Z.ODS` are ignored, and
+`tools/x/tests/fixtures/C.XLSX` is not.
+
 - Logs:
   - `gate.log`: a full `scripts/check.sh` run.
   - `negative.log`: in a scratch copy, (a) misformat a line, then show
@@ -312,8 +359,8 @@ Add to `scripts/check.sh`:
 7. `hygiene`: fail if any of these holds:
    - a tracked text file contains U+2014, matched by bytes per the scan
      rules;
-   - a tracked file has an office extension outside a `tests/fixtures/`
-     directory;
+   - a tracked file has an office extension, in any letter case,
+     outside a `tests/fixtures/` directory;
    - `git ls-files` shows a path containing `emend-testing`;
    - `ANTHROPIC_API_KEY` is set in the environment.
 
@@ -331,7 +378,7 @@ full gate passed at.
   - `negative.log`: in a scratch copy, (a) stage a file containing
     U+2014 (write it with printf byte escapes, so the log and script
     stay ASCII), then show `FAIL hygiene`; (b) force-add `x.xlsx` at
-    the root, then show `FAIL hygiene`; (c) run with
+    the root, then show `FAIL hygiene`, and again with `Y.XLSM`; (c) run with
     `ANTHROPIC_API_KEY=dummy` set for that one command only, then show
     `FAIL hygiene`. For (c), the value must be a literal non-secret
     placeholder, and it must not be exported to the session.
@@ -358,15 +405,21 @@ Deliverables:
 - `scripts/privacy-patterns.txt` (committed): one ERE per line. Write
   each pattern so the file does not match itself, by putting one
   character of every literal in brackets, for example `sk[-]ant[-]`.
-  Cover:
-  - GitHub tokens: `gh[pousr][_][A-Za-z0-9]{20,}` and `github[_]pat[_]`;
-  - Anthropic keys: `sk[-]ant[-]`;
-  - private key headers: `BEGIN [A-Z ]*PRIVATE[ ]KEY`;
-  - Claude Code session links: `claude[.]ai/code/session`;
+  Each pattern matches the shape of a real secret or path, not a bare
+  prefix, so docs, logs and check answers may name a pattern without
+  tripping it (planning ruling 2026-09-14). Cover:
+  - GitHub tokens: `gh[pousr][_][A-Za-z0-9]{20,}` and
+    `github[_]pat[_][A-Za-z0-9_]{20,}`;
+  - Anthropic keys: `sk[-]ant[-][A-Za-z0-9_-]{20,}`;
+  - private key headers: `-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----`;
+  - Claude Code session links: `claude[.]ai/code/session[_][A-Za-z0-9]+`;
   - session ids: `session[_][A-Za-z0-9]{20,}`;
-  - Claude Code temporary directories: `/tmp/claude[-]`;
-  - Windows host paths: `/mnt/[a-z]/`;
+  - Claude Code temporary directories: `/tmp/claude[-][0-9]+/`;
+  - Windows user paths: `/mnt/[a-z]/[Uu]sers/`;
   - default Windows hostnames: `DESKTOP[-][A-Z0-9]{5,}`.
+
+  The self-test and the negative tests use realistic fake values built at
+  run time, never bare prefixes.
 - `scripts/privacy.sh`:
   - Default scope: every commit reachable from HEAD. `--range A..B`
     narrows it.
