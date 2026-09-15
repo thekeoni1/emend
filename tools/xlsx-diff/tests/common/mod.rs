@@ -434,6 +434,10 @@ pub struct RawEntry {
     /// placeholder; the sizes then come from a zip64 extra field that the
     /// caller puts in `central_extra`.
     pub central_size_placeholder: bool,
+    /// As `central_size_placeholder`, for the compressed size field alone.
+    pub central_compressed_placeholder: bool,
+    /// As `central_size_placeholder`, for the uncompressed size field alone.
+    pub central_uncompressed_placeholder: bool,
     /// A compressed size to declare in both headers instead of the length of
     /// `raw` (it may run over the next local header).
     pub declared_compressed: Option<usize>,
@@ -466,6 +470,8 @@ pub fn raw_stored(name: &str, data: &[u8]) -> RawEntry {
         descriptor_signature: true,
         padding_after: Vec::new(),
         central_size_placeholder: false,
+        central_compressed_placeholder: false,
+        central_uncompressed_placeholder: false,
         declared_compressed: None,
     }
 }
@@ -558,10 +564,14 @@ pub fn raw_zip_with_local_order(
         out.extend_from_slice(&e.time.to_le_bytes());
         out.extend_from_slice(&e.date.to_le_bytes());
         out.extend_from_slice(&crc32(&e.data).to_le_bytes());
-        if e.central_size_placeholder {
-            out.extend_from_slice(&[0xff; 8]);
+        if e.central_size_placeholder || e.central_compressed_placeholder {
+            out.extend_from_slice(&[0xff; 4]);
         } else {
             out.extend_from_slice(&u32_of(e.declared_compressed.unwrap_or(e.raw.len())));
+        }
+        if e.central_size_placeholder || e.central_uncompressed_placeholder {
+            out.extend_from_slice(&[0xff; 4]);
+        } else {
             out.extend_from_slice(&u32_of(e.data.len()));
         }
         out.extend_from_slice(&u16_of(e.name.len()));

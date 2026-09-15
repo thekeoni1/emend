@@ -866,12 +866,19 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
     }
 
     // The common entries must also stand in the same relative order by local
-    // header offset in both files.
-    common.sort_by_key(|&(i, _)| a.entries[i].header_start);
-    if common
-        .windows(2)
-        .any(|w| b.entries[w[0].1].header_start > b.entries[w[1].1].header_start)
-    {
+    // header offset in both files: sorted by input offset (then output
+    // offset), every adjacent pair must compare the same way on both sides,
+    // so an offset shared on one side only breaks the order too.
+    common.sort_by_key(|&(i, j)| (a.entries[i].header_start, b.entries[j].header_start));
+    if common.windows(2).any(|w| {
+        let input = a.entries[w[0].0]
+            .header_start
+            .cmp(&a.entries[w[1].0].header_start);
+        let output = b.entries[w[0].1]
+            .header_start
+            .cmp(&b.entries[w[1].1].header_start);
+        input != output
+    }) {
         order_preserved = false;
     }
 

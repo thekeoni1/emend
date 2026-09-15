@@ -91,6 +91,29 @@ fn zip64_placeholder_against_plain_sizes() {
     assert_eq!(archive_value(&result.stdout, "flagged"), "1");
     assert_eq!(archive_value(&result.stdout, "order_preserved"), "yes");
 
+    // A placeholder in one size field alone also gives `attrs` alone: for a
+    // stored entry both sizes are equal, so the decoded value is the same
+    // whichever field the zip64 extra field fills.
+    for (label, compressed_only) in [("compressed size", true), ("uncompressed size", false)] {
+        let single = dir.path(&format!("single-{compressed_only}.zip"));
+        let entry = zip64_entry("z.txt", false);
+        let entry = RawEntry {
+            central_compressed_placeholder: compressed_only,
+            central_uncompressed_placeholder: !compressed_only,
+            ..entry
+        };
+        fs::write(&single, raw_zip(&[], &[base("a.txt"), entry], b"")).expect("write");
+        assert_eq!(meta(&plain), meta(&single), "precondition for {label}");
+        let result = run(&plain, &single);
+        assert_eq!(result.status, 1, "{label}");
+        assert_eq!(result.stderr, "", "{label}");
+        assert_eq!(
+            status_and_flags(&result.stdout),
+            pairs(&[("identical", ""), ("identical", "attrs")]),
+            "{label}"
+        );
+    }
+
     // The same placeholders on both sides give exit 0.
     fs::write(
         &placeholder_copy,
@@ -168,8 +191,9 @@ fn local_entries_permuted_with_the_central_order_kept() {
 fn declared_size_running_over_the_next_header_alike_on_both_sides() {
     let dir = TempDir::new("p6-overrun");
     let first = base("a.txt");
-    // The declared size takes in 40 bytes past the entry's data, which is the
-    // start of the next local header.
+    // The declared size takes in the 40 bytes after the entry's data: the next
+    // entry's whole local header (30 fixed bytes and the 5-byte name, with no
+    // extra field) and the first 5 bytes of its data.
     let overrun = RawEntry {
         declared_compressed: Some(first.raw.len() + 40),
         ..first
