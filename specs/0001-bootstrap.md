@@ -1,12 +1,13 @@
 # 0001: T0 repo bootstrap
 
-Status: P1 to P7 DONE, verified by planning 2026-09-14 and 15. After
+Status: T0 DONE (P1 to P7 and P6c), verified by planning 2026-09-14 and 15. After
 the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
 records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
 873851f to 65cdeae; P6 is 10a42d6 to 28a44aa; P6b is 690c0f5 to
-cf5240b; P7 pushed af4b355, with local records 9c63579 to 302b1b2. P6c
-READY.
+cf5240b; P7 pushed af4b355, with records 9c63579 to 302b1b2; P6c is
+a371cff to 8e7e665. Close-out push READY. Next task: T2 P0
+(`specs/0002-gate-corpus-additions.md`).
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -534,6 +535,53 @@ committed. Its output goes in the phase's `negative.log`.
   - the new remote and tracking configuration;
   - the ROADMAP item not in the P6b spec;
   - the quoted search terms in check 2.
+
+## Planning rulings on P6c (2026-09-15)
+
+- P6c is verified from primaries by planning's own checks:
+  - Doc commit a371cff holds the two pending paths (44 insertions, 4
+    deletions).
+  - Phase commit d8ca1bd changes `.gitignore`, `scripts/check.sh`,
+    `scripts/privacy-patterns.txt` (still 11 lines) and
+    `scripts/privacy.sh`. The record commits touch only
+    `records/logs/t0-p6c/`. All five messages end with the
+    Co-Authored-By trailer only.
+  - Planning ran `scripts/check.sh` from `/`: all eight steps PASS, zero
+    control bytes. `scripts/privacy.sh` over the 60 local commits: PASS.
+  - Planning scanned the P6c logs, both P6c check answers and the three
+    P7 files: zero hits against the denylist, the patterns, non-ASCII
+    bytes, control bytes and the email allowlist. GitHub is unchanged at
+    af4b355.
+  - Planning reproduced these cases in scratch clones, with no fixture
+    text in any output:
+    - a LibreOffice lock-file name committed and deleted gives a
+      count-only office FAIL, and an untracked `u.xlsx~` is ignored;
+    - `data.csv` at the root gives FAIL, and the same under
+      `tests/fixtures/` gives PASS;
+    - a zip-signature blob named `notes.txt` gives FAIL archives, and
+      the same under `tests/fixtures/` gives PASS;
+    - an extra commit header line holding an address gives FAIL header;
+    - an address in a file name gives FAIL paths, with no path printed;
+    - the widened patterns 10 and 11 each fire.
+  - Planning also confirmed two gaps: a tracked
+    `r.xlsx:Zone.Identifier` gives PASS, and a blob with an OLE2
+    signature gives PASS.
+- Departures 1 to 9 are accepted.
+- These go to T2 P0 (`specs/0002-gate-corpus-additions.md`), which runs
+  before T1 and before any corpus file is collected (maintainer ruling
+  2026-09-15):
+  - finding 1, Zone.Identifier files;
+  - finding 2, OLE2 compound files, which covers old-format and
+    password-protected workbooks;
+  - finding 3, other archive signatures;
+  - finding 4, both forms of patterns 10 and 11 in the self-test;
+  - the unchecked exit statuses in the email pipeline and in the
+    signature helper.
+- Renamed CSV, TSV or FODS files without a content signature are
+  accepted. There is no reliable signature to detect them.
+- T0 is DONE. The close-out push follows the section below.
+- After T2 P0, new privacy-gate findings go to a backlog in ROADMAP.md
+  unless they concern a data flow this project actually has.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -1120,8 +1168,35 @@ Changes to `scripts/privacy.sh`, with the matching step 7 and
   - Every negative case shows its expected result, and no fixture text
     appears in any output.
 
+## Close-out push (after P6c)
+
+Pushes the local P7 and P6c record commits. It adds no code.
+
+Preconditions, all required:
+- P6c is DONE (planning, 2026-09-15).
+- Planning gives its word.
+- The maintainer types authorisation for this push in the implementing
+  session.
+
+Steps:
+1. Commit planning's pending doc updates, unedited, as the first commit.
+2. Show that `EMEND_PRIVATE_DENYLIST` is unset, that
+   `git config --get core.hooksPath` prints nothing, and that
+   `.git/hooks/pre-push` is executable and identical to what
+   `scripts/install-hooks.sh` writes. Run `scripts/check.sh` in full; all
+   eight steps pass.
+3. `git push origin main`. The pre-push hook must print `PASS privacy`.
+4. `git ls-remote origin refs/heads/main` equals `git rev-parse main`,
+   and the repository is still PRIVATE.
+
+Logs:
+- `records/logs/t0-close/push.log`, with every check evaluated once. It
+  goes in a local record commit that is pushed with the next push.
+- Report and STOP. The next task is T2 P0.
+
 ## Done
 
-T0 is done when planning has verified P6c from primaries. For each phase,
+T0 is done when planning has verified P6c from primaries. That happened
+on 2026-09-15. For each phase,
 that includes running `scripts/check.sh` (from P3 on) and the privacy
 scan itself.

@@ -26,7 +26,7 @@ Architecture decided 2026-09-14: greenfield hybrid
 private corpus and a measured passthrough baseline. Plan:
 `specs/0000-step-zero-plan.md`.
 
-### T0: repo bootstrap (`specs/0001-bootstrap.md`)
+### T0: repo bootstrap (`specs/0001-bootstrap.md`), DONE 2026-09-15
 
 | Phase | Part | Status |
 |-------|------|--------|
@@ -40,7 +40,8 @@ private corpus and a measured passthrough baseline. Plan:
 | P6 | Privacy gate: repo-local identity, `scripts/privacy.sh` with shape-based patterns as `check.sh` step privacy, pre-push hook, private denylist outside the repo; scans ignore git attributes and fail on read errors; corpus paths never printed; negative tests | DONE (10a42d6 to 28a44aa) |
 | P6b | Privacy gate hardening: corpus and office paths checked across history, denylist override refused, per-pattern self-test, email and path patterns, count-only office line; negative tests | DONE (690c0f5 to cf5240b) |
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | DONE (pushed af4b355; records 9c63579 to 302b1b2 local) |
-| P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | READY |
+| P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | DONE (a371cff to 8e7e665) |
+| Close | Push the local P7 and P6c record commits, using P7's pre-push checks | READY |
 
 ### T1: xlsx-diff, the fidelity harness
 
@@ -57,6 +58,7 @@ Private, in `/home/dev/emend-testing`. Nothing from it is committed.
 
 | Phase | Part | Status |
 |-------|------|--------|
+| P0 | Privacy gate corpus-era additions: Zone.Identifier files, OLE2 and other archive signatures, both forms of patterns 10 and 11 in the self-test, checked pipeline exits (`specs/0002-gate-corpus-additions.md`); runs before T1 and before any corpus file | READY |
 | P1 | Manifest format and a coverage script in the repo that prints only ids, producers, tags and counts | PLANNED |
 | P2 | LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | PLANNED |
 | P3 | LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | PLANNED |
@@ -133,5 +135,7 @@ approval.
 - Gate self-test script: a committed script that reruns every phase's
   negative tests. The maintainer approved scoping it after T0
   (2026-09-15).
+- Privacy gate backlog: findings raised after T2 P0 that do not concern a
+  data flow this project has.
 - MSRV policy.
 - README, where every fidelity, speed or size sentence cites a record.
