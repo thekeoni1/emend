@@ -1,0 +1,229 @@
+about: T1 close-out CI run for pushed commit 83c985299246f5bdc8fe54fb2345aeef380e6674; HEAD at run: 83c985299246f5bdc8fe54fb2345aeef380e6674
+phase: T1 close-out (specs/0004-xlsx-diff.md, specs/0003-ci.md) ci-run.log; run at 2026-09-15T20:05:47Z
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T1 close-out ci-run.log (specs/0004-xlsx-diff.md "Close-out push (after P4)" and specs/0003-ci.md): the repository's Actions settings, and
+    # the CI run on the pushed commit. It waits for the run to complete, then
+    # records gh run list and gh run view, the job's runner labels from the jobs
+    # API, and from the run's log only the lines that start with PASS, SKIP or
+    # FAIL plus the rustc --version line. The full log is read into a temporary
+    # file, filtered and deleted; it is never printed or saved.
+    # Usage: t1close-ci-run.sh <pushed commit> > <scratch file>; the caller moves the
+    # file into records/logs/t1-close/ afterwards. Each check is evaluated once and
+    # that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    SHA=${1:?pushed commit required}
+    REPO=thekeoni1/emend
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    show() { echo "$1:"; sed 's/^/    /' "$2"; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    nonascii() { LC_ALL=C tr -cd '\200-\377' < "$1" | wc -c; }
+    # jfield <json file> <python expression over d>: print one value.
+    jfield() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$1" "$2"; }
+    # same_nonempty <a> <b>: both set and equal.
+    same_nonempty() { [ -n "$1" ] && [ "$1" = "$2" ]; }
+    
+    echo "about: T1 close-out CI run for pushed commit $SHA; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 close-out (specs/0004-xlsx-diff.md, specs/0003-ci.md) ci-run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    
+    echo "## Actions settings"
+    echo "command: gh api repos/$REPO/actions/permissions"
+    gh api "repos/$REPO/actions/permissions" > "$T/perm" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/perm"
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    v=$(jfield "$T/perm" '"enabled=%s allowed_actions=%s sha_pinning_required=%s" % (str(d.get("enabled")).lower(), d.get("allowed_actions"), str(d.get("sha_pinning_required")).lower())' 2>/dev/null)
+    check "$v (expect enabled=true allowed_actions=selected sha_pinning_required=true)" "$(yn [ "$v" = "enabled=true allowed_actions=selected sha_pinning_required=true" ])"
+    echo "command: gh api repos/$REPO/actions/permissions/selected-actions"
+    gh api "repos/$REPO/actions/permissions/selected-actions" > "$T/sel" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/sel"
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    v=$(jfield "$T/sel" '"github_owned_allowed=%s verified_allowed=%s patterns_allowed=%s" % (str(d.get("github_owned_allowed")).lower(), str(d.get("verified_allowed")).lower(), json.dumps(d.get("patterns_allowed")))' 2>/dev/null)
+    check "$v (expect github_owned_allowed=true verified_allowed=false patterns_allowed=[])" "$(yn [ "$v" = "github_owned_allowed=true verified_allowed=false patterns_allowed=[]" ])"
+    echo
+    
+    echo "## waiting for the run on $SHA to complete (polled every 30 seconds, at most 90 times)"
+    polls=0
+    state=none
+    while [ "$polls" -lt 90 ]; do
+      polls=$((polls + 1))
+      if gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" --json databaseId,status,conclusion > "$T/runs.json" 2>/dev/null </dev/null; then
+        state=$(jfield "$T/runs.json" '"none" if not d else ("completed" if all(r["status"] == "completed" for r in d) else "pending")' 2>/dev/null || echo error)
+        [ "$state" = completed ] && break
+      fi
+      sleep 30
+    done
+    echo "polls: $polls; last state: $state"
+    check "the run completed" "$(yn [ "$state" = completed ])"
+    N=$(jfield "$T/runs.json" 'len(d)' 2>/dev/null || echo 0)
+    check "runs for the commit: $N (expect 1)" "$(yn [ "$N" = 1 ])"
+    ID=$(jfield "$T/runs.json" 'd[0]["databaseId"]' 2>/dev/null || echo none)
+    echo "run id: $ID"
+    echo
+    
+    echo "## gh run list"
+    echo "command: gh run list --workflow ci.yml --commit $SHA"
+    gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    n=$(nonascii "$T/out")
+    if [ "$n" -eq 0 ]; then
+      show stdout "$T/out"
+    else
+      echo "stdout: not printed, because it holds $n non-ASCII bytes (the logs hold ASCII only); the same facts follow as JSON"
+      gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" --json databaseId,workflowName,headBranch,event,status,conclusion \
+        --jq '.[] | "\(.databaseId) \(.workflowName) \(.headBranch) \(.event) \(.status) \(.conclusion)"' 2>&1 </dev/null | sed 's/^/    /'
+    fi
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    echo
+    
+    echo "## gh run view"
+    echo "command: gh run view $ID"
+    gh run view "$ID" --repo "$REPO" > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    n=$(nonascii "$T/out")
+    if [ "$n" -eq 0 ]; then
+      show stdout "$T/out"
+    else
+      echo "stdout: not printed, because it holds $n non-ASCII bytes (the logs hold ASCII only); the same facts follow as JSON"
+    fi
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    echo "command: gh run view $ID --json headSha,headBranch,event,status,conclusion,workflowName,jobs"
+    gh run view "$ID" --repo "$REPO" --json headSha,headBranch,event,status,conclusion,workflowName,jobs > "$T/view.json" 2> "$T/err" </dev/null
+    rc=$?
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    python3 - "$T/view.json" <<'PY' | sed 's/^/    /'
+    import json, sys
+    d = json.load(open(sys.argv[1]))
+    print("workflow %s; branch %s; event %s; head %s" % (d["workflowName"], d["headBranch"], d["event"], d["headSha"]))
+    print("status %s; conclusion %s" % (d["status"], d["conclusion"]))
+    for j in d["jobs"]:
+        print("job %s: status %s; conclusion %s" % (j["name"], j["status"], j["conclusion"]))
+        for s in j["steps"]:
+            print("  step %s %s: status %s; conclusion %s" % (s["number"], s["name"], s["status"], s["conclusion"]))
+    PY
+    v=$(jfield "$T/view.json" '"%s %s %s %s" % (d["headSha"], d["headBranch"], d["event"], d["conclusion"])' 2>/dev/null)
+    check "head, branch, event and conclusion: $v (expect $SHA main push success)" "$(yn [ "$v" = "$SHA main push success" ])"
+    v=$(jfield "$T/view.json" 'sum(1 for j in d["jobs"] for s in j["steps"] if s["conclusion"] not in ("success", "skipped"))' 2>/dev/null)
+    check "steps with a conclusion other than success or skipped: $v (expect 0)" "$(yn [ "$v" = 0 ])"
+    echo
+    
+    echo "## runner labels (jobs API)"
+    echo "command: gh api repos/$REPO/actions/runs/$ID/jobs --jq '.jobs[] | name, labels, conclusion'"
+    gh api "repos/$REPO/actions/runs/$ID/jobs" --jq '.jobs[] | "job \(.name): labels \(.labels | join(",")); conclusion \(.conclusion)"' > "$T/out" 2> "$T/err" </dev/null
+    rc=$?
+    show stdout "$T/out"
+    show stderr "$T/err"
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    check "the job ran on label ubuntu-24.04" "$(yn env LC_ALL=C /usr/bin/grep -q -F 'labels ubuntu-24.04;' "$T/out")"
+    echo
+    
+    echo "## the run's log, filtered"
+    echo "command: gh run view $ID --log (read into a temporary file; only the lines below are printed)"
+    gh run view "$ID" --repo "$REPO" --log > "$T/full" 2> "$T/err" </dev/null
+    rc=$?
+    check "exit $rc (expect 0)" "$(yn [ "$rc" -eq 0 ])"
+    echo "full log: $(wc -l < "$T/full") lines (not printed)"
+    # Each log line is "<job><TAB><step><TAB><timestamp> <text>". Only <text> is
+    # matched and printed.
+    LC_ALL=C awk -F'\t' '{ t = $3; sub(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z /, "", t); sub(/\r$/, "", t); print t }' "$T/full" > "$T/text"
+    LC_ALL=C /usr/bin/grep -E '^(PASS|SKIP|FAIL)( |$)' "$T/text" > "$T/gate"
+    LC_ALL=C /usr/bin/grep -E '^rustc [0-9]+[.][0-9]+[.][0-9]+ ' "$T/text" > "$T/rustc"
+    show "lines starting with PASS, SKIP or FAIL" "$T/gate"
+    show "the rustc --version line" "$T/rustc"
+    printf '%s\n' 'PASS host' 'PASS i686' 'PASS fmt' 'PASS clippy' 'PASS native (allowlisted -sys: none)' 'PASS licences' 'PASS hygiene' \
+      "SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)" > "$T/want"
+    check "the seven PASS lines and the SKIP privacy line, in order, and nothing else" "$(yn cmp -s "$T/gate" "$T/want")"
+    check "rustc --version is rustc 1.98.1 (48a229cea 2026-09-01), once" "$(yn [ "$(cat "$T/rustc")" = "rustc 1.98.1 (48a229cea 2026-09-01)" ])"
+    n=$(( $(nonascii "$T/gate") + $(nonascii "$T/rustc") ))
+    check "non-ASCII bytes in the printed lines: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    echo
+    echo "ci-run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## Actions settings
+command: gh api repos/thekeoni1/emend/actions/permissions
+stdout:
+    {"enabled":true,"allowed_actions":"selected","selected_actions_url":"https://api.github.com/repositories/1370425646/actions/permissions/selected-actions","sha_pinning_required":true}stderr:
+exit 0 (expect 0): yes
+enabled=true allowed_actions=selected sha_pinning_required=true (expect enabled=true allowed_actions=selected sha_pinning_required=true): yes
+command: gh api repos/thekeoni1/emend/actions/permissions/selected-actions
+stdout:
+    {"github_owned_allowed":true,"patterns_allowed":[],"verified_allowed":false}stderr:
+exit 0 (expect 0): yes
+github_owned_allowed=true verified_allowed=false patterns_allowed=[] (expect github_owned_allowed=true verified_allowed=false patterns_allowed=[]): yes
+
+## waiting for the run on 83c985299246f5bdc8fe54fb2345aeef380e6674 to complete (polled every 30 seconds, at most 90 times)
+polls: 2; last state: completed
+the run completed: yes
+runs for the commit: 1 (expect 1): yes
+run id: 35017518231
+
+## gh run list
+command: gh run list --workflow ci.yml --commit 83c985299246f5bdc8fe54fb2345aeef380e6674
+stdout: not printed, because it holds 3 non-ASCII bytes (the logs hold ASCII only); the same facts follow as JSON
+    35017518231 ci main push completed success
+stderr:
+exit 0 (expect 0): yes
+
+## gh run view
+command: gh run view 35017518231
+stdout: not printed, because it holds 8 non-ASCII bytes (the logs hold ASCII only); the same facts follow as JSON
+stderr:
+exit 0 (expect 0): yes
+command: gh run view 35017518231 --json headSha,headBranch,event,status,conclusion,workflowName,jobs
+exit 0 (expect 0): yes
+    workflow ci; branch main; event push; head 83c985299246f5bdc8fe54fb2345aeef380e6674
+    status completed; conclusion success
+    job check: status completed; conclusion success
+      step 1 Set up job: status completed; conclusion success
+      step 2 Check out: status completed; conclusion success
+      step 3 Install the pinned toolchain: status completed; conclusion success
+      step 4 Gate in CI mode: status completed; conclusion success
+      step 8 Post Check out: status completed; conclusion success
+      step 9 Complete job: status completed; conclusion success
+head, branch, event and conclusion: 83c985299246f5bdc8fe54fb2345aeef380e6674 main push success (expect 83c985299246f5bdc8fe54fb2345aeef380e6674 main push success): yes
+steps with a conclusion other than success or skipped: 0 (expect 0): yes
+
+## runner labels (jobs API)
+command: gh api repos/thekeoni1/emend/actions/runs/35017518231/jobs --jq '.jobs[] | name, labels, conclusion'
+stdout:
+    job check: labels ubuntu-24.04; conclusion success
+stderr:
+exit 0 (expect 0): yes
+the job ran on label ubuntu-24.04: yes
+
+## the run's log, filtered
+command: gh run view 35017518231 --log (read into a temporary file; only the lines below are printed)
+exit 0 (expect 0): yes
+full log: 188 lines (not printed)
+lines starting with PASS, SKIP or FAIL:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)
+the rustc --version line:
+    rustc 1.98.1 (48a229cea 2026-09-01)
+the seven PASS lines and the SKIP privacy line, in order, and nothing else: yes
+rustc --version is rustc 1.98.1 (48a229cea 2026-09-01), once: yes
+non-ASCII bytes in the printed lines: 0 (expect 0): yes
+
+ci-run log checks all as expected: yes
