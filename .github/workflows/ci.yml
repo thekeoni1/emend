@@ -1,0 +1,32 @@
+# emend CI: an independent build and test of every push on a clean runner
+# (specs/0003-ci.md). It is not a privacy guard: it runs after the push, the
+# private denylist never leaves the maintainer's machine, and no corpus data
+# ever reaches CI. The local pre-push hook is the privacy guard.
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt,clippy --target i686-unknown-linux-musl
+          rustc --version
+          rustup target list --installed --toolchain 1.98.1
+
+      - name: Gate in CI mode
+        run: RUSTUP_AUTO_INSTALL=0 scripts/check.sh --ci

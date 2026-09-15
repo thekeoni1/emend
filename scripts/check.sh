@@ -3,18 +3,29 @@
 # step and exits non-zero at the first failure. Runs from any directory.
 # --quick skips the i686 and clippy steps, for local iteration only; logs
 # handed to planning come from a full run.
+# --ci runs steps 1 to 7 and skips step 8, the privacy gate, because the
+# private denylist never leaves the maintainer's machine. It is for the CI
+# workflow; every local push procedure still runs the full gate
+# (specs/0003-ci.md). --quick and --ci cannot be combined.
 set -euo pipefail
 
+readonly USAGE="usage: scripts/check.sh [--quick | --ci]"
 QUICK=0
+CI=0
 for arg in "$@"; do
   case "$arg" in
     --quick) QUICK=1 ;;
+    --ci) CI=1 ;;
     *)
-      echo "usage: scripts/check.sh [--quick]" >&2
+      echo "$USAGE" >&2
       exit 2
       ;;
   esac
 done
+if [ "$QUICK" -eq 1 ] && [ "$CI" -eq 1 ]; then
+  echo "$USAGE" >&2
+  exit 2
+fi
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -384,6 +395,12 @@ echo "PASS hygiene"
 
 # Step 8: the privacy gate over every commit reachable from HEAD. The denylist
 # override is for negative tests only, so the gate refuses to run with it.
+# In CI mode the step is skipped: the private denylist never leaves the
+# maintainer's machine, and the local pre-push hook is the privacy guard.
+if [ "$CI" -eq 1 ]; then
+  echo "SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)"
+  exit 0
+fi
 if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
   fail privacy "EMEND_PRIVATE_DENYLIST is set"
 fi
