@@ -1,0 +1,254 @@
+about: T1 P1 phase commit 2df5f6e5c6d872a26f6f747b53bd7fd8467570c3; HEAD at run: 2df5f6e5c6d872a26f6f747b53bd7fd8467570c3
+phase: T1 P1 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T16:35:24Z
+Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
+fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase; values never printed)
+
+## script
+    #!/usr/bin/env bash
+    # T1 P1 negative.log (specs/0004-xlsx-diff.md, P1 "Negative cases"): the tool
+    # run by hand on two archives generated in a scratch directory with Python's
+    # zipfile module from fictional content.
+    #   case 0 (control): input and output generated alike; expect exit 0.
+    #   case a: one byte flipped in the compressed stream of an entry in a copy of
+    #           the output; expect that entry `differs`, exit 1.
+    #   case b: the output truncated to half its length; expect exit 2, one
+    #           `error: ` line and no rows.
+    # Each check is evaluated once and that single result is printed. No output
+    # may contain fixture text: every captured output is counted for the content
+    # sentinels, control bytes and non-ASCII bytes.
+    # Usage: t1p1-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p1/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    BIN=target/debug/xlsx-diff
+    
+    rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
+    SENT1="zq$(rnd 'a-z0-9' 14)"
+    SENT2="zq$(rnd 'a-z0-9' 14)"
+    FORBIDDEN=("$SENT1" "$SENT2" "fictional negative content")
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    
+    echo "about: T1 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P1 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit."
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two random content sentinels and the content phrase; values never printed)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p xlsx-diff"
+    cargo build -p xlsx-diff >"$BASE/build.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "build exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "binary $BIN exists" "$(is [ -x "$BIN" ])"
+    
+    echo
+    echo "## generated archives"
+    cat >"$BASE/gen.py" <<'PY'
+    import sys, zipfile
+    out_dir, s1, s2 = sys.argv[1], sys.argv[2], sys.argv[3]
+    entries = [
+        ("xl/worksheets/sheet1.xml", ("fictional negative content row %d " + s1 + "\n") * 1, 400),
+        ("xl/sharedStrings.xml", ("fictional negative content string %d " + s2 + "\n") * 1, 300),
+        ("docProps/app.xml", "fictional negative content app %d\n", 5),
+    ]
+    for name in ("input.zip", "output.zip"):
+        with zipfile.ZipFile(out_dir + "/" + name, "w") as z:
+            for entry, line, count in entries:
+                info = zipfile.ZipInfo(entry, date_time=(2026, 9, 15, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                z.writestr(info, "".join(line % i for i in range(count)))
+    # where the compressed stream of the first entry starts, and its length
+    with zipfile.ZipFile(out_dir + "/output.zip") as z:
+        info = z.infolist()[0]
+    with open(out_dir + "/output.zip", "rb") as f:
+        f.seek(info.header_offset + 26)
+        header = f.read(4)
+    name_len = int.from_bytes(header[0:2], "little")
+    extra_len = int.from_bytes(header[2:4], "little")
+    start = info.header_offset + 30 + name_len + extra_len
+    print(start, info.compress_size, info.filename)
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel>"
+    read -r DATA_START CSIZE ENTRY < <(python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2")
+    echo "  first entry $ENTRY: compressed stream starts at byte $DATA_START, $CSIZE bytes"
+    note "input and output archives exist" "$(is [ -s "$BASE/input.zip" -a -s "$BASE/output.zip" ])"
+    echo "  sizes: input.zip $(wc -c <"$BASE/input.zip") bytes, output.zip $(wc -c <"$BASE/output.zip") bytes"
+    
+    run_tool() { # run_tool <name> <input> <output>
+      local name=$1 fb c n r
+      echo "command: $BIN $(printf '%s' "$2" | hide) $(printf '%s' "$3" | hide)"
+      "$BIN" "$2" "$3" >"$BASE/$name.out" 2>"$BASE/$name.err" </dev/null
+      RC=$?
+      echo "  stdout:"
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  stderr:"
+      hide <"$BASE/$name.err" | sed 's/^/    /'
+      echo "  exit: $RC"
+      cat "$BASE/$name.out" "$BASE/$name.err" >"$BASE/$name.both"
+      fb=$(count_forbidden "$BASE/$name.both")
+      c=$(ctrl_bytes "$BASE/$name.both")
+      n=$(nonascii_bytes "$BASE/$name.both")
+      r=$([ "$fb" -eq 0 ] && [ "$c" -eq 0 ] && [ "$n" -eq 0 ] && echo as-expected || echo UNEXPECTED)
+      echo "  captured output: lines with a fixture string=$fb, control bytes=$c, non-ASCII bytes=$n (expect 0, 0 and 0): $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    
+    echo
+    echo "## case 0 (control): input and output generated alike; expect every entry identical, exit 0"
+    run_tool c0 "$BASE/input.zip" "$BASE/output.zip"
+    note "exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "three entry rows, all identical" "$(is [ "$(LC_ALL=C "$G" -c -P '^entry\t[^\t]*\tidentical\t' "$BASE/c0.out")" = 3 ])"
+    note "stderr is empty" "$(is [ ! -s "$BASE/c0.err" ])"
+    
+    echo
+    echo "## case a: one byte flipped in the compressed stream of the first entry, in a copy of the output"
+    cp "$BASE/output.zip" "$BASE/flipped.zip"
+    OFFSET=$((DATA_START + CSIZE / 2))
+    BEFORE=$(od -An -tx1 -j "$OFFSET" -N1 "$BASE/flipped.zip" | tr -d ' \n')
+    python3 - "$BASE/flipped.zip" "$OFFSET" <<'PY'
+    import sys
+    path, offset = sys.argv[1], int(sys.argv[2])
+    with open(path, "r+b") as f:
+        f.seek(offset)
+        b = f.read(1)
+        f.seek(offset)
+        f.write(bytes([b[0] ^ 0x01]))
+    PY
+    AFTER=$(od -An -tx1 -j "$OFFSET" -N1 "$BASE/flipped.zip" | tr -d ' \n')
+    echo "  byte offset $OFFSET (inside $ENTRY's compressed stream, which starts at $DATA_START): $BEFORE before, $AFTER after"
+    note "the byte changed" "$(is [ "$BEFORE" != "$AFTER" ])"
+    note "the rest of the file is unchanged ($(cmp -l "$BASE/output.zip" "$BASE/flipped.zip" 2>/dev/null | wc -l) byte differs)" "$(is [ "$(cmp -l "$BASE/output.zip" "$BASE/flipped.zip" 2>/dev/null | wc -l)" = 1 ])"
+    run_tool a "$BASE/input.zip" "$BASE/flipped.zip"
+    note "exit 1" "$(is [ "$RC" -eq 1 ])"
+    note "the first entry's row says differs" "$(is env LC_ALL=C "$G" -q -P "^entry\t${ENTRY//./[.]}\tdiffers\t" "$BASE/a.out")"
+    note "the other two entry rows say identical" "$(is [ "$(LC_ALL=C "$G" -c -P '^entry\t[^\t]*\tidentical\t' "$BASE/a.out")" = 2 ])"
+    note "archive row differs is 1" "$(is env LC_ALL=C "$G" -q -x -P 'archive\tdiffers\t1' "$BASE/a.out")"
+    note "stderr is empty" "$(is [ ! -s "$BASE/a.err" ])"
+    
+    echo
+    echo "## case b: the output truncated to half its length"
+    HALF=$(( $(wc -c <"$BASE/output.zip") / 2 ))
+    head -c "$HALF" "$BASE/output.zip" >"$BASE/truncated.zip"
+    echo "  truncated.zip: $(wc -c <"$BASE/truncated.zip") bytes"
+    run_tool b "$BASE/input.zip" "$BASE/truncated.zip"
+    note "exit 2" "$(is [ "$RC" -eq 2 ])"
+    note "stderr is one line starting with error: " "$(is [ "$(wc -l <"$BASE/b.err")" = 1 ] && env LC_ALL=C "$G" -q '^error: ' "$BASE/b.err")"
+    note "no entry rows and no archive rows on stdout" "$(is [ ! -s "$BASE/b.out" ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 3 (expect 3): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+
+## build
+command: cargo build -p xlsx-diff
+  exit: 0
+  build exit 0: as-expected
+  binary target/debug/xlsx-diff exists: as-expected
+
+## generated archives
+command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel>
+  first entry xl/worksheets/sheet1.xml: compressed stream starts at byte 54, 1087 bytes
+  input and output archives exist: as-expected
+  sizes: input.zip 2308 bytes, output.zip 2308 bytes
+
+## case 0 (control): input and output generated alike; expect every entry identical, exit 0
+command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/output.zip
+  stdout:
+    entry	xl/worksheets/sheet1.xml	identical	0	0	8	8	20690	20690	1087	1087	989bf204	989bf204				
+    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	801	801	41302261	41302261				
+    entry	docProps/app.xml	identical	2	2	8	8	165	165	50	50	dac104a5	dac104a5				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	3
+    archive	differs	0
+    archive	dropped	0
+    archive	added	0
+  stderr:
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 0: as-expected
+  three entry rows, all identical: as-expected
+  stderr is empty: as-expected
+
+## case a: one byte flipped in the compressed stream of the first entry, in a copy of the output
+  byte offset 597 (inside xl/worksheets/sheet1.xml's compressed stream, which starts at 54): b0 before, b1 after
+  the byte changed: as-expected
+  the rest of the file is unchanged (1 byte differs): as-expected
+command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/flipped.zip
+  stdout:
+    entry	xl/worksheets/sheet1.xml	differs	0	0	8	8	20690	20690	1087	1087	989bf204	989bf204				
+    entry	xl/sharedStrings.xml	identical	1	1	8	8	16390	16390	801	801	41302261	41302261				
+    entry	docProps/app.xml	identical	2	2	8	8	165	165	50	50	dac104a5	dac104a5				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	2
+    archive	differs	1
+    archive	dropped	0
+    archive	added	0
+  stderr:
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 1: as-expected
+  the first entry's row says differs: as-expected
+  the other two entry rows say identical: as-expected
+  archive row differs is 1: as-expected
+  stderr is empty: as-expected
+
+## case b: the output truncated to half its length
+  truncated.zip: 1154 bytes
+command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/truncated.zip
+  stdout:
+  stderr:
+    error: the output file is not a readable zip archive
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 2: as-expected
+  stderr is one line starting with error: : as-expected
+  no entry rows and no archive rows on stdout: as-expected
+
+  main working tree status (expect empty): : as-expected
+all negative cases as expected: yes
