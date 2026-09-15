@@ -20,7 +20,11 @@ fn main() -> ExitCode {
         &mut stderr,
     );
     if let Err(err) = stdout.flush() {
-        let _ = writeln!(stderr, "error: cannot write the rows: {}", err.kind());
+        // At most one error line: when run has already reported an error,
+        // the flush error only keeps the exit status at 2.
+        if status != xlsx_diff::EXIT_ERROR {
+            let _ = writeln!(stderr, "error: cannot write the rows: {}", err.kind());
+        }
         status = xlsx_diff::EXIT_ERROR;
     }
     ExitCode::from(status)

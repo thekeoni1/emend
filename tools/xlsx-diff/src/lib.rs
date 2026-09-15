@@ -236,11 +236,12 @@ fn read_full<R: Read + ?Sized>(reader: &mut R, buf: &mut [u8]) -> io::Result<usi
 }
 
 /// Compares the raw, still compressed, bytes of two entries through two
-/// 64 KiB buffers, side by side.
+/// 64 KiB buffers, side by side. A stream that ends before its declared
+/// compressed size is a read error, never a difference.
 fn raw_equal(input: &mut Archive, i: usize, output: &mut Archive, j: usize) -> Result<bool, Error> {
     let (side_in, side_out) = (input.side, output.side);
-    let name_in = input.entries[i].name.clone();
-    let name_out = output.entries[j].name.clone();
+    let (name_in, declared_in) = (input.entries[i].name.clone(), input.entries[i].compressed);
+    let (name_out, declared_out) = (output.entries[j].name.clone(), output.entries[j].compressed);
     let mut a = input
         .zip
         .by_index_raw(i)
@@ -251,11 +252,20 @@ fn raw_equal(input: &mut Archive, i: usize, output: &mut Archive, j: usize) -> R
         .map_err(|_| Error::Entry(side_out, name_out.clone()))?;
     let mut buf_a = vec![0u8; CHUNK];
     let mut buf_b = vec![0u8; CHUNK];
+    let (mut total_a, mut total_b) = (0u64, 0u64);
     loop {
         let got_a =
             read_full(&mut a, &mut buf_a).map_err(|_| Error::Entry(side_in, name_in.clone()))?;
         let got_b =
             read_full(&mut b, &mut buf_b).map_err(|_| Error::Entry(side_out, name_out.clone()))?;
+        total_a += got_a as u64;
+        total_b += got_b as u64;
+        if got_a < CHUNK && total_a != declared_in {
+            return Err(Error::Entry(side_in, name_in));
+        }
+        if got_b < CHUNK && total_b != declared_out {
+            return Err(Error::Entry(side_out, name_out));
+        }
         if got_a != got_b || buf_a[..got_a] != buf_b[..got_b] {
             return Ok(false);
         }

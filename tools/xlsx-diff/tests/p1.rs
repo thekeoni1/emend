@@ -431,6 +431,7 @@ fn duplicate_name_is_an_error() {
 
     let result = run(&good, &dup);
     assert_eq!(result.status, 2);
+    assert_eq!(result.stdout, "");
     assert_eq!(
         result.stderr,
         "error: duplicate entry name in the output archive: one.txt\n"
@@ -527,4 +528,83 @@ fn binary_exit_status_follows_the_comparison() {
     let (code, stdout, _) = binary(&[&input, &fewer]);
     assert_eq!(code, Some(1));
     assert!(archive_rows(&stdout).contains(&"dropped=1".to_string()));
+}
+
+/// Fictional bytes of a given length, with a marker at a given offset.
+fn marked_bytes(len: usize, marker_at: usize, marker: &[u8]) -> Vec<u8> {
+    let mut data: Vec<u8> = (0..len).map(|i| b"fictional-bytes-"[i % 16]).collect();
+    data[marker_at..marker_at + marker.len()].copy_from_slice(marker);
+    data
+}
+
+#[test]
+fn raw_bytes_alone_differ_across_several_buffers() {
+    let dir = TempDir::new("raw");
+    let marker = b"zq-marker-t1p1";
+    let big = marked_bytes(200_000, 150_000, marker);
+    let entries = [stored("big.bin", &big), deflated("small.xml", &text(30))];
+    let (input, same, patched) = (
+        dir.path("in.zip"),
+        dir.path("same.zip"),
+        dir.path("patched.zip"),
+    );
+    write_zip(&input, &entries);
+    write_zip(&same, &entries);
+
+    // Equal archives whose stored entry spans more than three 64 KiB buffers.
+    let result = run(&input, &same);
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stderr, "");
+    let summary: Vec<(String, String)> = rows(&result.stdout, "entry")
+        .iter()
+        .map(|r| (r[1].to_string(), r[2].to_string()))
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("big.bin".to_string(), "identical".to_string()),
+            ("small.xml".to_string(), "identical".to_string())
+        ]
+    );
+
+    // One byte flipped inside the stored data, past the second buffer. The
+    // central directory still records the same method, CRC-32 and sizes, so
+    // only the raw byte comparison can find it.
+    let mut bytes = fs::read(&same).expect("read");
+    let at = bytes
+        .windows(marker.len())
+        .position(|w| w == &marker[..])
+        .expect("the marker is in the stored data");
+    assert!(
+        at > 2 * 64 * 1024,
+        "precondition: the flipped byte is past the second buffer"
+    );
+    bytes[at] ^= 0x01;
+    fs::write(&patched, bytes).expect("write");
+    assert_eq!(
+        meta(&input),
+        meta(&patched),
+        "precondition: same method, sizes and CRC-32"
+    );
+
+    let result = run(&input, &patched);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    let entry_rows = rows(&result.stdout, "entry");
+    let summary: Vec<(&str, &str)> = entry_rows.iter().map(|r| (r[1], r[2])).collect();
+    assert_eq!(
+        summary,
+        [("big.bin", "differs"), ("small.xml", "identical")]
+    );
+    assert_eq!(
+        archive_rows(&result.stdout),
+        [
+            "entries_in=2",
+            "entries_out=2",
+            "identical=1",
+            "differs=1",
+            "dropped=0",
+            "added=0"
+        ]
+    );
 }
