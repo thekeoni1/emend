@@ -378,7 +378,8 @@ fn zip64_extra_fields_of_a_small_entry_are_dropped() {
         ),
         "output: the plain sizes in the central record"
     );
-    assert_eq!(locals(&output)[0][5], 0, "no local extra field");
+    assert_eq!(locals(&input)[0][5], 20, "input: a local zip64 extra field");
+    assert_eq!(locals(&output)[0][5], 0, "output: no local extra field");
 }
 
 #[test]
@@ -484,6 +485,11 @@ fn duplicate_names_keep_only_the_last_entry() {
     let output = dir.path("out.zip");
     // The copy succeeds: the zip crate's reader lists one entry per name.
     copy_ok(&input, &output);
+    assert_eq!(
+        dir.names(),
+        ["in.zip", "out.zip"],
+        "no temporary file is left"
+    );
     assert_eq!(
         centrals(&input).len(),
         2,

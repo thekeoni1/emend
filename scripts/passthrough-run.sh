@@ -10,7 +10,9 @@
 # peak RSS in kB) and a final count line. It never prints an original name, a
 # path under the corpus directory or a byte of content: the child's own output
 # stays in the run directory. Errors print one "error: " line without a path
-# and exit 2.
+# and exit 2: once the arguments are checked, the script's own stderr goes to
+# /dev/null, so a failing tool or redirection cannot print a corpus path, and
+# the error line goes to the saved descriptor.
 set -uo pipefail
 umask 077
 
@@ -21,8 +23,9 @@ readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
 readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
 
+DIE_FD=2
 die() {
-  echo "error: $1" >&2
+  echo "error: $1" >&"$DIE_FD"
   exit 2
 }
 
@@ -55,6 +58,9 @@ esac
 [ -n "$XD" ] && [ -f "$XD" ] && [ -x "$XD" ] || die "--xlsx-diff must name an executable file"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive whole number of seconds"
 [[ "$MEMORY" =~ ^[1-9][0-9]*$ ]] || die "--memory must be a positive whole number of MiB"
+
+exec 3>&2 2>/dev/null
+DIE_FD=3
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || die "cannot find the repository"
 if [ -z "$CORPUS" ]; then
@@ -119,6 +125,12 @@ header_ok "$SUMMARY" "$SUMMARY_HEADER" || die "summary.$LABEL.tsv in the run dir
 header_ok "$ENTRIES" "$ENTRIES_HEADER" || die "entries.$LABEL.tsv in the run directory has another header"
 header_ok "$RUNS" "$RUN_HEADER" || die "run.$LABEL.tsv in the run directory has another header"
 
+# An id already in this label's summary would give it a second row, which the
+# record script refuses; a new run needs a new run directory.
+dup=$(awk -F'\t' 'FILENAME == ARGV[1] { if (FNR > 1) have[$1] = 1; next } ($1 in have) { print $1; exit }' \
+  "$SUMMARY" "$WORK/selected") || die "cannot read summary.$LABEL.tsv"
+[ -z "$dup" ] || die "id $dup already has a row in summary.$LABEL.tsv; use a new run directory"
+
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 RUSTC=$(cd "$ROOT" && RUSTUP_AUTO_INSTALL=0 rustc --version 2>/dev/null) || RUSTC=unknown
 ZIP_VERSION=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' "$ROOT/Cargo.lock")
@@ -153,19 +165,20 @@ while IFS=$'\t' read -r id ext producer tags; do
 
   (
     ulimit -v $((MEMORY * 1024)) || exit 125
-    exec timeout --signal=KILL "$TIMEOUT" /usr/bin/time -v -o "$timefile" "$PT" "$input" "$output"
+    exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output"
   ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt"
   rc=$?
 
-  # GNU time writes its report when the child ends. When timeout kills the
-  # group, time dies with it and leaves no report; a child killed by any other
-  # signal is reported as "Command terminated by signal N".
+  # GNU time runs timeout, which runs the tool as its direct child, so the
+  # timeout's SIGKILL reaches the tool itself; with time inside timeout the
+  # kill would stop time and leave the tool running. time reports the tool's
+  # signal as "Command terminated by signal N" (timeout re-raises it) and
+  # otherwise the exit status, 124 when timeout stopped the tool. The peak RSS
+  # covers timeout and the tool.
   signal_line=$(LC_ALL=C "$G" -a -m 1 -E '^Command terminated by signal [0-9]+$' "$timefile" 2>/dev/null)
   status_value=$(time_value "$timefile" "Exit status")
   exit_status="" signal=""
-  if { [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; } && [ -z "$signal_line" ] && [ -z "$status_value" ]; then
-    outcome=timeout exit_status=$rc signal=9
-  elif [ -n "$signal_line" ]; then
+  if [ -n "$signal_line" ]; then
     outcome=crash signal=${signal_line##* }
   elif [ -n "$status_value" ]; then
     exit_status=$status_value
@@ -173,6 +186,7 @@ while IFS=$'\t' read -r id ext producer tags; do
       0) outcome=ok ;;
       2) outcome=error ;;
       101) outcome=panic ;;
+      124) outcome=timeout signal=9 ;;
       *) outcome=crash ;;
     esac
   else
@@ -196,12 +210,13 @@ while IFS=$'\t' read -r id ext producer tags; do
         END { print v["identical"], v["recompressed"], v["changed"], v["dropped"], v["added"], v["flagged"], v["order_preserved"], v["comment_equal"], v["files_identical"] }
       ' "$dir/diff.$LABEL.tsv")
       awk -F'\t' -v OFS='\t' -v id="$id" -v label="$LABEL" '$1 == "entry" { print id, label, $0 }' \
-        "$dir/diff.$LABEL.tsv" >>"$ENTRIES"
+        "$dir/diff.$LABEL.tsv" >>"$ENTRIES" || die "cannot append to entries.$LABEL.tsv"
     fi
   fi
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
-    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" >>"$SUMMARY"
+    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" >>"$SUMMARY" ||
+    die "cannot append to summary.$LABEL.tsv"
   printf '%s %s %s %s %s %s\n' "$id" "$LABEL" "$outcome" "${diff_exit:--}" "${wall:--}" "${rss:--}"
   case "$outcome" in
     ok) n_ok=$((n_ok + 1)) ;;
@@ -213,5 +228,6 @@ while IFS=$'\t' read -r id ext producer tags; do
 done <"$WORK/selected"
 
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" >>"$RUNS"
+  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" >>"$RUNS" ||
+  die "cannot append to run.$LABEL.tsv"
 echo "files $n_files ok $n_ok error $n_error timeout $n_timeout panic $n_panic crash $n_crash"
