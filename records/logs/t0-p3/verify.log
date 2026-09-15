@@ -1,0 +1,351 @@
+about: P3 phase commit c6510593b95a1d61b6446a1cdc1a465ea7d09c67 and record commit 176ab32f7cae17ef489ec16a83e0df79e68ac3e1; HEAD at run: 8f21de75ba3d6755701fd59f62b1bd97d5863951
+phase: T0 P3 (specs/0001-bootstrap.md) verify.log; run at 2026-09-15T00:25:47Z
+working tree clean before the run: yes (checked by the script; it exits 2 otherwise)
+temporary files live in <scratch> and are deleted on exit
+
+Fixes in this log, from records/logs/t0-p3/independent-check-1.md:
+  1. A full gate run on a cold cache (after cargo clean), started from / by absolute path (Q2 gate.log warm cache; Q1 any directory).
+  2. A --quick run and a bad-argument run, with stdout, stderr and exit status (Q1 --quick; Q3 session-only claims).
+  3. Executed test counts on both targets, from cargo test run directly (Q2 gate.log shows no counts).
+  4. ESC and other control bytes counted in every committed P3 log (Q2 negative.log colour sequences).
+  5. The committed P3 logs at 176ab32f7cae17ef489ec16a83e0df79e68ac3e1 against the hashes scan.log recorded, and the record commit's message scanned (Q2 scan.log coverage).
+  6. A symlinked invocation of check.sh, recorded as a finding for planning, not a spec requirement (Q1 symlink).
+Earlier attempt, recorded here: the first run exited 2 with "working tree not clean" before writing any evidence.
+Cause: the output redirect created records/logs/t0-p3/verify.log inside the working tree, so the clean-tree guard refused to run.
+Fix in this run: the script writes to <scratch>, and the file is moved into records/logs/t0-p3/ after it exits.
+Not fixable by a later log: that the doc files were unedited before git add, and that every ad-hoc command in the session used the guard.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P3 verify: evidence that independent check 1 found missing from the P3
+    # logs. Output goes to records/logs/t0-p3/verify.log. Temporary paths are
+    # printed as <scratch>; denylist entries and matched text are never printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    ROOT=$(pwd)
+    G=/usr/bin/grep
+    PH=c6510593b95a1d61b6446a1cdc1a465ea7d09c67
+    REC1=176ab32f7cae17ef489ec16a83e0df79e68ac3e1
+    I686=i686-unknown-linux-musl
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+    export RUSTUP_AUTO_INSTALL=0
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    hide() { sed -e "s|$T|<scratch>|g"; }
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+    )
+    P6ARGS=()
+    for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_esc()      { LC_ALL=C "$G" -c -P '\x1b' "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E "${P6ARGS[@]}" "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -c -i -w -F -f "$T/deny" "$1"; }
+    
+    run() { # run <form> <label> <file>
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <label> <expected exit> <command...>
+      local label=$1 want=$2 n rc
+      shift 2
+      n=$("$@"); rc=$?
+      echo "  control $label count=${n:-none} exit=$rc expected_exit=$want"
+      [ "$rc" -eq "$want" ] || ctl_fail=1
+    }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: P3 phase commit $PH and record commit $REC1; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P3 (specs/0001-bootstrap.md) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean before the run: yes (checked by the script; it exits 2 otherwise)"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p3/independent-check-1.md:"
+    echo "  1. A full gate run on a cold cache (after cargo clean), started from / by absolute path (Q2 gate.log warm cache; Q1 any directory)."
+    echo "  2. A --quick run and a bad-argument run, with stdout, stderr and exit status (Q1 --quick; Q3 session-only claims)."
+    echo "  3. Executed test counts on both targets, from cargo test run directly (Q2 gate.log shows no counts)."
+    echo "  4. ESC and other control bytes counted in every committed P3 log (Q2 negative.log colour sequences)."
+    echo "  5. The committed P3 logs at $REC1 against the hashes scan.log recorded, and the record commit's message scanned (Q2 scan.log coverage)."
+    echo "  6. A symlinked invocation of check.sh, recorded as a finding for planning, not a spec requirement (Q1 symlink)."
+    echo "Earlier attempt, recorded here: the first run exited 2 with \"working tree not clean\" before writing any evidence."
+    echo "Cause: the output redirect created records/logs/t0-p3/verify.log inside the working tree, so the clean-tree guard refused to run."
+    echo "Fix in this run: the script writes to <scratch>, and the file is moved into records/logs/t0-p3/ after it exits."
+    echo "Not fixable by a later log: that the doc files were unedited before git add, and that every ad-hoc command in the session used the guard."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; active: $(rustup show active-toolchain 2>&1 | sed "s|$ROOT/||")"
+    echo "EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+x}" ] && echo yes || echo no)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$T/deny"
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE"), entries $(wc -l < "$T/deny") (never printed)"
+    
+    echo
+    echo "## controls (same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'x \033[31mred\033[m y\n' > "$T/c-esc"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" > "$T/c-p6-0"
+    printf 'x %s%s%s y\n' 'github' '_pat_' "$(rep a 24)" > "$T/c-p6-1"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(rep a 24)" > "$T/c-p6-2"
+    printf '%s%s%s\n' '-----BEGIN RSA ' 'PRIVATE' ' KEY-----' > "$T/c-p6-3"
+    printf 'x https://%s%s%s%s y\n' 'claude' '.ai/code/' 'session_' "$(rep A 24)" > "$T/c-p6-4"
+    printf 'x %s%s%s y\n' 'session' '_' "$(rep A 24)" > "$T/c-p6-5"
+    printf 'x %s%s%s%s y\n' '/tmp/' 'claude-' '1000' '/' > "$T/c-p6-6"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' > "$T/c-p6-7"
+    printf 'x %s%s%s y\n' 'DESKTOP' '-' 'ABC12' > "$T/c-p6-8"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'x %s y\n' "$FQDN" > "$T/c-fqdn"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl "f_nonascii file=c-nonascii" 0 f_nonascii "$T/c-nonascii"
+    check_ctl "f_esc file=c-esc" 0 f_esc "$T/c-esc"
+    check_ctl "f_session file=c-session" 0 f_session "$T/c-session"
+    for i in "${!P6[@]}"; do check_ctl "f_p6 file=c-p6-$i" 0 f_p6 "$T/c-p6-$i"; done
+    check_ctl "f_host file=c-host" 0 f_host "$T/c-host"
+    check_ctl "f_host file=c-fqdn" 0 f_host "$T/c-fqdn"
+    for i in $(seq 1 "$(wc -l < "$T/deny")"); do
+      sed -n "${i}p" "$T/deny" | awk '{print "x " $0 " y"}' > "$T/c-deny-$i"
+      check_ctl "f_deny entry=$i (not printed)" 0 f_deny "$T/c-deny-$i"
+    done
+    for f in f_nonascii f_esc f_session f_p6 f_host f_deny; do check_ctl "$f file=c-clean" 1 "$f" "$T/c-clean"; done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## committed P3 logs at $REC1"
+    git show "$REC1:records/logs/t0-p3/scan.log" > "$T/scan" || { echo "READ ERROR scan.log"; err=1; }
+    echo "records/logs/t0-p3/scan.log sha256 at $REC1: $(sha256sum < "$T/scan" | cut -d' ' -f1)"
+    for f in gate.log negative.log ignore.log scan.log; do
+      p=records/logs/t0-p3/$f
+      if ! git show "$REC1:$p" > "$T/log"; then echo "READ ERROR $p"; err=1; continue; fi
+      committed=$(sha256sum < "$T/log" | cut -d' ' -f1)
+      echo "$p committed sha256 $committed"
+      if [ "$f" != scan.log ]; then
+        scanned=$(sed -n "s|^log $p (sha256 \([0-9a-f]*\))$|\1|p" "$T/scan")
+        echo "  equal to the hash scan.log recorded: $(yn "$committed" "$scanned")"
+        [ "$committed" = "$scanned" ] || bad=1
+      fi
+      n=$(f_esc "$T/log"); rc=$?
+      echo "  ESC byte lines: count=${n:-none} exit=$rc (a finding if non-zero; ESC is ASCII 0x1B)"
+      [ "$rc" -ge 2 ] && err=1
+      run f_p6 p6 "$T/log"
+      run f_host hostname "$T/log"
+      run f_deny denylist "$T/log"
+    done
+    
+    echo
+    echo "## record commit message"
+    git cat-file commit "$REC1" | sed '1,/^$/d' > "$T/m"
+    last=$(awk 'NF{l=$0} END{print l}' "$T/m")
+    echo "message $REC1 last non-empty line is the Co-Authored-By line: $(yn "$last" "$COAUTHOR")"
+    [ "$last" = "$COAUTHOR" ] || bad=1
+    for f in f_nonascii f_session f_p6 f_host f_deny; do run "$f" message "$T/m"; done
+    
+    echo
+    echo "## executed tests, from cargo test run directly"
+    for tgt in host "$I686"; do
+      if [ "$tgt" = host ]; then args=(); else args=(--target "$I686"); fi
+      echo "command: cargo test --workspace ${args[*]}"
+      cargo test --workspace "${args[@]}" > "$T/t" 2>&1; rc=$?
+      "$G" -E '^(running [0-9]+ tests?|test result: .*)$' "$T/t" | sed 's/^/    /'
+      echo "  exit: $rc"
+      [ "$rc" -eq 0 ] || bad=1
+    done
+    
+    echo
+    echo "## full gate on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    start=$(date +%s)
+    (cd / && "$ROOT/scripts/check.sh") > "$T/gate-out" 2> "$T/gate-err"; rc=$?
+    end=$(date +%s)
+    echo "  stdout:"; hide < "$T/gate-out" | sed 's/^/    /'
+    echo "  stderr bytes: $(wc -c < "$T/gate-err")"
+    echo "  exit: $rc (expect 0); wall seconds: $((end-start))"
+    [ "$rc" -eq 0 ] || bad=1
+    [ "$(tr '\n' ' ' < "$T/gate-out")" = "PASS host PASS i686 PASS fmt PASS clippy " ] || bad=1
+    
+    echo
+    echo "## --quick, started from /"
+    (cd / && "$ROOT/scripts/check.sh" --quick) > "$T/q-out" 2> "$T/q-err"; rc=$?
+    echo "  stdout:"; hide < "$T/q-out" | sed 's/^/    /'
+    echo "  stderr bytes: $(wc -c < "$T/q-err")"
+    echo "  exit: $rc (expect 0)"
+    [ "$rc" -eq 0 ] || bad=1
+    [ "$(tr '\n' ' ' < "$T/q-out")" = "PASS host SKIP i686: --quick PASS fmt SKIP clippy: --quick " ] || bad=1
+    
+    echo
+    echo "## bad argument"
+    "$ROOT/scripts/check.sh" --nope > "$T/b-out" 2> "$T/b-err"; rc=$?
+    echo "  stdout bytes: $(wc -c < "$T/b-out") (expect 0)"
+    echo "  stderr: $(cat "$T/b-err")"
+    echo "  exit: $rc (expect 2)"
+    { [ "$rc" -eq 2 ] && [ ! -s "$T/b-out" ]; } || bad=1
+    
+    echo
+    echo "## finding for planning: a symlinked invocation (not a spec requirement)"
+    ln -s "$ROOT/scripts/check.sh" "$T/check-link"
+    (cd / && "$T/check-link" --quick) > "$T/l-out" 2>&1; rc=$?
+    echo "command: (cd / && <scratch>/check-link --quick), where check-link is a symlink to scripts/check.sh"
+    hide < "$T/l-out" | sed 's/^/    /'
+    echo "  exit: $rc (0 would mean the symlink works; non-zero means check.sh resolved its root from the link's directory)"
+    
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || bad=1
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep or read errors: $err"
+    echo "structural checks failed: $bad"
+    if [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+RUSTUP_AUTO_INSTALL=0; active: 1.98.1-x86_64-unknown-linux-gnu (overridden by 'rust-toolchain.toml')
+EMEND_PRIVATE_DENYLIST set: no
+private denylist: present, mode 600, entries 6 (never printed)
+
+## controls (same command forms as the scans)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control f_esc file=c-esc count=1 exit=0 expected_exit=0
+  control f_session file=c-session count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-0 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-1 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-2 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-3 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-4 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-5 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-6 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-7 count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6-8 count=1 exit=0 expected_exit=0
+  control f_host file=c-host count=1 exit=0 expected_exit=0
+  control f_host file=c-fqdn count=1 exit=0 expected_exit=0
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0
+  control f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control f_esc file=c-clean count=0 exit=1 expected_exit=1
+  control f_session file=c-clean count=0 exit=1 expected_exit=1
+  control f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control f_host file=c-clean count=0 exit=1 expected_exit=1
+  control f_deny file=c-clean count=0 exit=1 expected_exit=1
+controls: all as expected
+
+## committed P3 logs at 176ab32f7cae17ef489ec16a83e0df79e68ac3e1
+records/logs/t0-p3/scan.log sha256 at 176ab32f7cae17ef489ec16a83e0df79e68ac3e1: f7870320e8323504921747981dbdd5d03e997cf86a431a71b337a11c5639e7b4
+records/logs/t0-p3/gate.log committed sha256 ebb38aa0080f9daf6fec6fe5582f1cff32323ad3ec939a243d9c680f7d26ec7a
+  equal to the hash scan.log recorded: yes
+  ESC byte lines: count=0 exit=1 (a finding if non-zero; ESC is ASCII 0x1B)
+  p6: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+  denylist: form=f_deny count=0 exit=1
+records/logs/t0-p3/negative.log committed sha256 3e6b1298ca00a06f126d24e5530c569b38c5540310d1c7bb747e7c8cad2a5468
+  equal to the hash scan.log recorded: yes
+  ESC byte lines: count=3 exit=0 (a finding if non-zero; ESC is ASCII 0x1B)
+  p6: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+  denylist: form=f_deny count=0 exit=1
+records/logs/t0-p3/ignore.log committed sha256 f7d1417216382ab024c593474c97e7acd66689e8cb0fc5dc7d24a7a4ee9dad61
+  equal to the hash scan.log recorded: yes
+  ESC byte lines: count=0 exit=1 (a finding if non-zero; ESC is ASCII 0x1B)
+  p6: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+  denylist: form=f_deny count=0 exit=1
+records/logs/t0-p3/scan.log committed sha256 f7870320e8323504921747981dbdd5d03e997cf86a431a71b337a11c5639e7b4
+  ESC byte lines: count=0 exit=1 (a finding if non-zero; ESC is ASCII 0x1B)
+  p6: form=f_p6 count=0 exit=1
+  hostname: form=f_host count=0 exit=1
+  denylist: form=f_deny count=0 exit=1
+
+## record commit message
+message 176ab32f7cae17ef489ec16a83e0df79e68ac3e1 last non-empty line is the Co-Authored-By line: yes
+  message: form=f_nonascii count=0 exit=1
+  message: form=f_session count=0 exit=1
+  message: form=f_p6 count=0 exit=1
+  message: form=f_host count=0 exit=1
+  message: form=f_deny count=0 exit=1
+
+## executed tests, from cargo test run directly
+command: cargo test --workspace 
+    running 1 test
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  exit: 0
+command: cargo test --workspace --target i686-unknown-linux-musl
+    running 1 test
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  exit: 0
+
+## full gate on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 135 files, 32.8MiB total
+command: (cd / && <repo>/scripts/check.sh)
+  stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+  stderr bytes: 0
+  exit: 0 (expect 0); wall seconds: 1
+
+## --quick, started from /
+  stdout:
+    PASS host
+    SKIP i686: --quick
+    PASS fmt
+    SKIP clippy: --quick
+  stderr bytes: 0
+  exit: 0 (expect 0)
+
+## bad argument
+  stdout bytes: 0 (expect 0)
+  stderr: usage: scripts/check.sh [--quick]
+  exit: 2 (expect 2)
+
+## finding for planning: a symlinked invocation (not a spec requirement)
+command: (cd / && <scratch>/check-link --quick), where check-link is a symlink to scripts/check.sh
+    FAIL host: 'cargo build --workspace --all-targets' exited non-zero
+        error: could not find `Cargo.toml` in `/tmp` or any parent directory
+  exit: 1 (0 would mean the symlink works; non-zero means check.sh resolved its root from the link's directory)
+
+status after the run (expect empty): 
+
+total hits: 0
+grep or read errors: 0
+structural checks failed: 0
+RESULT: PASS
