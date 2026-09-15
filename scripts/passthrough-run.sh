@@ -165,6 +165,12 @@ while IFS=$'\t' read -r id ext producer tags; do
   timefile=$dir/time.$LABEL.txt
   rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
     die "cannot remove an earlier output"
+  # A temporary file from an earlier, stopped run into this directory is
+  # removed first, so leftover below counts only this child's.
+  for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
+    [ -e "$temporary" ] || continue
+    rm -f -- "$temporary" || die "cannot remove an earlier temporary file"
+  done
   in_bytes=$(stat -c %s -- "$input" 2>/dev/null) || in_bytes=""
 
   (
