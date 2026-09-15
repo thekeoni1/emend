@@ -1,0 +1,916 @@
+about: P6b phase commit a08730729e5b739e8a4cfba198c003d9a89fabb0; HEAD at run: a08730729e5b739e8a4cfba198c003d9a89fabb0
+phase: T0 P6b (specs/0001-bootstrap.md) negative.log; run at 2026-09-15T03:31:43Z
+Every case runs in a scratch clone under <scratch>, outside the repo.
+DRYRUN_DIR is not set: each clone runs the scripts committed at a08730729e5b739e8a4cfba198c003d9a89fabb0.
+ANTHROPIC_API_KEY set in this shell: no
+scratch denylist: <scratch>/denylist, mode 600, 1 entry (never printed)
+EMEND_PRIVATE_DENYLIST: exported to <scratch>/denylist inside this negative test only
+fixture strings counted in every captured output: 12 (two sentinels, a fake token, two email addresses, a Windows user path, a Claude Code project path, five fixture file names; values never printed)
+main repository refs sha256 before: a64afca1f3cbca521927b17db14e9f64c17b3df2ffea0852e715fc07684ab9ae
+
+## script
+    #!/usr/bin/env bash
+    # T0 P6b negative tests: the hardened scripts/privacy.sh, steps 7 and 8 of
+    # scripts/check.sh, and the pre-push hook. A control case 0, cases (a) to (j)
+    # from the spec, and cases (k) and (l) beyond it.
+    # Every case runs in a scratch clone outside the repo, with a scratch denylist
+    # holding a made-up sentinel word (EMEND_PRIVATE_DENYLIST, exported inside this
+    # negative test only). Fixture values (sentinels, fake token, email addresses,
+    # Windows and Claude Code paths) are built at run time and never printed.
+    # Every captured output is counted for them and for the fixture file names.
+    # Usage: p6b-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t0-p6b/negative.log. Paths print as <scratch>.
+    # DRYRUN_DIR, if set, copies the gate scripts from that directory into each
+    # clone (dry runs only).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    GATE_FILES="check.sh privacy.sh privacy-patterns.txt privacy-identity.txt install-hooks.sh"
+    
+    rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
+    SENTINEL="zq$(rnd 'a-z0-9' 12)"
+    SENTINEL2="zq$(rnd 'a-z0-9' 12)"
+    TOKEN="gh""p_$(rnd 'A-Za-z0-9' 36)"
+    EMAIL_COM="zq$(rnd 'a-z0-9' 8)@exam""ple.com"
+    EMAIL_INVALID="zq$(rnd 'a-z0-9' 8)@exam""ple.invalid"
+    WINPATH="D:""\\Users\\zq$(rnd 'a-z0-9' 6)\\Documents"
+    CLAUDEPATH="/home/zq$(rnd 'a-z0-9' 6)/"".claude""/projects/-home-zq/$(rnd 'a-f0-9' 8).jsonl"
+    FORBIDDEN=("$SENTINEL" "$SENTINEL2" "$TOKEN" "$EMAIL_COM" "$EMAIL_INVALID" "$WINPATH" "$CLAUDEPATH"
+      private.xlsx report.XLSX sample.xlsx budget.xlsx notes.xls)
+    DL=$BASE/denylist
+    printf '# scratch denylist for the T0 P6b negative tests\n%s\n' "$SENTINEL" >"$DL"
+    chmod 600 "$DL"
+    export EMEND_PRIVATE_DENYLIST=$DL
+    NOTICE_LINE="NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST"
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$1"; }
+    count_f() { LC_ALL=C "$G" -a -c -F -e "$1" "$2"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    in_dir() { local d=$1; shift; (cd "$d" && "$@"); }
+    
+    echo "about: P6b phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6b (specs/0001-bootstrap.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Every case runs in a scratch clone under <scratch>, outside the repo."
+    if [ -n "${DRYRUN_DIR:-}" ]; then
+      echo "DRY RUN: DRYRUN_DIR is set, so each clone gets uncommitted gate scripts. Not a phase log."
+    else
+      echo "DRYRUN_DIR is not set: each clone runs the scripts committed at $C."
+    fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "scratch denylist: <scratch>/denylist, mode $(stat -c %a "$DL"), $(LC_ALL=C "$G" -c -v -E '^[[:space:]]*(#|$)' "$DL") entry (never printed)"
+    echo "EMEND_PRIVATE_DENYLIST: exported to <scratch>/denylist inside this negative test only"
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two sentinels, a fake token, two email addresses, a Windows user path, a Claude Code project path, five fixture file names; values never printed)"
+    REFS_BEFORE=$(git for-each-ref --format='%(objectname) %(refname)' | sha256sum | cut -d' ' -f1)
+    echo "main repository refs sha256 before: $REFS_BEFORE"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    hide <"$BASE/ctl-forbidden" >"$BASE/ctl-hidden"
+    ctl() { echo "  control $1: $2 (expect $3)"; [ "$2" = "$3" ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "lines with a fixture string after hide()" "$(count_forbidden "$BASE/ctl-hidden")" 0
+    ctl "lines reading <fixture> after hide()" "$(count_f '<fixture>' "$BASE/ctl-hidden")" "${#FORBIDDEN[@]}"
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    ctl "control bytes in a file with only tab, CR and LF" "$(ctrl_bytes "$BASE/ctl-clean")" 0
+    
+    clone() { # clone <dir>
+      local dir=$1
+      rm -rf "$dir"
+      if ! git clone -q "$REPO" "$dir" || ! git -C "$dir" checkout -q -B work "$C"; then
+        echo "clone failed"
+        fail=1
+        return 1
+      fi
+      if [ -n "${DRYRUN_DIR:-}" ]; then
+        for f in $GATE_FILES; do cp "$DRYRUN_DIR/$f" "$dir/scripts/$f"; done
+      fi
+      git -C "$dir" config user.name "$(sed -n 1p "$dir/scripts/privacy-identity.txt")"
+      git -C "$dir" config user.email "$(sed -n 2p "$dir/scripts/privacy-identity.txt")"
+      echo "clone $(printf '%s' "$dir" | hide): branch work at $(git -C "$dir" rev-parse HEAD); local identity set from scripts/privacy-identity.txt"
+    }
+    commit() { # commit <dir> <git commit args...>
+      local dir=$1
+      shift
+      git -C "$dir" -c commit.gpgsign=false commit -q "$@" || { echo "commit failed"; fail=1; }
+    }
+    run_out() { # run_out <name> <shown command> <command...>
+      local name=$1 shown=$2 fb c n
+      shift 2
+      echo "command: $shown"
+      "$@" >"$BASE/$name.out" 2>&1 </dev/null
+      RC=$?
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $RC"
+      fb=$(count_forbidden "$BASE/$name.out")
+      c=$(ctrl_bytes "$BASE/$name.out")
+      n=$(nonascii_bytes "$BASE/$name.out")
+      echo "  captured output: lines with a fixture string=$fb, control bytes=$c, non-ASCII bytes=$n (expect 0, 0 and 0)"
+      { [ "$fb" -eq 0 ] && [ "$c" -eq 0 ] && [ "$n" -eq 0 ]; } || fail=1
+    }
+    want_exit() {
+      echo "  exit $1 expected: $([ "$RC" -eq "$1" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$RC" -eq "$1" ] || fail=1
+    }
+    want_nonzero() {
+      echo "  exit non-zero expected: $([ "$RC" -ne 0 ] && echo as-expected || echo UNEXPECTED)"
+      [ "$RC" -ne 0 ] || fail=1
+    }
+    expect() { # expect <name> <present|absent> <ERE> <label>
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$BASE/$1.out")
+      rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    lines_are() { # lines_are <name> <ERE> <count> <label>
+      local n
+      n=$(LC_ALL=C "$G" -c -E -e "$2" "$BASE/$1.out")
+      echo "  $4: count=$n (expect $3) -> $([ "$n" = "$3" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$n" = "$3" ] || fail=1
+    }
+    first_line() { # first_line <name> <exact line>
+      local first
+      first=$(head -n 1 "$BASE/$1.out")
+      echo "  first output line is the NOTICE line: $([ "$first" = "$2" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$first" = "$2" ] || fail=1
+    }
+    PRIV="scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)"
+    
+    echo
+    echo "## case 0 (control): an unchanged clone; expect the NOTICE line, then PASS privacy"
+    D=$BASE/c0
+    clone "$D"
+    run_out c0 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 0
+    first_line c0 "$NOTICE_LINE"
+    expect c0 present '^PASS privacy$' "PASS privacy"
+    expect c0 absent '^(FAIL|ERROR) ' "any FAIL or ERROR line"
+    
+    echo
+    echo "## case a: a gzip-compressed emend-testing/corpus/private.xlsx, committed then deleted; expect FAIL naming the first commit, no path printed"
+    D=$BASE/a
+    clone "$D"
+    mkdir -p "$D/emend-testing/corpus"
+    printf 'fictional corpus text %s\n' "$(rnd 'a-z' 16)" | gzip -c >"$D/emend-testing/corpus/private.xlsx"
+    git -C "$D" add -f emend-testing/corpus/private.xlsx
+    commit "$D" -m "case a: add"
+    A1=$(git -C "$D" rev-parse HEAD)
+    echo "first commit $A1; first two bytes of the committed blob (gzip magic is 1f 8b):$(git -C "$D" cat-file blob "$A1:emend-testing/corpus/private.xlsx" | od -An -tx1 -N2)"
+    git -C "$D" rm -q -r emend-testing
+    commit "$D" -m "case a: delete"
+    A2=$(git -C "$D" rev-parse HEAD)
+    echo "second commit $A2; paths containing emend-testing in its tree: $(git -C "$D" ls-tree -r --name-only "$A2" | LC_ALL=C "$G" -c -i -F -e emend-testing)"
+    run_out a "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect a present "^FAIL paths: commit $A1 1 path[(]s[)] containing emend-testing [(]paths not printed[)]\$" "count-only corpus FAIL naming the first commit"
+    expect a present "^FAIL paths: commit $A1 1 office file path[(]s[)] outside tests/fixtures/ [(]paths not printed[)]\$" "count-only office FAIL naming the first commit"
+    expect a absent "commit $A2" "the second commit"
+    expect a absent 'corpus/' "a corpus path"
+    lines_are a '^FAIL ' 2 "FAIL lines"
+    
+    echo
+    echo "## case b: report.XLSX at the root, committed then deleted; expect FAIL"
+    D=$BASE/b
+    clone "$D"
+    printf 'quarterly figures (fictional)\n' >"$D/report.XLSX"
+    git -C "$D" add -f report.XLSX
+    commit "$D" -m "case b: add"
+    B1=$(git -C "$D" rev-parse HEAD)
+    git -C "$D" rm -q report.XLSX
+    commit "$D" -m "case b: delete"
+    B2=$(git -C "$D" rev-parse HEAD)
+    echo "first commit $B1; second commit $B2"
+    run_out b "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect b present "^FAIL paths: commit $B1 1 office file path[(]s[)] outside tests/fixtures/ [(]paths not printed[)]\$" "count-only office FAIL naming the first commit"
+    expect b absent "commit $B2" "the second commit"
+    lines_are b '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case c: an office file under tools/x/tests/fixtures/; expect PASS"
+    D=$BASE/c
+    clone "$D"
+    mkdir -p "$D/tools/x/tests/fixtures"
+    printf 'generated fixture stand-in\n' >"$D/tools/x/tests/fixtures/sample.xlsx"
+    git -C "$D" add -f tools/x/tests/fixtures/sample.xlsx
+    commit "$D" -m "case c"
+    echo "commit $(git -C "$D" rev-parse HEAD); office files under tests/fixtures/ in its tree: $(git -C "$D" ls-tree -r --name-only HEAD | LC_ALL=C "$G" -c -E -e '(^|/)tests/fixtures/.*[.]xlsx$')"
+    run_out c "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 0
+    expect c present '^PASS privacy$' "PASS privacy"
+    expect c absent '^(FAIL|ERROR) ' "any FAIL or ERROR line"
+    
+    echo
+    echo "## case d: EMEND_PRIVATE_DENYLIST exported"
+    D=$BASE/d
+    clone "$D"
+    echo "### d1: scripts/privacy.sh prints the NOTICE line first"
+    run_out d1 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 0
+    first_line d1 "$NOTICE_LINE"
+    echo "### d2: scripts/check.sh step 8 refuses"
+    run_out d2 "scripts/check.sh (in the clone; EMEND_PRIVATE_DENYLIST exported)" in_dir "$D" scripts/check.sh
+    want_exit 1
+    expect d2 present '^FAIL privacy: EMEND_PRIVATE_DENYLIST is set$' "FAIL privacy line"
+    expect d2 present '^PASS hygiene$' "steps 1 to 7 ran first (PASS hygiene)"
+    expect d2 absent '^PASS privacy$' "PASS privacy"
+    echo "### d3: the pre-push hook refuses, and a push to a local bare remote is rejected"
+    git init -q --bare "$BASE/remote.git"
+    git -C "$D" remote add scratch "$BASE/remote.git"
+    run_out d3-install "scripts/install-hooks.sh (in the clone)" in_dir "$D" scripts/install-hooks.sh
+    want_exit 0
+    ls_remote() { git ls-remote "$BASE/remote.git" >"$BASE/ls-$1.out" 2>&1; echo "git ls-remote <scratch>/remote.git ($1):"; hide <"$BASE/ls-$1.out" | sed 's/^/    /'; echo "  refs: $(wc -l <"$BASE/ls-$1.out")"; }
+    ls_remote before-d3
+    run_out d3 "git push scratch work:refs/heads/clean (in the clone; EMEND_PRIVATE_DENYLIST exported)" in_dir "$D" git push scratch work:refs/heads/clean
+    want_nonzero
+    expect d3 present '^FAIL privacy: EMEND_PRIVATE_DENYLIST is set$' "hook FAIL privacy line"
+    expect d3 absent '^pre-push: scripts/privacy' "the hook running privacy.sh"
+    ls_remote after-d3
+    lines_are ls-after-d3 '' 0 "remote refs"
+    echo "### d4 (beyond the spec): the same push with the variable removed for that one command; expect success"
+    echo "(scripts/privacy.sh then reads the private denylist at its default path; its output is locations only)"
+    run_out d4 "env -u EMEND_PRIVATE_DENYLIST git push scratch work:refs/heads/clean (in the clone)" in_dir "$D" env -u EMEND_PRIVATE_DENYLIST git push scratch work:refs/heads/clean
+    want_exit 0
+    expect d4 present '^PASS privacy$' "PASS privacy"
+    expect d4 absent '^NOTICE ' "NOTICE line"
+    ls_remote after-d4
+    expect ls-after-d4 present "^$C	refs/heads/clean\$" "remote refs/heads/clean at the phase commit"
+    
+    echo
+    echo "## case e: the patterns file with one pattern removed (each in turn), or one extra line; expect exit 2 each"
+    D=$BASE/e
+    clone "$D"
+    cp "$D/scripts/privacy-patterns.txt" "$BASE/patterns-orig"
+    NPAT=$(LC_ALL=C "$G" -c -v -E '^[[:space:]]*(#|$)' "$BASE/patterns-orig")
+    echo "patterns in the committed file: $NPAT"
+    for i in $(seq 1 "$NPAT"); do
+      echo "### e-remove-$i: pattern $i removed"
+      sed "${i}d" "$BASE/patterns-orig" >"$D/scripts/privacy-patterns.txt"
+      run_out "e-remove-$i" "$PRIV" in_dir "$D" scripts/privacy.sh
+      want_exit 2
+      expect "e-remove-$i" present "^ERROR privacy: scripts/privacy-patterns[.]txt holds $((NPAT - 1)) pattern[(]s[)]; expected $NPAT\$" "ERROR pattern count"
+    done
+    echo "### e-extra: one extra pattern line"
+    { cat "$BASE/patterns-orig"; echo 'zq[-]extra[-]pattern'; } >"$D/scripts/privacy-patterns.txt"
+    run_out e-extra "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 2
+    expect e-extra present "^ERROR privacy: scripts/privacy-patterns[.]txt holds $((NPAT + 1)) pattern[(]s[)]; expected $NPAT\$" "ERROR pattern count"
+    for i in $(seq 1 "$NPAT"); do
+      echo "### e-disable-$i (beyond the spec): pattern $i replaced by a pattern that matches nothing planted"
+      sed "${i}s/.*/zq[-]disabled[-]pattern/" "$BASE/patterns-orig" >"$D/scripts/privacy-patterns.txt"
+      run_out "e-disable-$i" "$PRIV" in_dir "$D" scripts/privacy.sh
+      want_exit 2
+      expect "e-disable-$i" present "^ERROR privacy: self-test failed: pattern $i did not detect its fake value\$" "ERROR naming pattern $i"
+    done
+    cp "$BASE/patterns-orig" "$D/scripts/privacy-patterns.txt"
+    
+    echo
+    echo "## case f: a denylist entry containing a space; expect exit 2"
+    D=$BASE/f
+    clone "$D"
+    printf '%s %s\n' "$SENTINEL" "$SENTINEL2" >"$BASE/denylist-space" && chmod 600 "$BASE/denylist-space"
+    echo "<scratch>/denylist-space: mode $(stat -c %a "$BASE/denylist-space"), one line holding two words"
+    run_out f "env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-space scripts/privacy.sh (in the clone)" \
+      in_dir "$D" env EMEND_PRIVATE_DENYLIST="$BASE/denylist-space" scripts/privacy.sh
+    want_exit 2
+    expect f present '^ERROR privacy: denylist entry 1 contains whitespace$' "ERROR line"
+    expect f absent '^PASS privacy$' "PASS privacy"
+    
+    echo
+    echo "## case g: email addresses built at run time"
+    echo "### g1: an address at example.com in a committed file; expect FAIL"
+    D=$BASE/g1
+    clone "$D"
+    printf 'contact: %s\n' "$EMAIL_COM" >"$D/g1.txt"
+    git -C "$D" add g1.txt
+    commit "$D" -m "case g1"
+    G1=$(git -C "$D" rev-parse HEAD)
+    run_out g1 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect g1 present "^FAIL email: commit $G1 path g1[.]txt line 1\$" "FAIL email naming the file and line"
+    lines_are g1 '^FAIL ' 1 "FAIL lines"
+    echo "### g2: the same address in a commit message; expect FAIL"
+    D=$BASE/g2
+    clone "$D"
+    printf 'case g2\n' >"$D/g2.txt"
+    git -C "$D" add g2.txt
+    commit "$D" -m "case g2" -m "contact: $EMAIL_COM"
+    G2=$(git -C "$D" rev-parse HEAD)
+    run_out g2 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect g2 present "^FAIL message: commit $G2 email line 3\$" "FAIL message email naming the line"
+    lines_are g2 '^FAIL ' 1 "FAIL lines"
+    echo "### g3: an address at example.invalid in a committed file and in its message; expect PASS"
+    D=$BASE/g3
+    clone "$D"
+    printf 'contact: %s\n' "$EMAIL_INVALID" >"$D/g3.txt"
+    git -C "$D" add g3.txt
+    commit "$D" -m "case g3" -m "contact: $EMAIL_INVALID"
+    run_out g3 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 0
+    expect g3 present '^PASS privacy$' "PASS privacy"
+    expect g3 absent '^(FAIL|ERROR) ' "any FAIL or ERROR line"
+    
+    echo
+    echo "## case h: a drive-letter Windows user path and a Claude Code project path, built at run time in a committed file; expect FAIL patterns"
+    D=$BASE/h
+    clone "$D"
+    printf 'backup %s\n' "$WINPATH" >"$D/h.txt"
+    printf 'transcript %s\n' "$CLAUDEPATH" >>"$D/h.txt"
+    git -C "$D" add h.txt
+    commit "$D" -m "case h"
+    H=$(git -C "$D" rev-parse HEAD)
+    run_out h "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect h present "^FAIL patterns: commit $H path h[.]txt pattern 10 line 1\$" "FAIL pattern 10 on line 1"
+    expect h present "^FAIL patterns: commit $H path h[.]txt pattern 11 line 2\$" "FAIL pattern 11 on line 2"
+    lines_are h '^FAIL ' 2 "FAIL lines"
+    
+    echo
+    echo "## case i: a tracked office file under Emend-Testing/; expect a count-only step 7 FAIL line with no file name"
+    D=$BASE/i
+    clone "$D"
+    mkdir -p "$D/Emend-Testing"
+    printf 'fictional\n' >"$D/Emend-Testing/budget.xlsx"
+    git -C "$D" add -f Emend-Testing/budget.xlsx
+    echo "staged paths: $(git -C "$D" diff --cached --name-only | wc -l)"
+    run_out i "scripts/check.sh (in the clone)" in_dir "$D" scripts/check.sh
+    want_nonzero
+    expect i present '^FAIL hygiene: 1 office file[(]s[)] tracked outside tests/fixtures/ [(]paths not printed[)]$' "count-only office FAIL line"
+    expect i absent '^PASS hygiene$' "PASS hygiene"
+    expect i absent 'Emend-Testing' "the directory name"
+    
+    echo
+    echo "## case j: P6 negatives (a), (c) and (h) again; expect each still to fail"
+    echo "### j-a: a commit authored with a different email"
+    D=$BASE/ja
+    clone "$D"
+    printf 'case j-a\n' >"$D/a.txt"
+    git -C "$D" add a.txt
+    commit "$D" --author="$(sed -n 1p "$D/scripts/privacy-identity.txt") <someone-else@example.invalid>" -m "case j-a"
+    JA=$(git -C "$D" rev-parse HEAD)
+    run_out ja "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect ja present "^FAIL identity: commit $JA author email differs from scripts/privacy-identity[.]txt\$" "FAIL identity"
+    lines_are ja '^FAIL ' 1 "FAIL lines"
+    echo "### j-c: the sentinel committed, then deleted"
+    D=$BASE/jc
+    clone "$D"
+    printf 'case j-c %s\n' "$SENTINEL" >"$D/c.txt"
+    git -C "$D" add c.txt
+    commit "$D" -m "case j-c: add"
+    JC1=$(git -C "$D" rev-parse HEAD)
+    git -C "$D" rm -q c.txt
+    commit "$D" -m "case j-c: delete"
+    JC2=$(git -C "$D" rev-parse HEAD)
+    run_out jc "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect jc present "^FAIL denylist: commit $JC1 path c[.]txt denylist entry 1 line 1\$" "FAIL denylist naming the first commit"
+    expect jc absent "commit $JC2" "the second commit"
+    echo "### j-h: '* binary' in .git/info/attributes and a committed fake token"
+    D=$BASE/jh
+    clone "$D"
+    printf '* binary\n' >"$D/.git/info/attributes"
+    printf 'token %s\n' "$TOKEN" >"$D/h.txt"
+    git -C "$D" add h.txt
+    commit "$D" -m "case j-h"
+    JH=$(git -C "$D" rev-parse HEAD)
+    echo "git check-attr binary -- h.txt: $(git -C "$D" check-attr binary -- h.txt)"
+    run_out jh "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect jh present "^FAIL patterns: commit $JH path h[.]txt pattern 1 line 1\$" "FAIL patterns"
+    
+    echo
+    echo "## case k (beyond the spec): a fake token inside an office file outside tests/fixtures/; expect <office path>"
+    D=$BASE/k
+    clone "$D"
+    printf 'token %s\n' "$TOKEN" >"$D/notes.xls"
+    git -C "$D" add -f notes.xls
+    commit "$D" -m "case k"
+    K=$(git -C "$D" rev-parse HEAD)
+    run_out k "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect k present "^FAIL patterns: commit $K path <office path> pattern 1 line 1\$" "FAIL patterns with <office path>"
+    expect k present "^FAIL paths: commit $K 1 office file path[(]s[)] outside tests/fixtures/ [(]paths not printed[)]\$" "count-only office FAIL"
+    lines_are k '^FAIL ' 2 "FAIL lines"
+    
+    echo
+    echo "## case l (beyond the spec): a fake token in a file whose name holds the sentinel; expect <private path>"
+    D=$BASE/l
+    clone "$D"
+    printf 'token %s\n' "$TOKEN" >"$D/n-$SENTINEL.txt"
+    git -C "$D" add .
+    commit "$D" -m "case l"
+    L=$(git -C "$D" rev-parse HEAD)
+    run_out l "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect l present "^FAIL patterns: commit $L path <private path> pattern 1 line 1\$" "FAIL patterns with <private path>"
+    expect l present "^FAIL paths: commit $L tree entry [0-9]+ denylist entry 1 [(]path not printed[)]\$" "FAIL paths"
+    lines_are l '^FAIL ' 2 "FAIL lines"
+    
+    echo
+    rm -rf "$BASE"/c0 "$BASE"/a "$BASE"/b "$BASE"/c "$BASE"/d "$BASE"/e "$BASE"/f "$BASE"/g1 "$BASE"/g2 "$BASE"/g3 "$BASE"/h "$BASE"/i "$BASE"/ja "$BASE"/jc "$BASE"/jh "$BASE"/k "$BASE"/l "$BASE"/remote.git
+    LEFT=$(find "$BASE" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    echo "scratch clones removed: $LEFT directories left (expect 0)"
+    [ "$LEFT" -eq 0 ] || fail=1
+    REFS_AFTER=$(git for-each-ref --format='%(objectname) %(refname)' | sha256sum | cut -d' ' -f1)
+    echo "main repository refs sha256 after: $REFS_AFTER; unchanged: $([ "$REFS_BEFORE" = "$REFS_AFTER" ] && echo yes || echo NO)"
+    [ "$REFS_BEFORE" = "$REFS_AFTER" ] || fail=1
+    echo "main working tree status (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 12 (expect 12)
+  control lines with a fixture string in a clean file: 0 (expect 0)
+  control lines with a fixture string after hide(): 0 (expect 0)
+  control lines reading <fixture> after hide(): 12 (expect 12)
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control control bytes in a file with only tab, CR and LF: 0 (expect 0)
+
+## case 0 (control): an unchanged clone; expect the NOTICE line, then PASS privacy
+clone <scratch>/c0: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 48 commit(s), 99 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+  first output line is the NOTICE line: as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL or ERROR line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case a: a gzip-compressed emend-testing/corpus/private.xlsx, committed then deleted; expect FAIL naming the first commit, no path printed
+clone <scratch>/a: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+first commit 1e87003a1a660511a1a392a76e00f3f8608e5949; first two bytes of the committed blob (gzip magic is 1f 8b): 1f 8b
+second commit 47f270d517c69fac0dee496dfcfa3b6fcc2f402b; paths containing emend-testing in its tree: 0
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 50 commit(s), 100 blob(s) scanned, 2 finding(s)
+    FAIL paths: commit 1e87003a1a660511a1a392a76e00f3f8608e5949 1 path(s) containing emend-testing (paths not printed)
+    FAIL paths: commit 1e87003a1a660511a1a392a76e00f3f8608e5949 1 office file path(s) outside tests/fixtures/ (paths not printed)
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  count-only corpus FAIL naming the first commit: expect present; count=1 grep exit=0 -> as-expected
+  count-only office FAIL naming the first commit: expect present; count=1 grep exit=0 -> as-expected
+  the second commit: expect absent; count=0 grep exit=1 -> as-expected
+  a corpus path: expect absent; count=0 grep exit=1 -> as-expected
+  FAIL lines: count=2 (expect 2) -> as-expected
+
+## case b: report.XLSX at the root, committed then deleted; expect FAIL
+clone <scratch>/b: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+first commit da411af885156f7c566562e77016e371bc0b92cf; second commit e4de712fad407c98eb1f7ef68277a401b2b7a1ff
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 50 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL paths: commit da411af885156f7c566562e77016e371bc0b92cf 1 office file path(s) outside tests/fixtures/ (paths not printed)
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  count-only office FAIL naming the first commit: expect present; count=1 grep exit=0 -> as-expected
+  the second commit: expect absent; count=0 grep exit=1 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case c: an office file under tools/x/tests/fixtures/; expect PASS
+clone <scratch>/c: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+commit 429d3cc232620627d3d7959f24ab3f24c28bb8e2; office files under tests/fixtures/ in its tree: 1
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL or ERROR line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case d: EMEND_PRIVATE_DENYLIST exported
+clone <scratch>/d: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+### d1: scripts/privacy.sh prints the NOTICE line first
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 48 commit(s), 99 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+  first output line is the NOTICE line: as-expected
+### d2: scripts/check.sh step 8 refuses
+command: scripts/check.sh (in the clone; EMEND_PRIVATE_DENYLIST exported)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    FAIL privacy: EMEND_PRIVATE_DENYLIST is set
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL privacy line: expect present; count=1 grep exit=0 -> as-expected
+  steps 1 to 7 ran first (PASS hygiene): expect present; count=1 grep exit=0 -> as-expected
+  PASS privacy: expect absent; count=0 grep exit=1 -> as-expected
+### d3: the pre-push hook refuses, and a push to a local bare remote is rejected
+command: scripts/install-hooks.sh (in the clone)
+    install-hooks: wrote .git/hooks/pre-push
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+git ls-remote <scratch>/remote.git (before-d3):
+  refs: 0
+command: git push scratch work:refs/heads/clean (in the clone; EMEND_PRIVATE_DENYLIST exported)
+    FAIL privacy: EMEND_PRIVATE_DENYLIST is set
+    error: failed to push some refs to '<scratch>/remote.git'
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero expected: as-expected
+  hook FAIL privacy line: expect present; count=1 grep exit=0 -> as-expected
+  the hook running privacy.sh: expect absent; count=0 grep exit=1 -> as-expected
+git ls-remote <scratch>/remote.git (after-d3):
+  refs: 0
+  remote refs: count=0 (expect 0) -> as-expected
+### d4 (beyond the spec): the same push with the variable removed for that one command; expect success
+(scripts/privacy.sh then reads the private denylist at its default path; its output is locations only)
+command: env -u EMEND_PRIVATE_DENYLIST git push scratch work:refs/heads/clean (in the clone)
+    pre-push: scripts/privacy.sh --range a08730729e5b739e8a4cfba198c003d9a89fabb0 (refs/heads/work)
+    privacy: 48 commit(s), 99 blob(s) scanned, 0 finding(s)
+    PASS privacy
+    To <scratch>/remote.git
+     * [new branch]      work -> clean
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+  NOTICE line: expect absent; count=0 grep exit=1 -> as-expected
+git ls-remote <scratch>/remote.git (after-d4):
+    a08730729e5b739e8a4cfba198c003d9a89fabb0	refs/heads/clean
+  refs: 1
+  remote refs/heads/clean at the phase commit: expect present; count=1 grep exit=0 -> as-expected
+
+## case e: the patterns file with one pattern removed (each in turn), or one extra line; expect exit 2 each
+clone <scratch>/e: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+patterns in the committed file: 11
+### e-remove-1: pattern 1 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-2: pattern 2 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-3: pattern 3 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-4: pattern 4 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-5: pattern 5 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-6: pattern 6 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-7: pattern 7 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-8: pattern 8 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-9: pattern 9 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-10: pattern 10 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-remove-11: pattern 11 removed
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-extra: one extra pattern line
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: scripts/privacy-patterns.txt holds 12 pattern(s); expected 11
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR pattern count: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-1 (beyond the spec): pattern 1 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 1 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 1: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-2 (beyond the spec): pattern 2 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 2 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 2: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-3 (beyond the spec): pattern 3 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 3 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 3: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-4 (beyond the spec): pattern 4 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 4 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 4: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-5 (beyond the spec): pattern 5 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 5 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 5: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-6 (beyond the spec): pattern 6 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 6 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 6: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-7 (beyond the spec): pattern 7 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 7 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 7: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-8 (beyond the spec): pattern 8 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 8 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 8: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-9 (beyond the spec): pattern 9 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 9 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 9: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-10 (beyond the spec): pattern 10 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 10 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 10: expect present; count=1 grep exit=0 -> as-expected
+### e-disable-11 (beyond the spec): pattern 11 replaced by a pattern that matches nothing planted
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: self-test failed: pattern 11 did not detect its fake value
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming pattern 11: expect present; count=1 grep exit=0 -> as-expected
+
+## case f: a denylist entry containing a space; expect exit 2
+clone <scratch>/f: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+<scratch>/denylist-space: mode 600, one line holding two words
+command: env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-space scripts/privacy.sh (in the clone)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    ERROR privacy: denylist entry 1 contains whitespace
+  exit: 2
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR line: expect present; count=1 grep exit=0 -> as-expected
+  PASS privacy: expect absent; count=0 grep exit=1 -> as-expected
+
+## case g: email addresses built at run time
+### g1: an address at example.com in a committed file; expect FAIL
+clone <scratch>/g1: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL email: commit 43109c38cb770318df48c91606d29332b31bfb98 path g1.txt line 1
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL email naming the file and line: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+### g2: the same address in a commit message; expect FAIL
+clone <scratch>/g2: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL message: commit 344091a3daaad76b255abce1f8d512361ef40f27 email line 3
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL message email naming the line: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+### g3: an address at example.invalid in a committed file and in its message; expect PASS
+clone <scratch>/g3: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 0 expected: as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL or ERROR line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case h: a drive-letter Windows user path and a Claude Code project path, built at run time in a committed file; expect FAIL patterns
+clone <scratch>/h: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 2 finding(s)
+    FAIL patterns: commit 2b782c6e371958bbdcce03e6e019ac5822e599b4 path h.txt pattern 10 line 1
+    FAIL patterns: commit 2b782c6e371958bbdcce03e6e019ac5822e599b4 path h.txt pattern 11 line 2
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL pattern 10 on line 1: expect present; count=1 grep exit=0 -> as-expected
+  FAIL pattern 11 on line 2: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=2 (expect 2) -> as-expected
+
+## case i: a tracked office file under Emend-Testing/; expect a count-only step 7 FAIL line with no file name
+clone <scratch>/i: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+staged paths: 1
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero expected: as-expected
+  count-only office FAIL line: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect absent; count=0 grep exit=1 -> as-expected
+  the directory name: expect absent; count=0 grep exit=1 -> as-expected
+
+## case j: P6 negatives (a), (c) and (h) again; expect each still to fail
+### j-a: a commit authored with a different email
+clone <scratch>/ja: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL identity: commit 092f2b1fec315172170942142cff1d78f717ecec author email differs from scripts/privacy-identity.txt
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL identity: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+### j-c: the sentinel committed, then deleted
+clone <scratch>/jc: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 50 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL denylist: commit ed508471b9509c8e5c13da56d35061c43550af84 path c.txt denylist entry 1 line 1
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL denylist naming the first commit: expect present; count=1 grep exit=0 -> as-expected
+  the second commit: expect absent; count=0 grep exit=1 -> as-expected
+### j-h: '* binary' in .git/info/attributes and a committed fake token
+clone <scratch>/jh: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+git check-attr binary -- h.txt: h.txt: binary: set
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 1 finding(s)
+    FAIL patterns: commit 57d70eb37c70f9b00eb3be5a74ff667058da1acb path h.txt pattern 1 line 1
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns: expect present; count=1 grep exit=0 -> as-expected
+
+## case k (beyond the spec): a fake token inside an office file outside tests/fixtures/; expect <office path>
+clone <scratch>/k: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 2 finding(s)
+    FAIL paths: commit c600533451a66873436a5e5b908d10c76402ff2f 1 office file path(s) outside tests/fixtures/ (paths not printed)
+    FAIL patterns: commit c600533451a66873436a5e5b908d10c76402ff2f path <office path> pattern 1 line 1
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns with <office path>: expect present; count=1 grep exit=0 -> as-expected
+  count-only office FAIL: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=2 (expect 2) -> as-expected
+
+## case l (beyond the spec): a fake token in a file whose name holds the sentinel; expect <private path>
+clone <scratch>/l: branch work at a08730729e5b739e8a4cfba198c003d9a89fabb0; local identity set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+    privacy: 49 commit(s), 100 blob(s) scanned, 2 finding(s)
+    FAIL paths: commit 77f6178d8023233026325b0a840d278535877860 tree entry 8 denylist entry 1 (path not printed)
+    FAIL patterns: commit 77f6178d8023233026325b0a840d278535877860 path <private path> pattern 1 line 1
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns with <private path>: expect present; count=1 grep exit=0 -> as-expected
+  FAIL paths: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=2 (expect 2) -> as-expected
+
+scratch clones removed: 0 directories left (expect 0)
+main repository refs sha256 after: a64afca1f3cbca521927b17db14e9f64c17b3df2ffea0852e715fc07684ab9ae; unchanged: yes
+main working tree status (expect empty): 
+all negative cases as expected: yes

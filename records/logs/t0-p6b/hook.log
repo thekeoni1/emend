@@ -1,0 +1,176 @@
+about: P6b phase commit a08730729e5b739e8a4cfba198c003d9a89fabb0; HEAD at run: a08730729e5b739e8a4cfba198c003d9a89fabb0
+phase: T0 P6b (specs/0001-bootstrap.md) hook.log; run at 2026-09-15T03:31:52Z
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600, entries 6 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P6b privacy.log or hook.log.
+    # Usage: p6-privacy-hook.sh privacy <phase commit> > <scratch file>
+    #        p6-privacy-hook.sh hook <phase commit> > <scratch file>
+    # privacy: scripts/privacy.sh over every commit on main (HEAD must be main).
+    # hook: runs scripts/install-hooks.sh, then shows the hook and the identity.
+    # The caller moves the file into records/logs/t0-p6b/ afterwards.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?privacy or hook}
+    C=${2:?phase commit required}
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: P6b phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6b (specs/0001-bootstrap.md) $MODE.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    
+    case "$MODE" in
+      privacy)
+        echo "## history"
+        echo "branch: $(git symbolic-ref --short HEAD); main is $(git rev-parse main); HEAD is $(git rev-parse HEAD)"
+        [ "$(git rev-parse main)" = "$(git rev-parse HEAD)" ] || fail=1
+        echo "scripts/privacy.sh at HEAD equals $C: $([ "$(git rev-parse HEAD:scripts/privacy.sh)" = "$(git rev-parse "$C:scripts/privacy.sh")" ] && echo yes || echo no)"
+        echo "commits on main: $(git rev-list --count main)"
+        echo "root commit(s): $(git rev-list --max-parents=0 main | tr '\n' ' ')"
+        echo "oldest five commits on main (the P1 commits as rewritten in P1R come first):"
+        git log --reverse --format='%H %s' main | head -n 5 | sed 's/^/    /'
+        echo
+        echo "## run"
+        echo "command: scripts/privacy.sh (default scope: every commit reachable from HEAD, which is main)"
+        scripts/privacy.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        echo "stdout:"
+        sed 's/^/    /' "$T/out"
+        echo "stderr:"
+        sed 's/^/    /' "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "stdout is exactly PASS privacy: $([ "$(cat "$T/out")" = "PASS privacy" ] && echo yes || echo no)"
+        [ "$(cat "$T/out")" = "PASS privacy" ] || fail=1
+        echo "commits scanned equal commits on main: $(LC_ALL=C /usr/bin/grep -q -E "^privacy: $(git rev-list --count main) commit[(]s[)]," "$T/err" && echo yes || echo no)"
+        LC_ALL=C /usr/bin/grep -q -E "^privacy: $(git rev-list --count main) commit[(]s[)]," "$T/err" || fail=1
+        for s in out err; do
+          echo "std$s control bytes: $(ctrl_bytes "$T/$s") (expect 0)"
+          [ "$(ctrl_bytes "$T/$s")" -eq 0 ] || fail=1
+        done
+        ;;
+      hook)
+        echo "## installer"
+        echo "scripts/install-hooks.sh at HEAD equals $C: $([ "$(git rev-parse HEAD:scripts/install-hooks.sh)" = "$(git rev-parse "$C:scripts/install-hooks.sh")" ] && echo yes || echo no)"
+        echo "core.hooksPath in any git config: $(git config --get core.hooksPath || echo unset)"
+        echo "command: scripts/install-hooks.sh"
+        scripts/install-hooks.sh > "$T/out" 2>&1 </dev/null
+        rc=$?
+        sed 's/^/    /' "$T/out"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo
+        echo "## hook"
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        echo "command: cat .git/hooks/pre-push"
+        sed 's/^/    /' .git/hooks/pre-push
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        echo "hook equals the installer heredoc: $(cmp -s .git/hooks/pre-push "$T/heredoc" && echo yes || echo no)"
+        cmp -s .git/hooks/pre-push "$T/heredoc" || fail=1
+        echo "hook is executable: $([ -x .git/hooks/pre-push ] && echo yes || echo no)"
+        [ -x .git/hooks/pre-push ] || fail=1
+        echo
+        echo "## identity"
+        echo "command: git config --local --get user.name"
+        git config --local --get user.name | sed 's/^/    /'
+        echo "command: git config --local --get user.email"
+        git config --local --get user.email | sed 's/^/    /'
+        echo "equal to scripts/privacy-identity.txt lines 1 and 2: $([ "$(git config --local --get user.name)" = "$(sed -n 1p scripts/privacy-identity.txt)" ] && [ "$(git config --local --get user.email)" = "$(sed -n 2p scripts/privacy-identity.txt)" ] && echo yes || echo no)"
+        [ "$(git config --local --get user.name)" = "$(sed -n 1p scripts/privacy-identity.txt)" ] || fail=1
+        [ "$(git config --local --get user.email)" = "$(sed -n 2p scripts/privacy-identity.txt)" ] || fail=1
+        echo "remotes: $(git remote | wc -l)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "$MODE log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## installer
+scripts/install-hooks.sh at HEAD equals a08730729e5b739e8a4cfba198c003d9a89fabb0: yes
+core.hooksPath in any git config: unset
+command: scripts/install-hooks.sh
+    install-hooks: wrote .git/hooks/pre-push
+exit: 0 (expect 0)
+
+## hook
+command: ls -l .git/hooks/pre-push
+    -rwxr-xr-x 1 dev dev 1349 Sep 14 20:31 .git/hooks/pre-push
+command: cat .git/hooks/pre-push
+    #!/usr/bin/env bash
+    # emend pre-push hook, written by scripts/install-hooks.sh. For each pushed
+    # ref it runs scripts/privacy.sh over <remote sha>..<local sha>, or over all
+    # of <local sha> when the remote does not have the ref yet. Deletions are
+    # skipped. Any non-zero exit from scripts/privacy.sh blocks the push.
+    set -uo pipefail
+    
+    # The denylist override is for negative tests only; no push runs with it.
+    if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
+      echo "FAIL privacy: EMEND_PRIVATE_DENYLIST is set"
+      exit 1
+    fi
+    
+    root=$(git rev-parse --show-toplevel) || exit 1
+    status=0
+    while read -r local_ref local_sha remote_ref remote_sha; do
+      if [[ $local_sha =~ ^0+$ ]]; then
+        echo "pre-push: skipping the deletion of $remote_ref"
+        continue
+      fi
+      # privacy.sh checks commits. An annotated tag's own message is not
+      # checked, so pushing anything but a commit is blocked.
+      type=$(git cat-file -t "$local_sha" 2>/dev/null)
+      if [ "$type" != commit ]; then
+        echo "pre-push: $local_ref is not a commit (${type:-unreadable}); blocked"
+        status=1
+        continue
+      fi
+      if [[ $remote_sha =~ ^0+$ ]]; then
+        range=$local_sha
+      else
+        range=$remote_sha..$local_sha
+      fi
+      echo "pre-push: scripts/privacy.sh --range $range ($local_ref)"
+      if ! "$root/scripts/privacy.sh" --range "$range" </dev/null; then
+        status=1
+      fi
+    done
+    exit "$status"
+hook sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; installer heredoc sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84
+hook equals the installer heredoc: yes
+hook is executable: yes
+
+## identity
+command: git config --local --get user.name
+    thekeoni1
+command: git config --local --get user.email
+    55367154+thekeoni1@users.noreply.github.com
+equal to scripts/privacy-identity.txt lines 1 and 2: yes
+remotes: 0
+
+status after the run (expect empty): 
+hook log checks all as expected: yes
