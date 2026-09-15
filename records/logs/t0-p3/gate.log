@@ -1,0 +1,81 @@
+about: P3 phase commit c6510593b95a1d61b6446a1cdc1a465ea7d09c67; HEAD at run: c6510593b95a1d61b6446a1cdc1a465ea7d09c67
+phase: T0 P3 (specs/0001-bootstrap.md) gate.log; run at 2026-09-15T00:14:13Z
+working tree clean before the run: yes (git status --porcelain was empty)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P3 logs: gate.log and ignore.log in records/logs/t0-p3/.
+    # Usage: p3-logs.sh <phase commit>
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    D=records/logs/t0-p3
+    export RUSTUP_AUTO_INSTALL=0
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    mkdir -p "$D"
+    fail=0
+    
+    {
+      echo "about: P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+      echo "phase: T0 P3 (specs/0001-bootstrap.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "working tree clean before the run: yes (git status --porcelain was empty)"
+      echo
+      echo "## script that wrote this log"
+      sed 's/^/    /' "$0"
+      echo
+      echo "## gate script"
+      echo "scripts/check.sh sha256: $(sha256sum scripts/check.sh | cut -d' ' -f1)"
+      echo "scripts/check.sh at $C sha256: $(git show "$C:scripts/check.sh" | sha256sum | cut -d' ' -f1)"
+      echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; rustc: $(rustc --version); active: $(rustup show active-toolchain 2>&1)"
+      echo
+      echo "## full run, started from tools/xlsx-diff to show it runs from any directory"
+      echo "command: (cd tools/xlsx-diff && ../../scripts/check.sh)"
+      (cd tools/xlsx-diff && ../../scripts/check.sh) 2>&1
+      rc=$?
+      echo "exit: $rc"
+      [ "$rc" -eq 0 ] || fail=1
+      echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    } > "$D/gate.log" 2>&1
+    
+    {
+      echo "about: P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+      echo "phase: T0 P3 (specs/0001-bootstrap.md) ignore.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "Verdicts come from git check-ignore -q, whose exit code is logged: 0 ignored, 1 not ignored."
+      echo "The -v line shows which .gitignore pattern matched; -v also prints a negated match, with exit 0."
+      echo
+      echo "## script that wrote this log"
+      sed 's/^/    /' "$0"
+      for spec in "X.XLSX:0" "sub/Y.Xlsm:0" "Z.ODS:0" "tools/x/tests/fixtures/C.XLSX:1" \
+                  "a.xlsx:0" "sub/b.xlsm:0" "tools/x/tests/fixtures/c.xlsx:1" \
+                  "d.Xltx:0" "e.XLTM:0" "f.xlsB:0" "g.XLS:0"; do
+        p=${spec%%:*}; want=${spec#*:}
+        echo
+        echo "command: git check-ignore -v $p"
+        git check-ignore -v "$p"
+        echo "exit: $?"
+        git check-ignore -q "$p"; rq=$?
+        echo "command: git check-ignore -q $p -> exit $rq (expect $want) $([ "$rq" = "$want" ] && echo as-expected || echo UNEXPECTED)"
+        [ "$rq" = "$want" ] || fail=1
+      done
+      echo
+      echo "all verdicts as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    } > "$D/ignore.log" 2>&1
+    
+    exit "$fail"
+
+## gate script
+scripts/check.sh sha256: bede36c4e4a6f8556dbf5492ad301475a6a12a2674b3e0920ad3f6a13590bc79
+scripts/check.sh at c6510593b95a1d61b6446a1cdc1a465ea7d09c67 sha256: bede36c4e4a6f8556dbf5492ad301475a6a12a2674b3e0920ad3f6a13590bc79
+RUSTUP_AUTO_INSTALL=0; rustc: rustc 1.98.1 (48a229cea 2026-09-01); active: 1.98.1-x86_64-unknown-linux-gnu (overridden by '/home/dev/emend/rust-toolchain.toml')
+
+## full run, started from tools/xlsx-diff to show it runs from any directory
+command: (cd tools/xlsx-diff && ../../scripts/check.sh)
+PASS host
+PASS i686
+PASS fmt
+PASS clippy
+exit: 0
+status after the run (expect empty): ?? records/logs/t0-p3/ 
