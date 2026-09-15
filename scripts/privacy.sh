@@ -13,14 +13,15 @@
 #
 # Checks per commit: every raw header line and the message (patterns, denylist,
 # email), the author and committer identity, path names (patterns, denylist,
-# email), counts of corpus paths, office paths and archive blobs, and every
-# blob's content.
+# email), counts of corpus paths, office paths, Zone.Identifier paths and
+# archive or compound-file blobs, and every blob's content.
 #
 # Findings name only the check, the pattern or entry number, the commit, the
 # path and the line number, never the matched text. A path that itself hits
 # prints as <private path>, a path containing emend-testing as <corpus path>,
-# and an office file outside tests/fixtures/ as <office path>. Corpus paths,
-# office paths and archive blobs are counted, never named. The private
+# an office file outside tests/fixtures/ as <office path>, and a Zone.Identifier
+# file as <zone path>. Corpus, office and Zone.Identifier paths and archive or
+# compound-file blobs are counted, never named. The private
 # denylist is never printed, copied to a file or passed on a command line.
 set -uo pipefail
 
@@ -29,10 +30,14 @@ readonly USAGE="usage: scripts/privacy.sh [--range <rev>]"
 # scripts/privacy-patterns.txt must hold exactly this many patterns. The
 # self-test plants one fake value per pattern, in the file's order.
 readonly EXPECTED_PATTERNS=11
-# Office and spreadsheet extensions, alone or followed by #, ~ or a further
-# extension (lock files and backups such as .~lock.<name>.xlsx#). Keep in step
-# with step 7 of scripts/check.sh and with .gitignore.
-readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.])'
+# Office and spreadsheet extensions, alone or followed by #, ~, : or a further
+# extension (lock files, backups and download metadata such as
+# .~lock.<name>.xlsx# and <name>.xlsx:Zone.Identifier). Keep in step with
+# step 7 of scripts/check.sh and with .gitignore.
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.:])'
+# Download metadata written beside a file copied from Windows, matched in any
+# case. It fails wherever it is, tests/fixtures/ included.
+readonly ZONE_RE=':zone[.]identifier$'
 readonly FIXTURES_RE='(^|/)tests/fixtures/'
 readonly EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
 
@@ -183,7 +188,7 @@ hit_lines() {
 # identity address, noreply@anthropic.com and addresses at example.invalid.
 # Addresses pass only through the pipe.
 email_lines() {
-  local file=$1 res=$2 rc l z=()
+  local file=$1 res=$2 l z=() st=()
   [ "${3:-}" != -z ] || z=(-z)
   screen "$file" "${z[@]}" -E -e "$EMAIL_RE" || return 0
   LC_ALL=C "$G" -a "${z[@]}" -o -n -E -e "$EMAIL_RE" -- "$file" 2>/dev/null </dev/null |
@@ -192,8 +197,10 @@ email_lines() {
       { i = index($0, ":"); a = tolower(substr($0, i + 1)) }
       a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
       { print substr($0, 1, i - 1) }' | sort -un >"$T/lines"
-  rc=${PIPESTATUS[0]}
-  [ "$rc" -lt 2 ] || error "grep failed while scanning"
+  st=("${PIPESTATUS[@]}")
+  # Every stage must succeed: a failure after grep would drop findings.
+  [ "${st[0]}" -lt 2 ] && [ "${st[1]}" -eq 0 ] && [ "${st[2]}" -eq 0 ] && [ "${st[3]}" -eq 0 ] ||
+    error "the email check failed while scanning"
   while read -r l; do
     echo "email - $l" >>"$res"
   done <"$T/lines"
@@ -248,15 +255,27 @@ check_identity() {
   done
 }
 
-# signature <file>: print zip, gzip or 7z when the file starts with that
-# format's signature, else nothing.
+# signature <file>: print the archive or compound-file format that the file's
+# first bytes (for tar, the bytes at offset 257) belong to, else nothing.
+# Returns 1 when the file cannot be read; the caller treats that as an error,
+# never as a finding.
 signature() {
-  local head
-  head=$(od -An -tx1 -N6 -- "$1" | tr -d ' \n') || error "od failed while reading a blob"
+  local size head tar=""
+  size=$(wc -c <"$1") || return 1
+  head=$(od -An -tx1 -N8 -- "$1" | tr -d ' \n') || return 1
+  if [ "$size" -ge 262 ]; then
+    tar=$(od -An -tx1 -j257 -N5 -- "$1" | tr -d ' \n') || return 1
+  fi
   case "$head" in
-    504b0304*) echo zip ;;
+    504b0304* | 504b0708*) echo zip ;;
     1f8b*) echo gzip ;;
     377abcaf271c*) echo 7z ;;
+    d0cf11e0a1b11ae1*) echo ole2 ;;
+    fd377a585a00*) echo xz ;;
+    425a68*) echo bzip2 ;;
+    28b52ffd*) echo zstd ;;
+    526172211a07*) echo rar ;;
+    *) [ "$tar" != 7573746172 ] || echo tar ;;
   esac
 }
 
@@ -306,6 +325,9 @@ check_commit() {
   [ "$rc" -lt 2 ] || error "grep failed while checking office paths"
   count=$(wc -l <"$T/office-idx")
   [ "$count" -eq 0 ] || emit "paths: commit $commit $count office file path(s) outside tests/fixtures/ (paths not printed)"
+  z_indices "$T/paths.z" "$T/zone-idx" -i -E -e "$ZONE_RE"
+  count=$(wc -l <"$T/zone-idx")
+  [ "$count" -eq 0 ] || emit "paths: commit $commit $count Zone.Identifier path(s) (paths not printed)"
 
   # Path names against patterns and denylist. A path that hits is never printed.
   scan_file "$T/paths.z" "$T/paths-res" -z
@@ -316,8 +338,8 @@ check_commit() {
   done <"$T/paths-res"
 
   # Content: every blob in the tree, read as bytes whatever git attributes say.
-  # A blob starting with an archive signature outside tests/fixtures/ is
-  # counted, whatever its name.
+  # A blob with an archive or compound-file signature outside tests/fixtures/
+  # is counted, whatever its name.
   idx=0
   archives=0
   while IFS= read -r -d '' entry; do
@@ -329,7 +351,8 @@ check_commit() {
       run_git "$T/blob" cat-file blob "$sha"
       scan_file "$T/blob" "$T/res/$sha"
       BLOB_RESULT[$sha]=$T/res/$sha
-      BLOB_SIG[$sha]=$(signature "$T/blob")
+      signature "$T/blob" >"$T/sig" || error "cannot read the first bytes of a blob"
+      BLOB_SIG[$sha]=$(<"$T/sig")
       BLOBS=$((BLOBS + 1))
     fi
     if [ -n "${BLOB_SIG[$sha]}" ] && ! screen "$T/fixtures-idx" -x -F -e "$idx"; then
@@ -342,6 +365,8 @@ check_commit() {
       shown='<corpus path>'
     elif screen "$T/office-idx" -x -F -e "$idx"; then
       shown='<office path>'
+    elif screen "$T/zone-idx" -x -F -e "$idx"; then
+      shown='<zone path>'
     else
       shown=${QUOTED[$((idx - 1))]}
     fi
@@ -354,7 +379,7 @@ check_commit() {
     done <"${BLOB_RESULT[$sha]}"
   done <"$T/tree.z"
   [ "$archives" -eq 0 ] ||
-    emit "archives: commit $commit $archives blob(s) with a zip, gzip or 7z signature outside tests/fixtures/ (paths not printed)"
+    emit "archives: commit $commit $archives blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)"
 }
 
 # --- self-test ---------------------------------------------------------------
@@ -362,8 +387,9 @@ hex() { od -An -N"$1" -tx1 /dev/urandom | tr -d ' \n'; }
 
 # A throwaway repository with one realistic fake value per pattern, a
 # denylist sentinel, a disallowed and allowed email addresses, corpus, office,
-# fixture and private paths, an address in a path name, archive blobs inside
-# and outside tests/fixtures/, and an extra commit header line. Every planted
+# fixture and private paths, an address in a path name, archive and
+# compound-file blobs inside and outside tests/fixtures/, Zone.Identifier files,
+# the P6b forms of patterns 10 and 11, and an extra commit header line. Every planted
 # hit must be reported, each pattern under its own number, and no allowed
 # address.
 selftest() {
@@ -390,6 +416,10 @@ selftest() {
   run_git "$T/git-out" init -q "$repo"
   mkdir -p "$repo/Emend-Testing" "$repo/tools/tests/fixtures" || error "mkdir failed"
   printf '%s\n' "${fakes[@]}" >"$repo/a.txt"
+  # The P6b forms of patterns 10 and 11 (a single separator, lower-case Users,
+  # forward slashes), so an edit that narrows either pattern is caught.
+  printf '%s\n' "C:""\\Users\\user$(hex 2)\\Documents" \
+    "/home/user/"".claude""/projects/-home-user-project/$(hex 8).jsonl" >"$repo/w.txt"
   printf 'self-test sentinel %s\n' "$sentinel" >"$repo/b.txt"
   printf 'contact %s\n' "$email" >"$repo/e.txt"
   printf '%s noreply@anthropic.com zq%s@example.invalid\n' "$ID_EMAIL" "$(hex 2)" >"$repo/ok.txt"
@@ -403,6 +433,15 @@ selftest() {
   printf 'PK\003\004self-test\n' >"$repo/tools/tests/fixtures/z.bin"
   printf '\037\213self-test\n' >"$repo/g.dat"
   printf '7z\274\257\047\034self-test\n' >"$repo/s.txt"
+  printf '\320\317\021\340\241\261\032\341self-test\n' >"$repo/sig-ole2"
+  printf '\375\067\172\130\132\000self-test\n' >"$repo/sig-xz"
+  printf 'BZh9self-test\n' >"$repo/sig-bzip2"
+  printf '\050\265\057\375self-test\n' >"$repo/sig-zstd"
+  printf 'Rar!\032\007self-test\n' >"$repo/sig-rar"
+  printf 'PK\007\010self-test\n' >"$repo/sig-split-zip"
+  { printf '%257s' ''; printf 'ustar self-test\n'; } >"$repo/sig-tar"
+  printf '[ZoneTransfer]\nZoneId=3\n' >"$repo/q.xlsx:Zone.Identifier"
+  printf '%s\n' "${fakes[0]}" >"$repo/tools/tests/fixtures/f.xlsx:Zone.Identifier"
   GITX=("${GIT_CLEAN[@]}" -C "$repo" -c user.name=selftest -c user.email=selftest@example.invalid
     -c commit.gpgsign=false -c core.hooksPath=/dev/null)
   run_git "$T/git-out" add -f .
@@ -427,14 +466,20 @@ selftest() {
     screen "$SINK" -x -F -e "FAIL patterns: commit $head path a.txt pattern $((i + 1)) line $((i + 1))" ||
       error "self-test failed: pattern $((i + 1)) did not detect its fake value"
   done
+  for i in 10 11; do
+    screen "$SINK" -x -F -e "FAIL patterns: commit $head path w.txt pattern $i line $((i - 9))" ||
+      error "self-test failed: pattern $i did not detect its P6b-form fake value"
+  done
   want=(
     "FAIL denylist: commit $head path b.txt denylist entry 1 line 1"
     "FAIL email: commit $head path e.txt line 1"
     "FAIL message: commit $head pattern 1 line 1"
     "FAIL message: commit $head email line 3"
     "FAIL paths: commit $head 1 path(s) containing emend-testing (paths not printed)"
-    "FAIL paths: commit $head 2 office file path(s) outside tests/fixtures/ (paths not printed)"
-    "FAIL archives: commit $head 3 blob(s) with a zip, gzip or 7z signature outside tests/fixtures/ (paths not printed)"
+    "FAIL paths: commit $head 3 office file path(s) outside tests/fixtures/ (paths not printed)"
+    "FAIL paths: commit $head 2 Zone.Identifier path(s) (paths not printed)"
+    "FAIL archives: commit $head 10 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)"
+    "FAIL patterns: commit $head path <zone path> pattern 1 line 1"
     "FAIL header: commit $head pattern 1 line 4"
     "FAIL header: commit $head denylist entry 1 line 4"
     "FAIL header: commit $head email line 4"

@@ -227,10 +227,13 @@ echo "PASS licences"
 # before using it. Exit 2 or more from any grep is an error, never zero hits.
 # ANTHROPIC_API_KEY is checked before step 1.
 EMDASH=$(printf '\342\200\224')
-# Office and spreadsheet extensions, alone or followed by #, ~ or a further
-# extension (lock files and backups). Keep in step with scripts/privacy.sh
-# and .gitignore.
-readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.])'
+# Office and spreadsheet extensions, alone or followed by #, ~, : or a further
+# extension (lock files, backups and download metadata). Keep in step with
+# scripts/privacy.sh and .gitignore.
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.:])'
+# Download metadata beside a file copied from Windows, matched with -i. It
+# fails wherever it is, tests/fixtures/ included.
+readonly ZONE_RE=':zone[.]identifier$'
 readonly FIXTURES_RE='(^|/)tests/fixtures/'
 : >"$OUT/hygiene-err"
 rc=0
@@ -305,10 +308,15 @@ mkdir -p "$CTL"
 printf 'plain\000bad\001path\000' >"$CTL/ctrl.z"
 hgrep "$CTL/o-ctrl" -z -c -P '[\x01-\x1f\x7f]' "$CTL/ctrl.z"
 [ "$rc" -eq 0 ] || fail hygiene "positive control failed: control byte in a path (grep exit $rc)" "$OUT/hygiene-err"
-printf 'x/b.XLSX\000c.txt\000.~lock.d.ods#\000e.Csv.bak\000f.xlsxy\000' >"$CTL/office.z"
+printf 'x/b.XLSX\000c.txt\000.~lock.d.ods#\000e.Csv.bak\000f.xlsxy\000g.xlsx:Zone.Identifier\000' >"$CTL/office.z"
 hgrep "$CTL/o-office" -z -i -E "$OFFICE_RE" "$CTL/office.z"
-if [ "$rc" -ne 0 ] || [ "$(tr '\000' ' ' <"$CTL/o-office")" != "x/b.XLSX .~lock.d.ods# e.Csv.bak " ]; then
+if [ "$rc" -ne 0 ] || [ "$(tr '\000' ' ' <"$CTL/o-office")" != "x/b.XLSX .~lock.d.ods# e.Csv.bak g.xlsx:Zone.Identifier " ]; then
   fail hygiene "positive control failed: office extension (grep exit $rc)" "$OUT/hygiene-err"
+fi
+printf 'a.xlsx:Zone.Identifier\000b.txt\000tests/fixtures/c.ods:ZONE.IDENTIFIER\000d:Zone.Identifier.txt\000' >"$CTL/zone.z"
+hgrep "$CTL/o-zone" -z -c -i -E "$ZONE_RE" "$CTL/zone.z"
+if [ "$rc" -ne 0 ] || [ "$(tr -d '\000\n' <"$CTL/o-zone")" != 2 ]; then
+  fail hygiene "positive control failed: Zone.Identifier paths (grep exit $rc)" "$OUT/hygiene-err"
 fi
 printf 'tools/tests/fixtures/a.xlsx\000b.xlsx\000' >"$CTL/fixtures.z"
 hgrep "$CTL/o-fixtures" -z -v -E "$FIXTURES_RE" "$CTL/fixtures.z"
@@ -350,6 +358,14 @@ hgrep "$OUT/office.z" -z -v -E "$FIXTURES_RE" "$OUT/office-all.z"
 # A workbook's file name could be private, so only the count is printed.
 if [ -s "$OUT/office.z" ]; then
   fail hygiene "$(tr -cd '\000' <"$OUT/office.z" | wc -c) office file(s) tracked outside tests/fixtures/ (paths not printed)"
+fi
+
+# Download metadata can carry a private file name and download URL, so it
+# fails wherever it is, and only the count is printed.
+hgrep "$OUT/zone-count" -z -c -i -E "$ZONE_RE" "$OUT/tracked.z"
+[ "$rc" -lt 2 ] || fail hygiene "grep error while matching Zone.Identifier paths (exit $rc)" "$OUT/hygiene-err"
+if [ "$rc" -eq 0 ]; then
+  fail hygiene "$(tr -d '\000\n' <"$OUT/zone-count") tracked Zone.Identifier file(s) (paths not printed)"
 fi
 
 # A corpus path could carry a private name, so only the count is printed.
