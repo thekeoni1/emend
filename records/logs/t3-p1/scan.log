@@ -1,0 +1,535 @@
+about: phase diff 8c979bc..9eaee4778f16f172d4a1b2414d147542b6bfcbc1; HEAD at run: 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+phase: T3 P1 (specs/0006-passthrough.md) scan.log; run at 2026-09-15T21:28:40Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T3 P1 scan over the phase diff: files changed in <base>..<commit> (contents at
+    # <commit>), each commit's file list and message, and the other T3 P1 logs.
+    # Usage: t3p1-scan.sh <base> <commit> > <scratch file>; the caller moves the
+    # output to records/logs/t3-p1/scan.log, so nothing is written in the tree
+    # during the run. Never prints matched text, email addresses or denylist entries.
+    # Each check is evaluated once and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    BASE=${1:?base commit required}
+    C=${2:?phase commit required}
+    G=/usr/bin/grep
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    # Shape-based patterns (specs/0001 P6, P6b and P6c; unchanged since P6c), one character of each literal bracketed.
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]'
+      '[.]claude[\\/]+projects[\\/]'
+    )
+    P6ARGS=()
+    for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_ctrl()     { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -a -c -E "${P6ARGS[@]}" "$1"; }
+    f_p6_one()   { LC_ALL=C "$G" -a -c -E -e "${P6[$1]}" "$2"; }
+    f_host()     { LC_ALL=C "$G" -a -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -a -c -i -w -F -f "$T/deny" "$1"; }
+    f_deny_one() { LC_ALL=C "$G" -a -c -i -w -F -f "$T/deny-$1" "$2"; }
+    # Addresses outside the allowlist (the identity address, noreply@anthropic.com,
+    # example.invalid). Prints the count; exit 0 on a hit, 1 on none, 2 on error.
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo none; return 2; fi
+      if [ "$rc" -eq 1 ]; then echo 0; return 1; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0; exit !(n > 0) }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_host f_deny f_email"
+    
+    run() { # run <form> <file>
+      local n rc
+      n=$("$1" "$2"); rc=$?
+      echo "  form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <label> <expected exit> <command...>
+      local label=$1 want=$2 n rc r
+      shift 2
+      n=$("$@"); rc=$?
+      r=$([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=${n:-none} exit=$rc expected_exit=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    # structural <label> <yes|no>: print a result evaluated once.
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    echo "about: phase diff $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 P1 (specs/0006-passthrough.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    MODE600=$(stat -c %a "$DENY_FILE")
+    echo "private denylist: present, mode $MODE600"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$T/deny"
+    NDENY=$(wc -l < "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    NWS=$(LC_ALL=C "$G" -c -E '[[:space:]]' "$T/deny")
+    structural "denylist entries holding whitespace: $NWS (expect 0)" "$(yn [ "$NWS" -eq 0 ])"
+    [ "$NDENY" -gt 0 ] || { echo "denylist has no entries"; exit 2; }
+    structural "private denylist mode is 600" "$(yn [ "$MODE600" = 600 ])"
+    if git show "$C:scripts/privacy-patterns.txt" > "$T/patterns-at-c" 2>/dev/null; then
+      printf '%s\n' "${P6[@]}" > "$T/patterns-here"
+      structural "this script's patterns equal scripts/privacy-patterns.txt at $C" "$(yn cmp -s "$T/patterns-here" "$T/patterns-at-c")"
+    else
+      echo "scripts/privacy-patterns.txt at $C: READ ERROR"; err=1
+    fi
+    
+    echo
+    echo "## controls (same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/c-ctrl"
+    printf 'plain\ttab\r\n' > "$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" > "$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" > "$T/c-p6-0"
+    printf 'x %s%s%s y\n' 'github' '_pat_' "$(rep a 24)" > "$T/c-p6-1"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(rep a 24)" > "$T/c-p6-2"
+    printf '%s%s%s\n' '-----BEGIN RSA ' 'PRIVATE' ' KEY-----' > "$T/c-p6-3"
+    printf 'x https://%s%s%s%s y\n' 'claude' '.ai/code/' 'session_' "$(rep A 24)" > "$T/c-p6-4"
+    printf 'x %s%s%s y\n' 'session' '_' "$(rep A 24)" > "$T/c-p6-5"
+    printf 'x %s%s%s%s y\n' '/tmp/' 'claude-' '1000' '/' > "$T/c-p6-6"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' > "$T/c-p6-7"
+    printf 'x %s%s%s y\n' 'DESKTOP' '-' 'ABC12' > "$T/c-p6-8"
+    # Pattern 10: doubled backslashes with USERS in capitals (new in P6c).
+    printf 'x C%s%sUSERS%sbob y\n' ':' '\\' '\\' > "$T/c-p6-9"
+    # Pattern 11: backslash separators (new in P6c).
+    printf 'x %%USERPROFILE%%%s%s%s y\n' '\' '.claude' '\projects\x' > "$T/c-p6-10"
+    # The P6b forms must still match.
+    printf 'x C%s%sUsers%sbob y\n' ':' '\' '\' > "$T/c-p6-9-old"
+    printf 'x /home/u/%s%s y\n' '.claude' '/projects/x' > "$T/c-p6-10-old"
+    printf 'names only: %s %s %s %s\n' 'sk-''ant-' 'github_''pat_' '/tmp/''claude-' 'claude.ai/code/''session' > "$T/c-p6-names"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'x %s y\n' "$FQDN" > "$T/c-fqdn"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' > "$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" > "$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl "f_nonascii file=c-nonascii" 0 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl file=c-ctrl (ESC and SI)" 0 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl file=c-tabcr (tab and CR only)" 1 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash file=c-emdash" 0 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash file=c-nonascii" 1 f_emdash "$T/c-nonascii"
+    check_ctl "f_session file=c-session" 0 f_session "$T/c-session"
+    for i in "${!P6[@]}"; do
+      check_ctl "f_p6_one pattern=$i file=c-p6-$i" 0 f_p6_one "$i" "$T/c-p6-$i"
+      check_ctl "f_p6 file=c-p6-$i" 0 f_p6 "$T/c-p6-$i"
+    done
+    check_ctl "f_p6_one pattern=9 file=c-p6-9-old (P6b form)" 0 f_p6_one 9 "$T/c-p6-9-old"
+    check_ctl "f_p6_one pattern=10 file=c-p6-10-old (P6b form)" 0 f_p6_one 10 "$T/c-p6-10-old"
+    check_ctl "f_p6 file=c-p6-names (bare pattern names must not match)" 1 f_p6 "$T/c-p6-names"
+    check_ctl "f_host file=c-host" 0 f_host "$T/c-host"
+    check_ctl "f_host file=c-fqdn" 0 f_host "$T/c-fqdn"
+    check_ctl "f_email file=c-email-bad (an address at example.com)" 0 f_email "$T/c-email-bad"
+    check_ctl "f_email file=c-email-ok (only allowed addresses)" 1 f_email "$T/c-email-ok"
+    for i in $(seq 1 "$NDENY"); do
+      sed -n "${i}p" "$T/deny" > "$T/deny-$i"
+      awk '{print "x " $0 " y"}' "$T/deny-$i" > "$T/c-deny-$i"
+      check_ctl "f_deny_one entry=$i (not printed)" 0 f_deny_one "$i" "$T/c-deny-$i"
+      check_ctl "f_deny entry=$i (not printed)" 0 f_deny "$T/c-deny-$i"
+    done
+    for f in $FORMS; do check_ctl "$f file=c-clean" 1 "$f" "$T/c-clean"; done
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the phase range, with their files"
+    echo "command: git rev-list --parents $BASE..$C"
+    git rev-list --parents "$BASE..$C"
+    for c in $(git rev-list --reverse "$BASE..$C"); do
+      echo "command: git show --name-status --format='%H parents=%P %s' $c"
+      git show --name-status --format='%H parents=%P %s' "$c" | sed 's/^/    /'
+    done
+    
+    echo
+    echo "## files changed in the phase diff (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf+1))
+      if git show "$C:$f" > "$T/f" 2>/dev/null; then nread=$((nread+1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum < "$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    want=$(git diff --name-only --diff-filter=d "$BASE" "$C" | wc -l)
+    # files_complete: every file in the diff was scanned and read, and there was at least one.
+    files_complete() { [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in diff: $want; files scanned: $nf; files read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the phase range"
+    nm=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm+1))
+      if ! git cat-file commit "$c" > "$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" > "$T/m"
+      last=$(awk 'NF{l=$0} END{print l}' "$T/m")
+      echo "message $c"
+      structural "  last non-empty line is the Co-Authored-By line" "$(yn [ "$last" = "$COAUTHOR" ])"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    # messages_complete: every commit message in the range was scanned, and there was at least one.
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    
+    echo
+    echo "## other T3 P1 logs in the working tree (a log cannot scan itself)"
+    nl=0
+    for f in records/logs/t3-p1/gate-attempt1.log records/logs/t3-p1/gate.log records/logs/t3-p1/test.log records/logs/t3-p1/negative.log; do
+      if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
+      nl=$((nl+1))
+      echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    structural "T3 P1 logs scanned: $nl (expected 4)" "$(yn [ "$nl" -eq 4 ])"
+    
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep or read errors: $err"
+    echo "structural checks failed: $bad"
+    # scan_passed: controls as expected, no errors, no hits, no failed structural check.
+    scan_passed() { [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+denylist entries holding whitespace: 0 (expect 0): yes
+private denylist mode is 600: yes
+this script's patterns equal scripts/privacy-patterns.txt at 9eaee4778f16f172d4a1b2414d147542b6bfcbc1: yes
+
+## controls (same command forms as the scans)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
+  control f_ctrl file=c-ctrl (ESC and SI) count=1 exit=0 expected_exit=0: as-expected
+  control f_ctrl file=c-tabcr (tab and CR only) count=0 exit=1 expected_exit=1: as-expected
+  control f_emdash file=c-emdash count=1 exit=0 expected_exit=0: as-expected
+  control f_emdash file=c-nonascii count=0 exit=1 expected_exit=1: as-expected
+  control f_session file=c-session count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=0 file=c-p6-0 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-0 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=1 file=c-p6-1 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-1 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=2 file=c-p6-2 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-2 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=3 file=c-p6-3 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-3 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=4 file=c-p6-4 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-4 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=5 file=c-p6-5 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-5 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=6 file=c-p6-6 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-6 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=7 file=c-p6-7 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-7 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=8 file=c-p6-8 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-8 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=9 file=c-p6-9 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-9 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=10 file=c-p6-10 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-10 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=9 file=c-p6-9-old (P6b form) count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=10 file=c-p6-10-old (P6b form) count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-names (bare pattern names must not match) count=0 exit=1 expected_exit=1: as-expected
+  control f_host file=c-host count=1 exit=0 expected_exit=0: as-expected
+  control f_host file=c-fqdn count=1 exit=0 expected_exit=0: as-expected
+  control f_email file=c-email-bad (an address at example.com) count=1 exit=0 expected_exit=0: as-expected
+  control f_email file=c-email-ok (only allowed addresses) count=0 exit=1 expected_exit=1: as-expected
+  control f_deny_one entry=1 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=2 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=3 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=4 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=5 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=6 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=7 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=7 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_nonascii file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_ctrl file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_emdash file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_session file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_p6 file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_host file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_deny file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_email file=c-clean count=0 exit=1 expected_exit=1: as-expected
+controls: all as expected
+
+## commits in the phase range, with their files
+command: git rev-list --parents 8c979bc..9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+9eaee4778f16f172d4a1b2414d147542b6bfcbc1 d63ad31eb9957bf5c3293d04d16d6f85622732d3
+d63ad31eb9957bf5c3293d04d16d6f85622732d3 8c979bcc01ec39741e340e954a3a1a5208c5701e
+command: git show --name-status --format='%H parents=%P %s' d63ad31eb9957bf5c3293d04d16d6f85622732d3
+    d63ad31eb9957bf5c3293d04d16d6f85622732d3 parents=8c979bcc01ec39741e340e954a3a1a5208c5701e T3 P1: commit planning doc updates (T1 close, P6 rulings, T3 spec)
+    
+    M	ROADMAP.md
+    M	specs/0000-step-zero-plan.md
+    M	specs/0004-xlsx-diff.md
+    A	specs/0006-passthrough.md
+command: git show --name-status --format='%H parents=%P %s' 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+    9eaee4778f16f172d4a1b2414d147542b6bfcbc1 parents=d63ad31eb9957bf5c3293d04d16d6f85622732d3 T3 P1: passthrough copy tool, runner and record script
+    
+    M	Cargo.lock
+    M	Cargo.toml
+    A	scripts/passthrough-record.py
+    A	scripts/passthrough-run.sh
+    A	tools/passthrough/Cargo.toml
+    A	tools/passthrough/src/main.rs
+    A	tools/passthrough/tests/common/mod.rs
+    A	tools/passthrough/tests/copies.rs
+    A	tools/passthrough/tests/faults.rs
+
+## files changed in the phase diff (contents at 9eaee4778f16f172d4a1b2414d147542b6bfcbc1)
+command: git diff --name-status 8c979bc 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+    M	Cargo.lock
+    M	Cargo.toml
+    M	ROADMAP.md
+    A	scripts/passthrough-record.py
+    A	scripts/passthrough-run.sh
+    M	specs/0000-step-zero-plan.md
+    M	specs/0004-xlsx-diff.md
+    A	specs/0006-passthrough.md
+    A	tools/passthrough/Cargo.toml
+    A	tools/passthrough/src/main.rs
+    A	tools/passthrough/tests/common/mod.rs
+    A	tools/passthrough/tests/copies.rs
+    A	tools/passthrough/tests/faults.rs
+file Cargo.lock (sha256 c6842664fbdbf3cd10b86357e76561183bfc9a29c9982ee1a9523a5f57edf698)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file Cargo.toml (sha256 78764bc78d17e8e8858ef767fc1c803d5620d47c0f2874af61cf86c60285a2ae)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file ROADMAP.md (sha256 35383db5a6ce9ceb0a86af5dca8e6236af0f363e7cd991a6ee11ecb9e787b1bf)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/passthrough-record.py (sha256 5336eae4488aa978b7060e1833e190633bf0150c88e6c6a83fc6f31480ed32aa)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/passthrough-run.sh (sha256 685eef7b6f8c48904278298918b427973a9caf896d3986dd244ec5f3103a31e9)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0000-step-zero-plan.md (sha256 59d5ac883ba0a4a9b567339323cb551c3e935ef1e7d45ebb0198e7bbbce537da)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0004-xlsx-diff.md (sha256 857b0be1937a817c4980f62ae251230e057f44b82d4f267787dd2d3004435edb)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0006-passthrough.md (sha256 c799f57083463552c5000279d6c3992b047d800913edefca498763a36c7a6cfc)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/Cargo.toml (sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/src/main.rs (sha256 3d7c3f8f278d9d1645d42dae34fac9e1c174f133c2febec34a54f97ae2b0d46f)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/common/mod.rs (sha256 3f1054ef72d7cee8fd152210bdca28105957d0f0680e00c8c2ae416c0a7e1115)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/copies.rs (sha256 07cd6a5cbbb286c464688051be96d211cf4b55421dd30d64517f8594294f7754)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/faults.rs (sha256 355a406aee9abd43fdc5361e19de4f960bf65770c148f816fdf71a5e8715b6d3)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+files in diff: 13; files scanned: 13; files read: 13: yes
+
+## commit messages in the phase range
+message 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message d63ad31eb9957bf5c3293d04d16d6f85622732d3
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+messages scanned: 2; commits in range: 2: yes
+
+## other T3 P1 logs in the working tree (a log cannot scan itself)
+log records/logs/t3-p1/gate-attempt1.log (sha256 965f7029d77d6cb42922a6e6ab8863e29cf7eb5e50c720e5713774b72ce4ba9d)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+log records/logs/t3-p1/gate.log (sha256 8613a83ca52b8515ff4e4b86ea69b30d7449af0601f9d8f7e6013e8bb77643a5)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+log records/logs/t3-p1/test.log (sha256 d392a5f24b0f19f2f1cdcdc4da13bd27a38f4ba6f5b1ef9c47dfe4a59d51e08f)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+log records/logs/t3-p1/negative.log (sha256 a083d70d3b31370ac17ed037089a29ce47586590d0852170e8f76d7160758d48)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+T3 P1 logs scanned: 4 (expected 4): yes
+
+total hits: 0
+grep or read errors: 0
+structural checks failed: 0
+run ended at 2026-09-15T21:28:41Z
+RESULT: PASS
