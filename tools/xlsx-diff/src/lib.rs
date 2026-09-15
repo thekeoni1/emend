@@ -709,8 +709,8 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
     let (uncompressed_out, compressed_out) = size_sums(&b)?;
     let same_files = files_identical(input, output, a.bytes, b.bytes)?;
 
-    write_archive(out, "entries_in", a.entries.len())?;
-    write_archive(out, "entries_out", b.entries.len())?;
+    write_archive(out, "entries_in", a.entries.len() as u64)?;
+    write_archive(out, "entries_out", b.entries.len() as u64)?;
     write_archive(out, "identical", counts.identical)?;
     write_archive(out, "recompressed", counts.recompressed)?;
     write_archive(out, "changed", counts.changed)?;

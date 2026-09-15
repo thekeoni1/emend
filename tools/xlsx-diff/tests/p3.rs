@@ -335,6 +335,29 @@ fn files_identical_yes_on_a_byte_copy_and_no_otherwise() {
     let longer = dir.path("longer.zip");
     fs::write(&longer, raw_zip(&[], &entries, b"fictional-xx")).expect("write");
     let result = run(&input, &longer);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    assert_ne!(
+        archive_value(&result.stdout, "bytes_in"),
+        archive_value(&result.stdout, "bytes_out")
+    );
+    assert_eq!(archive_value(&result.stdout, "files_identical"), "no");
+
+    // The same length, one byte different in a middle buffer of the file.
+    let middle = dir.path("middle.zip");
+    let flipped_entries = [raw_stored(
+        "big.bin",
+        &flipped(&pattern(200_000), &[100_000]),
+    )];
+    fs::write(&middle, raw_zip(&[], &flipped_entries, b"fictional-x")).expect("write");
+    let result = run(&input, &middle);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    assert_eq!(rows(&result.stdout, "entry")[0][2], "changed");
+    assert_eq!(
+        archive_value(&result.stdout, "bytes_in"),
+        archive_value(&result.stdout, "bytes_out")
+    );
     assert_eq!(archive_value(&result.stdout, "files_identical"), "no");
 }
 
@@ -370,4 +393,103 @@ fn leading_junk_bytes() {
         with.len().to_string()
     );
     assert_eq!(archive_value(&result.stdout, "files_identical"), "no");
+}
+
+#[test]
+fn output_side_rows_take_the_output_values() {
+    // Every in/out pair differs, so a row printing the other side's value
+    // fails.
+    let dir = TempDir::new("output-side");
+    let b_data = text(30);
+    let input_bytes = raw_zip(&[], &[base("a.txt")], b"");
+    let output_bytes = raw_zip(
+        &pattern(500),
+        &[
+            base("a.txt"),
+            raw_deflated("b.txt", &b_data, &stored_blocks(&b_data, &[100])),
+        ],
+        b"",
+    );
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    fs::write(&input, &input_bytes).expect("write");
+    fs::write(&output, &output_bytes).expect("write");
+    let (mi, mo) = (meta(&input), meta(&output));
+    let sum = |m: &[[String; 4]], k: usize| -> u64 {
+        m.iter().map(|e| e[k].parse::<u64>().expect("number")).sum()
+    };
+
+    let result = run(&input, &output);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    let expected = [
+        ("entries_in", "1".to_string()),
+        ("entries_out", "2".to_string()),
+        ("prefix_in", "0".to_string()),
+        ("prefix_out", "500".to_string()),
+        (
+            "central_start_in",
+            recorded_central_offset(&input_bytes).to_string(),
+        ),
+        (
+            "central_start_out",
+            (recorded_central_offset(&output_bytes) + 500).to_string(),
+        ),
+        ("uncompressed_in", sum(&mi, 1).to_string()),
+        ("uncompressed_out", sum(&mo, 1).to_string()),
+        ("compressed_in", sum(&mi, 2).to_string()),
+        ("compressed_out", sum(&mo, 2).to_string()),
+        ("bytes_in", input_bytes.len().to_string()),
+        ("bytes_out", output_bytes.len().to_string()),
+    ];
+    for (key, value) in &expected {
+        assert_eq!(&archive_value(&result.stdout, key), value, "{key}");
+    }
+    for pair in expected.chunks(2) {
+        assert_ne!(pair[0].1, pair[1].1, "precondition: {} differs", pair[0].0);
+    }
+    assert_ne!(
+        sum(&mo, 1),
+        sum(&mo, 2),
+        "precondition: the output's sums differ from each other"
+    );
+}
+
+#[test]
+fn different_lengths_across_several_buffers() {
+    // Column 14 is the first differing offset past the first 64 KiB buffer,
+    // or the shorter length when the bytes agree up to there.
+    let dir = TempDir::new("lengths-buffers");
+    let data = pattern(200_000);
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    write_zip(
+        &input,
+        &[
+            deflated("agree.bin", &data),
+            deflated("differ.bin", &data),
+            deflated("longer-out.bin", &data[..70_000]),
+        ],
+    );
+    write_zip(
+        &output,
+        &[
+            deflated("agree.bin", &data[..150_000]),
+            deflated("differ.bin", &flipped(&data[..150_000], &[140_000])),
+            deflated("longer-out.bin", &flipped(&data, &[69_999])),
+        ],
+    );
+
+    let result = run(&input, &output);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    let entry_rows = rows(&result.stdout, "entry");
+    let expected = [
+        ["150000", "", "", ""],
+        ["140000", "", "", ""],
+        ["69999", "", "", ""],
+    ];
+    assert_eq!(entry_rows.len(), 3);
+    for (i, row) in entry_rows.iter().enumerate() {
+        assert_eq!(row[2], "changed");
+        assert_tail(row, expected[i]);
+    }
 }
