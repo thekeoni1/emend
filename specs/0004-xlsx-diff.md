@@ -1,9 +1,11 @@
 # 0004: T1 xlsx-diff, the entry-level fidelity harness
 
-Status: P1 to P3 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
+Status: P1 to P4 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
 6ccae09, phase commits 2df5f6e and dc22f78; P2: a3166a5 to 24f4ef0,
 phase commits 8d3c2aa, ac10ff6 and ed5f1f7; P3: f0adb45 to 827766a,
-phase commits 9f124c7 and 401bb98). P4 READY. Runs after T0b. T2
+phase commits 9f124c7 and 401bb98; P4: 564af3b to b5180be, phase
+commits 74b2bf0 and c35112b). The T1 close-out push goes after P4
+(maintainer decision, 2026-09-15); P5 READY after it. Runs after T0b. T2
 (corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
@@ -95,23 +97,33 @@ Flags, set only for entries present on both sides, whatever the status:
 - `extra`: the local extra field or the central extra field differs;
 - `gpflags`: the general purpose bit flags differ;
 - `descriptor`: one side uses a data descriptor and the other does not;
-- `attrs`: the external attributes, version-made-by (whose high byte is
-  the system) or version-needed-to-extract in the central record differ;
+- `attrs`: the external attributes, internal attributes, disk number
+  start, version-made-by (whose high byte is the system) or
+  version-needed-to-extract in the central record differ (internal
+  attributes and disk number start from P5);
 - `comment`: the entry comment differs;
-- `local`: the fixed fields of the local file header other than the
-  signature and the name and extra lengths (version needed, general
-  purpose flags, method, DOS time, DOS date, CRC-32, compressed size,
-  uncompressed size) differ, or the name bytes in the local headers
-  differ (added in P4, on P3's spec observation).
+- `local`: a local-only difference. A field of the local file header
+  (version needed, general purpose flags, method, DOS time, DOS date,
+  CRC-32, compressed size, uncompressed size) differs between the sides
+  while the same field of the central records does not, or the name
+  bytes in the local headers differ. A difference that the central
+  records mirror is reported by the status or by the central flag
+  alone (P4 added the flag over all local fields; P5 narrows it to
+  local-only differences).
+
+`descriptor` also covers, from P5, the bytes between the end of an
+entry's compressed data and the next local header, or the central
+directory for the last entry: a data descriptor's bytes, and any padding.
 
 The flags `mtime`, `extra`, `gpflags`, `descriptor`, `attrs` and
 `comment` read the central directory record's own bytes, plus the local
-header's extra field for `extra`. With `local`, exit status 0 means that
-every common entry's local header, extra fields, data and central record
-are byte-equal, the order is preserved and the archive comment is equal;
-a `files_identical` of `no` beside exit 0 can then come only from bytes
-outside the entries and the comment: a prefix, padding between entries,
-or end-of-central-directory fields other than the comment.
+header's extra field for `extra`. With all seven flags, exit status 0
+means that every common entry is byte-equal from its local header to
+the next header, that its central record is byte-equal apart from the
+local header offset field, that the order is preserved and that the
+archive comment is equal. A `files_identical` of `no` beside exit 0 can
+then come only from a prefix or from end-of-central-directory and zip64
+records other than the comment.
 
 `archive` rows, after the entry rows: `archive<TAB>key<TAB>value`, in
 this order:
@@ -426,13 +438,16 @@ Deliverables:
 ### P4: no-leak test, zip64
 
 - Sentinel test: fixture entries contain a sentinel string and sentinel
-  bytes that are unique to the test. The test runs `run` over every
-  combination the tests use (identical, recompressed, changed, dropped,
-  added, error paths) and asserts the sentinel is absent from stdout and
-  stderr, including in error messages for an encrypted or corrupt entry
-  whose name is the sentinel. A name containing the sentinel IS printed
-  (names are metadata); the test asserts it appears only escaped in
-  column 2 and nowhere else.
+  bytes that are unique to the test, in their data, and the string also
+  in entry and archive comments and in extra fields. The test runs
+  `run` over every combination the tests use (identical, recompressed,
+  changed, dropped, added, error paths) and asserts the string and the
+  bytes are absent from stdout and stderr, verbatim, escaped and as
+  hex. A sentinel entry name of non-printable bytes may appear only
+  escaped: as the whole of column 2 of an `entry` row, and at most once
+  in the one error line that names the entry. The check is a pattern
+  check against known values, not a proof that nothing else can leak
+  (ruled on P4 departure 2 and gap 3).
 - zip64 test, `#[ignore]` by default: generate an archive with one entry
   of 4 GiB + 1 zero bytes, deflated, `large_file(true)`; copy it; change
   one byte at offset 4 GiB in the uncompressed data of the copy by
@@ -459,11 +474,84 @@ Deliverables:
 - Acceptance: as P1, plus the zip64 test passes on both targets with the
   peak RSS under 64 MiB.
 
-After P4 verifies, the T1 close-out push follows the T0b close-out steps
-(`specs/0003-ci.md`, "Close-out push (after P2)"), with logs in
-`records/logs/t1-close/` and the CI run recorded. It needs planning's
-word and the maintainer's authorisation typed in the implementing
-session.
+### Planning rulings on P4 (2026-09-15)
+
+- P4 is verified from primaries by planning's own checks:
+  - Doc commit 564af3b holds exactly planning's three doc files (96
+    insertions, 11 deletions), unchanged since. The two phase commits
+    touch only `tools/xlsx-diff/`; the four record commits only
+    `records/logs/t1-p4/`. All seven messages end with the
+    Co-Authored-By trailer only, under the noreply identity. No mode
+    changes, no tracked archive.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 35 passed and 1 ignored on each, same names.
+  - Planning read the `lib.rs` diff and the outline of `tests/p4.rs`
+    against this spec: the local header read with checked lengths, the
+    `local` flag over bytes 4 to 25 and the name, `attrs` with the
+    central version needed, the sentinel test's byte-level checks, and
+    the zip64 test written in 1 MiB chunks.
+  - Planning reproduced with its own archives and the built binary: a
+    sentinel string in entry data, entry comments, extra fields and the
+    archive comment, plus file names holding it, across identical,
+    dropped, changed, comment-only, truncated and non-zip runs, with
+    zero occurrences in any output; a local-header-only DOS time change
+    (`local` alone); and a one-byte difference inside a 200000-byte
+    prefix on both sides (exit 0, `files_identical` `no`).
+  - The zip64 test: `test.log` records both explicit runs, 4294967297
+    bytes on both sides and the difference at 4294967296, host 11 min
+    11 s with a 5752 kB peak and i686 14 min 25 s with a 3344 kB peak.
+    Planning's own i686 run of the test is recorded below.
+  - The six record files, the seven source files, `Cargo.lock` and the
+    seven messages have zero hits on every scan; the superseded logs at
+    b11c221 hold no home path and no non-ASCII byte. `scripts/privacy.sh`
+    over the 109 local commits: PASS.
+- Departure 1 (`local` set beside every `changed` or `recompressed`
+  entry, and beside `mtime` or `gpflags` whenever a writer repeats the
+  field) is accepted as the P4 state and replaced in P5: `local` becomes
+  a local-only difference, as the Output section now says.
+- Departure 2 (the sentinel test's reading) is accepted; the P4 text
+  now says what the test does. Departures 3 to 5 accepted.
+- Gap 1 is the P5 work: `attrs` gains the internal attributes and disk
+  number start, `descriptor` gains the bytes after the data, and the
+  exit-0 paragraph is restated. Gaps 2 and 3 accepted, with the limit
+  written into the P4 text. Gaps 4 and 5 accepted.
+
+### P5: flag completeness (added on the P4 rulings)
+
+- `local` narrowed to local-only differences, `attrs` and `descriptor`
+  extended, exactly as the Output section says. Flag order unchanged.
+- The P2, P3 and P4 tests updated to the narrowed `local`: a `changed`
+  or `recompressed` entry whose local header mirrors its central record
+  carries no `local`; a central and local time change is `mtime` alone.
+- Tests on the byte-level builder: a local-only time change (`local`
+  alone); a local-only flags change (`local` alone); internal attributes
+  alone and disk number start alone (`attrs`); two entries with bit 3
+  set on both sides whose descriptors differ only in the optional
+  signature (`descriptor` alone, `gpflags` absent); padding bytes
+  between two entries on one side (`descriptor` on the entry before
+  the padding, every entry `identical`, exit 1); and the same padding
+  case with the padding removed (exit 0).
+- Negative cases: (a) an archive with padding between entries against
+  its unpadded twin gives exit 1 with `descriptor` on one row; (b) the
+  unpadded twin against a byte copy gives exit 0.
+- Acceptance: as P1, plus every new flag condition exercised by a test,
+  and the exit-0 paragraph true by construction: no byte from a local
+  header to the next header, and no central record byte other than the
+  offset field, is outside the status and the flags.
+
+### Close-out push (after P4)
+
+The maintainer authorised the T1 close-out push after P4 verified, so
+it goes before P5. It follows the T0b close-out steps
+(`specs/0003-ci.md`, "Close-out push (after P2)"): planning's pending
+doc updates committed unedited first; the hook, `core.hooksPath` and
+`EMEND_PRIVATE_DENYLIST` checks and the full gate; the base recorded
+before the push; `git push origin main`; `ls-remote` equal to local
+main and the repository still PRIVATE; the CI run on the pushed commit
+recorded, filtered as in T0b P1. Logs in `records/logs/t1-close/`:
+`push.log`, `ci-run.log`, `scan.log`. No independent check, as for the
+other close-out pushes. Report and STOP. P5's records go with the next
+authorised push.
 
 ## Out of scope for T1
 
