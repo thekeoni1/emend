@@ -28,6 +28,14 @@
     044da30ef3c8d3bc80c2909763ff961447836edf2b11cdeec107b82cd7b032ca
 - Answer: the checker's final message, extracted verbatim from its
   transcript with python; privacy-scanned before commit
+- One change from the extracted bytes: the answer held four U+2192
+  characters (answer line 20, columns 32, 66 and 92; answer line 21,
+  column 20), and each is written here as `->`. The two characters `->`
+  appear nowhere else in the answer, so replacing every `->` below with
+  U+2192 gives back the extracted bytes exactly: 14726 bytes, sha256
+  93f7b71de9627ad98048aec0c323cb3f2bb4db896f2f31a2ce105bafd00bd874. The
+  first commit of this record (e472c39) held the extracted bytes and made
+  the phase scan fail (records/logs/t1-p2/scan-failed-run.log).
 
 ---
 **What I read and ran.** I read the whole of specs/0004-xlsx-diff.md, lines 1 to 120 of specs/0001-bootstrap.md ("How this task runs", "Rules for every phase"), both diffs (D1, 1403 lines; D2, 110 lines), the draft report and all four logs in records/logs/t1-p2/, including the scripts printed in them. I ran only read-only text tools on those files: `cat -n`, `sed`, `awk` (to count diff files, insertions and deletions), `sha256sum` on the four logs, `tr`/`wc` (control and non-ASCII byte counts) and `/usr/bin/grep` (U+2014, absolute paths, `&&` forms). I ran no git, cargo or build command and changed no file. CLAUDE.md and the memory index were in my context because the harness put them there. I did not use them as evidence. lib.rs is only partly visible in D1: `read_full`, `CHUNK`, `raw_equal`, `run` and `Meta` come from P1 and are not in either diff, so claims that depend on them are marked unverifiable below.
@@ -49,8 +57,8 @@
 - **Different lengths.** Return `Length(min)` and drop first/count/last (D1 187-189). This matches Streaming "column 14 set to the shorter length" (spec 142-144).
 - **CRC.** Neither stream stops early: each loop reads a side until `got < CHUNK`, and a stream whose length is an exact multiple of `CHUNK` takes one more read that returns 0. So the zip reader reaches EOF on both sides, which is where it checks the CRC. Declared sizes are checked afterwards (D1 181-186). Whether the crate checks the CRC on that 0-byte read, and whether `read_full` loops, is not visible in the diffs. The two wrong-CRC forms passing on both targets (T 126, 165) are the only evidence.
 - **Error mapping.**
-  - Opening an entry: password → `Encrypted`, unsupported method → `Method`, anything else → `Entry` (D1 78-86).
-  - Any read error → `Data` (D1 156, 161).
+  - Opening an entry: password -> `Encrypted`, unsupported method -> `Method`, anything else -> `Entry` (D1 78-86).
+  - Any read error -> `Data` (D1 156, 161).
   - An encrypted entry is rejected in `open` from metadata (D1 104-106), so the `PASSWORD_REQUIRED` arm of `entry_error` cannot be reached in practice.
   - A plain I/O error mid-stream is reported as "failed to decompress or its CRC-32 does not match". The wording is slightly wrong, but the exit status is right.
 - **No leaks.** The error lines (D1 47-61) carry only the escaped name, the side and the method number: no path, no content, no crate text.
