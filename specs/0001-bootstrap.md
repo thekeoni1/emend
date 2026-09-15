@@ -1,11 +1,12 @@
 # 0001: T0 repo bootstrap
 
-Status: P1 to P6b DONE, verified by planning 2026-09-14 and 15. After
+Status: P1 to P7 DONE, verified by planning 2026-09-14 and 15. After
 the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
 records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
 873851f to 65cdeae; P6 is 10a42d6 to 28a44aa; P6b is 690c0f5 to
-cf5240b. P7 and P6c READY.
+cf5240b; P7 pushed af4b355, with local records 9c63579 to 302b1b2. P6c
+READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -495,6 +496,44 @@ committed. Its output goes in the phase's `negative.log`.
   print a path containing `emend-testing`, as check 2 corrected, and the
   hygiene step is closed.
 - Finding 10 (unusual address forms) is accepted.
+
+## Planning rulings on P7 (2026-09-15)
+
+- P7 is verified from primaries and from GitHub by planning's own
+  checks:
+  - GitHub: `thekeoni1/emend` is PRIVATE, with one branch, `main` at
+    af4b355, 52 commits and no tags. Every author and committer email
+    GitHub reports is the noreply address in
+    `scripts/privacy-identity.txt`.
+  - Local `origin/main` is af4b355. The three record commits 9c63579,
+    5e6d629 and 302b1b2 touch only `records/logs/t0-p7/`, end with the
+    Co-Authored-By trailer only, and are not pushed.
+  - `push.log`: the hook ran `scripts/privacy.sh` over 52 commits with 0
+    findings (`PASS privacy`). Git reported `[new branch] main -> main`.
+    Part 3 re-checks give `remote main equals local main: yes` and
+    `still PRIVATE: yes`.
+  - The three P7 record files have zero hits against the private
+    denylist, the 11 patterns, non-ASCII bytes, control bytes and the
+    email allowlist. `scripts/privacy.sh` over the 55 local commits:
+    PASS.
+- The GitHub email settings precondition was met before the push. The
+  maintainer confirmed both settings to planning on 2026-09-14, and the
+  spec asks for the maintainer's confirmation, not in-session wording.
+  The maintainer confirmed again in the implementing session afterwards.
+- The false "part 2 checks all as expected: no" is accepted as recorded.
+  Part 3 and planning's GitHub check confirm the outcome. From now on,
+  logs evaluate each check once and print that single result.
+- 51 versus 52 commits is accepted. Planning's 51-commit scan came before
+  doc commit af4b355. Planning scanned both doc files before that commit
+  and ran `scripts/privacy.sh` over all 52 commits before the push.
+- The missing P7 scan.log is accepted, because planning scanned all
+  three P7 record files. P6c's scan.log also covers
+  `records/logs/t0-p7/`.
+- The rest are accepted as recorded:
+  - the `ls -l` user and group names (`dev` identifies no person);
+  - the new remote and tracking configuration;
+  - the ROADMAP item not in the P6b spec;
+  - the quoted search terms in check 2.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -1073,7 +1112,8 @@ Changes to `scripts/privacy.sh`, with the matching step 7 and
       - a Claude Code project path with backslash separators.
     - (g) Repeat P6b negatives (a), (d) and (g), and show they still
       fail.
-  - `scan.log`: per the scan rules.
+  - `scan.log`: per the scan rules. It also covers the committed P7 logs
+    in `records/logs/t0-p7/`.
 - Acceptance:
   - All eight `PASS` in `gate.log`.
   - `privacy.log` passes over the full history.
