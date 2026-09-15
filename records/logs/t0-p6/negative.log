@@ -1,0 +1,788 @@
+about: P6 phase commit f1ac533129120d9801d41fd14d416976d03dc282; HEAD at run: f1ac533129120d9801d41fd14d416976d03dc282
+phase: T0 P6 (specs/0001-bootstrap.md) negative.log; run at 2026-09-15T02:48:23Z
+Every case runs in a scratch clone under <scratch>, outside the repo.
+DRYRUN_DIR is not set: each clone runs the scripts committed at f1ac533129120d9801d41fd14d416976d03dc282.
+ANTHROPIC_API_KEY set in this shell: no
+scratch denylist: <scratch>/denylist, mode 600, 1 entry (the sentinel, 14 bytes, never printed)
+fake token: 40 bytes, built at run time from pieces, never printed
+main repository refs sha256 before: dd7e55cd1de0f62f8da0f74d894d619f63ce3eaac6371721b8a84408e865a033
+
+## script
+    #!/usr/bin/env bash
+    # T0 P6 negative tests: scripts/privacy.sh, the pre-push hook written by
+    # scripts/install-hooks.sh, and step 7 of scripts/check.sh. A control case 0,
+    # cases (a) to (k) from the spec, and cases (l) to (q) beyond it.
+    # Every case runs in a scratch clone outside the repo, with a scratch denylist
+    # holding a made-up sentinel word (EMEND_PRIVATE_DENYLIST). The sentinel and
+    # the fake token are built at run time, never printed, and counted in every
+    # captured output.
+    # Usage: p6-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t0-p6/negative.log. Paths print as <scratch>.
+    # DRYRUN_DIR, if set, copies the P6 scripts from that directory into each
+    # clone (dry runs only).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    P6_FILES="check.sh privacy.sh privacy-patterns.txt privacy-identity.txt install-hooks.sh"
+    
+    SENTINEL="zq$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+    TOKEN="gh""p_$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)"
+    DL=$BASE/denylist
+    printf '# scratch denylist for the T0 P6 negative tests\n%s\n' "$SENTINEL" >"$DL"
+    chmod 600 "$DL"
+    export EMEND_PRIVATE_DENYLIST=$DL
+    
+    hide() { sed -e "s|$BASE|<scratch>|g" -e "s|$SENTINEL|<sentinel>|g" -e "s|$TOKEN|<token>|g"; }
+    count_f() { LC_ALL=C "$G" -a -c -F -e "$1" "$2"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    in_dir() { local d=$1; shift; (cd "$d" && "$@"); }
+    
+    echo "about: P6 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6 (specs/0001-bootstrap.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Every case runs in a scratch clone under <scratch>, outside the repo."
+    if [ -n "${DRYRUN_DIR:-}" ]; then
+      echo "DRY RUN: DRYRUN_DIR is set, so each clone gets uncommitted P6 scripts. Not a phase log."
+    else
+      echo "DRYRUN_DIR is not set: each clone runs the scripts committed at $C."
+    fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "scratch denylist: <scratch>/denylist, mode $(stat -c %a "$DL"), $(LC_ALL=C "$G" -c -v -E '^[[:space:]]*(#|$)' "$DL") entry (the sentinel, $(printf '%s' "$SENTINEL" | wc -c) bytes, never printed)"
+    echo "fake token: $(printf '%s' "$TOKEN" | wc -c) bytes, built at run time from pieces, never printed"
+    REFS_BEFORE=$(git for-each-ref --format='%(objectname) %(refname)' | sha256sum | cut -d' ' -f1)
+    echo "main repository refs sha256 before: $REFS_BEFORE"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf 'x %s y\nplain\n' "$SENTINEL" >"$BASE/ctl-sentinel"
+    printf 'x %s y\n' "$TOKEN" >"$BASE/ctl-token"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { echo "  control $1: $2 (expect $3)"; [ "$2" = "$3" ] || fail=1; }
+    ctl "lines with the sentinel in a file holding it once" "$(count_f "$SENTINEL" "$BASE/ctl-sentinel")" 1
+    ctl "lines with the token in a file holding it once" "$(count_f "$TOKEN" "$BASE/ctl-token")" 1
+    ctl "lines with the sentinel in a clean file" "$(count_f "$SENTINEL" "$BASE/ctl-clean")" 0
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    ctl "control bytes in a file with only tab, CR and LF" "$(ctrl_bytes "$BASE/ctl-clean")" 0
+    ctl "hide() on the sentinel and the token" "$(cat "$BASE/ctl-sentinel" "$BASE/ctl-token" | hide | LC_ALL=C "$G" -c -F -e '<sentinel>' -e '<token>')" 2
+    
+    clone() { # clone <dir>
+      local dir=$1
+      rm -rf "$dir"
+      if ! git clone -q "$REPO" "$dir" || ! git -C "$dir" checkout -q -B work "$C"; then
+        echo "clone failed"
+        fail=1
+        return 1
+      fi
+      if [ -n "${DRYRUN_DIR:-}" ]; then
+        for f in $P6_FILES; do cp "$DRYRUN_DIR/$f" "$dir/scripts/$f"; done
+      fi
+      git -C "$dir" config user.name "$(sed -n 1p "$dir/scripts/privacy-identity.txt")"
+      git -C "$dir" config user.email "$(sed -n 2p "$dir/scripts/privacy-identity.txt")"
+      echo "clone $(printf '%s' "$dir" | hide): branch work at $(git -C "$dir" rev-parse HEAD); local user.name and user.email set from scripts/privacy-identity.txt"
+    }
+    commit() { # commit <dir> <git commit args...>
+      local dir=$1
+      shift
+      git -C "$dir" -c commit.gpgsign=false commit -q "$@" || { echo "commit failed"; fail=1; }
+    }
+    run_out() { # run_out <name> <shown command> <command...>
+      local name=$1 shown=$2 s t c n
+      shift 2
+      echo "command: $shown"
+      "$@" >"$BASE/$name.out" 2>&1 </dev/null
+      RC=$?
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $RC"
+      s=$(count_f "$SENTINEL" "$BASE/$name.out")
+      t=$(count_f "$TOKEN" "$BASE/$name.out")
+      c=$(ctrl_bytes "$BASE/$name.out")
+      n=$(nonascii_bytes "$BASE/$name.out")
+      echo "  captured output: lines with the sentinel=$s, lines with the token=$t, control bytes=$c, non-ASCII bytes=$n (expect 0, 0, 0 and 0)"
+      { [ "$s" -eq 0 ] && [ "$t" -eq 0 ] && [ "$c" -eq 0 ] && [ "$n" -eq 0 ]; } || fail=1
+    }
+    want_exit() {
+      echo "  exit $1 expected: $([ "$RC" -eq "$1" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$RC" -eq "$1" ] || fail=1
+    }
+    want_nonzero() {
+      echo "  exit non-zero expected: $([ "$RC" -ne 0 ] && echo as-expected || echo UNEXPECTED)"
+      [ "$RC" -ne 0 ] || fail=1
+    }
+    expect() { # expect <name> <present|absent> <ERE> <label>
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$BASE/$1.out")
+      rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    lines_are() { # lines_are <name> <ERE> <count> <label>
+      local n
+      n=$(LC_ALL=C "$G" -c -E -e "$2" "$BASE/$1.out")
+      echo "  $4: count=$n (expect $3) -> $([ "$n" = "$3" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$n" = "$3" ] || fail=1
+    }
+    PRIV="scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)"
+    
+    echo
+    echo "## case 0 (control): an unchanged clone; expect PASS privacy"
+    D=$BASE/c0
+    clone "$D"
+    run_out c0 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 0
+    expect c0 present '^PASS privacy$' "PASS privacy"
+    expect c0 absent '^(FAIL|ERROR) ' "any FAIL or ERROR line"
+    
+    echo
+    echo "## case a: a commit authored with a different email; expect FAIL identity"
+    D=$BASE/a
+    clone "$D"
+    printf 'case a\n' >"$D/a.txt"
+    git -C "$D" add a.txt
+    commit "$D" --author="$(sed -n 1p "$D/scripts/privacy-identity.txt") <someone-else@example.invalid>" -m "case a"
+    A=$(git -C "$D" rev-parse HEAD)
+    echo "commit $A: $(git -C "$D" log -1 --format='author email %ae; committer email %ce')"
+    run_out a "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect a present "^FAIL identity: commit $A author email differs from scripts/privacy-identity[.]txt\$" "FAIL identity naming the commit's author email"
+    lines_are a '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case b: a commit message with a Claude-Session line; expect FAIL message"
+    D=$BASE/b
+    clone "$D"
+    printf 'case b\n\n%s: none\n' "Claude-""Session" >"$BASE/b-msg"
+    printf 'case b\n' >"$D/b.txt"
+    git -C "$D" add b.txt
+    commit "$D" -F "$BASE/b-msg"
+    B=$(git -C "$D" rev-parse HEAD)
+    echo "commit $B: message lines starting with the Claude-Session key: $(git -C "$D" log -1 --format=%B | LC_ALL=C "$G" -c -e "^Claude-""Session:")"
+    run_out b "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect b present "^FAIL message: commit $B has a Claude-Session line\$" "FAIL message naming the commit"
+    lines_are b '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case c: the sentinel committed, then deleted in the next commit; expect FAIL naming the first commit"
+    D=$BASE/c
+    clone "$D"
+    printf 'case c %s\n' "$SENTINEL" >"$D/c.txt"
+    git -C "$D" add c.txt
+    commit "$D" -m "case c: add"
+    C1=$(git -C "$D" rev-parse HEAD)
+    git -C "$D" rm -q c.txt
+    commit "$D" -m "case c: delete"
+    C2=$(git -C "$D" rev-parse HEAD)
+    echo "first commit $C1; second commit $C2; c.txt in the second commit's tree: $(git -C "$D" ls-tree -r --name-only "$C2" | LC_ALL=C "$G" -c -x -F -e c.txt)"
+    run_out c "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect c present "^FAIL denylist: commit $C1 path c[.]txt denylist entry 1 line 1\$" "FAIL denylist naming the first commit"
+    expect c absent "commit $C2" "the second commit"
+    lines_are c '^FAIL ' 1 "FAIL lines"
+    echo "(this clone is kept for case g)"
+    
+    echo
+    echo "## case d: a fake GitHub-style token assembled at run time; expect FAIL patterns"
+    D=$BASE/d
+    clone "$D"
+    printf 'settings\ntoken = %s\n' "$TOKEN" >"$D/d.txt"
+    git -C "$D" add d.txt
+    commit "$D" -m "case d"
+    DC=$(git -C "$D" rev-parse HEAD)
+    echo "commit $DC"
+    run_out d "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect d present "^FAIL patterns: commit $DC path d[.]txt pattern 1 line 2\$" "FAIL patterns naming d.txt line 2"
+    lines_are d '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case e: the denylist missing, mode 644, or holding no entries; expect exit 2 each"
+    D=$BASE/e
+    clone "$D"
+    echo "### e1: missing"
+    run_out e1 "env EMEND_PRIVATE_DENYLIST=<scratch>/no-such-denylist scripts/privacy.sh (in the clone)" \
+      in_dir "$D" env EMEND_PRIVATE_DENYLIST="$BASE/no-such-denylist" scripts/privacy.sh
+    want_exit 2
+    expect e1 present '^ERROR privacy: the private denylist is missing$' "ERROR line"
+    lines_are e1 '' 1 "output lines"
+    echo "### e2: mode 644"
+    cp "$DL" "$BASE/denylist-644" && chmod 644 "$BASE/denylist-644"
+    echo "<scratch>/denylist-644: mode $(stat -c %a "$BASE/denylist-644"), same content as the scratch denylist"
+    run_out e2 "env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-644 scripts/privacy.sh (in the clone)" \
+      in_dir "$D" env EMEND_PRIVATE_DENYLIST="$BASE/denylist-644" scripts/privacy.sh
+    want_exit 2
+    expect e2 present '^ERROR privacy: the private denylist must be mode 600$' "ERROR line"
+    lines_are e2 '' 1 "output lines"
+    echo "### e3: no entries (a comment, an empty line, a blank line)"
+    printf '# comment only\n\n   \n' >"$BASE/denylist-empty" && chmod 600 "$BASE/denylist-empty"
+    echo "<scratch>/denylist-empty: mode $(stat -c %a "$BASE/denylist-empty"), $(wc -l <"$BASE/denylist-empty") lines"
+    run_out e3 "env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-empty scripts/privacy.sh (in the clone)" \
+      in_dir "$D" env EMEND_PRIVATE_DENYLIST="$BASE/denylist-empty" scripts/privacy.sh
+    want_exit 2
+    expect e3 present '^ERROR privacy: the private denylist holds no entries$' "ERROR line"
+    lines_are e3 '' 1 "output lines"
+    
+    echo
+    echo "## case f: scripts/privacy-patterns.txt emptied; expect the self-test to exit 2"
+    D=$BASE/f
+    clone "$D"
+    : >"$D/scripts/privacy-patterns.txt"
+    echo "scripts/privacy-patterns.txt bytes: $(wc -c <"$D/scripts/privacy-patterns.txt")"
+    run_out f "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 2
+    expect f present '^ERROR privacy: self-test failed: a planted hit was not detected$' "ERROR self-test line"
+    expect f absent '^PASS privacy$' "PASS privacy"
+    
+    echo
+    echo "## case g: the pre-push hook, with a local bare repository as the remote (clone from case c)"
+    D=$BASE/c
+    git init -q --bare "$BASE/remote.git"
+    git -C "$D" remote add scratch "$BASE/remote.git"
+    git -C "$D" branch clean "$C"
+    echo "branch clean at $(git -C "$D" rev-parse clean); branch work at $(git -C "$D" rev-parse work) (the case c commits)"
+    run_out g-install "scripts/install-hooks.sh (in the clone)" in_dir "$D" scripts/install-hooks.sh
+    want_exit 0
+    echo "  hook mode: $(stat -c %A "$D/.git/hooks/pre-push")"
+    ls_remote() { git ls-remote "$BASE/remote.git" >"$BASE/ls-$1.out" 2>&1; echo "git ls-remote <scratch>/remote.git ($1):"; hide <"$BASE/ls-$1.out" | sed 's/^/    /'; echo "  refs: $(wc -l <"$BASE/ls-$1.out")"; }
+    ls_remote before
+    echo "### g1: push the clean branch as a new ref; expect success"
+    run_out g1 "git push scratch clean (in the clone)" in_dir "$D" git push scratch clean
+    want_exit 0
+    expect g1 present "^pre-push: scripts/privacy[.]sh --range $C [(]refs/heads/clean[)]\$" "hook runs over all of the local sha"
+    expect g1 present '^PASS privacy$' "PASS privacy"
+    ls_remote after-g1
+    expect ls-after-g1 present "^$C	refs/heads/clean\$" "remote refs/heads/clean at the clean commit"
+    lines_are ls-after-g1 '' 1 "remote refs"
+    echo "### g2: push the case c branch as a new ref; expect rejection"
+    run_out g2 "git push scratch work:refs/heads/leak (in the clone)" in_dir "$D" git push scratch work:refs/heads/leak
+    want_nonzero
+    expect g2 present "^FAIL denylist: commit $C1 path c[.]txt denylist entry 1 line 1\$" "FAIL denylist naming the case c first commit"
+    ls_remote after-g2
+    echo "  remote refs unchanged since g1: $(cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g2.out" && echo yes || echo NO)"
+    cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g2.out" || fail=1
+    echo "### g3: push the case c branch onto the existing clean ref (range <remote sha>..<local sha>); expect rejection"
+    run_out g3 "git push scratch work:refs/heads/clean (in the clone)" in_dir "$D" git push scratch work:refs/heads/clean
+    want_nonzero
+    expect g3 present "^pre-push: scripts/privacy[.]sh --range $C[.][.]$C2 [(]refs/heads/work[)]\$" "hook runs over remote..local"
+    expect g3 present "^FAIL denylist: commit $C1 path c[.]txt denylist entry 1 line 1\$" "FAIL denylist naming the case c first commit"
+    ls_remote after-g3
+    echo "  remote refs unchanged since g1: $(cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g3.out" && echo yes || echo NO)"
+    cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g3.out" || fail=1
+    echo "### g4 (beyond the spec): push an annotated tag; expect rejection"
+    git -C "$D" -c tag.gpgsign=false tag -a -m "case g4" g4tag "$C"
+    run_out g4 "git push scratch refs/tags/g4tag (in the clone)" in_dir "$D" git push scratch refs/tags/g4tag
+    want_nonzero
+    expect g4 present '^pre-push: refs/tags/g4tag is not a commit [(]tag[)]; blocked$' "hook blocks a non-commit"
+    ls_remote after-g4
+    echo "  remote refs unchanged since g1: $(cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g4.out" && echo yes || echo NO)"
+    cmp -s "$BASE/ls-after-g1.out" "$BASE/ls-after-g4.out" || fail=1
+    echo "### g5 (beyond the spec): delete the remote clean ref; expect the hook to skip it and the push to succeed"
+    run_out g5 "git push scratch :refs/heads/clean (in the clone)" in_dir "$D" git push scratch :refs/heads/clean
+    want_exit 0
+    expect g5 present '^pre-push: skipping the deletion of refs/heads/clean$' "hook skips the deletion"
+    ls_remote after-g5
+    lines_are ls-after-g5 '' 0 "remote refs"
+    
+    echo
+    echo "## case h: '* binary' in .git/info/attributes and a committed file holding a fake token; expect FAIL patterns"
+    D=$BASE/h
+    clone "$D"
+    printf '* binary\n' >"$D/.git/info/attributes"
+    printf 'token %s\n' "$TOKEN" >"$D/h.txt"
+    git -C "$D" add h.txt
+    commit "$D" -m "case h"
+    H=$(git -C "$D" rev-parse HEAD)
+    echo "commit $H; git check-attr binary diff -- h.txt:"
+    git -C "$D" check-attr binary diff -- h.txt | sed 's/^/    /'
+    run_out h "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect h present "^FAIL patterns: commit $H path h[.]txt pattern 1 line 1\$" "FAIL patterns naming h.txt"
+    lines_are h '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case i: a blob made unreadable by removing its object file; expect exit 2"
+    D=$BASE/i
+    clone "$D"
+    od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$D/i.txt"
+    git -C "$D" add i.txt
+    commit "$D" -m "case i"
+    ISHA=$(git -C "$D" rev-parse HEAD:i.txt)
+    OBJ=$D/.git/objects/${ISHA:0:2}/${ISHA:2}
+    echo "blob $ISHA; loose object file present: $([ -f "$OBJ" ] && echo yes || echo no)"
+    rm -f "$OBJ"
+    echo "after removal: loose object file present: $([ -f "$OBJ" ] && echo yes || echo no); git cat-file -e exit: $(git -C "$D" cat-file -e "$ISHA" 2>/dev/null; echo $?)"
+    run_out i "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 2
+    expect i present "^ERROR privacy: git failed: cat-file blob $ISHA\$" "ERROR naming the unreadable blob"
+    expect i absent '^PASS privacy$' "PASS privacy"
+    
+    echo
+    echo "## case j: GIT_INDEX_FILE exported to a scratch index; expect the self-test to pass and the scratch index unchanged"
+    D=$BASE/j
+    clone "$D"
+    cp "$D/.git/index" "$BASE/scratch-index"
+    J_BEFORE=$(sha256sum "$BASE/scratch-index" | cut -d' ' -f1)
+    J_ENTRIES=$(GIT_INDEX_FILE="$BASE/scratch-index" git -C "$D" ls-files | wc -l)
+    echo "scratch index before: sha256 $J_BEFORE, entries $J_ENTRIES"
+    run_out j "env GIT_INDEX_FILE=<scratch>/scratch-index scripts/privacy.sh (in the clone; exported for this one command)" \
+      in_dir "$D" env GIT_INDEX_FILE="$BASE/scratch-index" scripts/privacy.sh
+    want_exit 0
+    expect j present '^PASS privacy$' "PASS privacy (the self-test passed)"
+    expect j absent '^ERROR ' "ERROR line"
+    J_AFTER=$(sha256sum "$BASE/scratch-index" | cut -d' ' -f1)
+    echo "scratch index after: sha256 $J_AFTER, entries $(GIT_INDEX_FILE="$BASE/scratch-index" git -C "$D" ls-files | wc -l)"
+    echo "  scratch index unchanged: $([ "$J_BEFORE" = "$J_AFTER" ] && echo as-expected || echo UNEXPECTED)"
+    [ "$J_BEFORE" = "$J_AFTER" ] || fail=1
+    
+    echo
+    echo "## case k: a tracked path Emend-Testing/corpus/<file>; expect a count-only hygiene FAIL line without the file name"
+    D=$BASE/k
+    clone "$D"
+    mkdir -p "$D/Emend-Testing/corpus"
+    printf 'fictional\n' >"$D/Emend-Testing/corpus/name.txt"
+    git -C "$D" add Emend-Testing
+    echo "staged paths: $(git -C "$D" diff --cached --name-only | wc -l)"
+    run_out k "scripts/check.sh (in the clone)" in_dir "$D" scripts/check.sh
+    want_nonzero
+    expect k present '^FAIL hygiene: 1 tracked path[(]s[)] containing emend-testing [(]paths not printed[)]$' "count-only FAIL hygiene line"
+    expect k absent '^PASS hygiene$' "PASS hygiene"
+    echo "  lines with name.txt in the captured output: $(count_f name.txt "$BASE/k.out") (expect 0)"
+    [ "$(count_f name.txt "$BASE/k.out")" -eq 0 ] || fail=1
+    echo "### k2 (beyond the spec): the sentinel in that corpus file, committed; expect FAIL denylist with <corpus path>"
+    printf 'fictional %s\n' "$SENTINEL" >"$D/Emend-Testing/corpus/name.txt"
+    git -C "$D" add Emend-Testing
+    commit "$D" -m "case k2"
+    K2=$(git -C "$D" rev-parse HEAD)
+    run_out k2 "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect k2 present "^FAIL denylist: commit $K2 path <corpus path> denylist entry 1 line 1\$" "FAIL denylist with <corpus path>"
+    echo "  lines with name.txt in the captured output: $(count_f name.txt "$BASE/k2.out") (expect 0)"
+    [ "$(count_f name.txt "$BASE/k2.out")" -eq 0 ] || fail=1
+    
+    echo
+    echo "## case l (beyond the spec): a fake token after a NUL byte, so git treats the blob as binary by content; expect FAIL patterns"
+    D=$BASE/l
+    clone "$D"
+    printf 'x\000y %s\n' "$TOKEN" >"$D/l.bin"
+    git -C "$D" add l.bin
+    commit "$D" -m "case l"
+    L=$(git -C "$D" rev-parse HEAD)
+    echo "commit $L; git diff-tree --numstat (binary shows as - -):"
+    git -C "$D" diff-tree --no-commit-id --numstat -r "$L" | sed 's/^/    /'
+    run_out l "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect l present "^FAIL patterns: commit $L path l[.]bin pattern 1 line 1\$" "FAIL patterns naming l.bin"
+    
+    echo
+    echo "## case m (beyond the spec): the sentinel in a path name, clean content; expect FAIL paths with the path not printed"
+    D=$BASE/m
+    clone "$D"
+    printf 'clean\n' >"$D/notes-$SENTINEL.txt"
+    git -C "$D" add .
+    commit "$D" -m "case m"
+    M=$(git -C "$D" rev-parse HEAD)
+    run_out m "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect m present "^FAIL paths: commit $M tree entry [0-9]+ denylist entry 1 [(]path not printed[)]\$" "FAIL paths"
+    lines_are m '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case n (beyond the spec): a replace ref standing in for a commit that holds a fake token; expect FAIL patterns"
+    D=$BASE/n
+    clone "$D"
+    printf 'token %s\n' "$TOKEN" >"$D/n.txt"
+    git -C "$D" add n.txt
+    commit "$D" -m "case n"
+    N1=$(git -C "$D" rev-parse HEAD)
+    git -C "$D" replace "$N1" "$C"
+    echo "commit $N1 replaced by $C; replace refs: $(git -C "$D" replace -l | wc -l); n.txt visible through the replacement: $(git -C "$D" ls-tree -r --name-only HEAD | LC_ALL=C "$G" -c -x -F -e n.txt)"
+    run_out n "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect n present "^FAIL patterns: commit $N1 path n[.]txt pattern 1 line 1\$" "FAIL patterns naming the real commit"
+    
+    echo
+    echo "## case o (beyond the spec): a shallow clone; expect exit 2"
+    D=$BASE/o
+    rm -rf "$D"
+    git clone -q --depth 1 "file://$REPO" "$D"
+    if [ -n "${DRYRUN_DIR:-}" ]; then for f in $P6_FILES; do cp "$DRYRUN_DIR/$f" "$D/scripts/$f"; done; fi
+    git -C "$D" config user.name "$(sed -n 1p "$D/scripts/privacy-identity.txt")"
+    git -C "$D" config user.email "$(sed -n 2p "$D/scripts/privacy-identity.txt")"
+    echo "shallow clone of the repository HEAD at $(git -C "$D" rev-parse HEAD); is-shallow-repository: $(git -C "$D" rev-parse --is-shallow-repository)"
+    run_out o "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 2
+    expect o present '^ERROR privacy: shallow repository or unreadable repository state; history cannot be checked$' "ERROR line"
+    
+    echo
+    echo "## case p (beyond the spec): a commit message with a non-ASCII byte; expect FAIL message"
+    D=$BASE/p
+    clone "$D"
+    printf 'case p caf\303\251\n' >"$BASE/p-msg"
+    printf 'case p\n' >"$D/p.txt"
+    git -C "$D" add p.txt
+    commit "$D" -F "$BASE/p-msg"
+    PC=$(git -C "$D" rev-parse HEAD)
+    run_out p "$PRIV" in_dir "$D" scripts/privacy.sh
+    want_exit 1
+    expect p present "^FAIL message: commit $PC has non-ASCII bytes\$" "FAIL message"
+    lines_are p '^FAIL ' 1 "FAIL lines"
+    
+    echo
+    echo "## case q (beyond the spec): a --range value that starts with a dash; expect the usage line and exit 2"
+    D=$BASE/p
+    run_out q "scripts/privacy.sh --range --all (in the clone)" in_dir "$D" scripts/privacy.sh --range --all
+    want_exit 2
+    expect q present '^usage: scripts/privacy[.]sh \[--range <rev>\]$' "usage line"
+    
+    echo
+    rm -rf "$BASE"/c0 "$BASE"/a "$BASE"/b "$BASE"/c "$BASE"/d "$BASE"/e "$BASE"/f "$BASE"/h "$BASE"/i "$BASE"/j "$BASE"/k "$BASE"/l "$BASE"/m "$BASE"/n "$BASE"/o "$BASE"/p "$BASE"/remote.git
+    LEFT=$(find "$BASE" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    echo "scratch clones removed: $LEFT directories left (expect 0)"
+    [ "$LEFT" -eq 0 ] || fail=1
+    REFS_AFTER=$(git for-each-ref --format='%(objectname) %(refname)' | sha256sum | cut -d' ' -f1)
+    echo "main repository refs sha256 after: $REFS_AFTER; unchanged: $([ "$REFS_BEFORE" = "$REFS_AFTER" ] && echo yes || echo NO)"
+    [ "$REFS_BEFORE" = "$REFS_AFTER" ] || fail=1
+    echo "main working tree status (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with the sentinel in a file holding it once: 1 (expect 1)
+  control lines with the token in a file holding it once: 1 (expect 1)
+  control lines with the sentinel in a clean file: 0 (expect 0)
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control control bytes in a file with only tab, CR and LF: 0 (expect 0)
+  control hide() on the sentinel and the token: 2 (expect 2)
+
+## case 0 (control): an unchanged clone; expect PASS privacy
+clone <scratch>/c0: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 43 commit(s), 86 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 0 expected: as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL or ERROR line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case a: a commit authored with a different email; expect FAIL identity
+clone <scratch>/a: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit 34fea73645a9da0ce67d530297a98a9148d75972: author email someone-else@example.invalid; committer email 55367154+thekeoni1@users.noreply.github.com
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL identity: commit 34fea73645a9da0ce67d530297a98a9148d75972 author email differs from scripts/privacy-identity.txt
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL identity naming the commit's author email: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case b: a commit message with a Claude-Session line; expect FAIL message
+clone <scratch>/b: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit 4ebf91f0e6575d9af0d5f4c11b99a1f0f8d5d295: message lines starting with the Claude-Session key: 1
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL message: commit 4ebf91f0e6575d9af0d5f4c11b99a1f0f8d5d295 has a Claude-Session line
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL message naming the commit: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case c: the sentinel committed, then deleted in the next commit; expect FAIL naming the first commit
+clone <scratch>/c: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+first commit 1b4121cffaa35f199461fc8a890155857464c98c; second commit d55fa6091766cec8ffd5ec4321f99bd7e94632ee; c.txt in the second commit's tree: 0
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 45 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL denylist: commit 1b4121cffaa35f199461fc8a890155857464c98c path c.txt denylist entry 1 line 1
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL denylist naming the first commit: expect present; count=1 grep exit=0 -> as-expected
+  the second commit: expect absent; count=0 grep exit=1 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+(this clone is kept for case g)
+
+## case d: a fake GitHub-style token assembled at run time; expect FAIL patterns
+clone <scratch>/d: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit 84b5ca85c327a5524a2f5e2e5fae1d0724f93437
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL patterns: commit 84b5ca85c327a5524a2f5e2e5fae1d0724f93437 path d.txt pattern 1 line 2
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns naming d.txt line 2: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case e: the denylist missing, mode 644, or holding no entries; expect exit 2 each
+clone <scratch>/e: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+### e1: missing
+command: env EMEND_PRIVATE_DENYLIST=<scratch>/no-such-denylist scripts/privacy.sh (in the clone)
+    ERROR privacy: the private denylist is missing
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR line: expect present; count=1 grep exit=0 -> as-expected
+  output lines: count=1 (expect 1) -> as-expected
+### e2: mode 644
+<scratch>/denylist-644: mode 644, same content as the scratch denylist
+command: env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-644 scripts/privacy.sh (in the clone)
+    ERROR privacy: the private denylist must be mode 600
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR line: expect present; count=1 grep exit=0 -> as-expected
+  output lines: count=1 (expect 1) -> as-expected
+### e3: no entries (a comment, an empty line, a blank line)
+<scratch>/denylist-empty: mode 600, 3 lines
+command: env EMEND_PRIVATE_DENYLIST=<scratch>/denylist-empty scripts/privacy.sh (in the clone)
+    ERROR privacy: the private denylist holds no entries
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR line: expect present; count=1 grep exit=0 -> as-expected
+  output lines: count=1 (expect 1) -> as-expected
+
+## case f: scripts/privacy-patterns.txt emptied; expect the self-test to exit 2
+clone <scratch>/f: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+scripts/privacy-patterns.txt bytes: 0
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    ERROR privacy: self-test failed: a planted hit was not detected
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR self-test line: expect present; count=1 grep exit=0 -> as-expected
+  PASS privacy: expect absent; count=0 grep exit=1 -> as-expected
+
+## case g: the pre-push hook, with a local bare repository as the remote (clone from case c)
+branch clean at f1ac533129120d9801d41fd14d416976d03dc282; branch work at d55fa6091766cec8ffd5ec4321f99bd7e94632ee (the case c commits)
+command: scripts/install-hooks.sh (in the clone)
+    install-hooks: wrote .git/hooks/pre-push
+  exit: 0
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 0 expected: as-expected
+  hook mode: -rwxr-xr-x
+git ls-remote <scratch>/remote.git (before):
+  refs: 0
+### g1: push the clean branch as a new ref; expect success
+command: git push scratch clean (in the clone)
+    pre-push: scripts/privacy.sh --range f1ac533129120d9801d41fd14d416976d03dc282 (refs/heads/clean)
+    privacy: 43 commit(s), 86 blob(s) scanned, 0 finding(s)
+    PASS privacy
+    To <scratch>/remote.git
+     * [new branch]      clean -> clean
+  exit: 0
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 0 expected: as-expected
+  hook runs over all of the local sha: expect present; count=1 grep exit=0 -> as-expected
+  PASS privacy: expect present; count=1 grep exit=0 -> as-expected
+git ls-remote <scratch>/remote.git (after-g1):
+    f1ac533129120d9801d41fd14d416976d03dc282	refs/heads/clean
+  refs: 1
+  remote refs/heads/clean at the clean commit: expect present; count=1 grep exit=0 -> as-expected
+  remote refs: count=1 (expect 1) -> as-expected
+### g2: push the case c branch as a new ref; expect rejection
+command: git push scratch work:refs/heads/leak (in the clone)
+    pre-push: scripts/privacy.sh --range d55fa6091766cec8ffd5ec4321f99bd7e94632ee (refs/heads/work)
+    privacy: 45 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL denylist: commit 1b4121cffaa35f199461fc8a890155857464c98c path c.txt denylist entry 1 line 1
+    error: failed to push some refs to '<scratch>/remote.git'
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit non-zero expected: as-expected
+  FAIL denylist naming the case c first commit: expect present; count=1 grep exit=0 -> as-expected
+git ls-remote <scratch>/remote.git (after-g2):
+    f1ac533129120d9801d41fd14d416976d03dc282	refs/heads/clean
+  refs: 1
+  remote refs unchanged since g1: yes
+### g3: push the case c branch onto the existing clean ref (range <remote sha>..<local sha>); expect rejection
+command: git push scratch work:refs/heads/clean (in the clone)
+    pre-push: scripts/privacy.sh --range f1ac533129120d9801d41fd14d416976d03dc282..d55fa6091766cec8ffd5ec4321f99bd7e94632ee (refs/heads/work)
+    privacy: 2 commit(s), 63 blob(s) scanned, 1 finding(s)
+    FAIL denylist: commit 1b4121cffaa35f199461fc8a890155857464c98c path c.txt denylist entry 1 line 1
+    error: failed to push some refs to '<scratch>/remote.git'
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit non-zero expected: as-expected
+  hook runs over remote..local: expect present; count=1 grep exit=0 -> as-expected
+  FAIL denylist naming the case c first commit: expect present; count=1 grep exit=0 -> as-expected
+git ls-remote <scratch>/remote.git (after-g3):
+    f1ac533129120d9801d41fd14d416976d03dc282	refs/heads/clean
+  refs: 1
+  remote refs unchanged since g1: yes
+### g4 (beyond the spec): push an annotated tag; expect rejection
+command: git push scratch refs/tags/g4tag (in the clone)
+    pre-push: refs/tags/g4tag is not a commit (tag); blocked
+    error: failed to push some refs to '<scratch>/remote.git'
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit non-zero expected: as-expected
+  hook blocks a non-commit: expect present; count=1 grep exit=0 -> as-expected
+git ls-remote <scratch>/remote.git (after-g4):
+    f1ac533129120d9801d41fd14d416976d03dc282	refs/heads/clean
+  refs: 1
+  remote refs unchanged since g1: yes
+### g5 (beyond the spec): delete the remote clean ref; expect the hook to skip it and the push to succeed
+command: git push scratch :refs/heads/clean (in the clone)
+    pre-push: skipping the deletion of refs/heads/clean
+    To <scratch>/remote.git
+     - [deleted]         clean
+  exit: 0
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 0 expected: as-expected
+  hook skips the deletion: expect present; count=1 grep exit=0 -> as-expected
+git ls-remote <scratch>/remote.git (after-g5):
+  refs: 0
+  remote refs: count=0 (expect 0) -> as-expected
+
+## case h: '* binary' in .git/info/attributes and a committed file holding a fake token; expect FAIL patterns
+clone <scratch>/h: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit ed7200383dd00309cb5ff192810a0cad609c9484; git check-attr binary diff -- h.txt:
+    h.txt: binary: set
+    h.txt: diff: unset
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL patterns: commit ed7200383dd00309cb5ff192810a0cad609c9484 path h.txt pattern 1 line 1
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns naming h.txt: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case i: a blob made unreadable by removing its object file; expect exit 2
+clone <scratch>/i: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+blob 1b98ea0a7c0116496c00f5c1b7f7b8bfa3b309ae; loose object file present: yes
+after removal: loose object file present: no; git cat-file -e exit: 1
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    ERROR privacy: git failed: cat-file blob 1b98ea0a7c0116496c00f5c1b7f7b8bfa3b309ae
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR naming the unreadable blob: expect present; count=1 grep exit=0 -> as-expected
+  PASS privacy: expect absent; count=0 grep exit=1 -> as-expected
+
+## case j: GIT_INDEX_FILE exported to a scratch index; expect the self-test to pass and the scratch index unchanged
+clone <scratch>/j: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+scratch index before: sha256 53b0da3029379998ac0359019fd7d8f3badfad6e1807b7e7a123f9c3807b81bd, entries 62
+command: env GIT_INDEX_FILE=<scratch>/scratch-index scripts/privacy.sh (in the clone; exported for this one command)
+    privacy: 43 commit(s), 86 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  exit: 0
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 0 expected: as-expected
+  PASS privacy (the self-test passed): expect present; count=1 grep exit=0 -> as-expected
+  ERROR line: expect absent; count=0 grep exit=1 -> as-expected
+scratch index after: sha256 53b0da3029379998ac0359019fd7d8f3badfad6e1807b7e7a123f9c3807b81bd, entries 62
+  scratch index unchanged: as-expected
+
+## case k: a tracked path Emend-Testing/corpus/<file>; expect a count-only hygiene FAIL line without the file name
+clone <scratch>/k: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+staged paths: 1
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: 1 tracked path(s) containing emend-testing (paths not printed)
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit non-zero expected: as-expected
+  count-only FAIL hygiene line: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect absent; count=0 grep exit=1 -> as-expected
+  lines with name.txt in the captured output: 0 (expect 0)
+### k2 (beyond the spec): the sentinel in that corpus file, committed; expect FAIL denylist with <corpus path>
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL denylist: commit 886638bfbe815f47cbc2900f8e97288cf2d18855 path <corpus path> denylist entry 1 line 1
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL denylist with <corpus path>: expect present; count=1 grep exit=0 -> as-expected
+  lines with name.txt in the captured output: 0 (expect 0)
+
+## case l (beyond the spec): a fake token after a NUL byte, so git treats the blob as binary by content; expect FAIL patterns
+clone <scratch>/l: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit 6139256add00884af1b7dff6ee4ca59b2d8b273e; git diff-tree --numstat (binary shows as - -):
+    -	-	l.bin
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL patterns: commit 6139256add00884af1b7dff6ee4ca59b2d8b273e path l.bin pattern 1 line 1
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns naming l.bin: expect present; count=1 grep exit=0 -> as-expected
+
+## case m (beyond the spec): the sentinel in a path name, clean content; expect FAIL paths with the path not printed
+clone <scratch>/m: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL paths: commit 39111d94e91ceb0f2ee153b931135e97ee2d49f4 tree entry 8 denylist entry 1 (path not printed)
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL paths: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case n (beyond the spec): a replace ref standing in for a commit that holds a fake token; expect FAIL patterns
+clone <scratch>/n: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+commit 48106ba74bef8c2c6afb06d3ab866a68bb628b03 replaced by f1ac533129120d9801d41fd14d416976d03dc282; replace refs: 1; n.txt visible through the replacement: 0
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL patterns: commit 48106ba74bef8c2c6afb06d3ab866a68bb628b03 path n.txt pattern 1 line 1
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL patterns naming the real commit: expect present; count=1 grep exit=0 -> as-expected
+
+## case o (beyond the spec): a shallow clone; expect exit 2
+shallow clone of the repository HEAD at f1ac533129120d9801d41fd14d416976d03dc282; is-shallow-repository: true
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    ERROR privacy: shallow repository or unreadable repository state; history cannot be checked
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  ERROR line: expect present; count=1 grep exit=0 -> as-expected
+
+## case p (beyond the spec): a commit message with a non-ASCII byte; expect FAIL message
+clone <scratch>/p: branch work at f1ac533129120d9801d41fd14d416976d03dc282; local user.name and user.email set from scripts/privacy-identity.txt
+command: scripts/privacy.sh (in the clone; EMEND_PRIVATE_DENYLIST=<scratch>/denylist)
+    privacy: 44 commit(s), 87 blob(s) scanned, 1 finding(s)
+    FAIL message: commit e853a12ff5b9bf9c56dc584eb16617833b46c887 has non-ASCII bytes
+  exit: 1
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 1 expected: as-expected
+  FAIL message: expect present; count=1 grep exit=0 -> as-expected
+  FAIL lines: count=1 (expect 1) -> as-expected
+
+## case q (beyond the spec): a --range value that starts with a dash; expect the usage line and exit 2
+command: scripts/privacy.sh --range --all (in the clone)
+    usage: scripts/privacy.sh [--range <rev>]
+  exit: 2
+  captured output: lines with the sentinel=0, lines with the token=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0)
+  exit 2 expected: as-expected
+  usage line: expect present; count=1 grep exit=0 -> as-expected
+
+scratch clones removed: 0 directories left (expect 0)
+main repository refs sha256 after: dd7e55cd1de0f62f8da0f74d894d619f63ce3eaac6371721b8a84408e865a033; unchanged: yes
+main working tree status (expect empty): 
+all negative cases as expected: yes
