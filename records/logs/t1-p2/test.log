@@ -1,5 +1,5 @@
-about: T1 P2 phase commit ac10ff6298707eb93802d21b003276d101f0e7b9; HEAD at run: ac10ff6298707eb93802d21b003276d101f0e7b9
-phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:16:36Z
+about: T1 P2 phase commit ed5f1f7c28a3be3f06d2673e115515e4f3d92de6; HEAD at run: ed5f1f7c28a3be3f06d2673e115515e4f3d92de6
+phase: T1 P2 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:27:54Z
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -92,6 +92,7 @@ RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-0
     check "encrypted_entry_is_an_error passed on the host and on i686" "$(yn both_ran encrypted_entry_is_an_error)"
     STATUS=$(git status --porcelain | tr '\n' ' ')
     check "status after the runs (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
     exit "$fail"
 
@@ -106,11 +107,11 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
     test missing_file_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
     test added_entry ... ok
     test duplicate_name_is_an_error ... ok
-    test non_zip_file_is_an_error ... ok
-    test stored_entry_beside_deflated_entry ... ok
     test dropped_entry ... ok
+    test stored_entry_beside_deflated_entry ... ok
     test binary_usage_error ... ok
     test names_are_escaped ... ok
     test binary_exit_status_follows_the_comparison ... ok
@@ -120,16 +121,18 @@ Running lines, test lines and summary lines:
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
     test unsupported_method_is_an_error ... ok
     test short_raw_stream_is_an_error ... ok
-    test changed_entry_with_different_lengths ... ok
+    test recompressed_entry_with_equal_metadata ... ok
     test encrypted_entry_is_an_error ... ok
+    test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
     test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
     test recompressed_entry ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
-    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-host: passed 19; failed 0; ignored 0; test lines ending ok: 19
+host: passed 21; failed 0; ignored 0; test lines ending ok: 21
 host: failed is 0: yes
 host: passed is more than 0 and equals the ok test lines: yes
 host: control bytes in the cargo output: 0 (expect 0): yes
@@ -149,8 +152,8 @@ Running lines, test lines and summary lines:
     test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
     test added_entry ... ok
-    test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
     test equal_archives_are_identical ... ok
     test binary_exit_status_follows_the_comparison ... ok
     test names_are_escaped ... ok
@@ -159,22 +162,24 @@ Running lines, test lines and summary lines:
     Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
     test unsupported_method_is_an_error ... ok
     test short_raw_stream_is_an_error ... ok
+    test recompressed_entry_with_equal_metadata ... ok
     test encrypted_entry_is_an_error ... ok
     test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
     test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
     test recompressed_entry ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
-    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-i686-unknown-linux-musl: passed 19; failed 0; ignored 0; test lines ending ok: 19
+i686-unknown-linux-musl: passed 21; failed 0; ignored 0; test lines ending ok: 21
 i686-unknown-linux-musl: failed is 0: yes
 i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
 i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
 
 ## the two runs
-host executed 19 tests; i686-unknown-linux-musl executed 19 tests
+host executed 21 tests; i686-unknown-linux-musl executed 21 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 
@@ -189,8 +194,9 @@ exit: 0
     zip v8.6.0
     zip v8.6.0 (*)
 zip feature aes-crypto lines: 0 (expect 0; the writer needs no extra feature): yes
-lines calling with_deprecated_encryption in tests/p2.rs at ac10ff6298707eb93802d21b003276d101f0e7b9: 1 (expect 1): yes
-lines naming set_encrypted_flag at ac10ff6298707eb93802d21b003276d101f0e7b9: tests/p2.rs 0, tests/common/mod.rs 0 (expect 0 and 0): yes
+lines calling with_deprecated_encryption in tests/p2.rs at ed5f1f7c28a3be3f06d2673e115515e4f3d92de6: 1 (expect 1): yes
+lines naming set_encrypted_flag at ed5f1f7c28a3be3f06d2673e115515e4f3d92de6: tests/p2.rs 0, tests/common/mod.rs 0 (expect 0 and 0): yes
 encrypted_entry_is_an_error passed on the host and on i686: yes
 status after the runs (expect empty): : yes
+run ended at 2026-09-15T17:27:54Z
 test log checks all as expected: yes

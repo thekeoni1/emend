@@ -1,5 +1,5 @@
-about: T1 P2 phase commit ac10ff6298707eb93802d21b003276d101f0e7b9; HEAD at run: ac10ff6298707eb93802d21b003276d101f0e7b9
-phase: T1 P2 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T17:16:36Z
+about: T1 P2 phase commit ed5f1f7c28a3be3f06d2673e115515e4f3d92de6; HEAD at run: ed5f1f7c28a3be3f06d2673e115515e4f3d92de6
+phase: T1 P2 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T17:27:54Z
 Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
 fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
 
@@ -35,6 +35,11 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     BIN=target/debug/xlsx-diff
     ONE_BYTE_AT=123457
     LIMIT_KB=32768
+    
+    # The binary is built from the working tree, so the run starts only at the
+    # phase commit with a clean tree (check 1 defect 5).
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
     
     rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
     SENT1="zq$(rnd 'a-z0-9' 14)"
@@ -204,6 +209,7 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     echo
     STATUS=$(git status --porcelain | tr '\n' ' ')
     note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
     exit "$fail"
 
@@ -227,7 +233,7 @@ command: python3 <scratch>/gen-small.py <scratch> <sentinel> <sentinel> <phrase>
 ## case 0 (control): input and output generated alike; expect identical, exit 0
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/same.zip
   stdout:
-    entry	xl/worksheets/sheet1.xml	identical	0	0	8	8	278890	278890	10874	10874	a640a1a9	a640a1a9				
+    entry	xl/worksheets/sheet1.xml	identical	0	0	8	8	278890	278890	10868	10868	be60086c	be60086c				
     archive	entries_in	1
     archive	entries_out	1
     archive	identical	1
@@ -245,7 +251,7 @@ command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/same.zip
 ## case a: one byte different at offset 123457
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/one-byte.zip
   stdout:
-    entry	xl/worksheets/sheet1.xml	changed	0	0	8	8	278890	278890	10874	10880	a640a1a9	559a7141	123457	1	123457	
+    entry	xl/worksheets/sheet1.xml	changed	0	0	8	8	278890	278890	10868	10874	be60086c	4dbad884	123457	1	123457	
     archive	entries_in	1
     archive	entries_out	1
     archive	identical	0
@@ -285,10 +291,11 @@ command: /usr/bin/time -v target/debug/xlsx-diff <scratch>/big-in.zip <scratch>/
   one entry row, recompressed: as-expected
   stderr is empty: as-expected
   /usr/bin/time -v, selected lines:
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.10
-    Maximum resident set size (kbytes): 3484
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.17
+    Maximum resident set size (kbytes): 3492
     Exit status: 1
-  maximum resident set size 3484 kB is under 32768 kB (32 MiB): as-expected
+  maximum resident set size 3492 kB is under 32768 kB (32 MiB): as-expected
 
   main working tree status (expect empty): : as-expected
+run ended at 2026-09-15T17:28:01Z
 all negative cases as expected: yes
