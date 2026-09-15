@@ -1,0 +1,135 @@
+about: T2 P0 phase commit d97b9ef2ec5e3deb45e5dc68ed63dd453f7a0f0b; HEAD at run: d97b9ef2ec5e3deb45e5dc68ed63dd453f7a0f0b
+phase: T2 P0 (specs/0002-gate-corpus-additions.md) privacy.log; run at 2026-09-15T13:12:10Z
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 P0 privacy.log (hook mode kept from P6c; T2 P0 does not write a hook.log).
+    # Usage: t2p0-privacy.sh privacy <phase commit> > <scratch file>
+    #        t2p0-privacy.sh hook <phase commit> > <scratch file>
+    # privacy: scripts/privacy.sh over every commit on main (HEAD must be main).
+    # hook: runs scripts/install-hooks.sh, then shows the hook and the identity.
+    # The caller moves the file into records/logs/t2-p0/ afterwards. Each check is
+    # evaluated once and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?privacy or hook}
+    C=${2:?phase commit required}
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: T2 P0 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T2 P0 (specs/0002-gate-corpus-additions.md) $MODE.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    
+    case "$MODE" in
+      privacy)
+        echo "## history"
+        MAIN=$(git rev-parse main); HEADC=$(git rev-parse HEAD); NMAIN=$(git rev-list --count main)
+        echo "branch: $(git symbolic-ref --short HEAD); main is $MAIN; HEAD is $HEADC"
+        check "HEAD is main" "$(yn [ "$MAIN" = "$HEADC" ])"
+        check "scripts/privacy.sh at HEAD equals $C" "$(yn [ "$(git rev-parse HEAD:scripts/privacy.sh)" = "$(git rev-parse "$C:scripts/privacy.sh")" ])"
+        echo "commits on main: $NMAIN"
+        echo "origin/main: $(git rev-parse origin/main); commits on main not on origin/main: $(git rev-list --count origin/main..main)"
+        echo "root commit(s): $(git rev-list --max-parents=0 main | tr '\n' ' ')"
+        echo
+        echo "## run"
+        echo "command: scripts/privacy.sh (default scope: every commit reachable from HEAD, which is main)"
+        scripts/privacy.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        echo "stdout:"
+        sed 's/^/    /' "$T/out"
+        echo "stderr:"
+        sed 's/^/    /' "$T/err"
+        echo "exit: $rc"
+        check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "stdout is exactly PASS privacy" "$(yn [ "$(cat "$T/out")" = "PASS privacy" ])"
+        check "commits scanned equal commits on main ($NMAIN)" "$(yn env LC_ALL=C /usr/bin/grep -q -E "^privacy: $NMAIN commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]\$" "$T/err")"
+        for s in out err; do
+          n=$(ctrl_bytes "$T/$s"); check "std$s control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        done
+        ;;
+      hook)
+        echo "## installer"
+        check "scripts/install-hooks.sh at HEAD equals $C" "$(yn [ "$(git rev-parse HEAD:scripts/install-hooks.sh)" = "$(git rev-parse "$C:scripts/install-hooks.sh")" ])"
+        HP=$(git config --get core.hooksPath); echo "core.hooksPath in any git config: ${HP:-unset}"
+        check "core.hooksPath is unset" "$(yn [ -z "$HP" ])"
+        echo "command: scripts/install-hooks.sh"
+        scripts/install-hooks.sh > "$T/out" 2>&1 </dev/null
+        rc=$?
+        sed 's/^/    /' "$T/out"
+        echo "exit: $rc"
+        check "installer exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        echo
+        echo "## hook"
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        echo "command: cat .git/hooks/pre-push"
+        sed 's/^/    /' .git/hooks/pre-push
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        echo "installer heredoc lines: $(wc -l < "$T/heredoc")"
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        check "hook equals the installer heredoc" "$(yn cmp -s .git/hooks/pre-push "$T/heredoc")"
+        check "hook is executable" "$(yn [ -x .git/hooks/pre-push ])"
+        echo
+        echo "## identity"
+        UN=$(git config --local --get user.name); UE=$(git config --local --get user.email)
+        echo "command: git config --local --get user.name"
+        echo "    $UN"
+        echo "command: git config --local --get user.email"
+        echo "    $UE"
+        check "equal to scripts/privacy-identity.txt lines 1 and 2" "$(yn [ "$UN|$UE" = "$(sed -n 1p scripts/privacy-identity.txt)|$(sed -n 2p scripts/privacy-identity.txt)" ])"
+        echo "command: git remote -v"
+        git remote -v | sed 's/^/    /'
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "$MODE log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## history
+branch: main; main is d97b9ef2ec5e3deb45e5dc68ed63dd453f7a0f0b; HEAD is d97b9ef2ec5e3deb45e5dc68ed63dd453f7a0f0b
+HEAD is main: yes
+scripts/privacy.sh at HEAD equals d97b9ef2ec5e3deb45e5dc68ed63dd453f7a0f0b: yes
+commits on main: 65
+origin/main: e0a5175ebcd3525f50831491150a1c8a162289f9; commits on main not on origin/main: 4
+root commit(s): af5a2c6b279d3a9f68a0ff4dcfc1e4c84ec74d5c 
+
+## run
+command: scripts/privacy.sh (default scope: every commit reachable from HEAD, which is main)
+stdout:
+    PASS privacy
+stderr:
+    privacy: 65 commit(s), 134 blob(s) scanned, 0 finding(s)
+exit: 0
+exit is 0: yes
+stdout is exactly PASS privacy: yes
+commits scanned equal commits on main (65): yes
+stdout control bytes: 0 (expect 0): yes
+stderr control bytes: 0 (expect 0): yes
+
+status after the run (expect empty): : yes
+privacy log checks all as expected: yes
