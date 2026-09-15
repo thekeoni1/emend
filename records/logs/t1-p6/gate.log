@@ -1,5 +1,6 @@
-about: T1 P6 phase commit 5d98cdc640dae3f6334041e35b74a65a1b6b3590; HEAD at run: 5d98cdc640dae3f6334041e35b74a65a1b6b3590
-phase: T1 P6 (specs/0004-xlsx-diff.md) gate.log; run at 2026-09-15T20:41:33Z
+about: T1 P6 phase commit dbe108c52efeae823bdb4464a7a884d6526fdb1a; HEAD at run: dbe108c52efeae823bdb4464a7a884d6526fdb1a
+phase: T1 P6 (specs/0004-xlsx-diff.md) gate.log; run at 2026-09-15T20:50:28Z
+rerun: replaces the logs committed in e8280e3 (first run at 5d98cdc), after the fixes for independent check 1 in dbe108c52efeae823bdb4464a7a884d6526fdb1a
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
 EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
@@ -95,18 +96,18 @@ private denylist: present, mode 600, entries 7 (never printed)
     echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
     exit "$fail"
 
-## gate files at 5d98cdc640dae3f6334041e35b74a65a1b6b3590
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
-scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; bytes 125
-Cargo.lock on disk sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; bytes 2290
-tools/xlsx-diff/Cargo.toml on disk sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; at 5d98cdc640dae3f6334041e35b74a65a1b6b3590 sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; bytes 223
+## gate files at dbe108c52efeae823bdb4464a7a884d6526fdb1a
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 e81b5bd79fca53a0989637cc8f22a8f11e2230e61e7a192960db3c0bb7df5fee; bytes 125
+Cargo.lock on disk sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 4f1a3c530c175fc9a39b606c09a9d003c9920309ae3a058420e82b0588461a0c; bytes 2290
+tools/xlsx-diff/Cargo.toml on disk sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; at dbe108c52efeae823bdb4464a7a884d6526fdb1a sha256 15581c120cc6229f34914e0b7ad9fc699ba8ad3bd0d5174af4297db99bae6ebf; bytes 223
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## dependency tree (unchanged since T1 P1: the ten crates under Facts)
@@ -127,7 +128,7 @@ the tree is exactly xlsx-diff and the ten crates: yes
 
 ## full run on a cold cache, started from / by absolute path
 command: cargo clean
-         Removed 4420 files, 641.9MiB total
+         Removed 4676 files, 660.9MiB total
 command: (cd / && <repo>/scripts/check.sh)
 stdout:
     PASS host
@@ -150,5 +151,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-15T20:42:07Z
+run ended at 2026-09-15T20:51:02Z
 gate log checks all as expected: yes

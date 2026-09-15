@@ -1,5 +1,6 @@
-about: T1 P6 phase commit 5d98cdc640dae3f6334041e35b74a65a1b6b3590; HEAD at run: 5d98cdc640dae3f6334041e35b74a65a1b6b3590
-phase: T1 P6 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T20:42:08Z
+about: T1 P6 phase commit dbe108c52efeae823bdb4464a7a884d6526fdb1a; HEAD at run: dbe108c52efeae823bdb4464a7a884d6526fdb1a
+phase: T1 P6 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T20:51:03Z
+rerun: replaces the logs committed in e8280e3 (first run at 5d98cdc), after the fixes for independent check 1 in dbe108c52efeae823bdb4464a7a884d6526fdb1a
 Archives are written under <scratch> by a Python generator from fictional content, and deleted on exit.
 fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
 
@@ -239,9 +240,9 @@ command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>
 ## control: the plain archive against a byte copy
 command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/copy.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	a2abd957	a2abd957				
-    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	8b8eee4d	8b8eee4d				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	01a244e7	01a244e7				
+    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	e107c8e2	e107c8e2				
+    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	7ccbbb5a	7ccbbb5a				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	7fb9a32c	7fb9a32c				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -273,9 +274,9 @@ command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/copy.zip
 ## case a: 0xffffffff placeholders in one central record
 command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/placeholder.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	a2abd957	a2abd957				
-    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	8b8eee4d	8b8eee4d				attrs
-    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	01a244e7	01a244e7				
+    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	e107c8e2	e107c8e2				
+    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	7ccbbb5a	7ccbbb5a				attrs
+    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	7fb9a32c	7fb9a32c				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -309,9 +310,9 @@ command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/placeholder.zip
 ## case b: local entries permuted in the file, central order kept
 command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/permuted.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	a2abd957	a2abd957				
-    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	8b8eee4d	8b8eee4d				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	01a244e7	01a244e7				
+    entry	[Content_Types].xml	identical	0	0	0	0	3510	3510	3510	3510	e107c8e2	e107c8e2				
+    entry	xl/workbook.xml	identical	1	1	0	0	6710	6710	6710	6710	7ccbbb5a	7ccbbb5a				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	0	0	11170	11170	11170	11170	7fb9a32c	7fb9a32c				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -344,5 +345,5 @@ command: target/debug/xlsx-diff <scratch>/plain.zip <scratch>/permuted.zip
   stderr is empty: as-expected
 
   main working tree status (expect empty): : as-expected
-run ended at 2026-09-15T20:42:08Z
+run ended at 2026-09-15T20:51:03Z
 all negative cases as expected: yes
