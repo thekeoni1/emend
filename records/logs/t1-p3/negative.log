@@ -1,5 +1,5 @@
-about: T1 P3 phase commit 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e; HEAD at run: 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e
-phase: T1 P3 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T17:56:29Z
+about: T1 P3 phase commit 401bb98f19d666475448e03c292aff038e7182c8; HEAD at run: 401bb98f19d666475448e03c292aff038e7182c8
+phase: T1 P3 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T18:05:09Z
 Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
 fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
 
@@ -183,15 +183,15 @@ command: cargo build -p xlsx-diff
 ## generated archives
 command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>
   exit: 0
-  input.zip 3803 bytes; comment.zip 3835 bytes
+  input.zip 3806 bytes; comment.zip 3838 bytes
   the two archives are byte-equal before input.zip's comment length field: as-expected
 
 ## case a: two files that differ only in the archive comment
 command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/comment.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	cde00982	cde00982				
-    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1159	1159	5ae8b759	5ae8b759				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1673	1673	b7500974	b7500974				
+    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	b542992f	b542992f				
+    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1160	1160	4e1a7d19	4e1a7d19				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1675	1675	f1e0f7a4	f1e0f7a4				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -204,14 +204,14 @@ command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/comment.zip
     archive	comment_equal	no
     archive	prefix_in	0
     archive	prefix_out	0
-    archive	central_start_in	3585
-    archive	central_start_out	3585
+    archive	central_start_in	3588
+    archive	central_start_out	3588
     archive	uncompressed_in	87470
     archive	uncompressed_out	87470
-    archive	compressed_in	3437
-    archive	compressed_out	3437
-    archive	bytes_in	3803
-    archive	bytes_out	3835
+    archive	compressed_in	3440
+    archive	compressed_out	3440
+    archive	bytes_in	3806
+    archive	bytes_out	3838
     archive	files_identical	no
   stderr:
   exit: 1
@@ -227,9 +227,9 @@ command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/comment.zip
 ## case b: the same file given twice
 command: target/debug/xlsx-diff <scratch>/comment.zip <scratch>/comment.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	cde00982	cde00982				
-    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1159	1159	5ae8b759	5ae8b759				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1673	1673	b7500974	b7500974				
+    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	b542992f	b542992f				
+    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1160	1160	4e1a7d19	4e1a7d19				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1675	1675	f1e0f7a4	f1e0f7a4				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -242,14 +242,14 @@ command: target/debug/xlsx-diff <scratch>/comment.zip <scratch>/comment.zip
     archive	comment_equal	yes
     archive	prefix_in	0
     archive	prefix_out	0
-    archive	central_start_in	3585
-    archive	central_start_out	3585
+    archive	central_start_in	3588
+    archive	central_start_out	3588
     archive	uncompressed_in	87470
     archive	uncompressed_out	87470
-    archive	compressed_in	3437
-    archive	compressed_out	3437
-    archive	bytes_in	3835
-    archive	bytes_out	3835
+    archive	compressed_in	3440
+    archive	compressed_out	3440
+    archive	bytes_in	3838
+    archive	bytes_out	3838
     archive	files_identical	yes
   stderr:
   exit: 0
@@ -261,5 +261,5 @@ command: target/debug/xlsx-diff <scratch>/comment.zip <scratch>/comment.zip
   stderr is empty: as-expected
 
   main working tree status (expect empty): : as-expected
-run ended at 2026-09-15T17:56:29Z
+run ended at 2026-09-15T18:05:10Z
 all negative cases as expected: yes

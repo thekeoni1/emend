@@ -1,5 +1,5 @@
-about: T1 P3 phase commit 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e; HEAD at run: 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e
-phase: T1 P3 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T17:56:28Z
+about: T1 P3 phase commit 401bb98f19d666475448e03c292aff038e7182c8; HEAD at run: 401bb98f19d666475448e03c292aff038e7182c8
+phase: T1 P3 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T18:05:08Z
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -87,14 +87,14 @@ Running lines, test lines and summary lines:
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
     test missing_file_is_an_error ... ok
     test non_zip_file_is_an_error ... ok
-    test added_entry ... ok
     test duplicate_name_is_an_error ... ok
-    test dropped_entry ... ok
+    test added_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
     test binary_usage_error ... ok
     test names_are_escaped ... ok
-    test equal_archives_are_identical ... ok
     test binary_exit_status_follows_the_comparison ... ok
+    test equal_archives_are_identical ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
@@ -108,20 +108,22 @@ Running lines, test lines and summary lines:
     test entry_of_exactly_two_buffers ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
     test recompressed_entry ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
     Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
     test data_descriptor_on_one_side ... ok
     test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
-    test leading_junk_bytes ... ok
     test changed_archive_comment ... ok
+    test leading_junk_bytes ... ok
+    test output_side_rows_take_the_output_values ... ok
     test each_flag_alone ... ok
-    test reordered_entries ... ok
     test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
+    test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-host: passed 29; failed 0; ignored 0; test lines ending ok: 29
+host: passed 31; failed 0; ignored 0; test lines ending ok: 31
 host: failed is 0: yes
 host: passed is more than 0 and equals the ok test lines: yes
 host: control bytes in the cargo output: 0 (expect 0): yes
@@ -137,15 +139,15 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
     test binary_usage_error ... ok
-    test non_zip_file_is_an_error ... ok
     test missing_file_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
     test added_entry ... ok
     test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
     test binary_exit_status_follows_the_comparison ... ok
-    test names_are_escaped ... ok
     test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
     Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
@@ -157,30 +159,32 @@ Running lines, test lines and summary lines:
     test changed_entry_with_equal_length ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
-    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
     test recompressed_entry ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
     Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
     test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
-    test leading_junk_bytes ... ok
     test data_descriptor_on_one_side ... ok
+    test leading_junk_bytes ... ok
+    test output_side_rows_take_the_output_values ... ok
     test changed_archive_comment ... ok
-    test every_archive_row_in_order ... ok
     test reordered_entries ... ok
+    test every_archive_row_in_order ... ok
     test each_flag_alone ... ok
+    test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-i686-unknown-linux-musl: passed 29; failed 0; ignored 0; test lines ending ok: 29
+i686-unknown-linux-musl: passed 31; failed 0; ignored 0; test lines ending ok: 31
 i686-unknown-linux-musl: failed is 0: yes
 i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
 i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
 
 ## the two runs
-host executed 29 tests; i686-unknown-linux-musl executed 29 tests
+host executed 31 tests; i686-unknown-linux-musl executed 31 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 status after the runs (expect empty): : yes
-run ended at 2026-09-15T17:56:29Z
+run ended at 2026-09-15T18:05:09Z
 test log checks all as expected: yes
