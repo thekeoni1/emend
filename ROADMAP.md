@@ -62,7 +62,8 @@ Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 | P3 | All `archive` rows (counts, order, comment, offsets, totals, `files_identical`), the six flags, exit status 0/1/2 as specified; column 14 as the first differing offset for different lengths | DONE (f0adb45 to 827766a) |
 | P4 | No-leak sentinel test on stdout and stderr; the `local` flag; a prefix-only `files_identical` test; zip64 entry over 4 GiB uncompressed compared by streaming on i686 (ignored by default, run explicitly and logged) | DONE (564af3b to b5180be) |
 | Close | Push T1 P1 to P4 with their records, after P4 (maintainer decision); record the CI run | DONE (pushed 83c9852; run 35017518231 success; record 343e91f local) |
-| P5 | Flag completeness: `local` narrowed to local-only differences, `attrs` with internal attributes and disk number, `descriptor` with the bytes after the data; exit 0 then covers every entry byte from local header to next header; records go with the next push | READY |
+| P5 | Flag completeness: `local` narrowed to local-only differences, `attrs` with internal attributes and disk number, `descriptor` with the bytes after the data; records go with the next push | DONE (b58c086 to 4f6f347) |
+| P6 | Closing the exit-0 guarantee: `attrs` covers raw central size, CRC and method bytes that decode equal (zip64 placeholders); `order_preserved` covers the file order; the data-overrun case tested; the last T1 phase, after which harness findings go to a backlog unless a real data flow is affected | READY |
 
 ### T2: corpus (runs alongside T1; `specs/0005-corpus.md`)
 
@@ -150,6 +151,10 @@ approval.
 - Gate self-test script: a committed script that reruns every phase's
   negative tests. The maintainer approved scoping it after T0
   (2026-09-15).
+- xlsx-diff backlog: harness findings raised after T1 P6 that do not
+  concern a real data flow (a corpus file in T3, or an emend output).
+  - The zip64 test is rerun only when the gap or size code changes, not
+    per phase (T1 P5 gap 3).
 - Privacy gate backlog: findings raised after T2 P0 that do not concern a
   data flow this project has.
   - Unchecked `sed`, `tr` and `cut` exit statuses in two helper

@@ -4,8 +4,9 @@ Status: P1 to P4 DONE, verified by planning 2026-09-15 (P1: 8356f9a to
 6ccae09, phase commits 2df5f6e and dc22f78; P2: a3166a5 to 24f4ef0,
 phase commits 8d3c2aa, ac10ff6 and ed5f1f7; P3: f0adb45 to 827766a,
 phase commits 9f124c7 and 401bb98; P4: 564af3b to b5180be, phase
-commits 74b2bf0 and c35112b). The T1 close-out push goes after P4
-(maintainer decision, 2026-09-15); P5 READY after it. Runs after T0b. T2
+commits 74b2bf0 and c35112b; P5: b58c086 to 4f6f347, phase commits
+1c8eca1 and b3534cc). The T1 close-out push went after P4 (maintainer
+decision, 2026-09-15). P6 READY, the last T1 phase. Runs after T0b. T2
 (corpus, `specs/0005-corpus.md`) runs alongside it.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` (the T1 outline),
 `specs/0001-bootstrap.md` ("How this task runs" and "Rules for every
@@ -100,7 +101,10 @@ Flags, set only for entries present on both sides, whatever the status:
 - `attrs`: the external attributes, internal attributes, disk number
   start, version-made-by (whose high byte is the system) or
   version-needed-to-extract in the central record differ (internal
-  attributes and disk number start from P5);
+  attributes and disk number start from P5); or, from P6, the raw bytes
+  of the central record's method, CRC-32, compressed size or
+  uncompressed size field differ while the decoded values are equal
+  (a zip64 placeholder on one side and a plain value on the other);
 - `comment`: the entry comment differs;
 - `local`: a local-only difference. A field of the local file header
   (version needed, general purpose flags, method, DOS time, DOS date,
@@ -117,10 +121,11 @@ directory for the last entry: a data descriptor's bytes, and any padding.
 
 The flags `mtime`, `extra`, `gpflags`, `descriptor`, `attrs` and
 `comment` read the central directory record's own bytes, plus the local
-header's extra field for `extra`. With all seven flags, exit status 0
-means that every common entry is byte-equal from its local header to
-the next header, that its central record is byte-equal apart from the
-local header offset field, that the order is preserved and that the
+header's extra field for `extra`. With all seven flags as defined after
+P6, exit status 0 means that every common entry is byte-equal from its
+local header to the next header, that its central record is byte-equal
+apart from the local header offset field, that the entries stand in the
+same order in both central directories and in both files, and that the
 archive comment is equal. A `files_identical` of `no` beside exit 0 can
 then come only from a prefix or from end-of-central-directory and zip64
 records other than the comment.
@@ -133,7 +138,7 @@ this order:
 | `entries_in`, `entries_out` | entry counts |
 | `identical`, `recompressed`, `changed`, `dropped`, `added` | row counts by status |
 | `flagged` | count of entries with a non-empty flags column |
-| `order_preserved` | `yes` if the names present on both sides appear in the same relative order in both archives, else `no` |
+| `order_preserved` | `yes` if the names present on both sides appear in the same relative order in both central directories and, from P6, in the same relative order by local header offset in both files; else `no` |
 | `comment_equal` | `yes` if the archive comments are byte-equal, else `no` |
 | `prefix_in`, `prefix_out` | bytes before the first local header (`ZipArchive::offset`) |
 | `central_start_in`, `central_start_out` | offset of the central directory |
@@ -540,6 +545,71 @@ Deliverables:
   header to the next header, and no central record byte other than the
   offset field, is outside the status and the flags.
 
+### Planning rulings on P5 (2026-09-15)
+
+- P5 is verified from primaries by planning's own checks:
+  - Doc commit b58c086 holds exactly planning's two doc files (22
+    insertions, 2 deletions), unchanged since. The two phase commits
+    touch only `tools/xlsx-diff/`; the four record commits only
+    `records/logs/t1-p5/`. All seven messages end with the
+    Co-Authored-By trailer only, under the noreply identity. No mode
+    changes, no tracked archive.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 38 passed and 1 ignored on each, same names.
+  - Planning read the `lib.rs` diff and `tests/p5.rs` against this
+    spec: the narrowed `local` over the eight shared fields against the
+    raw central bytes, `attrs` with internal attributes and disk number
+    start, the gap from each data end to the next local header or the
+    central directory, compared through two buffers, and the P5 tests.
+  - Planning reproduced with its own archives and the built binary: 37
+    padding bytes inserted before the second local header with the
+    offsets fixed (`descriptor` on the first row alone, exit 1); the
+    padded archive against its byte copy (exit 0); a local-only DOS
+    time change (`local` alone); the same change in both headers
+    (`mtime` alone); internal attributes changed (`attrs` alone).
+  - The six record files, the eight source files, `Cargo.lock` and the
+    seven messages have zero hits on every scan; the superseded logs at
+    97cb52d hold no home path and no non-ASCII byte. `scripts/privacy.sh`
+    over the 118 local commits: PASS.
+- Findings 1 and 2 are accepted as real and are the P6 work: `attrs`
+  gains the raw-bytes case and `order_preserved` gains the file order,
+  as the Output section now says. After P6, T1 is DONE, and further
+  harness findings go to a backlog in `ROADMAP.md` unless they concern
+  a real data flow: a corpus file in T3 or an emend output later. The
+  same proportion rule that closed the privacy gate after T2 P0.
+- Departures 1 to 4 accepted as recorded. On 1: the gap definition
+  (empty past the central directory, measured to the first header at
+  or after the data end otherwise) is right; P6 tests the overrun case.
+- Remaining gaps: 1 and 2 are the P6 work; 3 is partly P6 work (the
+  overrun case) and otherwise accepted (the zip64 test is rerun at the
+  T1 backlog's discretion, not per phase); 4 accepted.
+
+### P6: closing the exit-0 guarantee (added on the P5 rulings)
+
+- `attrs` and `order_preserved` extended exactly as the Output section
+  says. Flag order unchanged.
+- Tests on the byte-level builder:
+  - a zip64 pair: both sides carry a byte-equal zip64 extra field with
+    the sizes, one side with 0xffffffff placeholders in the central
+    size fields and the other with the plain values; the entry is
+    `identical` with `attrs` alone, exit 1; the same placeholders on
+    both sides give exit 0;
+  - the local entries permuted in the file with the central order kept:
+    every entry `identical` with no flags, `order_preserved` `no`,
+    exit 1, `files_identical` `no`;
+  - an entry whose data runs over the next local header on both sides
+    alike (a stored entry whose declared compressed size overlaps the
+    following header): no error, the overlapped bytes compared as data,
+    the gap starting where the data ends, exit 0.
+- Negative cases: (a) the placeholder pair gives exit 1 with `attrs`
+  on one row; (b) the permuted pair gives exit 1 with `order_preserved`
+  `no` and no flags.
+- Acceptance: as P1, plus the exit-0 paragraph true by construction:
+  every central record byte other than the offset field, every byte
+  from a local header to the next header, and the order in both the
+  central directory and the file, are inside the status, the flags and
+  the archive rows.
+
 ### Close-out push (after P4)
 
 The maintainer authorised the T1 close-out push after P4 verified, so
@@ -583,5 +653,7 @@ Planning ruling (2026-09-15): the close-out push is verified and DONE.
 
 ## Done
 
-T1 is done when P4 verifies, the close-out push is recorded with a green
-CI run, and `ROADMAP.md` says so.
+T1 is done when P6 verifies and `ROADMAP.md` says so; the close-out
+push after P4 is recorded with a green CI run, and the P5 and P6 records
+go with the next authorised push. From then on, harness findings go to
+the T1 backlog in `ROADMAP.md` unless they concern a real data flow.
