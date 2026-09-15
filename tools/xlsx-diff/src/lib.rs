@@ -10,7 +10,9 @@
 //! section says. T1 P4 adds the seventh flag, `local`, and version needed to
 //! extract to `attrs`. T1 P5 narrows `local` to local-only differences, adds
 //! internal attributes and disk number start to `attrs`, and adds the bytes
-//! after each entry's data to `descriptor`.
+//! after each entry's data to `descriptor`. T1 P6 adds raw central method,
+//! CRC-32 and size bytes that decode to equal values to `attrs`, and the
+//! order by local header offset to `order_preserved`.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -635,6 +637,19 @@ fn gaps_equal(
     }
 }
 
+/// Whether a raw field of the two central records differs while the value
+/// the zip crate decodes from it is equal: the method, the CRC-32, the
+/// compressed size or the uncompressed size (for example a zip64 placeholder
+/// on one side and a plain value on the other).
+fn raw_only(a: &Meta, b: &Meta) -> bool {
+    let (ca, cb) = (&a.record.central_fixed, &b.record.central_fixed);
+    let differs = |from: usize, to: usize| ca[from..to] != cb[from..to];
+    (differs(4, 6) && a.method == b.method)
+        || (differs(10, 14) && a.crc == b.crc)
+        || (differs(14, 18) && a.compressed == b.compressed)
+        || (differs(18, 22) && a.size == b.size)
+}
+
 /// Column 17 for an entry present on both sides: the names of the flags that
 /// are set, in the spec's order, comma-separated.
 fn flags(a: &Meta, b: &Meta, same_gap: bool) -> String {
@@ -657,6 +672,7 @@ fn flags(a: &Meta, b: &Meta, same_gap: bool) -> String {
         || ra.disk_start != rb.disk_start
         || ra.version_made_by != rb.version_made_by
         || ra.version_needed != rb.version_needed
+        || raw_only(a, b)
     {
         set.push("attrs");
     }
@@ -790,6 +806,7 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
     let mut matched = vec![false; b.entries.len()];
     let mut order_preserved = true;
     let mut previous: Option<usize> = None;
+    let mut common: Vec<(usize, usize)> = Vec::new();
     for i in 0..a.entries.len() {
         match out_index.get(a.entries[i].name()).copied() {
             Some(j) => {
@@ -798,6 +815,7 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
                     order_preserved = false;
                 }
                 previous = Some(j);
+                common.push((i, j));
                 let (ea, eb) = (&a.entries[i], &b.entries[j]);
                 let same_meta = ea.method == eb.method
                     && ea.crc == eb.crc
@@ -845,6 +863,16 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
             counts.added += 1;
             write_entry(out, eb.name(), "added", None, Some((j, eb)), None, "")?;
         }
+    }
+
+    // The common entries must also stand in the same relative order by local
+    // header offset in both files.
+    common.sort_by_key(|&(i, _)| a.entries[i].header_start);
+    if common
+        .windows(2)
+        .any(|w| b.entries[w[0].1].header_start > b.entries[w[1].1].header_start)
+    {
+        order_preserved = false;
     }
 
     let comment_equal = a.comment == b.comment;

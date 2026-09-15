@@ -430,6 +430,13 @@ pub struct RawEntry {
     /// Bytes written after the entry's data and descriptor, before the next
     /// local header or the central directory.
     pub padding_after: Vec<u8>,
+    /// Writes 0xffffffff in the central record's two size fields, as a zip64
+    /// placeholder; the sizes then come from a zip64 extra field that the
+    /// caller puts in `central_extra`.
+    pub central_size_placeholder: bool,
+    /// A compressed size to declare in both headers instead of the length of
+    /// `raw` (it may run over the next local header).
+    pub declared_compressed: Option<usize>,
 }
 
 /// A stored entry: version 2.0 made by MS-DOS, no flags, DOS time 00:00:00
@@ -458,6 +465,8 @@ pub fn raw_stored(name: &str, data: &[u8]) -> RawEntry {
         disk_start: 0,
         descriptor_signature: true,
         padding_after: Vec::new(),
+        central_size_placeholder: false,
+        declared_compressed: None,
     }
 }
 
@@ -475,6 +484,19 @@ pub fn raw_deflated(name: &str, data: &[u8], raw: &[u8]) -> RawEntry {
 /// central directory and the end of central directory record with
 /// `comment`. Offsets in the headers count from the end of `prefix`.
 pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
+    let order: Vec<usize> = (0..entries.len()).collect();
+    raw_zip_with_local_order(prefix, entries, &order, comment)
+}
+
+/// As `raw_zip`, but the local entries are written in `local_order` (a
+/// permutation of the entry indices) while the central directory keeps the
+/// order of `entries`.
+pub fn raw_zip_with_local_order(
+    prefix: &[u8],
+    entries: &[RawEntry],
+    local_order: &[usize],
+    comment: &[u8],
+) -> Vec<u8> {
     fn u16_of(n: usize) -> [u8; 2] {
         u16::try_from(n).expect("a 16-bit field").to_le_bytes()
     }
@@ -482,9 +504,18 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
         u32::try_from(n).expect("a 32-bit field").to_le_bytes()
     }
     let mut out = prefix.to_vec();
-    let mut local_offsets = Vec::with_capacity(entries.len());
-    for e in entries {
-        local_offsets.push(out.len() - prefix.len());
+    let mut local_offsets = vec![0usize; entries.len()];
+    let mut sorted_order = local_order.to_vec();
+    sorted_order.sort_unstable();
+    assert_eq!(
+        sorted_order,
+        (0..entries.len()).collect::<Vec<_>>(),
+        "local_order is a permutation"
+    );
+    for &k in local_order {
+        let e = &entries[k];
+        local_offsets[k] = out.len() - prefix.len();
+        let compressed = e.declared_compressed.unwrap_or(e.raw.len());
         let descriptor = e.flags & 0x0008 != 0;
         let crc = crc32(&e.data).to_le_bytes();
         let local_name = e.local_name.as_ref().unwrap_or(&e.name);
@@ -499,7 +530,7 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
             out.extend_from_slice(&[0; 12]);
         } else {
             out.extend_from_slice(&crc);
-            out.extend_from_slice(&u32_of(e.raw.len()));
+            out.extend_from_slice(&u32_of(compressed));
             out.extend_from_slice(&u32_of(e.data.len()));
         }
         out.extend_from_slice(&u16_of(local_name.len()));
@@ -512,7 +543,7 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
                 out.extend_from_slice(&[0x50, 0x4b, 0x07, 0x08]);
             }
             out.extend_from_slice(&crc);
-            out.extend_from_slice(&u32_of(e.raw.len()));
+            out.extend_from_slice(&u32_of(compressed));
             out.extend_from_slice(&u32_of(e.data.len()));
         }
         out.extend_from_slice(&e.padding_after);
@@ -527,8 +558,12 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&e.time.to_le_bytes());
         out.extend_from_slice(&e.date.to_le_bytes());
         out.extend_from_slice(&crc32(&e.data).to_le_bytes());
-        out.extend_from_slice(&u32_of(e.raw.len()));
-        out.extend_from_slice(&u32_of(e.data.len()));
+        if e.central_size_placeholder {
+            out.extend_from_slice(&[0xff; 8]);
+        } else {
+            out.extend_from_slice(&u32_of(e.declared_compressed.unwrap_or(e.raw.len())));
+            out.extend_from_slice(&u32_of(e.data.len()));
+        }
         out.extend_from_slice(&u16_of(e.name.len()));
         out.extend_from_slice(&u16_of(e.central_extra.len()));
         out.extend_from_slice(&u16_of(e.comment.len()));
