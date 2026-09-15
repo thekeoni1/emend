@@ -1,9 +1,9 @@
 # 0001: T0 repo bootstrap
 
-Status: P1, P1R, P2 and P3 DONE, verified by planning 2026-09-14. After
-the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
-records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
-53b99d8. P4 to P7 READY.
+Status: P1, P1R, P2, P3 and P4 DONE, verified by planning 2026-09-14.
+After the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a
+with records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
+53b99d8; P4 is 977635b to a00d6fd. P5 to P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -232,6 +232,51 @@ committed. Its output goes in the phase's `negative.log`.
   phase scan passes, and P6 scans the whole history before any push.
 - Question 7: the P3 Logs list now names `ignore.log`.
 
+## Planning rulings on P4 (2026-09-14)
+
+- P4 is verified from primaries by planning's own checks:
+  - Doc commit 977635b holds exactly the two pending paths.
+  - Phase commit a713c93 changes only `scripts/check.sh` and adds an
+    empty `scripts/sys-allowlist.txt`. The five record commits touch
+    only `records/logs/t0-p4/`. All seven messages end with the
+    Co-Authored-By trailer only.
+  - Planning ran `scripts/check.sh` from `/`: all six steps PASS, exit
+    0, zero control bytes in the output.
+  - Planning tested step 5 with local fixture crates in fresh clones.
+    `cc` as a build-dependency, a renamed dependency with
+    `package = "cc"`, and `cc` under a Windows-only target table each
+    give `FAIL native`.
+  - Two cases passed unseen. `cc` behind a feature nothing enables
+    passed `native`, and a crate named `fake_sys` passed `native`.
+  - An `MPL-2.0` crate behind a feature nothing enables passed
+    `licences`, because plain `cargo metadata` lists only the default
+    resolve. With `--all-features`, `cargo tree` shows both hidden
+    crates and `cargo metadata` lists the `MPL-2.0` crate. Both commands
+    still succeed on the real workspace.
+  - Every file in every commit on main, and every message, has zero
+    hits against the denylist, the shape-based P6 patterns and non-ASCII
+    bytes. The only control bytes in the tree remain the accepted P3
+    lines. The GitHub repository still has no branches.
+- Question 1: yes. `native` and `licences` run with `--all-features`
+  (P5).
+- Question 2: build-dependencies, renamed dependencies and target
+  tables are caught, as shown above. They become permanent negative
+  tests in P5.
+- Question 3: yes. `native` also matches `pkg_config` and names ending
+  in `_sys` (P5).
+- Question 4: matching the allowlist by name only is accepted. The
+  allowlist is empty, and any addition needs a planning ruling after a
+  review of that crate's source, version and origin.
+- Question 5: yes. On success, `native` names the allowlisted `-sys`
+  crates it saw (P5).
+- Question 6: lowercase SPDX identifiers and the slash form failing
+  closed is accepted.
+- Question 7: the negative.log final tree check ignoring
+  `records/logs/t0-p4/` is accepted.
+- The attempt logs, the self-naming slip in verify-attempt1.log and the
+  weak controls are accepted as recorded. Planning's own scans cover
+  both verify logs.
+
 ## P1: commit what exists (DONE; rewritten in P1R)
 
 - Commit `CLAUDE.md`, `ROADMAP.md` and `specs/` exactly as they are in
@@ -422,6 +467,28 @@ Add to `scripts/check.sh`:
    The step first runs its own positive control: a temp file holding
    the U+2014 bytes must be detected. If the control fails or grep
    exits 2 or more, the step fails.
+
+Also in this phase, close the gaps planning found in steps 5 and 6
+(rulings on P4):
+
+- Run `cargo tree` in `native` and `cargo metadata` in `licences` with
+  `--all-features`, so crates behind a feature nothing enables are
+  seen.
+- In `native`, match `pkg_config` as well as `pkg-config`, and names
+  ending in `_sys` as well as `-sys`.
+- On success, `native` names the allowlisted `-sys` crates it saw, for
+  example `PASS native (allowlisted -sys: none)`.
+
+Add these cases to this phase's `negative.log`. Each runs in a scratch
+clone, with local fixture crates outside the clone:
+
+- (d) `cc` behind a feature nothing enables: `FAIL native`.
+- (e) a crate named `fake_sys`: `FAIL native`.
+- (f) an `MPL-2.0` crate behind a feature nothing enables:
+  `FAIL licences`.
+- (g) `cc` as a build-dependency: `FAIL native`.
+- (h) a renamed dependency with `package = "cc"`: `FAIL native`.
+- (i) `cc` under `[target.'cfg(windows)'.dependencies]`: `FAIL native`.
 
 Also add `records/toolchain-<date>.md`: rustc and cargo versions,
 installed targets, kernel version from `uname -r` only, the `file`
