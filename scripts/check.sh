@@ -227,7 +227,10 @@ echo "PASS licences"
 # before using it. Exit 2 or more from any grep is an error, never zero hits.
 # ANTHROPIC_API_KEY is checked before step 1.
 EMDASH=$(printf '\342\200\224')
-readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$'
+# Office and spreadsheet extensions, alone or followed by #, ~ or a further
+# extension (lock files and backups). Keep in step with scripts/privacy.sh
+# and .gitignore.
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.])'
 readonly FIXTURES_RE='(^|/)tests/fixtures/'
 : >"$OUT/hygiene-err"
 rc=0
@@ -302,9 +305,11 @@ mkdir -p "$CTL"
 printf 'plain\000bad\001path\000' >"$CTL/ctrl.z"
 hgrep "$CTL/o-ctrl" -z -c -P '[\x01-\x1f\x7f]' "$CTL/ctrl.z"
 [ "$rc" -eq 0 ] || fail hygiene "positive control failed: control byte in a path (grep exit $rc)" "$OUT/hygiene-err"
-printf 'x/b.XLSX\000c.txt\000' >"$CTL/office.z"
+printf 'x/b.XLSX\000c.txt\000.~lock.d.ods#\000e.Csv.bak\000f.xlsxy\000' >"$CTL/office.z"
 hgrep "$CTL/o-office" -z -i -E "$OFFICE_RE" "$CTL/office.z"
-[ "$rc" -eq 0 ] || fail hygiene "positive control failed: office extension (grep exit $rc)" "$OUT/hygiene-err"
+if [ "$rc" -ne 0 ] || [ "$(tr '\000' ' ' <"$CTL/o-office")" != "x/b.XLSX .~lock.d.ods# e.Csv.bak " ]; then
+  fail hygiene "positive control failed: office extension (grep exit $rc)" "$OUT/hygiene-err"
+fi
 printf 'tools/tests/fixtures/a.xlsx\000b.xlsx\000' >"$CTL/fixtures.z"
 hgrep "$CTL/o-fixtures" -z -v -E "$FIXTURES_RE" "$CTL/fixtures.z"
 if [ "$rc" -ne 0 ] || [ "$(tr '\000' '\n' <"$CTL/o-fixtures")" != b.xlsx ]; then

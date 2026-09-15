@@ -1,12 +1,52 @@
 /target
 
-# Office files never enter the repository, except under tests/fixtures/.
-# Extensions match in any letter case.
+# Office and spreadsheet files never enter the repository, except under
+# tests/fixtures/. Extensions match in any letter case, alone or followed
+# by #, ~ or a further extension, which catches lock files and backups
+# such as .~lock.<name>.xlsx#, <name>.xlsx~ and <name>.xlsx.bak.
 *.[xX][lL][sS][xX]
+*.[xX][lL][sS][xX][#~]
+*.[xX][lL][sS][xX].*
 *.[xX][lL][sS][mM]
+*.[xX][lL][sS][mM][#~]
+*.[xX][lL][sS][mM].*
 *.[xX][lL][tT][xX]
+*.[xX][lL][tT][xX][#~]
+*.[xX][lL][tT][xX].*
 *.[xX][lL][tT][mM]
+*.[xX][lL][tT][mM][#~]
+*.[xX][lL][tT][mM].*
 *.[xX][lL][sS][bB]
+*.[xX][lL][sS][bB][#~]
+*.[xX][lL][sS][bB].*
 *.[xX][lL][sS]
+*.[xX][lL][sS][#~]
+*.[xX][lL][sS].*
 *.[oO][dD][sS]
+*.[oO][dD][sS][#~]
+*.[oO][dD][sS].*
+*.[cC][sS][vV]
+*.[cC][sS][vV][#~]
+*.[cC][sS][vV].*
+*.[tT][sS][vV]
+*.[tT][sS][vV][#~]
+*.[tT][sS][vV].*
+*.[fF][oO][dD][sS]
+*.[fF][oO][dD][sS][#~]
+*.[fF][oO][dD][sS].*
+*.[oO][tT][sS]
+*.[oO][tT][sS][#~]
+*.[oO][tT][sS].*
+*.[xX][lL][tT]
+*.[xX][lL][tT][#~]
+*.[xX][lL][tT].*
+*.[xX][lL][aA]
+*.[xX][lL][aA][#~]
+*.[xX][lL][aA].*
+*.[xX][lL][aA][mM]
+*.[xX][lL][aA][mM][#~]
+*.[xX][lL][aA][mM].*
+*.[nN][uU][mM][bB][eE][rR][sS]
+*.[nN][uU][mM][bB][eE][rR][sS][#~]
+*.[nN][uU][mM][bB][eE][rR][sS].*
 !**/tests/fixtures/**

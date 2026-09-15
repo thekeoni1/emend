@@ -11,10 +11,16 @@
 # is a NOTICE. A one-line summary goes to stderr.
 # Exit codes: 0 pass, 1 findings, 2 error.
 #
+# Checks per commit: every raw header line and the message (patterns, denylist,
+# email), the author and committer identity, path names (patterns, denylist,
+# email), counts of corpus paths, office paths and archive blobs, and every
+# blob's content.
+#
 # Findings name only the check, the pattern or entry number, the commit, the
 # path and the line number, never the matched text. A path that itself hits
 # prints as <private path>, a path containing emend-testing as <corpus path>,
-# and an office file outside tests/fixtures/ as <office path>. The private
+# and an office file outside tests/fixtures/ as <office path>. Corpus paths,
+# office paths and archive blobs are counted, never named. The private
 # denylist is never printed, copied to a file or passed on a command line.
 set -uo pipefail
 
@@ -23,7 +29,10 @@ readonly USAGE="usage: scripts/privacy.sh [--range <rev>]"
 # scripts/privacy-patterns.txt must hold exactly this many patterns. The
 # self-test plants one fake value per pattern, in the file's order.
 readonly EXPECTED_PATTERNS=11
-readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$'
+# Office and spreadsheet extensions, alone or followed by #, ~ or a further
+# extension (lock files and backups such as .~lock.<name>.xlsx#). Keep in step
+# with step 7 of scripts/check.sh and with .gitignore.
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods|csv|tsv|fods|ots|xlt|xla|xlam|numbers)($|[#~.])'
 readonly FIXTURES_RE='(^|/)tests/fixtures/'
 readonly EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
 
@@ -169,14 +178,16 @@ hit_lines() {
   done <"$T/lines"
 }
 
-# email_lines <file> <result file>: append "email - <line>" for every line
-# holding an address outside the allowlist: the identity address,
-# noreply@anthropic.com and addresses at example.invalid. Addresses pass only
-# through the pipe.
+# email_lines <file> <result file> [-z]: append "email - <line>" for every
+# line (with -z, record) holding an address outside the allowlist: the
+# identity address, noreply@anthropic.com and addresses at example.invalid.
+# Addresses pass only through the pipe.
 email_lines() {
-  local file=$1 res=$2 rc l
-  screen "$file" -E -e "$EMAIL_RE" || return 0
-  LC_ALL=C "$G" -a -o -n -E -e "$EMAIL_RE" -- "$file" 2>/dev/null </dev/null |
+  local file=$1 res=$2 rc l z=()
+  [ "${3:-}" != -z ] || z=(-z)
+  screen "$file" "${z[@]}" -E -e "$EMAIL_RE" || return 0
+  LC_ALL=C "$G" -a "${z[@]}" -o -n -E -e "$EMAIL_RE" -- "$file" 2>/dev/null </dev/null |
+    tr '\000' '\n' |
     LC_ALL=C awk -v id="$ID_EMAIL" '
       { i = index($0, ":"); a = tolower(substr($0, i + 1)) }
       a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
@@ -189,7 +200,7 @@ email_lines() {
 }
 
 # scan_file <file> <result file> [-z]: write "patterns <n> <line>",
-# "denylist <n> <line>" and, for text files, "email - <line>" for every hit.
+# "denylist <n> <line>" and "email - <line>" for every hit.
 # With -z the file is NUL-separated records and numbers are record numbers.
 scan_file() {
   local file=$1 res=$2 z=() i
@@ -205,7 +216,7 @@ scan_file() {
       hit_lines "$file" "$res" "denylist $((i + 1))" "${z[@]}" -i -w -F -f <(printf '%s\n' "${DENY_ACTIVE[$i]}")
     done
   fi
-  [ "${#z[@]}" -gt 0 ] || email_lines "$file" "$res"
+  email_lines "$file" "$res" "${z[@]}"
 }
 
 # what <kind> <n>: the words printed before the line number.
@@ -237,14 +248,34 @@ check_identity() {
   done
 }
 
-# check_commit <commit> <identity|no-identity>: the message, path and content
-# checks for one commit, with "${GITX[@]}" as the git command.
-declare -A BLOB_RESULT=()
+# signature <file>: print zip, gzip or 7z when the file starts with that
+# format's signature, else nothing.
+signature() {
+  local head
+  head=$(od -An -tx1 -N6 -- "$1" | tr -d ' \n') || error "od failed while reading a blob"
+  case "$head" in
+    504b0304*) echo zip ;;
+    1f8b*) echo gzip ;;
+    377abcaf271c*) echo 7z ;;
+  esac
+}
+
+# check_commit <commit> <identity|no-identity>: the header, message, path and
+# content checks for one commit, with "${GITX[@]}" as the git command.
+declare -A BLOB_RESULT=() BLOB_SIG=()
 BLOBS=0
 check_commit() {
-  local commit=$1 kind n l idx entry meta type sha shown count entries
+  local commit=$1 kind n l idx entry meta type sha shown count entries archives
   run_git "$T/raw" cat-file commit "$commit"
   [ "$2" != identity ] || check_identity "$commit"
+
+  # Header: every line before the first empty line, whatever its field
+  # (tree, parent, author, committer, mergetag, gpgsig, encoding or unknown).
+  awk '$0 == "" { exit } { print }' "$T/raw" >"$T/header" || error "cannot read the commit header"
+  scan_file "$T/header" "$T/header-res"
+  while read -r kind n l; do
+    emit "header: commit $commit $(what "$kind" "$n") line $l"
+  done <"$T/header-res"
 
   # Message: everything after the header.
   sed '1,/^$/d' "$T/raw" >"$T/msg"
@@ -285,7 +316,10 @@ check_commit() {
   done <"$T/paths-res"
 
   # Content: every blob in the tree, read as bytes whatever git attributes say.
+  # A blob starting with an archive signature outside tests/fixtures/ is
+  # counted, whatever its name.
   idx=0
+  archives=0
   while IFS= read -r -d '' entry; do
     idx=$((idx + 1))
     meta=${entry%%$'\t'*}
@@ -295,7 +329,11 @@ check_commit() {
       run_git "$T/blob" cat-file blob "$sha"
       scan_file "$T/blob" "$T/res/$sha"
       BLOB_RESULT[$sha]=$T/res/$sha
+      BLOB_SIG[$sha]=$(signature "$T/blob")
       BLOBS=$((BLOBS + 1))
+    fi
+    if [ -n "${BLOB_SIG[$sha]}" ] && ! screen "$T/fixtures-idx" -x -F -e "$idx"; then
+      archives=$((archives + 1))
     fi
     [ -s "${BLOB_RESULT[$sha]}" ] || continue
     if screen "$T/private-idx" -x -F -e "$idx"; then
@@ -315,17 +353,21 @@ check_commit() {
       fi
     done <"${BLOB_RESULT[$sha]}"
   done <"$T/tree.z"
+  [ "$archives" -eq 0 ] ||
+    emit "archives: commit $commit $archives blob(s) with a zip, gzip or 7z signature outside tests/fixtures/ (paths not printed)"
 }
 
 # --- self-test ---------------------------------------------------------------
 hex() { od -An -N"$1" -tx1 /dev/urandom | tr -d ' \n'; }
 
 # A throwaway repository with one realistic fake value per pattern, a
-# denylist sentinel, a disallowed and allowed email addresses, and corpus,
-# office, fixture and private paths. Every planted hit must be reported, each
-# pattern under its own number, and no allowed address.
+# denylist sentinel, a disallowed and allowed email addresses, corpus, office,
+# fixture and private paths, an address in a path name, archive blobs inside
+# and outside tests/fixtures/, and an extra commit header line. Every planted
+# hit must be reported, each pattern under its own number, and no allowed
+# address.
 selftest() {
-  local repo=$T/selftest sentinel email head w i
+  local repo=$T/selftest sentinel email head plain w i
   local -a fakes want
   sentinel="zq$(hex 8)"
   email="zq$(hex 4)@example"".com"
@@ -339,8 +381,8 @@ selftest() {
     "/tmp/""claude-$((RANDOM + 1000))/-home-user-project/$(hex 4)"
     "/mnt/""c/""Users/user$(hex 2)/Documents"
     "DESKTOP""-$(hex 4 | tr a-f A-F)"
-    "C:""\\Users\\user$(hex 2)\\Documents"
-    "/home/user/"".claude""/projects/-home-user-project/$(hex 8).jsonl"
+    "C:""\\\\USERS\\\\user$(hex 2)\\\\Documents"
+    "%USERPROFILE%\\"".claude""\\projects\\-home-user-project\\$(hex 8).jsonl"
   )
   [ "${#fakes[@]}" -eq "$EXPECTED_PATTERNS" ] || error "self-test holds ${#fakes[@]} fake values; expected $EXPECTED_PATTERNS"
 
@@ -355,11 +397,23 @@ selftest() {
   printf '%s\n' "${fakes[0]}" >"$repo/r.XLSX"
   printf '%s\n' "${fakes[0]}" >"$repo/n-$sentinel.txt"
   printf 'fixture\n' >"$repo/tools/tests/fixtures/f.xlsx"
+  printf 'x\n' >"$repo/q.CSV.bak"
+  printf 'plain\n' >"$repo/m-$email.txt"
+  printf 'PK\003\004self-test\n' >"$repo/z.bin"
+  printf 'PK\003\004self-test\n' >"$repo/tools/tests/fixtures/z.bin"
+  printf '\037\213self-test\n' >"$repo/g.dat"
+  printf '7z\274\257\047\034self-test\n' >"$repo/s.txt"
   GITX=("${GIT_CLEAN[@]}" -C "$repo" -c user.name=selftest -c user.email=selftest@example.invalid
     -c commit.gpgsign=false -c core.hooksPath=/dev/null)
   run_git "$T/git-out" add -f .
   run_git "$T/git-out" commit -q -m "self-test ${fakes[0]}" -m "$email"
   run_git "$T/git-out" rev-parse HEAD
+  plain=$(cat "$T/git-out")
+  run_git "$T/raw-plain" cat-file commit "$plain"
+  awk -v x="x-emend-selftest ${fakes[0]} $sentinel $email" \
+    '{ print } /^committer / && !done { print x; done = 1 }' "$T/raw-plain" >"$T/raw-extra" ||
+    error "cannot build the self-test commit"
+  run_git "$T/git-out" hash-object -t commit -w "$T/raw-extra"
   head=$(cat "$T/git-out")
 
   DENY_ACTIVE=("$sentinel")
@@ -379,7 +433,11 @@ selftest() {
     "FAIL message: commit $head pattern 1 line 1"
     "FAIL message: commit $head email line 3"
     "FAIL paths: commit $head 1 path(s) containing emend-testing (paths not printed)"
-    "FAIL paths: commit $head 1 office file path(s) outside tests/fixtures/ (paths not printed)"
+    "FAIL paths: commit $head 2 office file path(s) outside tests/fixtures/ (paths not printed)"
+    "FAIL archives: commit $head 3 blob(s) with a zip, gzip or 7z signature outside tests/fixtures/ (paths not printed)"
+    "FAIL header: commit $head pattern 1 line 4"
+    "FAIL header: commit $head denylist entry 1 line 4"
+    "FAIL header: commit $head email line 4"
     "FAIL patterns: commit $head path <corpus path> pattern 1 line 1"
     "FAIL patterns: commit $head path <office path> pattern 1 line 1"
     "FAIL patterns: commit $head path <private path> pattern 1 line 1"
@@ -389,12 +447,15 @@ selftest() {
   done
   screen "$SINK" -E -e "^FAIL paths: commit $head tree entry [0-9]+ denylist entry 1 [(]path not printed[)]\$" ||
     error "self-test failed: a planted hit was not detected"
+  screen "$SINK" -E -e "^FAIL paths: commit $head tree entry [0-9]+ email [(]path not printed[)]\$" ||
+    error "self-test failed: a planted hit was not detected"
   if screen "$SINK" -F -e "path ok.txt"; then
     error "self-test failed: an allowed address was reported"
   fi
 
   DENY_ACTIVE=("${DENY[@]}")
   BLOB_RESULT=()
+  BLOB_SIG=()
   BLOBS=0
   rm -rf "$T/res" "$T/selftest" && mkdir "$T/res" || error "cannot reset after the self-test"
 }
