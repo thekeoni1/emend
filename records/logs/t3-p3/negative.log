@@ -1,0 +1,442 @@
+about: T3 P3 phase commit 17ec824d227887d0b4f21e4f104ec54e97a6f0de; HEAD at run: 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+phase: T3 P3 (specs/0006-passthrough.md) negative.log; run at 2026-09-15T23:57:04Z
+rerun: an earlier run of this log was stopped by the environment: it started 2026-09-15T23:55:51Z, completed its last check 'six workbooks and a manifest of six rows: as-expected', and was stopped inside the C1 to C6 runner invocation; reason given: the system was running low on memory. No log of that run was committed, so this rerun replaces no record commit. Free memory before this run: 18201 MiB available
+The scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read.
+image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)
+podman: podman version 5.7.0
+
+## script
+    #!/usr/bin/env bash
+    # T3 P3 negative.log (specs/0006-passthrough.md, "P3: LibreOffice open check",
+    # with planning's rulings of 2026-09-15 on the stderr allowance, the entrypoint
+    # tail form, and the two cases that cannot fail). The runner and the record
+    # script on a scratch corpus built under <scratch> and reached through
+    # --corpus, with generated workbooks only. The real corpus directory is never
+    # read: --corpus always names the scratch one.
+    #   The scratch corpus holds five generated workbooks:
+    #     healthy   two sheets, sound zip;
+    #     truncated one worksheet entry cut in half (the archive ends mid-entry);
+    #     noct      [Content_Types].xml removed, everything else sound;
+    #     ghost     xl/workbook.xml names a third sheet with no part and no
+    #               relationship;
+    #     nopart    the second worksheet part removed from the zip while
+    #               xl/workbook.xml and the relationship still name it;
+    #     badxml    a sound zip whose second worksheet part is cut mid-element.
+    #   cases:
+    #     C1  a run with --libreoffice: the healthy workbook is lo ok and lo_in ok;
+    #     C2  the truncated workbook fails the check (planning's case "one
+    #         worksheet entry truncated");
+    #     C3  the noct workbook fails the check (planning's second failing case,
+    #         ruled 2026-09-15 in place of the ghost case);
+    #     C4  the ghost workbook PASSES, recorded as the finding that LibreOffice
+    #         substitutes an empty sheet (planning's ruling (c));
+    #     C5  the nopart workbook PASSES, the same finding from the other side;
+    #     C6  badxml: recorded as measured, whichever way it goes;
+    #     C7  a run without --libreoffice: lo and lo_in are "-" for every row;
+    #     C8  a second, different Warning line on the container's stderr makes the
+    #         check fail, injected with a podman wrapper earlier in PATH, and a
+    #         wrapper that emits only the allowed line still passes;
+    #     C9  the container's stderr never reaches the runner's output: the
+    #         runner's stdout and stderr hold no line with Error, Warning or
+    #         javaldx, while the reason file in the run subdirectory does hold the
+    #         reason (a control);
+    #     C10 the record script over the run: the lo and lo_in columns are carried
+    #         into the record, failing ids are listed, and a summary holding an
+    #         invalid lo value is refused.
+    # Every check is evaluated once; a check with more than one condition is
+    # evaluated inside one function.
+    # Usage: t3p3-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t3-p3/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_CORPUS_DIR CARGO_TARGET_DIR PASSTHROUGH_FAULT PASSTHROUGH_FAULT_ALLOWED
+    G=/usr/bin/grep
+    ROOT=$(pwd)
+    IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    RUNNER=scripts/passthrough-run.sh
+    RECORD=scripts/passthrough-record.py
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    CORPUS=$BASE/corpus
+    NAMES=(healthy truncated noct ghost nopart badxml)
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    hide() {
+      local line
+      while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "${line//"$BASE"/<scratch>}"
+      done
+    }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    count_path() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$BASE"; }
+    count_container_words() { cat "$@" | LC_ALL=C "$G" -a -c -E 'Error|Warning|javaldx'; }
+    ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
+    nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
+    id_of() { cat "$BASE/id-$1"; }
+    # field <summary> <id> <column>: one column of the summary row for that id.
+    field() {
+      awk -F'\t' -v id="$2" -v name="$3" 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next } $1 == id { print $col[name] }' "$1"
+    }
+    # lo_is <run dir> <name> <lo> <lo_in>: the summary row for that workbook has
+    # exactly those two values.
+    lo_is() {
+      local s=$1/summary.host.tsv id
+      id=$(id_of "$2")
+      [ "$(field "$s" "$id" lo)" = "$3" ] && [ "$(field "$s" "$id" lo_in)" = "$4" ]
+    }
+    # outcome_of <run dir> <name>: the outcome column, for the log.
+    outcome_of() { field "$1/summary.host.tsv" "$(id_of "$2")" outcome; }
+    # all_dash <run dir>: every row has lo and lo_in "-".
+    all_dash() {
+      local n
+      n=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next } $col["lo"] == "-" && $col["lo_in"] == "-" { n++ } END { print n + 0 }' "$1/summary.host.tsv")
+      [ "$n" -eq "${#NAMES[@]}" ]
+    }
+    # run_all_dash <run dir>: the last run exited 0 and every row has lo and lo_in "-".
+    run_all_dash() { [ "$RC" -eq 0 ] && all_dash "$1"; }
+    # record_written <exit> <md> <tsv>: exit 0 and both files written.
+    record_written() { [ "$1" -eq 0 ] && [ -f "$2" ] && [ -f "$3" ]; }
+    # both_listed <md> <id> <id>: the record lists both ids as table rows.
+    both_listed() {
+      LC_ALL=C "$G" -q -F -e "| $2 |" "$1" && LC_ALL=C "$G" -q -F -e "| $3 |" "$1"
+    }
+    # refused_bad <exit> <stdout file> <stderr file> <message>: exit 2, nothing on
+    # stdout, and exactly that refusal on stderr, so the exit cannot come from
+    # another cause (an earlier attempt exited 2 because the output directory was
+    # missing).
+    refused_bad() {
+      [ "$1" -eq 2 ] && [ ! -s "$2" ] && [ "$(cat "$3")" = "$4" ]
+    }
+    # reason_held <run dir> <name> <which>: the reason file exists and is not empty.
+    reason_held() {
+      local id
+      id=$(id_of "$2")
+      [ -s "$1/$id/$3-reason.host.txt" ]
+    }
+    
+    echo "about: T3 P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 P3 (specs/0006-passthrough.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "The scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read."
+    echo "image: $IMAGE (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)"
+    echo "podman: $(podman --version)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## the container commands this log runs"
+    echo "    podman run --rm --network=none --userns=keep-id -v <input directory>:/in:ro -v <scratch>/ods:/out $IMAGE --convert-to ods --outdir /out /in/<file>"
+    echo "    (the image entrypoint supplies soffice -env:UserInstallation=... --headless --norestore --nolockcheck --nologo)"
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p passthrough -p xlsx-diff"
+    cargo build -p passthrough -p xlsx-diff >"$BASE/build.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "host build exit 0" "$(is [ "$RC" -eq 0 ])"
+    
+    echo
+    echo "## the scratch corpus"
+    mkdir -m 700 "$CORPUS" "$CORPUS/corpus"
+    cat >"$BASE/gen.py" <<'PY'
+    import hashlib, os, sys, zipfile
+    base, corpus = sys.argv[1:3]
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+     '<Default Extension="xml" ContentType="application/xml"/>'
+     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+     '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+     '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+     '</Types>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+     '<sheet name="Alpha" sheetId="1" r:id="rId1"/><sheet name="Beta" sheetId="2" r:id="rId2"/></sheets></workbook>')
+    WBR = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+     '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>')
+    def sheet(word):
+        return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+         '<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>fictional %s</t></is></c></row></sheetData></worksheet>' % word)
+    PARTS = [("[Content_Types].xml", CT), ("_rels/.rels", RELS), ("xl/workbook.xml", WB),
+             ("xl/_rels/workbook.xml.rels", WBR), ("xl/worksheets/sheet1.xml", sheet("one")),
+             ("xl/worksheets/sheet2.xml", sheet("two"))]
+    def build(path, parts):
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for name, body in parts:
+                info = zipfile.ZipInfo(name, date_time=(2026, 1, 2, 3, 4, 6))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                z.writestr(info, body)
+    work = os.path.join(base, "work")
+    os.makedirs(work, exist_ok=True)
+    healthy = os.path.join(work, "healthy.xlsx")
+    build(healthy, PARTS)
+    # ghost: a third sheet with no part and no relationship
+    build(os.path.join(work, "ghost.xlsx"),
+          [(n, b.replace('</sheets>', '<sheet name="Ghost" sheetId="3" r:id="rId9"/></sheets>') if n == "xl/workbook.xml" else b)
+           for n, b in PARTS])
+    # nopart: the second worksheet part removed, workbook.xml and the rel unchanged
+    build(os.path.join(work, "nopart.xlsx"), [p for p in PARTS if p[0] != "xl/worksheets/sheet2.xml"])
+    # noct: [Content_Types].xml removed
+    build(os.path.join(work, "noct.xlsx"), [p for p in PARTS if p[0] != "[Content_Types].xml"])
+    # badxml: a sound zip whose second worksheet part is cut mid-element
+    build(os.path.join(work, "badxml.xlsx"),
+          [(n, b[:len(b) // 2] if n == "xl/worksheets/sheet2.xml" else b) for n, b in PARTS])
+    # truncated: the healthy archive cut inside the second worksheet entry
+    data = open(healthy, "rb").read()
+    info = zipfile.ZipFile(healthy).getinfo("xl/worksheets/sheet2.xml")
+    cut = info.header_offset + 30 + len(info.filename) + max(1, info.compress_size // 2)
+    open(os.path.join(work, "truncated.xlsx"), "wb").write(data[:cut])
+    header = ["id","sha256","bytes","ext","producer","producer_version","app","source","tags","added","original_name","note"]
+    rows = ["\t".join(header)]
+    for name in ("healthy", "truncated", "noct", "ghost", "nopart", "badxml"):
+        path = os.path.join(work, name + ".xlsx")
+        body = open(path, "rb").read()
+        sha = hashlib.sha256(body).hexdigest()
+        fid = sha[:12]
+        dest = os.path.join(corpus, "corpus", fid + ".xlsx")
+        with open(dest, "wb") as handle:
+            handle.write(body)
+        os.chmod(dest, 0o600)
+        rows.append("\t".join([fid, sha, str(len(body)), "xlsx", "libreoffice", "unknown", "none",
+                               "libreoffice-export", "plain,strings", "2026-09-15", name + ".xlsx", "generated"]))
+        with open(os.path.join(base, "id-" + name), "w") as handle:
+            handle.write(fid)
+        print("%s: id %s, %d bytes" % (name, fid, len(body)))
+    with open(os.path.join(corpus, "manifest.tsv"), "w") as handle:
+        handle.write("\n".join(rows) + "\n")
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch> <scratch>/corpus"
+    python3 "$BASE/gen.py" "$BASE" "$CORPUS" >"$BASE/gen.out" 2>&1
+    RC=$?
+    echo "  exit: $RC"
+    hide <"$BASE/gen.out" | sed 's/^/    /'
+    note "gen.py exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "six workbooks and a manifest of six rows" "$(is [ "$(awk -F'\t' 'NF == 12' "$CORPUS/manifest.tsv" | wc -l)" = 7 ])"
+    
+    echo
+    echo "## C1 to C6: one run with --libreoffice over all six workbooks"
+    RUN=$BASE/run-lo
+    echo "command: $RUNNER --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice $IMAGE"
+    "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$RUN" --timeout 120 --libreoffice "$IMAGE" >"$BASE/run-lo.stdout" 2>"$BASE/run-lo.stderr" </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    echo "  stdout:"
+    hide <"$BASE/run-lo.stdout" | sed 's/^/    /'
+    echo "  stderr bytes: $(wc -c <"$BASE/run-lo.stderr")"
+    note "the run exits 0" "$(is [ "$RC" -eq 0 ])"
+    echo "  outcome, lo and lo_in per workbook:"
+    for name in "${NAMES[@]}"; do
+      printf '    %-9s outcome=%s lo=%s lo_in=%s\n' "$name" "$(outcome_of "$RUN" "$name")" \
+        "$(field "$RUN/summary.host.tsv" "$(id_of "$name")" lo)" "$(field "$RUN/summary.host.tsv" "$(id_of "$name")" lo_in)"
+    done
+    note "C1 healthy: lo ok, lo_in ok" "$(is lo_is "$RUN" healthy ok ok)"
+    note "C2 truncated: lo_in fail (planning's truncated-entry case)" "$(is [ "$(field "$RUN/summary.host.tsv" "$(id_of truncated)" lo_in)" = fail ])"
+    note "C2 truncated: the reason is kept in the run subdirectory" "$(is reason_held "$RUN" truncated lo-in)"
+    note "C3 noct: lo_in fail (planning's second failing case)" "$(is [ "$(field "$RUN/summary.host.tsv" "$(id_of noct)" lo_in)" = fail ])"
+    note "C4 ghost: lo ok and lo_in ok, the recorded finding that LibreOffice substitutes an empty sheet" "$(is lo_is "$RUN" ghost ok ok)"
+    note "C5 nopart: lo ok and lo_in ok, the same finding from the other side" "$(is lo_is "$RUN" nopart ok ok)"
+    echo "  C6 badxml, as measured: lo=$(field "$RUN/summary.host.tsv" "$(id_of badxml)" lo) lo_in=$(field "$RUN/summary.host.tsv" "$(id_of badxml)" lo_in)"
+    
+    echo
+    echo "## C7: a run without --libreoffice"
+    RUN2=$BASE/run-nolo
+    echo "command: $RUNNER ... --out <scratch>/run-nolo --timeout 120 (no --libreoffice)"
+    "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$RUN2" --timeout 120 >"$BASE/run-nolo.stdout" 2>"$BASE/run-nolo.stderr" </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "C7: the run exits 0 and every row has lo and lo_in \"-\"" "$(is run_all_dash "$RUN2")"
+    
+    echo
+    echo "## C8: the stderr allowance"
+    mkdir -p "$BASE/fakebin"
+    cat >"$BASE/fakebin/podman" <<'SH'
+    #!/usr/bin/env bash
+    # Test wrapper: runs the real podman, then adds one line to stderr.
+    /usr/bin/podman "$@"
+    rc=$?
+    printf '%s\n' "${FAKE_PODMAN_LINE:?}" >&2
+    exit "$rc"
+    SH
+    chmod 755 "$BASE/fakebin/podman"
+    RUN3=$BASE/run-extra
+    id_of healthy >"$BASE/ids-healthy"
+    FAKE_PODMAN_LINE='Warning: a second warning the allowance does not cover' PATH=$BASE/fakebin:$PATH \
+      "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$RUN3" --timeout 120 --libreoffice "$IMAGE" --ids "$BASE/ids-healthy" \
+      >"$BASE/run-extra.stdout" 2>"$BASE/run-extra.stderr" </dev/null
+    echo "  run exit: $?"
+    echo "  a wrapper adds one line to the container's stderr: 'Warning: a second warning the allowance does not cover'"
+    note "C8a: the healthy workbook now fails the check on both sides" "$(is lo_is "$RUN3" healthy fail fail)"
+    RUN4=$BASE/run-allowed
+    FAKE_PODMAN_LINE='Warning: failed to launch javaldx - java may not function correctly' PATH=$BASE/fakebin:$PATH \
+      "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$RUN4" --timeout 120 --libreoffice "$IMAGE" --ids "$BASE/ids-healthy" \
+      >"$BASE/run-allowed.stdout" 2>"$BASE/run-allowed.stderr" </dev/null
+    echo "  run exit: $?"
+    echo "  a wrapper repeats the allowed line instead"
+    note "C8b: repeating the allowed line still passes" "$(is lo_is "$RUN4" healthy ok ok)"
+    
+    echo
+    echo "## C9: the container's stderr never reaches the runner's output"
+    OUTS=("$BASE/run-lo.stdout" "$BASE/run-lo.stderr" "$BASE/run-nolo.stdout" "$BASE/run-nolo.stderr" "$BASE/run-extra.stdout" "$BASE/run-extra.stderr" "$BASE/run-allowed.stdout" "$BASE/run-allowed.stderr")
+    n=$(count_container_words "${OUTS[@]}")
+    CONTAINER_LINE='Error: source file could not be loaded'
+    count_container_line() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$CONTAINER_LINE"; }
+    echo "  the reason file holds this project's own words, not the container's: $(hide <"$RUN/$(id_of truncated)/lo-in-reason.host.txt")"
+    ctl "the container's own line in the container's stderr file kept in the run directory" "$(count_container_line "$RUN/$(id_of truncated)/lo-in.host/stderr.txt")" 1
+    ctl "the container's own line in the reason file" "$(count_container_line "$RUN/$(id_of truncated)/lo-in-reason.host.txt")" 0
+    ctl "the container's own line anywhere in the runner's output" "$(count_container_line "${OUTS[@]}")" 0
+    note "C9: lines with Error, Warning or javaldx in the runner's stdout and stderr: $n (expect 0)" "$(is [ "$n" -eq 0 ])"
+    note "C9: lines with the scratch path in the runner's output: $(count_path "${OUTS[@]}") (expect 0)" "$(is [ "$(count_path "${OUTS[@]}")" -eq 0 ])"
+    
+    echo
+    echo "## C10: the record script"
+    echo "command: $RECORD --run <scratch>/run-lo --out <scratch>/record --allow-single --stem step0-t3p3-scratch"
+    echo "  (--stem because the scratch run directory is not named <utc-date>-<shortsha>)"
+    mkdir -p "$BASE/record"
+    python3 "$ROOT/$RECORD" --run "$RUN" --out "$BASE/record" --allow-single --stem step0-t3p3-scratch >"$BASE/record.stdout" 2>"$BASE/record.stderr" </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    hide <"$BASE/record.stdout" | sed 's/^/    /'
+    echo "  stderr: $(hide <"$BASE/record.stderr")"
+    MD=$(find "$BASE/record" -name '*.md' | head -n 1)
+    TSV=$(find "$BASE/record" -name '*.tsv' | head -n 1)
+    note "C10: the record script exits 0 and wrote a .md and a .tsv" "$(is record_written "$RC" "$MD" "$TSV")"
+    note "C10: the record's summary header carries lo and lo_in" "$(is [ "$(head -n 1 "$TSV" | awk -F'\t' '{ print $(NF-1), $NF }')" = "lo lo_in" ])"
+    echo "  the outcome table of the record:"
+    LC_ALL=C "$G" -A3 -F '## Files by outcome' "$MD" | sed 's/^/    /'
+    note "C10: the outcome table has the lo fail and lo_in fail columns" "$(is $G -q -F -e '| lo fail | lo_in fail |' "$MD")"
+    echo "  the failing rows the record lists:"
+    LC_ALL=C "$G" -E "^\| $(id_of truncated)|^\| $(id_of noct)" "$MD" | sed 's/^/    /'
+    note "C10: the truncated and noct workbooks are listed by id" "$(is both_listed "$MD" "$(id_of truncated)" "$(id_of noct)")"
+    mkdir -p "$BASE/record-bad"
+    cp -a "$RUN" "$BASE/run-bad"
+    awk -F'\t' -v OFS='\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "lo") c = i; print; next } { $c = "maybe"; print }' \
+      "$RUN/summary.host.tsv" >"$BASE/run-bad/summary.host.tsv"
+    python3 "$ROOT/$RECORD" --run "$BASE/run-bad" --out "$BASE/record-bad" --allow-single --stem step0-t3p3-bad >"$BASE/record-bad.stdout" 2>"$BASE/record-bad.stderr" </dev/null
+    RC=$?
+    echo "  a summary with lo=maybe: exit $RC, stderr: $(hide <"$BASE/record-bad.stderr")"
+    note "C10: a summary with an lo value other than ok, fail or - is refused with exit 2" "$(is refused_bad "$RC" "$BASE/record-bad.stdout" "$BASE/record-bad.stderr" "error: summary.host.tsv has a lo value other than ok, fail or -")"
+    
+    echo
+    echo "## the log itself"
+    ALL=("${OUTS[@]}" "$BASE/gen.out" "$BASE/record.stdout" "$BASE/record.stderr" "$BASE/record-bad.stderr")
+    note "control and non-ASCII bytes in every captured output: $(ctrl_bytes "${ALL[@]}") and $(nonascii_bytes "${ALL[@]}") (expect 0 and 0)" "$(is [ $(( $(ctrl_bytes "${ALL[@]}") + $(nonascii_bytes "${ALL[@]}") )) -eq 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "status after the run (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the container commands this log runs
+    podman run --rm --network=none --userns=keep-id -v <input directory>:/in:ro -v <scratch>/ods:/out localhost/emend-lo:25.2.3-2-deb13u6 --convert-to ods --outdir /out /in/<file>
+    (the image entrypoint supplies soffice -env:UserInstallation=... --headless --norestore --nolockcheck --nologo)
+
+## build
+command: cargo build -p passthrough -p xlsx-diff
+  exit: 0
+  host build exit 0: as-expected
+
+## the scratch corpus
+command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
+  exit: 0
+    healthy: id d72f39c105ad, 1910 bytes
+    truncated: id 08ddb9e2479e, 1402 bytes
+    noct: id 4feecc0dd1da, 1534 bytes
+    ghost: id 03063cc31c62, 1922 bytes
+    nopart: id 63b1c2b6c46d, 1604 bytes
+    badxml: id b39cfeec3992, 1838 bytes
+  gen.py exit 0: as-expected
+  six workbooks and a manifest of six rows: as-expected
+
+## C1 to C6: one run with --libreoffice over all six workbooks
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6
+  exit: 0
+  stdout:
+    d72f39c105ad host ok 0 0.10 7776
+    08ddb9e2479e host error - 0.10 7616
+    4feecc0dd1da host ok 0 0.10 7628
+    03063cc31c62 host ok 0 0.10 7608
+    63b1c2b6c46d host ok 0 0.10 7908
+    b39cfeec3992 host ok 0 0.10 7776
+    files 6 ok 5 error 1 timeout 0 panic 0 crash 0
+  stderr bytes: 0
+  the run exits 0: as-expected
+  outcome, lo and lo_in per workbook:
+    healthy   outcome=ok lo=ok lo_in=ok
+    truncated outcome=error lo=- lo_in=fail
+    noct      outcome=ok lo=fail lo_in=fail
+    ghost     outcome=ok lo=ok lo_in=ok
+    nopart    outcome=ok lo=ok lo_in=ok
+    badxml    outcome=ok lo=ok lo_in=ok
+  C1 healthy: lo ok, lo_in ok: as-expected
+  C2 truncated: lo_in fail (planning's truncated-entry case): as-expected
+  C2 truncated: the reason is kept in the run subdirectory: as-expected
+  C3 noct: lo_in fail (planning's second failing case): as-expected
+  C4 ghost: lo ok and lo_in ok, the recorded finding that LibreOffice substitutes an empty sheet: as-expected
+  C5 nopart: lo ok and lo_in ok, the same finding from the other side: as-expected
+  C6 badxml, as measured: lo=ok lo_in=ok
+
+## C7: a run without --libreoffice
+command: scripts/passthrough-run.sh ... --out <scratch>/run-nolo --timeout 120 (no --libreoffice)
+  exit: 0
+  C7: the run exits 0 and every row has lo and lo_in "-": as-expected
+
+## C8: the stderr allowance
+  run exit: 0
+  a wrapper adds one line to the container's stderr: 'Warning: a second warning the allowance does not cover'
+  C8a: the healthy workbook now fails the check on both sides: as-expected
+  run exit: 0
+  a wrapper repeats the allowed line instead
+  C8b: repeating the allowed line still passes: as-expected
+
+## C9: the container's stderr never reaches the runner's output
+  the reason file holds this project's own words, not the container's: stderr holds a line with Error or Warning other than the allowed javaldx line
+  control the container's own line in the container's stderr file kept in the run directory: 1 (expect 1): as-expected
+  control the container's own line in the reason file: 0 (expect 0): as-expected
+  control the container's own line anywhere in the runner's output: 0 (expect 0): as-expected
+  C9: lines with Error, Warning or javaldx in the runner's stdout and stderr: 0 (expect 0): as-expected
+  C9: lines with the scratch path in the runner's output: 0 (expect 0): as-expected
+
+## C10: the record script
+command: scripts/passthrough-record.py --run <scratch>/run-lo --out <scratch>/record --allow-single --stem step0-t3p3-scratch
+  (--stem because the scratch run directory is not named <utc-date>-<shortsha>)
+  exit: 0
+    wrote step0-t3p3-scratch.tsv and step0-t3p3-scratch.md: labels host; files 6; entry rows 28
+  stderr: 
+  C10: the record script exits 0 and wrote a .md and a .tsv: as-expected
+  C10: the record's summary header carries lo and lo_in: as-expected
+  the outcome table of the record:
+    ## Files by outcome
+    
+    | label | files | ok | error | timeout | panic | crash | leftover | lo fail | lo_in fail |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  C10: the outcome table has the lo fail and lo_in fail columns: as-expected
+  the failing rows the record lists:
+    | 08ddb9e2479e | host | libreoffice | plain,strings | error | 2 | - | - | no | - | fail | not compared |
+    | 4feecc0dd1da | host | libreoffice | plain,strings | ok | 0 | - | 0 | no | fail | fail | - |
+  C10: the truncated and noct workbooks are listed by id: as-expected
+  a summary with lo=maybe: exit 2, stderr: error: summary.host.tsv has a lo value other than ok, fail or -
+  C10: a summary with an lo value other than ok, fail or - is refused with exit 2: as-expected
+
+## the log itself
+  control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
+  status after the run (expect empty): : as-expected
+run ended at 2026-09-15T23:57:45Z
+negative log checks all as expected: yes

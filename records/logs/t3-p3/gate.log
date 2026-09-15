@@ -1,0 +1,257 @@
+about: T3 P3 phase commit 17ec824d227887d0b4f21e4f104ec54e97a6f0de; HEAD at run: 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+phase: T3 P3 (specs/0006-passthrough.md) gate.log; run at 2026-09-15T23:53:19Z
+commit before the phase: 869796bd659d5ba810979e428a311b9c3a2a2124
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_CORPUS_DIR set: no; the corpus directory prints as <corpus dir>
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T3 P3 gate log: the phase's commits, the changed files, the LibreOffice
+    # record against the private record and the local image, and a full run of all
+    # eight check.sh steps on a cold cache.
+    # Usage: t3p3-gate.sh <phase commit> [<stopped-run note>] > <gate log scratch file>
+    # The note records an earlier run of this log that the environment stopped
+    # (specs/0001 "Rules for every phase": start time, last completed check, reason).
+    # The caller moves the file into records/logs/t3-p3/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed; a check with more than one condition is
+    # evaluated inside one function. The corpus directory's path is never printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    STOPPED=${2:-}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    BEFORE=869796bd659d5ba810979e428a311b9c3a2a2124
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    PRIVATE=$CORPUS/tools/libreoffice.md
+    RECORD=records/libreoffice-2026-09-15.md
+    IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    IMAGE_ID=3f9baefc6e233a6298c12f7cfa091fb28f47c61e7f6edffd961229a5a5ca62f1
+    CHANGED=(scripts/passthrough-run.sh scripts/passthrough-record.py "$RECORD" ROADMAP.md specs/0005-corpus.md)
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    # record_cites_private <record> <sha256 of the private file>: the record names
+    # that sha256, so the copy can be traced to what it was copied from.
+    record_cites_private() { LC_ALL=C /usr/bin/grep -q -F -e "$2" "$1"; }
+    # image_present <image> <id>: podman has that image locally with that id.
+    image_present() {
+      local got
+      got=$(podman image inspect "$1" --format '{{.Id}}' 2>/dev/null) || return 1
+      [ "$got" = "$2" ]
+    }
+    # record_states <record> <string>...: the record holds every line given.
+    record_states() {
+      local file=$1 line
+      shift
+      for line in "$@"; do
+        LC_ALL=C /usr/bin/grep -q -F -e "$line" "$file" || return 1
+      done
+    }
+    
+    echo "about: T3 P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 P3 (specs/0006-passthrough.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
+    echo "commit before the phase: $BEFORE"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_CORPUS_DIR set: $([ -n "${EMEND_CORPUS_DIR+set}" ] && echo yes || echo no); the corpus directory prints as <corpus dir>"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## commits of the phase"
+    echo "command: git log --format='%H parents=%P %s' $BEFORE..$C"
+    git log --format='%H parents=%P %s' "$BEFORE..$C" | sed 's/^/    /'
+    for c in $(git rev-list --reverse "$BEFORE..$C"); do
+      echo "command: git show --stat --format='%H %s' $c"
+      git show --stat --format='%H %s' "$c" | sed 's/^/    /'
+    done
+    echo "command: git diff --stat $BEFORE $C"
+    git diff --stat "$BEFORE" "$C" | sed 's/^/    /'
+    
+    echo
+    echo "## the changed files at $C"
+    for f in "${CHANGED[@]}"; do
+      echo "$f: sha256 $(git show "$C:$f" | sha), bytes $(git show "$C:$f" | wc -c), git mode $(git ls-tree "$C" -- "$f" | cut -d' ' -f1)"
+    done
+    bash -n scripts/passthrough-run.sh >"$T/bash-n.out" 2>&1
+    rc=$?
+    echo "command: bash -n scripts/passthrough-run.sh -> exit $rc"
+    check "scripts/passthrough-run.sh parses" "$(yn [ "$rc" -eq 0 ])"
+    python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' \
+      scripts/passthrough-record.py "$T/compiled.pyc" >"$T/py.out" 2>&1
+    rc=$?
+    echo "command: py_compile scripts/passthrough-record.py -> exit $rc"
+    check "scripts/passthrough-record.py compiles" "$(yn [ "$rc" -eq 0 ])"
+    n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/Users/|/root/' scripts/passthrough-run.sh scripts/passthrough-record.py "$RECORD" | awk -F: '{ n += $2 } END { print n + 0 }')
+    printf 'x = "/home/someone/x"\n' > "$T/home-ctl"
+    check "lines with a literal home path in the two scripts and the record: $n (expect 0; the control file counts $(LC_ALL=C /usr/bin/grep -c -E '/home/|/Users/|/root/' "$T/home-ctl"))" "$(yn [ "$n" -eq 0 ])"
+    
+    echo
+    echo "## the LibreOffice record against the private record and the local image"
+    PRIV_SHA=$(sha < "$PRIVATE")
+    echo "<corpus dir>/tools/libreoffice.md: sha256 $PRIV_SHA, bytes $(wc -c < "$PRIVATE"), mode $(stat -c %a "$PRIVATE")"
+    echo "$RECORD names that sha256: $(LC_ALL=C /usr/bin/grep -c -F -e "$PRIV_SHA" "$RECORD") line(s)"
+    check "$RECORD cites the private record's sha256 as it is now" "$(yn record_cites_private "$RECORD" "$PRIV_SHA")"
+    echo "command: podman --version -> $(podman --version)"
+    echo "command: podman image inspect $IMAGE --format '{{.Id}}' -> $(podman image inspect "$IMAGE" --format '{{.Id}}' 2>&1 | head -c 80)"
+    check "the pinned image is in local storage with the recorded id" "$(yn image_present "$IMAGE" "$IMAGE_ID")"
+    check "$RECORD states the image tag and id" "$(yn record_states "$RECORD" "$IMAGE" "$IMAGE_ID")"
+    check "$RECORD states the allowed stderr line and the entrypoint flags" "$(yn record_states "$RECORD" 'Warning: failed to launch javaldx - java may not function correctly' '--headless --norestore --nolockcheck --nologo')"
+    check "$RECORD states the two measured findings" "$(yn record_states "$RECORD" 'The exit status is not evidence of a good load' 'substitutes an empty sheet')"
+    echo "the record holds no corpus path: $(LC_ALL=C /usr/bin/grep -c -i -F -e emend-testing "$RECORD") line(s) with the corpus directory name (expect 0)"
+    check "the record names no corpus path" "$(yn [ "$(LC_ALL=C /usr/bin/grep -c -i -F -e emend-testing "$RECORD")" -eq 0 ])"
+    
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml Cargo.toml Cargo.lock; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    check "no gate file, Cargo file, crate or workflow changed in $BEFORE..$C" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github Cargo.toml Cargo.lock tools)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed -e "s#$ROOT#<repo>#g" -e 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(ctrl_bytes "$T/ctl"); check "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$n (expect bytes 3)" "$(yn [ "$n" -eq 3 ])"
+    n=$(ctrl_bytes "$T/clean"); check "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    for s in out err; do
+      n=$(ctrl_bytes "$T/$s"); check "std$s: lines=$(f_ctrl "$T/$s") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## commits of the phase
+command: git log --format='%H parents=%P %s' 869796bd659d5ba810979e428a311b9c3a2a2124..17ec824d227887d0b4f21e4f104ec54e97a6f0de
+    17ec824d227887d0b4f21e4f104ec54e97a6f0de parents=fd5dcf9b35d7f108493a89fcf33ff57b2c683481 T3 P3: LibreOffice open check in the runner, lo and lo_in columns
+    fd5dcf9b35d7f108493a89fcf33ff57b2c683481 parents=869796bd659d5ba810979e428a311b9c3a2a2124 T3 P3: commit planning doc updates (T2 P1 DONE, P1 rulings, P7 follow-ups)
+command: git show --stat --format='%H %s' fd5dcf9b35d7f108493a89fcf33ff57b2c683481
+    fd5dcf9b35d7f108493a89fcf33ff57b2c683481 T3 P3: commit planning doc updates (T2 P1 DONE, P1 rulings, P7 follow-ups)
+    
+     ROADMAP.md           |  4 +--
+     specs/0005-corpus.md | 71 ++++++++++++++++++++++++++++++++++++++++++++--------
+     2 files changed, 62 insertions(+), 13 deletions(-)
+command: git show --stat --format='%H %s' 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+    17ec824d227887d0b4f21e4f104ec54e97a6f0de T3 P3: LibreOffice open check in the runner, lo and lo_in columns
+    
+     records/libreoffice-2026-09-15.md |  98 +++++++++++++++++++++++++++++++++++++
+     scripts/passthrough-record.py     |  31 ++++++++----
+     scripts/passthrough-run.sh        | 100 +++++++++++++++++++++++++++++++++++---
+     3 files changed, 213 insertions(+), 16 deletions(-)
+command: git diff --stat 869796bd659d5ba810979e428a311b9c3a2a2124 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+     ROADMAP.md                        |   4 +-
+     records/libreoffice-2026-09-15.md |  98 +++++++++++++++++++++++++++++++++++++
+     scripts/passthrough-record.py     |  31 ++++++++----
+     scripts/passthrough-run.sh        | 100 +++++++++++++++++++++++++++++++++++---
+     specs/0005-corpus.md              |  71 ++++++++++++++++++++++-----
+     5 files changed, 275 insertions(+), 29 deletions(-)
+
+## the changed files at 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+scripts/passthrough-run.sh: sha256 2c7c804474ed3a5ab3a577e4654823ccf10bdc8d302822adad3c278f914e5741, bytes 15931, git mode 100755
+scripts/passthrough-record.py: sha256 b76bc058c4a37dabe1a0fdbee47df63edc757a7177ee8206006c551d92524fa3, bytes 13943, git mode 100755
+records/libreoffice-2026-09-15.md: sha256 ef2177180704b1a7ecfc5bdd215410498d2c9b868055f52e35042131735dceeb, bytes 4999, git mode 100644
+ROADMAP.md: sha256 db90d10f7130d1c10d99f59cb0265def9215a94a46a2bfdb311e22c2f74f24a3, bytes 14438, git mode 100644
+specs/0005-corpus.md: sha256 63bc947067d96e142ce21149e9b7bfe45d3aaad5417c4881bd174472f67ec85c, bytes 16928, git mode 100644
+command: bash -n scripts/passthrough-run.sh -> exit 0
+scripts/passthrough-run.sh parses: yes
+command: py_compile scripts/passthrough-record.py -> exit 0
+scripts/passthrough-record.py compiles: yes
+lines with a literal home path in the two scripts and the record: 0 (expect 0; the control file counts 1): yes
+
+## the LibreOffice record against the private record and the local image
+<corpus dir>/tools/libreoffice.md: sha256 541945cc19f6b86c8e16a04d3dfdd68da2366798c2cf81ee28c0917b8e8edb29, bytes 3396, mode 600
+records/libreoffice-2026-09-15.md names that sha256: 1 line(s)
+records/libreoffice-2026-09-15.md cites the private record's sha256 as it is now: yes
+command: podman --version -> podman version 5.7.0
+command: podman image inspect localhost/emend-lo:25.2.3-2-deb13u6 --format '{{.Id}}' -> 3f9baefc6e233a6298c12f7cfa091fb28f47c61e7f6edffd961229a5a5ca62f1
+the pinned image is in local storage with the recorded id: yes
+records/libreoffice-2026-09-15.md states the image tag and id: yes
+records/libreoffice-2026-09-15.md states the allowed stderr line and the entrypoint flags: yes
+records/libreoffice-2026-09-15.md states the two measured findings: yes
+the record holds no corpus path: 0 line(s) with the corpus directory name (expect 0)
+the record names no corpus path: yes
+
+## gate files at 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no gate file, Cargo file, crate or workflow changed in 869796bd659d5ba810979e428a311b9c3a2a2124..17ec824d227887d0b4f21e4f104ec54e97a6f0de: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 3613 files, 696.2MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect bytes 3): yes
+control: tab and CR file -> lines=0 bytes=0 (expect 0): yes
+stdout: lines=0 bytes=0 (expect 0): yes
+stderr: lines=0 bytes=0 (expect 0): yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-15T23:54:04Z
+gate log checks all as expected: yes
