@@ -110,7 +110,7 @@ fn files_identical_no_from_one_byte_inside_a_prefix() {
     let dir = TempDir::new("prefix-byte");
     let entries = [base("a.txt"), base("b.txt")];
     let prefix = pattern(200_000);
-    let other = flipped(&prefix, &[100_000]);
+    let other = flipped(&prefix, &[150_000]);
     let (bytes_in, bytes_out) = (
         raw_zip(&prefix, &entries, b""),
         raw_zip(&other, &entries, b""),
@@ -129,8 +129,8 @@ fn files_identical_no_from_one_byte_inside_a_prefix() {
         .collect();
     assert_eq!(
         differing,
-        [100_000],
-        "precondition: one differing byte, inside the prefix, in the second 64 KiB buffer"
+        [150_000],
+        "precondition: one differing byte, inside the prefix, in the third 64 KiB buffer"
     );
     let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
     fs::write(&input, &bytes_in).expect("write");
@@ -182,6 +182,14 @@ fn sentinel_content(lines: usize) -> Vec<u8> {
     data
 }
 
+/// `SENTINEL_BYTES` as the name escaping would print them.
+const SENTINEL_BYTES_ESCAPED: &str = "\\xfe\\x01\\x80\\xff\\x00\\x7f";
+
+/// Lowercase hex digits of `bytes`, two per byte.
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     occurrences(haystack, needle) > 0
 }
@@ -221,6 +229,14 @@ fn assert_no_leak(label: &str, stdout: &[u8], stderr: &[u8]) -> usize {
         assert!(
             !contains(bytes, SENTINEL_NAME.as_bytes()),
             "{label}: the raw sentinel name appears in {stream}"
+        );
+        assert!(
+            !contains(bytes, SENTINEL_BYTES_ESCAPED.as_bytes()),
+            "{label}: the escaped sentinel bytes appear in {stream}"
+        );
+        assert!(
+            !contains(bytes, hex(text.as_bytes()).as_bytes()),
+            "{label}: the sentinel string appears as hex in {stream}"
         );
     }
     let mut named_rows = 0;
@@ -385,7 +401,7 @@ fn no_sentinel_in_any_output() {
         raw_zip(
             &[],
             &[RawEntry {
-                central_extra: other_extra,
+                central_extra: other_extra.clone(),
                 ..flagged("two")
             }],
             format!("{} archive two", sentinel_text()).as_bytes(),
@@ -409,6 +425,36 @@ fn no_sentinel_in_any_output() {
             "{label}: entry rows naming the sentinel entry"
         );
     }
+
+    // The comments and extra fields case sets exactly these entry flags: with
+    // equal archive comments, exit 1 comes from the flags alone.
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    fs::write(&input, raw_zip(&[], &[flagged("one")], b"")).expect("write");
+    fs::write(
+        &output,
+        raw_zip(
+            &[],
+            &[RawEntry {
+                central_extra: other_extra,
+                ..flagged("two")
+            }],
+            b"",
+        ),
+    )
+    .expect("write");
+    let (status, stdout, stderr) = capture(&input, &output);
+    assert_eq!(status, 1, "entry flags: exit status");
+    let flag_columns: Vec<&[u8]> = stdout
+        .split(|&b| b == b'\n')
+        .filter(|l| l.starts_with(b"entry\t"))
+        .map(|l| l.split(|&b| b == b'\t').nth(16).expect("17 columns"))
+        .collect();
+    assert_eq!(
+        flag_columns,
+        [&b"extra,comment"[..]],
+        "entry flags: column 17"
+    );
+    assert_no_leak("entry flags", &stdout, &stderr);
 
     // Error paths: (label, input, output, the expected error line).
     let plain = write(&[deflated(SENTINEL_NAME, &data)]);
@@ -580,4 +626,28 @@ fn zip64_entry_over_4_gib() {
         ("4294967296", "1", "4294967296"),
         "columns 14 to 16"
     );
+}
+
+#[test]
+fn local_header_running_past_the_end_is_an_error() {
+    let dir = TempDir::new("local-past-end");
+    let input = dir.path("in.zip");
+    let good = raw_zip(&[], &[base("a.txt")], b"");
+    fs::write(&input, &good).expect("write");
+    // The one local header starts at offset 0: its name length is at 26 and
+    // its extra length at 28. Either one at 0xffff runs past the end.
+    for (label, at) in [("name", 26), ("extra field", 28)] {
+        let mut bytes = good.clone();
+        bytes[at..at + 2].copy_from_slice(&0xffffu16.to_le_bytes());
+        assert!(bytes.len() < 0xffff, "precondition: a short archive");
+        let output = dir.path(&format!("past-end-{at}.zip"));
+        fs::write(&output, &bytes).expect("write");
+        let result = run(&input, &output);
+        assert_eq!(result.status, 2, "{label}");
+        assert_eq!(result.stdout, "", "{label}");
+        assert_eq!(
+            result.stderr, "error: cannot read entry a.txt in the output archive\n",
+            "{label}"
+        );
+    }
 }
