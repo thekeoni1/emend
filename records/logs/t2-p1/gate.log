@@ -1,5 +1,6 @@
-about: T2 P1 phase commit e3dd52e777fe16fb58e5bf7cff6e562f2c332673; HEAD at run: e3dd52e777fe16fb58e5bf7cff6e562f2c332673
-phase: T2 P1 (specs/0005-corpus.md) gate.log; run at 2026-09-15T23:06:31Z
+about: T2 P1 phase commit 43188208156df77ff9a8fc8b982649ab5b4c818a; HEAD at run: 43188208156df77ff9a8fc8b982649ab5b4c818a
+phase: T2 P1 (specs/0005-corpus.md) gate.log; run at 2026-09-15T23:23:13Z
+rerun: replaces the gate log of record commit f692dbf (run at e3dd52e); rerun at phase commit 2, 43188208156df77ff9a8fc8b982649ab5b4c818a, after independent check 1 (record commit 17c6c4b): corpus-add.py now refuses a text field that is not valid UTF-8 (check 1 gap 1); this log adds the per-commit stats and the script file modes (check 1 gap 7) and replaces an eval compound with the all_stdlib function (check 1 gap 5)
 import commit: e8087f6b990d13c4ccf69a1ae934050f1d14cb48; commit before the phase: 24d4a165b0e250f05b6c53db6747f95a28d28796
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
@@ -56,6 +57,9 @@ private denylist: present, mode 600, entries 7 (never printed)
     three_equal() { [ "$1" = "$2" ] && [ "$2" = "$3" ]; }
     # usage_exit_2 <out> <err> <rc> <usage line>: exit 2, no stdout, stderr exactly the usage line.
     usage_exit_2() { [ "$3" -eq 2 ] && [ ! -s "$1" ] && [ "$(cat "$2")" = "$4" ]; }
+    # all_stdlib <imports file>: the file lists at least one import and none is
+    # outside sys.stdlib_module_names.
+    all_stdlib() { [ -s "$1" ] && ! LC_ALL=C /usr/bin/grep -q NOT-STDLIB "$1"; }
     
     echo "about: T2 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T2 P1 (specs/0005-corpus.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -75,6 +79,12 @@ private denylist: present, mode 600, entries 7 (never printed)
     echo "## commits of the phase"
     echo "command: git log --format='%H parents=%P %s' $BEFORE..$C"
     git log --format='%H parents=%P %s' "$BEFORE..$C" | sed 's/^/    /'
+    echo "per-commit file lists and stats (check 1 gap 7):"
+    for c in $(git rev-list --reverse "$BEFORE..$C"); do
+      echo "command: git show --stat --format='%H %s' $c"
+      git show --stat --format='%H %s' "$c" | sed 's/^/    /'
+      echo "    file modes at $c: $(git ls-tree -r "$c" --format='%(objectmode) %(path)' | LC_ALL=C /usr/bin/grep -E ' scripts/corpus-(add|coverage)\.py$' | tr '\n' ';')"
+    done
     echo "command: git diff --stat $BEFORE $C"
     git diff --stat "$BEFORE" "$C" | sed 's/^/    /'
     
@@ -118,7 +128,7 @@ private denylist: present, mode 600, entries 7 (never printed)
         print(n, "stdlib" if n in sys.stdlib_module_names else "NOT-STDLIB")
     PY
       echo "  imports: $(tr '\n' ';' < "$T/imports")"
-      check "$f: every import is in sys.stdlib_module_names" "$(yn eval '[ -s "$T/imports" ] && ! /usr/bin/grep -q NOT-STDLIB "$T/imports"')"
+      check "$f: every import is in sys.stdlib_module_names" "$(yn all_stdlib "$T/imports")"
       n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/Users/|/root/' "$f")
       check "$f: lines with a literal home path: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
     done
@@ -175,17 +185,68 @@ private denylist: present, mode 600, entries 7 (never printed)
     exit "$fail"
 
 ## commits of the phase
-command: git log --format='%H parents=%P %s' 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+command: git log --format='%H parents=%P %s' 24d4a165b0e250f05b6c53db6747f95a28d28796..43188208156df77ff9a8fc8b982649ab5b4c818a
+    43188208156df77ff9a8fc8b982649ab5b4c818a parents=17c6c4b48964941ad203f40a6927189a528bbba3 T2 P1: refuse a text field that is not valid UTF-8 before copying
+    17c6c4b48964941ad203f40a6927189a528bbba3 parents=f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e T2 P1 record: independent check 1 answer, verbatim
+    f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e parents=e3dd52e777fe16fb58e5bf7cff6e562f2c332673 T2 P1 record: gate, positive, negative and scan logs at e3dd52e
     e3dd52e777fe16fb58e5bf7cff6e562f2c332673 parents=e8087f6b990d13c4ccf69a1ae934050f1d14cb48 T2 P1: corpus-add.py changes for the spec, corpus-coverage.py
     e8087f6b990d13c4ccf69a1ae934050f1d14cb48 parents=45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 T2 P1: import the corpus session's corpus-add.py unchanged
     45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 parents=24d4a165b0e250f05b6c53db6747f95a28d28796 T2 P1: commit planning doc updates (corpus delivery rulings, T3 close-out, T3 P3 scope)
-command: git diff --stat 24d4a165b0e250f05b6c53db6747f95a28d28796 e3dd52e777fe16fb58e5bf7cff6e562f2c332673
-     ROADMAP.md                 |  18 ++---
-     scripts/corpus-add.py      | 164 +++++++++++++++++++++++++++++++++++++++++++++
-     scripts/corpus-coverage.py | 157 +++++++++++++++++++++++++++++++++++++++++++
-     specs/0005-corpus.md       |  79 +++++++++++++++++++---
-     specs/0006-passthrough.md  |  76 ++++++++++++++++++---
-     5 files changed, 464 insertions(+), 30 deletions(-)
+per-commit file lists and stats (check 1 gap 7):
+command: git show --stat --format='%H %s' 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6
+    45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 T2 P1: commit planning doc updates (corpus delivery rulings, T3 close-out, T3 P3 scope)
+    
+     ROADMAP.md                | 18 +++++------
+     specs/0005-corpus.md      | 79 +++++++++++++++++++++++++++++++++++++++++------
+     specs/0006-passthrough.md | 76 ++++++++++++++++++++++++++++++++++++++-------
+     3 files changed, 143 insertions(+), 30 deletions(-)
+    file modes at 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6: 
+command: git show --stat --format='%H %s' e8087f6b990d13c4ccf69a1ae934050f1d14cb48
+    e8087f6b990d13c4ccf69a1ae934050f1d14cb48 T2 P1: import the corpus session's corpus-add.py unchanged
+    
+     scripts/corpus-add.py | 125 ++++++++++++++++++++++++++++++++++++++++++++++++++
+     1 file changed, 125 insertions(+)
+    file modes at e8087f6b990d13c4ccf69a1ae934050f1d14cb48: 100755 scripts/corpus-add.py;
+command: git show --stat --format='%H %s' e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+    e3dd52e777fe16fb58e5bf7cff6e562f2c332673 T2 P1: corpus-add.py changes for the spec, corpus-coverage.py
+    
+     scripts/corpus-add.py      |  65 +++++++++++++++----
+     scripts/corpus-coverage.py | 157 +++++++++++++++++++++++++++++++++++++++++++++
+     2 files changed, 209 insertions(+), 13 deletions(-)
+    file modes at e3dd52e777fe16fb58e5bf7cff6e562f2c332673: 100755 scripts/corpus-add.py;100755 scripts/corpus-coverage.py;
+command: git show --stat --format='%H %s' f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e
+    f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e T2 P1 record: gate, positive, negative and scan logs at e3dd52e
+    
+     records/logs/t2-p1/gate.log     | 401 +++++++++++++++++++++++++
+     records/logs/t2-p1/negative.log | 636 ++++++++++++++++++++++++++++++++++++++++
+     records/logs/t2-p1/positive.log | 572 ++++++++++++++++++++++++++++++++++++
+     records/logs/t2-p1/scan.log     | 454 ++++++++++++++++++++++++++++
+     4 files changed, 2063 insertions(+)
+    file modes at f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e: 100755 scripts/corpus-add.py;100755 scripts/corpus-coverage.py;
+command: git show --stat --format='%H %s' 17c6c4b48964941ad203f40a6927189a528bbba3
+    17c6c4b48964941ad203f40a6927189a528bbba3 T2 P1 record: independent check 1 answer, verbatim
+    
+     records/logs/t2-p1/independent-check-1.md | 161 ++++++++++++++++++++++++++++++
+     1 file changed, 161 insertions(+)
+    file modes at 17c6c4b48964941ad203f40a6927189a528bbba3: 100755 scripts/corpus-add.py;100755 scripts/corpus-coverage.py;
+command: git show --stat --format='%H %s' 43188208156df77ff9a8fc8b982649ab5b4c818a
+    43188208156df77ff9a8fc8b982649ab5b4c818a T2 P1: refuse a text field that is not valid UTF-8 before copying
+    
+     scripts/corpus-add.py | 7 +++++++
+     1 file changed, 7 insertions(+)
+    file modes at 43188208156df77ff9a8fc8b982649ab5b4c818a: 100755 scripts/corpus-add.py;100755 scripts/corpus-coverage.py;
+command: git diff --stat 24d4a165b0e250f05b6c53db6747f95a28d28796 43188208156df77ff9a8fc8b982649ab5b4c818a
+     ROADMAP.md                                |  18 +-
+     records/logs/t2-p1/gate.log               | 401 +++++++++++++++++++
+     records/logs/t2-p1/independent-check-1.md | 161 ++++++++
+     records/logs/t2-p1/negative.log           | 636 ++++++++++++++++++++++++++++++
+     records/logs/t2-p1/positive.log           | 572 +++++++++++++++++++++++++++
+     records/logs/t2-p1/scan.log               | 454 +++++++++++++++++++++
+     scripts/corpus-add.py                     | 171 ++++++++
+     scripts/corpus-coverage.py                | 157 ++++++++
+     specs/0005-corpus.md                      |  79 +++-
+     specs/0006-passthrough.md                 |  76 +++-
+     10 files changed, 2695 insertions(+), 30 deletions(-)
 
 ## import record (specs/0005-corpus.md P1: the private helper's sha256 at import and every change)
 recorded sha256 of <corpus dir>/tools/corpus-add.py at import (in the import commit message): 30c66ee96732e329fda3de049cef5e9bfd8c21f58e07fc6385b12bf77602f250
@@ -197,9 +258,9 @@ command: git diff --name-status e8087f6b990d13c4ccf69a1ae934050f1d14cb48^ e8087f
 the import commit's parent is one commit and it adds only scripts/corpus-add.py: yes
 the import commit's message names the sha256: yes
 every change made to it after the import:
-command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 e3dd52e777fe16fb58e5bf7cff6e562f2c332673 -- scripts/corpus-add.py
+command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 43188208156df77ff9a8fc8b982649ab5b4c818a -- scripts/corpus-add.py
     diff --git a/scripts/corpus-add.py b/scripts/corpus-add.py
-    index 10aa4b5..dfe3ea6 100755
+    index 10aa4b5..ccdbfc0 100755
     --- a/scripts/corpus-add.py
     +++ b/scripts/corpus-add.py
     @@ -1,11 +1,13 @@
@@ -297,7 +358,21 @@ command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 e3dd52e777fe16fb58e5b
          if magic != b"PK\x03\x04":
              die("not a zip-based workbook")
          if producer not in PRODUCERS:
-    @@ -93,18 +123,23 @@ def main(argv):
+    @@ -81,6 +111,13 @@ def main(argv):
+         for field in (pver, note, os.path.basename(src)):
+             if re.search(r"[\t\r\n]", field):
+                 die("tab or newline in a text field")
+    +        # A file name or argument the file system gave us as undecodable bytes
+    +        # carries surrogates, which the manifest write would refuse after the
+    +        # copy was made, leaving a corpus file with no row.
+    +        try:
+    +            field.encode("utf-8")
+    +        except UnicodeEncodeError:
+    +            die("a text field is not valid UTF-8")
+     
+         h = hashlib.sha256()
+         with open(src, "rb") as f:
+    @@ -93,18 +130,23 @@ def main(argv):
          manifest = os.path.join(corpus, "manifest.tsv")
          if os.path.exists(manifest):
              with open(manifest, encoding="utf-8") as f:
@@ -323,7 +398,7 @@ command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 e3dd52e777fe16fb58e5b
              shutil.copyfile(src, dest)
              os.chmod(dest, 0o600)
              new = not os.path.exists(manifest)
-    @@ -122,4 +157,8 @@ def main(argv):
+    @@ -122,4 +164,8 @@ def main(argv):
      
      
      if __name__ == "__main__":
@@ -335,9 +410,9 @@ command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 e3dd52e777fe16fb58e5b
     +        sys.exit(2)
 the private helper is outside the repository: no other file under the corpus directory enters it (hygiene and privacy steps below count corpus paths)
 
-## the two scripts at e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+## the two scripts at 43188208156df77ff9a8fc8b982649ab5b4c818a
 Python 3.14.4
-scripts/corpus-add.py: sha256 f16e604afb512e3d2efa539e472ae1b2759b213d12ae6a88db2c29b1ea790204, bytes 5954, git mode 100755, first line: #!/usr/bin/env python3
+scripts/corpus-add.py: sha256 5ab35030bc917792a58ef9d94eda7fe872471aec29e69fba744864181e888ce5, bytes 6304, git mode 100755, first line: #!/usr/bin/env python3
 scripts/corpus-add.py: git mode 100755: yes
 scripts/corpus-add.py: first line is #!/usr/bin/env python3: yes
 scripts/corpus-add.py: py_compile exit 0 (into <scratch>): yes
@@ -358,23 +433,23 @@ corpus-add.py without arguments: exit 2 and the usage line only: yes
   command: scripts/corpus-coverage.py --bogus -> exit 2, stdout bytes 0, stderr: usage: corpus-coverage.py [--verify]
 corpus-coverage.py with an unknown argument: exit 2 and the usage line only: yes
 
-## gate files at e3dd52e777fe16fb58e5bf7cff6e562f2c332673
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
-scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
-no gate file, Cargo file or workflow changed in 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673: yes
+## gate files at 43188208156df77ff9a8fc8b982649ab5b4c818a
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no gate file, Cargo file or workflow changed in 24d4a165b0e250f05b6c53db6747f95a28d28796..43188208156df77ff9a8fc8b982649ab5b4c818a: yes
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## full run on a cold cache, started from / by absolute path
 command: cargo clean
-         Removed 4369 files, 838.1MiB total
+         Removed 3613 files, 696.2MiB total
 command: (cd / && <repo>/scripts/check.sh)
 stdout:
     PASS host
@@ -397,5 +472,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-15T23:07:14Z
+run ended at 2026-09-15T23:23:56Z
 gate log checks all as expected: yes

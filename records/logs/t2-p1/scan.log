@@ -1,5 +1,6 @@
-about: phase diff 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673; HEAD at run: e3dd52e777fe16fb58e5bf7cff6e562f2c332673
-phase: T2 P1 (specs/0005-corpus.md) scan.log; run at 2026-09-15T23:08:25Z
+about: phase diff 24d4a165b0e250f05b6c53db6747f95a28d28796..43188208156df77ff9a8fc8b982649ab5b4c818a; HEAD at run: 43188208156df77ff9a8fc8b982649ab5b4c818a
+phase: T2 P1 (specs/0005-corpus.md) scan.log; run at 2026-09-15T23:24:51Z
+rerun: replaces the scan log of record commit f692dbf (range 24d4a16..e3dd52e); rerun over 24d4a16..43188208156df77ff9a8fc8b982649ab5b4c818a after phase commit 2 and the check 1 record commit 17c6c4b; the gate, positive and negative logs it scans in the working tree are the reruns at phase commit 2
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -247,7 +248,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at e3dd52e777fe16fb58e5bf7cff6e562f2c332673: yes
+this script's patterns equal scripts/privacy-patterns.txt at 43188208156df77ff9a8fc8b982649ab5b4c818a: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -310,7 +311,10 @@ this script's patterns equal scripts/privacy-patterns.txt at e3dd52e777fe16fb58e
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+command: git rev-list --parents 24d4a165b0e250f05b6c53db6747f95a28d28796..43188208156df77ff9a8fc8b982649ab5b4c818a
+43188208156df77ff9a8fc8b982649ab5b4c818a 17c6c4b48964941ad203f40a6927189a528bbba3
+17c6c4b48964941ad203f40a6927189a528bbba3 f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e
+f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e e3dd52e777fe16fb58e5bf7cff6e562f2c332673
 e3dd52e777fe16fb58e5bf7cff6e562f2c332673 e8087f6b990d13c4ccf69a1ae934050f1d14cb48
 e8087f6b990d13c4ccf69a1ae934050f1d14cb48 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6
 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 24d4a165b0e250f05b6c53db6747f95a28d28796
@@ -329,10 +333,30 @@ command: git show --name-status --format='%H parents=%P %s' e3dd52e777fe16fb58e5
     
     M	scripts/corpus-add.py
     A	scripts/corpus-coverage.py
+command: git show --name-status --format='%H parents=%P %s' f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e
+    f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e parents=e3dd52e777fe16fb58e5bf7cff6e562f2c332673 T2 P1 record: gate, positive, negative and scan logs at e3dd52e
+    
+    A	records/logs/t2-p1/gate.log
+    A	records/logs/t2-p1/negative.log
+    A	records/logs/t2-p1/positive.log
+    A	records/logs/t2-p1/scan.log
+command: git show --name-status --format='%H parents=%P %s' 17c6c4b48964941ad203f40a6927189a528bbba3
+    17c6c4b48964941ad203f40a6927189a528bbba3 parents=f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e T2 P1 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t2-p1/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' 43188208156df77ff9a8fc8b982649ab5b4c818a
+    43188208156df77ff9a8fc8b982649ab5b4c818a parents=17c6c4b48964941ad203f40a6927189a528bbba3 T2 P1: refuse a text field that is not valid UTF-8 before copying
+    
+    M	scripts/corpus-add.py
 
-## files changed in the phase diff (contents at e3dd52e777fe16fb58e5bf7cff6e562f2c332673)
-command: git diff --name-status 24d4a165b0e250f05b6c53db6747f95a28d28796 e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+## files changed in the phase diff (contents at 43188208156df77ff9a8fc8b982649ab5b4c818a)
+command: git diff --name-status 24d4a165b0e250f05b6c53db6747f95a28d28796 43188208156df77ff9a8fc8b982649ab5b4c818a
     M	ROADMAP.md
+    A	records/logs/t2-p1/gate.log
+    A	records/logs/t2-p1/independent-check-1.md
+    A	records/logs/t2-p1/negative.log
+    A	records/logs/t2-p1/positive.log
+    A	records/logs/t2-p1/scan.log
     A	scripts/corpus-add.py
     A	scripts/corpus-coverage.py
     M	specs/0005-corpus.md
@@ -346,7 +370,52 @@ file ROADMAP.md (sha256 5312f3af9356632ff1a467b1fbb29e285e0c9fe84908370be90ef1a2
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file scripts/corpus-add.py (sha256 f16e604afb512e3d2efa539e472ae1b2759b213d12ae6a88db2c29b1ea790204)
+file records/logs/t2-p1/gate.log (sha256 8d92731da3203da0060cac8a1b9ca9635b8a635747d038bb66ee872a14109710)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t2-p1/independent-check-1.md (sha256 3be0d7d72cb21767cc9d6b51a754dfc9bdf306a155d1c705f9a6000f1b912a44)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t2-p1/negative.log (sha256 b77f9d329cd0450a71259f0575c5fb347e775cd233dbb4e50e4516a64a34018e)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t2-p1/positive.log (sha256 032921663c94af893d15cedff767e4ede765108dd8b8ec39d68efe3d311542d9)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t2-p1/scan.log (sha256 7e1f4dc64b2d1105e5a121d46ed7cfa3e824beed9591a89f8c428b68ddc3fca8)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/corpus-add.py (sha256 5ab35030bc917792a58ef9d94eda7fe872471aec29e69fba744864181e888ce5)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -382,9 +451,39 @@ file specs/0006-passthrough.md (sha256 7d4b6482eb66a8ac0aff58f00d36429fa41acd0e7
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 5; files scanned: 5; files read: 5: yes
+files in diff: 10; files scanned: 10; files read: 10: yes
 
 ## commit messages in the phase range
+message 43188208156df77ff9a8fc8b982649ab5b4c818a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 17c6c4b48964941ad203f40a6927189a528bbba3
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message e3dd52e777fe16fb58e5bf7cff6e562f2c332673
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -415,10 +514,10 @@ message 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 3; commits in range: 3: yes
+messages scanned: 6; commits in range: 6: yes
 
 ## other T2 P1 logs in the working tree (a log cannot scan itself)
-log records/logs/t2-p1/gate.log (sha256 8d92731da3203da0060cac8a1b9ca9635b8a635747d038bb66ee872a14109710)
+log records/logs/t2-p1/gate.log (sha256 7528b700fcd671a8a12b5ccc5827b2be50a4de1baa7aa22c666f8ee5191190be)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -427,7 +526,7 @@ log records/logs/t2-p1/gate.log (sha256 8d92731da3203da0060cac8a1b9ca9635b8a6357
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t2-p1/positive.log (sha256 032921663c94af893d15cedff767e4ede765108dd8b8ec39d68efe3d311542d9)
+log records/logs/t2-p1/positive.log (sha256 dca8ddf9a04377a61f96477e005e887d93eaffce3629b5e901d1ee56b8fb55b3)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -436,7 +535,7 @@ log records/logs/t2-p1/positive.log (sha256 032921663c94af893d15cedff767e4ede765
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t2-p1/negative.log (sha256 b77f9d329cd0450a71259f0575c5fb347e775cd233dbb4e50e4516a64a34018e)
+log records/logs/t2-p1/negative.log (sha256 c4c3803526fc1c77a0f1fd70b234bf24e09e47a9d1a7f71d568a60251969c300)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -450,5 +549,5 @@ T2 P1 logs scanned: 3 (expected 3): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-15T23:08:26Z
+run ended at 2026-09-15T23:24:52Z
 RESULT: PASS

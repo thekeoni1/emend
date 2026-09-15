@@ -1,5 +1,6 @@
-about: T2 P1 phase commit e3dd52e777fe16fb58e5bf7cff6e562f2c332673; HEAD at run: e3dd52e777fe16fb58e5bf7cff6e562f2c332673
-phase: T2 P1 (specs/0005-corpus.md) positive.log; run at 2026-09-15T23:05:17Z
+about: T2 P1 phase commit 43188208156df77ff9a8fc8b982649ab5b4c818a; HEAD at run: 43188208156df77ff9a8fc8b982649ab5b4c818a
+phase: T2 P1 (specs/0005-corpus.md) positive.log; run at 2026-09-15T23:23:32Z
+rerun: replaces the positive and negative logs of record commit f692dbf (runs at e3dd52e); rerun at phase commit 2, 43188208156df77ff9a8fc8b982649ab5b4c818a, after independent check 1 (record commit 17c6c4b): corpus-add.py now refuses a text field that is not valid UTF-8, covered by the new case N13 (check 1 gap 1); the scripts under test are run from scratch copies checked against their blobs at the phase commit (gap 8); two eval compounds are replaced by the not_a_repo and cov_files_two functions (gap 5)
 The scratch corpus, the generated workbooks and every captured output live under <scratch> and are deleted on exit; EMEND_CORPUS_DIR is set for every run, so the real corpus directory is never read.
 fixture strings counted in every captured output: 3 (random sentinels for the file names, producer_version and note; built at run time; values never printed)
 Python 3.14.4; GIT_ variables unset for this script
@@ -54,8 +55,11 @@ Python 3.14.4; GIT_ variables unset for this script
     case "$MODE" in positive|negative) ;; *) echo "mode must be positive or negative" >&2; exit 2 ;; esac
     G=/usr/bin/grep
     ROOT=$(pwd)
-    ADD=$ROOT/scripts/corpus-add.py
-    COV=$ROOT/scripts/corpus-coverage.py
+    # The scripts under test are run from scratch copies, not from the working
+    # tree (check 1 gap 8); the copies are checked against the blobs at the phase
+    # commit below.
+    ADD=""
+    COV=""
     GITDIR=$(git rev-parse --absolute-git-dir)
     BASE=$(mktemp -d)
     trap 'rm -rf "$BASE"' EXIT
@@ -92,6 +96,19 @@ Python 3.14.4; GIT_ variables unset for this script
     nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
     note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
     is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    git_says_repo() { git -C "$1" rev-parse >/dev/null 2>&1; }
+    # not_a_repo <dir>: git does not report a work tree for the directory.
+    not_a_repo() { ! git_says_repo "$1"; }
+    # copies_match <commit>: each scratch copy of a script has the sha256 of that
+    # script's blob at the commit.
+    copies_match() {
+      [ "$(sha "$ADD")" = "$(git show "$1:scripts/corpus-add.py" | sha256sum | cut -c1-64)" ] &&
+        [ "$(sha "$COV")" = "$(git show "$1:scripts/corpus-coverage.py" | sha256sum | cut -c1-64)" ]
+    }
+    # cov_files_two: the last run exited 0 with no stderr and its first line is "files 2".
+    cov_files_two() {
+      [ "$RC" -eq 0 ] && [ ! -s "$OUT.stderr" ] && [ "$(head -n 1 "$OUT.stdout")" = "files 2" ]
+    }
     sha() { sha256sum "$1" | cut -c1-64; }
     # state <corpus dir>: manifest sha256 (or "no-manifest") and the number of corpus files.
     state() {
@@ -244,8 +261,19 @@ Python 3.14.4; GIT_ variables unset for this script
     note "gen.py exit 0" "$(is [ "$RC" -eq 0 ])"
     head4() { head -c 4 "$1" | od -An -tx1 | tr -d ' \n'; }
     note "the four workbooks start with 504b0304 and the OLE2 file with d0cf11e0" "$(is [ "$(head4 "$W/$S_NAME-a.xlsx") $(head4 "$W/$S_NAME-b.XLSX") $(head4 "$W/$S_NAME-c.xlsx") $(head4 "$W/$S_NAME-d.xlsx") $(head4 "$W/$S_NAME-ole.xlsx")" = "504b0304 504b0304 504b0304 504b0304 d0cf11e0" ])"
-    git_says_repo() { git -C "$1" rev-parse >/dev/null 2>&1; }
-    note "control: git -C <scratch>/corpus rev-parse fails (the scratch corpus is outside any work tree)" "$(is eval '! git_says_repo "$CORPUS"')"
+    note "control: git -C <scratch>/corpus rev-parse fails (the scratch corpus is outside any work tree)" "$(is not_a_repo "$CORPUS")"
+    
+    echo
+    echo "## the scripts under test, copied to <scratch>/bin"
+    mkdir -m 700 "$BASE/bin"
+    cp "$ROOT/scripts/corpus-add.py" "$BASE/bin/corpus-add.py"
+    cp "$ROOT/scripts/corpus-coverage.py" "$BASE/bin/corpus-coverage.py"
+    chmod 755 "$BASE/bin/corpus-add.py" "$BASE/bin/corpus-coverage.py"
+    ADD=$BASE/bin/corpus-add.py
+    COV=$BASE/bin/corpus-coverage.py
+    echo "  <scratch>/bin/corpus-add.py sha256 $(sha "$ADD"); blob at $C sha256 $(git show "$C:scripts/corpus-add.py" | sha256sum | cut -c1-64)"
+    echo "  <scratch>/bin/corpus-coverage.py sha256 $(sha "$COV"); blob at $C sha256 $(git show "$C:scripts/corpus-coverage.py" | sha256sum | cut -c1-64)"
+    note "both scratch copies have the sha256 of their blob at $C" "$(is copies_match "$C")"
     
     if [ "$MODE" = positive ]; then
       echo
@@ -363,7 +391,7 @@ Python 3.14.4; GIT_ variables unset for this script
       modified() { [ "$(stat -c %s "$F2")" = "$size_before" ] && [ "$(sha "$F2")" != "$(awk -F'\t' 'NR == 3 { print $2 }' "$M")" ]; }
       note "N11: same size, sha256 now differs from the manifest" "$(is modified)"
       run N11a - "$COV"
-      note "N11a: coverage without --verify still exits 0 with no stderr and files 2 on line 1" "$(is eval '[ "$RC" -eq 0 ] && [ ! -s "$OUT.stderr" ] && [ "$(head -n 1 "$OUT.stdout")" = "files 2" ]')"
+      note "N11a: coverage without --verify still exits 0 with no stderr and files 2 on line 1" "$(is cov_files_two)"
       run N11b - "$COV" --verify
       note "N11b: exit 1, no stderr, stdout exactly: FAIL line 3: sha256 mismatch" "$(is covfail "line 3: sha256 mismatch")"
       python3 -c 'import sys; f = open(sys.argv[1], "r+b"); f.seek(10); b = f.read(1); f.seek(10); f.write(bytes([b[0] ^ 0xff])); f.close()' "$F2"
@@ -389,6 +417,31 @@ Python 3.14.4; GIT_ variables unset for this script
         run "N12-$name" "EMEND_CORPUS_DIR=$BASE/broken-$name" "$COV"
         note "N12-$name: exit 1, no stderr, stdout exactly: FAIL $want" "$(is covfail "$want")"
       done
+    
+      echo
+      echo "## N13: a note holding a byte that is not valid UTF-8 (check 1 gap 1)"
+      # The byte itself is never printed: the command line below names it as a
+      # placeholder, and the script's own output is ASCII.
+      BADNOTE=$(printf 'note\xff')
+      echo "  control: bytes in the note argument that are not ASCII: $(printf '%s' "$BADNOTE" | LC_ALL=C tr -cd '\200-\377' | wc -c) (expect 1)"
+      note "control: the note argument holds one byte that is not ASCII" "$(is [ "$(printf '%s' "$BADNOTE" | LC_ALL=C tr -cd '\200-\377' | wc -c)" -eq 1 ])"
+      before=$(state "$CORPUS")
+      N=$((N + 1))
+      o=$BASE/out/$N
+      mkdir -p "$BASE/out"
+      echo "command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-add.py <scratch>/in/<fixture>-c.xlsx excel-win <fixture> maintainer plain <a note ending in the byte 0xff>"
+      EMEND_CORPUS_DIR=$CORPUS "$ADD" "$W/$S_NAME-c.xlsx" excel-win "$S_VER" maintainer plain "$BADNOTE" >"$o.stdout" 2>"$o.stderr" </dev/null
+      RC=$?
+      OUTS+=("$o.stdout" "$o.stderr")
+      OUT=$o
+      echo "  exit: $RC"
+      echo "  stdout ($(wc -l <"$o.stdout") lines):"
+      hide <"$o.stdout" | sed 's/^/    /'
+      echo "  stderr ($(wc -l <"$o.stderr") lines):"
+      hide <"$o.stderr" | sed 's/^/    /'
+      note "N13: exit 1, no stdout, stderr exactly: refused: a text field is not valid UTF-8" "$(is refused "a text field is not valid UTF-8")"
+      note "N13: nothing added (manifest sha256 and corpus file count unchanged)" "$(is nothing_added "$before")"
+      note "N13: no orphan file in corpus/ (the copy is never made)" "$(is [ "$(find "$CORPUS/corpus" -type f | wc -l)" -eq 2 ])"
     fi
     
     echo
@@ -434,8 +487,13 @@ command: python3 <scratch>/gen.py <scratch>/in <fixture>
   the four workbooks start with 504b0304 and the OLE2 file with d0cf11e0: as-expected
   control: git -C <scratch>/corpus rev-parse fails (the scratch corpus is outside any work tree): as-expected
 
+## the scripts under test, copied to <scratch>/bin
+  <scratch>/bin/corpus-add.py sha256 5ab35030bc917792a58ef9d94eda7fe872471aec29e69fba744864181e888ce5; blob at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 5ab35030bc917792a58ef9d94eda7fe872471aec29e69fba744864181e888ce5
+  <scratch>/bin/corpus-coverage.py sha256 613799baa105a4543c2809fc8bb6c99750f9be1c6acb4499a5416ab908a97abd; blob at 43188208156df77ff9a8fc8b982649ab5b4c818a sha256 613799baa105a4543c2809fc8bb6c99750f9be1c6acb4499a5416ab908a97abd
+  both scratch copies have the sha256 of their blob at 43188208156df77ff9a8fc8b982649ab5b4c818a: as-expected
+
 ## P1: add a generated xlsx
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-a.xlsx libreoffice <fixture> libreoffice-export plain,strings <fixture> 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-add.py <scratch>/in/<fixture>-a.xlsx libreoffice <fixture> libreoffice-export plain,strings <fixture> 
   exit: 0
   stdout (1 lines):
     added 7eb89f523115 xlsx 643 libreoffice plain,strings
@@ -447,7 +505,7 @@ command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<f
   P1: corpus/7eb89f523115.xlsx exists with mode 600 and the source's sha256: as-expected
 
 ## P2: an upper-case .XLSX, stored as xlsx
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-b.XLSX excel-win <fixture> ms-template charts,plain <fixture> 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-add.py <scratch>/in/<fixture>-b.XLSX excel-win <fixture> ms-template charts,plain <fixture> 
   exit: 0
   stdout (1 lines):
     added d54858d6b9e1 xlsx 643 excel-win charts,plain
@@ -460,7 +518,7 @@ command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<f
   P2: no file with an upper-case extension in corpus/: as-expected
 
 ## P3: a workbook without docProps/app.xml
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-c.xlsx excel-win <fixture> maintainer large <fixture> 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-add.py <scratch>/in/<fixture>-c.xlsx excel-win <fixture> maintainer large <fixture> 
   exit: 0
   stdout (1 lines):
     added 2ac16f2dacc2 xlsx 315 excel-win large
@@ -474,7 +532,7 @@ command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<f
 
 ## P4: GIT_DIR exported to this repository's git directory
   control: with GIT_DIR exported, git -C <scratch>/corpus rev-parse succeeds: as-expected
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-d.xlsx google-sheets <fixture> google-sheets-export formulas,plain <fixture> 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-add.py <scratch>/in/<fixture>-d.xlsx google-sheets <fixture> google-sheets-export formulas,plain <fixture> 
   exit: 0
   stdout (1 lines):
     added 742a0c4f98ff xlsx 643 google-sheets formulas,plain
@@ -487,7 +545,7 @@ command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<f
 
 ## P5: coverage
 expected output: 30 lines (built by this script from the fixed tag list; shown below as the actual output)
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-coverage.py 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-coverage.py 
   exit: 0
   stdout (30 lines):
     files 4
@@ -524,7 +582,7 @@ command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-coverage.py
   P5: exit 0, no stderr, stdout equal to the expected output: as-expected
 
 ## P6: coverage --verify on the unmodified corpus
-command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-coverage.py --verify 
+command: EMEND_CORPUS_DIR=<scratch>/corpus <scratch>/bin/corpus-coverage.py --verify 
   exit: 0
   stdout (30 lines):
     files 4
@@ -568,5 +626,5 @@ control: lines in the scratch manifest holding a fixture string: 4 (expect more 
   lines with the scratch path in any output: 0 (expect 0): as-expected
   control bytes in the outputs: 0; non-ASCII bytes: 0 (expect 0 and 0): as-expected
   status after the run (expect empty): : as-expected
-run ended at 2026-09-15T23:05:18Z
+run ended at 2026-09-15T23:23:33Z
 positive log checks all as expected: yes
