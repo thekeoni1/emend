@@ -1,5 +1,6 @@
-about: T1 P5 phase commit 1c8eca19d055a11dea1b83613ff7125b865ef13d; HEAD at run: 1c8eca19d055a11dea1b83613ff7125b865ef13d
-phase: T1 P5 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T20:15:50Z
+about: T1 P5 phase commit b3534cc5af2a046da821f10ff73edbb75367d43b; HEAD at run: b3534cc5af2a046da821f10ff73edbb75367d43b
+phase: T1 P5 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T20:23:56Z
+rerun: replaces the logs committed in 97cb52d (first run at 1c8eca1), after the fixes for independent check 1 in b3534cc5af2a046da821f10ff73edbb75367d43b
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
 
 ## script that wrote this log
@@ -87,23 +88,23 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
     test missing_file_is_an_error ... ok
-    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
     test added_entry ... ok
-    test stored_entry_beside_deflated_entry ... ok
+    test non_zip_file_is_an_error ... ok
     test dropped_entry ... ok
+    test stored_entry_beside_deflated_entry ... ok
     test binary_usage_error ... ok
     test names_are_escaped ... ok
-    test equal_archives_are_identical ... ok
     test binary_exit_status_follows_the_comparison ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
+    test equal_archives_are_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
     test unsupported_method_is_an_error ... ok
     test short_raw_stream_is_an_error ... ok
-    test recompressed_entry_with_equal_metadata ... ok
     test encrypted_entry_is_an_error ... ok
     test changed_entry_with_different_lengths ... ok
+    test recompressed_entry_with_equal_metadata ... ok
     test changed_entry_with_equal_length ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
@@ -111,10 +112,10 @@ Running lines, test lines and summary lines:
     test recompressed_entry ... ok
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
     Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
-    test data_descriptor_on_one_side ... ok
-    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
-    test leading_junk_bytes ... ok
     test changed_archive_comment ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test data_descriptor_on_one_side ... ok
+    test leading_junk_bytes ... ok
     test output_side_rows_take_the_output_values ... ok
     test each_flag_alone ... ok
     test reordered_entries ... ok
@@ -151,16 +152,16 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
-    test non_zip_file_is_an_error ... ok
     test binary_usage_error ... ok
     test missing_file_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
     test added_entry ... ok
-    test dropped_entry ... ok
     test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
     test binary_exit_status_follows_the_comparison ... ok
-    test names_are_escaped ... ok
     test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
     Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
@@ -181,19 +182,19 @@ Running lines, test lines and summary lines:
     test leading_junk_bytes ... ok
     test changed_archive_comment ... ok
     test output_side_rows_take_the_output_values ... ok
-    test reordered_entries ... ok
     test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
     test each_flag_alone ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
     Running tests/p4.rs (target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
     test local_header_running_past_the_end_is_an_error ... ok
     test local_header_fields_each_alone ... ok
     test files_identical_no_from_one_byte_inside_a_prefix ... ok
     test no_sentinel_in_any_output ... ok
-    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
     Running tests/p5.rs (target/i686-unknown-linux-musl/debug/deps/p5-2f1ee927e7bd76b8)
     test descriptors_that_differ_only_in_the_signature ... ok
     test narrowed_and_extended_flags_each_alone ... ok
@@ -211,5 +212,5 @@ host executed 38 tests; i686-unknown-linux-musl executed 38 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 status after the runs (expect empty): : yes
-run ended at 2026-09-15T20:15:51Z
+run ended at 2026-09-15T20:23:57Z
 test log checks all as expected: yes

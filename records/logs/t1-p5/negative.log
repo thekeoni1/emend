@@ -1,5 +1,6 @@
-about: T1 P5 phase commit 1c8eca19d055a11dea1b83613ff7125b865ef13d; HEAD at run: 1c8eca19d055a11dea1b83613ff7125b865ef13d
-phase: T1 P5 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T20:15:51Z
+about: T1 P5 phase commit b3534cc5af2a046da821f10ff73edbb75367d43b; HEAD at run: b3534cc5af2a046da821f10ff73edbb75367d43b
+phase: T1 P5 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T20:23:57Z
+rerun: replaces the logs committed in 97cb52d (first run at 1c8eca1), after the fixes for independent check 1 in b3534cc5af2a046da821f10ff73edbb75367d43b
 Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
 fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
 
@@ -163,7 +164,9 @@ fixture strings counted in every captured output: 3 (two random content sentinel
     PY
     echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase> $PAD"
     python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2" "$PHRASE" "$PAD" >"$BASE/gen.out" 2>&1
-    echo "  exit: $?"
+    RC=$?
+    echo "  exit: $RC"
+    note "gen.py exit 0" "$(is [ "$RC" -eq 0 ])"
     hide <"$BASE/gen.out" | sed 's/^/    /'
     echo "  unpadded.zip $(wc -c <"$BASE/unpadded.zip") bytes; padded.zip $(wc -c <"$BASE/padded.zip") bytes; copy.zip $(wc -c <"$BASE/copy.zip") bytes"
     note "padded.zip is $PAD bytes longer than unpadded.zip" "$(is padded_by "$BASE/padded.zip" "$BASE/unpadded.zip" "$PAD")"
@@ -209,8 +212,9 @@ command: cargo build -p xlsx-diff
 ## generated archives
 command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase> 37
   exit: 0
-    entries 3; padding of 37 zero bytes inserted at offset 549; zipfile testzip of the padded archive: ok
-  unpadded.zip 3100 bytes; padded.zip 3137 bytes; copy.zip 3100 bytes
+  gen.py exit 0: as-expected
+    entries 3; padding of 37 zero bytes inserted at offset 547; zipfile testzip of the padded archive: ok
+  unpadded.zip 3096 bytes; padded.zip 3133 bytes; copy.zip 3096 bytes
   padded.zip is 37 bytes longer than unpadded.zip: as-expected
   zipfile reads every entry of padded.zip: as-expected
   copy.zip is a byte copy of unpadded.zip: as-expected
@@ -218,9 +222,9 @@ command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase> 37
 ## case a: padding between entries against the unpadded twin
 command: target/debug/xlsx-diff <scratch>/padded.zip <scratch>/unpadded.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	500	500	40a63a61	40a63a61				descriptor
-    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	907	907	f579de1a	f579de1a				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1327	1327	c52650fe	c52650fe				
+    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	498	498	e8d96d99	e8d96d99				descriptor
+    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	906	906	00a55225	00a55225				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1326	1326	3d75506a	3d75506a				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -233,14 +237,14 @@ command: target/debug/xlsx-diff <scratch>/padded.zip <scratch>/unpadded.zip
     archive	comment_equal	yes
     archive	prefix_in	0
     archive	prefix_out	0
-    archive	central_start_in	2919
-    archive	central_start_out	2882
+    archive	central_start_in	2915
+    archive	central_start_out	2878
     archive	uncompressed_in	80820
     archive	uncompressed_out	80820
-    archive	compressed_in	2734
-    archive	compressed_out	2734
-    archive	bytes_in	3137
-    archive	bytes_out	3100
+    archive	compressed_in	2730
+    archive	compressed_out	2730
+    archive	bytes_in	3133
+    archive	bytes_out	3096
     archive	files_identical	no
   stderr:
   exit: 1
@@ -254,9 +258,9 @@ command: target/debug/xlsx-diff <scratch>/padded.zip <scratch>/unpadded.zip
 ## case b: the unpadded twin against a byte copy
 command: target/debug/xlsx-diff <scratch>/unpadded.zip <scratch>/copy.zip
   stdout:
-    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	500	500	40a63a61	40a63a61				
-    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	907	907	f579de1a	f579de1a				
-    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1327	1327	c52650fe	c52650fe				
+    entry	[Content_Types].xml	identical	0	0	8	8	13240	13240	498	498	e8d96d99	e8d96d99				
+    entry	xl/workbook.xml	identical	1	1	8	8	25390	25390	906	906	00a55225	00a55225				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	42190	42190	1326	1326	3d75506a	3d75506a				
     archive	entries_in	3
     archive	entries_out	3
     archive	identical	3
@@ -269,14 +273,14 @@ command: target/debug/xlsx-diff <scratch>/unpadded.zip <scratch>/copy.zip
     archive	comment_equal	yes
     archive	prefix_in	0
     archive	prefix_out	0
-    archive	central_start_in	2882
-    archive	central_start_out	2882
+    archive	central_start_in	2878
+    archive	central_start_out	2878
     archive	uncompressed_in	80820
     archive	uncompressed_out	80820
-    archive	compressed_in	2734
-    archive	compressed_out	2734
-    archive	bytes_in	3100
-    archive	bytes_out	3100
+    archive	compressed_in	2730
+    archive	compressed_out	2730
+    archive	bytes_in	3096
+    archive	bytes_out	3096
     archive	files_identical	yes
   stderr:
   exit: 0
@@ -287,5 +291,5 @@ command: target/debug/xlsx-diff <scratch>/unpadded.zip <scratch>/copy.zip
   stderr is empty: as-expected
 
   main working tree status (expect empty): : as-expected
-run ended at 2026-09-15T20:15:51Z
+run ended at 2026-09-15T20:23:58Z
 all negative cases as expected: yes
