@@ -1,0 +1,230 @@
+about: T1 P4 phase commit 74b2bf0f2328b33a729d46105a33712e495992f1; HEAD at run: 74b2bf0f2328b33a729d46105a33712e495992f1
+phase: T1 P4 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T19:05:01Z
+The clone and its build live under <scratch> and are deleted on exit.
+fixture strings counted in every captured output: 1 (the sentinel string, built at run time; value never printed)
+
+## script
+    #!/usr/bin/env bash
+    # T1 P4 negative.log (specs/0004-xlsx-diff.md, P4 "Negative case"): the
+    # sentinel test run with the name escaping deliberately disabled in a scratch
+    # copy, shown to fail.
+    #   control: a clone of the repository at the phase commit, unchanged; the
+    #            sentinel test passes there.
+    #   case:    the same clone with escape_name returning the raw name bytes
+    #            (lossily decoded); the sentinel test fails.
+    # The clone and its build directory live under <scratch> and are deleted on
+    # exit; nothing in the main working tree is touched. Each check is evaluated
+    # once, and a check with more than one condition is evaluated inside one
+    # function. The sentinel string is built at run time and never printed; every
+    # captured output is counted for it, for control bytes and for non-ASCII
+    # bytes.
+    # Usage: t1p4-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p4/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    TEST=no_sentinel_in_any_output
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    SENT="zq""-sent""inel-""t1p4"
+    FORBIDDEN=("$SENT")
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        line=${line//"$ROOT"/<repo>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # all_zero <n>...: every count given is 0.
+    all_zero() { local v; for v in "$@"; do [ "$v" -eq 0 ] || return 1; done; }
+    # has_line <file> <exact line>: the file holds that exact line.
+    has_line() { LC_ALL=C "$G" -q -x -F -e "$2" "$1"; }
+    # passed_once <file> <exit>: exit 0, the test line ends ok and the summary
+    # counts exactly one passed and no failed test.
+    passed_once() {
+      [ "$2" -eq 0 ] &&
+        has_line "$1" "test $TEST ... ok" &&
+        LC_ALL=C "$G" -q -E '^test result: ok\. 1 passed; 0 failed; ' "$1"
+    }
+    # failed_once <file> <exit>: exit 101, the test line ends FAILED and the
+    # summary counts exactly one failed test.
+    failed_once() {
+      [ "$2" -eq 101 ] &&
+        has_line "$1" "test $TEST ... FAILED" &&
+        LC_ALL=C "$G" -q -E '^test result: FAILED\. 0 passed; 1 failed; ' "$1"
+    }
+    # escaping_disabled <file>: the patched function body is present and the
+    # escaping loop is gone.
+    escaping_disabled() {
+      LC_ALL=C "$G" -q -F -e 'String::from_utf8_lossy(raw).into_owned()' "$1" &&
+        ! LC_ALL=C "$G" -q -F -e 'out.push_str("\\x");' "$1"
+    }
+    
+    echo "about: T1 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P4 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "The clone and its build live under <scratch> and are deleted on exit."
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (the sentinel string, built at run time; value never printed)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding it once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    
+    # captured <name>: prints the counts for a captured output and records a
+    # failure if any is not 0.
+    captured() {
+      local fb c n r
+      fb=$(count_forbidden "$BASE/$1.out")
+      c=$(ctrl_bytes "$BASE/$1.out")
+      n=$(nonascii_bytes "$BASE/$1.out")
+      r=$(is all_zero "$fb" "$c" "$n")
+      echo "  captured output: lines with a fixture string=$fb, control bytes=$c, non-ASCII bytes=$n (expect 0, 0 and 0): $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    # run_test <name>: runs the sentinel test in the clone, prints its test lines,
+    # summary lines and panic messages, and sets RC.
+    run_test() {
+      echo "command: (cd <scratch>/clone && cargo test --offline -p xlsx-diff --test p4 $TEST)"
+      (cd "$BASE/clone" && CARGO_TARGET_DIR="$BASE/target" cargo test --offline -p xlsx-diff --test p4 "$TEST") >"$BASE/$1.out" 2>&1 </dev/null
+      RC=$?
+      echo "  exit: $RC"
+      echo "  test lines, summary lines and panic messages:"
+      LC_ALL=C "$G" -E "^test |^test result: |panicked at|^[a-z].*: the |^error: test failed" "$BASE/$1.out" | hide | sed 's/^/    /'
+      captured "$1"
+    }
+    
+    echo
+    echo "## the scratch copy"
+    echo "command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet --detach $C"
+    git clone --quiet --no-hardlinks "$ROOT" "$BASE/clone" >"$BASE/clone.out" 2>&1 </dev/null
+    rc=$?
+    git -C "$BASE/clone" checkout --quiet --detach "$C" >>"$BASE/clone.out" 2>&1 </dev/null
+    rc2=$?
+    echo "  clone exit: $rc; checkout exit: $rc2"
+    note "clone and checkout exit 0" "$(is all_zero "$rc" "$rc2")"
+    note "the clone is at $C" "$(is [ "$(git -C "$BASE/clone" rev-parse HEAD)" = "$C" ])"
+    
+    echo
+    echo "## control: the sentinel test in the unchanged clone"
+    run_test control
+    note "exit 0, $TEST ok, 1 passed and 0 failed" "$(is passed_once "$BASE/control.out" "$RC")"
+    
+    echo
+    echo "## case: the name escaping disabled in the clone"
+    LIB="$BASE/clone/tools/xlsx-diff/src/lib.rs"
+    python3 - "$LIB" <<'PY'
+    import sys
+    path = sys.argv[1]
+    source = open(path).read()
+    start = source.index("pub fn escape_name(raw: &[u8]) -> String {")
+    end = source.index("\n}\n", start) + 3
+    patched = "pub fn escape_name(raw: &[u8]) -> String {\n    String::from_utf8_lossy(raw).into_owned()\n}\n"
+    open(path, "w").write(source[:start] + patched + source[end:])
+    PY
+    echo "  patch exit: $?"
+    echo "command: git -C <scratch>/clone diff"
+    git -C "$BASE/clone" diff | hide | sed 's/^/    /'
+    note "escape_name returns the lossily decoded raw bytes and its escaping loop is gone" "$(is escaping_disabled "$LIB")"
+    run_test disabled
+    note "exit 101, $TEST FAILED, 0 passed and 1 failed" "$(is failed_once "$BASE/disabled.out" "$RC")"
+    note "the failure names the leak check on the raw sentinel name" "$(is has_line "$BASE/disabled.out" "every status: the raw sentinel name appears in stdout")"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding it once: 1 (expect 1): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+
+## the scratch copy
+command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet --detach 74b2bf0f2328b33a729d46105a33712e495992f1
+  clone exit: 0; checkout exit: 0
+  clone and checkout exit 0: as-expected
+  the clone is at 74b2bf0f2328b33a729d46105a33712e495992f1: as-expected
+
+## control: the sentinel test in the unchanged clone
+command: (cd <scratch>/clone && cargo test --offline -p xlsx-diff --test p4 no_sentinel_in_any_output)
+  exit: 0
+  test lines, summary lines and panic messages:
+    test no_sentinel_in_any_output ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.02s
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 0, no_sentinel_in_any_output ok, 1 passed and 0 failed: as-expected
+
+## case: the name escaping disabled in the clone
+  patch exit: 0
+command: git -C <scratch>/clone diff
+    diff --git a/tools/xlsx-diff/src/lib.rs b/tools/xlsx-diff/src/lib.rs
+    index db55777..83b4c26 100644
+    --- a/tools/xlsx-diff/src/lib.rs
+    +++ b/tools/xlsx-diff/src/lib.rs
+    @@ -156,20 +156,7 @@ fn entry_error(side: Side, name: Vec<u8>, err: ZipError) -> Error {
+     /// as themselves, `\` as `\\`, and every other byte as `\xNN` with two
+     /// lowercase hex digits.
+     pub fn escape_name(raw: &[u8]) -> String {
+    -    const HEX: &[u8; 16] = b"0123456789abcdef";
+    -    let mut out = String::with_capacity(raw.len());
+    -    for &byte in raw {
+    -        match byte {
+    -            b'\\' => out.push_str("\\\\"),
+    -            0x20..=0x7e => out.push(char::from(byte)),
+    -            _ => {
+    -                out.push_str("\\x");
+    -                out.push(char::from(HEX[usize::from(byte >> 4)]));
+    -                out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    -            }
+    -        }
+    -    }
+    -    out
+    +    String::from_utf8_lossy(raw).into_owned()
+     }
+     
+     /// The fields of one central directory file header that the flags compare,
+  escape_name returns the lossily decoded raw bytes and its escaping loop is gone: as-expected
+command: (cd <scratch>/clone && cargo test --offline -p xlsx-diff --test p4 no_sentinel_in_any_output)
+  exit: 101
+  test lines, summary lines and panic messages:
+    test no_sentinel_in_any_output ... FAILED
+    thread 'no_sentinel_in_any_output' (1562484) panicked at tools/xlsx-diff/tests/p4.rs:221:9:
+    every status: the raw sentinel name appears in stdout
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.02s
+    error: test failed, to rerun pass `-p xlsx-diff --test p4`
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 101, no_sentinel_in_any_output FAILED, 0 passed and 1 failed: as-expected
+  the failure names the leak check on the raw sentinel name: as-expected
+
+  main working tree status (expect empty): : as-expected
+run ended at 2026-09-15T19:05:07Z
+all negative cases as expected: yes

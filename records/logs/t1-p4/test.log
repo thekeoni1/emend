@@ -1,0 +1,285 @@
+about: T1 P4 phase commit 74b2bf0f2328b33a729d46105a33712e495992f1; HEAD at run: 74b2bf0f2328b33a729d46105a33712e495992f1
+phase: T1 P4 (specs/0004-xlsx-diff.md) test.log; run at 2026-09-15T18:39:19Z
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc 1.98.1 (48a229cea 2026-09-01)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T1 P4 test.log (specs/0004-xlsx-diff.md, "Every phase writes" and P4): cargo test
+    # for the workspace on the host and with --target i686-unknown-linux-musl,
+    # colour off. The log shows the test names, the "Running" lines and the
+    # summary lines of each run, both executed counts, and checks the two runs
+    # executed the same tests. Each check is evaluated once.
+    # Usage: t1p4-test.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p4/test.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # passed_matches: $passed is more than 0 and equals $nok (one check, two conditions).
+    passed_matches() { [ "$passed" -gt 0 ] && [ "$passed" -eq "$nok" ]; }
+    # built_executable <exit> <path>: the build exited 0 and named an executable.
+    built_executable() { [ "$1" -eq 0 ] && [ -n "$2" ] && [ -x "$2" ]; }
+    # rss_under <kB>: a value is present and under the 64 MiB limit.
+    rss_under() { [ -n "$1" ] && [ "$1" -lt "$LIMIT_KB" ]; }
+    # zip64_passed <output file> <exit>: exit 0, the zip64 test line ends ok, and
+    # the summary counts exactly one passed test and no failed one.
+    zip64_passed() {
+      [ "$2" -eq 0 ] &&
+        LC_ALL=C "$G" -q -x -F -e 'test zip64_entry_over_4_gib ... ok' "$1" &&
+        LC_ALL=C "$G" -q -E '^test result: ok\. 1 passed; 0 failed; ' "$1"
+    }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: T1 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P4 (specs/0004-xlsx-diff.md) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; $(rustc --version)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    for target in host i686-unknown-linux-musl; do
+      echo
+      echo "## cargo test --workspace ($target)"
+      if [ "$target" = host ]; then
+        echo "command: cargo test --workspace"
+        cargo test --workspace >"$T/$target.out" 2>&1 </dev/null
+      else
+        echo "command: cargo test --workspace --target $target"
+        cargo test --workspace --target "$target" >"$T/$target.out" 2>&1 </dev/null
+      fi
+      rc=$?
+      echo "exit: $rc"
+      check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+      echo "Running lines, test lines and summary lines:"
+      LC_ALL=C "$G" -E '^ *Running |^ *Doc-tests |^test .* \.\.\. |^test result: ' "$T/$target.out" | sed 's/^ */    /'
+      LC_ALL=C "$G" -E '^test .* \.\.\. ok$' "$T/$target.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | sort >"$T/$target.names"
+      passed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      failed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^failed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      ignored=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^ignored;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      nok=$(wc -l <"$T/$target.names")
+      echo "$target: passed $passed; failed $failed; ignored $ignored; test lines ending ok: $nok"
+      check "$target: failed is 0" "$(yn [ "$failed" -eq 0 ])"
+      check "$target: passed is more than 0 and equals the ok test lines" "$(yn passed_matches)"
+      n=$(ctrl_bytes "$T/$target.out")
+      check "$target: control bytes in the cargo output: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+      echo "$passed" >"$T/$target.count"
+    done
+    
+    echo
+    echo "## the two runs"
+    echo "host executed $(cat "$T/host.count") tests; i686-unknown-linux-musl executed $(cat "$T/i686-unknown-linux-musl.count") tests"
+    check "the i686 run executed the same test names as the host run" "$(yn cmp -s "$T/host.names" "$T/i686-unknown-linux-musl.names")"
+    check "the two counts are equal" "$(yn [ "$(cat "$T/host.count")" = "$(cat "$T/i686-unknown-linux-musl.count")" ])"
+    echo
+    echo "## zip64 test, run explicitly (specs/0004 P4: ignored by default)"
+    LIMIT_KB=65536
+    for target in host i686-unknown-linux-musl; do
+      if [ "$target" = host ]; then
+        echo "command: cargo test --no-run -p xlsx-diff --test p4"
+        cargo test --no-run -p xlsx-diff --test p4 >"$T/zip64-build-$target.out" 2>&1 </dev/null
+      else
+        echo "command: cargo test --no-run -p xlsx-diff --test p4 --target $target"
+        cargo test --no-run -p xlsx-diff --test p4 --target "$target" >"$T/zip64-build-$target.out" 2>&1 </dev/null
+      fi
+      rc=$?
+      echo "exit: $rc"
+      EXE=$(LC_ALL=C "$G" -E '^ *Executable tests/p4\.rs \(' "$T/zip64-build-$target.out" | sed -E 's/^ *Executable tests\/p4\.rs \((.*)\)$/\1/')
+      echo "test executable: $EXE"
+      check "$target: build exit 0 and an executable named" "$(yn built_executable "$rc" "$EXE")"
+      echo "command: /usr/bin/time -v $EXE --ignored zip64 --test-threads=1"
+      /usr/bin/time -v -o "$T/zip64-$target.time" "$EXE" --ignored zip64 --test-threads=1 >"$T/zip64-$target.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      echo "output:"
+      sed 's/^/    /' "$T/zip64-$target.out"
+      echo "/usr/bin/time -v, selected lines:"
+      LC_ALL=C "$G" -E 'Elapsed \(wall clock\) time|Maximum resident set size|Exit status' "$T/zip64-$target.time" | sed 's/^[[:space:]]*/    /'
+      check "$target: exit 0, zip64_entry_over_4_gib ok, 1 passed and 0 failed" "$(yn zip64_passed "$T/zip64-$target.out" "$rc")"
+      RSS=$(LC_ALL=C "$G" -E 'Maximum resident set size' "$T/zip64-$target.time" | awk -F': ' '{print $2}')
+      check "$target: maximum resident set size ${RSS:-none} kB is under $LIMIT_KB kB (64 MiB)" "$(yn rss_under "$RSS")"
+      n=$(ctrl_bytes "$T/zip64-$target.out")
+      check "$target: control bytes in the zip64 output: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the runs (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## cargo test --workspace (host)
+command: cargo test --workspace
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/debug/deps/xlsx_diff-e695ed04bc917c73)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
+    test non_zip_file_is_an_error ... ok
+    test missing_file_is_an_error ... ok
+    test dropped_entry ... ok
+    test duplicate_name_is_an_error ... ok
+    test names_are_escaped ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test added_entry ... ok
+    test binary_usage_error ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test equal_archives_are_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
+    test unsupported_method_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
+    test recompressed_entry_with_equal_metadata ... ok
+    test encrypted_entry_is_an_error ... ok
+    test changed_entry_with_different_lengths ... ok
+    test changed_entry_with_equal_length ... ok
+    test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test recompressed_entry ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+    Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
+    test data_descriptor_on_one_side ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test changed_archive_comment ... ok
+    test leading_junk_bytes ... ok
+    test output_side_rows_take_the_output_values ... ok
+    test each_flag_alone ... ok
+    test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
+    test different_lengths_across_several_buffers ... ok
+    test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+    Running tests/p4.rs (target/debug/deps/p4-f12276f4a3797377)
+    test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_fields_each_alone ... ok
+    test files_identical_no_from_one_byte_inside_a_prefix ... ok
+    test no_sentinel_in_any_output ... ok
+    test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+host: passed 34; failed 0; ignored 1; test lines ending ok: 34
+host: failed is 0: yes
+host: passed is more than 0 and equals the ok test lines: yes
+host: control bytes in the cargo output: 0 (expect 0): yes
+
+## cargo test --workspace (i686-unknown-linux-musl)
+command: cargo test --workspace --target i686-unknown-linux-musl
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-272b4e4343c36511)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
+    test binary_usage_error ... ok
+    test missing_file_is_an_error ... ok
+    test non_zip_file_is_an_error ... ok
+    test added_entry ... ok
+    test duplicate_name_is_an_error ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test dropped_entry ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
+    test unsupported_method_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
+    test encrypted_entry_is_an_error ... ok
+    test recompressed_entry_with_equal_metadata ... ok
+    test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
+    test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test recompressed_entry ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test data_descriptor_on_one_side ... ok
+    test leading_junk_bytes ... ok
+    test output_side_rows_take_the_output_values ... ok
+    test changed_archive_comment ... ok
+    test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
+    test each_flag_alone ... ok
+    test different_lengths_across_several_buffers ... ok
+    test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    Running tests/p4.rs (target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667)
+    test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_fields_each_alone ... ok
+    test files_identical_no_from_one_byte_inside_a_prefix ... ok
+    test no_sentinel_in_any_output ... ok
+    test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+i686-unknown-linux-musl: passed 34; failed 0; ignored 1; test lines ending ok: 34
+i686-unknown-linux-musl: failed is 0: yes
+i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
+i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
+
+## the two runs
+host executed 34 tests; i686-unknown-linux-musl executed 34 tests
+the i686 run executed the same test names as the host run: yes
+the two counts are equal: yes
+
+## zip64 test, run explicitly (specs/0004 P4: ignored by default)
+command: cargo test --no-run -p xlsx-diff --test p4
+exit: 0
+test executable: target/debug/deps/p4-f12276f4a3797377
+host: build exit 0 and an executable named: yes
+command: /usr/bin/time -v target/debug/deps/p4-f12276f4a3797377 --ignored zip64 --test-threads=1
+exit: 0
+output:
+    
+    running 1 test
+    test zip64_entry_over_4_gib ... ok
+    
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 669.18s
+    
+/usr/bin/time -v, selected lines:
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 11:09.18
+    Maximum resident set size (kbytes): 5728
+    Exit status: 0
+host: exit 0, zip64_entry_over_4_gib ok, 1 passed and 0 failed: yes
+host: maximum resident set size 5728 kB is under 65536 kB (64 MiB): yes
+host: control bytes in the zip64 output: 0 (expect 0): yes
+command: cargo test --no-run -p xlsx-diff --test p4 --target i686-unknown-linux-musl
+exit: 0
+test executable: target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667
+i686-unknown-linux-musl: build exit 0 and an executable named: yes
+command: /usr/bin/time -v target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667 --ignored zip64 --test-threads=1
+exit: 0
+output:
+    
+    running 1 test
+    test zip64_entry_over_4_gib ... ok
+    
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 872.06s
+    
+/usr/bin/time -v, selected lines:
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 14:32.06
+    Maximum resident set size (kbytes): 3364
+    Exit status: 0
+i686-unknown-linux-musl: exit 0, zip64_entry_over_4_gib ok, 1 passed and 0 failed: yes
+i686-unknown-linux-musl: maximum resident set size 3364 kB is under 65536 kB (64 MiB): yes
+i686-unknown-linux-musl: control bytes in the zip64 output: 0 (expect 0): yes
+status after the runs (expect empty): : yes
+run ended at 2026-09-15T19:05:01Z
+test log checks all as expected: yes
