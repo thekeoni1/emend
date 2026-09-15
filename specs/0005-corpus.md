@@ -1,8 +1,10 @@
 # 0005: T2 corpus (maintainer-led)
 
-Status: P2, P3 and P4 DONE by the CORPUS session, verified by planning
-2026-09-15 from the corpus directory (rulings below). P1 READY. P5 and
-P6 are the maintainer's. P7 after them.
+Status: P1 DONE, verified by planning 2026-09-15 (45dd9e3 to 869796b;
+import commit e8087f6, phase commits e3dd52e and 4318820). P2, P3 and
+P4 DONE by the CORPUS session, verified by planning 2026-09-15 from the
+corpus directory (rulings below). P5 and P6 are the maintainer's. P7
+after them, with the P1 follow-ups listed in its section.
 
 The CORPUS session is a third session, separate from planning and
 implementing. It works only under the corpus directory, never changes
@@ -208,6 +210,48 @@ Rulings:
   the maintainer prefers to start T3 P4 first (T3 P4 may run before P7
   in any case; the record cites the corpus as it stands).
 
+### Planning rulings on P1 (2026-09-15)
+
+- P1 is verified from primaries by planning's own checks:
+  - Doc commit 45dd9e3 holds exactly planning's three doc files (143
+    insertions, 30 deletions), unchanged since. Import commit e8087f6
+    adds only `scripts/corpus-add.py`, whose blob hashes to the sha256
+    its message records, equal to the private helper's hash as planning
+    computed it. The two phase commits touch only the two scripts; the
+    four record commits only `records/logs/t2-p1/`. All eight messages
+    end with the Co-Authored-By trailer only, under the noreply
+    identity. Both scripts are mode 100755 with no literal home path.
+  - Planning ran the full gate: eight PASS.
+  - Planning read both scripts against this spec: the corpus directory
+    from `EMEND_CORPUS_DIR`, the mode 700 and work-tree checks, the
+    signature and extension refusals, the manifest rules, mode 600 on
+    the copy and the manifest, one output line, and no path, name or
+    note in any message; the coverage script's validation, output and
+    `FAIL` lines.
+  - Planning ran `corpus-coverage.py --verify` over the real corpus,
+    read-only: 27 files, every hash verified, the same coverage as
+    planning's own count (22 tags, `macros` uncovered, 7 single-producer
+    tags). On a scratch corpus, planning added a generated workbook
+    with a sentinel in its name and note (one `added` line, mode 600,
+    `app` from `docProps/app.xml`), was refused for the duplicate and
+    for an OLE2 file named `.xlsx`, and saw no sentinel in any script
+    output. A first attempt with a malformed `docProps/app.xml` was
+    refused, which is right.
+  - The six record files, the two scripts and the eight messages have
+    zero hits on every scan; the superseded logs at f692dbf hold no
+    non-ASCII byte and only the gate script's own path-control lines.
+    `scripts/privacy.sh` over the 151 local commits: PASS.
+- Check 1's bug (a non-UTF-8 text field reached the manifest write
+  after the copy) was real and is fixed in 4318820. Check 2's gaps 1 to
+  3 are P7 work: the coverage docstring's line-number claim narrowed to
+  the row failures; the add script writing the row before the copy is
+  final (copy to a temporary name in `corpus/`, append the row, rename
+  into place, remove the temporary file on any failure); cases for the
+  file name and `producer_version` on the UTF-8 path. Gaps 4 to 7
+  accepted.
+- The spec's remaining `.sh` names were planning's oversight; they now
+  read `.py`.
+
 ### P2: LibreOffice, pinned (CORPUS session)
 
 A Containerfile, kept in the corpus directory's `tools/`, that builds a
@@ -226,7 +270,7 @@ A script generates flat ODS files, one per tag LibreOffice can produce
 `comments`, `images`, `protection`, `date1904`, `large`), converts each
 with the P2 image, and adds the results under producer `libreoffice`,
 source `libreoffice-export`, with the corpus session's helper (later
-`corpus-add.sh`). Fictional content
+`corpus-add.py`). Fictional content
 only, so these files could be public, but they are kept in the corpus
 like everything else.
 
@@ -250,19 +294,24 @@ Files for what templates rarely contain: `pivots`, `slicers`,
 `timelines`, `macros` (an `.xlsm`), `comments` (threaded), `external`,
 `sparklines`, plus any own workbooks the maintainer is comfortable using.
 Producer `excel-win` or `excel-mac`, source `maintainer`. Each is added
-with `corpus-add.sh`; the private note may say where it came from.
+with `corpus-add.py`; the private note may say where it came from.
 
 ### P7: coverage check
 
-`scripts/corpus-coverage.sh --verify` is run and its output committed
-as `records/corpus-coverage-<date>.md`. Every tag covered, or the gaps
-listed for a planning ruling on starting T3 anyway. The `large` tag
-needs one workbook whose largest worksheet part exceeds 50 MB
-uncompressed; if none exists, P3 generates one.
+First the P1 follow-ups (planning rulings on P1): the coverage
+docstring, the temporary-file-then-rename order in `corpus-add.py`
+with a logged case for a failed append, and the UTF-8 cases for the
+file name and `producer_version`. Then `scripts/corpus-coverage.py
+--verify` is run over the real corpus and its output committed as
+`records/corpus-coverage-<date>.md`, with the LibreOffice pins copied
+from the corpus directory's `tools/libreoffice.md` into
+`records/libreoffice-<date>.md` if T3 P3 has not done so. Every tag
+covered, or the gaps listed for a planning ruling. The `large` tag is
+covered (two files over 60 MB uncompressed).
 
 ## Out of scope
 
-- Encrypted workbooks, `.xlsb`, `.xls` (refused by `corpus-add.sh`).
+- Encrypted workbooks, `.xlsb`, `.xls` (refused by `corpus-add.py`).
 - Any automatic tag detection. Tags are set by the person or script that
   adds the file; T3 and Milestone 1 may later add a checker that reads
   entry names to confirm tags such as `charts` or `pivots`.
