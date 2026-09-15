@@ -1,0 +1,472 @@
+about: T0 P7 push of main at af4b355e028e50f07e42c6cbc52bb451765868d1; HEAD at run: af4b355e028e50f07e42c6cbc52bb451765868d1
+phase: T0 P7 (specs/0001-bootstrap.md) push.log part 1, steps 1 to 3; run at 2026-09-15T11:47:40Z
+ANTHROPIC_API_KEY set in this shell: no
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P7 push.log, in two parts.
+    # Usage: p7-push.sh pre  > <scratch file>   steps 1 to 3 (no push)
+    #        p7-push.sh push >> <scratch file>  steps 4 and 5 (only after the
+    #                                           maintainer's authorisation)
+    # The caller moves the file into records/logs/t0-p7/ afterwards.
+    # Authentication uses the existing git credential helper; no
+    # authentication output is captured (gh auth status is not run here).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?pre or push}
+    REPO=thekeoni1/emend
+    URL=https://github.com/thekeoni1/emend.git
+    export GIT_TERMINAL_PROMPT=0
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    show() { # show <label> <file>
+      echo "$1:"
+      sed 's/^/    /' "$2"
+    }
+    
+    case "$MODE" in
+      pre)
+        echo "about: T0 P7 push of main at $(git rev-parse main); HEAD at run: $(git rev-parse HEAD)"
+        echo "phase: T0 P7 (specs/0001-bootstrap.md) push.log part 1, steps 1 to 3; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+        echo
+        echo "## script that wrote this log"
+        sed 's/^/    /' "$0"
+        echo
+        if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean"; exit 2; fi
+        echo "branch: $(git symbolic-ref --short HEAD); main is $(git rev-parse main); commits on main: $(git rev-list --count main)"
+        [ "$(git rev-parse main)" = "$(git rev-parse HEAD)" ] || fail=1
+        echo
+    
+        echo "## step 1: confirm the target"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "visibility is PRIVATE: $(LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/out" && echo yes || echo no)"
+        LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/out" || fail=1
+        echo "command: git ls-remote $URL"
+        git ls-remote "$URL" > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "refs: $(wc -l < "$T/out") (expect 0)"
+        [ "$(wc -l < "$T/out")" -eq 0 ] || fail=1
+        echo
+    
+        echo "## step 2: add the remote"
+        echo "remotes before: $(git remote | wc -l) (expect 0)"
+        [ "$(git remote | wc -l)" -eq 0 ] || fail=1
+        echo "command: git remote add origin $URL"
+        git remote add origin "$URL" > "$T/out" 2>&1 </dev/null
+        rc=$?
+        show output "$T/out"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "command: git remote -v"
+        git remote -v | sed 's/^/    /'
+        echo
+    
+        echo "## step 3: pre-push state and full gate"
+        echo "EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no) (expect no)"
+        [ -z "${EMEND_PRIVATE_DENYLIST+set}" ] || fail=1
+        echo "command: git config --get core.hooksPath"
+        git config --get core.hooksPath > "$T/out" 2>&1
+        echo "exit: $? (expect 1)"
+        show output "$T/out"
+        echo "output bytes: $(wc -c < "$T/out") (expect 0)"
+        [ "$(wc -c < "$T/out")" -eq 0 ] || fail=1
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        echo "hook is executable: $([ -x .git/hooks/pre-push ] && echo yes || echo no)"
+        [ -x .git/hooks/pre-push ] || fail=1
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        echo "installer heredoc lines: $(wc -l < "$T/heredoc") (expect more than 0)"
+        [ "$(wc -l < "$T/heredoc")" -gt 0 ] || fail=1
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        echo "hook equals what scripts/install-hooks.sh writes: $(cmp -s .git/hooks/pre-push "$T/heredoc" && echo yes || echo no)"
+        cmp -s .git/hooks/pre-push "$T/heredoc" || fail=1
+        echo "command: RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never scripts/check.sh"
+        RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never scripts/check.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        echo "stderr bytes: $(wc -c < "$T/err") (expect 0)"
+        show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        printf 'PASS host\nPASS i686\nPASS fmt\nPASS clippy\nPASS native (allowlisted -sys: none)\nPASS licences\nPASS hygiene\nPASS privacy\n' > "$T/want"
+        echo "stdout is exactly the eight PASS lines in order: $(cmp -s "$T/out" "$T/want" && echo yes || echo no)"
+        cmp -s "$T/out" "$T/want" || fail=1
+        for s in out err; do
+          echo "check.sh std$s control bytes: $(ctrl_bytes "$T/$s") (expect 0)"
+          [ "$(ctrl_bytes "$T/$s")" -eq 0 ] || fail=1
+        done
+        echo "status after the gate (expect empty): $(git status --porcelain | tr '\n' ' ')"
+        [ -z "$(git status --porcelain)" ] || fail=1
+        echo "part 1 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+    
+      push)
+        echo
+        echo "# push.log part 2, steps 4 and 5; run at $(date -u +%Y-%m-%dT%H:%M:%SZ); HEAD at run: $(git rev-parse HEAD)"
+        echo "EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no) (expect no)"
+        [ -z "${EMEND_PRIVATE_DENYLIST+set}" ] || { echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; }
+        echo "core.hooksPath: $(git config --get core.hooksPath || echo unset) (expect unset)"
+        [ -z "$(git config --get core.hooksPath)" ] || { echo "refusing: core.hooksPath is set"; exit 1; }
+        echo "origin: $(git remote get-url origin)"
+        echo
+        echo "## step 4: push"
+        echo "command: git push -u origin main"
+        git push -u origin main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "hook printed PASS privacy: $(cat "$T/out" "$T/err" | LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' && echo yes || echo no)"
+        cat "$T/out" "$T/err" | LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' || fail=1
+        for s in out err; do
+          echo "push std$s control bytes: $(ctrl_bytes "$T/$s") (expect 0)"
+        done
+        echo
+        echo "## step 5: remote main equals local main"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "command: git rev-parse main"
+        git rev-parse main | sed 's/^/    /'
+        echo "remote main equals local main: $([ "$(cut -f1 "$T/out")" = "$(git rev-parse main)" ] && echo yes || echo no)"
+        [ "$(cut -f1 "$T/out")" = "$(git rev-parse main)" ] || fail=1
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility 2>&1 </dev/null | sed 's/^/    /'
+        echo "still PRIVATE: $(gh repo view "$REPO" --json visibility 2>/dev/null </dev/null | LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' && echo yes || echo no)"
+        gh repo view "$REPO" --json visibility 2>/dev/null </dev/null | LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' || fail=1
+        echo "part 2 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    exit "$fail"
+
+branch: main; main is af4b355e028e50f07e42c6cbc52bb451765868d1; commits on main: 52
+
+## step 1: confirm the target
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+exit: 0 (expect 0)
+visibility is PRIVATE: yes
+command: git ls-remote https://github.com/thekeoni1/emend.git
+stdout:
+stderr:
+exit: 0 (expect 0)
+refs: 0 (expect 0)
+
+## step 2: add the remote
+remotes before: 0 (expect 0)
+command: git remote add origin https://github.com/thekeoni1/emend.git
+output:
+exit: 0 (expect 0)
+command: git remote -v
+    origin	https://github.com/thekeoni1/emend.git (fetch)
+    origin	https://github.com/thekeoni1/emend.git (push)
+
+## step 3: pre-push state and full gate
+EMEND_PRIVATE_DENYLIST set: no (expect no)
+command: git config --get core.hooksPath
+exit: 1 (expect 1)
+output:
+output bytes: 0 (expect 0)
+command: ls -l .git/hooks/pre-push
+    -rwxr-xr-x 1 dev dev 1349 Sep 14 20:31 .git/hooks/pre-push
+hook is executable: yes
+installer heredoc lines: 39 (expect more than 0)
+hook sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; installer heredoc sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84
+hook equals what scripts/install-hooks.sh writes: yes
+command: RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never scripts/check.sh
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0 (expect 0)
+stderr:
+exit: 0 (expect 0)
+stdout is exactly the eight PASS lines in order: yes
+check.sh stdout control bytes: 0 (expect 0)
+check.sh stderr control bytes: 0 (expect 0)
+status after the gate (expect empty): 
+part 1 checks all as expected: yes
+
+# push.log part 2, steps 4 and 5; run at 2026-09-15T11:55:28Z; HEAD at run: af4b355e028e50f07e42c6cbc52bb451765868d1
+EMEND_PRIVATE_DENYLIST set: no (expect no)
+core.hooksPath: unset (expect unset)
+origin: https://github.com/thekeoni1/emend.git
+
+## step 4: push
+command: git push -u origin main
+stdout:
+    pre-push: scripts/privacy.sh --range af4b355e028e50f07e42c6cbc52bb451765868d1 (refs/heads/main)
+    PASS privacy
+    branch 'main' set up to track 'origin/main'.
+stderr:
+    privacy: 52 commit(s), 108 blob(s) scanned, 0 finding(s)
+    To https://github.com/thekeoni1/emend.git
+     * [new branch]      main -> main
+exit: 0 (expect 0)
+hook printed PASS privacy: yes
+push stdout control bytes: 0 (expect 0)
+push stderr control bytes: 0 (expect 0)
+
+## step 5: remote main equals local main
+command: git ls-remote origin refs/heads/main
+stdout:
+    af4b355e028e50f07e42c6cbc52bb451765868d1	refs/heads/main
+stderr:
+exit: 0 (expect 0)
+command: git rev-parse main
+    af4b355e028e50f07e42c6cbc52bb451765868d1
+remote main equals local main: yes
+command: gh repo view thekeoni1/emend --json visibility
+    {"visibility":"PRIVATE"}
+still PRIVATE: yes
+part 2 checks all as expected: no
+
+# push.log part 3, step 5 re-run with single-evaluation checks; run at 2026-09-15T11:56:41Z; HEAD at run: af4b355e028e50f07e42c6cbc52bb451765868d1
+fix named: part 2's closing line was no while every printed check was yes; part 2's checks evaluated each command twice (once printed, once for the result), so the failing evaluation was not printed and is not identified. Part 3 evaluates each check once and names any failure. The push (step 4) is not re-run; its output is in part 2.
+
+## step 4: not re-run; its command, output and exit are in part 2
+
+## script that wrote parts 2 and 3 (part 1 printed it before the verify mode was added)
+    #!/usr/bin/env bash
+    # T0 P7 push.log, in two parts.
+    # Usage: p7-push.sh pre  > <scratch file>   steps 1 to 3 (no push)
+    #        p7-push.sh push >> <scratch file>  steps 4 and 5 (only after the
+    #                                           maintainer's authorisation)
+    # The caller moves the file into records/logs/t0-p7/ afterwards.
+    # Authentication uses the existing git credential helper; no
+    # authentication output is captured (gh auth status is not run here).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?pre or push}
+    REPO=thekeoni1/emend
+    URL=https://github.com/thekeoni1/emend.git
+    export GIT_TERMINAL_PROMPT=0
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    show() { # show <label> <file>
+      echo "$1:"
+      sed 's/^/    /' "$2"
+    }
+    
+    case "$MODE" in
+      pre)
+        echo "about: T0 P7 push of main at $(git rev-parse main); HEAD at run: $(git rev-parse HEAD)"
+        echo "phase: T0 P7 (specs/0001-bootstrap.md) push.log part 1, steps 1 to 3; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+        echo
+        echo "## script that wrote this log"
+        sed 's/^/    /' "$0"
+        echo
+        if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean"; exit 2; fi
+        echo "branch: $(git symbolic-ref --short HEAD); main is $(git rev-parse main); commits on main: $(git rev-list --count main)"
+        [ "$(git rev-parse main)" = "$(git rev-parse HEAD)" ] || fail=1
+        echo
+    
+        echo "## step 1: confirm the target"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "visibility is PRIVATE: $(LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/out" && echo yes || echo no)"
+        LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/out" || fail=1
+        echo "command: git ls-remote $URL"
+        git ls-remote "$URL" > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "refs: $(wc -l < "$T/out") (expect 0)"
+        [ "$(wc -l < "$T/out")" -eq 0 ] || fail=1
+        echo
+    
+        echo "## step 2: add the remote"
+        echo "remotes before: $(git remote | wc -l) (expect 0)"
+        [ "$(git remote | wc -l)" -eq 0 ] || fail=1
+        echo "command: git remote add origin $URL"
+        git remote add origin "$URL" > "$T/out" 2>&1 </dev/null
+        rc=$?
+        show output "$T/out"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "command: git remote -v"
+        git remote -v | sed 's/^/    /'
+        echo
+    
+        echo "## step 3: pre-push state and full gate"
+        echo "EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no) (expect no)"
+        [ -z "${EMEND_PRIVATE_DENYLIST+set}" ] || fail=1
+        echo "command: git config --get core.hooksPath"
+        git config --get core.hooksPath > "$T/out" 2>&1
+        echo "exit: $? (expect 1)"
+        show output "$T/out"
+        echo "output bytes: $(wc -c < "$T/out") (expect 0)"
+        [ "$(wc -c < "$T/out")" -eq 0 ] || fail=1
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        echo "hook is executable: $([ -x .git/hooks/pre-push ] && echo yes || echo no)"
+        [ -x .git/hooks/pre-push ] || fail=1
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        echo "installer heredoc lines: $(wc -l < "$T/heredoc") (expect more than 0)"
+        [ "$(wc -l < "$T/heredoc")" -gt 0 ] || fail=1
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        echo "hook equals what scripts/install-hooks.sh writes: $(cmp -s .git/hooks/pre-push "$T/heredoc" && echo yes || echo no)"
+        cmp -s .git/hooks/pre-push "$T/heredoc" || fail=1
+        echo "command: RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never scripts/check.sh"
+        RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never scripts/check.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        echo "stderr bytes: $(wc -c < "$T/err") (expect 0)"
+        show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        printf 'PASS host\nPASS i686\nPASS fmt\nPASS clippy\nPASS native (allowlisted -sys: none)\nPASS licences\nPASS hygiene\nPASS privacy\n' > "$T/want"
+        echo "stdout is exactly the eight PASS lines in order: $(cmp -s "$T/out" "$T/want" && echo yes || echo no)"
+        cmp -s "$T/out" "$T/want" || fail=1
+        for s in out err; do
+          echo "check.sh std$s control bytes: $(ctrl_bytes "$T/$s") (expect 0)"
+          [ "$(ctrl_bytes "$T/$s")" -eq 0 ] || fail=1
+        done
+        echo "status after the gate (expect empty): $(git status --porcelain | tr '\n' ' ')"
+        [ -z "$(git status --porcelain)" ] || fail=1
+        echo "part 1 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+    
+      push)
+        echo
+        echo "# push.log part 2, steps 4 and 5; run at $(date -u +%Y-%m-%dT%H:%M:%SZ); HEAD at run: $(git rev-parse HEAD)"
+        echo "EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no) (expect no)"
+        [ -z "${EMEND_PRIVATE_DENYLIST+set}" ] || { echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; }
+        echo "core.hooksPath: $(git config --get core.hooksPath || echo unset) (expect unset)"
+        [ -z "$(git config --get core.hooksPath)" ] || { echo "refusing: core.hooksPath is set"; exit 1; }
+        echo "origin: $(git remote get-url origin)"
+        echo
+        echo "## step 4: push"
+        echo "command: git push -u origin main"
+        git push -u origin main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "hook printed PASS privacy: $(cat "$T/out" "$T/err" | LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' && echo yes || echo no)"
+        cat "$T/out" "$T/err" | LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' || fail=1
+        for s in out err; do
+          echo "push std$s control bytes: $(ctrl_bytes "$T/$s") (expect 0)"
+        done
+        echo
+        echo "## step 5: remote main equals local main"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        [ "$rc" -eq 0 ] || fail=1
+        echo "command: git rev-parse main"
+        git rev-parse main | sed 's/^/    /'
+        echo "remote main equals local main: $([ "$(cut -f1 "$T/out")" = "$(git rev-parse main)" ] && echo yes || echo no)"
+        [ "$(cut -f1 "$T/out")" = "$(git rev-parse main)" ] || fail=1
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility 2>&1 </dev/null | sed 's/^/    /'
+        echo "still PRIVATE: $(gh repo view "$REPO" --json visibility 2>/dev/null </dev/null | LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' && echo yes || echo no)"
+        gh repo view "$REPO" --json visibility 2>/dev/null </dev/null | LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' || fail=1
+        echo "part 2 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+    
+      verify)
+        # Added after part 2: every displayed check there ran its command a
+        # second time to set fail, and part 2 ended "no" with every displayed
+        # check "yes". Here each check runs once, its result is stored, and a
+        # failing check is named. No push is run.
+        check() { # check <name> <result yes|no>
+          echo "$1: $2"
+          [ "$2" = yes ] || { fail=1; echo "FAILED CHECK: $1"; }
+        }
+        echo
+        echo "# push.log part 3, step 5 re-run with single-evaluation checks; run at $(date -u +%Y-%m-%dT%H:%M:%SZ); HEAD at run: $(git rev-parse HEAD)"
+        echo "fix named: part 2's closing line was no while every printed check was yes; part 2's checks evaluated each command twice (once printed, once for the result), so the failing evaluation was not printed and is not identified. Part 3 evaluates each check once and names any failure. The push (step 4) is not re-run; its output is in part 2."
+        echo
+        echo "## step 4: not re-run; its command, output and exit are in part 2"
+        echo
+        echo "## script that wrote parts 2 and 3 (part 1 printed it before the verify mode was added)"
+        sed 's/^/    /' "$0"
+        echo
+        echo "## step 5: remote main equals local main"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"; show stderr "$T/err"
+        echo "exit: $rc (expect 0)"
+        check "ls-remote exit 0" "$([ "$rc" -eq 0 ] && echo yes || echo no)"
+        echo "command: git rev-parse main"
+        git rev-parse main > "$T/local" 2>&1
+        show output "$T/local"
+        check "remote main equals local main" "$([ "$(cut -f1 "$T/out")" = "$(cat "$T/local")" ] && echo yes || echo no)"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/vis" 2> "$T/viserr" </dev/null
+        rc=$?
+        show stdout "$T/vis"; show stderr "$T/viserr"
+        echo "exit: $rc (expect 0)"
+        check "gh exit 0" "$([ "$rc" -eq 0 ] && echo yes || echo no)"
+        check "still PRIVATE" "$(LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/vis" && echo yes || echo no)"
+        echo "command: git status --porcelain"
+        check "working tree clean" "$([ -z "$(git status --porcelain)" ] && echo yes || echo no)"
+        echo "part 3 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    exit "$fail"
+
+## step 5: remote main equals local main
+command: git ls-remote origin refs/heads/main
+stdout:
+    af4b355e028e50f07e42c6cbc52bb451765868d1	refs/heads/main
+stderr:
+exit: 0 (expect 0)
+ls-remote exit 0: yes
+command: git rev-parse main
+output:
+    af4b355e028e50f07e42c6cbc52bb451765868d1
+remote main equals local main: yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+exit: 0 (expect 0)
+gh exit 0: yes
+still PRIVATE: yes
+command: git status --porcelain
+working tree clean: yes
+part 3 checks all as expected: yes
