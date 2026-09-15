@@ -87,8 +87,8 @@ implementing session does P1 and P7.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | READY |
-| P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited | PLANNED |
+| P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | DONE (d63ad31 to 33c0198; finding: the zip crate's raw copy is not byte-preserving) |
+| P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | READY |
 | P3 | LibreOffice open check with the corpus session's image: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
 | P4 | First full recorded run over the corpus: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
 
@@ -127,7 +127,12 @@ The core depends on `zip` and `quick-xml` only.
 
 1. Zip layer: read the central directory with `u64` sizes and offsets,
    copy untouched entries as their original compressed bytes in the
-   original order, and rewrite touched entries by streaming.
+   original order, and rewrite touched entries by streaming. T3 P1
+   showed that the zip crate's raw copy is not byte-preserving (it
+   drops extra fields, zip64 fields and prefixes, rewrites data
+   descriptors and attributes, and collapses duplicate names), so this
+   layer writes local headers and central records itself from the
+   input's header bytes, and uses the crate for reading at most.
 2. Relationships and content types, parsed only when an edit needs them.
 3. Reading cells: values, cached formula results, formulas and shared
    strings.

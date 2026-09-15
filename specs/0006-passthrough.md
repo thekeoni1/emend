@@ -1,7 +1,8 @@
 # 0006: T3 passthrough baseline
 
-Status: P1 READY (planning, 2026-09-15). Runs after T1. P3 and P4 wait for
-the corpus (`specs/0005-corpus.md`).
+Status: P1 DONE, verified by planning 2026-09-15 (d63ad31 to 33c0198;
+phase commits 9eaee47, 79d17ba and cb94097). P2 READY. P3 and P4 wait
+for the corpus (`specs/0005-corpus.md`).
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` ("T3: passthrough
 baseline (outline)", the part families, the record layout),
 `specs/0001-bootstrap.md` ("How this task runs", "Rules for every
@@ -71,10 +72,14 @@ For every manifest row (or every listed id), in manifest order:
 1. `mkdir -p <out>/<id>`; the input is `<corpus>/corpus/<id>.<ext>`.
 2. Runs `timeout --signal=KILL <secs> /usr/bin/time -v -o <out>/<id>/time.<label>.txt <passthrough> <input> <out>/<id>/out.<label>.<ext>` with
    the memory limit, stdin closed, stdout and stderr captured to files.
-3. Classifies the outcome: `ok` (exit 0), `error` (exit 2), `timeout`
-   (exit 124 or 137 from `timeout`), `panic` (exit 101), `crash`
-   (killed by a signal other than the timeout's, or any other status),
-   with the exit status and signal recorded as well.
+3. Classifies the outcome from GNU time's report, with `time` outside
+   `timeout` so the timeout's kill reaches the tool (P1 departure 4):
+   `ok` (exit 0), `error` (exit 2), `timeout` (exit 124, recorded with
+   signal 9), `panic` (exit 101), `crash` (a `Command terminated by
+   signal` line, any other status, or no report), with the exit status
+   and signal recorded as well. From P2, a temporary file the tool left
+   behind (`.out.<label>.<ext>.passthrough-*.tmp`) is removed after the
+   child ends and noted in a `leftover` column.
 4. On `ok`, runs `<xlsx-diff> <input> <out>/<id>/out.<label>.<ext>`
    with stdout to `<out>/<id>/diff.<label>.tsv` and stderr captured,
    and records its exit status.
@@ -183,6 +188,60 @@ Deliverables:
 - Acceptance: gate all PASS; tests pass on both targets; every negative
   case as stated; the P1 finding table in the report.
 
+### Planning rulings on P1 (2026-09-15)
+
+- P1 is verified from primaries by planning's own checks:
+  - Doc commit d63ad31 holds exactly planning's four doc files (279
+    insertions, 10 deletions), unchanged since. The three phase commits
+    touch only `Cargo.toml`, `Cargo.lock`, `tools/passthrough/` and the
+    two scripts; the five record commits only `records/logs/t3-p1/`. All
+    ten messages end with the Co-Authored-By trailer only, under the
+    noreply identity. No mode change beyond the two new executable
+    scripts, no tracked archive. `Cargo.lock` adds only `passthrough`.
+  - Planning ran the full gate (eight PASS) and `cargo test` on the host
+    and on i686: 69 passed and 1 ignored on each, same names.
+  - Planning read `main.rs`, the runner and the record script's outline
+    against this spec: the raw copy in order with the comment, the
+    temporary file and rename, the fault guard, `time` outside `timeout`,
+    the manifest's private columns never read, the runner's stderr
+    silenced after the argument checks, and the record script never
+    reading the manifest.
+  - Planning reproduced with its own archives: a Python-built deflated
+    archive with a comment copied with exit 0, then `attrs` on every
+    entry, because the writer turned external attributes 0o600 into
+    0o100600 (the regular-file type bits added), a row to add to the
+    finding table; a data-descriptor archive copied with `gpflags,
+    descriptor,attrs,local`; the runner on a scratch corpus of two
+    generated files through the `EMEND_CORPUS_DIR` override (both `ok`,
+    diff exit 1); the sleep fault with `--timeout 2` (`timeout`, and no
+    passthrough process alive a second later); the record script over
+    that run (a family table of ten entries, no sentinel from the
+    manifest's private columns in any run output or record file). It
+    refuses a run directory whose name is not `<utc-date>-<shortsha>`
+    without `--stem`, and an output directory that does not exist.
+  - The seven record files, the nine source files and the ten messages
+    have zero hits on every scan; the superseded logs at ba79abf and
+    8d202cd hold no home path and no non-ASCII byte. `scripts/privacy.sh`
+    over the 134 local commits: PASS.
+- The finding table is accepted as P1's result and carries into
+  Milestone 1: the zip crate's raw copy is not a byte-preserving writer.
+  It drops unknown extra fields, zip64 fields and leading bytes, rewrites
+  data descriptors into the local header, normalises version-made-by,
+  version-needed and external attributes, and keeps only the last of
+  duplicate names. Milestone 1 part 1 therefore writes local headers and
+  central records itself, from the input's own header bytes for
+  untouched entries, and uses the crate for reading at most. The
+  expectation for the corpus run changes accordingly: every entry
+  `identical` (data preserved) with the writer's flags catalogued; any
+  `changed`, `dropped`, `added`, error or crash is a finding about real
+  archives.
+- Departure 4 is accepted: GNU `timeout` exits 124 unless asked to
+  preserve the status, and a signal-9 report is a kill from outside, so
+  `crash` is right for it. The runner text above now says 124.
+- Departures 1 to 3 and 5 to 9 accepted as recorded.
+- Remaining gaps: 1 is the ruling above; 2, 3 and 4 are P2 work (below);
+  the rest of 4 accepted.
+
 ### P2: i686 runs and the size baseline
 
 - The runner used with the i686 builds of `passthrough` and
@@ -191,6 +250,14 @@ Deliverables:
 - `tools/size-probe`, the `size` profile, the size record, and the
   `zip` feature and licence tree cited from the gate's own listing
   (`cargo tree -e normal --prefix none` and the licences step).
+- Runner fixes from the P1 rulings: a leftover temporary file removed
+  after the child ends and noted in a `leftover` column (the record
+  script reads it); every command that can fail guarded with `|| die`
+  now that the runner's stderr is silent (the copy to the selected
+  list, the `--ids` scratch file, the removals, a new header's write);
+  the saved stderr descriptor closed for the children. A negative case
+  shows the sleep fault under `--timeout 2` during a real copy (a large
+  generated archive) leaving no temporary file and `leftover` `yes`.
 - Negative cases: a `probe-zip-xml` build with `quick-xml`'s default
   features on, in a scratch copy, showing the size delta the defaults
   cost (recorded, not committed); the record script refusing a run
