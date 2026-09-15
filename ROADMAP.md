@@ -43,33 +43,34 @@ private corpus and a measured passthrough baseline. Plan:
 | P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | DONE (a371cff to 8e7e665) |
 | Close | Push the local P7 and P6c record commits, using P7's pre-push checks | DONE (pushed e0a5175; records 00c64bb and 41e2919 local) |
 
-### T0b: continuous integration (`specs/0003-ci.md`)
+### T0b: continuous integration (`specs/0003-ci.md`), DONE 2026-09-15
 
-Approved by the maintainer on 2026-09-15. Runs after T2 P0 and before T1.
+Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `check.sh --ci` (steps 1 to 7, privacy skipped); workflow with a read-only token, a SHA-pinned checkout and the pinned toolchain; a green run recorded for a pushed commit | DONE (71c44b8 to ec7bf8c; pushed 401a2f7; run 34977885012 success) |
 | P2 | Prove CI fails: a throwaway branch with a formatting error, the red run recorded, the branch deleted | DONE (41a99a1 to c053374; run 34991440664 failure on the deleted branch; main unchanged at 401a2f7) |
-| Close | Push the local T0b P1 and P2 record commits and the P2 rulings, using the T0 close-out steps; record the CI run on the pushed commit | READY |
+| Close | Push the local T0b P1 and P2 record commits and the P2 rulings, using the T0 close-out steps; record the CI run on the pushed commit | DONE (pushed 199b468; run 34993434019 success; record 62c4e80 local) |
 
-### T1: xlsx-diff, the fidelity harness
+### T1: xlsx-diff, the fidelity harness (`specs/0004-xlsx-diff.md`)
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | Entry inventory across both archives: `dropped`, `added`, raw-identical, index columns; tests on synthetic zips | PLANNED |
-| P2 | Streaming content comparison: `recompressed` vs `changed`, first and last differing offset, differing-byte count, all `u64` | PLANNED |
-| P3 | Archive-level lines (entry order, comment, totals), timestamp and extra-field flags, exit codes 0/1/2 | PLANNED |
+| P1 | `zip` 8.6.0 pinned with the pure-Rust deflate backend; lib and bin split; `entry` rows with indexes, methods, sizes and CRCs; statuses `identical` (raw bytes equal), `dropped`, `added` and the provisional `differs`; name escaping; tests on generated zips | READY |
+| P2 | Streaming content comparison through fixed buffers: `recompressed` vs `changed`, first and last differing offset, differing-byte count, all `u64`; memory bound shown | PLANNED |
+| P3 | All `archive` rows (counts, order, comment, offsets, totals, `files_identical`), the six flags, exit status 0/1/2 as specified | PLANNED |
 | P4 | No-leak sentinel test on stdout and stderr; zip64 entry over 4 GiB uncompressed compared by streaming on i686 (ignored by default, run explicitly and logged) | PLANNED |
+| Close | Push T1 with its records; record the CI run | PLANNED |
 
-### T2: corpus (maintainer-led, runs alongside T1)
+### T2: corpus (maintainer-led, runs alongside T1; `specs/0005-corpus.md`)
 
 Private, in `/home/dev/emend-testing`. Nothing from it is committed.
 
 | Phase | Part | Status |
 |-------|------|--------|
 | P0 | Privacy gate corpus-era additions: Zone.Identifier files, OLE2 and other archive signatures, both forms of patterns 10 and 11 in the self-test, checked pipeline exits (`specs/0002-gate-corpus-additions.md`); runs before T1 and before any corpus file | DONE (9324e64 to 0870c36) |
-| P1 | Manifest format and a coverage script in the repo that prints only ids, producers, tags and counts | PLANNED |
+| P1 | Manifest format (in the spec) and two scripts in the repo, `corpus-add.sh` and `corpus-coverage.sh`, that print only ids, producers, sources, tags and counts | READY |
 | P2 | LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | PLANNED |
 | P3 | LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | PLANNED |
 | P4 | Microsoft's downloadable Excel templates added, with sources noted in the private manifest | PLANNED |
