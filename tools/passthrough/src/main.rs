@@ -21,7 +21,8 @@ const USAGE: &str = "usage: passthrough <input.xlsx> <output.xlsx>";
 /// Exit status for every error, as in `xlsx-diff`.
 const EXIT_ERROR: u8 = 2;
 
-/// Test-only fault injection for the runner's tests. It is read from
+/// Test-only fault injection for the runner's tests (`sleep-copying` added in
+/// T3 P2 on planning's ruling, for the leftover temporary file). It is read from
 /// `PASSTHROUGH_FAULT` and refused unless `PASSTHROUGH_FAULT_ALLOWED=1` is
 /// also set, so a stray value cannot change a corpus run.
 const FAULT_VARIABLE: &str = "PASSTHROUGH_FAULT";
@@ -36,6 +37,7 @@ enum Fault {
     Abort,
     Alloc,
     Exit3,
+    SleepCopying,
 }
 
 /// Everything that stops a copy. The messages name at most an entry index.
@@ -114,11 +116,13 @@ fn fault() -> Result<Option<Fault>, Error> {
         Some("abort") => Ok(Some(Fault::Abort)),
         Some("alloc") => Ok(Some(Fault::Alloc)),
         Some("exit3") => Ok(Some(Fault::Exit3)),
+        Some("sleep-copying") => Ok(Some(Fault::SleepCopying)),
         _ => Err(Error::FaultUnknown),
     }
 }
 
-/// Runs a fault after the input is open and before the output exists.
+/// Runs a fault after the input is open and before the output exists, apart
+/// from `sleep-copying`, which `copy` runs once the first entry is copied.
 fn inject(fault: Fault) {
     match fault {
         Fault::Sleep => thread::sleep(Duration::from_secs(30)),
@@ -132,11 +136,13 @@ fn inject(fault: Fault) {
             std::hint::black_box(&block);
         }
         Fault::Exit3 => process::exit(3),
+        Fault::SleepCopying => {}
     }
 }
 
 fn run(input: &Path, output: &Path) -> Result<(), Error> {
     let fault = fault()?;
+    let sleep_copying = matches!(fault, Some(Fault::SleepCopying));
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut archive = ZipArchive::new(BufReader::new(file)).map_err(open_error)?;
     if let Some(fault) = fault {
@@ -150,7 +156,7 @@ fn run(input: &Path, output: &Path) -> Result<(), Error> {
         .map_err(|e| Error::Create(e.kind()))?;
     // From here on the temporary file is this run's own, so a failure
     // removes it and leaves no partial output.
-    let result = copy(&mut archive, file)
+    let result = copy(&mut archive, file, sleep_copying)
         .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
@@ -167,7 +173,14 @@ fn temporary_path(output: &Path) -> Result<PathBuf, Error> {
     Ok(output.with_file_name(temporary))
 }
 
-fn copy(archive: &mut ZipArchive<BufReader<File>>, file: File) -> Result<(), Error> {
+/// With `sleep_copying` (a test-only fault), sleeps after the first entry is
+/// copied, or before the comment when there is none, while the temporary file
+/// exists.
+fn copy(
+    archive: &mut ZipArchive<BufReader<File>>,
+    file: File,
+    sleep_copying: bool,
+) -> Result<(), Error> {
     let mut writer = ZipWriter::new(BufWriter::new(file));
     for index in 0..archive.len() {
         let number = index as u64;
@@ -177,6 +190,12 @@ fn copy(archive: &mut ZipArchive<BufReader<File>>, file: File) -> Result<(), Err
         writer
             .raw_copy_file(entry)
             .map_err(|e| Error::Copy(number, io_kind(&e)))?;
+        if sleep_copying && index == 0 {
+            thread::sleep(Duration::from_secs(30));
+        }
+    }
+    if sleep_copying && archive.is_empty() {
+        thread::sleep(Duration::from_secs(30));
     }
     writer
         .set_raw_comment(archive.comment().into())

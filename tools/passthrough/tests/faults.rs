@@ -226,6 +226,37 @@ fn sleep_fault_is_still_running_after_a_second() {
 }
 
 #[test]
+fn sleep_copying_fault_leaves_the_temporary_file_when_killed() {
+    let dir = with_input("sleep-copying");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_passthrough"))
+        .args([dir.path("in.zip"), dir.path("out.zip")])
+        .env("PASSTHROUGH_FAULT", "sleep-copying")
+        .env(ALLOWED.0, ALLOWED.1)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("start the binary");
+    let temporary = format!(".out.zip.passthrough-{}.tmp", child.id());
+    thread::sleep(Duration::from_secs(1));
+    let still_running = child.try_wait().expect("poll the child").is_none();
+    let while_sleeping = dir.names();
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(still_running, "the sleep-copying fault waits while copying");
+    assert_eq!(
+        while_sleeping,
+        [temporary.as_str(), "in.zip"],
+        "the temporary file exists while the copy sleeps"
+    );
+    assert_eq!(
+        dir.names(),
+        [temporary.as_str(), "in.zip"],
+        "a kill during the copy leaves the temporary file and no output"
+    );
+}
+
+#[test]
 fn alloc_fault_without_a_limit_then_copies() {
     let dir = with_input("alloc");
     let copied = copy_with(&dir, &[("PASSTHROUGH_FAULT", "alloc"), ALLOWED]);

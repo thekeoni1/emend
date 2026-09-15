@@ -1,0 +1,23 @@
+[package]
+name = "size-probe"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+quick-xml = { version = "=0.42.0", default-features = false, optional = true }
+
+[features]
+# Enables quick-xml, for probe-zip-xml only; probe-zip is built without it.
+xml = ["dep:quick-xml"]
+
+[[bin]]
+name = "probe-zip"
+path = "src/bin/probe-zip.rs"
+
+[[bin]]
+name = "probe-zip-xml"
+path = "src/bin/probe-zip-xml.rs"
+required-features = ["xml"]

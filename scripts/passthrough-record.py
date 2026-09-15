@@ -4,7 +4,8 @@
 Reads summary.<label>.tsv, entries.<label>.tsv and run.<label>.tsv from a run
 directory written by scripts/passthrough-run.sh, for every label present
 (host, i686), and writes <stem>.tsv and <stem>.md. The stem defaults to
-step0-<run directory name>, the directory to records/ in the repository.
+step0-<run directory name>, the directory to records/ in the repository. A
+run directory with only one label is refused unless --allow-single is given.
 
 It never reads the corpus manifest, so no original name or note can reach the
 record: a workbook is cited by id, producer and tags only, and entry names
@@ -27,7 +28,7 @@ SUMMARY_HEADER = [
     "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
     "peak_rss_kb", "in_bytes", "out_bytes", "diff_exit", "identical",
     "recompressed", "changed", "dropped", "added", "flagged",
-    "order_preserved", "comment_equal", "files_identical",
+    "order_preserved", "comment_equal", "files_identical", "leftover",
 ]
 ENTRIES_HEADER = [
     "id", "label", "row", "name", "status", "index_in", "index_out",
@@ -149,6 +150,8 @@ def load(run_dir):
             seen.add(row["id"])
             if row["outcome"] not in OUTCOMES:
                 raise Failure("summary.%s.tsv has an unknown outcome" % label)
+            if row["leftover"] not in ("yes", "no"):
+                raise Failure("summary.%s.tsv has a leftover value other than yes or no" % label)
         for row in entries:
             if row["label"] != label or row["id"] not in seen:
                 raise Failure("entries.%s.tsv holds a row without a summary row" % label)
@@ -201,12 +204,13 @@ def write_md(path, run_name, labels, data):
         "",
         "## Files by outcome",
         "",
-        md_row(("label", "files") + OUTCOMES),
-        md_row(("---",) * (2 + len(OUTCOMES))),
+        md_row(("label", "files") + OUTCOMES + ("leftover",)),
+        md_row(("---",) * (3 + len(OUTCOMES))),
     ]
     for label in labels:
         summary = data[label][0]
-        out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]))
+        out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]
+                          + [sum(1 for r in summary if r["leftover"] == "yes")]))
 
     columns = ("family", "entries") + STATUSES + ("flagged",) + FLAGS
     for label in labels:
@@ -233,15 +237,16 @@ def write_md(path, run_name, labels, data):
 
     out += [
         "",
-        "## Files not ok, or with a diff exit other than 0",
+        "## Files not ok, with a diff exit other than 0, or with a leftover temporary file",
         "",
-        md_row(("id", "label", "producer", "tags", "outcome", "exit", "signal", "diff_exit", "differs from the expectation")),
-        md_row(("---",) * 9),
+        md_row(("id", "label", "producer", "tags", "outcome", "exit", "signal", "diff_exit", "leftover",
+                "differs from the expectation")),
+        md_row(("---",) * 10),
     ]
     listed = 0
     for label in labels:
         for row in data[label][0]:
-            if row["outcome"] == "ok" and row["diff_exit"] == "0":
+            if row["outcome"] == "ok" and row["diff_exit"] == "0" and row["leftover"] == "no":
                 continue
             listed += 1
             if row["outcome"] != "ok":
@@ -251,9 +256,10 @@ def write_md(path, run_name, labels, data):
             else:
                 differs = ", ".join("%s=%s" % (k, row[k]) for k, want in EXPECTED if row[k] != want) or "-"
             out.append(md_row([row["id"], label, row["producer"], row["tags"], row["outcome"],
-                               row["exit"] or "-", row["signal"] or "-", row["diff_exit"] or "-", differs]))
+                               row["exit"] or "-", row["signal"] or "-", row["diff_exit"] or "-",
+                               row["leftover"], differs]))
     if not listed:
-        out.append(md_row(("none",) + ("",) * 8))
+        out.append(md_row(("none",) + ("",) * 9))
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(out) + "\n")
 
@@ -263,6 +269,8 @@ def main(argv):
     parser.add_argument("--run", required=True, help="the run directory")
     parser.add_argument("--out", help="the directory to write into (default: records/ in the repository)")
     parser.add_argument("--stem", help="the file name stem (default: step0-<run directory name>)")
+    parser.add_argument("--allow-single", action="store_true",
+                        help="write a record from a run directory with only one label")
     args = parser.parse_args(argv)
     run_dir = os.path.abspath(args.run)
     run_name = os.path.basename(run_dir)
@@ -280,6 +288,8 @@ def main(argv):
     if not os.path.isdir(out_dir):
         raise Failure("the output directory does not exist")
     labels, data = load(run_dir)
+    if len(labels) == 1 and not args.allow_single:
+        raise Failure("the run directory has only the %s label; give --allow-single for a single-label record" % labels[0])
     write_tsv(os.path.join(out_dir, stem + ".tsv"), labels, data)
     write_md(os.path.join(out_dir, stem + ".md"), run_name, labels, data)
     print("wrote %s.tsv and %s.md: labels %s; files %s; entry rows %s" % (

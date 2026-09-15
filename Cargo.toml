@@ -1,7 +1,18 @@
 [workspace]
 resolver = "3"
-members = ["tools/passthrough", "tools/xlsx-diff"]
+members = ["tools/passthrough", "tools/size-probe", "tools/xlsx-diff"]
 
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
+
+# The size baseline (specs/0006-passthrough.md, "Size baseline"): stripped,
+# size-optimised release builds of tools/size-probe for i686 musl.
+[profile.size]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false

@@ -5,7 +5,9 @@
 # timeout and an address space limit, classify the outcome, compare input and
 # output with xlsx-diff, and append to summary.<label>.tsv and
 # entries.<label>.tsv in the run directory. Each invocation also appends one
-# row to run.<label>.tsv (commit, times, tool versions, settings).
+# row to run.<label>.tsv (commit, times, tool versions, settings). A temporary
+# file the tool left behind is removed after the child ends and noted in the
+# summary's leftover column.
 # It prints one line per file (id, label, outcome, diff exit, wall seconds,
 # peak RSS in kB) and a final count line. It never prints an original name, a
 # path under the corpus directory or a byte of content: the child's own output
@@ -19,7 +21,7 @@ umask 077
 readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>]"
 readonly G=/usr/bin/grep
 readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
-readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical'
+readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover'
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
 readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
 
@@ -95,35 +97,36 @@ fi
 
 if [ -n "$IDS" ]; then
   [ -f "$IDS" ] || die "--ids must name a file"
-  : >"$WORK/wanted"
+  : >"$WORK/wanted" || die "cannot write a scratch file"
   while IFS= read -r line || [ -n "$line" ]; do
     id=${line//[[:space:]]/}
     [ -z "$id" ] && continue
     [[ "$id" =~ ^[0-9a-f]{12}$ ]] || die "an entry in the --ids file is not a 12-digit id"
     awk -F'\t' -v id="$id" '$1 == id { found = 1 } END { exit !found }' "$WORK/rows" ||
       die "id $id is not in the manifest"
-    printf '%s\n' "$id" >>"$WORK/wanted"
-  done <"$IDS"
-  awk -F'\t' 'NR == FNR { want[$1] = 1; next } want[$1]' "$WORK/wanted" "$WORK/rows" >"$WORK/selected"
+    printf '%s\n' "$id" >>"$WORK/wanted" || die "cannot write a scratch file"
+  done <"$IDS" || die "cannot read the --ids file"
+  awk -F'\t' 'NR == FNR { want[$1] = 1; next } want[$1]' "$WORK/wanted" "$WORK/rows" >"$WORK/selected" ||
+    die "cannot write a scratch file"
 else
-  cp "$WORK/rows" "$WORK/selected"
+  cp "$WORK/rows" "$WORK/selected" || die "cannot write a scratch file"
 fi
 
-# header_ok <file> <header>: the file is absent (the header is written) or
-# starts with that header.
+# header_ok <file> <header> <name>: the file is absent (the header is written)
+# or starts with that header; anything else is an error.
 header_ok() {
   if [ -e "$1" ]; then
-    [ "$(head -n 1 "$1")" = "$2" ]
+    [ "$(head -n 1 "$1")" = "$2" ] || die "$3 in the run directory has another header"
   else
-    printf '%s\n' "$2" >"$1"
+    printf '%s\n' "$2" >"$1" || die "cannot write the header of $3"
   fi
 }
 SUMMARY=$OUT/summary.$LABEL.tsv
 ENTRIES=$OUT/entries.$LABEL.tsv
 RUNS=$OUT/run.$LABEL.tsv
-header_ok "$SUMMARY" "$SUMMARY_HEADER" || die "summary.$LABEL.tsv in the run directory has another header"
-header_ok "$ENTRIES" "$ENTRIES_HEADER" || die "entries.$LABEL.tsv in the run directory has another header"
-header_ok "$RUNS" "$RUN_HEADER" || die "run.$LABEL.tsv in the run directory has another header"
+header_ok "$SUMMARY" "$SUMMARY_HEADER" "summary.$LABEL.tsv"
+header_ok "$ENTRIES" "$ENTRIES_HEADER" "entries.$LABEL.tsv"
+header_ok "$RUNS" "$RUN_HEADER" "run.$LABEL.tsv"
 
 # An id already in this label's summary would give it a second row, which the
 # record script refuses; a new run needs a new run directory.
@@ -134,8 +137,8 @@ dup=$(awk -F'\t' 'FILENAME == ARGV[1] { if (FNR > 1) have[$1] = 1; next } ($1 in
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 RUSTC=$(cd "$ROOT" && RUSTUP_AUTO_INSTALL=0 rustc --version 2>/dev/null) || RUSTC=unknown
 ZIP_VERSION=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' "$ROOT/Cargo.lock")
-PT_SHA=$(sha256sum <"$PT" | cut -d' ' -f1)
-XD_SHA=$(sha256sum <"$XD" | cut -d' ' -f1)
+PT_SHA=$(sha256sum <"$PT" | cut -d' ' -f1) || die "cannot hash the passthrough binary"
+XD_SHA=$(sha256sum <"$XD" | cut -d' ' -f1) || die "cannot hash the xlsx-diff binary"
 
 # time_value <time file> <label>: the value after "<label>: " in GNU time's
 # verbose report, or nothing.
@@ -160,14 +163,24 @@ while IFS=$'\t' read -r id ext producer tags; do
   input=$CORPUS/corpus/$id.$ext
   output=$dir/out.$LABEL.$ext
   timefile=$dir/time.$LABEL.txt
-  rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt"
+  rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
+    die "cannot remove an earlier output"
   in_bytes=$(stat -c %s -- "$input" 2>/dev/null) || in_bytes=""
 
   (
     ulimit -v $((MEMORY * 1024)) || exit 125
     exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output"
-  ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt"
+  ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt" 3>&-
   rc=$?
+
+  # A tool stopped by a signal (the timeout's kill included) cannot remove
+  # its temporary file, so the runner does, and notes it.
+  leftover=no
+  for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
+    [ -e "$temporary" ] || continue
+    rm -f -- "$temporary" || die "cannot remove a leftover temporary file"
+    leftover=yes
+  done
 
   # GNU time runs timeout, which runs the tool as its direct child, so the
   # timeout's SIGKILL reaches the tool itself; with time inside timeout the
@@ -201,21 +214,21 @@ while IFS=$'\t' read -r id ext producer tags; do
   out_bytes="" diff_exit="" values=$'\t\t\t\t\t\t\t\t'
   if [ "$outcome" = ok ]; then
     out_bytes=$(stat -c %s -- "$output" 2>/dev/null) || out_bytes=""
-    "$XD" "$input" "$output" </dev/null >"$dir/diff.$LABEL.tsv" 2>"$dir/diff-stderr.$LABEL.txt"
+    "$XD" "$input" "$output" </dev/null >"$dir/diff.$LABEL.tsv" 2>"$dir/diff-stderr.$LABEL.txt" 3>&-
     diff_exit=$?
     # Rows are trusted only for exit 0 or 1 (specs/0004-xlsx-diff.md).
     if [ "$diff_exit" -eq 0 ] || [ "$diff_exit" -eq 1 ]; then
       values=$(awk -F'\t' -v OFS='\t' '
         $1 == "archive" { v[$2] = $3 }
         END { print v["identical"], v["recompressed"], v["changed"], v["dropped"], v["added"], v["flagged"], v["order_preserved"], v["comment_equal"], v["files_identical"] }
-      ' "$dir/diff.$LABEL.tsv")
+      ' "$dir/diff.$LABEL.tsv") || die "cannot read the diff rows"
       awk -F'\t' -v OFS='\t' -v id="$id" -v label="$LABEL" '$1 == "entry" { print id, label, $0 }' \
         "$dir/diff.$LABEL.tsv" >>"$ENTRIES" || die "cannot append to entries.$LABEL.tsv"
     fi
   fi
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
-    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" >>"$SUMMARY" ||
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
+    "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" "$leftover" >>"$SUMMARY" ||
     die "cannot append to summary.$LABEL.tsv"
   printf '%s %s %s %s %s %s\n' "$id" "$LABEL" "$outcome" "${diff_exit:--}" "${wall:--}" "${rss:--}"
   case "$outcome" in
