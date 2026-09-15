@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["tools/xlsx-diff"]
+members = ["tools/passthrough", "tools/xlsx-diff"]
 
 [workspace.package]
 edition = "2024"
