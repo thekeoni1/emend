@@ -5,9 +5,12 @@
 mod common;
 
 use std::fs;
+use std::io::Write;
 
 use common::*;
-use zip::{HasZipMetadata, ZipArchive};
+use zip::unstable::write::FileOptionsExt;
+use zip::write::SimpleFileOptions;
+use zip::{DateTime, HasZipMetadata, ZipArchive, ZipWriter};
 
 #[test]
 fn short_raw_stream_is_an_error() {
@@ -224,11 +227,11 @@ fn wrong_crc_is_an_error() {
 
 #[test]
 fn encrypted_entry_is_an_error() {
-    // zip 8.6.0 with only the deflate-flate2-zlib-rs feature has no ZipCrypto
-    // writer (AES needs the aes-crypto feature), so the fixture sets general
-    // purpose bit 0 by hand in both headers of an ordinary entry.
+    // The fixture is made with the crate's ZipCrypto writer, which zip 8.6.0
+    // offers with the deflate-flate2-zlib-rs feature alone, through
+    // zip::unstable::write::FileOptionsExt. Nothing is set by hand.
     let dir = TempDir::new("encrypted");
-    let (plain, flagged) = (dir.path("plain.zip"), dir.path("flagged.zip"));
+    let (plain, encrypted) = (dir.path("plain.zip"), dir.path("encrypted.zip"));
     write_zip(
         &plain,
         &[
@@ -236,20 +239,35 @@ fn encrypted_entry_is_an_error() {
             deflated("secret.txt", &text(6)),
         ],
     );
-    let mut bytes = fs::read(&plain).expect("read");
-    set_encrypted_flag(&mut bytes, b"secret.txt");
-    fs::write(&flagged, bytes).expect("write");
-    let mut archive = ZipArchive::new(fs::File::open(&flagged).expect("open")).expect("read");
-    assert!(
-        archive
-            .by_index_raw(1)
-            .expect("entry")
-            .get_metadata()
-            .encrypted,
-        "precondition: the zip crate sees the entry as encrypted"
+    let options = SimpleFileOptions::default().last_modified_time(DateTime::default());
+    let zipcrypto = options
+        .with_deprecated_encryption(b"fictional-password")
+        .expect("ZipCrypto options");
+    let mut writer = ZipWriter::new(fs::File::create(&encrypted).expect("create the archive"));
+    writer.start_file("a.txt", options).expect("start an entry");
+    writer.write_all(&text(5)).expect("write an entry");
+    writer
+        .start_file("secret.txt", zipcrypto)
+        .expect("start an entry");
+    writer.write_all(&text(6)).expect("write an entry");
+    writer.finish().expect("finish the archive");
+    let mut archive = ZipArchive::new(fs::File::open(&encrypted).expect("open")).expect("read");
+    let flags: Vec<bool> = (0..2)
+        .map(|i| {
+            archive
+                .by_index_raw(i)
+                .expect("entry")
+                .get_metadata()
+                .encrypted
+        })
+        .collect();
+    assert_eq!(
+        flags,
+        [false, true],
+        "precondition: the zip crate sees only secret.txt as encrypted"
     );
 
-    let result = run(&plain, &flagged);
+    let result = run(&plain, &encrypted);
     assert_eq!(result.status, 2);
     assert_eq!(result.stdout, "");
     assert_eq!(
@@ -257,7 +275,7 @@ fn encrypted_entry_is_an_error() {
         "error: entry secret.txt in the output archive is encrypted\n"
     );
 
-    let result = run(&flagged, &plain);
+    let result = run(&encrypted, &plain);
     assert_eq!(result.status, 2);
     assert_eq!(
         result.stderr,

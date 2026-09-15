@@ -275,14 +275,6 @@ pub fn crc_of(bytes: &[u8], name: &[u8]) -> u32 {
     le32(bytes, central + 16)
 }
 
-/// Sets general purpose bit 0 (encrypted) in both headers of the entry
-/// named `name`, without encrypting anything.
-pub fn set_encrypted_flag(bytes: &mut [u8], name: &[u8]) {
-    let (local, central) = header_offsets(bytes, name);
-    bytes[local + 6] |= 0x01;
-    bytes[central + 8] |= 0x01;
-}
-
 /// Writes a compression method number into both headers of the entry named
 /// `name`.
 pub fn set_method(bytes: &mut [u8], name: &[u8], method: u16) {
