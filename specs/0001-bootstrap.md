@@ -80,6 +80,9 @@ committed. Its output goes in the phase's `negative.log`.
 - Pushes: never use `git push --no-verify`, never set `core.hooksPath`,
   and never export `EMEND_PRIVATE_DENYLIST` except inside a negative
   test.
+- A run stopped by the environment (for example for low memory) is noted
+  in the header of the log that reruns it: its start time, the last
+  check it completed, and the reason given.
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,

@@ -49,7 +49,7 @@ Approved by the maintainer on 2026-09-15. Runs after T2 P0 and before T1.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `check.sh --ci` (steps 1 to 7, privacy skipped); workflow with a read-only token, a SHA-pinned checkout and the pinned toolchain; a green run recorded for a pushed commit | READY |
+| P1 | `check.sh --ci` (steps 1 to 7, privacy skipped); workflow with a read-only token, a SHA-pinned checkout and the pinned toolchain; a green run recorded for a pushed commit | DONE (71c44b8 to ec7bf8c; pushed 401a2f7; run 34977885012 success) |
 | P2 | Prove CI fails: a throwaway branch with a formatting error, the red run recorded, the branch deleted | READY |
 
 ### T1: xlsx-diff, the fidelity harness
