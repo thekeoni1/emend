@@ -1,8 +1,10 @@
 # 0006: T3 passthrough baseline
 
-Status: P1 DONE, verified by planning 2026-09-15 (d63ad31 to 33c0198;
-phase commits 9eaee47, 79d17ba and cb94097). P2 READY. P3 and P4 wait
-for the corpus (`specs/0005-corpus.md`).
+Status: P1 and P2 DONE, verified by planning 2026-09-15 (P1: d63ad31 to
+33c0198, phase commits 9eaee47, 79d17ba and cb94097; P2: 8bbda4d to
+b1e7982, phase commits 2845fab and 6a7533e). A close-out push follows
+P2 (maintainer decision). P3 and P4 wait for the corpus
+(`specs/0005-corpus.md`).
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` ("T3: passthrough
 baseline (outline)", the part families, the record layout),
 `specs/0001-bootstrap.md` ("How this task runs", "Rules for every
@@ -53,7 +55,11 @@ depending on `zip` exactly as `xlsx-diff` does and on nothing else.
 Fault injection for the runner's tests, only when the environment
 variable `PASSTHROUGH_FAULT` is set: `sleep` (sleep 30 s before
 copying), `panic` (panic after opening), `abort` (`std::process::abort`),
-`alloc` (allocate and touch 512 MiB before copying), `exit3` (exit 3).
+`alloc` (allocate and touch 512 MiB before copying), `exit3` (exit 3),
+and, from P2, `sleep-copying` (sleep 30 s after the first entry is
+copied, while the temporary file exists; for an empty archive, before
+the comment). The first five run after the input is open and before the
+temporary file exists.
 The variable is documented as test-only, and the tool refuses to run
 with it set unless `PASSTHROUGH_FAULT_ALLOWED=1` is also set, so a stray
 value cannot change a corpus run.
@@ -256,14 +262,69 @@ Deliverables:
   now that the runner's stderr is silent (the copy to the selected
   list, the `--ids` scratch file, the removals, a new header's write);
   the saved stderr descriptor closed for the children. A negative case
-  shows the sleep fault under `--timeout 2` during a real copy (a large
-  generated archive) leaving no temporary file and `leftover` `yes`.
+  shows the `sleep-copying` fault under `--timeout 2` on a generated
+  archive leaving no temporary file and `leftover` `yes` (P2 ruling: the
+  P1 faults all run before the temporary file exists).
 - Negative cases: a `probe-zip-xml` build with `quick-xml`'s default
   features on, in a scratch copy, showing the size delta the defaults
-  cost (recorded, not committed); the record script refusing a run
-  directory with only one label unless `--allow-single` is given.
+  cost (recorded, not committed; `quick-xml` 0.42.0's default feature
+  set is empty, so the expected delta is 0 bytes, P2 ruling); the
+  record script refusing a run directory with only one label unless
+  `--allow-single` is given.
 - Acceptance: gate all PASS, including licences with `quick-xml` in the
   tree; the two sizes recorded with the commit.
+
+### Planning rulings on P2 (2026-09-15)
+
+- P2 is verified from primaries by planning's own checks:
+  - Doc commit 8bbda4d holds exactly planning's two doc files (81
+    insertions, 9 deletions), unchanged since. The two phase commits
+    touch only `Cargo.toml`, `Cargo.lock`, `tools/size-probe/`,
+    `tools/passthrough/` and the two scripts; the four record commits
+    only `records/logs/t3-p2/` and the size record. All seven messages
+    end with the Co-Authored-By trailer only, under the noreply
+    identity. `Cargo.lock` adds only `quick-xml` 0.42.0 and `size-probe`.
+  - Planning ran the full gate (eight PASS, with `quick-xml` in the
+    licences listing) and `cargo test` on the host and on i686: 70
+    passed and 1 ignored on each, same names. `size-probe` builds and
+    passes clippy with the `xml` feature on both targets.
+  - Planning built the size probes itself with `--profile size` for
+    i686: 473636 and 539172 bytes, both stripped static i386 ELF, and
+    `probe-zip-xml` byte-identical to the log's (sha256 52d1932f...).
+  - Planning read the two probes, the profile, the runner diff and the
+    record script against this spec.
+  - Planning reproduced on its scratch corpus: the `sleep-copying`
+    fault under `--timeout 2` (`timeout`, `leftover` `yes`, no temporary
+    file, no passthrough process alive a second later) and the record
+    script refusing a single-label run directory, then writing it with
+    `--allow-single`, with no manifest sentinel in any output.
+  - The seven record files, the size record, the nine source files and
+    the seven messages have zero hits on every scan; the superseded logs
+    and the replaced size record at 434e714 hold no home path and no
+    non-ASCII byte. `scripts/privacy.sh` over the 141 local commits:
+    PASS.
+- The size baseline stands: 473636 bytes for `zip` alone, 539172 bytes
+  for `zip` plus `quick-xml`, a difference of 65536 bytes. As the report
+  says, the difference is page-aligned and bounds the `quick-xml` cost.
+  Milestone 1 measures the core against 539172 bytes at this toolchain
+  and profile, remeasured at the commit it is compared at.
+- Departures 1 to 8 accepted as recorded; the two mid-phase rulings
+  (the `sleep-copying` fault, the zero delta) are now in the spec text.
+- Remaining gaps 1 to 5 go to the passthrough backlog in `ROADMAP.md`;
+  none concerns a data flow this project has.
+
+### Close-out push (after P2)
+
+The maintainer decided to push after P2 and start the implementing
+session afresh. The push follows the T0b close-out steps
+(`specs/0003-ci.md`, "Close-out push (after P2)"): planning's pending
+doc updates committed unedited first; the hook, `core.hooksPath` and
+`EMEND_PRIVATE_DENYLIST` checks and the full gate; the base recorded
+before the push; `git push origin main`; `ls-remote` equal to local main
+and the repository still PRIVATE; the CI run on the pushed commit
+recorded. Logs in `records/logs/t3-close/`: `push.log`, `ci-run.log`,
+`scan.log`. No independent check. Report and STOP. The record commit
+goes with the next push.
 
 ### P3: LibreOffice open check
 

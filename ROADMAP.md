@@ -88,7 +88,8 @@ implementing session does P1 and P7.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | DONE (d63ad31 to 33c0198; finding: the zip crate's raw copy is not byte-preserving) |
-| P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | READY |
+| P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | DONE (8bbda4d to b1e7982; baseline 473636 and 539172 bytes, `records/size-baseline-2026-09-15-6a7533e.md`) |
+| Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | READY |
 | P3 | LibreOffice open check with the corpus session's image: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
 | P4 | First full recorded run over the corpus: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
 
@@ -113,7 +114,9 @@ ruling 12, 2026-09-14).
   a substitute.
 - Size budget: provisional 250 KiB, stripped, i686 musl, measured as
   emend's increase over a consumer that already links `zip` and
-  `quick-xml`. Re-ruled after T3 records the baseline.
+  `quick-xml`. The baseline is recorded (T3 P2, 2026-09-15): 539172
+  bytes for that consumer, 473636 for `zip` alone. Re-ruled by the
+  maintainer when Milestone 1 starts.
 - Licence: MIT OR Apache-2.0, copyright holder "emend contributors".
 - GitHub: `thekeoni1/emend`, private. Every push passes the privacy gate
   (T0 P6) and needs planning's word plus the maintainer's authorisation
@@ -170,6 +173,11 @@ approval.
   - The single-field zip64 placeholder fixtures use a field layout the
     zip specification does not describe (T1 P6 gap 4).
   - A tautological precondition in `tests/p6.rs` (T1 P6 gap 5).
+- Passthrough backlog (T3 P2 gaps): the runner's `|| die` guards and the
+  stale-temporary-file removal have no negative case; case 12 of the P2
+  negative log counts no fixture strings; some guards sit outside the
+  reviewed diff hunks; a fixed 1 s wait in `faults.rs`; the size
+  record's feature text is literal in the size script.
 - Privacy gate backlog: findings raised after T2 P0 that do not concern a
   data flow this project has.
   - Unchecked `sed`, `tr` and `cut` exit statuses in two helper
