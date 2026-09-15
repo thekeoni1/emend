@@ -50,7 +50,8 @@ Approved by the maintainer on 2026-09-15. Runs after T2 P0 and before T1.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `check.sh --ci` (steps 1 to 7, privacy skipped); workflow with a read-only token, a SHA-pinned checkout and the pinned toolchain; a green run recorded for a pushed commit | DONE (71c44b8 to ec7bf8c; pushed 401a2f7; run 34977885012 success) |
-| P2 | Prove CI fails: a throwaway branch with a formatting error, the red run recorded, the branch deleted | READY |
+| P2 | Prove CI fails: a throwaway branch with a formatting error, the red run recorded, the branch deleted | DONE (41a99a1 to c053374; run 34991440664 failure on the deleted branch; main unchanged at 401a2f7) |
+| Close | Push the local T0b P1 and P2 record commits and the P2 rulings, using the T0 close-out steps; record the CI run on the pushed commit | READY |
 
 ### T1: xlsx-diff, the fidelity harness
 
