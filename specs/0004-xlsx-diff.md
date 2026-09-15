@@ -500,7 +500,8 @@ Deliverables:
   - The zip64 test: `test.log` records both explicit runs, 4294967297
     bytes on both sides and the difference at 4294967296, host 11 min
     11 s with a 5752 kB peak and i686 14 min 25 s with a 3344 kB peak.
-    Planning's own i686 run of the test is recorded below.
+    Planning ran the test itself on i686 from the built test executable
+    under `/usr/bin/time -v`: passed, 14 min 36 s, peak 3344 kB.
   - The six record files, the seven source files, `Cargo.lock` and the
     seven messages have zero hits on every scan; the superseded logs at
     b11c221 hold no home path and no non-ASCII byte. `scripts/privacy.sh`
@@ -552,6 +553,25 @@ recorded, filtered as in T0b P1. Logs in `records/logs/t1-close/`:
 `push.log`, `ci-run.log`, `scan.log`. No independent check, as for the
 other close-out pushes. Report and STOP. P5's records go with the next
 authorised push.
+
+Planning ruling (2026-09-15): the close-out push is verified and DONE.
+- GitHub `thekeoni1/emend` is PRIVATE, with one branch, `main` at
+  83c9852, 110 commits and no tags. All 110 author and committer pairs
+  are the noreply address. The Actions settings are unchanged.
+- Doc commit 83c9852 holds exactly planning's two doc files (118
+  insertions, 29 deletions), byte-identical to planning's versions.
+  Record commit 343e91f touches only `records/logs/t1-close/`. Every
+  message in 199b468..main ends with the Co-Authored-By trailer only.
+- `push.log` recorded the base before the push (199b468, 33 commits),
+  the eight PASS lines, the hook equal to the installer's, and then the
+  hook's scan of `199b468..83c9852`, 33 commits and 205 blobs, 0
+  findings, with git reporting `199b468..83c9852  main -> main`.
+- Run 35017518231 on 83c9852 concluded `success` on `ubuntu-24.04`.
+  Planning fetched and filtered its log itself: the seven PASS lines,
+  then the SKIP privacy line, and `rustc 1.98.1 (48a229cea 2026-09-01)`.
+- The three logs have zero hits on every scan. `scripts/privacy.sh`
+  over the 111 local commits: PASS.
+- Departures 1 and 2 accepted. The next phase is P5.
 
 ## Out of scope for T1
 
