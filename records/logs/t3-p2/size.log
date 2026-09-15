@@ -1,0 +1,330 @@
+about: T3 P2 phase commit 2845fab9ba5ebbea759313de66c7eda2699b84e6; HEAD at run: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+phase: T3 P2 (specs/0006-passthrough.md) size.log; run at 2026-09-15T22:10:00Z
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## script
+    #!/usr/bin/env bash
+    # T3 P2 size.log (specs/0006-passthrough.md, "Size baseline"): builds
+    # probe-zip and probe-zip-xml with --profile size for i686-unknown-linux-musl
+    # at the phase commit, checks what they are and that they work on a generated
+    # archive, cites the toolchain, the crate versions and features and the
+    # dependency trees, and writes the size record to <scratch> for the record
+    # commit (records/size-baseline-<utc-date>-<shortsha>.md).
+    # Each check is evaluated once; a check with more than one condition is
+    # evaluated inside one function.
+    # Usage: t3p2-size.sh <phase commit> <record output file> > <scratch file>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    RECORD_OUT=${2:?record output file required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset CARGO_TARGET_DIR
+    G=/usr/bin/grep
+    I686=i686-unknown-linux-musl
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # static_i686_stripped <binary>: file(1) reports a stripped static 32-bit i386 ELF.
+    static_i686_stripped() {
+      local d
+      d=$(file -b "$1")
+      [[ "$d" == *"ELF 32-bit LSB executable, Intel i386"* ]] && [[ "$d" == *"statically linked"* ]] && [[ "$d" == *", stripped"* ]]
+    }
+    # probe_output_is <file> <exit> <expected>: the exit and the exact output.
+    probe_output_is() { [ "$2" -eq 0 ] && [ "$(cat "$1")" = "$3" ]; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: T3 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 P2 (specs/0006-passthrough.md) size.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## toolchain"
+    RUSTC=$(rustc --version)
+    CARGO=$(cargo --version)
+    echo "$RUSTC"
+    echo "$CARGO"
+    echo "installed targets for the pinned toolchain:"
+    rustup target list --installed | sed 's/^/    /'
+    
+    echo
+    echo "## manifests at $C"
+    for f in Cargo.toml tools/size-probe/Cargo.toml; do
+      echo "$f (sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1)):"
+      git show "$C:$f" | sed 's/^/    /'
+    done
+    ZIP_V=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' Cargo.lock)
+    QX_V=$(awk '$0 == "name = \"quick-xml\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' Cargo.lock)
+    echo "Cargo.lock: zip $ZIP_V; quick-xml $QX_V"
+    check "zip in Cargo.lock is 8.6.0" "$(yn [ "$ZIP_V" = 8.6.0 ])"
+    check "quick-xml in Cargo.lock is 0.42.0" "$(yn [ "$QX_V" = 0.42.0 ])"
+    
+    echo
+    echo "## dependency trees and features"
+    for feat in "" "--features xml"; do
+      echo "command: cargo tree -p size-probe $feat -e normal --prefix none --target $I686 --offline"
+      # shellcheck disable=SC2086
+      cargo tree -p size-probe $feat -e normal --prefix none --target "$I686" --offline 2>&1 | sed -e "s#$(pwd)#<repo>#g" -e 's/^/    /'
+      echo "command: cargo tree -p size-probe $feat -e features --prefix none --target $I686 --offline (zip and quick-xml feature lines)"
+      # shellcheck disable=SC2086
+      cargo tree -p size-probe $feat -e features --prefix none --target "$I686" --offline 2>/dev/null |
+        LC_ALL=C "$G" -E '^(zip|quick-xml) ' | sort -u | sed -e "s#$(pwd)#<repo>#g" -e 's/^/    /'
+    done
+    cargo tree -p size-probe -e normal --prefix none --target "$I686" --offline 2>/dev/null >"$T/tree-plain"
+    cargo tree -p size-probe --features xml -e normal --prefix none --target "$I686" --offline 2>/dev/null >"$T/tree-xml"
+    check "without the xml feature quick-xml is not in the tree" "$(yn [ "$(LC_ALL=C "$G" -c '^quick-xml ' "$T/tree-plain")" -eq 0 ])"
+    check "with the xml feature quick-xml v0.42.0 is in the tree" "$(yn [ "$(LC_ALL=C "$G" -c '^quick-xml v0.42.0' "$T/tree-xml")" -ge 1 ])"
+    
+    echo
+    echo "## size builds for $I686"
+    echo "command: cargo clean -p size-probe --profile size --target $I686"
+    cargo clean -p size-probe --profile size --target "$I686" 2>&1 | sed 's/^/    /'
+    echo "command: cargo build -p size-probe --bin probe-zip --profile size --target $I686 --offline"
+    cargo build -p size-probe --bin probe-zip --profile size --target "$I686" --offline >"$T/b1" 2>&1 </dev/null
+    RC1=$?
+    echo "exit: $RC1"
+    echo "command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target $I686 --offline"
+    cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target "$I686" --offline >"$T/b2" 2>&1 </dev/null
+    RC2=$?
+    echo "exit: $RC2"
+    check "both size builds exit 0" "$(yn [ "$((RC1 + RC2))" -eq 0 ])"
+    A=target/$I686/size/probe-zip
+    B=target/$I686/size/probe-zip-xml
+    SA=$(stat -c %s "$A")
+    SB=$(stat -c %s "$B")
+    echo "$A: $SA bytes; sha256 $(sha256sum <"$A" | cut -d' ' -f1); $(file -b "$A" | sed 's/, BuildID\[[^]]*\]=[0-9a-f]*//')"
+    echo "$B: $SB bytes; sha256 $(sha256sum <"$B" | cut -d' ' -f1); $(file -b "$B" | sed 's/, BuildID\[[^]]*\]=[0-9a-f]*//')"
+    echo "difference (probe-zip-xml minus probe-zip): $((SB - SA)) bytes"
+    check "probe-zip is a stripped static i386 ELF" "$(yn static_i686_stripped "$A")"
+    check "probe-zip-xml is a stripped static i386 ELF" "$(yn static_i686_stripped "$B")"
+    
+    echo
+    echo "## the probes on a generated archive"
+    python3 - "$T/probe.zip" <<'PY'
+    import sys, zipfile
+    with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", "<Types><Default/><Override/></Types>")
+        z.writestr("xl/workbook.xml", "<workbook><sheets><sheet/><sheet/></sheets></workbook>")
+    PY
+    "$A" "$T/probe.zip" >"$T/p1" 2>&1; R1=$?
+    "$B" "$T/probe.zip" xl/workbook.xml >"$T/p2" 2>&1; R2=$?
+    "$B" "$T/probe.zip" missing.xml >"$T/p3" 2>&1; R3=$?
+    echo "probe-zip <scratch>/probe.zip: exit $R1"; sed 's/^/    /' "$T/p1"
+    echo "probe-zip-xml <scratch>/probe.zip xl/workbook.xml: exit $R2"; sed 's/^/    /' "$T/p2"
+    echo "probe-zip-xml <scratch>/probe.zip missing.xml: exit $R3"; sed 's/^/    /' "$T/p3"
+    check "probe-zip prints the entry count" "$(yn probe_output_is "$T/p1" "$R1" "entries 2")"
+    check "probe-zip-xml prints the entry and element counts" "$(yn probe_output_is "$T/p2" "$R2" "$(printf 'entries 2\nelements 4')")"
+    check "probe-zip-xml exits 2 for a missing entry" "$(yn [ "$R3" -eq 2 ])"
+    
+    SHORT=$(git rev-parse --short "$C")
+    DATE=$(date -u +%Y-%m-%d)
+    cat >"$RECORD_OUT" <<EOF
+    # Size baseline $DATE-$SHORT
+    
+    The stripped \`i686-unknown-linux-musl\` sizes of the two size probes
+    (\`specs/0006-passthrough.md\`, "Size baseline"), measured by
+    \`records/logs/t3-p2/size.log\`. Milestone 1 measures emend's core as its
+    increase over \`probe-zip-xml\` built the same way (maintainer ruling 4,
+    \`specs/0000-step-zero-plan.md\`).
+    
+    - Commit: $C
+    - Date: $DATE (UTC)
+    - Toolchain: $RUSTC; $CARGO
+    - Target: $I686
+    - Profile: \`size\` in the workspace \`Cargo.toml\` (inherits release,
+      opt-level "z", lto "fat", codegen-units 1, panic "abort", strip true,
+      debug false)
+    - \`zip\` $ZIP_V, \`default-features = false\`, features
+      \`deflate-flate2-zlib-rs\` (as \`xlsx-diff\`)
+    - \`quick-xml\` $QX_V, \`default-features = false\`, no features, behind
+      the \`size-probe\` feature \`xml\`, which only \`probe-zip-xml\` requires
+    
+    | Binary | What it does | Bytes |
+    | --- | --- | --- |
+    | \`probe-zip\` | opens an archive with \`zip\`, prints the entry count | $SA |
+    | \`probe-zip-xml\` | the same, then parses one entry with \`quick-xml\` in streaming mode and prints the element count | $SB |
+    | difference | what \`quick-xml\` and the parse add | $((SB - SA)) |
+    
+    The dependency trees and features are listed in size.log; the licence of
+    every package in the tree, \`quick-xml\` included, passes the gate's
+    licences step (\`records/logs/t3-p2/gate.log\`).
+    EOF
+    echo
+    echo "## the size record written to <scratch> (committed as records/size-baseline-$DATE-$SHORT.md)"
+    sed 's/^/    /' "$RECORD_OUT"
+    check "the record is ASCII" "$(yn [ "$(LC_ALL=C tr -cd '\200-\377' <"$RECORD_OUT" | wc -c)" -eq 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "size log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## toolchain
+rustc 1.98.1 (48a229cea 2026-09-01)
+cargo 1.98.1 (797e8a9bc 2026-08-05)
+installed targets for the pinned toolchain:
+    i686-unknown-linux-musl
+    x86_64-unknown-linux-gnu
+
+## manifests at 2845fab9ba5ebbea759313de66c7eda2699b84e6
+Cargo.toml (sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98):
+    [workspace]
+    resolver = "3"
+    members = ["tools/passthrough", "tools/size-probe", "tools/xlsx-diff"]
+    
+    [workspace.package]
+    edition = "2024"
+    license = "MIT OR Apache-2.0"
+    
+    # The size baseline (specs/0006-passthrough.md, "Size baseline"): stripped,
+    # size-optimised release builds of tools/size-probe for i686 musl.
+    [profile.size]
+    inherits = "release"
+    opt-level = "z"
+    lto = "fat"
+    codegen-units = 1
+    panic = "abort"
+    strip = true
+    debug = false
+tools/size-probe/Cargo.toml (sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f):
+    [package]
+    name = "size-probe"
+    version = "0.1.0"
+    edition.workspace = true
+    license.workspace = true
+    publish = false
+    
+    [dependencies]
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    quick-xml = { version = "=0.42.0", default-features = false, optional = true }
+    
+    [features]
+    # Enables quick-xml, for probe-zip-xml only; probe-zip is built without it.
+    xml = ["dep:quick-xml"]
+    
+    [[bin]]
+    name = "probe-zip"
+    path = "src/bin/probe-zip.rs"
+    
+    [[bin]]
+    name = "probe-zip-xml"
+    path = "src/bin/probe-zip-xml.rs"
+    required-features = ["xml"]
+Cargo.lock: zip 8.6.0; quick-xml 0.42.0
+zip in Cargo.lock is 8.6.0: yes
+quick-xml in Cargo.lock is 0.42.0: yes
+
+## dependency trees and features
+command: cargo tree -p size-probe  -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+command: cargo tree -p size-probe  -e features --prefix none --target i686-unknown-linux-musl --offline (zip and quick-xml feature lines)
+    zip feature "_deflate-any"
+    zip feature "deflate-flate2"
+    zip feature "deflate-flate2-zlib-rs"
+    zip feature "flate2"
+    zip v8.6.0
+    zip v8.6.0 (*)
+command: cargo tree -p size-probe --features xml -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+command: cargo tree -p size-probe --features xml -e features --prefix none --target i686-unknown-linux-musl --offline (zip and quick-xml feature lines)
+    quick-xml v0.42.0
+    zip feature "_deflate-any"
+    zip feature "deflate-flate2"
+    zip feature "deflate-flate2-zlib-rs"
+    zip feature "flate2"
+    zip v8.6.0
+    zip v8.6.0 (*)
+without the xml feature quick-xml is not in the tree: yes
+with the xml feature quick-xml v0.42.0 is in the tree: yes
+
+## size builds for i686-unknown-linux-musl
+command: cargo clean -p size-probe --profile size --target i686-unknown-linux-musl
+         Removed 8 files, 1.0MiB total
+command: cargo build -p size-probe --bin probe-zip --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+both size builds exit 0: yes
+target/i686-unknown-linux-musl/size/probe-zip: 473636 bytes; sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724; ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+target/i686-unknown-linux-musl/size/probe-zip-xml: 539172 bytes; sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c; ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+difference (probe-zip-xml minus probe-zip): 65536 bytes
+probe-zip is a stripped static i386 ELF: yes
+probe-zip-xml is a stripped static i386 ELF: yes
+
+## the probes on a generated archive
+probe-zip <scratch>/probe.zip: exit 0
+    entries 2
+probe-zip-xml <scratch>/probe.zip xl/workbook.xml: exit 0
+    entries 2
+    elements 4
+probe-zip-xml <scratch>/probe.zip missing.xml: exit 2
+    error: no readable entry of that name
+probe-zip prints the entry count: yes
+probe-zip-xml prints the entry and element counts: yes
+probe-zip-xml exits 2 for a missing entry: yes
+
+## the size record written to <scratch> (committed as records/size-baseline-2026-09-15-2845fab.md)
+    # Size baseline 2026-09-15-2845fab
+    
+    The stripped `i686-unknown-linux-musl` sizes of the two size probes
+    (`specs/0006-passthrough.md`, "Size baseline"), measured by
+    `records/logs/t3-p2/size.log`. Milestone 1 measures emend's core as its
+    increase over `probe-zip-xml` built the same way (maintainer ruling 4,
+    `specs/0000-step-zero-plan.md`).
+    
+    - Commit: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+    - Date: 2026-09-15 (UTC)
+    - Toolchain: rustc 1.98.1 (48a229cea 2026-09-01); cargo 1.98.1 (797e8a9bc 2026-08-05)
+    - Target: i686-unknown-linux-musl
+    - Profile: `size` in the workspace `Cargo.toml` (inherits release,
+      opt-level "z", lto "fat", codegen-units 1, panic "abort", strip true,
+      debug false)
+    - `zip` 8.6.0, `default-features = false`, features
+      `deflate-flate2-zlib-rs` (as `xlsx-diff`)
+    - `quick-xml` 0.42.0, `default-features = false`, no features, behind
+      the `size-probe` feature `xml`, which only `probe-zip-xml` requires
+    
+    | Binary | What it does | Bytes |
+    | --- | --- | --- |
+    | `probe-zip` | opens an archive with `zip`, prints the entry count | 473636 |
+    | `probe-zip-xml` | the same, then parses one entry with `quick-xml` in streaming mode and prints the element count | 539172 |
+    | difference | what `quick-xml` and the parse add | 65536 |
+    
+    The dependency trees and features are listed in size.log; the licence of
+    every package in the tree, `quick-xml` included, passes the gate's
+    licences step (`records/logs/t3-p2/gate.log`).
+the record is ASCII: yes
+status after the run (expect empty): : yes
+run ended at 2026-09-15T22:10:08Z
+size log checks all as expected: yes

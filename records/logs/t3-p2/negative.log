@@ -1,0 +1,956 @@
+about: T3 P2 phase commit 2845fab9ba5ebbea759313de66c7eda2699b84e6; HEAD at run: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+phase: T3 P2 (specs/0006-passthrough.md) negative.log; run at 2026-09-15T22:09:27Z
+The scratch corpus, the scratch clone and every run output live under <scratch> and are deleted on exit.
+fixture strings counted in every captured output and written file: 4 (random sentinels for original_name, note and content, and the content phrase; all built at run time; values never printed)
+
+## script
+    #!/usr/bin/env bash
+    # T3 P2 negative.log (specs/0006-passthrough.md, P2, with planning's rulings of
+    # 2026-09-15 on the sleep-copying fault and the quick-xml defaults case). The
+    # runner and the record script on a scratch corpus built under <scratch> and
+    # reached through the EMEND_CORPUS_DIR override, with the host and the
+    # i686-unknown-linux-musl builds of passthrough and xlsx-diff, into one run
+    # directory. The manifest's original_name and note columns carry random
+    # sentinels that must never appear in anything the runner or the record
+    # script prints or writes.
+    #   cases 1 to 7, for each label: the P1 cases (normal, sleep under
+    #           --timeout 2, panic, abort, exit3, alloc under --memory 256, the
+    #           fault variable without the allow variable);
+    #   case 8, for each label: sleep-copying under --timeout 2 on a large
+    #           generated archive: timeout, leftover yes, no temporary file and
+    #           no surviving process;
+    #   case 9 and case 10 (host): a run directory that cannot be created; an id
+    #           already in the summary;
+    #   case 11: the record script over the run directory, merging both labels;
+    #   case 12: the record script over a copy holding only the host label:
+    #           refused without --allow-single, written with it;
+    #   case 13: probe-zip-xml built with quick-xml's default features on, in a
+    #           scratch clone, against the default-features = false build of the
+    #           phase commit (planning: expected delta 0 bytes, since the
+    #           default feature set is empty).
+    # Each check is evaluated once, and a check with more than one condition is
+    # evaluated inside one function. Every captured output is counted for the
+    # sentinels, the scratch path, control bytes and non-ASCII bytes.
+    # Usage: t3p2-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t3-p2/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset PASSTHROUGH_FAULT PASSTHROUGH_FAULT_ALLOWED EMEND_CORPUS_DIR CARGO_TARGET_DIR
+    G=/usr/bin/grep
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    I686=i686-unknown-linux-musl
+    RUNNER=scripts/passthrough-run.sh
+    RECORD=scripts/passthrough-record.py
+    LABELS=(host i686)
+    declare -A PT=([host]=target/debug/passthrough [i686]=target/$I686/debug/passthrough)
+    declare -A XD=([host]=target/debug/xlsx-diff [i686]=target/$I686/debug/xlsx-diff)
+    
+    # The binaries are built from the working tree, so the run starts only at the
+    # phase commit with a clean tree.
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
+    S_NAME="zq$(rnd 'a-z0-9' 14)"
+    S_NOTE="zq$(rnd 'a-z0-9' 14)"
+    S_CONTENT="zq$(rnd 'a-z0-9' 14)"
+    PHRASE="fictional neg""ative content"
+    FORBIDDEN=("$S_NAME" "$S_NOTE" "$S_CONTENT" "$PHRASE")
+    CORPUS=$BASE/corpus
+    CASES=(normal sleep panic abort exit3 alloc unguarded copying)
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$@" | awk -F: '{ n += $NF } END { print n + 0 }'; }
+    count_path() { LC_ALL=C "$G" -a -c -F -e "$BASE" "$@" | awk -F: '{ n += $NF } END { print n + 0 }'; }
+    ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
+    nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # all_zero <n>...: every count given is 0.
+    all_zero() { local v; for v in "$@"; do [ "$v" -eq 0 ] || return 1; done; }
+    id_of() { tr -d '\n' <"$CORPUS/ids-$1"; }
+    # field <summary file> <id> <column name>: one column of the summary row for id.
+    field() {
+      awk -F'\t' -v id="$2" -v name="$3" 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next } $1 == id { print $col[name] }' "$1"
+    }
+    # summary_is <label> <id> <outcome> <exit> <signal> <diff_exit> <leftover>: the
+    # one summary row for id in that label's summary has exactly these values.
+    summary_is() {
+      local s=$RUNS_DIR/summary.$1.tsv
+      [ "$(awk -F'\t' -v id="$2" '$1 == id' "$s" | wc -l)" -eq 1 ] &&
+        [ "$(field "$s" "$2" outcome)" = "$3" ] &&
+        [ "$(field "$s" "$2" exit)" = "$4" ] &&
+        [ "$(field "$s" "$2" signal)" = "$5" ] &&
+        [ "$(field "$s" "$2" diff_exit)" = "$6" ] &&
+        [ "$(field "$s" "$2" leftover)" = "$7" ]
+    }
+    # stdout_is <file> <label> <id> <outcome> <diff exit>: the runner printed
+    # exactly one file line for id with that outcome and diff exit, a wall time
+    # and RSS field of the right shape, and a count line for one file.
+    stdout_is() {
+      [ "$(wc -l <"$1")" -eq 2 ] &&
+        LC_ALL=C "$G" -q -x -E "$3 $2 $4 $5 ([0-9]+[.][0-9]{2}|-) ([0-9]+|-)" "$1" &&
+        [ "$(tail -n 1 "$1" | cut -d' ' -f1-2)" = "files 1" ]
+    }
+    # alloc_recorded <label> <id>: error with exit 2, or crash with a signal or an
+    # exit; no diff exit; leftover no.
+    alloc_recorded() {
+      local s=$RUNS_DIR/summary.$1.tsv o
+      o=$(field "$s" "$2" outcome)
+      { [ "$o" = error ] && [ "$(field "$s" "$2" exit)" = 2 ]; } ||
+        { [ "$o" = crash ] && [ -n "$(field "$s" "$2" signal)$(field "$s" "$2" exit)" ]; } || return 1
+      [ -z "$(field "$s" "$2" diff_exit)" ] && [ "$(field "$s" "$2" leftover)" = no ]
+    }
+    # no_temporary <label> <id>: no temporary file of the tool is left in the id's
+    # run subdirectory.
+    no_temporary() { [ -z "$(find "$RUNS_DIR/$2" -name ".out.$1.xlsx.passthrough-*.tmp" -print -quit)" ]; }
+    # md_heading <file> <line>: the file holds that exact line.
+    md_heading() { LC_ALL=C "$G" -q -x -F -e "$2" "$1"; }
+    # outcome_row <file> <label> <cells>: the files-by-outcome row for the label.
+    outcome_row() { LC_ALL=C "$G" -q -x -F -e "| $2 | $3 |" "$1"; }
+    # md_total <file> <label> <entries>: the label's family table total counts that
+    # many entries.
+    md_total() {
+      awk -v h="## Entries by part family: $2" -v n="$3" '$0 == h { on = 1; next } on && /^## / { exit } on && $0 ~ "^\\| total \\| " n " \\|" { found = 1 } END { exit !found }' "$1"
+    }
+    # single_written <dir> <exit>: exit 0 and exactly two files written (the .md and
+    # the .tsv).
+    single_written() { [ "$2" -eq 0 ] && [ "$(ls -A "$1" | wc -l)" -eq 2 ]; }
+    # refused_single <err file> <exit>: exit 2 and exactly the refusal line.
+    refused_single() {
+      [ "$2" -eq 2 ] && [ "$(cat "$1")" = "error: the run directory has only the host label; give --allow-single for a single-label record" ]
+    }
+    
+    echo "about: T3 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 P2 (specs/0006-passthrough.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "The scratch corpus, the scratch clone and every run output live under <scratch> and are deleted on exit."
+    echo "fixture strings counted in every captured output and written file: ${#FORBIDDEN[@]} (random sentinels for original_name, note and content, and the content phrase; all built at run time; values never printed)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x %s y\n' "$BASE" >"$BASE/ctl-path"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "lines with the scratch path in a file holding it once" "$(count_path "$BASE/ctl-path")" 1
+    ctl "lines with a fixture string over two files holding them" "$(count_forbidden "$BASE/ctl-forbidden" "$BASE/ctl-forbidden")" "$((2 * ${#FORBIDDEN[@]}))"
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    ctl "control and non-ASCII bytes in a clean file" "$(($(ctrl_bytes "$BASE/ctl-clean") + $(nonascii_bytes "$BASE/ctl-clean")))" 0
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p passthrough -p xlsx-diff"
+    cargo build -p passthrough -p xlsx-diff >"$BASE/build-host.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "host build exit 0" "$(is [ "$RC" -eq 0 ])"
+    echo "command: cargo build -p passthrough -p xlsx-diff --target $I686"
+    cargo build -p passthrough -p xlsx-diff --target "$I686" >"$BASE/build-i686.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "i686 build exit 0" "$(is [ "$RC" -eq 0 ])"
+    for label in "${LABELS[@]}"; do
+      echo "  $label binaries: $(file -b "${PT[$label]}" | cut -d, -f1-2); $(file -b "${XD[$label]}" | cut -d, -f1-2)"
+    done
+    
+    echo
+    echo "## scratch corpus"
+    mkdir -m 700 "$CORPUS" "$CORPUS/corpus"
+    cat >"$BASE/gen.py" <<'PY'
+    import hashlib, os, random, sys, zipfile
+    corpus, s_name, s_note, s_content, phrase = sys.argv[1:6]
+    cases = ("normal", "sleep", "panic", "abort", "exit3", "alloc", "unguarded", "copying")
+    parts = (
+        "[Content_Types].xml", "_rels/.rels", "docProps/app.xml", "xl/workbook.xml",
+        "xl/_rels/workbook.xml.rels", "xl/worksheets/sheet1.xml", "xl/styles.xml", "xl/sharedStrings.xml",
+    )
+    header = ["id", "sha256", "bytes", "ext", "producer", "producer_version", "app", "source", "tags", "added", "original_name", "note"]
+    rows = ["\t".join(header)]
+    rng = random.Random(7)
+    for case in cases:
+        path = os.path.join(corpus, "work.zip")
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for part in parts:
+                info = zipfile.ZipInfo(part, date_time=(2026, 1, 2, 3, 4, 6))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                body = "".join("%s %s %s row %d\n" % (phrase, case, s_content, i) for i in range(30))
+                z.writestr(info, body)
+            if case == "copying":
+                # The large archive: eight stored parts of pseudo-random bytes.
+                for k in range(8):
+                    info = zipfile.ZipInfo("xl/media/image%d.bin" % k, date_time=(2026, 1, 2, 3, 4, 6))
+                    info.compress_type = zipfile.ZIP_STORED
+                    info.external_attr = 0o100644 << 16
+                    z.writestr(info, rng.randbytes(4 << 20))
+        data = open(path, "rb").read()
+        os.remove(path)
+        sha = hashlib.sha256(data).hexdigest()
+        ident = sha[:12]
+        target = os.path.join(corpus, "corpus", ident + ".xlsx")
+        with open(target, "wb") as handle:
+            handle.write(data)
+        os.chmod(target, 0o600)
+        rows.append("\t".join([ident, sha, str(len(data)), "xlsx", "libreoffice", "unknown", "none", "maintainer",
+                               "plain,strings", "2026-09-15", "%s-%s.xlsx" % (s_name, case), "%s %s note" % (s_note, case)]))
+        with open(os.path.join(corpus, "ids-" + case), "w") as handle:
+            handle.write(ident + "\n")
+        print("%s: id %s, %d bytes, zipfile testzip %s" % (case, ident, len(data),
+              "ok" if zipfile.ZipFile(target).testzip() is None else "failed"))
+    with open(os.path.join(corpus, "manifest.tsv"), "w") as handle:
+        handle.write("\n".join(rows) + "\n")
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch>/corpus <sentinel> <sentinel> <sentinel> <phrase>"
+    python3 "$BASE/gen.py" "$CORPUS" "$S_NAME" "$S_NOTE" "$S_CONTENT" "$PHRASE" >"$BASE/gen.out" 2>&1
+    RC=$?
+    echo "  exit: $RC"
+    hide <"$BASE/gen.out" | sed 's/^/    /'
+    note "gen.py exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "eight workbooks, every entry readable by zipfile" "$(is [ "$(LC_ALL=C "$G" -c -E '^[a-z0-9]+: id [0-9a-f]{12}, [0-9]+ bytes, zipfile testzip ok$' "$BASE/gen.out")" = 8 ])"
+    note "the copying workbook is over 32 MiB" "$(is [ "$(stat -c %s "$CORPUS/corpus/$(id_of copying).xlsx")" -gt 33554432 ])"
+    note "manifest: a header and eight rows of twelve columns" "$(is [ "$(awk -F'\t' 'NF == 12' "$CORPUS/manifest.tsv" | wc -l)" = 9 ])"
+    note "the name sentinel is in the original_name column of all eight rows and not in the header" "$(is [ "$(LC_ALL=C "$G" -c -F -e "$S_NAME" "$CORPUS/manifest.tsv")" = 8 ])"
+    note "the note sentinel is in the note column of all eight rows and not in the header" "$(is [ "$(LC_ALL=C "$G" -c -F -e "$S_NOTE" "$CORPUS/manifest.tsv")" = 8 ])"
+    for case in "${CASES[@]}"; do echo "  id for case $case: $(id_of "$case")"; done
+    
+    RUNNER_OUTS=()
+    # run_case <name> <label> <env assignments...> -- <runner arguments...>
+    run_case() {
+      local name=$1 label=$2 start end fb p c n r
+      shift 2
+      local envs=()
+      while [ "$1" != -- ]; do envs+=("$1"); shift; done
+      shift
+      echo "command: env EMEND_CORPUS_DIR=<scratch>/corpus${envs[*]:+ ${envs[*]}} $RUNNER --label $label --passthrough ${PT[$label]} --xlsx-diff ${XD[$label]} $*" | hide
+      start=$(date +%s)
+      env EMEND_CORPUS_DIR="$CORPUS" "${envs[@]}" "$RUNNER" --label "$label" --passthrough "${PT[$label]}" --xlsx-diff "${XD[$label]}" "$@" \
+        >"$BASE/$name.out" 2>"$BASE/$name.err" </dev/null
+      RC=$?
+      end=$(date +%s)
+      echo "  stdout:"
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  stderr:"
+      hide <"$BASE/$name.err" | sed 's/^/    /'
+      echo "  exit: $RC; runner seconds: $((end - start))"
+      RUNNER_OUTS+=("$BASE/$name.out" "$BASE/$name.err")
+      fb=$(count_forbidden "$BASE/$name.out" "$BASE/$name.err")
+      p=$(count_path "$BASE/$name.out" "$BASE/$name.err")
+      c=$(ctrl_bytes "$BASE/$name.out" "$BASE/$name.err")
+      n=$(nonascii_bytes "$BASE/$name.out" "$BASE/$name.err")
+      r=$(is all_zero "$fb" "$p" "$c" "$n")
+      echo "  runner output: lines with a fixture string=$fb, lines with the scratch path=$p, control bytes=$c, non-ASCII bytes=$n (expect 0, 0, 0 and 0): $r"
+      [ "$r" = as-expected ] || fail=1
+      SECONDS_TAKEN=$((end - start))
+    }
+    survivors() { sleep 1; pgrep -f -c -- "$BASE"; }
+    
+    RUNS_DIR=$CORPUS/runs/$(date -u +%Y-%m-%d)-$(git rev-parse --short HEAD)
+    ENTRY_ROWS=0
+    for label in "${LABELS[@]}"; do
+      echo
+      echo "## case 1 ($label): a normal file"
+      run_case "normal-$label" "$label" -- --ids "$CORPUS/ids-normal"
+      ID=$(id_of normal)
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "the run directory is <corpus>/runs/<utc-date>-<shortsha of HEAD>" "$(is [ -d "$RUNS_DIR" ])"
+      "${XD[$label]}" "$CORPUS/corpus/$ID.xlsx" "$RUNS_DIR/$ID/out.$label.xlsx" >"$BASE/by-hand-$label.tsv" 2>/dev/null </dev/null
+      HAND=$?
+      n=$(LC_ALL=C "$G" -c -P '^entry\t' "$BASE/by-hand-$label.tsv")
+      ENTRY_ROWS=$((ENTRY_ROWS + n))
+      echo "  xlsx-diff ($label) run by hand on the same pair: exit $HAND; entry rows $n"
+      note "summary row: ok, exit 0, no signal, diff exit as by hand, leftover no" "$(is summary_is "$label" "$ID" ok 0 "" "$HAND" no)"
+      note "runner stdout: the file line and the count line" "$(is stdout_is "$BASE/normal-$label.out" "$label" "$ID" ok "$HAND")"
+      note "entries.$label.tsv rows equal the by-hand rows after the prefix" "$(is cmp -s <(awk -F'\t' 'NR > 1 { sub(/^[^\t]*\t[^\t]*\t/, ""); print }' "$RUNS_DIR/entries.$label.tsv") <(LC_ALL=C "$G" -P '^entry\t' "$BASE/by-hand-$label.tsv"))"
+    
+      echo
+      echo "## case 2 ($label): sleep with --timeout 2"
+      run_case "sleep-$label" "$label" PASSTHROUGH_FAULT=sleep PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-sleep" --timeout 2
+      ID=$(id_of sleep)
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: timeout, exit 124, signal 9, no diff exit, leftover no" "$(is summary_is "$label" "$ID" timeout 124 9 "" no)"
+      note "the runner took under 10 s: $SECONDS_TAKEN" "$(is [ "$SECONDS_TAKEN" -lt 10 ])"
+      s=$(survivors)
+      note "processes whose command line holds the scratch path, 1 s later: $s (expect 0)" "$(is [ "$s" -eq 0 ])"
+    
+      echo
+      echo "## case 3 ($label): panic"
+      run_case "panic-$label" "$label" PASSTHROUGH_FAULT=panic PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-panic"
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: panic, exit 101, no signal, no diff exit, leftover no" "$(is summary_is "$label" "$(id_of panic)" panic 101 "" "" no)"
+    
+      echo
+      echo "## case 4 ($label): abort"
+      run_case "abort-$label" "$label" PASSTHROUGH_FAULT=abort PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-abort"
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: crash, no exit, signal 6, no diff exit, leftover no" "$(is summary_is "$label" "$(id_of abort)" crash "" 6 "" no)"
+    
+      echo
+      echo "## case 5 ($label): exit3"
+      run_case "exit3-$label" "$label" PASSTHROUGH_FAULT=exit3 PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-exit3"
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: crash, exit 3, no signal, no diff exit, leftover no" "$(is summary_is "$label" "$(id_of exit3)" crash 3 "" "" no)"
+    
+      echo
+      echo "## case 6 ($label): alloc with --memory 256"
+      run_case "alloc-$label" "$label" PASSTHROUGH_FAULT=alloc PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-alloc" --memory 256
+      ID=$(id_of alloc)
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      echo "  recorded: outcome $(field "$RUNS_DIR/summary.$label.tsv" "$ID" outcome); exit '$(field "$RUNS_DIR/summary.$label.tsv" "$ID" exit)'; signal '$(field "$RUNS_DIR/summary.$label.tsv" "$ID" signal)'"
+      note "summary row: error with exit 2, or crash with a signal or an exit; no diff exit; leftover no" "$(is alloc_recorded "$label" "$ID")"
+    
+      echo
+      echo "## case 7 ($label): the fault variable without PASSTHROUGH_FAULT_ALLOWED"
+      run_case "unguarded-$label" "$label" PASSTHROUGH_FAULT=exit3 -- --ids "$CORPUS/ids-unguarded"
+      ID=$(id_of unguarded)
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: error, exit 2, no signal, no diff exit, leftover no" "$(is summary_is "$label" "$ID" error 2 "" "" no)"
+      note "the child's stderr is the refusal line" "$(is [ "$(cat "$RUNS_DIR/$ID/stderr.$label.txt")" = "error: PASSTHROUGH_FAULT is set without PASSTHROUGH_FAULT_ALLOWED=1 (test-only)" ])"
+    
+      echo
+      echo "## case 8 ($label): sleep-copying with --timeout 2 on the large archive"
+      run_case "copying-$label" "$label" PASSTHROUGH_FAULT=sleep-copying PASSTHROUGH_FAULT_ALLOWED=1 -- --ids "$CORPUS/ids-copying" --timeout 2
+      ID=$(id_of copying)
+      note "runner exit 0" "$(is [ "$RC" -eq 0 ])"
+      note "summary row: timeout, exit 124, signal 9, no diff exit, leftover yes" "$(is summary_is "$label" "$ID" timeout 124 9 "" yes)"
+      note "runner stdout: the file line and the count line" "$(is stdout_is "$BASE/copying-$label.out" "$label" "$ID" timeout -)"
+      note "no temporary file of the tool left in the run subdirectory" "$(is no_temporary "$label" "$ID")"
+      note "no output file" "$(is [ ! -e "$RUNS_DIR/$ID/out.$label.xlsx" ])"
+      note "the runner took under 10 s: $SECONDS_TAKEN" "$(is [ "$SECONDS_TAKEN" -lt 10 ])"
+      s=$(survivors)
+      note "processes whose command line holds the scratch path, 1 s later: $s (expect 0)" "$(is [ "$s" -eq 0 ])"
+    done
+    
+    echo
+    echo "## case 9 (host): a run directory that cannot be created"
+    : >"$BASE/blocker"
+    run_case no-out-dir host -- --ids "$CORPUS/ids-normal" --out "$BASE/blocker/run"
+    note "runner exit 2" "$(is [ "$RC" -eq 2 ])"
+    note "stdout is empty" "$(is [ ! -s "$BASE/no-out-dir.out" ])"
+    note "stderr is exactly the error line" "$(is [ "$(cat "$BASE/no-out-dir.err")" = "error: cannot create the run directory" ])"
+    
+    echo
+    echo "## case 10 (host): an id that already has a summary row in the run directory"
+    BEFORE=$(sha256sum <"$RUNS_DIR/summary.host.tsv" | cut -d' ' -f1)
+    run_case again host -- --ids "$CORPUS/ids-normal"
+    note "runner exit 2" "$(is [ "$RC" -eq 2 ])"
+    note "stdout is empty" "$(is [ ! -s "$BASE/again.out" ])"
+    note "stderr is exactly the refusal line" "$(is [ "$(cat "$BASE/again.err")" = "error: id $(id_of normal) already has a row in summary.host.tsv; use a new run directory" ])"
+    note "summary.host.tsv unchanged" "$(is [ "$(sha256sum <"$RUNS_DIR/summary.host.tsv" | cut -d' ' -f1)" = "$BEFORE" ])"
+    
+    echo
+    echo "## the run directory after the runs"
+    echo "  files (names relative to the run directory):"
+    (cd "$RUNS_DIR" && find . -type f | sort) | sed 's/^/    /'
+    for label in "${LABELS[@]}"; do
+      echo "  summary.$label.tsv:"
+      hide <"$RUNS_DIR/summary.$label.tsv" | sed 's/^/    /'
+      note "summary.$label.tsv: a header and eight rows" "$(is [ "$(wc -l <"$RUNS_DIR/summary.$label.tsv")" = 9 ])"
+    done
+    mapfile -t TEXTS < <(find "$RUNS_DIR" -type f ! -name 'out.*' | sort)
+    fb=$(count_forbidden "${TEXTS[@]}")
+    note "text files in the run directory (${#TEXTS[@]}, copies excluded): lines with a fixture string=$fb (expect 0)" "$(is [ "$fb" -eq 0 ])"
+    nt=$(find "$RUNS_DIR" -name '.*.tmp' | wc -l)
+    note "temporary files anywhere in the run directory: $nt (expect 0)" "$(is [ "$nt" -eq 0 ])"
+    
+    echo
+    echo "## case 11: the record script over the run directory, both labels"
+    mkdir "$BASE/record"
+    echo "command: python3 $RECORD --run <scratch>/corpus/runs/$(basename "$RUNS_DIR") --out <scratch>/record"
+    python3 "$RECORD" --run "$RUNS_DIR" --out "$BASE/record" >"$BASE/record.out" 2>"$BASE/record.err" </dev/null
+    RC=$?
+    echo "  stdout:"
+    hide <"$BASE/record.out" | sed 's/^/    /'
+    echo "  stderr:"
+    hide <"$BASE/record.err" | sed 's/^/    /'
+    echo "  exit: $RC"
+    STEM=step0-$(basename "$RUNS_DIR")
+    MD=$BASE/record/$STEM.md
+    TSV=$BASE/record/$STEM.tsv
+    note "record exit 0" "$(is [ "$RC" -eq 0 ])"
+    echo "  $STEM.md:"
+    hide <"$MD" | sed 's/^/    /'
+    echo "  $STEM.tsv: $(wc -l <"$TSV") lines"
+    for label in "${LABELS[@]}"; do
+      note "md: the files-by-outcome row for $label (8 files: 1 ok, 1 error, 2 timeout, 1 panic, 3 crash; 1 leftover)" "$(is outcome_row "$MD" "$label" "8 | 1 | 1 | 2 | 1 | 3 | 1")"
+      note "md: the family table heading for $label" "$(is md_heading "$MD" "## Entries by part family: $label")"
+      note "md: the $label family table total counts 8 entries" "$(is md_total "$MD" "$label" 8)"
+    done
+    nonok=$(awk '/^## Files not ok/ { on = 1; next } on && /^\| [0-9a-f]{12} \|/ { print $2 "/" $4 }' "$MD" | sort | tr '\n' ' ')
+    want=$(for label in "${LABELS[@]}"; do for case in sleep panic abort exit3 alloc unguarded copying; do echo "$(id_of "$case")/$label"; done; done | sort | tr '\n' ' ')
+    echo "  id/label pairs in the non-ok list: $nonok"
+    note "md: the non-ok list holds exactly the seven fault cases of each label" "$(is [ "$nonok" = "$want" ])"
+    note "md: the copying rows show leftover yes" "$(is [ "$(LC_ALL=C "$G" -c -E "^\\| $(id_of copying) \\| (host|i686) \\| .* \\| timeout \\| 124 \\| 9 \\| - \\| yes \\|" "$MD")" = 2 ])"
+    note "tsv: a summary header, 16 rows, a blank line, an entries header and the $ENTRY_ROWS entry rows" "$(is [ "$(wc -l <"$TSV")" = $((1 + 16 + 1 + 1 + ENTRY_ROWS)) ])"
+    fb=$(count_forbidden "$MD" "$TSV" "$BASE/record.out" "$BASE/record.err")
+    p=$(count_path "$MD" "$TSV" "$BASE/record.out" "$BASE/record.err")
+    c=$(ctrl_bytes "$MD" "$TSV" "$BASE/record.out" "$BASE/record.err")
+    n=$(nonascii_bytes "$MD" "$TSV" "$BASE/record.out" "$BASE/record.err")
+    note "record files and output: lines with a fixture string=$fb, with the scratch path=$p, control bytes=$c, non-ASCII bytes=$n (expect 0, 0, 0 and 0)" "$(is all_zero "$fb" "$p" "$c" "$n")"
+    
+    echo
+    echo "## case 12: the record script over a run directory holding only the host label"
+    SINGLE=$BASE/single/$(basename "$RUNS_DIR")
+    mkdir -p "$SINGLE" "$BASE/record-single"
+    cp "$RUNS_DIR"/summary.host.tsv "$RUNS_DIR"/entries.host.tsv "$RUNS_DIR"/run.host.tsv "$SINGLE"/
+    echo "  copied summary.host.tsv, entries.host.tsv and run.host.tsv into <scratch>/single/$(basename "$RUNS_DIR")"
+    echo "command: python3 $RECORD --run <scratch>/single/$(basename "$RUNS_DIR") --out <scratch>/record-single"
+    python3 "$RECORD" --run "$SINGLE" --out "$BASE/record-single" >"$BASE/single.out" 2>"$BASE/single.err" </dev/null
+    RC=$?
+    echo "  stdout:"
+    hide <"$BASE/single.out" | sed 's/^/    /'
+    echo "  stderr:"
+    hide <"$BASE/single.err" | sed 's/^/    /'
+    echo "  exit: $RC"
+    note "refused: exit 2 and exactly the refusal line" "$(is refused_single "$BASE/single.err" "$RC")"
+    note "nothing written" "$(is [ -z "$(ls -A "$BASE/record-single")" ])"
+    echo "command: python3 $RECORD --run <scratch>/single/$(basename "$RUNS_DIR") --out <scratch>/record-single --allow-single"
+    python3 "$RECORD" --run "$SINGLE" --out "$BASE/record-single" --allow-single >"$BASE/single2.out" 2>"$BASE/single2.err" </dev/null
+    RC=$?
+    echo "  stdout:"
+    hide <"$BASE/single2.out" | sed 's/^/    /'
+    echo "  stderr:"
+    hide <"$BASE/single2.err" | sed 's/^/    /'
+    echo "  exit: $RC"
+    note "with --allow-single: exit 0 and the .md and .tsv written" "$(is single_written "$BASE/record-single" "$RC")"
+    note "the single-label md has the host family table and no i686 table" "$(is [ "$(LC_ALL=C "$G" -c -E '^## Entries by part family: (host|i686)$' "$BASE/record-single/$STEM.md")" = 1 ])"
+    
+    echo
+    echo "## case 13: probe-zip-xml with quick-xml's default features on (planning ruling: expected delta 0 bytes)"
+    echo "command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target $I686 --offline (phase commit, main tree)"
+    cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target "$I686" --offline >"$BASE/size-main.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "main tree size build exit 0" "$(is [ "$RC" -eq 0 ])"
+    MAIN_BIN=target/$I686/size/probe-zip-xml
+    MAIN_SIZE=$(stat -c %s "$MAIN_BIN")
+    echo "  default-features = false build: $MAIN_SIZE bytes"
+    echo "command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet $C"
+    git clone --quiet --no-hardlinks "$(pwd)" "$BASE/clone" >/dev/null 2>&1 && git -C "$BASE/clone" checkout --quiet "$C" 2>/dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "scratch clone at the phase commit" "$(is [ "$(git -C "$BASE/clone" rev-parse HEAD)" = "$C" ])"
+    sed -i 's/^quick-xml = { version = "=0.42.0", default-features = false, optional = true }$/quick-xml = { version = "=0.42.0", optional = true }/' "$BASE/clone/tools/size-probe/Cargo.toml"
+    echo "  the clone's quick-xml line after the edit:"
+    LC_ALL=C "$G" -E '^quick-xml = ' "$BASE/clone/tools/size-probe/Cargo.toml" | sed 's/^/    /'
+    note "the clone's quick-xml dependency no longer turns the default features off" "$(is [ "$(LC_ALL=C "$G" -c -x -F -e 'quick-xml = { version = "=0.42.0", optional = true }' "$BASE/clone/tools/size-probe/Cargo.toml")" = 1 ])"
+    echo "command: (cd <scratch>/clone && CARGO_TARGET_DIR=<scratch>/clone-target cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target $I686 --offline)"
+    (cd "$BASE/clone" && CARGO_TARGET_DIR="$BASE/clone-target" cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target "$I686" --offline) >"$BASE/size-clone.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "clone size build exit 0" "$(is [ "$RC" -eq 0 ])"
+    CLONE_SIZE=$(stat -c %s "$BASE/clone-target/$I686/size/probe-zip-xml")
+    echo "  default features on: $CLONE_SIZE bytes; delta $((CLONE_SIZE - MAIN_SIZE)) bytes"
+    echo "command: cargo tree -p size-probe --features xml -e features --prefix none --target $I686 --offline (in the clone), quick-xml feature lines"
+    (cd "$BASE/clone" && cargo tree -p size-probe --features xml -e features --prefix none --target "$I686" --offline 2>/dev/null) | LC_ALL=C "$G" -E '^quick-xml' | sort -u | sed 's/^/    /'
+    note "the defaults cost 0 bytes: sizes equal" "$(is [ "$CLONE_SIZE" -eq "$MAIN_SIZE" ])"
+    note "the main tree is unchanged by the clone build" "$(is [ -z "$(git status --porcelain)" ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 4 (expect 4): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control lines with the scratch path in a file holding it once: 1 (expect 1): as-expected
+  control lines with a fixture string over two files holding them: 8 (expect 8): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+  control control and non-ASCII bytes in a clean file: 0 (expect 0): as-expected
+
+## build
+command: cargo build -p passthrough -p xlsx-diff
+  exit: 0
+  host build exit 0: as-expected
+command: cargo build -p passthrough -p xlsx-diff --target i686-unknown-linux-musl
+  exit: 0
+  i686 build exit 0: as-expected
+  host binaries: ELF 64-bit LSB pie executable, x86-64; ELF 64-bit LSB pie executable, x86-64
+  i686 binaries: ELF 32-bit LSB executable, Intel i386; ELF 32-bit LSB executable, Intel i386
+
+## scratch corpus
+command: python3 <scratch>/gen.py <scratch>/corpus <sentinel> <sentinel> <sentinel> <phrase>
+  exit: 0
+    normal: id 7101dc9a96be, 2022 bytes, zipfile testzip ok
+    sleep: id 524f39ca4008, 2014 bytes, zipfile testzip ok
+    panic: id 229214f838bf, 2014 bytes, zipfile testzip ok
+    abort: id 983bfacc6d52, 2014 bytes, zipfile testzip ok
+    exit3: id f2f6159091cc, 2014 bytes, zipfile testzip ok
+    alloc: id 3901acb84a54, 2014 bytes, zipfile testzip ok
+    unguarded: id 4000929745fe, 2046 bytes, zipfile testzip ok
+    copying: id 35cb6332dfc1, 33557382 bytes, zipfile testzip ok
+  gen.py exit 0: as-expected
+  eight workbooks, every entry readable by zipfile: as-expected
+  the copying workbook is over 32 MiB: as-expected
+  manifest: a header and eight rows of twelve columns: as-expected
+  the name sentinel is in the original_name column of all eight rows and not in the header: as-expected
+  the note sentinel is in the note column of all eight rows and not in the header: as-expected
+  id for case normal: 7101dc9a96be
+  id for case sleep: 524f39ca4008
+  id for case panic: 229214f838bf
+  id for case abort: 983bfacc6d52
+  id for case exit3: f2f6159091cc
+  id for case alloc: 3901acb84a54
+  id for case unguarded: 4000929745fe
+  id for case copying: 35cb6332dfc1
+
+## case 1 (host): a normal file
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal
+  stdout:
+    7101dc9a96be host ok 0 0.10 7968
+    files 1 ok 1 error 0 timeout 0 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  the run directory is <corpus>/runs/<utc-date>-<shortsha of HEAD>: as-expected
+  xlsx-diff (host) run by hand on the same pair: exit 0; entry rows 8
+  summary row: ok, exit 0, no signal, diff exit as by hand, leftover no: as-expected
+  runner stdout: the file line and the count line: as-expected
+  entries.host.tsv rows equal the by-hand rows after the prefix: as-expected
+
+## case 2 (host): sleep with --timeout 2
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-sleep --timeout 2
+  stdout:
+    524f39ca4008 host timeout - 2.00 7748
+    files 1 ok 0 error 0 timeout 1 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 2
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: timeout, exit 124, signal 9, no diff exit, leftover no: as-expected
+  the runner took under 10 s: 2: as-expected
+  processes whose command line holds the scratch path, 1 s later: 0 (expect 0): as-expected
+
+## case 3 (host): panic
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=panic PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-panic
+  stdout:
+    229214f838bf host panic - 0.10 7804
+    files 1 ok 0 error 0 timeout 0 panic 1 crash 0
+  stderr:
+  exit: 0; runner seconds: 1
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: panic, exit 101, no signal, no diff exit, leftover no: as-expected
+
+## case 4 (host): abort
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=abort PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-abort
+  stdout:
+    983bfacc6d52 host crash - 0.10 7608
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: crash, no exit, signal 6, no diff exit, leftover no: as-expected
+
+## case 5 (host): exit3
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-exit3
+  stdout:
+    f2f6159091cc host crash - 0.10 7744
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: crash, exit 3, no signal, no diff exit, leftover no: as-expected
+
+## case 6 (host): alloc with --memory 256
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=alloc PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-alloc --memory 256
+  stdout:
+    3901acb84a54 host crash - 0.10 7504
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  recorded: outcome crash; exit ''; signal '6'
+  summary row: error with exit 2, or crash with a signal or an exit; no diff exit; leftover no: as-expected
+
+## case 7 (host): the fault variable without PASSTHROUGH_FAULT_ALLOWED
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-unguarded
+  stdout:
+    4000929745fe host error - 0.10 7792
+    files 1 ok 0 error 1 timeout 0 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: error, exit 2, no signal, no diff exit, leftover no: as-expected
+  the child's stderr is the refusal line: as-expected
+
+## case 8 (host): sleep-copying with --timeout 2 on the large archive
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep-copying PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-copying --timeout 2
+  stdout:
+    35cb6332dfc1 host timeout - 2.00 7872
+    files 1 ok 0 error 0 timeout 1 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 2
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: timeout, exit 124, signal 9, no diff exit, leftover yes: as-expected
+  runner stdout: the file line and the count line: as-expected
+  no temporary file of the tool left in the run subdirectory: as-expected
+  no output file: as-expected
+  the runner took under 10 s: 2: as-expected
+  processes whose command line holds the scratch path, 1 s later: 0 (expect 0): as-expected
+
+## case 1 (i686): a normal file
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-normal
+  stdout:
+    7101dc9a96be i686 ok 0 0.10 7760
+    files 1 ok 1 error 0 timeout 0 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  the run directory is <corpus>/runs/<utc-date>-<shortsha of HEAD>: as-expected
+  xlsx-diff (i686) run by hand on the same pair: exit 0; entry rows 8
+  summary row: ok, exit 0, no signal, diff exit as by hand, leftover no: as-expected
+  runner stdout: the file line and the count line: as-expected
+  entries.i686.tsv rows equal the by-hand rows after the prefix: as-expected
+
+## case 2 (i686): sleep with --timeout 2
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-sleep --timeout 2
+  stdout:
+    524f39ca4008 i686 timeout - 2.00 7856
+    files 1 ok 0 error 0 timeout 1 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 2
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: timeout, exit 124, signal 9, no diff exit, leftover no: as-expected
+  the runner took under 10 s: 2: as-expected
+  processes whose command line holds the scratch path, 1 s later: 0 (expect 0): as-expected
+
+## case 3 (i686): panic
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=panic PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-panic
+  stdout:
+    229214f838bf i686 panic - 0.10 7772
+    files 1 ok 0 error 0 timeout 0 panic 1 crash 0
+  stderr:
+  exit: 0; runner seconds: 1
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: panic, exit 101, no signal, no diff exit, leftover no: as-expected
+
+## case 4 (i686): abort
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=abort PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-abort
+  stdout:
+    983bfacc6d52 i686 crash - 0.10 7472
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: crash, no exit, signal 6, no diff exit, leftover no: as-expected
+
+## case 5 (i686): exit3
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-exit3
+  stdout:
+    f2f6159091cc i686 crash - 0.10 7976
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: crash, exit 3, no signal, no diff exit, leftover no: as-expected
+
+## case 6 (i686): alloc with --memory 256
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=alloc PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-alloc --memory 256
+  stdout:
+    3901acb84a54 i686 crash - 0.10 7620
+    files 1 ok 0 error 0 timeout 0 panic 0 crash 1
+  stderr:
+  exit: 0; runner seconds: 1
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  recorded: outcome crash; exit ''; signal '6'
+  summary row: error with exit 2, or crash with a signal or an exit; no diff exit; leftover no: as-expected
+
+## case 7 (i686): the fault variable without PASSTHROUGH_FAULT_ALLOWED
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=exit3 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-unguarded
+  stdout:
+    4000929745fe i686 error - 0.10 7764
+    files 1 ok 0 error 1 timeout 0 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: error, exit 2, no signal, no diff exit, leftover no: as-expected
+  the child's stderr is the refusal line: as-expected
+
+## case 8 (i686): sleep-copying with --timeout 2 on the large archive
+command: env EMEND_CORPUS_DIR=<scratch>/corpus PASSTHROUGH_FAULT=sleep-copying PASSTHROUGH_FAULT_ALLOWED=1 scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --ids <scratch>/corpus/ids-copying --timeout 2
+  stdout:
+    35cb6332dfc1 i686 timeout - 2.00 7676
+    files 1 ok 0 error 0 timeout 1 panic 0 crash 0
+  stderr:
+  exit: 0; runner seconds: 2
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 0: as-expected
+  summary row: timeout, exit 124, signal 9, no diff exit, leftover yes: as-expected
+  runner stdout: the file line and the count line: as-expected
+  no temporary file of the tool left in the run subdirectory: as-expected
+  no output file: as-expected
+  the runner took under 10 s: 2: as-expected
+  processes whose command line holds the scratch path, 1 s later: 0 (expect 0): as-expected
+
+## case 9 (host): a run directory that cannot be created
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal --out <scratch>/blocker/run
+  stdout:
+  stderr:
+    error: cannot create the run directory
+  exit: 2; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 2: as-expected
+  stdout is empty: as-expected
+  stderr is exactly the error line: as-expected
+
+## case 10 (host): an id that already has a summary row in the run directory
+command: env EMEND_CORPUS_DIR=<scratch>/corpus scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --ids <scratch>/corpus/ids-normal
+  stdout:
+  stderr:
+    error: id 7101dc9a96be already has a row in summary.host.tsv; use a new run directory
+  exit: 2; runner seconds: 0
+  runner output: lines with a fixture string=0, lines with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+  runner exit 2: as-expected
+  stdout is empty: as-expected
+  stderr is exactly the refusal line: as-expected
+  summary.host.tsv unchanged: as-expected
+
+## the run directory after the runs
+  files (names relative to the run directory):
+    ./229214f838bf/stderr.host.txt
+    ./229214f838bf/stderr.i686.txt
+    ./229214f838bf/stdout.host.txt
+    ./229214f838bf/stdout.i686.txt
+    ./229214f838bf/time.host.txt
+    ./229214f838bf/time.i686.txt
+    ./35cb6332dfc1/stderr.host.txt
+    ./35cb6332dfc1/stderr.i686.txt
+    ./35cb6332dfc1/stdout.host.txt
+    ./35cb6332dfc1/stdout.i686.txt
+    ./35cb6332dfc1/time.host.txt
+    ./35cb6332dfc1/time.i686.txt
+    ./3901acb84a54/stderr.host.txt
+    ./3901acb84a54/stderr.i686.txt
+    ./3901acb84a54/stdout.host.txt
+    ./3901acb84a54/stdout.i686.txt
+    ./3901acb84a54/time.host.txt
+    ./3901acb84a54/time.i686.txt
+    ./4000929745fe/stderr.host.txt
+    ./4000929745fe/stderr.i686.txt
+    ./4000929745fe/stdout.host.txt
+    ./4000929745fe/stdout.i686.txt
+    ./4000929745fe/time.host.txt
+    ./4000929745fe/time.i686.txt
+    ./524f39ca4008/stderr.host.txt
+    ./524f39ca4008/stderr.i686.txt
+    ./524f39ca4008/stdout.host.txt
+    ./524f39ca4008/stdout.i686.txt
+    ./524f39ca4008/time.host.txt
+    ./524f39ca4008/time.i686.txt
+    ./7101dc9a96be/diff-stderr.host.txt
+    ./7101dc9a96be/diff-stderr.i686.txt
+    ./7101dc9a96be/diff.host.tsv
+    ./7101dc9a96be/diff.i686.tsv
+    ./7101dc9a96be/out.host.xlsx
+    ./7101dc9a96be/out.i686.xlsx
+    ./7101dc9a96be/stderr.host.txt
+    ./7101dc9a96be/stderr.i686.txt
+    ./7101dc9a96be/stdout.host.txt
+    ./7101dc9a96be/stdout.i686.txt
+    ./7101dc9a96be/time.host.txt
+    ./7101dc9a96be/time.i686.txt
+    ./983bfacc6d52/stderr.host.txt
+    ./983bfacc6d52/stderr.i686.txt
+    ./983bfacc6d52/stdout.host.txt
+    ./983bfacc6d52/stdout.i686.txt
+    ./983bfacc6d52/time.host.txt
+    ./983bfacc6d52/time.i686.txt
+    ./entries.host.tsv
+    ./entries.i686.tsv
+    ./f2f6159091cc/stderr.host.txt
+    ./f2f6159091cc/stderr.i686.txt
+    ./f2f6159091cc/stdout.host.txt
+    ./f2f6159091cc/stdout.i686.txt
+    ./f2f6159091cc/time.host.txt
+    ./f2f6159091cc/time.i686.txt
+    ./run.host.tsv
+    ./run.i686.tsv
+    ./summary.host.tsv
+    ./summary.i686.tsv
+  summary.host.tsv:
+    id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover
+    7101dc9a96be	host	libreoffice	plain,strings	ok	0		0.10	7968	2022	2022	0	8	0	0	0	0	0	yes	yes	yes	no
+    524f39ca4008	host	libreoffice	plain,strings	timeout	124	9	2.00	7748	2014												no
+    229214f838bf	host	libreoffice	plain,strings	panic	101		0.10	7804	2014												no
+    983bfacc6d52	host	libreoffice	plain,strings	crash		6	0.10	7608	2014												no
+    f2f6159091cc	host	libreoffice	plain,strings	crash	3		0.10	7744	2014												no
+    3901acb84a54	host	libreoffice	plain,strings	crash		6	0.10	7504	2014												no
+    4000929745fe	host	libreoffice	plain,strings	error	2		0.10	7792	2046												no
+    35cb6332dfc1	host	libreoffice	plain,strings	timeout	124	9	2.00	7872	33557382												yes
+  summary.host.tsv: a header and eight rows: as-expected
+  summary.i686.tsv:
+    id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover
+    7101dc9a96be	i686	libreoffice	plain,strings	ok	0		0.10	7760	2022	2022	0	8	0	0	0	0	0	yes	yes	yes	no
+    524f39ca4008	i686	libreoffice	plain,strings	timeout	124	9	2.00	7856	2014												no
+    229214f838bf	i686	libreoffice	plain,strings	panic	101		0.10	7772	2014												no
+    983bfacc6d52	i686	libreoffice	plain,strings	crash		6	0.10	7472	2014												no
+    f2f6159091cc	i686	libreoffice	plain,strings	crash	3		0.10	7976	2014												no
+    3901acb84a54	i686	libreoffice	plain,strings	crash		6	0.10	7620	2014												no
+    4000929745fe	i686	libreoffice	plain,strings	error	2		0.10	7764	2046												no
+    35cb6332dfc1	i686	libreoffice	plain,strings	timeout	124	9	2.00	7676	33557382												yes
+  summary.i686.tsv: a header and eight rows: as-expected
+  text files in the run directory (58, copies excluded): lines with a fixture string=0 (expect 0): as-expected
+  temporary files anywhere in the run directory: 0 (expect 0): as-expected
+
+## case 11: the record script over the run directory, both labels
+command: python3 scripts/passthrough-record.py --run <scratch>/corpus/runs/2026-09-15-2845fab --out <scratch>/record
+  stdout:
+    wrote step0-2026-09-15-2845fab.tsv and step0-2026-09-15-2845fab.md: labels host,i686; files 8,8; entry rows 8,8
+  stderr:
+  exit: 0
+  record exit 0: as-expected
+  step0-2026-09-15-2845fab.md:
+    # step0 passthrough run 2026-09-15-2845fab
+    
+    Written by `scripts/passthrough-record.py` from the run directory `2026-09-15-2845fab` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`).
+    
+    - Record written: 2026-09-15T22:09:46Z
+    - Commit: 2845fab9ba5ebbea759313de66c7eda2699b84e6
+    - Runs: 16, from 2026-09-15T22:09:28Z to 2026-09-15T22:09:44Z
+    - Targets: host, i686
+    - Tool versions: rustc 1.98.1 (48a229cea 2026-09-01); zip 8.6.0
+    - Settings: timeout 300, 2 s; memory 2048, 256 MiB
+    
+    ## Files by outcome
+    
+    | label | files | ok | error | timeout | panic | crash | leftover |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | host | 8 | 1 | 1 | 2 | 1 | 3 | 1 |
+    | i686 | 8 | 1 | 1 | 2 | 1 | 3 | 1 |
+    
+    ## Entries by part family: host
+    
+    | family | entries | identical | recompressed | changed | dropped | added | flagged | mtime | extra | gpflags | descriptor | attrs | comment | local |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+    | content-types | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | rels | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | workbook | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | worksheet | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | sharedStrings | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | styles | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | docProps | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | total | 8 | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    
+    ## Entries by part family: i686
+    
+    | family | entries | identical | recompressed | changed | dropped | added | flagged | mtime | extra | gpflags | descriptor | attrs | comment | local |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+    | content-types | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | rels | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | workbook | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | worksheet | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | sharedStrings | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | styles | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | docProps | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | total | 8 | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    
+    ## Files not ok, with a diff exit other than 0, or with a leftover temporary file
+    
+    | id | label | producer | tags | outcome | exit | signal | diff_exit | leftover | differs from the expectation |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+    | 524f39ca4008 | host | libreoffice | plain,strings | timeout | 124 | 9 | - | no | not compared |
+    | 229214f838bf | host | libreoffice | plain,strings | panic | 101 | - | - | no | not compared |
+    | 983bfacc6d52 | host | libreoffice | plain,strings | crash | - | 6 | - | no | not compared |
+    | f2f6159091cc | host | libreoffice | plain,strings | crash | 3 | - | - | no | not compared |
+    | 3901acb84a54 | host | libreoffice | plain,strings | crash | - | 6 | - | no | not compared |
+    | 4000929745fe | host | libreoffice | plain,strings | error | 2 | - | - | no | not compared |
+    | 35cb6332dfc1 | host | libreoffice | plain,strings | timeout | 124 | 9 | - | yes | not compared |
+    | 524f39ca4008 | i686 | libreoffice | plain,strings | timeout | 124 | 9 | - | no | not compared |
+    | 229214f838bf | i686 | libreoffice | plain,strings | panic | 101 | - | - | no | not compared |
+    | 983bfacc6d52 | i686 | libreoffice | plain,strings | crash | - | 6 | - | no | not compared |
+    | f2f6159091cc | i686 | libreoffice | plain,strings | crash | 3 | - | - | no | not compared |
+    | 3901acb84a54 | i686 | libreoffice | plain,strings | crash | - | 6 | - | no | not compared |
+    | 4000929745fe | i686 | libreoffice | plain,strings | error | 2 | - | - | no | not compared |
+    | 35cb6332dfc1 | i686 | libreoffice | plain,strings | timeout | 124 | 9 | - | yes | not compared |
+  step0-2026-09-15-2845fab.tsv: 35 lines
+  md: the files-by-outcome row for host (8 files: 1 ok, 1 error, 2 timeout, 1 panic, 3 crash; 1 leftover): as-expected
+  md: the family table heading for host: as-expected
+  md: the host family table total counts 8 entries: as-expected
+  md: the files-by-outcome row for i686 (8 files: 1 ok, 1 error, 2 timeout, 1 panic, 3 crash; 1 leftover): as-expected
+  md: the family table heading for i686: as-expected
+  md: the i686 family table total counts 8 entries: as-expected
+  id/label pairs in the non-ok list: 229214f838bf/host 229214f838bf/i686 35cb6332dfc1/host 35cb6332dfc1/i686 3901acb84a54/host 3901acb84a54/i686 4000929745fe/host 4000929745fe/i686 524f39ca4008/host 524f39ca4008/i686 983bfacc6d52/host 983bfacc6d52/i686 f2f6159091cc/host f2f6159091cc/i686 
+  md: the non-ok list holds exactly the seven fault cases of each label: as-expected
+  md: the copying rows show leftover yes: as-expected
+  tsv: a summary header, 16 rows, a blank line, an entries header and the 16 entry rows: as-expected
+  record files and output: lines with a fixture string=0, with the scratch path=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0, 0 and 0): as-expected
+
+## case 12: the record script over a run directory holding only the host label
+  copied summary.host.tsv, entries.host.tsv and run.host.tsv into <scratch>/single/2026-09-15-2845fab
+command: python3 scripts/passthrough-record.py --run <scratch>/single/2026-09-15-2845fab --out <scratch>/record-single
+  stdout:
+  stderr:
+    error: the run directory has only the host label; give --allow-single for a single-label record
+  exit: 2
+  refused: exit 2 and exactly the refusal line: as-expected
+  nothing written: as-expected
+command: python3 scripts/passthrough-record.py --run <scratch>/single/2026-09-15-2845fab --out <scratch>/record-single --allow-single
+  stdout:
+    wrote step0-2026-09-15-2845fab.tsv and step0-2026-09-15-2845fab.md: labels host; files 8; entry rows 8
+  stderr:
+  exit: 0
+  with --allow-single: exit 0 and the .md and .tsv written: as-expected
+  the single-label md has the host family table and no i686 table: as-expected
+
+## case 13: probe-zip-xml with quick-xml's default features on (planning ruling: expected delta 0 bytes)
+command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target i686-unknown-linux-musl --offline (phase commit, main tree)
+  exit: 0
+  main tree size build exit 0: as-expected
+  default-features = false build: 539172 bytes
+command: git clone --quiet --no-hardlinks <repo> <scratch>/clone; git -C <scratch>/clone checkout --quiet 2845fab9ba5ebbea759313de66c7eda2699b84e6
+  exit: 0
+  scratch clone at the phase commit: as-expected
+  the clone's quick-xml line after the edit:
+    quick-xml = { version = "=0.42.0", optional = true }
+  the clone's quick-xml dependency no longer turns the default features off: as-expected
+command: (cd <scratch>/clone && CARGO_TARGET_DIR=<scratch>/clone-target cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target i686-unknown-linux-musl --offline)
+  exit: 0
+  clone size build exit 0: as-expected
+  default features on: 539172 bytes; delta 0 bytes
+command: cargo tree -p size-probe --features xml -e features --prefix none --target i686-unknown-linux-musl --offline (in the clone), quick-xml feature lines
+    quick-xml feature "default"
+    quick-xml v0.42.0
+  the defaults cost 0 bytes: sizes equal: as-expected
+  the main tree is unchanged by the clone build: as-expected
+
+  main working tree status (expect empty): : as-expected
+run ended at 2026-09-15T22:09:59Z
+all negative cases as expected: yes
