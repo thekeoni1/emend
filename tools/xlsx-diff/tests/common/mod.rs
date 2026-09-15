@@ -302,6 +302,80 @@ pub fn cut_entry_tail(bytes: &[u8], cut: usize) -> Vec<u8> {
     out
 }
 
+/// CRC-32 (IEEE) of `data`, computed bit by bit, independent of the zip crate.
+pub fn crc32(data: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffffu32;
+    for &byte in data {
+        crc ^= u32::from(byte);
+        for _ in 0..8 {
+            crc = if crc & 1 == 1 {
+                (crc >> 1) ^ 0xedb8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
+}
+
+/// A raw deflate stream of stored blocks holding `data`, split at each
+/// offset in `splits` (an offset equal to the length gives an empty final
+/// block). Every block but the last has BFINAL clear.
+pub fn stored_blocks(data: &[u8], splits: &[usize]) -> Vec<u8> {
+    let mut bounds = vec![0];
+    bounds.extend_from_slice(splits);
+    bounds.push(data.len());
+    let mut out = Vec::new();
+    for (k, pair) in bounds.windows(2).enumerate() {
+        let piece = &data[pair[0]..pair[1]];
+        let len = u16::try_from(piece.len()).expect("a stored block holds at most 65535 bytes");
+        out.push(u8::from(k + 2 == bounds.len()));
+        out.extend_from_slice(&len.to_le_bytes());
+        out.extend_from_slice(&(!len).to_le_bytes());
+        out.extend_from_slice(piece);
+    }
+    out
+}
+
+/// A zip archive with one deflated entry whose raw stream is `raw`, written
+/// byte by byte: local header, data, central directory header and end of
+/// central directory record, with the CRC-32 and size of `data`.
+pub fn single_deflate_entry_zip(name: &str, data: &[u8], raw: &[u8]) -> Vec<u8> {
+    let name = name.as_bytes();
+    let crc = crc32(data).to_le_bytes();
+    let compressed = u32::try_from(raw.len()).expect("small entry").to_le_bytes();
+    let size = u32::try_from(data.len())
+        .expect("small entry")
+        .to_le_bytes();
+    let name_len = u16::try_from(name.len()).expect("short name").to_le_bytes();
+    // Version 2.0, no flags, method 8, DOS time 00:00:00 and date 1980-01-01.
+    let common = |out: &mut Vec<u8>| {
+        out.extend_from_slice(&[20, 0, 0, 0, 8, 0, 0, 0, 0x21, 0]);
+        out.extend_from_slice(&crc);
+        out.extend_from_slice(&compressed);
+        out.extend_from_slice(&size);
+        out.extend_from_slice(&name_len);
+    };
+    let mut out = vec![0x50, 0x4b, 0x03, 0x04];
+    common(&mut out);
+    out.extend_from_slice(&[0, 0]);
+    out.extend_from_slice(name);
+    out.extend_from_slice(raw);
+    let central = u32::try_from(out.len()).expect("small archive");
+    out.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02, 20, 0]);
+    common(&mut out);
+    // Extra and comment lengths, disk, internal and external attributes,
+    // local header offset 0.
+    out.extend_from_slice(&[0; 16]);
+    out.extend_from_slice(name);
+    let central_len = u32::try_from(out.len()).expect("small archive") - central;
+    out.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 1, 0, 1, 0]);
+    out.extend_from_slice(&central_len.to_le_bytes());
+    out.extend_from_slice(&central.to_le_bytes());
+    out.extend_from_slice(&[0, 0]);
+    out
+}
+
 pub fn binary(args: &[&Path]) -> (Option<i32>, String, String) {
     let out = Command::new(env!("CARGO_BIN_EXE_xlsx-diff"))
         .args(args)

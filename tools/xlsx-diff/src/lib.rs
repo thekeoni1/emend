@@ -65,6 +65,7 @@ enum Error {
     CentralDirectory(Side),
     Duplicate(Side, Vec<u8>),
     Entry(Side, Vec<u8>),
+    Short(Side, Vec<u8>),
     Encrypted(Side, Vec<u8>),
     Method(Side, Vec<u8>, u16),
     Data(Side, Vec<u8>),
@@ -90,6 +91,11 @@ impl fmt::Display for Error {
             Error::Entry(side, name) => write!(
                 f,
                 "cannot read entry {} in the {side} archive",
+                escape_name(name)
+            ),
+            Error::Short(side, name) => write!(
+                f,
+                "entry {} in the {side} archive ends before its declared compressed size",
                 escape_name(name)
             ),
             Error::Encrypted(side, name) => write!(
@@ -294,10 +300,10 @@ fn raw_equal(input: &mut Archive, i: usize, output: &mut Archive, j: usize) -> R
         total_a += got_a as u64;
         total_b += got_b as u64;
         if got_a < CHUNK && total_a != declared_in {
-            return Err(Error::Entry(side_in, name_in));
+            return Err(Error::Short(side_in, name_in));
         }
         if got_b < CHUNK && total_b != declared_out {
-            return Err(Error::Entry(side_out, name_out));
+            return Err(Error::Short(side_out, name_out));
         }
         if got_a != got_b || buf_a[..got_a] != buf_b[..got_b] {
             return Ok(false);

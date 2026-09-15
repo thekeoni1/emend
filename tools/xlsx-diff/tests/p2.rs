@@ -30,7 +30,7 @@ fn short_raw_stream_is_an_error() {
     assert_eq!(result.stdout, "");
     assert_eq!(
         result.stderr,
-        "error: cannot read entry a.bin in the output archive\n"
+        "error: entry a.bin in the output archive ends before its declared compressed size\n"
     );
 }
 
@@ -54,17 +54,24 @@ fn recompressed_entry() {
         mi[0][2], mo[0][2],
         "precondition: different compressed sizes for the level entry"
     );
+    assert_eq!(
+        (&mi[0][3], &mi[1][3]),
+        (&mo[0][3], &mo[1][3]),
+        "precondition: equal CRC-32 values"
+    );
 
     let result = run(&input, &output);
     assert_eq!(result.status, 1);
     assert_eq!(result.stderr, "");
     let entry_rows = rows(&result.stdout, "entry");
+    assert_eq!(entry_rows.len(), 2);
     for (i, row) in entry_rows.iter().enumerate() {
         assert_eq!(row[2], "recompressed");
         assert_columns(row, Some((i, &mi[i])), Some((i, &mo[i])));
         assert_tail(row, ["", "", "", ""]);
     }
-    assert_eq!(entry_rows.len(), 2);
+    assert_eq!((entry_rows[0][5], entry_rows[0][6]), ("8", "8"), "methods");
+    assert_eq!((entry_rows[1][5], entry_rows[1][6]), ("8", "0"), "methods");
     assert_eq!(
         archive_rows(&result.stdout),
         expected_archive([2, 2, 0, 2, 0, 0, 0])
@@ -125,6 +132,7 @@ fn changed_entry_with_different_lengths() {
         &[
             deflated("shorter-out.txt", &data),
             deflated("longer-out.txt", &data[..600]),
+            deflated("earlier-byte.txt", &data),
         ],
     );
     write_zip(
@@ -132,6 +140,9 @@ fn changed_entry_with_different_lengths() {
         &[
             deflated("shorter-out.txt", &data[..600]),
             deflated("longer-out.txt", &data),
+            // A byte before the shorter length differs as well; column 14 is
+            // still the shorter length (Streaming).
+            deflated("earlier-byte.txt", &flipped(&data[..600], &[5])),
         ],
     );
 
@@ -139,7 +150,7 @@ fn changed_entry_with_different_lengths() {
     assert_eq!(result.status, 1);
     assert_eq!(result.stderr, "");
     let entry_rows = rows(&result.stdout, "entry");
-    assert_eq!(entry_rows.len(), 2);
+    assert_eq!(entry_rows.len(), 3);
     for row in &entry_rows {
         assert_eq!(row[2], "changed");
         assert_tail(row, ["600", "", "", ""]);
@@ -277,6 +288,7 @@ fn encrypted_entry_is_an_error() {
 
     let result = run(&encrypted, &plain);
     assert_eq!(result.status, 2);
+    assert_eq!(result.stdout, "");
     assert_eq!(
         result.stderr,
         "error: entry secret.txt in the input archive is encrypted\n"
@@ -297,5 +309,93 @@ fn unsupported_method_is_an_error() {
     assert_eq!(
         result.stderr,
         "error: entry m.txt in the output archive uses unsupported compression method 12\n"
+    );
+}
+
+#[test]
+fn recompressed_entry_with_equal_metadata() {
+    // Method, CRC-32 and both sizes are equal, so the raw bytes are compared;
+    // they differ (one stored deflate block and an empty final block, against
+    // the same bytes split across two blocks), and the content is equal.
+    let dir = TempDir::new("equal-metadata");
+    let data = pattern(3000);
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    let one = stored_blocks(&data, &[3000]);
+    let two = stored_blocks(&data, &[1000]);
+    assert_eq!(one.len(), two.len(), "precondition: equal compressed sizes");
+    assert_ne!(one, two, "precondition: different raw streams");
+    fs::write(&input, single_deflate_entry_zip("blocks.bin", &data, &one)).expect("write");
+    fs::write(&output, single_deflate_entry_zip("blocks.bin", &data, &two)).expect("write");
+    let (mi, mo) = (meta(&input), meta(&output));
+    assert_eq!(mi, mo, "precondition: equal method, sizes and CRC-32");
+    for path in [&input, &output] {
+        let mut archive = ZipArchive::new(fs::File::open(path).expect("open")).expect("read");
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut archive.by_index(0).expect("entry"), &mut bytes)
+            .expect("precondition: the entry decompresses with a matching CRC-32");
+        assert_eq!(bytes, data);
+    }
+
+    let result = run(&input, &output);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    let entry_rows = rows(&result.stdout, "entry");
+    assert_eq!(entry_rows.len(), 1);
+    assert_eq!(entry_rows[0][2], "recompressed");
+    assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
+    assert_tail(&entry_rows[0], ["", "", "", ""]);
+    assert_eq!(
+        archive_rows(&result.stdout),
+        expected_archive([1, 1, 0, 1, 0, 0, 0])
+    );
+}
+
+#[test]
+fn entry_of_exactly_two_buffers() {
+    // 131072 bytes: each stream ends on a buffer boundary, so only the
+    // extra read that returns 0 reaches the end of the stream and its CRC-32.
+    let dir = TempDir::new("two-buffers");
+    let data = pattern(2 * 64 * 1024);
+    let fast = Spec {
+        level: Some(1),
+        ..deflated("exact.bin", &data)
+    };
+    let best = Spec {
+        level: Some(9),
+        ..deflated("exact.bin", &data)
+    };
+    let (input, output) = (dir.path("in.zip"), dir.path("out.zip"));
+    write_zip(&input, &[fast]);
+    write_zip(&output, &[best]);
+    let result = run(&input, &output);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    let entry_rows = rows(&result.stdout, "entry");
+    assert_eq!(entry_rows.len(), 1);
+    assert_eq!(entry_rows[0][2], "recompressed");
+
+    let changed = dir.path("changed.zip");
+    write_zip(
+        &changed,
+        &[deflated("exact.bin", &flipped(&data, &[131_071]))],
+    );
+    let result = run(&input, &changed);
+    assert_eq!(result.status, 1);
+    assert_tail(
+        &rows(&result.stdout, "entry")[0],
+        ["131071", "1", "131071", ""],
+    );
+
+    let bad = dir.path("bad-crc.zip");
+    let mut bytes = fs::read(&output).expect("read");
+    let crc = crc_of(&bytes, b"exact.bin");
+    set_crc(&mut bytes, b"exact.bin", crc ^ 0x0000_00ff);
+    fs::write(&bad, bytes).expect("write");
+    let result = run(&input, &bad);
+    assert_eq!(result.status, 2);
+    assert_eq!(result.stdout, "");
+    assert_eq!(
+        result.stderr,
+        "error: entry exact.bin in the output archive failed to decompress or its CRC-32 does not match\n"
     );
 }
