@@ -1,0 +1,1413 @@
+about: phase diff 83c985299246f5bdc8fe54fb2345aeef380e6674..29b0bad50d2097d8d4748735f91eb5d011cb003b; HEAD at run: 29b0bad50d2097d8d4748735f91eb5d011cb003b
+phase: T3 close-out (specs/0006-passthrough.md "Close-out push (after P2)") scan.log; run at 2026-09-15T22:49:08Z
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T3 close-out scan over the pushed range: files changed in <base>..<commit> (contents at
+    # <commit>), each commit's file list and message, and the other T3 close-out logs.
+    # Usage: t3close-scan.sh <base> <commit> > <scratch file>; the caller moves the
+    # output to records/logs/t3-close/scan.log, so nothing is written in the tree
+    # during the run. Never prints matched text, email addresses or denylist entries.
+    # Each check is evaluated once and that single result is printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    BASE=${1:?base commit required}
+    C=${2:?phase commit required}
+    G=/usr/bin/grep
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    # Shape-based patterns (specs/0001 P6, P6b and P6c; unchanged since P6c), one character of each literal bracketed.
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]'
+      '[.]claude[\\/]+projects[\\/]'
+    )
+    P6ARGS=()
+    for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_ctrl()     { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    f_emdash()   { LC_ALL=C "$G" -c -F -e "$EMDASH" "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -a -c -E "${P6ARGS[@]}" "$1"; }
+    f_p6_one()   { LC_ALL=C "$G" -a -c -E -e "${P6[$1]}" "$2"; }
+    f_host()     { LC_ALL=C "$G" -a -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -a -c -i -w -F -f "$T/deny" "$1"; }
+    f_deny_one() { LC_ALL=C "$G" -a -c -i -w -F -f "$T/deny-$1" "$2"; }
+    # Addresses outside the allowlist (the identity address, noreply@anthropic.com,
+    # example.invalid). Prints the count; exit 0 on a hit, 1 on none, 2 on error.
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo none; return 2; fi
+      if [ "$rc" -eq 1 ]; then echo 0; return 1; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0; exit !(n > 0) }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_host f_deny f_email"
+    
+    run() { # run <form> <file>
+      local n rc
+      n=$("$1" "$2"); rc=$?
+      echo "  form=$1 count=${n:-none} exit=$rc"
+      if [ "$rc" -ge 2 ]; then err=1; elif [ "$rc" -eq 0 ]; then hits=$((hits+n)); fi
+    }
+    check_ctl() { # check_ctl <label> <expected exit> <command...>
+      local label=$1 want=$2 n rc r
+      shift 2
+      n=$("$@"); rc=$?
+      r=$([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=${n:-none} exit=$rc expected_exit=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    # structural <label> <yes|no>: print a result evaluated once.
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    echo "about: phase diff $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T3 close-out (specs/0006-passthrough.md \"Close-out push (after P2)\") scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    MODE600=$(stat -c %a "$DENY_FILE")
+    echo "private denylist: present, mode $MODE600"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$T/deny"
+    NDENY=$(wc -l < "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    NWS=$(LC_ALL=C "$G" -c -E '[[:space:]]' "$T/deny")
+    structural "denylist entries holding whitespace: $NWS (expect 0)" "$(yn [ "$NWS" -eq 0 ])"
+    [ "$NDENY" -gt 0 ] || { echo "denylist has no entries"; exit 2; }
+    structural "private denylist mode is 600" "$(yn [ "$MODE600" = 600 ])"
+    if git show "$C:scripts/privacy-patterns.txt" > "$T/patterns-at-c" 2>/dev/null; then
+      printf '%s\n' "${P6[@]}" > "$T/patterns-here"
+      structural "this script's patterns equal scripts/privacy-patterns.txt at $C" "$(yn cmp -s "$T/patterns-here" "$T/patterns-at-c")"
+    else
+      echo "scripts/privacy-patterns.txt at $C: READ ERROR"; err=1
+    fi
+    
+    echo
+    echo "## controls (same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' > "$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/c-ctrl"
+    printf 'plain\ttab\r\n' > "$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" > "$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' > "$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" > "$T/c-p6-0"
+    printf 'x %s%s%s y\n' 'github' '_pat_' "$(rep a 24)" > "$T/c-p6-1"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(rep a 24)" > "$T/c-p6-2"
+    printf '%s%s%s\n' '-----BEGIN RSA ' 'PRIVATE' ' KEY-----' > "$T/c-p6-3"
+    printf 'x https://%s%s%s%s y\n' 'claude' '.ai/code/' 'session_' "$(rep A 24)" > "$T/c-p6-4"
+    printf 'x %s%s%s y\n' 'session' '_' "$(rep A 24)" > "$T/c-p6-5"
+    printf 'x %s%s%s%s y\n' '/tmp/' 'claude-' '1000' '/' > "$T/c-p6-6"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' > "$T/c-p6-7"
+    printf 'x %s%s%s y\n' 'DESKTOP' '-' 'ABC12' > "$T/c-p6-8"
+    # Pattern 10: doubled backslashes with USERS in capitals (new in P6c).
+    printf 'x C%s%sUSERS%sbob y\n' ':' '\\' '\\' > "$T/c-p6-9"
+    # Pattern 11: backslash separators (new in P6c).
+    printf 'x %%USERPROFILE%%%s%s%s y\n' '\' '.claude' '\projects\x' > "$T/c-p6-10"
+    # The P6b forms must still match.
+    printf 'x C%s%sUsers%sbob y\n' ':' '\' '\' > "$T/c-p6-9-old"
+    printf 'x /home/u/%s%s y\n' '.claude' '/projects/x' > "$T/c-p6-10-old"
+    printf 'names only: %s %s %s %s\n' 'sk-''ant-' 'github_''pat_' '/tmp/''claude-' 'claude.ai/code/''session' > "$T/c-p6-names"
+    printf 'x %s y\n' "$HOST" > "$T/c-host"
+    printf 'x %s y\n' "$FQDN" > "$T/c-fqdn"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' > "$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" > "$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' > "$T/c-clean"
+    check_ctl "f_nonascii file=c-nonascii" 0 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl file=c-ctrl (ESC and SI)" 0 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl file=c-tabcr (tab and CR only)" 1 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash file=c-emdash" 0 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash file=c-nonascii" 1 f_emdash "$T/c-nonascii"
+    check_ctl "f_session file=c-session" 0 f_session "$T/c-session"
+    for i in "${!P6[@]}"; do
+      check_ctl "f_p6_one pattern=$i file=c-p6-$i" 0 f_p6_one "$i" "$T/c-p6-$i"
+      check_ctl "f_p6 file=c-p6-$i" 0 f_p6 "$T/c-p6-$i"
+    done
+    check_ctl "f_p6_one pattern=9 file=c-p6-9-old (P6b form)" 0 f_p6_one 9 "$T/c-p6-9-old"
+    check_ctl "f_p6_one pattern=10 file=c-p6-10-old (P6b form)" 0 f_p6_one 10 "$T/c-p6-10-old"
+    check_ctl "f_p6 file=c-p6-names (bare pattern names must not match)" 1 f_p6 "$T/c-p6-names"
+    check_ctl "f_host file=c-host" 0 f_host "$T/c-host"
+    check_ctl "f_host file=c-fqdn" 0 f_host "$T/c-fqdn"
+    check_ctl "f_email file=c-email-bad (an address at example.com)" 0 f_email "$T/c-email-bad"
+    check_ctl "f_email file=c-email-ok (only allowed addresses)" 1 f_email "$T/c-email-ok"
+    for i in $(seq 1 "$NDENY"); do
+      sed -n "${i}p" "$T/deny" > "$T/deny-$i"
+      awk '{print "x " $0 " y"}' "$T/deny-$i" > "$T/c-deny-$i"
+      check_ctl "f_deny_one entry=$i (not printed)" 0 f_deny_one "$i" "$T/c-deny-$i"
+      check_ctl "f_deny entry=$i (not printed)" 0 f_deny "$T/c-deny-$i"
+    done
+    for f in $FORMS; do check_ctl "$f file=c-clean" 1 "$f" "$T/c-clean"; done
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the phase range, with their files"
+    echo "command: git rev-list --parents $BASE..$C"
+    git rev-list --parents "$BASE..$C"
+    for c in $(git rev-list --reverse "$BASE..$C"); do
+      echo "command: git show --name-status --format='%H parents=%P %s' $c"
+      git show --name-status --format='%H parents=%P %s' "$c" | sed 's/^/    /'
+    done
+    
+    echo
+    echo "## files changed in the phase diff (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf+1))
+      if git show "$C:$f" > "$T/f" 2>/dev/null; then nread=$((nread+1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum < "$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    want=$(git diff --name-only --diff-filter=d "$BASE" "$C" | wc -l)
+    # files_complete: every file in the diff was scanned and read, and there was at least one.
+    files_complete() { [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in diff: $want; files scanned: $nf; files read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the phase range"
+    nm=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm+1))
+      if ! git cat-file commit "$c" > "$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" > "$T/m"
+      last=$(awk 'NF{l=$0} END{print l}' "$T/m")
+      echo "message $c"
+      structural "  last non-empty line is the Co-Authored-By line" "$(yn [ "$last" = "$COAUTHOR" ])"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    # messages_complete: every commit message in the range was scanned, and there was at least one.
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    
+    echo
+    echo "## other T3 close-out logs in the working tree (a log cannot scan itself)"
+    nl=0
+    for f in records/logs/t3-close/push.log records/logs/t3-close/ci-run.log; do
+      if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
+      nl=$((nl+1))
+      echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    structural "T3 close-out logs scanned: $nl (expected 2)" "$(yn [ "$nl" -eq 2 ])"
+    
+    
+    echo
+    echo "total hits: $hits"
+    echo "grep or read errors: $err"
+    echo "structural checks failed: $bad"
+    # scan_passed: controls as expected, no errors, no hits, no failed structural check.
+    scan_passed() { [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+denylist entries holding whitespace: 0 (expect 0): yes
+private denylist mode is 600: yes
+this script's patterns equal scripts/privacy-patterns.txt at 29b0bad50d2097d8d4748735f91eb5d011cb003b: yes
+
+## controls (same command forms as the scans)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
+  control f_ctrl file=c-ctrl (ESC and SI) count=1 exit=0 expected_exit=0: as-expected
+  control f_ctrl file=c-tabcr (tab and CR only) count=0 exit=1 expected_exit=1: as-expected
+  control f_emdash file=c-emdash count=1 exit=0 expected_exit=0: as-expected
+  control f_emdash file=c-nonascii count=0 exit=1 expected_exit=1: as-expected
+  control f_session file=c-session count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=0 file=c-p6-0 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-0 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=1 file=c-p6-1 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-1 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=2 file=c-p6-2 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-2 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=3 file=c-p6-3 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-3 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=4 file=c-p6-4 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-4 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=5 file=c-p6-5 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-5 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=6 file=c-p6-6 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-6 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=7 file=c-p6-7 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-7 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=8 file=c-p6-8 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-8 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=9 file=c-p6-9 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-9 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=10 file=c-p6-10 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-10 count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=9 file=c-p6-9-old (P6b form) count=1 exit=0 expected_exit=0: as-expected
+  control f_p6_one pattern=10 file=c-p6-10-old (P6b form) count=1 exit=0 expected_exit=0: as-expected
+  control f_p6 file=c-p6-names (bare pattern names must not match) count=0 exit=1 expected_exit=1: as-expected
+  control f_host file=c-host count=1 exit=0 expected_exit=0: as-expected
+  control f_host file=c-fqdn count=1 exit=0 expected_exit=0: as-expected
+  control f_email file=c-email-bad (an address at example.com) count=1 exit=0 expected_exit=0: as-expected
+  control f_email file=c-email-ok (only allowed addresses) count=0 exit=1 expected_exit=1: as-expected
+  control f_deny_one entry=1 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=2 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=3 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=4 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=5 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=6 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny_one entry=7 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_deny entry=7 (not printed) count=1 exit=0 expected_exit=0: as-expected
+  control f_nonascii file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_ctrl file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_emdash file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_session file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_p6 file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_host file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_deny file=c-clean count=0 exit=1 expected_exit=1: as-expected
+  control f_email file=c-clean count=0 exit=1 expected_exit=1: as-expected
+controls: all as expected
+
+## commits in the phase range, with their files
+command: git rev-list --parents 83c985299246f5bdc8fe54fb2345aeef380e6674..29b0bad50d2097d8d4748735f91eb5d011cb003b
+29b0bad50d2097d8d4748735f91eb5d011cb003b b1e798244ced6f7bce21577075c3ffce1f547ae4
+b1e798244ced6f7bce21577075c3ffce1f547ae4 ca4f1954b5b967bd364b3a975aa8965b9645bc31
+ca4f1954b5b967bd364b3a975aa8965b9645bc31 6a7533e6e47656111f69e2b08adab9454a75dbc4
+6a7533e6e47656111f69e2b08adab9454a75dbc4 dd1c4cdda35097e3a4eb46521e819030f6314c94
+dd1c4cdda35097e3a4eb46521e819030f6314c94 434e714574c4d8667b75faf90b0b0c2e5d6571c4
+434e714574c4d8667b75faf90b0b0c2e5d6571c4 2845fab9ba5ebbea759313de66c7eda2699b84e6
+2845fab9ba5ebbea759313de66c7eda2699b84e6 8bbda4d0857ee19601946a4233a36ae17eda6e35
+8bbda4d0857ee19601946a4233a36ae17eda6e35 33c0198f20204c11ff78e03f2fb47666e17115f7
+33c0198f20204c11ff78e03f2fb47666e17115f7 4a9e929314aebbb55bcc1130203544bccb5604c6
+4a9e929314aebbb55bcc1130203544bccb5604c6 cb94097d4d4b4dbd0f296760b70036bda0093731
+cb94097d4d4b4dbd0f296760b70036bda0093731 4e389628e956bdc50c158051aabfe7e60bd91f37
+4e389628e956bdc50c158051aabfe7e60bd91f37 8d202cda7fb89b209a305cde80adb99d7d813b43
+8d202cda7fb89b209a305cde80adb99d7d813b43 79d17ba81eca7b4a64633e26c799c776a5fecdef
+79d17ba81eca7b4a64633e26c799c776a5fecdef ba79abf40625155f26b98f1cb32736ca66361312
+ba79abf40625155f26b98f1cb32736ca66361312 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+9eaee4778f16f172d4a1b2414d147542b6bfcbc1 d63ad31eb9957bf5c3293d04d16d6f85622732d3
+d63ad31eb9957bf5c3293d04d16d6f85622732d3 8c979bcc01ec39741e340e954a3a1a5208c5701e
+8c979bcc01ec39741e340e954a3a1a5208c5701e 814740778864f11e008dbf45adf4695fbb5979eb
+814740778864f11e008dbf45adf4695fbb5979eb dbe108c52efeae823bdb4464a7a884d6526fdb1a
+dbe108c52efeae823bdb4464a7a884d6526fdb1a 63c9b01665e7c3e530285f58f093de97a0882450
+63c9b01665e7c3e530285f58f093de97a0882450 e8280e3dffd0428a6f0405f05dd68d479df2d519
+e8280e3dffd0428a6f0405f05dd68d479df2d519 5d98cdc640dae3f6334041e35b74a65a1b6b3590
+5d98cdc640dae3f6334041e35b74a65a1b6b3590 8a898b314b84eac1d87c332b50c7c0fd09d825c2
+8a898b314b84eac1d87c332b50c7c0fd09d825c2 4f6f34702884c001b163715b67f346f5ac4e86f7
+4f6f34702884c001b163715b67f346f5ac4e86f7 7d25ca230f9bf3766e365268aa82aa37c2007a2c
+7d25ca230f9bf3766e365268aa82aa37c2007a2c b3534cc5af2a046da821f10ff73edbb75367d43b
+b3534cc5af2a046da821f10ff73edbb75367d43b a9a78deb3c14285c16c2fc2d0bc50d2819448d21
+a9a78deb3c14285c16c2fc2d0bc50d2819448d21 97cb52db5d6a712c625cc974a463a8c1cf587f85
+97cb52db5d6a712c625cc974a463a8c1cf587f85 1c8eca19d055a11dea1b83613ff7125b865ef13d
+1c8eca19d055a11dea1b83613ff7125b865ef13d b58c08619608a61fee2fcc5e38d80a6c4245b728
+b58c08619608a61fee2fcc5e38d80a6c4245b728 343e91f01039206a117cab211f7ac3c103ec2318
+343e91f01039206a117cab211f7ac3c103ec2318 83c985299246f5bdc8fe54fb2345aeef380e6674
+command: git show --name-status --format='%H parents=%P %s' 343e91f01039206a117cab211f7ac3c103ec2318
+    343e91f01039206a117cab211f7ac3c103ec2318 parents=83c985299246f5bdc8fe54fb2345aeef380e6674 T1 close-out record: push, CI run and scan logs
+    
+    A	records/logs/t1-close/ci-run.log
+    A	records/logs/t1-close/push.log
+    A	records/logs/t1-close/scan.log
+command: git show --name-status --format='%H parents=%P %s' b58c08619608a61fee2fcc5e38d80a6c4245b728
+    b58c08619608a61fee2fcc5e38d80a6c4245b728 parents=343e91f01039206a117cab211f7ac3c103ec2318 T1 P5: commit planning doc updates (close-out ruling, zip64 run)
+    
+    M	ROADMAP.md
+    M	specs/0004-xlsx-diff.md
+command: git show --name-status --format='%H parents=%P %s' 1c8eca19d055a11dea1b83613ff7125b865ef13d
+    1c8eca19d055a11dea1b83613ff7125b865ef13d parents=b58c08619608a61fee2fcc5e38d80a6c4245b728 T1 P5: flag completeness
+    
+    M	tools/xlsx-diff/src/lib.rs
+    M	tools/xlsx-diff/tests/common/mod.rs
+    M	tools/xlsx-diff/tests/p2.rs
+    M	tools/xlsx-diff/tests/p3.rs
+    A	tools/xlsx-diff/tests/p5.rs
+command: git show --name-status --format='%H parents=%P %s' 97cb52db5d6a712c625cc974a463a8c1cf587f85
+    97cb52db5d6a712c625cc974a463a8c1cf587f85 parents=1c8eca19d055a11dea1b83613ff7125b865ef13d T1 P5 record: gate, test, negative and scan logs at 1c8eca1
+    
+    A	records/logs/t1-p5/gate.log
+    A	records/logs/t1-p5/negative.log
+    A	records/logs/t1-p5/scan.log
+    A	records/logs/t1-p5/test.log
+command: git show --name-status --format='%H parents=%P %s' a9a78deb3c14285c16c2fc2d0bc50d2819448d21
+    a9a78deb3c14285c16c2fc2d0bc50d2819448d21 parents=97cb52db5d6a712c625cc974a463a8c1cf587f85 T1 P5 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t1-p5/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' b3534cc5af2a046da821f10ff73edbb75367d43b
+    b3534cc5af2a046da821f10ff73edbb75367d43b parents=a9a78deb3c14285c16c2fc2d0bc50d2819448d21 T1 P5: fixes from independent check 1
+    
+    M	tools/xlsx-diff/src/lib.rs
+    M	tools/xlsx-diff/tests/p5.rs
+command: git show --name-status --format='%H parents=%P %s' 7d25ca230f9bf3766e365268aa82aa37c2007a2c
+    7d25ca230f9bf3766e365268aa82aa37c2007a2c parents=b3534cc5af2a046da821f10ff73edbb75367d43b T1 P5 record: logs rerun at b3534cc after the check 1 fixes
+    
+    M	records/logs/t1-p5/gate.log
+    M	records/logs/t1-p5/negative.log
+    M	records/logs/t1-p5/scan.log
+    M	records/logs/t1-p5/test.log
+command: git show --name-status --format='%H parents=%P %s' 4f6f34702884c001b163715b67f346f5ac4e86f7
+    4f6f34702884c001b163715b67f346f5ac4e86f7 parents=7d25ca230f9bf3766e365268aa82aa37c2007a2c T1 P5 record: independent check 2 answer, verbatim
+    
+    A	records/logs/t1-p5/independent-check-2.md
+command: git show --name-status --format='%H parents=%P %s' 8a898b314b84eac1d87c332b50c7c0fd09d825c2
+    8a898b314b84eac1d87c332b50c7c0fd09d825c2 parents=4f6f34702884c001b163715b67f346f5ac4e86f7 T1 P6: commit planning doc updates (P5 rulings, P6)
+    
+    M	ROADMAP.md
+    M	specs/0004-xlsx-diff.md
+command: git show --name-status --format='%H parents=%P %s' 5d98cdc640dae3f6334041e35b74a65a1b6b3590
+    5d98cdc640dae3f6334041e35b74a65a1b6b3590 parents=8a898b314b84eac1d87c332b50c7c0fd09d825c2 T1 P6: closing the exit-0 guarantee
+    
+    M	tools/xlsx-diff/src/lib.rs
+    M	tools/xlsx-diff/tests/common/mod.rs
+    A	tools/xlsx-diff/tests/p6.rs
+command: git show --name-status --format='%H parents=%P %s' e8280e3dffd0428a6f0405f05dd68d479df2d519
+    e8280e3dffd0428a6f0405f05dd68d479df2d519 parents=5d98cdc640dae3f6334041e35b74a65a1b6b3590 T1 P6 record: gate, test, negative and scan logs at 5d98cdc
+    
+    A	records/logs/t1-p6/gate.log
+    A	records/logs/t1-p6/negative.log
+    A	records/logs/t1-p6/scan.log
+    A	records/logs/t1-p6/test.log
+command: git show --name-status --format='%H parents=%P %s' 63c9b01665e7c3e530285f58f093de97a0882450
+    63c9b01665e7c3e530285f58f093de97a0882450 parents=e8280e3dffd0428a6f0405f05dd68d479df2d519 T1 P6 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t1-p6/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' dbe108c52efeae823bdb4464a7a884d6526fdb1a
+    dbe108c52efeae823bdb4464a7a884d6526fdb1a parents=63c9b01665e7c3e530285f58f093de97a0882450 T1 P6: fixes from independent check 1
+    
+    M	tools/xlsx-diff/src/lib.rs
+    M	tools/xlsx-diff/tests/common/mod.rs
+    M	tools/xlsx-diff/tests/p6.rs
+command: git show --name-status --format='%H parents=%P %s' 814740778864f11e008dbf45adf4695fbb5979eb
+    814740778864f11e008dbf45adf4695fbb5979eb parents=dbe108c52efeae823bdb4464a7a884d6526fdb1a T1 P6 record: logs rerun at dbe108c after the check 1 fixes
+    
+    M	records/logs/t1-p6/gate.log
+    M	records/logs/t1-p6/negative.log
+    M	records/logs/t1-p6/scan.log
+    M	records/logs/t1-p6/test.log
+command: git show --name-status --format='%H parents=%P %s' 8c979bcc01ec39741e340e954a3a1a5208c5701e
+    8c979bcc01ec39741e340e954a3a1a5208c5701e parents=814740778864f11e008dbf45adf4695fbb5979eb T1 P6 record: independent check 2 answer, verbatim
+    
+    A	records/logs/t1-p6/independent-check-2.md
+command: git show --name-status --format='%H parents=%P %s' d63ad31eb9957bf5c3293d04d16d6f85622732d3
+    d63ad31eb9957bf5c3293d04d16d6f85622732d3 parents=8c979bcc01ec39741e340e954a3a1a5208c5701e T3 P1: commit planning doc updates (T1 close, P6 rulings, T3 spec)
+    
+    M	ROADMAP.md
+    M	specs/0000-step-zero-plan.md
+    M	specs/0004-xlsx-diff.md
+    A	specs/0006-passthrough.md
+command: git show --name-status --format='%H parents=%P %s' 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+    9eaee4778f16f172d4a1b2414d147542b6bfcbc1 parents=d63ad31eb9957bf5c3293d04d16d6f85622732d3 T3 P1: passthrough copy tool, runner and record script
+    
+    M	Cargo.lock
+    M	Cargo.toml
+    A	scripts/passthrough-record.py
+    A	scripts/passthrough-run.sh
+    A	tools/passthrough/Cargo.toml
+    A	tools/passthrough/src/main.rs
+    A	tools/passthrough/tests/common/mod.rs
+    A	tools/passthrough/tests/copies.rs
+    A	tools/passthrough/tests/faults.rs
+command: git show --name-status --format='%H parents=%P %s' ba79abf40625155f26b98f1cb32736ca66361312
+    ba79abf40625155f26b98f1cb32736ca66361312 parents=9eaee4778f16f172d4a1b2414d147542b6bfcbc1 T3 P1 record: gate (with attempt 1), test, negative and scan logs at 9eaee47
+    
+    A	records/logs/t3-p1/gate-attempt1.log
+    A	records/logs/t3-p1/gate.log
+    A	records/logs/t3-p1/negative.log
+    A	records/logs/t3-p1/scan.log
+    A	records/logs/t3-p1/test.log
+command: git show --name-status --format='%H parents=%P %s' 79d17ba81eca7b4a64633e26c799c776a5fecdef
+    79d17ba81eca7b4a64633e26c799c776a5fecdef parents=ba79abf40625155f26b98f1cb32736ca66361312 T3 P1: assert the zip64 test's plain output sizes
+    
+    M	tools/passthrough/tests/copies.rs
+command: git show --name-status --format='%H parents=%P %s' 8d202cda7fb89b209a305cde80adb99d7d813b43
+    8d202cda7fb89b209a305cde80adb99d7d813b43 parents=79d17ba81eca7b4a64633e26c799c776a5fecdef T3 P1 record: logs rerun at 79d17ba after phase commit 2
+    
+    M	records/logs/t3-p1/gate.log
+    M	records/logs/t3-p1/negative.log
+    M	records/logs/t3-p1/scan.log
+    M	records/logs/t3-p1/test.log
+command: git show --name-status --format='%H parents=%P %s' 4e389628e956bdc50c158051aabfe7e60bd91f37
+    4e389628e956bdc50c158051aabfe7e60bd91f37 parents=8d202cda7fb89b209a305cde80adb99d7d813b43 T3 P1 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t3-p1/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' cb94097d4d4b4dbd0f296760b70036bda0093731
+    cb94097d4d4b4dbd0f296760b70036bda0093731 parents=4e389628e956bdc50c158051aabfe7e60bd91f37 T3 P1: fixes from independent check 1
+    
+    M	scripts/passthrough-run.sh
+    M	tools/passthrough/tests/copies.rs
+command: git show --name-status --format='%H parents=%P %s' 4a9e929314aebbb55bcc1130203544bccb5604c6
+    4a9e929314aebbb55bcc1130203544bccb5604c6 parents=cb94097d4d4b4dbd0f296760b70036bda0093731 T3 P1 record: logs rerun at cb94097 after the check 1 fixes
+    
+    M	records/logs/t3-p1/gate.log
+    M	records/logs/t3-p1/negative.log
+    M	records/logs/t3-p1/scan.log
+    M	records/logs/t3-p1/test.log
+command: git show --name-status --format='%H parents=%P %s' 33c0198f20204c11ff78e03f2fb47666e17115f7
+    33c0198f20204c11ff78e03f2fb47666e17115f7 parents=4a9e929314aebbb55bcc1130203544bccb5604c6 T3 P1 record: independent check 2 answer, verbatim
+    
+    A	records/logs/t3-p1/independent-check-2.md
+command: git show --name-status --format='%H parents=%P %s' 8bbda4d0857ee19601946a4233a36ae17eda6e35
+    8bbda4d0857ee19601946a4233a36ae17eda6e35 parents=33c0198f20204c11ff78e03f2fb47666e17115f7 T3 P2: commit planning doc updates (P1 rulings, P2 runner fixes)
+    
+    M	ROADMAP.md
+    M	specs/0006-passthrough.md
+command: git show --name-status --format='%H parents=%P %s' 2845fab9ba5ebbea759313de66c7eda2699b84e6
+    2845fab9ba5ebbea759313de66c7eda2699b84e6 parents=8bbda4d0857ee19601946a4233a36ae17eda6e35 T3 P2: size probes, size profile, runner fixes, sleep-copying fault
+    
+    M	Cargo.lock
+    M	Cargo.toml
+    M	scripts/passthrough-record.py
+    M	scripts/passthrough-run.sh
+    M	tools/passthrough/src/main.rs
+    M	tools/passthrough/tests/faults.rs
+    A	tools/size-probe/Cargo.toml
+    A	tools/size-probe/src/bin/probe-zip-xml.rs
+    A	tools/size-probe/src/bin/probe-zip.rs
+command: git show --name-status --format='%H parents=%P %s' 434e714574c4d8667b75faf90b0b0c2e5d6571c4
+    434e714574c4d8667b75faf90b0b0c2e5d6571c4 parents=2845fab9ba5ebbea759313de66c7eda2699b84e6 T3 P2 record: gate, test, negative, size and scan logs at 2845fab, size baseline
+    
+    A	records/logs/t3-p2/gate.log
+    A	records/logs/t3-p2/negative.log
+    A	records/logs/t3-p2/scan.log
+    A	records/logs/t3-p2/size.log
+    A	records/logs/t3-p2/test.log
+    A	records/size-baseline-2026-09-15-2845fab.md
+command: git show --name-status --format='%H parents=%P %s' dd1c4cdda35097e3a4eb46521e819030f6314c94
+    dd1c4cdda35097e3a4eb46521e819030f6314c94 parents=434e714574c4d8667b75faf90b0b0c2e5d6571c4 T3 P2 record: independent check 1 answer, verbatim
+    
+    A	records/logs/t3-p2/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' 6a7533e6e47656111f69e2b08adab9454a75dbc4
+    6a7533e6e47656111f69e2b08adab9454a75dbc4 parents=dd1c4cdda35097e3a4eb46521e819030f6314c94 T3 P2: remove stale temporary files before the child runs
+    
+    M	scripts/passthrough-run.sh
+command: git show --name-status --format='%H parents=%P %s' ca4f1954b5b967bd364b3a975aa8965b9645bc31
+    ca4f1954b5b967bd364b3a975aa8965b9645bc31 parents=6a7533e6e47656111f69e2b08adab9454a75dbc4 T3 P2 record: logs rerun at 6a7533e after the check 1 fixes, size baseline
+    
+    M	records/logs/t3-p2/gate.log
+    M	records/logs/t3-p2/negative.log
+    M	records/logs/t3-p2/scan.log
+    M	records/logs/t3-p2/size.log
+    M	records/logs/t3-p2/test.log
+    R094	records/size-baseline-2026-09-15-2845fab.md	records/size-baseline-2026-09-15-6a7533e.md
+command: git show --name-status --format='%H parents=%P %s' b1e798244ced6f7bce21577075c3ffce1f547ae4
+    b1e798244ced6f7bce21577075c3ffce1f547ae4 parents=ca4f1954b5b967bd364b3a975aa8965b9645bc31 T3 P2 record: independent check 2 answer, verbatim
+    
+    A	records/logs/t3-p2/independent-check-2.md
+command: git show --name-status --format='%H parents=%P %s' 29b0bad50d2097d8d4748735f91eb5d011cb003b
+    29b0bad50d2097d8d4748735f91eb5d011cb003b parents=b1e798244ced6f7bce21577075c3ffce1f547ae4 T3 close-out: commit planning doc updates (P2 rulings, close-out push)
+    
+    M	ROADMAP.md
+    M	specs/0006-passthrough.md
+
+## files changed in the phase diff (contents at 29b0bad50d2097d8d4748735f91eb5d011cb003b)
+command: git diff --name-status 83c985299246f5bdc8fe54fb2345aeef380e6674 29b0bad50d2097d8d4748735f91eb5d011cb003b
+    M	Cargo.lock
+    M	Cargo.toml
+    M	ROADMAP.md
+    A	records/logs/t1-close/ci-run.log
+    A	records/logs/t1-close/push.log
+    A	records/logs/t1-close/scan.log
+    A	records/logs/t1-p5/gate.log
+    A	records/logs/t1-p5/independent-check-1.md
+    A	records/logs/t1-p5/independent-check-2.md
+    A	records/logs/t1-p5/negative.log
+    A	records/logs/t1-p5/scan.log
+    A	records/logs/t1-p5/test.log
+    A	records/logs/t1-p6/gate.log
+    A	records/logs/t1-p6/independent-check-1.md
+    A	records/logs/t1-p6/independent-check-2.md
+    A	records/logs/t1-p6/negative.log
+    A	records/logs/t1-p6/scan.log
+    A	records/logs/t1-p6/test.log
+    A	records/logs/t3-p1/gate-attempt1.log
+    A	records/logs/t3-p1/gate.log
+    A	records/logs/t3-p1/independent-check-1.md
+    A	records/logs/t3-p1/independent-check-2.md
+    A	records/logs/t3-p1/negative.log
+    A	records/logs/t3-p1/scan.log
+    A	records/logs/t3-p1/test.log
+    A	records/logs/t3-p2/gate.log
+    A	records/logs/t3-p2/independent-check-1.md
+    A	records/logs/t3-p2/independent-check-2.md
+    A	records/logs/t3-p2/negative.log
+    A	records/logs/t3-p2/scan.log
+    A	records/logs/t3-p2/size.log
+    A	records/logs/t3-p2/test.log
+    A	records/size-baseline-2026-09-15-6a7533e.md
+    A	scripts/passthrough-record.py
+    A	scripts/passthrough-run.sh
+    M	specs/0000-step-zero-plan.md
+    M	specs/0004-xlsx-diff.md
+    A	specs/0006-passthrough.md
+    A	tools/passthrough/Cargo.toml
+    A	tools/passthrough/src/main.rs
+    A	tools/passthrough/tests/common/mod.rs
+    A	tools/passthrough/tests/copies.rs
+    A	tools/passthrough/tests/faults.rs
+    A	tools/size-probe/Cargo.toml
+    A	tools/size-probe/src/bin/probe-zip-xml.rs
+    A	tools/size-probe/src/bin/probe-zip.rs
+    M	tools/xlsx-diff/src/lib.rs
+    M	tools/xlsx-diff/tests/common/mod.rs
+    M	tools/xlsx-diff/tests/p2.rs
+    M	tools/xlsx-diff/tests/p3.rs
+    A	tools/xlsx-diff/tests/p5.rs
+    A	tools/xlsx-diff/tests/p6.rs
+file Cargo.lock (sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file Cargo.toml (sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file ROADMAP.md (sha256 5a29d52a2346b04d019e09121a8a30a5bdd70a942203228e4f7692ab3e79721b)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-close/ci-run.log (sha256 35bf28b737d9e282b10ff1afe3a0dbffd9206e49c6e54bc5276c89df1131c18d)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-close/push.log (sha256 928ad6c52d04049d5307021ca59c34a90e029d07a011ea6346fea892d680e9e0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-close/scan.log (sha256 70f2bde090b8e5841566981da4507a6e073afc4981f46ace82748a07dd6d32e1)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/gate.log (sha256 74c53edbb1ff98c26727baf6c4417dbaeec9545fefa31f5e35a58f3cbb258120)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/independent-check-1.md (sha256 ec7cff16ecb2c4b182408fec4b2551dc57ff13d62c9d5375f423e9e485ca77d6)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/independent-check-2.md (sha256 20e7a2461e5acd81b8563acbd26918a753baa07d2c89bbd0e09127843178a0b5)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/negative.log (sha256 9c8c6509b36b265586d47efbc720fa18a5d8e2160a2d9917e447b8a803df7ebd)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/scan.log (sha256 900faa4689bf5db6c3229554d152c49e91076089d86382d8df78691ed47f1ab0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p5/test.log (sha256 6c3a5ae0c863aff83072742e8e06265268ff111cd4effa7406868e54637ef33a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/gate.log (sha256 918d0a0a83a149efeda9826c8290f70e7d0846b21dc2f2a72b5d92a16e422f49)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/independent-check-1.md (sha256 0ca738226187c3c37c4a5a06362dfd50dddab198a38c715b5f27fa3c0ffd1b97)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/independent-check-2.md (sha256 bb51161173f1ee1b43143ccbc6d3fa9043f278c3268daeeb23e7b4245bb8b2d2)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/negative.log (sha256 497a1cb0f2dc67f258c8c283f0e86321bd0d3a89011a90963787344633eb7df4)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/scan.log (sha256 99f53a0d1b24b85a4d710b94661241b51e806774dec2d7e49a5f5149b768f30a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t1-p6/test.log (sha256 629e1a07f19204e03c07c77129567e5a7fcf9e03d8fa2760c8613feb6f323f9e)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/gate-attempt1.log (sha256 965f7029d77d6cb42922a6e6ab8863e29cf7eb5e50c720e5713774b72ce4ba9d)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/gate.log (sha256 028a210a9150b7d4907625b40b8e71b24270a3284bd2650234127a46e6b0ec5a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/independent-check-1.md (sha256 3d0558212a9754bc8122b9f9041ab0214edb02f5f1937c99b9a7bd8a5056c882)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/independent-check-2.md (sha256 659f39e5e5c1740dbfdb8057236783fa1febc0e744786d633f575e7fac270c59)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/negative.log (sha256 302bb223e85c6b874c1d5d946538463bc8ed95a7d4e05edebba6ab0f57720424)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/scan.log (sha256 d4672ba3204d04a207110eda79dc1ea961ec90e80247c7bc0bf5c2668cd878c0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p1/test.log (sha256 7dc2d63757a6de6704238dcb04c27276e1a90a25171610fb9a026b05ccb70936)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/gate.log (sha256 344716ff2e5bacf3b14ec5a60d917bacffa9a15988bca5d812a3c3f947284719)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/independent-check-1.md (sha256 a876f2b51e8cdb0932d456d180685cb0cf35dbc81e8b1d13b9c9b03d1e670a2a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/independent-check-2.md (sha256 338575f297a1e8a6c2b39aea37482ab21173df91a289342ff1d20c55bc37c5f9)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/negative.log (sha256 cb2507920d23c89cd1d08ecb2bd41556e1d5191d3971a1de1e08cbfeb5fa8e48)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/scan.log (sha256 9e85eadca5f58991243351c06680e174411b6c7bb730ae7fbb6dadd39a740ffe)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/size.log (sha256 973865ce10a8214501940a4b0c18677c000e7ed181fef585416a2da40baff0f2)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p2/test.log (sha256 683c935e120d1f4ba2f588610c8365bfe0951344f46ee7b678349b4615a51497)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/size-baseline-2026-09-15-6a7533e.md (sha256 0e0dd78edcec34ef0efbcb3b116158c751c69949c44834916796fa7f976aeea9)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/passthrough-record.py (sha256 52296bcdd86ed420e1683afcfa3fcd6de789dc078d03182f5ce18a3e27d69429)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/passthrough-run.sh (sha256 4f3daaa70f12f725e01f6c5e1578fd3265e59dc04938669867ce0b9b18ee1076)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0000-step-zero-plan.md (sha256 59d5ac883ba0a4a9b567339323cb551c3e935ef1e7d45ebb0198e7bbbce537da)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0004-xlsx-diff.md (sha256 857b0be1937a817c4980f62ae251230e057f44b82d4f267787dd2d3004435edb)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file specs/0006-passthrough.md (sha256 bc97297b87e5cf130f90fd390fee384badea5f459d96da11ba9da6a72b5bd3d8)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/Cargo.toml (sha256 8d409f332c825c3fcc3bae54b0b5b442b98251abb2d24b4578c765188edd7e0a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/src/main.rs (sha256 83ea1b8f42f3c7f64adb24f40071ccbc249f32c5de390176fd43a23d7e482c39)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/common/mod.rs (sha256 3f1054ef72d7cee8fd152210bdca28105957d0f0680e00c8c2ae416c0a7e1115)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/copies.rs (sha256 59676c2972b746c6fc975798890488b351eaa8cbc2a17566bd11370feeeb91e0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/passthrough/tests/faults.rs (sha256 5184d544bfdb5ff6d3835af0f2821a0ef577a2af0cfec72d162b442a40c7d600)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/size-probe/Cargo.toml (sha256 575c1c41e4399ac3ae9ff3d47ce8e1b59dff2b56a0e81aba9fa760965c84651f)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/size-probe/src/bin/probe-zip-xml.rs (sha256 d831c6c1ac667eead54ae5fd06ac936bc4f297cbeadc3416b36a08cebfe9d217)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/size-probe/src/bin/probe-zip.rs (sha256 3e5be20d9fdaa35cc2d624cd5474403df275418e4b07fed31528cf449dc8d82b)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/src/lib.rs (sha256 3569aec7faab2f05cc06f23edf004c25db613f7570aa7a37426e69277ff3130e)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/tests/common/mod.rs (sha256 419f0b39e0b7ab6a7d3d9ad311b43a2ad5f14def00ca09e40c6b77d5a90b527a)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/tests/p2.rs (sha256 ef19b1579bc3804006732999ba870f987dc04433dd7b5a3f93aa81ce5664558b)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/tests/p3.rs (sha256 2e93124cbb1e512e08d4046fae348df4854a0fe5970009b9f17191a006f926b5)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/tests/p5.rs (sha256 5af06c2cf392ce65282f0bde43189b4ba961b7ad5bab616916d3799728b820f3)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file tools/xlsx-diff/tests/p6.rs (sha256 acfa648f97ca2873b497d0053dfef3b18c663c3b1e9a003d30a15b531dc5206c)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+files in diff: 52; files scanned: 52; files read: 52: yes
+
+## commit messages in the phase range
+message 29b0bad50d2097d8d4748735f91eb5d011cb003b
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message b1e798244ced6f7bce21577075c3ffce1f547ae4
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message ca4f1954b5b967bd364b3a975aa8965b9645bc31
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 6a7533e6e47656111f69e2b08adab9454a75dbc4
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message dd1c4cdda35097e3a4eb46521e819030f6314c94
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 434e714574c4d8667b75faf90b0b0c2e5d6571c4
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 2845fab9ba5ebbea759313de66c7eda2699b84e6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 8bbda4d0857ee19601946a4233a36ae17eda6e35
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 33c0198f20204c11ff78e03f2fb47666e17115f7
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4a9e929314aebbb55bcc1130203544bccb5604c6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message cb94097d4d4b4dbd0f296760b70036bda0093731
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4e389628e956bdc50c158051aabfe7e60bd91f37
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 8d202cda7fb89b209a305cde80adb99d7d813b43
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 79d17ba81eca7b4a64633e26c799c776a5fecdef
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message ba79abf40625155f26b98f1cb32736ca66361312
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 9eaee4778f16f172d4a1b2414d147542b6bfcbc1
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message d63ad31eb9957bf5c3293d04d16d6f85622732d3
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 8c979bcc01ec39741e340e954a3a1a5208c5701e
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 814740778864f11e008dbf45adf4695fbb5979eb
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message dbe108c52efeae823bdb4464a7a884d6526fdb1a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 63c9b01665e7c3e530285f58f093de97a0882450
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message e8280e3dffd0428a6f0405f05dd68d479df2d519
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 5d98cdc640dae3f6334041e35b74a65a1b6b3590
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 8a898b314b84eac1d87c332b50c7c0fd09d825c2
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4f6f34702884c001b163715b67f346f5ac4e86f7
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 7d25ca230f9bf3766e365268aa82aa37c2007a2c
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message b3534cc5af2a046da821f10ff73edbb75367d43b
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message a9a78deb3c14285c16c2fc2d0bc50d2819448d21
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 97cb52db5d6a712c625cc974a463a8c1cf587f85
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 1c8eca19d055a11dea1b83613ff7125b865ef13d
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message b58c08619608a61fee2fcc5e38d80a6c4245b728
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 343e91f01039206a117cab211f7ac3c103ec2318
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+messages scanned: 32; commits in range: 32: yes
+
+## other T3 close-out logs in the working tree (a log cannot scan itself)
+log records/logs/t3-close/push.log (sha256 74fa69eb1d681d45d3a23d1d8162f8de401e19c81a1c5c77761d8a9bcbca4e93)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+log records/logs/t3-close/ci-run.log (sha256 f9f0319bfe14ea1bf341444ca586545ed59fb376188997fffe62f83783ec0654)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+T3 close-out logs scanned: 2 (expected 2): yes
+
+total hits: 0
+grep or read errors: 0
+structural checks failed: 0
+run ended at 2026-09-15T22:49:11Z
+RESULT: PASS

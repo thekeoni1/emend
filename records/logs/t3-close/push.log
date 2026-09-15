@@ -1,0 +1,288 @@
+about: T3 close-out push of main at 29b0bad50d2097d8d4748735f91eb5d011cb003b; HEAD at run: 29b0bad50d2097d8d4748735f91eb5d011cb003b
+phase: T3 close-out (specs/0006-passthrough.md "Close-out push (after P2)") push.log part 1, step 2; run at 2026-09-15T22:43:34Z
+ANTHROPIC_API_KEY set in this shell: no
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T3 close-out push.log (specs/0006-passthrough.md "Close-out push (after P2)",
+    # following specs/0003-ci.md "Close-out push (after P2)"), in two parts.
+    # Every check is evaluated once and that single result is printed; a check
+    # with more than one condition is evaluated inside one function.
+    # Usage: t3close-push.sh pre > <scratch file>
+    #          step 2: env, hook and full gate; records the base (origin/main)
+    #          and the count of commits to push. No push.
+    #        t3close-push.sh push <base> >> <scratch file>
+    #          steps 3 and 4: refuses unless origin/main still equals <base>,
+    #          pushes, and checks the hook's range, the count and git's report
+    #          against <base> recorded in part 1, never against origin/main read
+    #          after the push (T0b close-out departure 1).
+    # The caller moves the file into records/logs/t3-close/ afterwards.
+    # Authentication uses the existing git credential helper; no authentication
+    # output is captured.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?pre or push}
+    REPO=thekeoni1/emend
+    URL=https://github.com/thekeoni1/emend.git
+    EXPECT_BASE=83c9852
+    EXPECT_COUNT=32
+    export GIT_TERMINAL_PROMPT=0 RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    show() { # show <label> <file>
+      echo "$1:"
+      sed 's/^/    /' "$2"
+    }
+    # check <label> <yes|no>: print a result evaluated once.
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # exit_and_bytes <exit> <bytes> <want exit> <want bytes>: both match.
+    exit_and_bytes() { [ "$1" -eq "$3" ] && [ "$2" -eq "$4" ]; }
+    # starts_with <full sha> <prefix>: the sha begins with the prefix.
+    starts_with() { [ -n "$1" ] && [ "${1#"$2"}" != "$1" ]; }
+    # same_nonempty <a> <b>: both set and equal.
+    same_nonempty() { [ -n "$1" ] && [ "$1" = "$2" ]; }
+    # hook_count_is <file> <n>: the hook's summary line names n commits and 0
+    # findings.
+    hook_count_is() {
+      LC_ALL=C /usr/bin/grep -q -E "^privacy: $2 commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]\$" "$1"
+    }
+    
+    case "$MODE" in
+      pre)
+        echo "about: T3 close-out push of main at $(git rev-parse main); HEAD at run: $(git rev-parse HEAD)"
+        echo "phase: T3 close-out (specs/0006-passthrough.md \"Close-out push (after P2)\") push.log part 1, step 2; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+        echo
+        echo "## script that wrote this log"
+        sed 's/^/    /' "$0"
+        echo
+        STATUS=$(git status --porcelain | tr '\n' ' ')
+        check "working tree clean before the run" "$(yn [ -z "$STATUS" ])"
+        MAIN=$(git rev-parse main)
+        echo "branch: $(git symbolic-ref --short HEAD); main is $MAIN; commits on main: $(git rev-list --count main)"
+        check "HEAD is main" "$(yn [ "$(git rev-parse HEAD)" = "$MAIN" ])"
+        RURL=$(git remote get-url origin)
+        echo "origin: $RURL"
+        check "origin is $URL" "$(yn [ "$RURL" = "$URL" ])"
+        BASE=$(git rev-parse origin/main)
+        COUNT=$(git rev-list --count "$BASE..$MAIN")
+        echo "base recorded before the push: origin/main (local tracking ref) is $BASE"
+        echo "commits to push: $COUNT"
+        check "base starts with $EXPECT_BASE" "$(yn starts_with "$BASE" "$EXPECT_BASE")"
+        check "commits to push: $COUNT (expect $EXPECT_COUNT)" "$(yn [ "$COUNT" = "$EXPECT_COUNT" ])"
+        echo "commits to push (oldest first):"
+        git log --reverse --format='    %H %s' "$BASE..$MAIN"
+        echo
+    
+        echo "## step 2: pre-push state and full gate"
+        DSET=$([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no)
+        check "EMEND_PRIVATE_DENYLIST is unset (set: $DSET)" "$(yn [ "$DSET" = no ])"
+        echo "command: git config --get core.hooksPath"
+        git config --get core.hooksPath > "$T/out" 2>&1
+        rc=$?
+        show output "$T/out"
+        n=$(wc -c < "$T/out")
+        check "exit $rc and output bytes $n (expect exit 1 and 0 bytes)" "$(yn exit_and_bytes "$rc" "$n" 1 0)"
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        check "hook is executable" "$(yn [ -x .git/hooks/pre-push ])"
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        n=$(wc -l < "$T/heredoc")
+        check "installer heredoc lines: $n (expect more than 0)" "$(yn [ "$n" -gt 0 ])"
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        check "hook equals what scripts/install-hooks.sh writes" "$(yn cmp -s .git/hooks/pre-push "$T/heredoc")"
+        echo "command: scripts/check.sh"
+        scripts/check.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        show stderr "$T/err"
+        echo "exit: $rc; stderr bytes: $(wc -c < "$T/err")"
+        check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "stderr is empty" "$(yn [ ! -s "$T/err" ])"
+        printf 'PASS host\nPASS i686\nPASS fmt\nPASS clippy\nPASS native (allowlisted -sys: none)\nPASS licences\nPASS hygiene\nPASS privacy\n' > "$T/want"
+        check "stdout is exactly the eight PASS lines in order" "$(yn cmp -s "$T/out" "$T/want")"
+        n=$(ctrl_bytes "$T/out"); check "check.sh stdout control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        n=$(ctrl_bytes "$T/err"); check "check.sh stderr control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        STATUS=$(git status --porcelain | tr '\n' ' ')
+        check "status after the gate (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+        echo "part 1 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+    
+      push)
+        BASE=${2:?base recorded in part 1 required}
+        echo
+        echo "# push.log part 2, steps 3 and 4; run at $(date -u +%Y-%m-%dT%H:%M:%SZ); HEAD at run: $(git rev-parse HEAD)"
+        if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; fi
+        if [ -n "$(git config --get core.hooksPath)" ]; then echo "refusing: core.hooksPath is set"; exit 1; fi
+        if [ "$(git rev-parse origin/main)" != "$BASE" ]; then echo "refusing: origin/main is no longer the base recorded in part 1"; exit 1; fi
+        echo "EMEND_PRIVATE_DENYLIST unset, core.hooksPath empty, and origin/main still the recorded base (the script refuses otherwise)"
+        MAIN=$(git rev-parse main)
+        COUNT=$(git rev-list --count "$BASE..$MAIN")
+        echo "main is $MAIN; base (recorded in part 1) is $BASE; commits in base..main: $COUNT"
+        echo
+        echo "## step 3: push"
+        echo "command: git push origin main"
+        git push origin main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        show stderr "$T/err"
+        echo "exit: $rc"
+        check "push exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        cat "$T/out" "$T/err" > "$T/both"
+        check "the hook printed PASS privacy" "$(yn env LC_ALL=C /usr/bin/grep -q -x 'PASS privacy' "$T/both")"
+        check "the hook's range is $BASE..$MAIN (the recorded base)" "$(yn env LC_ALL=C /usr/bin/grep -q -x -F "pre-push: scripts/privacy.sh --range $BASE..$MAIN (refs/heads/main)" "$T/both")"
+        check "commits in the recorded base..main: $COUNT (expect $EXPECT_COUNT)" "$(yn [ "$COUNT" = "$EXPECT_COUNT" ])"
+        check "the hook scanned $COUNT commits with 0 findings" "$(yn hook_count_is "$T/both" "$COUNT")"
+        check "git reported ${BASE:0:7}..${MAIN:0:7} for main" "$(yn env LC_ALL=C /usr/bin/grep -q -x -F "   ${BASE:0:7}..${MAIN:0:7}  main -> main" "$T/both")"
+        n=$(ctrl_bytes "$T/both"); check "push output control bytes: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+        echo
+        echo "## step 4: remote main equals local main, repository still private"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/ls" 2> "$T/lserr" </dev/null
+        rc=$?
+        show stdout "$T/ls"
+        show stderr "$T/lserr"
+        echo "exit: $rc"
+        check "ls-remote exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        REMOTE=$(cut -f1 "$T/ls")
+        echo "command: git rev-parse main"
+        echo "    $MAIN"
+        check "remote main equals local main" "$(yn same_nonempty "$REMOTE" "$MAIN")"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/vis" 2> "$T/viserr" </dev/null
+        rc=$?
+        show stdout "$T/vis"
+        show stderr "$T/viserr"
+        echo "exit: $rc"
+        check "gh exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "still PRIVATE" "$(yn env LC_ALL=C /usr/bin/grep -q -F '"visibility":"PRIVATE"' "$T/vis")"
+        STATUS=$(git status --porcelain | tr '\n' ' ')
+        check "working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+        echo "part 2 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    exit "$fail"
+
+working tree clean before the run: yes
+branch: main; main is 29b0bad50d2097d8d4748735f91eb5d011cb003b; commits on main: 142
+HEAD is main: yes
+origin: https://github.com/thekeoni1/emend.git
+origin is https://github.com/thekeoni1/emend.git: yes
+base recorded before the push: origin/main (local tracking ref) is 83c985299246f5bdc8fe54fb2345aeef380e6674
+commits to push: 32
+base starts with 83c9852: yes
+commits to push: 32 (expect 32): yes
+commits to push (oldest first):
+    343e91f01039206a117cab211f7ac3c103ec2318 T1 close-out record: push, CI run and scan logs
+    b58c08619608a61fee2fcc5e38d80a6c4245b728 T1 P5: commit planning doc updates (close-out ruling, zip64 run)
+    1c8eca19d055a11dea1b83613ff7125b865ef13d T1 P5: flag completeness
+    97cb52db5d6a712c625cc974a463a8c1cf587f85 T1 P5 record: gate, test, negative and scan logs at 1c8eca1
+    a9a78deb3c14285c16c2fc2d0bc50d2819448d21 T1 P5 record: independent check 1 answer, verbatim
+    b3534cc5af2a046da821f10ff73edbb75367d43b T1 P5: fixes from independent check 1
+    7d25ca230f9bf3766e365268aa82aa37c2007a2c T1 P5 record: logs rerun at b3534cc after the check 1 fixes
+    4f6f34702884c001b163715b67f346f5ac4e86f7 T1 P5 record: independent check 2 answer, verbatim
+    8a898b314b84eac1d87c332b50c7c0fd09d825c2 T1 P6: commit planning doc updates (P5 rulings, P6)
+    5d98cdc640dae3f6334041e35b74a65a1b6b3590 T1 P6: closing the exit-0 guarantee
+    e8280e3dffd0428a6f0405f05dd68d479df2d519 T1 P6 record: gate, test, negative and scan logs at 5d98cdc
+    63c9b01665e7c3e530285f58f093de97a0882450 T1 P6 record: independent check 1 answer, verbatim
+    dbe108c52efeae823bdb4464a7a884d6526fdb1a T1 P6: fixes from independent check 1
+    814740778864f11e008dbf45adf4695fbb5979eb T1 P6 record: logs rerun at dbe108c after the check 1 fixes
+    8c979bcc01ec39741e340e954a3a1a5208c5701e T1 P6 record: independent check 2 answer, verbatim
+    d63ad31eb9957bf5c3293d04d16d6f85622732d3 T3 P1: commit planning doc updates (T1 close, P6 rulings, T3 spec)
+    9eaee4778f16f172d4a1b2414d147542b6bfcbc1 T3 P1: passthrough copy tool, runner and record script
+    ba79abf40625155f26b98f1cb32736ca66361312 T3 P1 record: gate (with attempt 1), test, negative and scan logs at 9eaee47
+    79d17ba81eca7b4a64633e26c799c776a5fecdef T3 P1: assert the zip64 test's plain output sizes
+    8d202cda7fb89b209a305cde80adb99d7d813b43 T3 P1 record: logs rerun at 79d17ba after phase commit 2
+    4e389628e956bdc50c158051aabfe7e60bd91f37 T3 P1 record: independent check 1 answer, verbatim
+    cb94097d4d4b4dbd0f296760b70036bda0093731 T3 P1: fixes from independent check 1
+    4a9e929314aebbb55bcc1130203544bccb5604c6 T3 P1 record: logs rerun at cb94097 after the check 1 fixes
+    33c0198f20204c11ff78e03f2fb47666e17115f7 T3 P1 record: independent check 2 answer, verbatim
+    8bbda4d0857ee19601946a4233a36ae17eda6e35 T3 P2: commit planning doc updates (P1 rulings, P2 runner fixes)
+    2845fab9ba5ebbea759313de66c7eda2699b84e6 T3 P2: size probes, size profile, runner fixes, sleep-copying fault
+    434e714574c4d8667b75faf90b0b0c2e5d6571c4 T3 P2 record: gate, test, negative, size and scan logs at 2845fab, size baseline
+    dd1c4cdda35097e3a4eb46521e819030f6314c94 T3 P2 record: independent check 1 answer, verbatim
+    6a7533e6e47656111f69e2b08adab9454a75dbc4 T3 P2: remove stale temporary files before the child runs
+    ca4f1954b5b967bd364b3a975aa8965b9645bc31 T3 P2 record: logs rerun at 6a7533e after the check 1 fixes, size baseline
+    b1e798244ced6f7bce21577075c3ffce1f547ae4 T3 P2 record: independent check 2 answer, verbatim
+    29b0bad50d2097d8d4748735f91eb5d011cb003b T3 close-out: commit planning doc updates (P2 rulings, close-out push)
+
+## step 2: pre-push state and full gate
+EMEND_PRIVATE_DENYLIST is unset (set: no): yes
+command: git config --get core.hooksPath
+output:
+exit 1 and output bytes 0 (expect exit 1 and 0 bytes): yes
+command: ls -l .git/hooks/pre-push
+    -rwxr-xr-x 1 dev dev 1349 Sep 15 05:23 .git/hooks/pre-push
+hook is executable: yes
+installer heredoc lines: 39 (expect more than 0): yes
+hook sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; installer heredoc sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84
+hook equals what scripts/install-hooks.sh writes: yes
+command: scripts/check.sh
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr:
+exit: 0; stderr bytes: 0
+exit is 0: yes
+stderr is empty: yes
+stdout is exactly the eight PASS lines in order: yes
+check.sh stdout control bytes: 0 (expect 0): yes
+check.sh stderr control bytes: 0 (expect 0): yes
+status after the gate (expect empty): : yes
+part 1 checks all as expected: yes
+
+# push.log part 2, steps 3 and 4; run at 2026-09-15T22:47:19Z; HEAD at run: 29b0bad50d2097d8d4748735f91eb5d011cb003b
+EMEND_PRIVATE_DENYLIST unset, core.hooksPath empty, and origin/main still the recorded base (the script refuses otherwise)
+main is 29b0bad50d2097d8d4748735f91eb5d011cb003b; base (recorded in part 1) is 83c985299246f5bdc8fe54fb2345aeef380e6674; commits in base..main: 32
+
+## step 3: push
+command: git push origin main
+stdout:
+    pre-push: scripts/privacy.sh --range 83c985299246f5bdc8fe54fb2345aeef380e6674..29b0bad50d2097d8d4748735f91eb5d011cb003b (refs/heads/main)
+    PASS privacy
+stderr:
+    privacy: 32 commit(s), 244 blob(s) scanned, 0 finding(s)
+    To https://github.com/thekeoni1/emend.git
+       83c9852..29b0bad  main -> main
+exit: 0
+push exit is 0: yes
+the hook printed PASS privacy: yes
+the hook's range is 83c985299246f5bdc8fe54fb2345aeef380e6674..29b0bad50d2097d8d4748735f91eb5d011cb003b (the recorded base): yes
+commits in the recorded base..main: 32 (expect 32): yes
+the hook scanned 32 commits with 0 findings: yes
+git reported 83c9852..29b0bad for main: yes
+push output control bytes: 0 (expect 0): yes
+
+## step 4: remote main equals local main, repository still private
+command: git ls-remote origin refs/heads/main
+stdout:
+    29b0bad50d2097d8d4748735f91eb5d011cb003b	refs/heads/main
+stderr:
+exit: 0
+ls-remote exit is 0: yes
+command: git rev-parse main
+    29b0bad50d2097d8d4748735f91eb5d011cb003b
+remote main equals local main: yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+exit: 0
+gh exit is 0: yes
+still PRIVATE: yes
+working tree clean (expect empty): : yes
+part 2 checks all as expected: yes
