@@ -157,7 +157,7 @@ fn each_flag_alone() {
                 time: 0x6000,
                 ..base("f.txt")
             },
-            "mtime",
+            "mtime,local",
         ),
         (
             "date",
@@ -165,7 +165,7 @@ fn each_flag_alone() {
                 date: 0x5a2f,
                 ..base("f.txt")
             },
-            "mtime",
+            "mtime,local",
         ),
         (
             "local-extra",
@@ -189,7 +189,7 @@ fn each_flag_alone() {
                 flags: 0x0800,
                 ..base("f.txt")
             },
-            "gpflags",
+            "gpflags,local",
         ),
         (
             "attributes",
@@ -268,7 +268,7 @@ fn data_descriptor_on_one_side() {
         assert_eq!(entry_rows.len(), 1);
         assert_eq!(
             (entry_rows[0][2], entry_rows[0][16]),
-            ("identical", "gpflags,descriptor")
+            ("identical", "gpflags,descriptor,local")
         );
         assert_eq!(archive_value(&result.stdout, "flagged"), "1");
     }
@@ -298,7 +298,7 @@ fn flags_on_a_changed_entry_and_none_on_dropped_or_added() {
     assert_eq!(
         summary,
         [
-            ("c.txt", "changed", "3", "mtime"),
+            ("c.txt", "changed", "3", "mtime,local"),
             ("gone.txt", "dropped", "", ""),
             ("new.txt", "added", "", "")
         ]
@@ -483,9 +483,9 @@ fn different_lengths_across_several_buffers() {
     assert_eq!(result.stderr, "");
     let entry_rows = rows(&result.stdout, "entry");
     let expected = [
-        ["150000", "", "", ""],
-        ["140000", "", "", ""],
-        ["69999", "", "", ""],
+        ["150000", "", "", "local"],
+        ["140000", "", "", "local"],
+        ["69999", "", "", "local"],
     ];
     assert_eq!(entry_rows.len(), 3);
     for (i, row) in entry_rows.iter().enumerate() {

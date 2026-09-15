@@ -82,7 +82,9 @@ fn recompressed_entry() {
     assert_eq!(result.stderr, "");
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 2);
-    let flags = ["", "attrs"];
+    // Both entries change the local header (the sizes, and for the method
+    // entry the method and version needed), so both also set `local` (P4).
+    let flags = ["local", "attrs,local"];
     for (i, row) in entry_rows.iter().enumerate() {
         assert_eq!(row[2], "recompressed");
         assert_columns(row, Some((i, &mi[i])), Some((i, &mo[i])));
@@ -124,9 +126,9 @@ fn changed_entry_with_equal_length() {
     let (mi, mo) = (meta(&input), meta(&output));
     let entry_rows = rows(&result.stdout, "entry");
     let expected = [
-        ["0", "1", "0", ""],
-        ["999", "1", "999", ""],
-        ["0", "3", "999", ""],
+        ["0", "1", "0", "local"],
+        ["999", "1", "999", "local"],
+        ["0", "3", "999", "local"],
     ];
     assert_eq!(entry_rows.len(), 3);
     for (i, row) in entry_rows.iter().enumerate() {
@@ -171,9 +173,9 @@ fn changed_entry_with_different_lengths() {
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 3);
     let expected = [
-        ("1000", "600", ["600", "", "", ""]),
-        ("600", "1000", ["600", "", "", ""]),
-        ("1000", "600", ["5", "", "", ""]),
+        ("1000", "600", ["600", "", "", "local"]),
+        ("600", "1000", ["600", "", "", "local"]),
+        ("1000", "600", ["5", "", "", "local"]),
     ];
     for (i, row) in entry_rows.iter().enumerate() {
         assert_eq!(row[2], "changed");
@@ -200,7 +202,7 @@ fn large_entry_with_differences_in_first_middle_and_last_chunk() {
     assert_eq!(entry_rows.len(), 1);
     assert_eq!(entry_rows[0][2], "changed");
     assert_columns(&entry_rows[0], Some((0, &mi[0])), Some((0, &mo[0])));
-    assert_tail(&entry_rows[0], ["10", "5", "299999", ""]);
+    assert_tail(&entry_rows[0], ["10", "5", "299999", "local"]);
     assert_eq!(
         status_counts(&result.stdout),
         expected_archive([1, 1, 0, 0, 1, 0, 0])
@@ -408,7 +410,7 @@ fn entry_of_exactly_two_buffers() {
     let entry_rows = rows(&result.stdout, "entry");
     assert_eq!(entry_rows.len(), 1);
     assert_eq!(entry_rows[0][2], "changed");
-    assert_tail(&entry_rows[0], ["131071", "1", "131071", ""]);
+    assert_tail(&entry_rows[0], ["131071", "1", "131071", "local"]);
 
     let bad = dir.path("bad-crc.zip");
     let mut bytes = fs::read(&output).expect("read");

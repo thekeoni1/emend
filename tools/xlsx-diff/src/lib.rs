@@ -7,7 +7,8 @@
 //!
 //! T1 P3 fills every column of the `entry` rows, including the flags, writes
 //! every `archive` row, and sets the exit status as the spec's "Exit status"
-//! section says.
+//! section says. T1 P4 adds the seventh flag, `local`, and version needed to
+//! extract to `attrs`.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -178,6 +179,7 @@ pub fn escape_name(raw: &[u8]) -> String {
 struct Record {
     name: Vec<u8>,
     version_made_by: u16,
+    version_needed: u16,
     flags: u16,
     time: u16,
     date: u16,
@@ -186,15 +188,24 @@ struct Record {
     comment: Vec<u8>,
 }
 
+/// The parts of an entry's local file header that the flags compare.
+struct Local {
+    /// Bytes 4 to 25: version needed, general purpose flags, method, DOS
+    /// time, DOS date, CRC-32, compressed size and uncompressed size.
+    fixed: [u8; 22],
+    name: Vec<u8>,
+    extra: Vec<u8>,
+}
+
 /// Metadata of one entry: the central directory record, the zip crate's
-/// method, sizes and CRC-32, and the local header's extra field.
+/// method, sizes and CRC-32, and the local file header.
 struct Meta {
     record: Record,
     method: u16,
     size: u64,
     compressed: u64,
     crc: u32,
-    local_extra: Vec<u8>,
+    local: Local,
 }
 
 impl Meta {
@@ -217,7 +228,7 @@ struct Archive {
 
 /// Opens one archive, reads its central directory records, rejects a
 /// duplicate raw name and an encrypted entry, and collects every entry's
-/// metadata and local extra field.
+/// metadata and local file header.
 fn open(path: &Path, side: Side) -> Result<Archive, Error> {
     let file = File::open(path).map_err(|e| Error::Open(side, e.kind()))?;
     let bytes = file
@@ -262,14 +273,14 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
         #[allow(deprecated)]
         let method = entry.compression().to_u16();
         let (size, compressed, crc) = (entry.size(), entry.compressed_size(), entry.crc32());
-        let local_extra = local_extra(&mut raw, entry.header_start(), side, &record.name)?;
+        let local = local_header(&mut raw, entry.header_start(), side, &record.name)?;
         entries.push(Meta {
             record,
             method,
             size,
             compressed,
             crc,
-            local_extra,
+            local,
         });
     }
     Ok(Archive {
@@ -319,6 +330,7 @@ fn central_records(
         records.push(Record {
             name,
             version_made_by: le16(&header, 4),
+            version_needed: le16(&header, 6),
             flags: le16(&header, 8),
             time: le16(&header, 12),
             date: le16(&header, 14),
@@ -332,14 +344,15 @@ fn central_records(
     Ok(records)
 }
 
-/// Reads the extra field of the local file header at `start` (an absolute
-/// file offset, as `ZipFile::header_start` gives it).
-fn local_extra(
+/// Reads the local file header at `start` (an absolute file offset, as
+/// `ZipFile::header_start` gives it): its fixed fields after the signature,
+/// its name and its extra field.
+fn local_header(
     reader: &mut BufReader<File>,
     start: u64,
     side: Side,
     name: &[u8],
-) -> Result<Vec<u8>, Error> {
+) -> Result<Local, Error> {
     let bad = || Error::Entry(side, name.to_vec());
     reader.seek(SeekFrom::Start(start)).map_err(|_| bad())?;
     let mut header = [0u8; LOCAL_HEADER_LEN];
@@ -347,16 +360,22 @@ fn local_extra(
     if got != LOCAL_HEADER_LEN || header[..4] != LOCAL_HEADER_SIGNATURE {
         return Err(bad());
     }
-    let name_len = u16::from_le_bytes([header[26], header[27]]);
-    let extra_len = u16::from_le_bytes([header[28], header[29]]);
-    reader
-        .seek_relative(i64::from(name_len))
-        .map_err(|_| bad())?;
-    let mut extra = vec![0u8; usize::from(extra_len)];
-    if read_full(reader, &mut extra).map_err(|_| bad())? != extra.len() {
-        return Err(bad());
-    }
-    Ok(extra)
+    let mut fixed = [0u8; 22];
+    fixed.copy_from_slice(&header[4..26]);
+    let mut field = |len: u16| -> Result<Vec<u8>, Error> {
+        let mut bytes = vec![0u8; usize::from(len)];
+        if read_full(reader, &mut bytes).map_err(|_| bad())? != bytes.len() {
+            return Err(bad());
+        }
+        Ok(bytes)
+    };
+    let local_name = field(u16::from_le_bytes([header[26], header[27]]))?;
+    let extra = field(u16::from_le_bytes([header[28], header[29]]))?;
+    Ok(Local {
+        fixed,
+        name: local_name,
+        extra,
+    })
 }
 
 /// Reads until `buf` is full or the reader ends, and returns the count read.
@@ -510,7 +529,7 @@ fn flags(a: &Meta, b: &Meta) -> String {
     if (ra.time, ra.date) != (rb.time, rb.date) {
         set.push("mtime");
     }
-    if a.local_extra != b.local_extra || ra.extra != rb.extra {
+    if a.local.extra != b.local.extra || ra.extra != rb.extra {
         set.push("extra");
     }
     if ra.flags != rb.flags {
@@ -519,12 +538,17 @@ fn flags(a: &Meta, b: &Meta) -> String {
     if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) {
         set.push("descriptor");
     }
-    if ra.external_attributes != rb.external_attributes || ra.version_made_by != rb.version_made_by
+    if ra.external_attributes != rb.external_attributes
+        || ra.version_made_by != rb.version_made_by
+        || ra.version_needed != rb.version_needed
     {
         set.push("attrs");
     }
     if ra.comment != rb.comment {
         set.push("comment");
+    }
+    if a.local.fixed != b.local.fixed || a.local.name != b.local.name {
+        set.push("local");
     }
     set.join(",")
 }

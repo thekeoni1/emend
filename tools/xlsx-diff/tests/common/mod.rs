@@ -392,7 +392,8 @@ pub fn single_deflate_entry_zip(name: &str, data: &[u8], raw: &[u8]) -> Vec<u8> 
 }
 
 /// One entry of an archive written byte by byte by `raw_zip`. Every header
-/// field the flags compare is set here directly.
+/// field the flags compare is set here directly; the local header repeats
+/// the central record's values unless a `local_*` field overrides one.
 #[derive(Clone)]
 pub struct RawEntry {
     pub name: Vec<u8>,
@@ -412,6 +413,14 @@ pub struct RawEntry {
     pub central_extra: Vec<u8>,
     pub comment: Vec<u8>,
     pub external_attributes: u32,
+    /// Version needed to extract, in both headers unless overridden below.
+    pub version_needed: u16,
+    /// Local header values that differ from the central record's, when set.
+    pub local_version_needed: Option<u16>,
+    pub local_flags: Option<u16>,
+    pub local_time: Option<u16>,
+    pub local_date: Option<u16>,
+    pub local_name: Option<Vec<u8>>,
 }
 
 /// A stored entry: version 2.0 made by MS-DOS, no flags, DOS time 00:00:00
@@ -430,6 +439,12 @@ pub fn raw_stored(name: &str, data: &[u8]) -> RawEntry {
         central_extra: Vec::new(),
         comment: Vec::new(),
         external_attributes: 0,
+        version_needed: 20,
+        local_version_needed: None,
+        local_flags: None,
+        local_time: None,
+        local_date: None,
+        local_name: None,
     }
 }
 
@@ -459,11 +474,14 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
         local_offsets.push(out.len() - prefix.len());
         let descriptor = e.flags & 0x0008 != 0;
         let crc = crc32(&e.data).to_le_bytes();
-        out.extend_from_slice(&[0x50, 0x4b, 0x03, 0x04, 20, 0]);
-        out.extend_from_slice(&e.flags.to_le_bytes());
+        let local_name = e.local_name.as_ref().unwrap_or(&e.name);
+        let local_version = e.local_version_needed.unwrap_or(e.version_needed);
+        out.extend_from_slice(&[0x50, 0x4b, 0x03, 0x04]);
+        out.extend_from_slice(&local_version.to_le_bytes());
+        out.extend_from_slice(&e.local_flags.unwrap_or(e.flags).to_le_bytes());
         out.extend_from_slice(&e.method.to_le_bytes());
-        out.extend_from_slice(&e.time.to_le_bytes());
-        out.extend_from_slice(&e.date.to_le_bytes());
+        out.extend_from_slice(&e.local_time.unwrap_or(e.time).to_le_bytes());
+        out.extend_from_slice(&e.local_date.unwrap_or(e.date).to_le_bytes());
         if descriptor {
             out.extend_from_slice(&[0; 12]);
         } else {
@@ -471,9 +489,9 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
             out.extend_from_slice(&u32_of(e.raw.len()));
             out.extend_from_slice(&u32_of(e.data.len()));
         }
-        out.extend_from_slice(&u16_of(e.name.len()));
+        out.extend_from_slice(&u16_of(local_name.len()));
         out.extend_from_slice(&u16_of(e.local_extra.len()));
-        out.extend_from_slice(&e.name);
+        out.extend_from_slice(local_name);
         out.extend_from_slice(&e.local_extra);
         out.extend_from_slice(&e.raw);
         if descriptor {
@@ -487,7 +505,7 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
     for (e, &offset) in entries.iter().zip(&local_offsets) {
         out.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
         out.extend_from_slice(&e.version_made_by.to_le_bytes());
-        out.extend_from_slice(&[20, 0]);
+        out.extend_from_slice(&e.version_needed.to_le_bytes());
         out.extend_from_slice(&e.flags.to_le_bytes());
         out.extend_from_slice(&e.method.to_le_bytes());
         out.extend_from_slice(&e.time.to_le_bytes());
