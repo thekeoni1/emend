@@ -1,0 +1,510 @@
+about: P5 phase commit 346385c8c8934c3485b27160a69fd032f35ef8b5 and record commit fadc53f422f0348c0a45b257382230f38daac0bb; HEAD at run: 1a95419ab150e392a85bfd7f333a0f22798cf5c5
+phase: T0 P5 (specs/0001-bootstrap.md) verify.log; run at 2026-09-15T01:34:14Z
+working tree clean at the start of this run, after record commit fadc53f422f0348c0a45b257382230f38daac0bb and the check 1 record commit: yes (the script exits 2 otherwise)
+output is written to <scratch> and moved into the repo afterwards
+
+Fixes in this log, from records/logs/t0-p5/independent-check-1.md:
+  1. The emend-testing condition is exercised (v1), and an office file under tests/fixtures/ passes (v2).
+  2. Step 7 edge cases check 1 raised are demonstrated with the committed check.sh and OBSERVED, not judged:
+     a staged file deleted from the working tree (v3), a newline in a path (v4), a NUL byte before the dash (v5),
+     tracked symlinks (v6), and letter case in emend-testing and Tests/Fixtures/ (v1, v2).
+  3. --quick still runs step 7 (v7). The bash version is recorded.
+  4. check.sh at 346385c8c8934c3485b27160a69fd032f35ef8b5 itself exports RUSTUP_AUTO_INSTALL=0 (the draft report wrongly cited the diff for it).
+  5. Committed P5 files at fadc53f422f0348c0a45b257382230f38daac0bb against the hashes scan.log recorded, control bytes counted as bytes, and fadc53f422f0348c0a45b257382230f38daac0bb's message scanned.
+  6. The tree is clean after the record commit (this run's start).
+Not fixable by a later log: that the doc files were unedited before git add.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P5 verify: evidence independent check 1 found missing from the P5 logs, and a
+    # demonstration of the step 7 edge cases it raised. Every case runs the check.sh
+    # committed at the phase commit, in a fresh clone outside the repo.
+    # Usage: p5-verify.sh > <scratch file>; the caller moves the output to
+    # records/logs/t0-p5/verify.log. Clone and scratch paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    PH=346385c8c8934c3485b27160a69fd032f35ef8b5
+    REC1=fadc53f422f0348c0a45b257382230f38daac0bb
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    trap 'rm -rf "$BASE"' EXIT
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    EMDASH=$(printf '\342\200\224')
+    fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$BASE|<scratch>|g" -e "s|$REPO|<repo>|g"; }
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    f_ctrl()     { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() {
+      local n
+      n=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c) || { echo ERROR; return 2; }
+      echo "$n"
+    }
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+    )
+    P6ARGS=(); for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E "${P6ARGS[@]}" "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -c -i -w -F -f "$BASE/deny" "$1"; }
+    
+    # expect <output> <present|absent> <ERE> <label>: judged
+    expect() {
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    # observe <output> <ERE> <label>: reported, not judged (edge cases for planning)
+    observe() {
+      local n rc
+      n=$(LC_ALL=C "$G" -c -E -e "$2" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $3: grep error (exit $rc)"; fail=1; return; fi
+      echo "  observed: $3: count=${n:-0} grep exit=$rc -> $([ "$rc" -eq 0 ] && echo present || echo absent)"
+    }
+    # run <form> <label> <file>: expect no hit
+    run() {
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc (expect exit 1)"
+      [ "$rc" -eq 1 ] || fail=1
+    }
+    fresh_clone() {
+      rm -rf "$CLONE"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$PH" || { echo "clone failed"; fail=1; return 1; }
+      echo "clone at $PH: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    # gate <name> [args...]: run the clone's check.sh; print sanitised output, exit, control bytes
+    gate() {
+      local name=$1 rc
+      shift
+      echo "command: scripts/check.sh $* (in the clone)"
+      (cd "$CLONE" && scripts/check.sh "$@") > "$BASE/$name.out" 2>&1
+      rc=$?
+      hide < "$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      echo "  control characters in the captured output: lines=$(f_ctrl "$BASE/$name.out") bytes=$(ctrl_bytes "$BASE/$name.out") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/$name.out")" = 0 ] || fail=1
+      return "$rc"
+    }
+    # staged_list: the clone's staged paths, with C-style quoting so no raw control byte is printed
+    staged_list() { git -C "$CLONE" -c core.quotepath=true diff --cached --name-status | sed 's/^/    | /'; }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: P5 phase commit $PH and record commit $REC1; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P5 (specs/0001-bootstrap.md) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean at the start of this run, after record commit $REC1 and the check 1 record commit: yes (the script exits 2 otherwise)"
+    echo "output is written to <scratch> and moved into the repo afterwards"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p5/independent-check-1.md:"
+    echo "  1. The emend-testing condition is exercised (v1), and an office file under tests/fixtures/ passes (v2)."
+    echo "  2. Step 7 edge cases check 1 raised are demonstrated with the committed check.sh and OBSERVED, not judged:"
+    echo "     a staged file deleted from the working tree (v3), a newline in a path (v4), a NUL byte before the dash (v5),"
+    echo "     tracked symlinks (v6), and letter case in emend-testing and Tests/Fixtures/ (v1, v2)."
+    echo "  3. --quick still runs step 7 (v7). The bash version is recorded."
+    echo "  4. check.sh at $PH itself exports RUSTUP_AUTO_INSTALL=0 (the draft report wrongly cited the diff for it)."
+    echo "  5. Committed P5 files at $REC1 against the hashes scan.log recorded, control bytes counted as bytes, and $REC1's message scanned."
+    echo "  6. The tree is clean after the record commit (this run's start)."
+    echo "Not fixable by a later log: that the doc files were unedited before git add."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## environment and ties to the phase commit"
+    echo "bash: $(bash --version | head -1)"
+    echo "grep: $G, $("$G" --version | head -1); RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "scripts/check.sh at HEAD sha256 $(git show HEAD:scripts/check.sh | sha256sum | cut -d' ' -f1); at $PH sha256 $(git show "$PH:scripts/check.sh" | sha256sum | cut -d' ' -f1)"
+    echo "source outside records/ unchanged between $PH and HEAD: $(git diff --quiet "$PH" HEAD -- . ':!records' && echo yes || echo no)"
+    git diff --quiet "$PH" HEAD -- . ':!records' || fail=1
+    echo "command: git show $PH:scripts/check.sh | grep -n -E '^export (RUSTUP_AUTO_INSTALL|CARGO_TERM_COLOR)='"
+    git show "$PH:scripts/check.sh" | LC_ALL=C "$G" -n -E '^export (RUSTUP_AUTO_INSTALL|CARGO_TERM_COLOR)=' | sed 's/^/    /'
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$BASE/deny"
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE"), entries $(wc -l < "$BASE/deny") (never printed)"
+    
+    echo
+    echo "## controls"
+    ctl_fail=0
+    printf 'x \033[31mred\033[m\017 y\n' > "$BASE/c-ctrl"
+    printf 'plain\ttab\r\n' > "$BASE/c-tabcr"
+    printf 'plain\nhas \303\251 byte\n' > "$BASE/c-nonascii"
+    printf 'subject\n\nClaude-Session: control\n' > "$BASE/c-session"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(printf 'a%.0s' $(seq 1 24))" > "$BASE/c-p6"
+    printf 'x %s y\n' "$HOST" > "$BASE/c-host"
+    printf 'x %s y\n' "$FQDN" > "$BASE/c-fqdn"
+    printf 'plain ascii only\n' > "$BASE/c-clean"
+    echo "  ctrl_bytes c-ctrl=$(ctrl_bytes "$BASE/c-ctrl") (expect 3) c-tabcr=$(ctrl_bytes "$BASE/c-tabcr") (expect 0)"
+    [ "$(ctrl_bytes "$BASE/c-ctrl")" = 3 ] && [ "$(ctrl_bytes "$BASE/c-tabcr")" = 0 ] || ctl_fail=1
+    for spec in "f_nonascii c-nonascii 0" "f_session c-session 0" "f_p6 c-p6 0" "f_host c-host 0" "f_host c-fqdn 0" \
+                "f_nonascii c-clean 1" "f_session c-clean 1" "f_p6 c-clean 1" "f_host c-clean 1" "f_deny c-clean 1"; do
+      set -- $spec
+      n=$("$1" "$BASE/$2"); rc=$?
+      echo "  control $1 file=$2 count=${n:-none} exit=$rc expected_exit=$3"
+      [ "$rc" -eq "$3" ] || ctl_fail=1
+    done
+    for i in $(seq 1 "$(wc -l < "$BASE/deny")"); do
+      sed -n "${i}p" "$BASE/deny" | awk '{print "x " $0 " y"}' > "$BASE/c-deny-$i"
+      n=$(f_deny "$BASE/c-deny-$i"); rc=$?
+      echo "  control f_deny entry=$i (not printed) count=${n:-none} exit=$rc expected_exit=0"
+      [ "$rc" -eq 0 ] || ctl_fail=1
+    done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fail=1; fi
+    
+    echo
+    echo "## case v1: tracked paths containing emend-testing"
+    fresh_clone
+    mkdir -p "$CLONE/docs" && printf 'fictional note\n' > "$CLONE/docs/emend-testing-notes.txt"
+    git -C "$CLONE" add docs/emend-testing-notes.txt
+    echo "staged:"; staged_list
+    gate v1; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v1.out" present '^FAIL hygiene: tracked path[(]s[)] containing emend-testing: docs/emend-testing-notes[.]txt$' "FAIL hygiene naming the path"
+    echo "v1b (letter case, observed): docs/Emend-Testing-notes.txt"
+    fresh_clone
+    mkdir -p "$CLONE/docs" && printf 'fictional note\n' > "$CLONE/docs/Emend-Testing-notes.txt"
+    git -C "$CLONE" add docs/Emend-Testing-notes.txt
+    gate v1b; rc=$?
+    observe "$BASE/v1b.out" '^PASS hygiene$' "PASS hygiene with Emend-Testing in the path (present means the case-sensitive match lets it through)"
+    
+    echo
+    echo "## case v2: an office file under tests/fixtures/ passes; Tests/Fixtures/ observed"
+    fresh_clone
+    mkdir -p "$CLONE/tools/xlsx-diff/tests/fixtures" && printf 'generated fixture stand-in\n' > "$CLONE/tools/xlsx-diff/tests/fixtures/sample.xlsx"
+    git -C "$CLONE" add tools/xlsx-diff/tests/fixtures/sample.xlsx
+    echo "staged:"; staged_list
+    gate v2; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/v2.out" present '^PASS hygiene$' "PASS hygiene"
+    echo "v2b (letter case, observed): tools/xlsx-diff/Tests/Fixtures/sample.xlsx, force-added"
+    fresh_clone
+    mkdir -p "$CLONE/tools/xlsx-diff/Tests/Fixtures" && printf 'stand-in\n' > "$CLONE/tools/xlsx-diff/Tests/Fixtures/sample.xlsx"
+    git -C "$CLONE" add -f tools/xlsx-diff/Tests/Fixtures/sample.xlsx
+    gate v2b; rc=$?
+    observe "$BASE/v2b.out" '^FAIL hygiene: office file' "FAIL hygiene for Tests/Fixtures/ (present means the exception is case-sensitive and fails closed)"
+    
+    echo
+    echo "## case v3 (edge case, observed): a staged file with U+2014, then deleted from the working tree"
+    fresh_clone
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt && rm "$CLONE/notes.txt"
+    echo "staged, then removed from the working tree; the index still holds the dash:"; staged_list
+    echo "  index blob of notes.txt holds the U+2014 bytes: $(git -C "$CLONE" show :notes.txt | LC_ALL=C "$G" -c -F -e "$EMDASH")"
+    gate v3; rc=$?
+    observe "$BASE/v3.out" '^PASS hygiene$' "PASS hygiene (present means the step scans the working tree, not the index)"
+    
+    echo
+    echo "## case v4 (edge case, observed): a newline in a directory name before tests/fixtures/"
+    fresh_clone
+    d="$CLONE/$(printf 'a\ntests')/fixtures"
+    mkdir -p "$d" && printf 'stand-in\n' > "$d/b.xlsx"
+    git -C "$CLONE" add -f "$(printf 'a\ntests')/fixtures/b.xlsx"
+    echo "staged (quoted by git):"; staged_list
+    gate v4; rc=$?
+    observe "$BASE/v4.out" '^PASS hygiene$' "PASS hygiene (present means the newline split let the tests/fixtures/ exception apply)"
+    
+    echo
+    echo "## case v5 (edge case, observed): a text file with a NUL byte before the dash"
+    fresh_clone
+    printf 'x\000y dash %s here\n' "$EMDASH" > "$CLONE/nul.txt"
+    git -C "$CLONE" add nul.txt
+    echo "staged:"; staged_list
+    gate v5; rc=$?
+    observe "$BASE/v5.out" '^PASS hygiene$' "PASS hygiene (present means grep -I treated the file as binary and skipped it)"
+    
+    echo
+    echo "## case v6 (edge case, observed): tracked symlinks"
+    fresh_clone
+    printf 'outside dash %s\n' "$EMDASH" > "$BASE/outside.txt"
+    ln -s "$BASE/outside.txt" "$CLONE/link-outside"
+    git -C "$CLONE" add link-outside
+    echo "staged: link-outside, a symlink to a file outside the repo that holds the dash"; staged_list
+    gate v6a; rc=$?
+    observe "$BASE/v6a.out" '^FAIL hygiene: U[+]2014 in tracked file[(]s[)]: link-outside$' "FAIL hygiene naming link-outside (present means the symlink target outside the repo was scanned)"
+    fresh_clone
+    ln -s "dangling-$EMDASH-target" "$CLONE/link-dangling"
+    git -C "$CLONE" add link-dangling
+    echo "staged: link-dangling, a dangling symlink whose target string holds the dash bytes"; staged_list
+    gate v6b; rc=$?
+    observe "$BASE/v6b.out" '^PASS hygiene$' "PASS hygiene (present means a dangling symlink's target string is not scanned)"
+    
+    echo
+    echo "## case v7: --quick still runs step 7"
+    fresh_clone
+    gate v7 --quick; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/v7.out" present '^PASS hygiene$' "PASS hygiene under --quick"
+    expect "$BASE/v7.out" present '^SKIP i686: --quick$' "SKIP i686"
+    rm -rf "$CLONE"
+    
+    echo
+    echo "## committed P5 files at $REC1"
+    git show "$REC1:records/logs/t0-p5/scan.log" > "$BASE/scan"
+    for p in records/logs/t0-p5/gate.log records/logs/t0-p5/negative.log records/toolchain-2026-09-15.md records/logs/t0-p5/scan.log; do
+      git show "$REC1:$p" > "$BASE/f" || { echo "READ ERROR $p"; fail=1; continue; }
+      c=$(sha256sum < "$BASE/f" | cut -d' ' -f1)
+      echo "$p committed sha256 $c"
+      if [ "$p" != records/logs/t0-p5/scan.log ]; then
+        s=$(sed -n "s|^log $p (sha256 \([0-9a-f]*\))$|\1|p" "$BASE/scan")
+        echo "  equal to the hash scan.log recorded: $(yn "$c" "$s")"; [ "$c" = "$s" ] || fail=1
+      fi
+      echo "  control characters: lines=$(f_ctrl "$BASE/f") bytes=$(ctrl_bytes "$BASE/f") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/f")" = 0 ] || fail=1
+    done
+    
+    echo
+    echo "## record commit $REC1 message and independent-check-1.md"
+    git cat-file commit "$REC1" | sed '1,/^$/d' > "$BASE/m"
+    last=$(awk 'NF{l=$0} END{print l}' "$BASE/m")
+    echo "last non-empty line is the Co-Authored-By line: $(yn "$last" "$COAUTHOR")"; [ "$last" = "$COAUTHOR" ] || fail=1
+    for f in f_nonascii f_session f_p6 f_host f_deny; do run "$f" message "$BASE/m"; done
+    echo "  message control bytes: $(ctrl_bytes "$BASE/m") (expect 0)"; [ "$(ctrl_bytes "$BASE/m")" = 0 ] || fail=1
+    git show HEAD:records/logs/t0-p5/independent-check-1.md > "$BASE/ic1"
+    echo "records/logs/t0-p5/independent-check-1.md at HEAD sha256 $(sha256sum < "$BASE/ic1" | cut -d' ' -f1)"
+    for f in f_nonascii f_p6 f_host f_deny; do run "$f" independent-check-1 "$BASE/ic1"; done
+    echo "  control bytes: $(ctrl_bytes "$BASE/ic1") (expect 0)"; [ "$(ctrl_bytes "$BASE/ic1")" = 0 ] || fail=1
+    
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "checks failed: $fail"
+    if [ "$fail" -eq 0 ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; exit 1; fi
+
+## environment and ties to the phase commit
+bash: GNU bash, version 5.3.9(1)-release (x86_64-pc-linux-gnu)
+grep: /usr/bin/grep, grep (GNU grep) 3.12; RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+ANTHROPIC_API_KEY set in this shell: no
+scripts/check.sh at HEAD sha256 c722e9e89500d7f7e90958b3dff27eb9ef908de1498625ed2f59dd9eabf4c5a1; at 346385c8c8934c3485b27160a69fd032f35ef8b5 sha256 c722e9e89500d7f7e90958b3dff27eb9ef908de1498625ed2f59dd9eabf4c5a1
+source outside records/ unchanged between 346385c8c8934c3485b27160a69fd032f35ef8b5 and HEAD: yes
+command: git show 346385c8c8934c3485b27160a69fd032f35ef8b5:scripts/check.sh | grep -n -E '^export (RUSTUP_AUTO_INSTALL|CARGO_TERM_COLOR)='
+    22:export RUSTUP_AUTO_INSTALL=0
+    24:export CARGO_TERM_COLOR=never
+private denylist: present, mode 600, entries 6 (never printed)
+
+## controls
+  ctrl_bytes c-ctrl=3 (expect 3) c-tabcr=0 (expect 0)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control f_session file=c-session count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6 count=1 exit=0 expected_exit=0
+  control f_host file=c-host count=1 exit=0 expected_exit=0
+  control f_host file=c-fqdn count=1 exit=0 expected_exit=0
+  control f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control f_session file=c-clean count=0 exit=1 expected_exit=1
+  control f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control f_host file=c-clean count=0 exit=1 expected_exit=1
+  control f_deny file=c-clean count=0 exit=1 expected_exit=1
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0
+controls: all as expected
+
+## case v1: tracked paths containing emend-testing
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged:
+    | A	docs/emend-testing-notes.txt
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: tracked path(s) containing emend-testing: docs/emend-testing-notes.txt
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming the path: expect present; count=1 grep exit=0 -> as-expected
+v1b (letter case, observed): docs/Emend-Testing-notes.txt
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: PASS hygiene with Emend-Testing in the path (present means the case-sensitive match lets it through): count=1 grep exit=0 -> present
+
+## case v2: an office file under tests/fixtures/ passes; Tests/Fixtures/ observed
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged:
+    | A	tools/xlsx-diff/tests/fixtures/sample.xlsx
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit zero: as-expected
+  PASS hygiene: expect present; count=1 grep exit=0 -> as-expected
+v2b (letter case, observed): tools/xlsx-diff/Tests/Fixtures/sample.xlsx, force-added
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: tools/xlsx-diff/Tests/Fixtures/sample.xlsx
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: FAIL hygiene for Tests/Fixtures/ (present means the exception is case-sensitive and fails closed): count=1 grep exit=0 -> present
+
+## case v3 (edge case, observed): a staged file with U+2014, then deleted from the working tree
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged, then removed from the working tree; the index still holds the dash:
+    | A	notes.txt
+  index blob of notes.txt holds the U+2014 bytes: 1
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means the step scans the working tree, not the index): count=1 grep exit=0 -> present
+
+## case v4 (edge case, observed): a newline in a directory name before tests/fixtures/
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged (quoted by git):
+    | A	"a\ntests/fixtures/b.xlsx"
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means the newline split let the tests/fixtures/ exception apply): count=1 grep exit=0 -> present
+
+## case v5 (edge case, observed): a text file with a NUL byte before the dash
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged:
+    | A	nul.txt
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means grep -I treated the file as binary and skipped it): count=1 grep exit=0 -> present
+
+## case v6 (edge case, observed): tracked symlinks
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged: link-outside, a symlink to a file outside the repo that holds the dash
+    | A	link-outside
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: U+2014 in tracked file(s): link-outside
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: FAIL hygiene naming link-outside (present means the symlink target outside the repo was scanned): count=1 grep exit=0 -> present
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+staged: link-dangling, a dangling symlink whose target string holds the dash bytes
+    | A	link-dangling
+command: scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means a dangling symlink's target string is not scanned): count=1 grep exit=0 -> present
+
+## case v7: --quick still runs step 7
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+command: scripts/check.sh --quick (in the clone)
+    PASS host
+    SKIP i686: --quick
+    PASS fmt
+    SKIP clippy: --quick
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit zero: as-expected
+  PASS hygiene under --quick: expect present; count=1 grep exit=0 -> as-expected
+  SKIP i686: expect present; count=1 grep exit=0 -> as-expected
+
+## committed P5 files at fadc53f422f0348c0a45b257382230f38daac0bb
+records/logs/t0-p5/gate.log committed sha256 ba710008e8fbc52155d0f11755f96256b4fe76a9cc5d5ebc7c6982dd39cea552
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/logs/t0-p5/negative.log committed sha256 4af428c1f44f4e3fe2feb09c5d18d832f140718a35e296feb9df20b047cf9cd8
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/toolchain-2026-09-15.md committed sha256 5a6834de5c46c10ae9d6bde992aa736659008c67985112788be11ff14d1ea013
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/logs/t0-p5/scan.log committed sha256 c7978f02d033990092984aa021dfaeecca12b6500244119339679d258747fefc
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+
+## record commit fadc53f422f0348c0a45b257382230f38daac0bb message and independent-check-1.md
+last non-empty line is the Co-Authored-By line: yes
+  message: form=f_nonascii count=0 exit=1 (expect exit 1)
+  message: form=f_session count=0 exit=1 (expect exit 1)
+  message: form=f_p6 count=0 exit=1 (expect exit 1)
+  message: form=f_host count=0 exit=1 (expect exit 1)
+  message: form=f_deny count=0 exit=1 (expect exit 1)
+  message control bytes: 0 (expect 0)
+records/logs/t0-p5/independent-check-1.md at HEAD sha256 952f92eaa138497f810b2742a5792f0c891da46e5072e7842eb8c5d788d2e0e2
+  independent-check-1: form=f_nonascii count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_p6 count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_host count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_deny count=0 exit=1 (expect exit 1)
+  control bytes: 0 (expect 0)
+
+status after the run (expect empty): 
+checks failed: 0
+RESULT: PASS
