@@ -1,0 +1,678 @@
+about: P4 phase commit a713c93b080b415aa9c39d51c327b930445ad2e7 and record commit 980b9e3397bbb85e00189948dc4dc8c993833fe3; HEAD at run: 729ab0ecd297ccc9a10977acca2cfe77fc928b06
+phase: T0 P4 (specs/0001-bootstrap.md) verify.log; run at 2026-09-15T00:57:53Z
+working tree clean before the run: yes (the script exits 2 otherwise); output is written to <scratch> and moved in afterwards
+
+Fixes in this log, from records/logs/t0-p4/independent-check-1.md:
+  1. The native banned-name branch fires: crates named cc, cmake and pkg-config (case v1) and a wrapper that depends on cc (v2).
+  2. An allowlisted -sys crate passes, with a comment and a blank line in the allowlist (v3); a missing allowlist fails (v4).
+  3. The licence parser on real cargo metadata: WITH, parentheses, AND with all parts allowed, a syntax error, lowercase and slash forms (v5).
+  4. A dependency behind a non-default feature, recorded as a finding for planning (v6).
+  5. Colour before and after: cargo fmt with and without --color never on the same misformatted file, counting control BYTES (v7).
+  6. Case f's missing absent check: v7 checks PASS fmt absent.
+  7. Control characters counted as bytes, not only lines, in every committed P4 log; committed log hashes against scan.log.
+  8. The record commit message and independent-check-1.md scanned.
+  9. check.sh at HEAD tied to the phase commit by hash.
+Not fixable by a later log: that the doc files were unedited before git add; negative-attempt1.log's own mislabel of itself as negative.log.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P4 verify: evidence independent check 1 found missing from the P4 logs.
+    # Usage: p4-verify.sh > <scratch file>; the caller moves the output to
+    # records/logs/t0-p4/verify.log. Clone and scratch paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    PH=a713c93b080b415aa9c39d51c327b930445ad2e7
+    REC1=980b9e3397bbb85e00189948dc4dc8c993833fe3
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    trap 'rm -rf "$BASE"' EXIT
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    fail=0; ctl_fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$BASE|<scratch>|g" -e "s|$REPO|<repo>|g"; }
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    # Control characters other than tab, LF and CR: lines holding one, and bytes.
+    f_ctrl()       { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes()   { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+    )
+    P6ARGS=(); for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E "${P6ARGS[@]}" "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -c -i -w -F -f "$BASE/deny" "$1"; }
+    
+    # run <form> <label> <file>: expect no hit (exit 1)
+    run() {
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc (expect exit 1)"
+      [ "$rc" -eq 1 ] || fail=1
+    }
+    check_ctl() { # check_ctl <label> <expected exit> <command...>
+      local label=$1 want=$2 n rc
+      shift 2
+      n=$("$@"); rc=$?
+      echo "  control $label count=${n:-none} exit=$rc expected_exit=$want"
+      [ "$rc" -eq "$want" ] || ctl_fail=1
+    }
+    # expect <output> <present|absent> <ERE> <label>
+    expect() {
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    # observe <output> <ERE> <label>: report whether a line is present, without judging it
+    observe() {
+      local n rc
+      n=$(LC_ALL=C "$G" -c -E -e "$2" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $3: grep error (exit $rc)"; fail=1; return; fi
+      echo "  $3: count=${n:-0} grep exit=$rc -> $([ "$rc" -eq 0 ] && echo present || echo absent)"
+    }
+    fresh_clone() {
+      rm -rf "$CLONE"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$PH" || { echo "clone failed"; fail=1; return 1; }
+      echo "clone at $PH: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    # add_crate <dir name> <package name> <license line or empty> [extra toml lines]
+    add_crate() {
+      local dir=$CLONE/neg/$1 name=$2 licence=$3 extra=${4:-}
+      mkdir -p "$dir/src"
+      {
+        echo '[package]'
+        echo "name = \"$name\""
+        echo 'version = "0.1.0"'
+        echo 'edition = "2024"'
+        [ -n "$licence" ] && echo "$licence"
+        echo 'publish = false'
+        [ -n "$extra" ] && printf '%s\n' "$extra"
+      } > "$dir/Cargo.toml"
+      printf '//! Negative-test fixture crate.\n' > "$dir/src/lib.rs"
+      echo "created neg/$1/Cargo.toml:"
+      sed 's/^/    | /' "$dir/Cargo.toml"
+    }
+    # depend <package name> <dir name>: make xlsx-diff depend on a fixture crate
+    depend() {
+      if ! "$G" -q '^\[dependencies\]$' "$CLONE/tools/xlsx-diff/Cargo.toml"; then
+        printf '\n[dependencies]\n' >> "$CLONE/tools/xlsx-diff/Cargo.toml"
+      fi
+      printf '%s = { path = "../../neg/%s" }\n' "$1" "$2" >> "$CLONE/tools/xlsx-diff/Cargo.toml"
+      echo "xlsx-diff now depends on $1 (path ../../neg/$2)"
+    }
+    # gate <name>: run the clone's check.sh; print sanitised output, exit and control counts
+    gate() {
+      local rc
+      echo "command: scripts/check.sh (in the clone)"
+      (cd "$CLONE" && scripts/check.sh) > "$BASE/$1.out" 2>&1
+      rc=$?
+      hide < "$BASE/$1.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      echo "  control characters in the captured output: lines=$(f_ctrl "$BASE/$1.out") bytes=$(ctrl_bytes "$BASE/$1.out") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/$1.out")" -eq 0 ] || fail=1
+      return "$rc"
+    }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: P4 phase commit $PH and record commit $REC1; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P4 (specs/0001-bootstrap.md) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output is written to <scratch> and moved in afterwards"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p4/independent-check-1.md:"
+    echo "  1. The native banned-name branch fires: crates named cc, cmake and pkg-config (case v1) and a wrapper that depends on cc (v2)."
+    echo "  2. An allowlisted -sys crate passes, with a comment and a blank line in the allowlist (v3); a missing allowlist fails (v4)."
+    echo "  3. The licence parser on real cargo metadata: WITH, parentheses, AND with all parts allowed, a syntax error, lowercase and slash forms (v5)."
+    echo "  4. A dependency behind a non-default feature, recorded as a finding for planning (v6)."
+    echo "  5. Colour before and after: cargo fmt with and without --color never on the same misformatted file, counting control BYTES (v7)."
+    echo "  6. Case f's missing absent check: v7 checks PASS fmt absent."
+    echo "  7. Control characters counted as bytes, not only lines, in every committed P4 log; committed log hashes against scan.log."
+    echo "  8. The record commit message and independent-check-1.md scanned."
+    echo "  9. check.sh at HEAD tied to the phase commit by hash."
+    echo "Not fixable by a later log: that the doc files were unedited before git add; negative-attempt1.log's own mislabel of itself as negative.log."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## environment and ties to the phase commit"
+    echo "grep: $G, $("$G" --version | head -1); RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo "scripts/check.sh at HEAD sha256 $(git show HEAD:scripts/check.sh | sha256sum | cut -d' ' -f1); at $PH sha256 $(git show "$PH:scripts/check.sh" | sha256sum | cut -d' ' -f1)"
+    echo "source outside records/ unchanged between $PH and HEAD: $(git diff --quiet "$PH" HEAD -- . ':!records' && echo yes || echo no)"
+    git diff --quiet "$PH" HEAD -- . ':!records' || fail=1
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$BASE/deny"
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE"), entries $(wc -l < "$BASE/deny") (never printed); EMEND_PRIVATE_DENYLIST set: $([ -n "${EMEND_PRIVATE_DENYLIST+x}" ] && echo yes || echo no)"
+    
+    echo
+    echo "## controls"
+    printf 'x \033[31mred\033[m\017 y\n' > "$BASE/c-ctrl"
+    printf 'plain\ttab\r\n' > "$BASE/c-tabcr"
+    printf 'plain\nhas \303\251 byte\n' > "$BASE/c-nonascii"
+    printf 'subject\n\nClaude-Session: control\n' > "$BASE/c-session"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(printf 'a%.0s' $(seq 1 24))" > "$BASE/c-p6"
+    printf 'x %s y\n' "$HOST" > "$BASE/c-host"
+    printf 'plain ascii only\n' > "$BASE/c-clean"
+    check_ctl "f_ctrl file=c-ctrl" 0 f_ctrl "$BASE/c-ctrl"
+    echo "  control ctrl_bytes file=c-ctrl bytes=$(ctrl_bytes "$BASE/c-ctrl") (expect 3: two ESC bytes and one SI byte)"
+    check_ctl "f_ctrl file=c-tabcr" 1 f_ctrl "$BASE/c-tabcr"
+    echo "  control ctrl_bytes file=c-tabcr bytes=$(ctrl_bytes "$BASE/c-tabcr") (expect 0)"
+    [ "$(ctrl_bytes "$BASE/c-tabcr")" -eq 0 ] || ctl_fail=1
+    [ "$(ctrl_bytes "$BASE/c-ctrl")" -eq 3 ] || ctl_fail=1
+    check_ctl "f_nonascii file=c-nonascii" 0 f_nonascii "$BASE/c-nonascii"
+    check_ctl "f_session file=c-session" 0 f_session "$BASE/c-session"
+    check_ctl "f_p6 file=c-p6" 0 f_p6 "$BASE/c-p6"
+    check_ctl "f_host file=c-host" 0 f_host "$BASE/c-host"
+    for i in $(seq 1 "$(wc -l < "$BASE/deny")"); do
+      sed -n "${i}p" "$BASE/deny" | awk '{print "x " $0 " y"}' > "$BASE/c-deny-$i"
+      check_ctl "f_deny entry=$i (not printed)" 0 f_deny "$BASE/c-deny-$i"
+    done
+    for f in f_ctrl f_nonascii f_session f_p6 f_host f_deny; do check_ctl "$f file=c-clean" 1 "$f" "$BASE/c-clean"; done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fi
+    
+    echo
+    echo "## case v1: crates named cc, cmake and pkg-config; expect FAIL native naming all three"
+    fresh_clone
+    for n in cc cmake pkg-config; do add_crate "$n" "$n" 'license = "MIT"'; depend "$n" "$n"; done
+    gate v1; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v1.out" present '^FAIL native: C build tooling in the dependency tree: cc cmake pkg-config$' "FAIL native naming cc cmake pkg-config"
+    expect "$BASE/v1.out" absent '^PASS native$' "PASS native"
+    
+    echo
+    echo "## case v2: a wrapper crate that depends on a crate named cc; expect FAIL native naming cc"
+    fresh_clone
+    add_crate cc cc 'license = "MIT"'
+    add_crate wrapper wrapper 'license = "MIT"' "$(printf '\n[dependencies]\ncc = { path = "../cc" }')"
+    depend wrapper wrapper
+    gate v2; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v2.out" present '^FAIL native: C build tooling in the dependency tree: cc$' "FAIL native naming cc through the wrapper"
+    
+    echo
+    echo "## case v3: fake-sys listed in the allowlist, with a comment and a blank line; expect all six PASS"
+    fresh_clone
+    add_crate fake-sys fake-sys 'license = "MIT"'; depend fake-sys fake-sys
+    printf '# allowlisted after a planning ruling (test fixture)\n\nfake-sys\n' > "$CLONE/scripts/sys-allowlist.txt"
+    echo "scripts/sys-allowlist.txt now:"; sed 's/^/    | /' "$CLONE/scripts/sys-allowlist.txt"
+    gate v3; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/v3.out" present '^PASS native$' "PASS native"
+    expect "$BASE/v3.out" absent '^FAIL ' "any FAIL line"
+    
+    echo
+    echo "## case v4: scripts/sys-allowlist.txt removed; expect FAIL native"
+    fresh_clone
+    rm "$CLONE/scripts/sys-allowlist.txt"; echo "removed scripts/sys-allowlist.txt"
+    gate v4; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v4.out" present '^FAIL native: scripts/sys-allowlist[.]txt is missing$' "FAIL native: allowlist missing"
+    
+    echo
+    echo "## case v5: licence expressions through real cargo metadata; expect FAIL licences naming exactly the four bad ones"
+    fresh_clone
+    add_crate lic-with lic-with 'license = "Apache-2.0 WITH LLVM-exception"'; depend lic-with lic-with
+    add_crate lic-paren lic-paren 'license = "(MIT OR ISC) AND Zlib"'; depend lic-paren lic-paren
+    add_crate lic-and lic-and 'license = "MIT AND Apache-2.0"'; depend lic-and lic-and
+    add_crate lic-syntax lic-syntax 'license = "MIT OR"'; depend lic-syntax lic-syntax
+    add_crate lic-lower lic-lower 'license = "mit"'; depend lic-lower lic-lower
+    add_crate lic-slash lic-slash 'license = "MIT/Apache-2.0"'; depend lic-slash lic-slash
+    add_crate lic-with-bad lic-with-bad 'license = "MIT WITH LLVM-exception"'; depend lic-with-bad lic-with-bad
+    gate v5; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v5.out" present '^ +lic-with 0[.]1[.]0: Apache-2[.]0 WITH LLVM-exception: allowed$' "lic-with allowed"
+    expect "$BASE/v5.out" present '^ +lic-paren 0[.]1[.]0: [(]MIT OR ISC[)] AND Zlib: allowed$' "lic-paren allowed"
+    expect "$BASE/v5.out" present '^ +lic-and 0[.]1[.]0: MIT AND Apache-2[.]0: allowed$' "lic-and allowed"
+    expect "$BASE/v5.out" present '^ +lic-syntax 0[.]1[.]0: MIT OR: NOT allowed$' "lic-syntax NOT allowed"
+    expect "$BASE/v5.out" present '^ +lic-lower 0[.]1[.]0: mit: NOT allowed$' "lic-lower NOT allowed"
+    expect "$BASE/v5.out" present '^ +lic-slash 0[.]1[.]0: MIT/Apache-2[.]0: NOT allowed$' "lic-slash NOT allowed"
+    expect "$BASE/v5.out" present '^ +lic-with-bad 0[.]1[.]0: MIT WITH LLVM-exception: NOT allowed$' "lic-with-bad NOT allowed"
+    expect "$BASE/v5.out" present '^FAIL licences: lic-lower 0[.]1[.]0 [(]mit[)]; lic-slash 0[.]1[.]0 [(]MIT/Apache-2[.]0[)]; lic-syntax 0[.]1[.]0 [(]MIT OR: unexpected end[)]; lic-with-bad 0[.]1[.]0 [(]MIT WITH LLVM-exception[)]$' "FAIL licences naming exactly the four bad ones"
+    
+    echo
+    echo "## case v6 (finding for planning): a crate named cc, licence MPL-2.0, behind a non-default feature"
+    fresh_clone
+    add_crate cc cc 'license = "MPL-2.0"'
+    add_crate feat-host feat-host 'license = "MIT"' "$(printf '\n[dependencies]\ncc = { path = "../cc", optional = true }\n\n[features]\nextra = ["dep:cc"]')"
+    depend feat-host feat-host
+    gate v6; rc=$?
+    echo "  exit: $rc (0 means both steps miss a dependency behind a non-default feature)"
+    observe "$BASE/v6.out" '^PASS native$' "PASS native (present means cc behind the feature was not seen)"
+    observe "$BASE/v6.out" '^PASS licences$' "PASS licences (present means MPL-2.0 behind the feature was not seen)"
+    echo "command: cargo tree --workspace --target all -e normal,build --prefix none --all-features (in the clone)"
+    (cd "$CLONE" && cargo tree --workspace --target all -e normal,build --prefix none --all-features 2>&1) | hide | sed 's/^/    /'
+    echo "command: cargo metadata --format-version 1 --all-features, packages (in the clone)"
+    (cd "$CLONE" && cargo metadata --format-version 1 --all-features 2>/dev/null) |
+      python3 -c 'import json,sys; [print("    " + p["name"] + " " + p["version"] + ": " + str(p.get("license"))) for p in json.load(sys.stdin)["packages"]]'
+    echo "command: cargo metadata --format-version 1 (default features), packages (in the clone)"
+    (cd "$CLONE" && cargo metadata --format-version 1 2>/dev/null) |
+      python3 -c 'import json,sys; [print("    " + p["name"] + " " + p["version"] + ": " + str(p.get("license"))) for p in json.load(sys.stdin)["packages"]]'
+    
+    echo
+    echo "## case v7: colour before and after, on the same misformatted file"
+    fresh_clone
+    sed -i -e 's/^fn main() -> ExitCode {$/fn main()   ->   ExitCode {/' "$CLONE/tools/xlsx-diff/src/main.rs"
+    if git -C "$CLONE" diff --quiet; then echo "  EDIT DID NOT APPLY"; fail=1; fi
+    echo "command: cargo fmt --all --check (no colour flag, CARGO_TERM_COLOR unset, output not a terminal)"
+    (cd "$CLONE" && env -u CARGO_TERM_COLOR cargo fmt --all --check) > "$BASE/v7-colour.out" 2>&1; echo "  exit: $?"
+    echo "  control characters: lines=$(f_ctrl "$BASE/v7-colour.out") bytes=$(ctrl_bytes "$BASE/v7-colour.out") (the P3 record showed colour here)"
+    echo "command: cargo fmt --all --check -- --color never"
+    (cd "$CLONE" && cargo fmt --all --check -- --color never) > "$BASE/v7-plain.out" 2>&1; echo "  exit: $?"
+    echo "  control characters: lines=$(f_ctrl "$BASE/v7-plain.out") bytes=$(ctrl_bytes "$BASE/v7-plain.out") (expect 0 and 0)"
+    [ "$(ctrl_bytes "$BASE/v7-plain.out")" -eq 0 ] || fail=1
+    gate v7; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v7.out" present '^FAIL fmt: ' "FAIL fmt"
+    expect "$BASE/v7.out" absent '^PASS fmt$' "PASS fmt"
+    rm -rf "$CLONE"
+    
+    echo
+    echo "## committed P4 logs at $REC1"
+    git show "$REC1:records/logs/t0-p4/scan.log" > "$BASE/scan"
+    for f in gate.log negative.log negative-attempt1.log scan.log; do
+      p=records/logs/t0-p4/$f
+      git show "$REC1:$p" > "$BASE/log" || { echo "READ ERROR $p"; fail=1; continue; }
+      c=$(sha256sum < "$BASE/log" | cut -d' ' -f1)
+      echo "$p committed sha256 $c"
+      if [ "$f" != scan.log ]; then
+        s=$(sed -n "s|^log $p (sha256 \([0-9a-f]*\))$|\1|p" "$BASE/scan")
+        echo "  equal to the hash scan.log recorded: $(yn "$c" "$s")"; [ "$c" = "$s" ] || fail=1
+      fi
+      echo "  control characters: lines=$(f_ctrl "$BASE/log") bytes=$(ctrl_bytes "$BASE/log") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/log")" -eq 0 ] || fail=1
+    done
+    
+    echo
+    echo "## record commit message and independent-check-1.md"
+    git cat-file commit "$REC1" | sed '1,/^$/d' > "$BASE/m"
+    last=$(awk 'NF{l=$0} END{print l}' "$BASE/m")
+    echo "message $REC1 last non-empty line is the Co-Authored-By line: $(yn "$last" "$COAUTHOR")"; [ "$last" = "$COAUTHOR" ] || fail=1
+    for f in f_nonascii f_ctrl f_session f_p6 f_host f_deny; do run "$f" message "$BASE/m"; done
+    git show HEAD:records/logs/t0-p4/independent-check-1.md > "$BASE/ic1"
+    echo "records/logs/t0-p4/independent-check-1.md at HEAD sha256 $(sha256sum < "$BASE/ic1" | cut -d' ' -f1)"
+    for f in f_nonascii f_ctrl f_p6 f_host f_deny; do run "$f" independent-check-1 "$BASE/ic1"; done
+    
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "controls failed: $ctl_fail"
+    echo "checks failed: $fail"
+    if [ "$ctl_fail" -eq 0 ] && [ "$fail" -eq 0 ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; exit 1; fi
+
+## environment and ties to the phase commit
+grep: /usr/bin/grep, grep (GNU grep) 3.12; RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+scripts/check.sh at HEAD sha256 089fa8eea8c5a4ac281ea71aae2d8f03fb873ba6c7c07056e26a79d6cc3ed54a; at a713c93b080b415aa9c39d51c327b930445ad2e7 sha256 089fa8eea8c5a4ac281ea71aae2d8f03fb873ba6c7c07056e26a79d6cc3ed54a
+source outside records/ unchanged between a713c93b080b415aa9c39d51c327b930445ad2e7 and HEAD: yes
+private denylist: present, mode 600, entries 6 (never printed); EMEND_PRIVATE_DENYLIST set: no
+
+## controls
+  control f_ctrl file=c-ctrl count=1 exit=0 expected_exit=0
+  control ctrl_bytes file=c-ctrl bytes=3 (expect 3: two ESC bytes and one SI byte)
+  control f_ctrl file=c-tabcr count=0 exit=1 expected_exit=1
+  control ctrl_bytes file=c-tabcr bytes=0 (expect 0)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control f_session file=c-session count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6 count=1 exit=0 expected_exit=0
+  control f_host file=c-host count=1 exit=0 expected_exit=0
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0
+  control f_ctrl file=c-clean count=0 exit=1 expected_exit=1
+  control f_nonascii file=c-clean count=0 exit=1 expected_exit=1
+  control f_session file=c-clean count=0 exit=1 expected_exit=1
+  control f_p6 file=c-clean count=0 exit=1 expected_exit=1
+  control f_host file=c-clean count=0 exit=1 expected_exit=1
+  control f_deny file=c-clean count=0 exit=1 expected_exit=1
+controls: all as expected
+
+## case v1: crates named cc, cmake and pkg-config; expect FAIL native naming all three
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/cc/Cargo.toml:
+    | [package]
+    | name = "cc"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+xlsx-diff now depends on cc (path ../../neg/cc)
+created neg/cmake/Cargo.toml:
+    | [package]
+    | name = "cmake"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+xlsx-diff now depends on cmake (path ../../neg/cmake)
+created neg/pkg-config/Cargo.toml:
+    | [package]
+    | name = "pkg-config"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+xlsx-diff now depends on pkg-config (path ../../neg/pkg-config)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc cmake pkg-config
+        cc v0.1.0 (<scratch>/emend/neg/cc)
+        
+        cmake v0.1.0 (<scratch>/emend/neg/cmake)
+        
+        pkg-config v0.1.0 (<scratch>/emend/neg/pkg-config)
+        
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        cc v0.1.0 (<scratch>/emend/neg/cc)
+        cmake v0.1.0 (<scratch>/emend/neg/cmake)
+        pkg-config v0.1.0 (<scratch>/emend/neg/pkg-config)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc cmake pkg-config: expect present; count=1 grep exit=0 -> as-expected
+  PASS native: expect absent; count=0 grep exit=1 -> as-expected
+
+## case v2: a wrapper crate that depends on a crate named cc; expect FAIL native naming cc
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/cc/Cargo.toml:
+    | [package]
+    | name = "cc"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+created neg/wrapper/Cargo.toml:
+    | [package]
+    | name = "wrapper"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+    | 
+    | [dependencies]
+    | cc = { path = "../cc" }
+xlsx-diff now depends on wrapper (path ../../neg/wrapper)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        cc v0.1.0 (<scratch>/emend/neg/cc)
+        
+        wrapper v0.1.0 (<scratch>/emend/neg/wrapper)
+        cc v0.1.0 (<scratch>/emend/neg/cc)
+        
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        wrapper v0.1.0 (<scratch>/emend/neg/wrapper) (*)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc through the wrapper: expect present; count=1 grep exit=0 -> as-expected
+
+## case v3: fake-sys listed in the allowlist, with a comment and a blank line; expect all six PASS
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-sys/Cargo.toml:
+    | [package]
+    | name = "fake-sys"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+xlsx-diff now depends on fake-sys (path ../../neg/fake-sys)
+scripts/sys-allowlist.txt now:
+    | # allowlisted after a planning ruling (test fixture)
+    | 
+    | fake-sys
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native
+    PASS licences
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit zero: as-expected
+  PASS native: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case v4: scripts/sys-allowlist.txt removed; expect FAIL native
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+removed scripts/sys-allowlist.txt
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: scripts/sys-allowlist.txt is missing
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native: allowlist missing: expect present; count=1 grep exit=0 -> as-expected
+
+## case v5: licence expressions through real cargo metadata; expect FAIL licences naming exactly the four bad ones
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/lic-with/Cargo.toml:
+    | [package]
+    | name = "lic-with"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "Apache-2.0 WITH LLVM-exception"
+    | publish = false
+xlsx-diff now depends on lic-with (path ../../neg/lic-with)
+created neg/lic-paren/Cargo.toml:
+    | [package]
+    | name = "lic-paren"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "(MIT OR ISC) AND Zlib"
+    | publish = false
+xlsx-diff now depends on lic-paren (path ../../neg/lic-paren)
+created neg/lic-and/Cargo.toml:
+    | [package]
+    | name = "lic-and"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT AND Apache-2.0"
+    | publish = false
+xlsx-diff now depends on lic-and (path ../../neg/lic-and)
+created neg/lic-syntax/Cargo.toml:
+    | [package]
+    | name = "lic-syntax"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT OR"
+    | publish = false
+xlsx-diff now depends on lic-syntax (path ../../neg/lic-syntax)
+created neg/lic-lower/Cargo.toml:
+    | [package]
+    | name = "lic-lower"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "mit"
+    | publish = false
+xlsx-diff now depends on lic-lower (path ../../neg/lic-lower)
+created neg/lic-slash/Cargo.toml:
+    | [package]
+    | name = "lic-slash"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT/Apache-2.0"
+    | publish = false
+xlsx-diff now depends on lic-slash (path ../../neg/lic-slash)
+created neg/lic-with-bad/Cargo.toml:
+    | [package]
+    | name = "lic-with-bad"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT WITH LLVM-exception"
+    | publish = false
+xlsx-diff now depends on lic-with-bad (path ../../neg/lic-with-bad)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native
+    FAIL licences: lic-lower 0.1.0 (mit); lic-slash 0.1.0 (MIT/Apache-2.0); lic-syntax 0.1.0 (MIT OR: unexpected end); lic-with-bad 0.1.0 (MIT WITH LLVM-exception)
+        lic-and 0.1.0: MIT AND Apache-2.0: allowed
+        lic-lower 0.1.0: mit: NOT allowed
+        lic-paren 0.1.0: (MIT OR ISC) AND Zlib: allowed
+        lic-slash 0.1.0: MIT/Apache-2.0: NOT allowed
+        lic-syntax 0.1.0: MIT OR: NOT allowed
+        lic-with 0.1.0: Apache-2.0 WITH LLVM-exception: allowed
+        lic-with-bad 0.1.0: MIT WITH LLVM-exception: NOT allowed
+        xlsx-diff 0.1.0: MIT OR Apache-2.0: allowed
+        lic-lower 0.1.0 (mit); lic-slash 0.1.0 (MIT/Apache-2.0); lic-syntax 0.1.0 (MIT OR: unexpected end); lic-with-bad 0.1.0 (MIT WITH LLVM-exception)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  lic-with allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-paren allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-and allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-syntax NOT allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-lower NOT allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-slash NOT allowed: expect present; count=1 grep exit=0 -> as-expected
+  lic-with-bad NOT allowed: expect present; count=1 grep exit=0 -> as-expected
+  FAIL licences naming exactly the four bad ones: expect present; count=1 grep exit=0 -> as-expected
+
+## case v6 (finding for planning): a crate named cc, licence MPL-2.0, behind a non-default feature
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/cc/Cargo.toml:
+    | [package]
+    | name = "cc"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MPL-2.0"
+    | publish = false
+created neg/feat-host/Cargo.toml:
+    | [package]
+    | name = "feat-host"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+    | 
+    | [dependencies]
+    | cc = { path = "../cc", optional = true }
+    | 
+    | [features]
+    | extra = ["dep:cc"]
+xlsx-diff now depends on feat-host (path ../../neg/feat-host)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        cc v0.1.0 (<scratch>/emend/neg/cc)
+        
+        feat-host v0.1.0 (<scratch>/emend/neg/feat-host)
+        
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        feat-host v0.1.0 (<scratch>/emend/neg/feat-host)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit: 1 (0 means both steps miss a dependency behind a non-default feature)
+  PASS native (present means cc behind the feature was not seen): count=0 grep exit=1 -> absent
+  PASS licences (present means MPL-2.0 behind the feature was not seen): count=0 grep exit=1 -> absent
+command: cargo tree --workspace --target all -e normal,build --prefix none --all-features (in the clone)
+    cc v0.1.0 (<scratch>/emend/neg/cc)
+    
+    feat-host v0.1.0 (<scratch>/emend/neg/feat-host)
+    cc v0.1.0 (<scratch>/emend/neg/cc)
+    
+    xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+    feat-host v0.1.0 (<scratch>/emend/neg/feat-host) (*)
+command: cargo metadata --format-version 1 --all-features, packages (in the clone)
+    cc 0.1.0: MPL-2.0
+    feat-host 0.1.0: MIT
+    xlsx-diff 0.1.0: MIT OR Apache-2.0
+command: cargo metadata --format-version 1 (default features), packages (in the clone)
+    cc 0.1.0: MPL-2.0
+    feat-host 0.1.0: MIT
+    xlsx-diff 0.1.0: MIT OR Apache-2.0
+
+## case v7: colour before and after, on the same misformatted file
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+command: cargo fmt --all --check (no colour flag, CARGO_TERM_COLOR unset, output not a terminal)
+  exit: 1
+  control characters: lines=3 bytes=6 (the P3 record showed colour here)
+command: cargo fmt --all --check -- --color never
+  exit: 1
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/tools/xlsx-diff/src/main.rs:13:
+             (USAGE, EXIT_ERROR)
+         }
+         
+        -fn main()   ->   ExitCode {
+        +fn main() -> ExitCode {
+             let (message, status) = run();
+             eprintln!("{message}");
+             ExitCode::from(status)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL fmt: expect present; count=1 grep exit=0 -> as-expected
+  PASS fmt: expect absent; count=0 grep exit=1 -> as-expected
+
+## committed P4 logs at 980b9e3397bbb85e00189948dc4dc8c993833fe3
+records/logs/t0-p4/gate.log committed sha256 8159e2a57caa2bc835beb8091e7b731a5ded0004056be72b31fee8ada22b64fb
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/logs/t0-p4/negative.log committed sha256 fa52b5ef16a1b5fd83f283f19ff941690d98619f38ed43dd9b88f30854fbef85
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/logs/t0-p4/negative-attempt1.log committed sha256 c8e9b4ad01fd3ad8cfdd2d297c446e5b8722ed2aa326952efb9a54eae6e0ddd4
+  equal to the hash scan.log recorded: yes
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+records/logs/t0-p4/scan.log committed sha256 9ef0734a495d398c26979c513fa38f695e80a609fdb65074068176da9c682b46
+  control characters: lines=0 bytes=0 (expect 0 and 0)
+
+## record commit message and independent-check-1.md
+message 980b9e3397bbb85e00189948dc4dc8c993833fe3 last non-empty line is the Co-Authored-By line: yes
+  message: form=f_nonascii count=0 exit=1 (expect exit 1)
+  message: form=f_ctrl count=0 exit=1 (expect exit 1)
+  message: form=f_session count=0 exit=1 (expect exit 1)
+  message: form=f_p6 count=0 exit=1 (expect exit 1)
+  message: form=f_host count=0 exit=1 (expect exit 1)
+  message: form=f_deny count=0 exit=1 (expect exit 1)
+records/logs/t0-p4/independent-check-1.md at HEAD sha256 61e8980a00c7221ef04a8028caa1454a2315b3d1420eaac71cfa692025e6faf4
+  independent-check-1: form=f_nonascii count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_ctrl count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_p6 count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_host count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_deny count=0 exit=1 (expect exit 1)
+
+status after the run (expect empty): 
+controls failed: 0
+checks failed: 0
+RESULT: PASS
