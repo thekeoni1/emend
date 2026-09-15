@@ -1,0 +1,112 @@
+about: P4 phase commit a713c93b080b415aa9c39d51c327b930445ad2e7; HEAD at run: a713c93b080b415aa9c39d51c327b930445ad2e7
+phase: T0 P4 (specs/0001-bootstrap.md) gate.log; run at 2026-09-15T00:44:36Z
+working tree clean before the run: yes (checked by the script; it exits 2 otherwise)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P4 gate log. Usage: p4-logs.sh <phase commit> > <scratch file>
+    # The caller moves the output to records/logs/t0-p4/gate.log afterwards, so
+    # nothing is written in the working tree while this runs.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    ROOT=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl() { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    
+    echo "about: P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P4 (specs/0001-bootstrap.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean before the run: yes (checked by the script; it exits 2 otherwise)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## gate script and allowlist at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    echo "source outside records/ unchanged between $C and HEAD: $(git diff --quiet "$C" HEAD -- . ':!records' && echo yes || echo no)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; rustc: $(rustc --version)"
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc (expect 0)"
+    [ "$rc" -eq 0 ] || fail=1
+    want="PASS host PASS i686 PASS fmt PASS clippy PASS native PASS licences "
+    echo "stdout is exactly the six PASS lines in order: $([ "$(tr '\n' ' ' < "$T/out")" = "$want" ] && echo yes || echo no)"
+    [ "$(tr '\n' ' ' < "$T/out")" = "$want" ] || fail=1
+    echo
+    echo "## control bytes in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(f_ctrl "$T/ctl"); rc=$?; echo "control: file with ESC and SI -> count=${n:-none} exit=$rc (expect exit 0)"; [ "$rc" -eq 0 ] || fail=1
+    n=$(f_ctrl "$T/clean"); rc=$?; echo "control: file with tab and CR only -> count=${n:-none} exit=$rc (expect exit 1)"; [ "$rc" -eq 1 ] || fail=1
+    for s in out err; do
+      n=$(f_ctrl "$T/$s"); rc=$?
+      echo "std$s: count=${n:-none} exit=$rc (expect exit 1)"
+      [ "$rc" -eq 1 ] || fail=1
+    done
+    echo
+    echo "## the licence and dependency facts behind steps 5 and 6"
+    echo "command: cargo tree --workspace --target all -e normal,build --prefix none"
+    cargo tree --workspace --target all -e normal,build --prefix none 2>&1 | sed "s|$ROOT|<repo>|g; s/^/    /"
+    echo "command: cargo metadata --format-version 1 (name, version, license per package)"
+    cargo metadata --format-version 1 2>/dev/null |
+      python3 -c 'import json,sys; [print("    " + p["name"] + " " + p["version"] + ": " + str(p.get("license"))) for p in json.load(sys.stdin)["packages"]]'
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## gate script and allowlist at a713c93b080b415aa9c39d51c327b930445ad2e7
+scripts/check.sh on disk sha256 089fa8eea8c5a4ac281ea71aae2d8f03fb873ba6c7c07056e26a79d6cc3ed54a; at a713c93b080b415aa9c39d51c327b930445ad2e7 sha256 089fa8eea8c5a4ac281ea71aae2d8f03fb873ba6c7c07056e26a79d6cc3ed54a; bytes 6422
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at a713c93b080b415aa9c39d51c327b930445ad2e7 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+source outside records/ unchanged between a713c93b080b415aa9c39d51c327b930445ad2e7 and HEAD: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; rustc: rustc 1.98.1 (48a229cea 2026-09-01)
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 135 files, 32.8MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native
+    PASS licences
+stderr bytes: 0
+exit: 0 (expect 0)
+stdout is exactly the six PASS lines in order: yes
+
+## control bytes in the captured output (tab, LF and CR allowed)
+control: file with ESC and SI -> count=1 exit=0 (expect exit 0)
+control: file with tab and CR only -> count=0 exit=1 (expect exit 1)
+stdout: count=0 exit=1 (expect exit 1)
+stderr: count=0 exit=1 (expect exit 1)
+
+## the licence and dependency facts behind steps 5 and 6
+command: cargo tree --workspace --target all -e normal,build --prefix none
+    xlsx-diff v0.1.0 (<repo>/tools/xlsx-diff)
+command: cargo metadata --format-version 1 (name, version, license per package)
+    xlsx-diff 0.1.0: MIT OR Apache-2.0
+
+status after the run (expect empty): 
+gate log checks all as expected: yes

@@ -1,0 +1,311 @@
+about: P4 phase commit a713c93b080b415aa9c39d51c327b930445ad2e7; HEAD at run: a713c93b080b415aa9c39d51c327b930445ad2e7
+phase: T0 P4 (specs/0001-bootstrap.md) negative.log; run at 2026-09-15T00:44:36Z
+Every case runs in a fresh clone at <scratch>/emend, outside the repo, never committed.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P4 negative tests for scripts/check.sh steps native and licences, plus the
+    # fmt case rerun with colour off. Every case runs in a fresh clone outside the
+    # repo. Usage: p4-negative.sh <phase commit> > <scratch file>; the caller moves
+    # the output to records/logs/t0-p4/negative.log. Clone paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$BASE|<scratch>|g"; }
+    f_ctrl() { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    
+    echo "about: P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P4 (specs/0001-bootstrap.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Every case runs in a fresh clone at <scratch>/emend, outside the repo, never committed."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    # expect <output> <present|absent> <ERE> <label>
+    expect() {
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    
+    # fresh_clone: a new clone of the repo at the phase commit
+    fresh_clone() {
+      rm -rf "$CLONE"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$C" || { echo "clone failed"; fail=1; return 1; }
+      echo "clone at $C: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    
+    # add_crate <name> <license line or empty>: a local path dependency of xlsx-diff
+    add_crate() {
+      local name=$1 licence=$2 dir
+      dir=$CLONE/neg/$name
+      mkdir -p "$dir/src"
+      {
+        echo '[package]'
+        echo "name = \"$name\""
+        echo 'version = "0.1.0"'
+        echo 'edition = "2024"'
+        [ -n "$licence" ] && echo "$licence"
+        echo 'publish = false'
+      } > "$dir/Cargo.toml"
+      : > "$dir/src/lib.rs"
+      printf '\n[dependencies]\n%s = { path = "../../neg/%s" }\n' "$name" "$name" >> "$CLONE/tools/xlsx-diff/Cargo.toml"
+      echo "created neg/$name/Cargo.toml:"
+      sed 's/^/    | /' "$dir/Cargo.toml"
+      echo "created neg/$name/src/lib.rs (empty)"
+      echo "appended to tools/xlsx-diff/Cargo.toml:"
+      tail -n 2 "$CLONE/tools/xlsx-diff/Cargo.toml" | sed 's/^/    | /'
+    }
+    
+    # gate <name>: run the clone's check.sh and print its sanitised output
+    gate() {
+      local rc
+      echo "command: scripts/check.sh (in the clone)"
+      (cd "$CLONE" && scripts/check.sh) > "$BASE/$1.out" 2>&1
+      rc=$?
+      hide < "$BASE/$1.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      n=$(f_ctrl "$BASE/$1.out"); crc=$?
+      echo "  control bytes in the captured output: count=${n:-none} grep exit=$crc (expect exit 1)"
+      [ "$crc" -eq 1 ] || fail=1
+      return "$rc"
+    }
+    
+    echo
+    echo "## control-byte form, controls"
+    printf 'x \033[31mred\033[m\017 y\n' > "$BASE/ctl"
+    printf 'plain\ttab\r\n' > "$BASE/clean"
+    n=$(f_ctrl "$BASE/ctl"); rc=$?; echo "  file with ESC and SI: count=${n:-none} exit=$rc (expect 0)"; [ "$rc" -eq 0 ] || fail=1
+    n=$(f_ctrl "$BASE/clean"); rc=$?; echo "  file with tab and CR only: count=${n:-none} exit=$rc (expect 1)"; [ "$rc" -eq 1 ] || fail=1
+    
+    echo
+    echo "## case a: local path dependency with license = \"MPL-2.0\"; expect FAIL licences naming it"
+    fresh_clone && add_crate fake-mpl 'license = "MPL-2.0"'
+    gate a; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/a.out" present '^PASS native$' "PASS native"
+    expect "$BASE/a.out" present '^FAIL licences: .*fake-mpl 0[.]1[.]0 [(]MPL-2[.]0[)]' "FAIL licences naming fake-mpl"
+    expect "$BASE/a.out" absent '^PASS licences$' "PASS licences"
+    
+    echo
+    echo "## case b: local path dependency with no licence field; expect FAIL licences"
+    fresh_clone && add_crate fake-nolicence ''
+    gate b; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/b.out" present '^FAIL licences: .*fake-nolicence 0[.]1[.]0 [(]no licence[)]' "FAIL licences naming fake-nolicence"
+    expect "$BASE/b.out" absent '^PASS licences$' "PASS licences"
+    
+    echo
+    echo "## case c: license = \"MIT AND ISC\"; expect FAIL licences"
+    fresh_clone && add_crate fake-mit-and-isc 'license = "MIT AND ISC"'
+    gate c; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/c.out" present '^FAIL licences: .*fake-mit-and-isc 0[.]1[.]0 [(]MIT AND ISC[)]' "FAIL licences naming fake-mit-and-isc"
+    expect "$BASE/c.out" absent '^PASS licences$' "PASS licences"
+    
+    echo
+    echo "## case d: license = \"ISC OR MIT\"; expect PASS licences"
+    fresh_clone && add_crate fake-isc-or-mit 'license = "ISC OR MIT"'
+    gate d; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/d.out" present '^PASS licences$' "PASS licences"
+    expect "$BASE/d.out" absent '^FAIL ' "any FAIL line"
+    
+    echo
+    echo "## case e: a crate named fake-sys (licence MIT, no build script); expect FAIL native"
+    fresh_clone && add_crate fake-sys 'license = "MIT"'
+    gate e; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/e.out" present '^FAIL native: -sys crate not in scripts/sys-allowlist[.]txt: fake-sys$' "FAIL native naming fake-sys"
+    expect "$BASE/e.out" absent '^PASS native$' "PASS native"
+    
+    echo
+    echo "## case f: the P3 fmt negative rerun with colour off; expect FAIL fmt and zero control bytes"
+    fresh_clone
+    echo "command: sed -i -e 's/^fn main() -> ExitCode {\$/fn main()   ->   ExitCode {/' tools/xlsx-diff/src/main.rs"
+    sed -i -e 's/^fn main() -> ExitCode {$/fn main()   ->   ExitCode {/' "$CLONE/tools/xlsx-diff/src/main.rs"
+    if git -C "$CLONE" diff --quiet; then echo "  EDIT DID NOT APPLY"; fail=1; fi
+    gate f; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/f.out" present '^FAIL fmt: ' "FAIL fmt"
+    expect "$BASE/f.out" present '^Diff in ' "rustfmt diff shown"
+    
+    echo
+    rm -rf "$CLONE"
+    echo "scratch clone removed: $([ -e "$CLONE" ] && echo no || echo yes)"
+    echo "main working tree status (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## control-byte form, controls
+  file with ESC and SI: count=1 exit=0 (expect 0)
+  file with tab and CR only: count=0 exit=1 (expect 1)
+
+## case a: local path dependency with license = "MPL-2.0"; expect FAIL licences naming it
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-mpl/Cargo.toml:
+    | [package]
+    | name = "fake-mpl"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MPL-2.0"
+    | publish = false
+created neg/fake-mpl/src/lib.rs (empty)
+appended to tools/xlsx-diff/Cargo.toml:
+    | [dependencies]
+    | fake-mpl = { path = "../../neg/fake-mpl" }
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/neg/fake-mpl/src/lib.rs:1:
+        +
+        +
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit non-zero: as-expected
+  PASS native: expect present; count=0 grep exit=1 -> UNEXPECTED
+  FAIL licences naming fake-mpl: expect present; count=0 grep exit=1 -> UNEXPECTED
+  PASS licences: expect absent; count=0 grep exit=1 -> as-expected
+
+## case b: local path dependency with no licence field; expect FAIL licences
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-nolicence/Cargo.toml:
+    | [package]
+    | name = "fake-nolicence"
+    | version = "0.1.0"
+    | edition = "2024"
+    | publish = false
+created neg/fake-nolicence/src/lib.rs (empty)
+appended to tools/xlsx-diff/Cargo.toml:
+    | [dependencies]
+    | fake-nolicence = { path = "../../neg/fake-nolicence" }
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/neg/fake-nolicence/src/lib.rs:1:
+        +
+        +
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit non-zero: as-expected
+  FAIL licences naming fake-nolicence: expect present; count=0 grep exit=1 -> UNEXPECTED
+  PASS licences: expect absent; count=0 grep exit=1 -> as-expected
+
+## case c: license = "MIT AND ISC"; expect FAIL licences
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-mit-and-isc/Cargo.toml:
+    | [package]
+    | name = "fake-mit-and-isc"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT AND ISC"
+    | publish = false
+created neg/fake-mit-and-isc/src/lib.rs (empty)
+appended to tools/xlsx-diff/Cargo.toml:
+    | [dependencies]
+    | fake-mit-and-isc = { path = "../../neg/fake-mit-and-isc" }
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/neg/fake-mit-and-isc/src/lib.rs:1:
+        +
+        +
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit non-zero: as-expected
+  FAIL licences naming fake-mit-and-isc: expect present; count=0 grep exit=1 -> UNEXPECTED
+  PASS licences: expect absent; count=0 grep exit=1 -> as-expected
+
+## case d: license = "ISC OR MIT"; expect PASS licences
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-isc-or-mit/Cargo.toml:
+    | [package]
+    | name = "fake-isc-or-mit"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "ISC OR MIT"
+    | publish = false
+created neg/fake-isc-or-mit/src/lib.rs (empty)
+appended to tools/xlsx-diff/Cargo.toml:
+    | [dependencies]
+    | fake-isc-or-mit = { path = "../../neg/fake-isc-or-mit" }
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/neg/fake-isc-or-mit/src/lib.rs:1:
+        +
+        +
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit zero: UNEXPECTED
+  PASS licences: expect present; count=0 grep exit=1 -> UNEXPECTED
+  any FAIL line: expect absent; count=1 grep exit=0 -> UNEXPECTED
+
+## case e: a crate named fake-sys (licence MIT, no build script); expect FAIL native
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+created neg/fake-sys/Cargo.toml:
+    | [package]
+    | name = "fake-sys"
+    | version = "0.1.0"
+    | edition = "2024"
+    | license = "MIT"
+    | publish = false
+created neg/fake-sys/src/lib.rs (empty)
+appended to tools/xlsx-diff/Cargo.toml:
+    | [dependencies]
+    | fake-sys = { path = "../../neg/fake-sys" }
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/neg/fake-sys/src/lib.rs:1:
+        +
+        +
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit non-zero: as-expected
+  FAIL native naming fake-sys: expect present; count=0 grep exit=1 -> UNEXPECTED
+  PASS native: expect absent; count=0 grep exit=1 -> as-expected
+
+## case f: the P3 fmt negative rerun with colour off; expect FAIL fmt and zero control bytes
+clone at a713c93b080b415aa9c39d51c327b930445ad2e7: a713c93b080b415aa9c39d51c327b930445ad2e7
+command: sed -i -e 's/^fn main() -> ExitCode {$/fn main()   ->   ExitCode {/' tools/xlsx-diff/src/main.rs
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero
+        Diff in <scratch>/emend/tools/xlsx-diff/src/main.rs:13:
+             (USAGE, EXIT_ERROR)
+         }
+         
+        -fn main()   ->   ExitCode {
+        +fn main() -> ExitCode {
+             let (message, status) = run();
+             eprintln!("{message}");
+             ExitCode::from(status)
+  exit: 1
+  control bytes in the captured output: count=0 grep exit=1 (expect exit 1)
+  exit non-zero: as-expected
+  FAIL fmt: expect present; count=1 grep exit=0 -> as-expected
+  rustfmt diff shown: expect present; count=0 grep exit=1 -> UNEXPECTED
+
+scratch clone removed: yes
+main working tree status (expect empty): 
+all negative cases as expected: no
