@@ -1,0 +1,401 @@
+about: T2 P1 phase commit e3dd52e777fe16fb58e5bf7cff6e562f2c332673; HEAD at run: e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+phase: T2 P1 (specs/0005-corpus.md) gate.log; run at 2026-09-15T23:06:31Z
+import commit: e8087f6b990d13c4ccf69a1ae934050f1d14cb48; commit before the phase: 24d4a165b0e250f05b6c53db6747f95a28d28796
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_CORPUS_DIR set: no; the corpus directory prints as <corpus dir>
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 P1 gate log: the import record of scripts/corpus-add.py, checks on the two
+    # python3 scripts, and a full run of all eight check.sh steps on a cold cache.
+    # Usage: t2p1-gate.sh <import commit> <phase commit> [<stopped-run note>] > <gate log scratch file>
+    # The note records an earlier run of this log that the environment stopped
+    # (specs/0001 "Rules for every phase": start time, last completed check, reason).
+    # The caller moves the file into records/logs/t2-p1/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed; a check with more than one condition is
+    # evaluated inside one function. The corpus directory's path is never printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    IMPORT=${1:?import commit required}
+    C=${2:?phase commit required}
+    STOPPED=${3:-}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    BEFORE=24d4a165b0e250f05b6c53db6747f95a28d28796
+    RECORDED_IMPORT_SHA=30c66ee96732e329fda3de049cef5e9bfd8c21f58e07fc6385b12bf77602f250
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    PRIVATE=$CORPUS/tools/corpus-add.py
+    SCRIPTS=(scripts/corpus-add.py scripts/corpus-coverage.py)
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    # check <label> <yes|no>: print a result evaluated once.
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    # import_is_one_file: the import commit's parent is the doc commit, and it adds
+    # exactly scripts/corpus-add.py.
+    import_is_one_file() {
+      [ "$(git rev-list --parents -n 1 "$IMPORT" | wc -w)" -eq 2 ] &&
+        [ "$(git diff --name-status "$IMPORT^" "$IMPORT")" = "$(printf 'A\tscripts/corpus-add.py')" ]
+    }
+    # three_equal <a> <b> <c>: the three hashes are equal.
+    three_equal() { [ "$1" = "$2" ] && [ "$2" = "$3" ]; }
+    # usage_exit_2 <out> <err> <rc> <usage line>: exit 2, no stdout, stderr exactly the usage line.
+    usage_exit_2() { [ "$3" -eq 2 ] && [ ! -s "$1" ] && [ "$(cat "$2")" = "$4" ]; }
+    
+    echo "about: T2 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T2 P1 (specs/0005-corpus.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
+    echo "import commit: $IMPORT; commit before the phase: $BEFORE"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_CORPUS_DIR set: $([ -n "${EMEND_CORPUS_DIR+set}" ] && echo yes || echo no); the corpus directory prints as <corpus dir>"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## commits of the phase"
+    echo "command: git log --format='%H parents=%P %s' $BEFORE..$C"
+    git log --format='%H parents=%P %s' "$BEFORE..$C" | sed 's/^/    /'
+    echo "command: git diff --stat $BEFORE $C"
+    git diff --stat "$BEFORE" "$C" | sed 's/^/    /'
+    
+    echo
+    echo "## import record (specs/0005-corpus.md P1: the private helper's sha256 at import and every change)"
+    PRIV_NOW=$(sha < "$PRIVATE")
+    AT_IMPORT=$(git show "$IMPORT:scripts/corpus-add.py" | sha)
+    echo "recorded sha256 of <corpus dir>/tools/corpus-add.py at import (in the import commit message): $RECORDED_IMPORT_SHA"
+    echo "<corpus dir>/tools/corpus-add.py now: sha256 $PRIV_NOW, bytes $(wc -c < "$PRIVATE"), mode $(stat -c %a "$PRIVATE")"
+    echo "scripts/corpus-add.py at $IMPORT: sha256 $AT_IMPORT"
+    check "the recorded sha256, the private file now and the blob at the import commit are equal" "$(yn three_equal "$RECORDED_IMPORT_SHA" "$PRIV_NOW" "$AT_IMPORT")"
+    echo "command: git diff --name-status $IMPORT^ $IMPORT"
+    git diff --name-status "$IMPORT^" "$IMPORT" | sed 's/^/    /'
+    check "the import commit's parent is one commit and it adds only scripts/corpus-add.py" "$(yn import_is_one_file)"
+    check "the import commit's message names the sha256" "$(yn /usr/bin/grep -q -F "$RECORDED_IMPORT_SHA" <(git log -1 --format=%B "$IMPORT"))"
+    echo "every change made to it after the import:"
+    echo "command: git diff $IMPORT $C -- scripts/corpus-add.py"
+    git diff "$IMPORT" "$C" -- scripts/corpus-add.py | sed 's/^/    /'
+    echo "the private helper is outside the repository: no other file under the corpus directory enters it (hygiene and privacy steps below count corpus paths)"
+    
+    echo
+    echo "## the two scripts at $C"
+    echo "$(python3 --version)"
+    for f in "${SCRIPTS[@]}"; do
+      echo "$f: sha256 $(git show "$C:$f" | sha), bytes $(git show "$C:$f" | wc -c), git mode $(git ls-tree "$C" -- "$f" | cut -d' ' -f1), first line: $(git show "$C:$f" | head -n 1)"
+      check "$f: git mode 100755" "$(yn [ "$(git ls-tree "$C" -- "$f" | cut -d' ' -f1)" = 100755 ])"
+      check "$f: first line is #!/usr/bin/env python3" "$(yn [ "$(head -n 1 "$f")" = '#!/usr/bin/env python3' ])"
+      python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' "$f" "$T/compiled.pyc" > "$T/compile.out" 2>&1
+      rc=$?
+      check "$f: py_compile exit $rc (into <scratch>)" "$(yn [ "$rc" -eq 0 ])"
+      python3 - "$f" > "$T/imports" <<'PY'
+    import ast, sys
+    tree = ast.parse(open(sys.argv[1]).read())
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(a.name.split(".")[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            names.add((node.module or "").split(".")[0])
+    for n in sorted(names):
+        print(n, "stdlib" if n in sys.stdlib_module_names else "NOT-STDLIB")
+    PY
+      echo "  imports: $(tr '\n' ';' < "$T/imports")"
+      check "$f: every import is in sys.stdlib_module_names" "$(yn eval '[ -s "$T/imports" ] && ! /usr/bin/grep -q NOT-STDLIB "$T/imports"')"
+      n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/Users/|/root/' "$f")
+      check "$f: lines with a literal home path: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    printf 'x = "/home/someone/x"\n' > "$T/home-ctl"
+    n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/Users/|/root/' "$T/home-ctl")
+    check "control: the home path form counts 1 line in a file holding one" "$(yn [ "$n" -eq 1 ])"
+    echo "usage errors (these exit before the corpus directory is read):"
+    env -u EMEND_CORPUS_DIR scripts/corpus-add.py > "$T/u1.out" 2> "$T/u1.err" < /dev/null
+    rc=$?
+    echo "  command: scripts/corpus-add.py (no arguments) -> exit $rc, stdout bytes $(wc -c < "$T/u1.out"), stderr: $(cat "$T/u1.err")"
+    check "corpus-add.py without arguments: exit 2 and the usage line only" "$(yn usage_exit_2 "$T/u1.out" "$T/u1.err" "$rc" "usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]")"
+    env -u EMEND_CORPUS_DIR scripts/corpus-coverage.py --bogus > "$T/u2.out" 2> "$T/u2.err" < /dev/null
+    rc=$?
+    echo "  command: scripts/corpus-coverage.py --bogus -> exit $rc, stdout bytes $(wc -c < "$T/u2.out"), stderr: $(cat "$T/u2.err")"
+    check "corpus-coverage.py with an unknown argument: exit 2 and the usage line only" "$(yn usage_exit_2 "$T/u2.out" "$T/u2.err" "$rc" "usage: corpus-coverage.py [--verify]")"
+    
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml Cargo.toml Cargo.lock; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    check "no gate file, Cargo file or workflow changed in $BEFORE..$C" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github Cargo.toml Cargo.lock tools)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed -e "s#$ROOT#<repo>#g" -e 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(ctrl_bytes "$T/ctl"); check "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$n (expect bytes 3)" "$(yn [ "$n" -eq 3 ])"
+    n=$(ctrl_bytes "$T/clean"); check "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    for s in out err; do
+      n=$(ctrl_bytes "$T/$s"); check "std$s: lines=$(f_ctrl "$T/$s") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## commits of the phase
+command: git log --format='%H parents=%P %s' 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+    e3dd52e777fe16fb58e5bf7cff6e562f2c332673 parents=e8087f6b990d13c4ccf69a1ae934050f1d14cb48 T2 P1: corpus-add.py changes for the spec, corpus-coverage.py
+    e8087f6b990d13c4ccf69a1ae934050f1d14cb48 parents=45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 T2 P1: import the corpus session's corpus-add.py unchanged
+    45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 parents=24d4a165b0e250f05b6c53db6747f95a28d28796 T2 P1: commit planning doc updates (corpus delivery rulings, T3 close-out, T3 P3 scope)
+command: git diff --stat 24d4a165b0e250f05b6c53db6747f95a28d28796 e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+     ROADMAP.md                 |  18 ++---
+     scripts/corpus-add.py      | 164 +++++++++++++++++++++++++++++++++++++++++++++
+     scripts/corpus-coverage.py | 157 +++++++++++++++++++++++++++++++++++++++++++
+     specs/0005-corpus.md       |  79 +++++++++++++++++++---
+     specs/0006-passthrough.md  |  76 ++++++++++++++++++---
+     5 files changed, 464 insertions(+), 30 deletions(-)
+
+## import record (specs/0005-corpus.md P1: the private helper's sha256 at import and every change)
+recorded sha256 of <corpus dir>/tools/corpus-add.py at import (in the import commit message): 30c66ee96732e329fda3de049cef5e9bfd8c21f58e07fc6385b12bf77602f250
+<corpus dir>/tools/corpus-add.py now: sha256 30c66ee96732e329fda3de049cef5e9bfd8c21f58e07fc6385b12bf77602f250, bytes 4571, mode 600
+scripts/corpus-add.py at e8087f6b990d13c4ccf69a1ae934050f1d14cb48: sha256 30c66ee96732e329fda3de049cef5e9bfd8c21f58e07fc6385b12bf77602f250
+the recorded sha256, the private file now and the blob at the import commit are equal: yes
+command: git diff --name-status e8087f6b990d13c4ccf69a1ae934050f1d14cb48^ e8087f6b990d13c4ccf69a1ae934050f1d14cb48
+    A	scripts/corpus-add.py
+the import commit's parent is one commit and it adds only scripts/corpus-add.py: yes
+the import commit's message names the sha256: yes
+every change made to it after the import:
+command: git diff e8087f6b990d13c4ccf69a1ae934050f1d14cb48 e3dd52e777fe16fb58e5bf7cff6e562f2c332673 -- scripts/corpus-add.py
+    diff --git a/scripts/corpus-add.py b/scripts/corpus-add.py
+    index 10aa4b5..dfe3ea6 100755
+    --- a/scripts/corpus-add.py
+    +++ b/scripts/corpus-add.py
+    @@ -1,11 +1,13 @@
+     #!/usr/bin/env python3
+    -"""Add one workbook to the private emend corpus (private stand-in for the
+    -repository's future scripts/corpus-add.sh, following specs/0005 P1).
+    +"""Add one workbook to the private emend corpus (specs/0005-corpus.md, P1).
+    +Imported from the corpus session's private helper through a recorded step.
+     
+     usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]
+     
+     Prints exactly one line on success: added <id> <ext> <bytes> <producer> <tags>
+     Never prints the original name, the note, the corpus path or file content.
+    +A refusal prints one "refused: " line on stderr and exits 1; any other error
+    +prints one "error: " line naming only the exception class and exits 2.
+     """
+     import datetime
+     import hashlib
+    @@ -18,6 +20,7 @@ import sys
+     import xml.etree.ElementTree as ET
+     import zipfile
+     
+    +USAGE = "usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]"
+     EXTS = {"xlsx", "xlsm", "xltx", "xltm"}
+     PRODUCERS = {"excel-win", "excel-mac", "google-sheets", "libreoffice", "unknown"}
+     SOURCES = {"libreoffice-export", "ms-template", "google-sheets-export", "maintainer"}
+    @@ -39,9 +42,14 @@ def read_app(path):
+         try:
+             with zipfile.ZipFile(path) as z:
+                 data = z.read("docProps/app.xml")
+    -    except (KeyError, zipfile.BadZipFile):
+    +    except KeyError:
+             return "none"
+    -    root = ET.fromstring(data)
+    +    except zipfile.BadZipFile:
+    +        die("not a zip-based workbook")
+    +    try:
+    +        root = ET.fromstring(data)
+    +    except ET.ParseError:
+    +        die("docProps/app.xml is not well-formed")
+         vals = []
+         for tag in ("Application", "AppVersion"):
+             el = root.find(EP + tag)
+    @@ -50,25 +58,47 @@ def read_app(path):
+         return " ".join(vals) if vals else "none"
+     
+     
+    +def outside_git(corpus):
+    +    # The caller's git environment must not point git at another repository.
+    +    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    +    try:
+    +        r = subprocess.run(["git", "-C", corpus, "rev-parse"], capture_output=True, env=env)
+    +    except OSError:
+    +        die("git could not be run")
+    +    return r.returncode != 0
+    +
+    +
+     def main(argv):
+         if len(argv) not in (6, 7):
+    -        print(__doc__.strip().splitlines()[3], file=sys.stderr)
+    +        print(USAGE, file=sys.stderr)
+             sys.exit(2)
+         src, producer, pver, source, tags = argv[1:6]
+         note = argv[6] if len(argv) == 7 else ""
+     
+    -    corpus = os.environ.get("EMEND_CORPUS_DIR") or os.path.join(os.environ["HOME"], "emend-testing")
+    -    st = os.stat(corpus)
+    +    corpus = os.environ.get("EMEND_CORPUS_DIR")
+    +    if not corpus:
+    +        if not os.environ.get("HOME"):
+    +            die("HOME is not set")
+    +        corpus = os.path.join(os.environ["HOME"], "emend-testing")
+    +    try:
+    +        st = os.stat(corpus)
+    +    except OSError:
+    +        die("corpus directory missing")
+    +    if not stat.S_ISDIR(st.st_mode):
+    +        die("corpus directory is not a directory")
+         if stat.S_IMODE(st.st_mode) != 0o700:
+             die("corpus directory is not mode 700")
+    -    if subprocess.run(["git", "-C", corpus, "rev-parse"], capture_output=True).returncode == 0:
+    +    if not outside_git(corpus):
+             die("corpus directory is inside a git work tree")
+     
+         ext = os.path.splitext(src)[1].lstrip(".").lower()
+         if ext not in EXTS:
+             die("extension not one of xlsx, xlsm, xltx, xltm")
+    -    with open(src, "rb") as f:
+    -        magic = f.read(4)
+    +    try:
+    +        with open(src, "rb") as f:
+    +            magic = f.read(4)
+    +    except OSError:
+    +        die("the file cannot be read")
+         if magic != b"PK\x03\x04":
+             die("not a zip-based workbook")
+         if producer not in PRODUCERS:
+    @@ -93,18 +123,23 @@ def main(argv):
+         manifest = os.path.join(corpus, "manifest.tsv")
+         if os.path.exists(manifest):
+             with open(manifest, encoding="utf-8") as f:
+    -            lines = f.read().splitlines()
+    +            text = f.read()
+    +        lines = text.splitlines()
+             if not lines or lines[0].split("\t") != HEADER:
+                 die("manifest header mismatch")
+    +        if not text.endswith("\n"):
+    +            die("manifest does not end with a newline")
+             if any(l.split("\t")[0] == fid for l in lines[1:]):
+                 die("duplicate id")
+    -    dest = os.path.join(corpus, "corpus", f"{fid}.{ext}")
+    +    dest_dir = os.path.join(corpus, "corpus")
+    +    dest = os.path.join(dest_dir, f"{fid}.{ext}")
+         if os.path.exists(dest):
+             die("duplicate id")
+     
+         app = read_app(src)
+         old = os.umask(0o077)
+         try:
+    +        os.makedirs(dest_dir, mode=0o700, exist_ok=True)
+             shutil.copyfile(src, dest)
+             os.chmod(dest, 0o600)
+             new = not os.path.exists(manifest)
+    @@ -122,4 +157,8 @@ def main(argv):
+     
+     
+     if __name__ == "__main__":
+    -    main(sys.argv)
+    +    try:
+    +        main(sys.argv)
+    +    except Exception as e:  # noqa: BLE001 - never print a path or a value
+    +        print(f"error: {type(e).__name__}", file=sys.stderr)
+    +        sys.exit(2)
+the private helper is outside the repository: no other file under the corpus directory enters it (hygiene and privacy steps below count corpus paths)
+
+## the two scripts at e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+Python 3.14.4
+scripts/corpus-add.py: sha256 f16e604afb512e3d2efa539e472ae1b2759b213d12ae6a88db2c29b1ea790204, bytes 5954, git mode 100755, first line: #!/usr/bin/env python3
+scripts/corpus-add.py: git mode 100755: yes
+scripts/corpus-add.py: first line is #!/usr/bin/env python3: yes
+scripts/corpus-add.py: py_compile exit 0 (into <scratch>): yes
+  imports: datetime stdlib;hashlib stdlib;os stdlib;re stdlib;shutil stdlib;stat stdlib;subprocess stdlib;sys stdlib;xml stdlib;zipfile stdlib;
+scripts/corpus-add.py: every import is in sys.stdlib_module_names: yes
+scripts/corpus-add.py: lines with a literal home path: 0 (expect 0): yes
+scripts/corpus-coverage.py: sha256 613799baa105a4543c2809fc8bb6c99750f9be1c6acb4499a5416ab908a97abd, bytes 5955, git mode 100755, first line: #!/usr/bin/env python3
+scripts/corpus-coverage.py: git mode 100755: yes
+scripts/corpus-coverage.py: first line is #!/usr/bin/env python3: yes
+scripts/corpus-coverage.py: py_compile exit 0 (into <scratch>): yes
+  imports: hashlib stdlib;os stdlib;re stdlib;sys stdlib;
+scripts/corpus-coverage.py: every import is in sys.stdlib_module_names: yes
+scripts/corpus-coverage.py: lines with a literal home path: 0 (expect 0): yes
+control: the home path form counts 1 line in a file holding one: yes
+usage errors (these exit before the corpus directory is read):
+  command: scripts/corpus-add.py (no arguments) -> exit 2, stdout bytes 0, stderr: usage: corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]
+corpus-add.py without arguments: exit 2 and the usage line only: yes
+  command: scripts/corpus-coverage.py --bogus -> exit 2, stdout bytes 0, stderr: usage: corpus-coverage.py [--verify]
+corpus-coverage.py with an unknown argument: exit 2 and the usage line only: yes
+
+## gate files at e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at e3dd52e777fe16fb58e5bf7cff6e562f2c332673 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no gate file, Cargo file or workflow changed in 24d4a165b0e250f05b6c53db6747f95a28d28796..e3dd52e777fe16fb58e5bf7cff6e562f2c332673: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 4369 files, 838.1MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect bytes 3): yes
+control: tab and CR file -> lines=0 bytes=0 (expect 0): yes
+stdout: lines=0 bytes=0 (expect 0): yes
+stderr: lines=0 bytes=0 (expect 0): yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-15T23:07:14Z
+gate log checks all as expected: yes

@@ -1,0 +1,572 @@
+about: T2 P1 phase commit e3dd52e777fe16fb58e5bf7cff6e562f2c332673; HEAD at run: e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+phase: T2 P1 (specs/0005-corpus.md) positive.log; run at 2026-09-15T23:05:17Z
+The scratch corpus, the generated workbooks and every captured output live under <scratch> and are deleted on exit; EMEND_CORPUS_DIR is set for every run, so the real corpus directory is never read.
+fixture strings counted in every captured output: 3 (random sentinels for the file names, producer_version and note; built at run time; values never printed)
+Python 3.14.4; GIT_ variables unset for this script
+
+## script
+    #!/usr/bin/env bash
+    # T2 P1 positive.log and negative.log (specs/0005-corpus.md, P1): scripts/corpus-add.py
+    # and scripts/corpus-coverage.py on a scratch corpus directory created under
+    # <scratch> and reached through EMEND_CORPUS_DIR, with generated minimal
+    # workbooks only (a zip holding [Content_Types].xml and, for most,
+    # docProps/app.xml). The real corpus directory is never read: EMEND_CORPUS_DIR
+    # is set for every run. Random sentinels go into every generated file name
+    # (the original_name column), the producer_version and the note; every captured
+    # output of both scripts is counted for them and for the scratch path, and must
+    # hold none. The manifest itself holds them, as a control.
+    #   positive cases:
+    #     P1 add a generated xlsx: the added line with the id sha256sum gives, one
+    #        manifest row equal to the expected row (app XML-unescaped with
+    #        whitespace collapsed), the copy mode 600 with the source's sha256;
+    #     P2 an upper-case .XLSX: accepted, stored as xlsx;
+    #     P3 a workbook without docProps/app.xml: app column none;
+    #     P4 GIT_DIR exported to this repository's git directory: still accepted
+    #        (the script ignores the caller's GIT_ variables), with a control
+    #        showing git itself would report a repository;
+    #     P5 coverage: output exactly as expected (file lines, the 23 tag lines
+    #        with counts and producers, uncovered, single-producer), exit 0;
+    #     P6 coverage --verify on the unmodified corpus: the same output, exit 0.
+    #   negative cases (a setup adds two workbooks first):
+    #     N1 the same file again: refused as a duplicate, manifest and corpus unchanged;
+    #     N2 a file starting with the OLE2 signature: refused with
+    #        "refused: not a zip-based workbook", nothing added;
+    #     N3 an unknown tag; N4 an unknown producer; N5 a .csv; N6 an unknown
+    #        source; N7 the zip signature followed by bytes that are not a zip;
+    #        N8 the corpus directory at mode 755; N9 a missing corpus directory;
+    #        N10 a corpus directory inside a git work tree: each refused with its
+    #        message, nothing added anywhere;
+    #     N11 one corpus file modified in place: coverage still exit 0, coverage
+    #        --verify prints "FAIL line 3: sha256 mismatch" and exits 1;
+    #     N12 coverage on copies of the corpus with a wrong header, a short row, a
+    #        duplicate id, a missing corpus file and an unknown producer: one FAIL
+    #        line naming the manifest line, exit 1, nothing else printed.
+    # Each check is evaluated once; a check with more than one condition is
+    # evaluated inside one function.
+    # Usage: t2p1-cases.sh <phase commit> positive|negative > <scratch file>; the
+    # caller moves the output to records/logs/t2-p1/<mode>.log. Paths print as
+    # <scratch>, sentinels as <fixture>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    MODE=${2:?positive or negative required}
+    case "$MODE" in positive|negative) ;; *) echo "mode must be positive or negative" >&2; exit 2 ;; esac
+    G=/usr/bin/grep
+    ROOT=$(pwd)
+    ADD=$ROOT/scripts/corpus-add.py
+    COV=$ROOT/scripts/corpus-coverage.py
+    GITDIR=$(git rev-parse --absolute-git-dir)
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    for v in $(env | sed -n 's/^\(GIT_[A-Za-z_]*\)=.*/\1/p'); do unset "$v"; done
+    unset EMEND_CORPUS_DIR
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    rnd() { LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 14; }
+    S_NAME="zq$(rnd)"
+    S_VER="zq$(rnd)"
+    S_NOTE="zq$(rnd)"
+    FORBIDDEN=("$S_NAME" "$S_VER" "$S_NOTE")
+    CORPUS=$BASE/corpus
+    M=$CORPUS/manifest.tsv
+    W=$BASE/in
+    TAGS=(plain strings formulas names merge validation hyperlinks autofilter freeze cf tables charts
+      pivots slicers timelines macros comments images external sparklines protection date1904 large)
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { cat "$@" | LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}"); }
+    count_path() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$BASE"; }
+    ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
+    nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    sha() { sha256sum "$1" | cut -c1-64; }
+    # state <corpus dir>: manifest sha256 (or "no-manifest") and the number of corpus files.
+    state() {
+      local m
+      if [ -f "$1/manifest.tsv" ]; then m=$(sha "$1/manifest.tsv"); else m=no-manifest; fi
+      echo "$m $(find "$1" -mindepth 1 -path "$1/corpus/*" 2>/dev/null | wc -l)"
+    }
+    
+    OUTS=()
+    N=0
+    # run <case> <env assignment or -> <program> <args...>: runs the program with
+    # EMEND_CORPUS_DIR=$CORPUS unless an assignment is given, keeps stdout and
+    # stderr, sets RC, and prints the command, exit and outputs through hide.
+    run() {
+      local c=$1 assign=$2 o
+      shift 2
+      N=$((N + 1))
+      o=$BASE/out/$N
+      mkdir -p "$BASE/out"
+      echo "command: $(printf '%s ' "${assign/#-/EMEND_CORPUS_DIR=$CORPUS}" "${@/#$ROOT\//}" | hide)"
+      if [ "$assign" = - ]; then
+        EMEND_CORPUS_DIR=$CORPUS "$@" >"$o.stdout" 2>"$o.stderr" </dev/null
+      else
+        env "$assign" "$@" >"$o.stdout" 2>"$o.stderr" </dev/null
+      fi
+      RC=$?
+      OUTS+=("$o.stdout" "$o.stderr")
+      OUT=$o
+      echo "  exit: $RC"
+      echo "  stdout ($(wc -l <"$o.stdout") lines):"
+      hide <"$o.stdout" | sed 's/^/    /'
+      echo "  stderr ($(wc -l <"$o.stderr") lines):"
+      hide <"$o.stderr" | sed 's/^/    /'
+    }
+    # exact <file> <text>: the file's content is exactly the text plus a newline.
+    exact() { [ "$(cat "$1")" = "$2" ] && [ "$(tail -c 1 "$1" | od -An -c | tr -d ' ')" = '\n' ]; }
+    # refused <message>: exit 1, no stdout, stderr exactly "refused: <message>".
+    refused() { [ "$RC" -eq 1 ] && [ ! -s "$OUT.stdout" ] && exact "$OUT.stderr" "refused: $1"; }
+    # added <id> <ext> <bytes> <producer> <tags>: exit 0, no stderr, the one added line.
+    added() { [ "$RC" -eq 0 ] && [ ! -s "$OUT.stderr" ] && exact "$OUT.stdout" "added $1 $2 $3 $4 $5"; }
+    # covfail <line>: exit 1, no stderr, stdout exactly that FAIL line.
+    covfail() { [ "$RC" -eq 1 ] && [ ! -s "$OUT.stderr" ] && exact "$OUT.stdout" "FAIL $1"; }
+    # covok <expected file>: exit 0, no stderr, stdout equal to the expected file.
+    covok() { [ "$RC" -eq 0 ] && [ ! -s "$OUT.stderr" ] && cmp -s "$OUT.stdout" "$1"; }
+    # row_is <n> <expected row file>: manifest data row n (1-based) equals the
+    # expected row, with the added column either of the two dates given.
+    row_is() {
+      local got
+      got=$(awk -v n="$(($1 + 1))" 'NR == n' "$M")
+      [ "$got" = "$(sed "s/@DATE@/$3/" "$2")" ] || [ "$got" = "$(sed "s/@DATE@/$4/" "$2")" ]
+    }
+    # copy_ok <id> <ext> <source>: the corpus copy exists, mode 600, same sha256 as the source.
+    copy_ok() {
+      local f=$CORPUS/corpus/$1.$2
+      [ -f "$f" ] && [ "$(stat -c %a "$f")" = 600 ] && [ "$(sha "$f")" = "$(sha "$3")" ]
+    }
+    rows() { echo $(($(wc -l <"$M") - 1)); }
+    # add_one <case> <file> <ext stored> <producer> <source> <tags>: adds with the
+    # version and note sentinels and checks the added line, the new row, the copy
+    # and the row count.
+    add_one() {
+      local c=$1 f=$2 ext=$3 p=$4 s=$5 t=$6 id bytes before d1 d2 app
+      id=$(sha "$f" | cut -c1-12)
+      bytes=$(stat -c %s "$f")
+      before=$([ -f "$M" ] && rows || echo 0)
+      app=$(cat "$f.app")
+      d1=$(date -u +%F)
+      run "$c" - "$ADD" "$f" "$p" "$S_VER" "$s" "$t" "$S_NOTE"
+      d2=$(date -u +%F)
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t@DATE@\t%s\t%s\n' "$id" "$(sha "$f")" "$bytes" "$ext" "$p" \
+        "$S_VER" "$app" "$s" "$t" "$(basename "$f")" "$S_NOTE" >"$BASE/row-$c"
+      echo "  expected id (sha256sum): $id; bytes $bytes; app column expected: $app"
+      note "$c: exit 0, no stderr, stdout exactly: added $id $ext $bytes $p $t" "$(is added "$id" "$ext" "$bytes" "$p" "$t")"
+      note "$c: the manifest gained one row ($before to $(rows))" "$(is [ "$(rows)" -eq $((before + 1)) ])"
+      note "$c: the new row equals the expected twelve columns" "$(is row_is "$(rows)" "$BASE/row-$c" "$d1" "$d2")"
+      note "$c: corpus/$id.$ext exists with mode 600 and the source's sha256" "$(is copy_ok "$id" "$ext" "$f")"
+      eval "ID_$c=$id"
+    }
+    # nothing_added <state before> <case>: the scratch corpus is unchanged.
+    nothing_added() { [ "$(state "$CORPUS")" = "$1" ]; }
+    
+    echo "about: T2 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T2 P1 (specs/0005-corpus.md) $MODE.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "The scratch corpus, the generated workbooks and every captured output live under <scratch> and are deleted on exit; EMEND_CORPUS_DIR is set for every run, so the real corpus directory is never read."
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (random sentinels for the file names, producer_version and note; built at run time; values never printed)"
+    echo "$(python3 --version); GIT_ variables unset for this script"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x %s y\n' "$BASE" >"$BASE/ctl-path"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "lines with the scratch path in a file holding it once" "$(count_path "$BASE/ctl-path")" 1
+    ctl "lines with a fixture string over two files holding them" "$(count_forbidden "$BASE/ctl-forbidden" "$BASE/ctl-forbidden")" "$((2 * ${#FORBIDDEN[@]}))"
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    ctl "control and non-ASCII bytes in a clean file" "$(($(ctrl_bytes "$BASE/ctl-clean") + $(nonascii_bytes "$BASE/ctl-clean")))" 0
+    exact_ctl() { printf 'refused: x\n' >"$BASE/ctl-exact"; exact "$BASE/ctl-exact" "refused: x"; }
+    exact_neg() { printf 'refused: x' >"$BASE/ctl-exact2"; exact "$BASE/ctl-exact2" "refused: x"; }
+    ctl "exact on a file with the text and a newline" "$(is exact_ctl)" as-expected
+    ctl "exact on a file without the final newline (must not match)" "$(if exact_neg; then echo matched; else echo no-match; fi)" no-match
+    
+    echo
+    echo "## generated workbooks"
+    mkdir -m 700 "$W" "$CORPUS"
+    cat >"$BASE/gen.py" <<'PY'
+    import os, sys, zipfile
+    out, s_name = sys.argv[1:3]
+    CT = ('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/'
+          'package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>')
+    APP = ('<?xml version="1.0" encoding="UTF-8"?>\n<Properties xmlns="http://schemas.openxmlformats.org/'
+           'officeDocument/2006/extended-properties"><Application>  Gen &amp;\n  Tool </Application>'
+           '<AppVersion>%s</AppVersion></Properties>')
+    def book(name, version, app=True):
+        path = os.path.join(out, name)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr(zipfile.ZipInfo("[Content_Types].xml", (2026, 1, 2, 3, 4, 6)), CT)
+            if app:
+                z.writestr(zipfile.ZipInfo("docProps/app.xml", (2026, 1, 2, 3, 4, 6)), APP % version)
+        with open(path + ".app", "w") as f:
+            f.write(("Gen & Tool %s" % version) if app else "none")
+        print("%s: %d bytes" % (name, os.path.getsize(path)))
+    book(s_name + "-a.xlsx", "1.1")
+    book(s_name + "-b.XLSX", "1.2")
+    book(s_name + "-c.xlsx", "1.3", app=False)
+    book(s_name + "-d.xlsx", "1.4")
+    with open(os.path.join(out, s_name + "-ole.xlsx"), "wb") as f:
+        f.write(bytes.fromhex("d0cf11e0a1b11ae1") + bytes(504))
+    print("%s-ole.xlsx: OLE2 signature, 512 bytes" % s_name)
+    with open(os.path.join(out, s_name + "-garbage.xlsx"), "wb") as f:
+        f.write(b"PK\x03\x04" + bytes(range(256)))
+    print("%s-garbage.xlsx: zip signature then 256 bytes that are not a zip" % s_name)
+    with open(os.path.join(out, s_name + "-f.csv"), "w") as f:
+        f.write("a,b\n1,2\n")
+    print("%s-f.csv: 8 bytes" % s_name)
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch>/in <fixture>"
+    python3 "$BASE/gen.py" "$W" "$S_NAME" >"$BASE/gen.out" 2>&1
+    RC=$?
+    echo "  exit: $RC"
+    hide <"$BASE/gen.out" | sed 's/^/    /'
+    note "gen.py exit 0" "$(is [ "$RC" -eq 0 ])"
+    head4() { head -c 4 "$1" | od -An -tx1 | tr -d ' \n'; }
+    note "the four workbooks start with 504b0304 and the OLE2 file with d0cf11e0" "$(is [ "$(head4 "$W/$S_NAME-a.xlsx") $(head4 "$W/$S_NAME-b.XLSX") $(head4 "$W/$S_NAME-c.xlsx") $(head4 "$W/$S_NAME-d.xlsx") $(head4 "$W/$S_NAME-ole.xlsx")" = "504b0304 504b0304 504b0304 504b0304 d0cf11e0" ])"
+    git_says_repo() { git -C "$1" rev-parse >/dev/null 2>&1; }
+    note "control: git -C <scratch>/corpus rev-parse fails (the scratch corpus is outside any work tree)" "$(is eval '! git_says_repo "$CORPUS"')"
+    
+    if [ "$MODE" = positive ]; then
+      echo
+      echo "## P1: add a generated xlsx"
+      add_one P1 "$W/$S_NAME-a.xlsx" xlsx libreoffice libreoffice-export plain,strings
+    
+      echo
+      echo "## P2: an upper-case .XLSX, stored as xlsx"
+      add_one P2 "$W/$S_NAME-b.XLSX" xlsx excel-win ms-template charts,plain
+      note "P2: no file with an upper-case extension in corpus/" "$(is [ -z "$(find "$CORPUS/corpus" -name '*.XLSX' -print -quit)" ])"
+    
+      echo
+      echo "## P3: a workbook without docProps/app.xml"
+      add_one P3 "$W/$S_NAME-c.xlsx" xlsx excel-win maintainer large
+      note "P3: the app column of the new row is none" "$(is [ "$(awk -F'\t' 'END { print $7 }' "$M")" = none ])"
+    
+      echo
+      echo "## P4: GIT_DIR exported to this repository's git directory"
+      git_dir_repo() { GIT_DIR=$GITDIR git -C "$CORPUS" rev-parse >/dev/null 2>&1; }
+      note "control: with GIT_DIR exported, git -C <scratch>/corpus rev-parse succeeds" "$(is git_dir_repo)"
+      export GIT_DIR=$GITDIR
+      add_one P4 "$W/$S_NAME-d.xlsx" xlsx google-sheets google-sheets-export formulas,plain
+      unset GIT_DIR
+    
+      echo
+      echo "## P5: coverage"
+      {
+        echo "files 4"
+        echo "$ID_P1 xlsx $(stat -c %s "$W/$S_NAME-a.xlsx") libreoffice libreoffice-export plain,strings"
+        echo "$ID_P2 xlsx $(stat -c %s "$W/$S_NAME-b.XLSX") excel-win ms-template charts,plain"
+        echo "$ID_P3 xlsx $(stat -c %s "$W/$S_NAME-c.xlsx") excel-win maintainer large"
+        echo "$ID_P4 xlsx $(stat -c %s "$W/$S_NAME-d.xlsx") google-sheets google-sheets-export formulas,plain"
+        unc=()
+        for t in "${TAGS[@]}"; do
+          case $t in
+            plain) echo "tag plain 3 excel-win,google-sheets,libreoffice" ;;
+            strings) echo "tag strings 1 libreoffice" ;;
+            formulas) echo "tag formulas 1 google-sheets" ;;
+            charts) echo "tag charts 1 excel-win" ;;
+            large) echo "tag large 1 excel-win" ;;
+            *) echo "tag $t 0 -"; unc+=("$t") ;;
+          esac
+        done
+        echo "uncovered ${#unc[@]}: $(IFS=,; echo "${unc[*]}")"
+        echo "single-producer 4: strings,formulas,charts,large"
+      } >"$BASE/expected-coverage"
+      echo "expected output: $(wc -l <"$BASE/expected-coverage") lines (built by this script from the fixed tag list; shown below as the actual output)"
+      run P5 - "$COV"
+      note "P5: exit 0, no stderr, stdout equal to the expected output" "$(is covok "$BASE/expected-coverage")"
+    
+      echo
+      echo "## P6: coverage --verify on the unmodified corpus"
+      run P6 - "$COV" --verify
+      note "P6: exit 0, no stderr, stdout equal to the expected output" "$(is covok "$BASE/expected-coverage")"
+    else
+      echo
+      echo "## setup: two workbooks added"
+      add_one S1 "$W/$S_NAME-a.xlsx" xlsx libreoffice libreoffice-export plain,strings
+      add_one S2 "$W/$S_NAME-d.xlsx" xlsx excel-win maintainer formulas
+    
+      # refuse_case <case> <message> <env assignment or -> <args to corpus-add.py...>
+      refuse_case() {
+        local c=$1 msg=$2 assign=$3 before
+        shift 3
+        before=$(state "$CORPUS")
+        run "$c" "$assign" "$ADD" "$@"
+        note "$c: exit 1, no stdout, stderr exactly: refused: $msg" "$(is refused "$msg")"
+        note "$c: nothing added (manifest sha256 and corpus file count unchanged)" "$(is nothing_added "$before")"
+      }
+      echo
+      echo "## N1: the same file again"
+      refuse_case N1 "duplicate id" - "$W/$S_NAME-a.xlsx" libreoffice "$S_VER" libreoffice-export plain "$S_NOTE"
+      echo
+      echo "## N2: a file starting with the OLE2 signature"
+      refuse_case N2 "not a zip-based workbook" - "$W/$S_NAME-ole.xlsx" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      echo
+      echo "## N3: an unknown tag"
+      refuse_case N3 "unknown, empty or repeated tag" - "$W/$S_NAME-c.xlsx" excel-win "$S_VER" maintainer plain,nosuchtag "$S_NOTE"
+      echo
+      echo "## N4: an unknown producer"
+      refuse_case N4 "unknown producer" - "$W/$S_NAME-c.xlsx" numbers "$S_VER" maintainer plain "$S_NOTE"
+      echo
+      echo "## N5: a .csv"
+      refuse_case N5 "extension not one of xlsx, xlsm, xltx, xltm" - "$W/$S_NAME-f.csv" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      echo
+      echo "## N6: an unknown source"
+      refuse_case N6 "unknown source" - "$W/$S_NAME-c.xlsx" excel-win "$S_VER" download plain "$S_NOTE"
+      echo
+      echo "## N7: the zip signature followed by bytes that are not a zip"
+      refuse_case N7 "not a zip-based workbook" - "$W/$S_NAME-garbage.xlsx" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      echo
+      echo "## N8: the corpus directory at mode 755"
+      chmod 755 "$CORPUS"
+      refuse_case N8 "corpus directory is not mode 700" - "$W/$S_NAME-c.xlsx" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      chmod 700 "$CORPUS"
+      echo
+      echo "## N9: a missing corpus directory"
+      refuse_case N9 "corpus directory missing" "EMEND_CORPUS_DIR=$BASE/missing" "$W/$S_NAME-c.xlsx" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      note "N9: <scratch>/missing was not created" "$(is [ ! -e "$BASE/missing" ])"
+      echo
+      echo "## N10: a corpus directory inside a git work tree"
+      mkdir -m 700 "$BASE/wrap"
+      GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git init -q "$BASE/wrap" >/dev/null 2>&1
+      mkdir -m 700 "$BASE/wrap/corpus"
+      note "control: git -C <scratch>/wrap/corpus rev-parse succeeds" "$(is git_says_repo "$BASE/wrap/corpus")"
+      refuse_case N10 "corpus directory is inside a git work tree" "EMEND_CORPUS_DIR=$BASE/wrap/corpus" "$W/$S_NAME-c.xlsx" excel-win "$S_VER" maintainer plain "$S_NOTE"
+      note "N10: <scratch>/wrap/corpus is still empty" "$(is [ -z "$(ls -A "$BASE/wrap/corpus")" ])"
+    
+      echo
+      echo "## N11: one corpus file modified in place"
+      F2=$CORPUS/corpus/$ID_S2.xlsx
+      size_before=$(stat -c %s "$F2")
+      python3 -c 'import sys; f = open(sys.argv[1], "r+b"); f.seek(10); b = f.read(1); f.seek(10); f.write(bytes([b[0] ^ 0xff])); f.close()' "$F2"
+      echo "flipped one byte at offset 10 of corpus/$ID_S2.xlsx (line 3 of the manifest)"
+      modified() { [ "$(stat -c %s "$F2")" = "$size_before" ] && [ "$(sha "$F2")" != "$(awk -F'\t' 'NR == 3 { print $2 }' "$M")" ]; }
+      note "N11: same size, sha256 now differs from the manifest" "$(is modified)"
+      run N11a - "$COV"
+      note "N11a: coverage without --verify still exits 0 with no stderr and files 2 on line 1" "$(is eval '[ "$RC" -eq 0 ] && [ ! -s "$OUT.stderr" ] && [ "$(head -n 1 "$OUT.stdout")" = "files 2" ]')"
+      run N11b - "$COV" --verify
+      note "N11b: exit 1, no stderr, stdout exactly: FAIL line 3: sha256 mismatch" "$(is covfail "line 3: sha256 mismatch")"
+      python3 -c 'import sys; f = open(sys.argv[1], "r+b"); f.seek(10); b = f.read(1); f.seek(10); f.write(bytes([b[0] ^ 0xff])); f.close()' "$F2"
+    
+      echo
+      echo "## N12: coverage on broken copies of the corpus"
+      # broken <name> <awk program applied to the manifest>: a copy of the corpus with an edited manifest.
+      broken() {
+        local d=$BASE/broken-$1
+        cp -a "$CORPUS" "$d"
+        awk -F'\t' -v OFS='\t' "$2" "$CORPUS/manifest.tsv" >"$d/manifest.tsv"
+      }
+      broken header 'NR == 1 { $12 = "notes" } { print }'
+      broken short 'NR == 2 { NF = 11 } { print }'
+      broken dup '{ print } NR == 2 { r = $0 } END { print r }'
+      broken missing '{ print }'
+      rm -f "$BASE/broken-missing/corpus/$ID_S2.xlsx"
+      broken producer 'NR == 2 { $5 = "numbers" } { print }'
+      for spec in "header|manifest header mismatch" "short|line 2: 11 columns, expected 12" "dup|line 4: duplicate id" \
+        "missing|line 3: corpus file missing" "producer|line 2: unknown producer"; do
+        name=${spec%%|*}
+        want=${spec#*|}
+        run "N12-$name" "EMEND_CORPUS_DIR=$BASE/broken-$name" "$COV"
+        note "N12-$name: exit 1, no stderr, stdout exactly: FAIL $want" "$(is covfail "$want")"
+      done
+    fi
+    
+    echo
+    echo "## outputs"
+    echo "captured outputs: ${#OUTS[@]} (stdout and stderr of $N runs)"
+    echo "control: lines in the scratch manifest holding a fixture string: $(count_forbidden "$M") (expect more than 0)"
+    note "the scratch manifest holds the fixture strings" "$(is [ "$(count_forbidden "$M")" -gt 0 ])"
+    nf=$(count_forbidden "${OUTS[@]}")
+    np=$(count_path "${OUTS[@]}")
+    nc=$(ctrl_bytes "${OUTS[@]}")
+    nn=$(nonascii_bytes "${OUTS[@]}")
+    note "lines with a fixture string (original name, producer_version, note) in any output: $nf (expect 0)" "$(is [ "$nf" -eq 0 ])"
+    note "lines with the scratch path in any output: $np (expect 0)" "$(is [ "$np" -eq 0 ])"
+    note "control bytes in the outputs: $nc; non-ASCII bytes: $nn (expect 0 and 0)" "$(is [ $((nc + nn)) -eq 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "status after the run (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "$MODE log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 3 (expect 3): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control lines with the scratch path in a file holding it once: 1 (expect 1): as-expected
+  control lines with a fixture string over two files holding them: 6 (expect 6): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+  control control and non-ASCII bytes in a clean file: 0 (expect 0): as-expected
+  control exact on a file with the text and a newline: as-expected (expect as-expected): as-expected
+  control exact on a file without the final newline (must not match): no-match (expect no-match): as-expected
+
+## generated workbooks
+command: python3 <scratch>/gen.py <scratch>/in <fixture>
+  exit: 0
+    <fixture>-a.xlsx: 643 bytes
+    <fixture>-b.XLSX: 643 bytes
+    <fixture>-c.xlsx: 315 bytes
+    <fixture>-d.xlsx: 643 bytes
+    <fixture>-ole.xlsx: OLE2 signature, 512 bytes
+    <fixture>-garbage.xlsx: zip signature then 256 bytes that are not a zip
+    <fixture>-f.csv: 8 bytes
+  gen.py exit 0: as-expected
+  the four workbooks start with 504b0304 and the OLE2 file with d0cf11e0: as-expected
+  control: git -C <scratch>/corpus rev-parse fails (the scratch corpus is outside any work tree): as-expected
+
+## P1: add a generated xlsx
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-a.xlsx libreoffice <fixture> libreoffice-export plain,strings <fixture> 
+  exit: 0
+  stdout (1 lines):
+    added 7eb89f523115 xlsx 643 libreoffice plain,strings
+  stderr (0 lines):
+  expected id (sha256sum): 7eb89f523115; bytes 643; app column expected: Gen & Tool 1.1
+  P1: exit 0, no stderr, stdout exactly: added 7eb89f523115 xlsx 643 libreoffice plain,strings: as-expected
+  P1: the manifest gained one row (0 to 1): as-expected
+  P1: the new row equals the expected twelve columns: as-expected
+  P1: corpus/7eb89f523115.xlsx exists with mode 600 and the source's sha256: as-expected
+
+## P2: an upper-case .XLSX, stored as xlsx
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-b.XLSX excel-win <fixture> ms-template charts,plain <fixture> 
+  exit: 0
+  stdout (1 lines):
+    added d54858d6b9e1 xlsx 643 excel-win charts,plain
+  stderr (0 lines):
+  expected id (sha256sum): d54858d6b9e1; bytes 643; app column expected: Gen & Tool 1.2
+  P2: exit 0, no stderr, stdout exactly: added d54858d6b9e1 xlsx 643 excel-win charts,plain: as-expected
+  P2: the manifest gained one row (1 to 2): as-expected
+  P2: the new row equals the expected twelve columns: as-expected
+  P2: corpus/d54858d6b9e1.xlsx exists with mode 600 and the source's sha256: as-expected
+  P2: no file with an upper-case extension in corpus/: as-expected
+
+## P3: a workbook without docProps/app.xml
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-c.xlsx excel-win <fixture> maintainer large <fixture> 
+  exit: 0
+  stdout (1 lines):
+    added 2ac16f2dacc2 xlsx 315 excel-win large
+  stderr (0 lines):
+  expected id (sha256sum): 2ac16f2dacc2; bytes 315; app column expected: none
+  P3: exit 0, no stderr, stdout exactly: added 2ac16f2dacc2 xlsx 315 excel-win large: as-expected
+  P3: the manifest gained one row (2 to 3): as-expected
+  P3: the new row equals the expected twelve columns: as-expected
+  P3: corpus/2ac16f2dacc2.xlsx exists with mode 600 and the source's sha256: as-expected
+  P3: the app column of the new row is none: as-expected
+
+## P4: GIT_DIR exported to this repository's git directory
+  control: with GIT_DIR exported, git -C <scratch>/corpus rev-parse succeeds: as-expected
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-add.py <scratch>/in/<fixture>-d.xlsx google-sheets <fixture> google-sheets-export formulas,plain <fixture> 
+  exit: 0
+  stdout (1 lines):
+    added 742a0c4f98ff xlsx 643 google-sheets formulas,plain
+  stderr (0 lines):
+  expected id (sha256sum): 742a0c4f98ff; bytes 643; app column expected: Gen & Tool 1.4
+  P4: exit 0, no stderr, stdout exactly: added 742a0c4f98ff xlsx 643 google-sheets formulas,plain: as-expected
+  P4: the manifest gained one row (3 to 4): as-expected
+  P4: the new row equals the expected twelve columns: as-expected
+  P4: corpus/742a0c4f98ff.xlsx exists with mode 600 and the source's sha256: as-expected
+
+## P5: coverage
+expected output: 30 lines (built by this script from the fixed tag list; shown below as the actual output)
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-coverage.py 
+  exit: 0
+  stdout (30 lines):
+    files 4
+    7eb89f523115 xlsx 643 libreoffice libreoffice-export plain,strings
+    d54858d6b9e1 xlsx 643 excel-win ms-template charts,plain
+    2ac16f2dacc2 xlsx 315 excel-win maintainer large
+    742a0c4f98ff xlsx 643 google-sheets google-sheets-export formulas,plain
+    tag plain 3 excel-win,google-sheets,libreoffice
+    tag strings 1 libreoffice
+    tag formulas 1 google-sheets
+    tag names 0 -
+    tag merge 0 -
+    tag validation 0 -
+    tag hyperlinks 0 -
+    tag autofilter 0 -
+    tag freeze 0 -
+    tag cf 0 -
+    tag tables 0 -
+    tag charts 1 excel-win
+    tag pivots 0 -
+    tag slicers 0 -
+    tag timelines 0 -
+    tag macros 0 -
+    tag comments 0 -
+    tag images 0 -
+    tag external 0 -
+    tag sparklines 0 -
+    tag protection 0 -
+    tag date1904 0 -
+    tag large 1 excel-win
+    uncovered 18: names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,pivots,slicers,timelines,macros,comments,images,external,sparklines,protection,date1904
+    single-producer 4: strings,formulas,charts,large
+  stderr (0 lines):
+  P5: exit 0, no stderr, stdout equal to the expected output: as-expected
+
+## P6: coverage --verify on the unmodified corpus
+command: EMEND_CORPUS_DIR=<scratch>/corpus scripts/corpus-coverage.py --verify 
+  exit: 0
+  stdout (30 lines):
+    files 4
+    7eb89f523115 xlsx 643 libreoffice libreoffice-export plain,strings
+    d54858d6b9e1 xlsx 643 excel-win ms-template charts,plain
+    2ac16f2dacc2 xlsx 315 excel-win maintainer large
+    742a0c4f98ff xlsx 643 google-sheets google-sheets-export formulas,plain
+    tag plain 3 excel-win,google-sheets,libreoffice
+    tag strings 1 libreoffice
+    tag formulas 1 google-sheets
+    tag names 0 -
+    tag merge 0 -
+    tag validation 0 -
+    tag hyperlinks 0 -
+    tag autofilter 0 -
+    tag freeze 0 -
+    tag cf 0 -
+    tag tables 0 -
+    tag charts 1 excel-win
+    tag pivots 0 -
+    tag slicers 0 -
+    tag timelines 0 -
+    tag macros 0 -
+    tag comments 0 -
+    tag images 0 -
+    tag external 0 -
+    tag sparklines 0 -
+    tag protection 0 -
+    tag date1904 0 -
+    tag large 1 excel-win
+    uncovered 18: names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,pivots,slicers,timelines,macros,comments,images,external,sparklines,protection,date1904
+    single-producer 4: strings,formulas,charts,large
+  stderr (0 lines):
+  P6: exit 0, no stderr, stdout equal to the expected output: as-expected
+
+## outputs
+captured outputs: 12 (stdout and stderr of 6 runs)
+control: lines in the scratch manifest holding a fixture string: 4 (expect more than 0)
+  the scratch manifest holds the fixture strings: as-expected
+  lines with a fixture string (original name, producer_version, note) in any output: 0 (expect 0): as-expected
+  lines with the scratch path in any output: 0 (expect 0): as-expected
+  control bytes in the outputs: 0; non-ASCII bytes: 0 (expect 0 and 0): as-expected
+  status after the run (expect empty): : as-expected
+run ended at 2026-09-15T23:05:18Z
+positive log checks all as expected: yes
