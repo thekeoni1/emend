@@ -4,7 +4,7 @@ Status: P1 to P5 and P5b DONE, verified by planning 2026-09-14. After
 the rewrite, P1 is af5a2c6 to d3754dc; P1R is doc commit d495f0a with
 records through 88d5644; P2 is 1a985a1 to 9daa4c6; P3 is ced7f91 to
 53b99d8; P4 is 977635b to a00d6fd; P5 is d8c1ee1 to 9b7aef1; P5b is
-873851f to 65cdeae. P6 and P7 READY.
+873851f to 65cdeae; P6 is 10a42d6 to 28a44aa. P6b and P7 READY.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md`.
 
 ## Goal
@@ -17,8 +17,8 @@ task writes no workbook model and no harness logic.
 
 ## How this task runs
 
-T0 is P1, P1R, P2 to P5, P5b, P6 and P7, in that order. Each phase ends
-with:
+T0 is P1, P1R, P2 to P5, P5b, P6, P6b and P7, in that order. Each phase
+ends with:
 
 1. The phase commit(s).
 2. The phase's logs, written to `records/logs/t0-<phase>/` (for example
@@ -73,6 +73,9 @@ committed. Its output goes in the phase's `negative.log`.
   bytes in its logs, with a positive control, and expects 0. The three
   lines with escape and shift-in bytes in
   `records/logs/t0-p3/negative.log` are accepted as recorded.
+- Pushes: never use `git push --no-verify`, never set `core.hooksPath`,
+  and never export `EMEND_PRIVATE_DENYLIST` except inside a negative
+  test.
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,
@@ -370,6 +373,71 @@ committed. Its output goes in the phase's `negative.log`.
 - Question 6: unguarded commands in the control block are accepted.
 - Question 7: yes. The corpus-path FAIL line prints a count, not the
   paths (P6).
+
+## Planning rulings on P6 (2026-09-14)
+
+- P6 is verified from primaries by planning's own checks:
+  - Doc commit 10a42d6 holds the two pending paths (80 insertions, 7
+    deletions).
+  - Phase commit f1ac533 changes `scripts/check.sh` and adds
+    `scripts/install-hooks.sh`, `scripts/privacy-identity.txt`,
+    `scripts/privacy-patterns.txt` and `scripts/privacy.sh`. The record
+    commits touch only `records/logs/t0-p6/`. All five messages end with
+    the Co-Authored-By trailer only.
+  - The repo-local identity matches `scripts/privacy-identity.txt`.
+    `.git/hooks/pre-push` is executable and equal to the installer's
+    output. `core.hooksPath` is unset.
+  - Planning ran `scripts/check.sh` from `/`: all eight steps PASS, zero
+    control bytes. `scripts/privacy.sh` over the full history: PASS, 46
+    commits, 93 blobs.
+  - Planning reproduced these cases in scratch clones, and no sentinel
+    or token text appeared in any output:
+    - a different author and committer email gives FAIL identity;
+    - a Claude-Session line gives FAIL message;
+    - a sentinel in a file added and then deleted gives FAIL naming the
+      first commit only;
+    - a fake token under `* binary` in `.git/info/attributes` gives FAIL
+      patterns;
+    - a removed loose object gives exit 2 with an ERROR line;
+    - with the hook installed, a clean push to a local bare remote
+      succeeds, while a push carrying a fake token is rejected and the
+      remote never gets the ref.
+  - Planning's own history scan found zero denylist and pattern hits,
+    and no office or `emend-testing` path in any commit. The only email
+    addresses are the two noreply addresses and addresses at
+    `example.invalid`.
+  - Planning confirmed two leak paths:
+    - a gzip-compressed file at `emend-testing/corpus/private.xlsx`,
+      committed and then deleted, gives PASS privacy;
+    - with one scratch denylist holding an entry that a commit contains,
+      exporting `EMEND_PRIVATE_DENYLIST` to a different scratch list
+      makes that commit PASS, with no notice.
+- Departure 1 (`git cat-file blob` with `grep -a` instead of `git grep`):
+  accepted. It meets the ruling that attributes cannot exempt a file.
+- Departure 2 (controls that do not cover every form): the pattern
+  controls are replaced by the per-pattern self-test in P6b. The other
+  uncovered forms are accepted.
+- Departure 3 (the phase scan script's temporary denylist copies):
+  accepted. They sit in the session scratch directory and are deleted
+  on exit. `scripts/privacy.sh` itself never copies the denylist.
+- Findings 1, 2, 4, 5, 6 and 7 could let private data reach GitHub, so
+  they are in scope. P6b fixes them before any push:
+  - 1: step 7's office-file FAIL line prints a count, not paths.
+  - 2: the denylist override is announced, and refused by the hook and
+    by step 8.
+  - 4: every commit in scope is checked for corpus and office paths.
+  - 5: every pattern is proven by its own fake value in the self-test.
+  - 6: denylist entries must be single tokens.
+  - 7: email addresses, drive-letter Windows user paths and Claude Code
+    project paths are checked. The private denylist already holds the
+    machine's hostname. Bare UUIDs are not added: they would flag
+    legitimate text and reveal little on their own.
+- Finding 3 (bypassing the hook): no code change. P7 checks the hook,
+  `core.hooksPath` and `EMEND_PRIVATE_DENYLIST` before pushing, and runs
+  the full gate itself. "Rules for every phase" forbids `--no-verify`.
+- The lower-severity items are accepted as recorded. Compressed
+  workbooks are covered by P6b's path check. Committed fixtures are
+  fictional or generated, per CLAUDE.md.
 
 ## P1: commit what exists (DONE; rewritten in P1R)
 
@@ -782,10 +850,90 @@ The P6 report ends with the maintainer's items for P7:
   pushes that expose my email" in GitHub settings.
 - Review the private denylist and add anything missing.
 
+## P6b: privacy gate hardening
+
+This phase applies the planning rulings on P6. Nothing is pushed until
+it is verified.
+
+Changes to `scripts/privacy.sh`:
+- Paths in history: for every commit in scope, fail if any tree path
+  contains `emend-testing` in any case. Also fail if a path has an
+  office extension in any case (`xlsx`, `xlsm`, `xltx`, `xltm`, `xlsb`,
+  `xls`, `ods`) outside a `tests/fixtures/` directory. Print a count per
+  commit, never the paths.
+- Denylist override: when `EMEND_PRIVATE_DENYLIST` is set, the first
+  output line is `NOTICE privacy: using the denylist from
+  EMEND_PRIVATE_DENYLIST`.
+- Self-test:
+  - For every pattern in `scripts/privacy-patterns.txt`, a realistic fake
+    value built at run time must be detected under that pattern's own
+    number.
+  - The script exits 2 unless the file holds exactly the expected number
+    of patterns, kept as a constant in the script.
+- Denylist entries: an entry containing whitespace makes the script exit
+  2. Each name, address or word is its own entry.
+- Email addresses: any address in a message or in content fails, with
+  three exceptions:
+  - the address in `scripts/privacy-identity.txt`;
+  - `noreply@anthropic.com`;
+  - addresses at `example.invalid`.
+  Findings print the location only, never the address.
+- New patterns, bracketed like the others:
+  - Windows user paths with a drive letter:
+    `[A-Za-z]:[\\/][Uu]sers[\\/]`;
+  - Claude Code project and transcript paths: `[.]claude/projects/`.
+
+Changes to `scripts/check.sh` and `scripts/install-hooks.sh`:
+- Step 7's office-file FAIL line prints a count, not paths.
+- Step 8, and the pre-push hook written by the installer, refuse to run
+  when `EMEND_PRIVATE_DENYLIST` is set. Each prints `FAIL privacy:
+  EMEND_PRIVATE_DENYLIST is set` and exits 1.
+- Rerun the installer in this phase.
+
+- Logs:
+  - `gate.log`: a full run, all eight steps.
+  - `privacy.log`: `scripts/privacy.sh` over every commit on main.
+    Expected: PASS.
+  - `hook.log`: the installed hook, compared with the installer's
+    output.
+  - `negative.log`: each case in a scratch clone. No output may contain a
+    sentinel, fake token, email address used as a fixture, or corpus
+    file name.
+    - (a) A gzip-compressed file at `emend-testing/corpus/private.xlsx`,
+      committed and deleted in the next commit: FAIL naming the first
+      commit, with no path printed.
+    - (b) `report.XLSX` at the root, committed and deleted: FAIL.
+    - (c) An office file under `tools/x/tests/fixtures/`: PASS.
+    - (d) `EMEND_PRIVATE_DENYLIST` exported:
+      - `scripts/privacy.sh` prints the NOTICE line first;
+      - step 8 and the pre-push hook each print the FAIL line and exit
+        1;
+      - a push to a local bare remote is rejected.
+    - (e) Self-test:
+      - for each pattern in turn, removing it from a scratch copy of the
+        patterns file makes the script exit 2;
+      - so does one extra pattern line.
+    - (f) A denylist entry containing a space: exit 2.
+    - (g) Email addresses, each built at run time:
+      - an address at `example.com` in a committed file: FAIL;
+      - the same in a commit message: FAIL;
+      - an address at `example.invalid`: PASS.
+    - (h) A drive-letter Windows user path, and a Claude Code project
+      path, each built at run time in a committed file: FAIL patterns.
+    - (i) A tracked office file under `Emend-Testing/`: the step 7 FAIL
+      line gives a count, and the output contains no file name.
+    - (j) Repeat P6 negatives (a), (c) and (h), and show they still fail.
+  - `scan.log`: per the scan rules.
+- Acceptance:
+  - All eight `PASS` in `gate.log`.
+  - `privacy.log` passes over the full history.
+  - Every negative case shows its expected result, and no forbidden text
+    appears in any output.
+
 ## P7: first push to the private GitHub repository
 
 Preconditions, all required:
-- P6 is DONE.
+- P6 and P6b are DONE.
 - The maintainer confirms both GitHub email settings are on.
 - Planning gives its word.
 - The maintainer types authorisation for this push in the implementing
@@ -796,7 +944,11 @@ Steps:
    shows `PRIVATE`, and `git ls-remote
    https://github.com/thekeoni1/emend.git` shows no refs.
 2. `git remote add origin https://github.com/thekeoni1/emend.git`.
-3. A full `scripts/check.sh` run; all eight steps pass.
+3. Show that `EMEND_PRIVATE_DENYLIST` is unset, that
+   `git config --get core.hooksPath` prints nothing, and that
+   `.git/hooks/pre-push` is executable and identical to what
+   `scripts/install-hooks.sh` writes. Then run `scripts/check.sh` in full;
+   all eight steps pass.
 4. `git push -u origin main`. The pre-push hook runs and must print
    `PASS privacy`.
 5. `git ls-remote origin refs/heads/main` equals `git rev-parse main`.
