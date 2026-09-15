@@ -8,7 +8,9 @@
 //! T1 P3 fills every column of the `entry` rows, including the flags, writes
 //! every `archive` row, and sets the exit status as the spec's "Exit status"
 //! section says. T1 P4 adds the seventh flag, `local`, and version needed to
-//! extract to `attrs`.
+//! extract to `attrs`. T1 P5 narrows `local` to local-only differences, adds
+//! internal attributes and disk number start to `attrs`, and adds the bytes
+//! after each entry's data to `descriptor`.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -184,6 +186,12 @@ struct Record {
     time: u16,
     date: u16,
     external_attributes: u32,
+    internal_attributes: u16,
+    disk_start: u16,
+    /// Bytes 6 to 27: version needed, general purpose flags, method, DOS
+    /// time, DOS date, CRC-32, compressed size and uncompressed size, in the
+    /// same layout as the local header's bytes 4 to 25.
+    central_fixed: [u8; 22],
     extra: Vec<u8>,
     comment: Vec<u8>,
 }
@@ -195,6 +203,8 @@ struct Local {
     fixed: [u8; 22],
     name: Vec<u8>,
     extra: Vec<u8>,
+    /// Absolute file offset of the entry's compressed data.
+    data_start: u64,
 }
 
 /// Metadata of one entry: the central directory record, the zip crate's
@@ -206,6 +216,12 @@ struct Meta {
     compressed: u64,
     crc: u32,
     local: Local,
+    /// Absolute file offset of the local file header.
+    header_start: u64,
+    /// The bytes between the end of the entry's compressed data and the next
+    /// local header, or the central directory for the last entry, as a
+    /// half-open range of absolute file offsets.
+    gap: (u64, u64),
 }
 
 impl Meta {
@@ -273,7 +289,8 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
         #[allow(deprecated)]
         let method = entry.compression().to_u16();
         let (size, compressed, crc) = (entry.size(), entry.compressed_size(), entry.crc32());
-        let local = local_header(&mut raw, entry.header_start(), side, &record.name)?;
+        let header_start = entry.header_start();
+        let local = local_header(&mut raw, header_start, side, &record.name)?;
         entries.push(Meta {
             record,
             method,
@@ -281,7 +298,29 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
             compressed,
             crc,
             local,
+            header_start,
+            gap: (0, 0),
         });
+    }
+
+    // Each entry's data ends at its data start plus its compressed size; the
+    // next local header in file order, or the central directory, closes the
+    // gap. Data that would run past that point leaves an empty gap: reading
+    // the entry's data then reports the specific error (a short raw stream or
+    // a failed decompression).
+    let mut starts: Vec<u64> = entries.iter().map(|m| m.header_start).collect();
+    starts.sort_unstable();
+    for meta in &mut entries {
+        let Some(end) = meta.local.data_start.checked_add(meta.compressed) else {
+            return Err(Error::Entry(side, meta.record.name.clone()));
+        };
+        let at = starts.partition_point(|&s| s < end);
+        let next = starts
+            .get(at)
+            .copied()
+            .unwrap_or(central_start)
+            .min(central_start);
+        meta.gap = (end.min(next), next);
     }
     Ok(Archive {
         side,
@@ -327,6 +366,8 @@ fn central_records(
         let name = field(le16(&header, 28))?;
         let extra = field(le16(&header, 30))?;
         let comment = field(le16(&header, 32))?;
+        let mut central_fixed = [0u8; 22];
+        central_fixed.copy_from_slice(&header[6..28]);
         records.push(Record {
             name,
             version_made_by: le16(&header, 4),
@@ -337,6 +378,9 @@ fn central_records(
             external_attributes: u32::from_le_bytes([
                 header[38], header[39], header[40], header[41],
             ]),
+            internal_attributes: le16(&header, 36),
+            disk_start: le16(&header, 34),
+            central_fixed,
             extra,
             comment,
         });
@@ -371,10 +415,14 @@ fn local_header(
     };
     let local_name = field(u16::from_le_bytes([header[26], header[27]]))?;
     let extra = field(u16::from_le_bytes([header[28], header[29]]))?;
+    let data_start = start
+        .checked_add(LOCAL_HEADER_LEN as u64 + local_name.len() as u64 + extra.len() as u64)
+        .ok_or_else(bad)?;
     Ok(Local {
         fixed,
         name: local_name,
         extra,
+        data_start,
     })
 }
 
@@ -521,9 +569,73 @@ fn content(
     })
 }
 
+/// Byte ranges of the fields that the local header (from its byte 4) and the
+/// central record (from its byte 6) share: version needed, general purpose
+/// flags, method, DOS time, DOS date, CRC-32, compressed size, uncompressed
+/// size.
+const SHARED_FIELDS: [(usize, usize); 8] = [
+    (0, 2),
+    (2, 4),
+    (4, 6),
+    (6, 8),
+    (8, 10),
+    (10, 14),
+    (14, 18),
+    (18, 22),
+];
+
+/// Whether a shared field differs between the two local headers while the
+/// same field of the two central records does not.
+fn local_only(a: &Meta, b: &Meta) -> bool {
+    SHARED_FIELDS.iter().any(|&(from, to)| {
+        a.local.fixed[from..to] != b.local.fixed[from..to]
+            && a.record.central_fixed[from..to] == b.record.central_fixed[from..to]
+    })
+}
+
+/// Whether two byte ranges, one in each file, hold the same bytes: unequal
+/// lengths are different, and equal lengths are compared through two
+/// 64 KiB buffers.
+fn gaps_equal(
+    input: &mut File,
+    a: (u64, u64),
+    output: &mut File,
+    b: (u64, u64),
+) -> Result<bool, Error> {
+    let (len_a, len_b) = (a.1 - a.0, b.1 - b.0);
+    if len_a != len_b {
+        return Ok(false);
+    }
+    if len_a == 0 {
+        return Ok(true);
+    }
+    input
+        .seek(SeekFrom::Start(a.0))
+        .map_err(|e| Error::Open(Side::Input, e.kind()))?;
+    output
+        .seek(SeekFrom::Start(b.0))
+        .map_err(|e| Error::Open(Side::Output, e.kind()))?;
+    let mut ra = input.take(len_a);
+    let mut rb = output.take(len_b);
+    let mut buf_a = vec![0u8; CHUNK];
+    let mut buf_b = vec![0u8; CHUNK];
+    loop {
+        let got_a =
+            read_full(&mut ra, &mut buf_a).map_err(|e| Error::Open(Side::Input, e.kind()))?;
+        let got_b =
+            read_full(&mut rb, &mut buf_b).map_err(|e| Error::Open(Side::Output, e.kind()))?;
+        if got_a != got_b || buf_a[..got_a] != buf_b[..got_b] {
+            return Ok(false);
+        }
+        if got_a < CHUNK {
+            return Ok(true);
+        }
+    }
+}
+
 /// Column 17 for an entry present on both sides: the names of the flags that
 /// are set, in the spec's order, comma-separated.
-fn flags(a: &Meta, b: &Meta) -> String {
+fn flags(a: &Meta, b: &Meta, gaps_equal: bool) -> String {
     let (ra, rb) = (&a.record, &b.record);
     let mut set = Vec::new();
     if (ra.time, ra.date) != (rb.time, rb.date) {
@@ -535,10 +647,12 @@ fn flags(a: &Meta, b: &Meta) -> String {
     if ra.flags != rb.flags {
         set.push("gpflags");
     }
-    if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) {
+    if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) || !gaps_equal {
         set.push("descriptor");
     }
     if ra.external_attributes != rb.external_attributes
+        || ra.internal_attributes != rb.internal_attributes
+        || ra.disk_start != rb.disk_start
         || ra.version_made_by != rb.version_made_by
         || ra.version_needed != rb.version_needed
     {
@@ -547,7 +661,7 @@ fn flags(a: &Meta, b: &Meta) -> String {
     if ra.comment != rb.comment {
         set.push("comment");
     }
-    if a.local.fixed != b.local.fixed || a.local.name != b.local.name {
+    if local_only(a, b) || a.local.name != b.local.name {
         set.push("local");
     }
     set.join(",")
@@ -661,6 +775,8 @@ fn files_identical(input: &Path, output: &Path, len_in: u64, len_out: u64) -> Re
 fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Error> {
     let mut a = open(input, Side::Input)?;
     let mut b = open(output, Side::Output)?;
+    let mut gap_in = File::open(input).map_err(|e| Error::Open(Side::Input, e.kind()))?;
+    let mut gap_out = File::open(output).map_err(|e| Error::Open(Side::Output, e.kind()))?;
     let out_index: HashMap<Vec<u8>, usize> = b
         .entries
         .iter()
@@ -700,7 +816,8 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
                     }
                 };
                 let (ea, eb) = (&a.entries[i], &b.entries[j]);
-                let set = flags(ea, eb);
+                let same_gap = gaps_equal(&mut gap_in, ea.gap, &mut gap_out, eb.gap)?;
+                let set = flags(ea, eb, same_gap);
                 if !set.is_empty() {
                     counts.flagged += 1;
                 }

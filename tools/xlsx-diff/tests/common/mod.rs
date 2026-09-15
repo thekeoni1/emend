@@ -421,6 +421,15 @@ pub struct RawEntry {
     pub local_time: Option<u16>,
     pub local_date: Option<u16>,
     pub local_name: Option<Vec<u8>>,
+    /// Internal attributes and disk number start in the central record.
+    pub internal_attributes: u16,
+    pub disk_start: u16,
+    /// With flag bit 3: whether the data descriptor starts with its optional
+    /// signature.
+    pub descriptor_signature: bool,
+    /// Bytes written after the entry's data and descriptor, before the next
+    /// local header or the central directory.
+    pub padding_after: Vec<u8>,
 }
 
 /// A stored entry: version 2.0 made by MS-DOS, no flags, DOS time 00:00:00
@@ -445,6 +454,10 @@ pub fn raw_stored(name: &str, data: &[u8]) -> RawEntry {
         local_time: None,
         local_date: None,
         local_name: None,
+        internal_attributes: 0,
+        disk_start: 0,
+        descriptor_signature: true,
+        padding_after: Vec::new(),
     }
 }
 
@@ -495,11 +508,14 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&e.local_extra);
         out.extend_from_slice(&e.raw);
         if descriptor {
-            out.extend_from_slice(&[0x50, 0x4b, 0x07, 0x08]);
+            if e.descriptor_signature {
+                out.extend_from_slice(&[0x50, 0x4b, 0x07, 0x08]);
+            }
             out.extend_from_slice(&crc);
             out.extend_from_slice(&u32_of(e.raw.len()));
             out.extend_from_slice(&u32_of(e.data.len()));
         }
+        out.extend_from_slice(&e.padding_after);
     }
     let central = out.len() - prefix.len();
     for (e, &offset) in entries.iter().zip(&local_offsets) {
@@ -516,8 +532,8 @@ pub fn raw_zip(prefix: &[u8], entries: &[RawEntry], comment: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&u16_of(e.name.len()));
         out.extend_from_slice(&u16_of(e.central_extra.len()));
         out.extend_from_slice(&u16_of(e.comment.len()));
-        // Disk number start and internal attributes.
-        out.extend_from_slice(&[0; 4]);
+        out.extend_from_slice(&e.disk_start.to_le_bytes());
+        out.extend_from_slice(&e.internal_attributes.to_le_bytes());
         out.extend_from_slice(&e.external_attributes.to_le_bytes());
         out.extend_from_slice(&u32_of(offset));
         out.extend_from_slice(&e.name);
