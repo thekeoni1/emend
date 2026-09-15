@@ -23,6 +23,13 @@ export RUSTUP_AUTO_INSTALL=0
 # Logs carry no colour or other control bytes (specs/0001).
 export CARGO_TERM_COLOR=never
 
+# ANTHROPIC_API_KEY is checked before any step, so a key never reaches a
+# build script or test. The value is never printed.
+if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
+  echo "FAIL hygiene: ANTHROPIC_API_KEY is set in the environment"
+  exit 1
+fi
+
 readonly I686=i686-unknown-linux-musl
 readonly SYS_ALLOWLIST=scripts/sys-allowlist.txt
 OUT=$(mktemp -d)
@@ -215,56 +222,132 @@ PY
 fi
 echo "PASS licences"
 
-# Step 7: repository hygiene. Every grep follows the scan rules: bytes under
-# LC_ALL=C, /usr/bin/grep, and exit 2 or more is an error, never zero hits.
+# Step 7: repository hygiene. It reads what would be committed (the index),
+# never follows a symlink, and runs a positive control for every grep form
+# before using it. Exit 2 or more from any grep is an error, never zero hits.
+# ANTHROPIC_API_KEY is checked before step 1.
 EMDASH=$(printf '\342\200\224')
-printf 'control %s line\n' "$EMDASH" >"$OUT/emdash-control"
+readonly OFFICE_RE='\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$'
+readonly FIXTURES_RE='(^|/)tests/fixtures/'
+: >"$OUT/hygiene-err"
 rc=0
-LC_ALL=C /usr/bin/grep -l -I -F -e "$EMDASH" -- "$OUT/emdash-control" >/dev/null 2>&1 || rc=$?
-[ "$rc" -eq 0 ] || fail hygiene "U+2014 positive control not detected (grep exit $rc)"
 
-git ls-files -z >"$OUT/tracked.z" 2>"$OUT/tracked-err" ||
-  fail hygiene "'git ls-files' exited non-zero" "$OUT/tracked-err"
-mapfile -d '' -t tracked <"$OUT/tracked.z"
-: >"$OUT/tracked.txt"
-present=()
-for f in "${tracked[@]}"; do
-  printf '%s\n' "$f" >>"$OUT/tracked.txt"
-  if [ -f "$f" ]; then
-    present+=("$f")
-  fi
-done
-
-if [ "${#present[@]}" -gt 0 ]; then
+# hgrep <output file> <grep args...>: /usr/bin/grep under LC_ALL=C; sets rc.
+hgrep() {
+  local out=$1
+  shift
   rc=0
-  LC_ALL=C /usr/bin/grep -l -I -F -e "$EMDASH" -- "${present[@]}" >"$OUT/emdash-hits" 2>"$OUT/emdash-err" || rc=$?
+  LC_ALL=C /usr/bin/grep "$@" >"$out" 2>>"$OUT/hygiene-err" || rc=$?
+}
+
+# index_dash <repo dir> <output file>: NUL-separated paths in the index whose
+# content holds the U+2014 bytes. Text files come from git grep --cached -I,
+# so binary files are skipped. git grep skips symlinks, so each symlink's
+# blob (its target string) is checked here; the link is never followed.
+# Sets rc to 0 (found), 1 (none) or 2 (error).
+index_dash() {
+  local repo=$1 out=$2 entry meta path sha lrc
+  rc=0
+  (cd "$repo" && LC_ALL=C git grep --cached --no-color -I -l -z -F -e "$EMDASH") \
+    >"$out" 2>>"$OUT/hygiene-err" || rc=$?
   if [ "$rc" -ge 2 ]; then
-    fail hygiene "grep error while scanning tracked files for U+2014 (exit $rc)" "$OUT/emdash-err"
+    return 0
   fi
-  if [ "$rc" -eq 0 ]; then
-    fail hygiene "U+2014 in tracked file(s): $(tr '\n' ' ' <"$OUT/emdash-hits" | sed 's/ $//')"
+  if ! git -C "$repo" ls-files -s -z >"$OUT/stage.z" 2>>"$OUT/hygiene-err"; then
+    rc=2
+    return 0
   fi
+  while IFS= read -r -d '' entry; do
+    meta=${entry%%$'\t'*}
+    path=${entry#*$'\t'}
+    if [ "${meta%% *}" != 120000 ]; then
+      continue
+    fi
+    sha=$(printf '%s\n' "$meta" | awk '{ print $2 }')
+    if ! git -C "$repo" cat-file blob "$sha" >"$OUT/link-target" 2>>"$OUT/hygiene-err"; then
+      rc=2
+      return 0
+    fi
+    lrc=0
+    LC_ALL=C /usr/bin/grep -q -F -e "$EMDASH" "$OUT/link-target" 2>>"$OUT/hygiene-err" || lrc=$?
+    if [ "$lrc" -ge 2 ]; then
+      rc=2
+      return 0
+    fi
+    if [ "$lrc" -eq 0 ]; then
+      printf '%s\0' "$path" >>"$out"
+    fi
+  done <"$OUT/stage.z"
+  if [ -s "$out" ]; then rc=0; else rc=1; fi
+}
+
+# quoted <NUL-separated path file>: the paths as git ls-files prints them
+# without -z, so non-ASCII bytes appear quoted; space-separated.
+quoted() {
+  local p list=""
+  while IFS= read -r -d '' p; do
+    list="$list $(git -c core.quotepath=true ls-files -- ":(literal)$p")"
+  done <"$1"
+  printf '%s' "${list# }"
+}
+
+# Positive controls, one per grep form, before any real check.
+CTL=$OUT/controls
+mkdir -p "$CTL"
+printf 'plain\000bad\001path\000' >"$CTL/ctrl.z"
+hgrep "$CTL/o-ctrl" -z -c -P '[\x01-\x1f\x7f]' "$CTL/ctrl.z"
+[ "$rc" -eq 0 ] || fail hygiene "positive control failed: control byte in a path (grep exit $rc)" "$OUT/hygiene-err"
+printf 'x/b.XLSX\000c.txt\000' >"$CTL/office.z"
+hgrep "$CTL/o-office" -z -i -E "$OFFICE_RE" "$CTL/office.z"
+[ "$rc" -eq 0 ] || fail hygiene "positive control failed: office extension (grep exit $rc)" "$OUT/hygiene-err"
+printf 'tools/tests/fixtures/a.xlsx\000b.xlsx\000' >"$CTL/fixtures.z"
+hgrep "$CTL/o-fixtures" -z -v -E "$FIXTURES_RE" "$CTL/fixtures.z"
+if [ "$rc" -ne 0 ] || [ "$(tr '\000' '\n' <"$CTL/o-fixtures")" != b.xlsx ]; then
+  fail hygiene "positive control failed: tests/fixtures/ exception (grep exit $rc)" "$OUT/hygiene-err"
+fi
+printf 'docs/Emend-Testing/x.txt\000' >"$CTL/corpus.z"
+hgrep "$CTL/o-corpus" -z -i -F -e emend-testing "$CTL/corpus.z"
+[ "$rc" -eq 0 ] || fail hygiene "positive control failed: emend-testing in any case (grep exit $rc)" "$OUT/hygiene-err"
+git init -q "$CTL/repo" 2>>"$OUT/hygiene-err" ||
+  fail hygiene "could not create the control repository" "$OUT/hygiene-err"
+printf 'dash %s here\n' "$EMDASH" >"$CTL/repo/text.txt"
+ln -s "target-$EMDASH" "$CTL/repo/link"
+git -C "$CTL/repo" add text.txt link 2>>"$OUT/hygiene-err" ||
+  fail hygiene "could not stage the control repository" "$OUT/hygiene-err"
+rm "$CTL/repo/text.txt"
+index_dash "$CTL/repo" "$CTL/o-index"
+if [ "$rc" -ne 0 ] || [ "$(tr '\000' ' ' <"$CTL/o-index")" != "text.txt link " ]; then
+  fail hygiene "positive control failed: U+2014 in the index and in a symlink target (exit $rc)" "$OUT/hygiene-err"
 fi
 
-rc=0
-LC_ALL=C /usr/bin/grep -i -E '\.(xlsx|xlsm|xltx|xltm|xlsb|xls|ods)$' "$OUT/tracked.txt" >"$OUT/office-all" || rc=$?
-[ "$rc" -lt 2 ] || fail hygiene "grep error while matching office extensions (exit $rc)"
-rc=0
-LC_ALL=C /usr/bin/grep -v -E '(^|/)tests/fixtures/' "$OUT/office-all" >"$OUT/office" || rc=$?
-[ "$rc" -lt 2 ] || fail hygiene "grep error while applying the tests/fixtures/ exception (exit $rc)"
-if [ -s "$OUT/office" ]; then
-  fail hygiene "office file(s) tracked outside tests/fixtures/: $(tr '\n' ' ' <"$OUT/office" | sed 's/ $//')"
-fi
+git ls-files -z >"$OUT/tracked.z" 2>>"$OUT/hygiene-err" ||
+  fail hygiene "'git ls-files' exited non-zero" "$OUT/hygiene-err"
 
-rc=0
-LC_ALL=C /usr/bin/grep -F -e emend-testing "$OUT/tracked.txt" >"$OUT/corpus" || rc=$?
-[ "$rc" -lt 2 ] || fail hygiene "grep error while matching tracked paths (exit $rc)"
+# Tracked paths holding a control byte, newline included, fail before any
+# other path check. Only their number is reported.
+hgrep "$OUT/ctrl-count" -z -c -P '[\x01-\x1f\x7f]' "$OUT/tracked.z"
+[ "$rc" -lt 2 ] || fail hygiene "grep error while checking tracked paths for control bytes (exit $rc)" "$OUT/hygiene-err"
 if [ "$rc" -eq 0 ]; then
-  fail hygiene "tracked path(s) containing emend-testing: $(tr '\n' ' ' <"$OUT/corpus" | sed 's/ $//')"
+  fail hygiene "$(tr -d '\000\n' <"$OUT/ctrl-count") tracked path(s) contain control bytes (paths not printed)"
 fi
 
-# The value is never printed.
-if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
-  fail hygiene "ANTHROPIC_API_KEY is set in the environment"
+hgrep "$OUT/office-all.z" -z -i -E "$OFFICE_RE" "$OUT/tracked.z"
+[ "$rc" -lt 2 ] || fail hygiene "grep error while matching office extensions (exit $rc)" "$OUT/hygiene-err"
+hgrep "$OUT/office.z" -z -v -E "$FIXTURES_RE" "$OUT/office-all.z"
+[ "$rc" -lt 2 ] || fail hygiene "grep error while applying the tests/fixtures/ exception (exit $rc)" "$OUT/hygiene-err"
+if [ -s "$OUT/office.z" ]; then
+  fail hygiene "office file(s) tracked outside tests/fixtures/: $(quoted "$OUT/office.z")"
+fi
+
+hgrep "$OUT/corpus.z" -z -i -F -e emend-testing "$OUT/tracked.z"
+[ "$rc" -lt 2 ] || fail hygiene "grep error while matching tracked paths (exit $rc)" "$OUT/hygiene-err"
+if [ "$rc" -eq 0 ]; then
+  fail hygiene "tracked path(s) containing emend-testing: $(quoted "$OUT/corpus.z")"
+fi
+
+index_dash . "$OUT/dash.z"
+[ "$rc" -lt 2 ] || fail hygiene "error while scanning the index for U+2014" "$OUT/hygiene-err"
+if [ "$rc" -eq 0 ]; then
+  fail hygiene "U+2014 in tracked file(s): $(quoted "$OUT/dash.z")"
 fi
 echo "PASS hygiene"
