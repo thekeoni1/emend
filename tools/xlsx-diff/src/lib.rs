@@ -303,11 +303,13 @@ fn open(path: &Path, side: Side) -> Result<Archive, Error> {
         });
     }
 
-    // Each entry's data ends at its data start plus its compressed size; the
-    // next local header in file order, or the central directory, closes the
-    // gap. Data that would run past that point leaves an empty gap: reading
-    // the entry's data then reports the specific error (a short raw stream or
-    // a failed decompression).
+    // Each entry's data ends at its data start plus its compressed size. The
+    // gap runs from there to the first local header at or after that point,
+    // or to the central directory if none is. Data that would run past the
+    // central directory leaves an empty gap: reading the entry's data then
+    // reports the specific error (a short raw stream or a failed
+    // decompression). Data that runs over a later local header is itself
+    // compared, and its gap starts where it ends.
     let mut starts: Vec<u64> = entries.iter().map(|m| m.header_start).collect();
     starts.sort_unstable();
     for meta in &mut entries {
@@ -635,7 +637,7 @@ fn gaps_equal(
 
 /// Column 17 for an entry present on both sides: the names of the flags that
 /// are set, in the spec's order, comma-separated.
-fn flags(a: &Meta, b: &Meta, gaps_equal: bool) -> String {
+fn flags(a: &Meta, b: &Meta, same_gap: bool) -> String {
     let (ra, rb) = (&a.record, &b.record);
     let mut set = Vec::new();
     if (ra.time, ra.date) != (rb.time, rb.date) {
@@ -647,7 +649,7 @@ fn flags(a: &Meta, b: &Meta, gaps_equal: bool) -> String {
     if ra.flags != rb.flags {
         set.push("gpflags");
     }
-    if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) || !gaps_equal {
+    if (ra.flags & DATA_DESCRIPTOR_FLAG) != (rb.flags & DATA_DESCRIPTOR_FLAG) || !same_gap {
         set.push("descriptor");
     }
     if ra.external_attributes != rb.external_attributes

@@ -220,6 +220,22 @@ fn padding_after_an_entry() {
         pairs(&[("identical", ""), ("identical", "descriptor")])
     );
 
+    // Padding between entries behind a leading prefix of 1000 bytes on both
+    // sides: the gaps are measured from absolute file offsets.
+    let (a, b) = (dir.path("prefixed-in.zip"), dir.path("prefixed-out.zip"));
+    let junk = pattern(1000);
+    fs::write(&a, raw_zip(&junk, &[padded("a.txt"), base("b.txt")], b"")).expect("write");
+    fs::write(&b, raw_zip(&junk, &[base("a.txt"), base("b.txt")], b"")).expect("write");
+    let result = run(&a, &b);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    assert_eq!(
+        status_and_flags(&result.stdout),
+        pairs(&[("identical", "descriptor"), ("identical", "")])
+    );
+    assert_eq!(archive_value(&result.stdout, "prefix_in"), "1000");
+    assert_eq!(archive_value(&result.stdout, "prefix_out"), "1000");
+
     // Padding of the same length but different bytes, larger than one
     // 64 KiB buffer, differing only in its last byte.
     let long = pattern(200_000);
