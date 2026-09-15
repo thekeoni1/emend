@@ -1,0 +1,515 @@
+about: P5b phase commit aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511 and record commit 4f696ed01ed8b35fdbd071a34a3107eb0935c4c4; HEAD at run: 4d3065ae2ae77771cc381ec7742d9b823fdc99b5
+phase: T0 P5b (specs/0001-bootstrap.md) verify.log; run at 2026-09-15T02:10:41Z
+working tree clean at the start (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+
+Fixes in this log, from records/logs/t0-p5b/independent-check-1.md:
+  1. The committed check.sh's line order: set -euo pipefail, argument parsing, cd, exports, the key check, step 1.
+  2. A bad argument with ANTHROPIC_API_KEY set exits 2 with the usage line (argument parsing runs first).
+  3. --quick still runs step 7. Tests/Fixtures/ (other case) fails closed.
+  4. Symlink and binary facts shown directly: index mode 120000, git grep --cached skipping symlinks, git's binary decision.
+  5. Byte counters with controls and error reporting; committed P5b logs against scan.log's hashes; the record commit's message.
+  6. Latent defects A (local attributes and git grep -I) and B (git environment variables reaching the control repository),
+     demonstrated and OBSERVED, not judged. They are findings for planning.
+Not fixable by a later log: gate.log's first line says 'P5 phase commit' for the P5b commit; that the doc files were unedited.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P5b verify: evidence independent check 1 found missing from the P5b logs,
+    # and demonstrations of the latent defects it raised. Every case runs the
+    # check.sh committed at the phase commit, in a fresh clone outside the repo.
+    # Usage: p5b-verify.sh > <scratch file>; the caller moves the output to
+    # records/logs/t0-p5b/verify.log. Clone and scratch paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    PH=aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+    REC1=4f696ed01ed8b35fdbd071a34a3107eb0935c4c4
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    DENY_FILE=${EMEND_PRIVATE_DENYLIST:-$HOME/.config/emend/private-denylist.txt}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    trap 'rm -rf "$BASE"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$BASE|<scratch>|g" -e "s|$REPO|<repo>|g"; }
+    yn() { if [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+    # Byte counters that report an error instead of a false zero.
+    ctrl_bytes() {
+      local n
+      n=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c) || { echo ERROR; return 2; }
+      echo "$n"
+    }
+    nonascii_bytes() {
+      local n
+      n=$(LC_ALL=C tr -cd '\200-\377' < "$1" | wc -c) || { echo ERROR; return 2; }
+      echo "$n"
+    }
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/'
+      'DESKTOP[-][A-Z0-9]{5,}'
+    )
+    P6ARGS=(); for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
+    f_nonascii() { LC_ALL=C "$G" -c -P '[^\x00-\x7F]' "$1"; }
+    f_session()  { LC_ALL=C "$G" -c -e '^Claude-Session:' "$1"; }
+    f_p6()       { LC_ALL=C "$G" -c -E "${P6ARGS[@]}" "$1"; }
+    f_host()     { LC_ALL=C "$G" -c -i -w -F -e "$HOST" -e "$FQDN" "$1"; }
+    f_deny()     { LC_ALL=C "$G" -c -i -w -F -f "$BASE/deny" "$1"; }
+    
+    expect() { # expect <output> <present|absent> <ERE> <label>: judged
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    observe() { # observe <output> <ERE> <label>: reported, not judged
+      local n rc
+      n=$(LC_ALL=C "$G" -c -E -e "$2" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $3: grep error (exit $rc)"; fail=1; return; fi
+      echo "  observed: $3: count=${n:-0} grep exit=$rc -> $([ "$rc" -eq 0 ] && echo present || echo absent)"
+    }
+    run() { # run <form> <label> <file>: expect no hit
+      local n rc
+      n=$("$1" "$3"); rc=$?
+      echo "  $2: form=$1 count=${n:-none} exit=$rc (expect exit 1)"
+      [ "$rc" -eq 1 ] || fail=1
+    }
+    fresh_clone() {
+      rm -rf "$CLONE"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$PH" || { echo "clone failed"; fail=1; return 1; }
+      echo "clone at $PH: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    gate() { # gate <name> [env VAR=value ...] -- [check.sh args]
+      local name=$1 rc
+      shift
+      local envs=() args=()
+      while [ "$#" -gt 0 ] && [ "$1" != -- ]; do envs+=("$1"); shift; done
+      [ "${1:-}" = -- ] && shift
+      args=("$@")
+      echo "command: env ${envs[*]} scripts/check.sh ${args[*]} (in the clone)" | hide
+      (cd "$CLONE" && env "${envs[@]}" scripts/check.sh "${args[@]}") > "$BASE/$name.out" 2>&1
+      rc=$?
+      hide < "$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      echo "  captured output: control bytes=$(ctrl_bytes "$BASE/$name.out") non-ASCII bytes=$(nonascii_bytes "$BASE/$name.out") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/$name.out")" = 0 ] && [ "$(nonascii_bytes "$BASE/$name.out")" = 0 ] || fail=1
+      return "$rc"
+    }
+    
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    echo "about: P5b phase commit $PH and record commit $REC1; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P5b (specs/0001-bootstrap.md) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean at the start (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo
+    echo "Fixes in this log, from records/logs/t0-p5b/independent-check-1.md:"
+    echo "  1. The committed check.sh's line order: set -euo pipefail, argument parsing, cd, exports, the key check, step 1."
+    echo "  2. A bad argument with ANTHROPIC_API_KEY set exits 2 with the usage line (argument parsing runs first)."
+    echo "  3. --quick still runs step 7. Tests/Fixtures/ (other case) fails closed."
+    echo "  4. Symlink and binary facts shown directly: index mode 120000, git grep --cached skipping symlinks, git's binary decision."
+    echo "  5. Byte counters with controls and error reporting; committed P5b logs against scan.log's hashes; the record commit's message."
+    echo "  6. Latent defects A (local attributes and git grep -I) and B (git environment variables reaching the control repository),"
+    echo "     demonstrated and OBSERVED, not judged. They are findings for planning."
+    echo "Not fixable by a later log: gate.log's first line says 'P5 phase commit' for the P5b commit; that the doc files were unedited."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## environment and the committed check.sh"
+    echo "bash: $(bash --version | head -1); git: $(git --version); grep: $("$G" --version | head -1)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "scripts/check.sh at HEAD sha256 $(git show HEAD:scripts/check.sh | sha256sum | cut -d' ' -f1); at $PH sha256 $(git show "$PH:scripts/check.sh" | sha256sum | cut -d' ' -f1)"
+    echo "source outside records/ unchanged between $PH and HEAD: $(git diff --quiet "$PH" HEAD -- . ':!records' && echo yes || echo no)"
+    git diff --quiet "$PH" HEAD -- . ':!records' || fail=1
+    echo "command: git show $PH:scripts/check.sh | grep -n (the lines that fix the order)"
+    git show "$PH:scripts/check.sh" | LC_ALL=C "$G" -n -E '^set -euo pipefail$|^for arg in "\$@"; do$|^cd "|^export (RUSTUP_AUTO_INSTALL|CARGO_TERM_COLOR)=|^if \[ -n "\$\{ANTHROPIC_API_KEY\+set\}" \]; then$|^quiet host |^# Step 7:|^index_dash \. ' | sed 's/^/    /'
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > "$BASE/deny"
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE"), entries $(wc -l < "$BASE/deny") (never printed)"
+    
+    echo
+    echo "## controls"
+    ctl_fail=0
+    printf 'x \033[31mred\033[m\017 y\n' > "$BASE/c-ctrl"
+    printf 'caf\303\251 and more\n' > "$BASE/c-nonascii-bytes"
+    printf 'plain\ttab\r\n' > "$BASE/c-clean"
+    echo "  ctrl_bytes c-ctrl=$(ctrl_bytes "$BASE/c-ctrl") (expect 3); c-clean=$(ctrl_bytes "$BASE/c-clean") (expect 0)"
+    echo "  nonascii_bytes c-nonascii-bytes=$(nonascii_bytes "$BASE/c-nonascii-bytes") (expect 2); c-clean=$(nonascii_bytes "$BASE/c-clean") (expect 0)"
+    echo "  ctrl_bytes on a missing file: $(ctrl_bytes "$BASE/no-such-file" 2>/dev/null) (expect ERROR)"
+    { [ "$(ctrl_bytes "$BASE/c-ctrl")" = 3 ] && [ "$(ctrl_bytes "$BASE/c-clean")" = 0 ] && [ "$(nonascii_bytes "$BASE/c-nonascii-bytes")" = 2 ] && [ "$(nonascii_bytes "$BASE/c-clean")" = 0 ] && [ "$(ctrl_bytes "$BASE/no-such-file" 2>/dev/null)" = ERROR ]; } || ctl_fail=1
+    printf 'plain\nhas \303\251 byte\n' > "$BASE/c-nonascii"
+    printf 'subject\n\nClaude-Session: control\n' > "$BASE/c-session"
+    printf 'x %s%s%s y\n' 'sk' '-ant-' "$(printf 'a%.0s' $(seq 1 24))" > "$BASE/c-p6"
+    printf 'x %s y\n' "$HOST" > "$BASE/c-host"
+    printf 'plain ascii only\n' > "$BASE/c-plain"
+    for spec in "f_nonascii c-nonascii 0" "f_session c-session 0" "f_p6 c-p6 0" "f_host c-host 0" \
+                "f_nonascii c-plain 1" "f_session c-plain 1" "f_p6 c-plain 1" "f_host c-plain 1" "f_deny c-plain 1"; do
+      set -- $spec
+      n=$("$1" "$BASE/$2"); rc=$?
+      echo "  control $1 file=$2 count=${n:-none} exit=$rc expected_exit=$3"
+      [ "$rc" -eq "$3" ] || ctl_fail=1
+    done
+    for i in $(seq 1 "$(wc -l < "$BASE/deny")"); do
+      sed -n "${i}p" "$BASE/deny" | awk '{print "x " $0 " y"}' > "$BASE/c-deny-$i"
+      n=$(f_deny "$BASE/c-deny-$i"); rc=$?
+      echo "  control f_deny entry=$i (not printed) count=${n:-none} exit=$rc expected_exit=0"
+      [ "$rc" -eq 0 ] || ctl_fail=1
+    done
+    if [ "$ctl_fail" -eq 0 ]; then echo "controls: all as expected"; else echo "controls: FAILED"; fail=1; fi
+    
+    echo
+    echo "## case v1: a bad argument with ANTHROPIC_API_KEY=dummy set for that command; expect usage and exit 2"
+    fresh_clone
+    gate v1 ANTHROPIC_API_KEY=dummy -- --bogus; rc=$?
+    echo "  exit is 2: $([ "$rc" -eq 2 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 2 ] || fail=1
+    expect "$BASE/v1.out" present '^usage: scripts/check[.]sh [[]--quick[]]$' "usage line"
+    expect "$BASE/v1.out" absent 'dummy' "the value in the output"
+    
+    echo
+    echo "## case v2: --quick still runs step 7"
+    fresh_clone
+    gate v2 -- --quick; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/v2.out" present '^SKIP i686: --quick$' "SKIP i686"
+    expect "$BASE/v2.out" present '^PASS hygiene$' "PASS hygiene"
+    
+    echo
+    echo "## case v3: an office file under Tests/Fixtures/ (other case); expect FAIL hygiene (the exception is case-sensitive)"
+    fresh_clone
+    mkdir -p "$CLONE/tools/xlsx-diff/Tests/Fixtures" && printf 'stand-in\n' > "$CLONE/tools/xlsx-diff/Tests/Fixtures/x.xlsx"
+    git -C "$CLONE" add -f tools/xlsx-diff/Tests/Fixtures/x.xlsx
+    gate v3; rc=$?
+    echo "  exit non-zero: $([ "$rc" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -ne 0 ] || fail=1
+    expect "$BASE/v3.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: tools/xlsx-diff/Tests/Fixtures/x[.]xlsx$' "FAIL hygiene naming the path"
+    
+    echo
+    echo "## case v4: symlink and binary facts, shown directly"
+    fresh_clone
+    printf 'outside dash %s\n' "$EMDASH" > "$BASE/outside.txt"
+    ln -s "$BASE/outside.txt" "$CLONE/link-outside"
+    ln -s "dangling-$EMDASH-target" "$CLONE/link-dangling"
+    printf 'x\000y dash %s here\n' "$EMDASH" > "$CLONE/blob.bin"
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/text.txt"
+    git -C "$CLONE" add link-outside link-dangling blob.bin text.txt
+    echo "command: git ls-files -s (modes and paths only)"
+    git -C "$CLONE" ls-files -s link-outside link-dangling blob.bin text.txt | awk '{print "    " $1 " " $4}'
+    echo "command: LC_ALL=C git grep --cached -I -l -F <U+2014 bytes>"
+    (cd "$CLONE" && LC_ALL=C git grep --cached --no-color -I -l -F -e "$EMDASH") | sed 's/^/    /'
+    echo "command: LC_ALL=C git grep --cached -l -F <U+2014 bytes> (without -I)"
+    (cd "$CLONE" && LC_ALL=C git grep --cached --no-color -l -F -e "$EMDASH") | sed 's/^/    /'
+    echo "  (link-dangling's target string holds the dash, yet git grep lists no symlink in either run)"
+    echo "command: git diff --cached --numstat blob.bin text.txt (a binary file shows - for its counts)"
+    git -C "$CLONE" diff --cached --numstat -- blob.bin text.txt | sed 's/^/    /'
+    
+    echo
+    echo "## case v5 (latent defect A, observed): .git/info/attributes marks every file binary; a staged text file holds U+2014"
+    fresh_clone
+    printf '* binary\n' > "$CLONE/.git/info/attributes"
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt
+    echo "command: git check-attr binary diff -- notes.txt"
+    git -C "$CLONE" check-attr binary diff -- notes.txt | sed 's/^/    /'
+    gate v5; rc=$?
+    observe "$BASE/v5.out" '^PASS hygiene$' "PASS hygiene (present means a local attribute exempts a committed text file)"
+    
+    echo
+    echo "## case v6 (latent defect A, observed): an untracked working-tree .gitattributes with '*.txt -diff'"
+    fresh_clone
+    printf '*.txt -diff\n' > "$CLONE/.gitattributes"
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt
+    echo "  .gitattributes is untracked: $(git -C "$CLONE" ls-files --error-unmatch .gitattributes >/dev/null 2>&1 && echo no || echo yes)"
+    gate v6; rc=$?
+    observe "$BASE/v6.out" '^PASS hygiene$' "PASS hygiene (present means an untracked attributes file exempts a committed text file)"
+    
+    echo
+    echo "## case v7 (latent defect B, observed): GIT_INDEX_FILE exported to a scratch index, as a git hook would see it"
+    fresh_clone
+    cp "$CLONE/.git/index" "$BASE/alt-index"
+    echo "  scratch index entries before: $(GIT_INDEX_FILE="$BASE/alt-index" git -C "$CLONE" ls-files | wc -l)"
+    gate v7 GIT_INDEX_FILE="$BASE/alt-index" -- ; rc=$?
+    echo "  scratch index entries after: $(GIT_INDEX_FILE="$BASE/alt-index" git -C "$CLONE" ls-files | wc -l)"
+    echo "  control repository paths now in the scratch index (text.txt or link): $(GIT_INDEX_FILE="$BASE/alt-index" git -C "$CLONE" ls-files -- text.txt link | wc -l)"
+    observe "$BASE/v7.out" '^FAIL hygiene: positive control failed' "FAIL hygiene from a positive control"
+    observe "$BASE/v7.out" '^PASS hygiene$' "PASS hygiene"
+    rm -rf "$CLONE"
+    
+    echo
+    echo "## committed P5b logs at $REC1"
+    git show "$REC1:records/logs/t0-p5b/scan.log" > "$BASE/scan"
+    for p in records/logs/t0-p5b/gate.log records/logs/t0-p5b/negative.log records/logs/t0-p5b/scan.log; do
+      git show "$REC1:$p" > "$BASE/f" || { echo "READ ERROR $p"; fail=1; continue; }
+      c=$(sha256sum < "$BASE/f" | cut -d' ' -f1)
+      echo "$p committed sha256 $c"
+      if [ "$p" != records/logs/t0-p5b/scan.log ]; then
+        s=$(sed -n "s|^log $p (sha256 \([0-9a-f]*\))$|\1|p" "$BASE/scan")
+        echo "  equal to the hash scan.log recorded: $(yn "$c" "$s")"; [ "$c" = "$s" ] || fail=1
+      fi
+      echo "  control bytes=$(ctrl_bytes "$BASE/f") non-ASCII bytes=$(nonascii_bytes "$BASE/f") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/f")" = 0 ] && [ "$(nonascii_bytes "$BASE/f")" = 0 ] || fail=1
+    done
+    
+    echo
+    echo "## record commit $REC1 message and independent-check-1.md"
+    git cat-file commit "$REC1" | sed '1,/^$/d' > "$BASE/m"
+    echo "trailers (git interpret-trailers --parse): $(git interpret-trailers --parse < "$BASE/m" | tr '\n' '|')"
+    [ "$(git interpret-trailers --parse < "$BASE/m")" = "$COAUTHOR" ] || fail=1
+    for f in f_nonascii f_session f_p6 f_host f_deny; do run "$f" message "$BASE/m"; done
+    git show HEAD:records/logs/t0-p5b/independent-check-1.md > "$BASE/ic1"
+    echo "records/logs/t0-p5b/independent-check-1.md at HEAD sha256 $(sha256sum < "$BASE/ic1" | cut -d' ' -f1); control bytes=$(ctrl_bytes "$BASE/ic1")"
+    for f in f_nonascii f_p6 f_host f_deny; do run "$f" independent-check-1 "$BASE/ic1"; done
+    
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "checks failed: $fail"
+    if [ "$fail" -eq 0 ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; exit 1; fi
+
+## environment and the committed check.sh
+bash: GNU bash, version 5.3.9(1)-release (x86_64-pc-linux-gnu); git: git version 2.53.0; grep: grep (GNU grep) 3.12
+ANTHROPIC_API_KEY set in this shell: no
+scripts/check.sh at HEAD sha256 19345cf76e3d02e17af080f52e5f3a79f9da08ea3ecb96ceef8a35bdd7076203; at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511 sha256 19345cf76e3d02e17af080f52e5f3a79f9da08ea3ecb96ceef8a35bdd7076203
+source outside records/ unchanged between aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511 and HEAD: yes
+command: git show aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511:scripts/check.sh | grep -n (the lines that fix the order)
+    6:set -euo pipefail
+    9:for arg in "$@"; do
+    19:cd "$(dirname "${BASH_SOURCE[0]}")/.."
+    22:export RUSTUP_AUTO_INSTALL=0
+    24:export CARGO_TERM_COLOR=never
+    28:if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
+    68:quiet host "$OUT/host-build" cargo build --workspace --all-targets
+    69:quiet host "$OUT/host-test" cargo test --workspace
+    225:# Step 7: repository hygiene. It reads what would be committed (the index),
+    348:index_dash . "$OUT/dash.z"
+private denylist: present, mode 600, entries 6 (never printed)
+
+## controls
+  ctrl_bytes c-ctrl=3 (expect 3); c-clean=0 (expect 0)
+  nonascii_bytes c-nonascii-bytes=2 (expect 2); c-clean=0 (expect 0)
+  ctrl_bytes on a missing file: ERROR (expect ERROR)
+  control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0
+  control f_session file=c-session count=1 exit=0 expected_exit=0
+  control f_p6 file=c-p6 count=1 exit=0 expected_exit=0
+  control f_host file=c-host count=1 exit=0 expected_exit=0
+  control f_nonascii file=c-plain count=0 exit=1 expected_exit=1
+  control f_session file=c-plain count=0 exit=1 expected_exit=1
+  control f_p6 file=c-plain count=0 exit=1 expected_exit=1
+  control f_host file=c-plain count=0 exit=1 expected_exit=1
+  control f_deny file=c-plain count=0 exit=1 expected_exit=1
+  control f_deny entry=1 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=2 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=3 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=4 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=5 (not printed) count=1 exit=0 expected_exit=0
+  control f_deny entry=6 (not printed) count=1 exit=0 expected_exit=0
+controls: all as expected
+
+## case v1: a bad argument with ANTHROPIC_API_KEY=dummy set for that command; expect usage and exit 2
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: env ANTHROPIC_API_KEY=dummy scripts/check.sh --bogus (in the clone)
+    usage: scripts/check.sh [--quick]
+  exit: 2
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  exit is 2: as-expected
+  usage line: expect present; count=1 grep exit=0 -> as-expected
+  the value in the output: expect absent; count=0 grep exit=1 -> as-expected
+
+## case v2: --quick still runs step 7
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: env  scripts/check.sh --quick (in the clone)
+    PASS host
+    SKIP i686: --quick
+    PASS fmt
+    SKIP clippy: --quick
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  exit zero: as-expected
+  SKIP i686: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect present; count=1 grep exit=0 -> as-expected
+
+## case v3: an office file under Tests/Fixtures/ (other case); expect FAIL hygiene (the exception is case-sensitive)
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: env  scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: tools/xlsx-diff/Tests/Fixtures/x.xlsx
+  exit: 1
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming the path: expect present; count=1 grep exit=0 -> as-expected
+
+## case v4: symlink and binary facts, shown directly
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: git ls-files -s (modes and paths only)
+    100644 blob.bin
+    120000 link-dangling
+    120000 link-outside
+    100644 text.txt
+command: LC_ALL=C git grep --cached -I -l -F <U+2014 bytes>
+    text.txt
+command: LC_ALL=C git grep --cached -l -F <U+2014 bytes> (without -I)
+    blob.bin
+    text.txt
+  (link-dangling's target string holds the dash, yet git grep lists no symlink in either run)
+command: git diff --cached --numstat blob.bin text.txt (a binary file shows - for its counts)
+    -	-	blob.bin
+    1	0	text.txt
+
+## case v5 (latent defect A, observed): .git/info/attributes marks every file binary; a staged text file holds U+2014
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: git check-attr binary diff -- notes.txt
+    notes.txt: binary: set
+    notes.txt: diff: unset
+command: env  scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means a local attribute exempts a committed text file): count=1 grep exit=0 -> present
+
+## case v6 (latent defect A, observed): an untracked working-tree .gitattributes with '*.txt -diff'
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+  .gitattributes is untracked: yes
+command: env  scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  observed: PASS hygiene (present means an untracked attributes file exempts a committed text file): count=1 grep exit=0 -> present
+
+## case v7 (latent defect B, observed): GIT_INDEX_FILE exported to a scratch index, as a git hook would see it
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+  scratch index entries before: 52
+command: env GIT_INDEX_FILE=<scratch>/alt-index scripts/check.sh  (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: error while scanning the index for U+2014
+        error: 'records/logs/t0-p4/verify.log': unable to read 82ac1a5248651977080c47d0dfe855ff096af74b
+        error: 'records/logs/t0-p4/verify.log': unable to read 82ac1a5248651977080c47d0dfe855ff096af74b
+        error: 'records/logs/t0-p5/gate.log': unable to read 78fd65fa1601a7270723cd9405d7a3aa8eadb847
+        error: 'records/logs/t0-p5/gate.log': unable to read 78fd65fa1601a7270723cd9405d7a3aa8eadb847
+        error: 'records/logs/t0-p5/independent-check-1.md': unable to read 7e64d45980afcff3ae17b12fb28039c61f0a8e02
+        error: 'records/logs/t0-p5/independent-check-1.md': unable to read 7e64d45980afcff3ae17b12fb28039c61f0a8e02
+        error: 'records/logs/t0-p5/independent-check-2.md': unable to read 6a8daa5f749a7256c0a2ca72fa872c518f4881ac
+        error: 'records/logs/t0-p5/independent-check-2.md': unable to read 6a8daa5f749a7256c0a2ca72fa872c518f4881ac
+        error: 'records/logs/t0-p5/negative.log': unable to read 03a10ed7a59987daf091e3050e875e3691fca5fd
+        error: 'records/logs/t0-p5/negative.log': unable to read 03a10ed7a59987daf091e3050e875e3691fca5fd
+        error: 'records/logs/t0-p5/scan.log': unable to read 37843fd53ee935f684ce2d8c90d48b86ace2773d
+        error: 'records/logs/t0-p5/scan.log': unable to read 37843fd53ee935f684ce2d8c90d48b86ace2773d
+        error: 'records/logs/t0-p5/verify.log': unable to read 5d649d82335934c9474eab9d67e14341fcee1102
+        error: 'records/logs/t0-p5/verify.log': unable to read 5d649d82335934c9474eab9d67e14341fcee1102
+        error: 'records/toolchain-2026-09-15.md': unable to read 14cfdf5d16578a2912ac753f6eadcece1349c7ef
+        error: 'records/toolchain-2026-09-15.md': unable to read 14cfdf5d16578a2912ac753f6eadcece1349c7ef
+        error: 'rust-toolchain.toml': unable to read 2896865706aa04abb2afa40c1ab7287f8be01afd
+        error: 'rust-toolchain.toml': unable to read 2896865706aa04abb2afa40c1ab7287f8be01afd
+        error: 'scripts/check.sh': unable to read 8e1adead5db0b3f51e393214aefeb96e6d82dffa
+        error: 'scripts/check.sh': unable to read 8e1adead5db0b3f51e393214aefeb96e6d82dffa
+        error: 'scripts/sys-allowlist.txt': unable to read e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+        error: 'scripts/sys-allowlist.txt': unable to read e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+        error: 'specs/0000-step-zero-plan.md': unable to read 727caf61e8ca8a2a74ec44c3118bcd39eb6cab2d
+        error: 'specs/0000-step-zero-plan.md': unable to read 727caf61e8ca8a2a74ec44c3118bcd39eb6cab2d
+        error: 'specs/0001-bootstrap.md': unable to read 40fa9608d86a28378d2773c763657669b9fe5739
+        error: 'specs/0001-bootstrap.md': unable to read 40fa9608d86a28378d2773c763657669b9fe5739
+        error: 'LICENSE-MIT': unable to read 0174a49423ed1371f20e6a9749d05771b5c88635
+        error: 'LICENSE-MIT': unable to read 0174a49423ed1371f20e6a9749d05771b5c88635
+        error: 'tools/xlsx-diff/src/main.rs': unable to read f42c60c49d0eb6576a54adf72b38fa8103178c2f
+        error: 'tools/xlsx-diff/src/main.rs': unable to read f42c60c49d0eb6576a54adf72b38fa8103178c2f
+        error: 'records/decision-architecture.md': unable to read 09a8f8ff3e187662d92914c273298e385d5adb97
+        error: 'records/decision-architecture.md': unable to read 09a8f8ff3e187662d92914c273298e385d5adb97
+        error: 'records/logs/t0-p1r/scan.log': unable to read ab5199df24b8887eef49140c12326b44a47ddabe
+        error: 'records/logs/t0-p1r/scan.log': unable to read ab5199df24b8887eef49140c12326b44a47ddabe
+        error: 'records/logs/t0-p1r/verify.log': unable to read 6d6b04edd8f1ad055765a7a4019a3ef59005cd79
+        error: 'records/logs/t0-p2/build.log': unable to read c903682e32c9f1c46852f86e63afb118a3f800b2
+        error: 'records/logs/t0-p2/build.log': unable to read c903682e32c9f1c46852f86e63afb118a3f800b2
+        error: 'LICENSE-APACHE': unable to read d645695673349e3947e8e5ae42332d0ac3164cd7
+        error: 'records/logs/t0-p2/binary.log': unable to read 14044efac87a0407f4f279895a220e1f16a4d458
+        error: 'records/logs/t0-p1/independent-check-2.md': unable to read 60034a49139014b5e0456e5017395789e469988b
+        error: 'records/logs/t0-p1/independent-check-2.md': unable to read 60034a49139014b5e0456e5017395789e469988b
+        error: 'tools/xlsx-diff/Cargo.toml': unable to read 10097df569ebc4f6327f7bb7964f317f1f2ff98e
+        error: 'tools/xlsx-diff/Cargo.toml': unable to read 10097df569ebc4f6327f7bb7964f317f1f2ff98e
+        error: 'ROADMAP.md': unable to read 39768f8aae928cd64c83479e589f9b1e8a87b510
+        error: 'ROADMAP.md': unable to read 39768f8aae928cd64c83479e589f9b1e8a87b510
+        error: 'records/logs/t0-p1r/independent-check-2.md': unable to read 00e94ba3f774aa86095299a3ed4c7f1fbc06944b
+        error: 'records/logs/t0-p1r/independent-check-2.md': unable to read 00e94ba3f774aa86095299a3ed4c7f1fbc06944b
+        error: 'records/logs/t0-p1r/verify.log': unable to read 6d6b04edd8f1ad055765a7a4019a3ef59005cd79
+        error: 'records/logs/t0-p2/ignore.log': unable to read 37da62932b43d10744012e5fbf42e9909ed4e7df
+        error: 'records/logs/t0-p2/ignore.log': unable to read 37da62932b43d10744012e5fbf42e9909ed4e7df
+        error: 'records/logs/t0-p1r/independent-check-1.md': unable to read 1c08adecfaa7a8cf9cd9466e2b8a1750a44d3b37
+        error: 'records/logs/t0-p1r/independent-check-1.md': unable to read 1c08adecfaa7a8cf9cd9466e2b8a1750a44d3b37
+        error: 'Cargo.lock': unable to read 9e6ef2681b2a592b001b950f05c49cc205438ddc
+        error: 'Cargo.lock': unable to read 9e6ef2681b2a592b001b950f05c49cc205438ddc
+        error: 'records/logs/t0-p1/scan.log': unable to read 02ba53d4527f52e576bfccfe35a56a129604da0d
+        error: 'records/logs/t0-p1/independent-check.md': unable to read 95dbd6283c00e8d8c9c906c81ceb9159177907a0
+        error: 'records/logs/t0-p1/independent-check.md': unable to read 95dbd6283c00e8d8c9c906c81ceb9159177907a0
+        error: 'text.txt': unable to read 351589b113bc047b8207a681e9ad3d0bd9bf695f
+        error: 'text.txt': unable to read 351589b113bc047b8207a681e9ad3d0bd9bf695f
+        fatal: git cat-file c1c932e78ce02a4a69f3b00cf5e951336d939539: bad file
+  exit: 1
+  captured output: control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+  scratch index entries after: 54
+  control repository paths now in the scratch index (text.txt or link): 2
+  observed: FAIL hygiene from a positive control: count=0 grep exit=1 -> absent
+  observed: PASS hygiene: count=0 grep exit=1 -> absent
+
+## committed P5b logs at 4f696ed01ed8b35fdbd071a34a3107eb0935c4c4
+records/logs/t0-p5b/gate.log committed sha256 7ab349545f714d1800dc523db2fca7cd6b39051ee894996ad4669583d5fa2724
+  equal to the hash scan.log recorded: yes
+  control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+records/logs/t0-p5b/negative.log committed sha256 1ceeedfe33a582320b7aa12f849315c2e51edb8cc1a9f68a8176d7bcf2f9d3e0
+  equal to the hash scan.log recorded: yes
+  control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+records/logs/t0-p5b/scan.log committed sha256 cdde5f359658ce5cb6b91ef7f20e2e5b0d82f4f0804f66897997e30de9db6f49
+  control bytes=0 non-ASCII bytes=0 (expect 0 and 0)
+
+## record commit 4f696ed01ed8b35fdbd071a34a3107eb0935c4c4 message and independent-check-1.md
+trailers (git interpret-trailers --parse): Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>|
+  message: form=f_nonascii count=0 exit=1 (expect exit 1)
+  message: form=f_session count=0 exit=1 (expect exit 1)
+  message: form=f_p6 count=0 exit=1 (expect exit 1)
+  message: form=f_host count=0 exit=1 (expect exit 1)
+  message: form=f_deny count=0 exit=1 (expect exit 1)
+records/logs/t0-p5b/independent-check-1.md at HEAD sha256 be059545961f2c4386adb65105d9a8e3770f9fbf1e4e2e6753c0bb7784195fc0; control bytes=0
+  independent-check-1: form=f_nonascii count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_p6 count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_host count=0 exit=1 (expect exit 1)
+  independent-check-1: form=f_deny count=0 exit=1 (expect exit 1)
+
+status after the run (expect empty): 
+checks failed: 0
+RESULT: PASS
