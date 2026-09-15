@@ -1,0 +1,265 @@
+about: T1 P3 phase commit 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e; HEAD at run: 9f124c7f0925c6a96dd1fecc3ccf72790b9c8e6e
+phase: T1 P3 (specs/0004-xlsx-diff.md) negative.log; run at 2026-09-15T17:56:29Z
+Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit.
+fixture strings counted in every captured output: 3 (two random content sentinels and the content phrase, all built at run time; values never printed)
+
+## script
+    #!/usr/bin/env bash
+    # T1 P3 negative.log (specs/0004-xlsx-diff.md, P3 "Negative cases"): the tool
+    # run by hand on archives generated in a scratch directory with Python's
+    # zipfile module from fictional content.
+    #   case a: two files that differ only in the archive comment; expect exit 1,
+    #           every entry `identical` with no flags, `comment_equal` `no`.
+    #   case b: the same file given twice; expect exit 0 and `files_identical`
+    #           `yes`.
+    # Each check is evaluated once, and a check with more than one condition is
+    # evaluated inside one function. The content phrase and sentinels are built at
+    # run time; every captured output is counted for them, control bytes and
+    # non-ASCII bytes. The archive comment holds a sentinel, so the counts also
+    # show that the comment is never printed.
+    # Usage: t1p3-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t1-p3/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    G=/usr/bin/grep
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    BIN=target/debug/xlsx-diff
+    
+    # The binary is built from the working tree, so the run starts only at the
+    # phase commit with a clean tree.
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    rnd() { LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"; }
+    SENT1="zq$(rnd 'a-z0-9' 14)"
+    SENT2="zq$(rnd 'a-z0-9' 14)"
+    PHRASE="fictional neg""ative content"
+    FORBIDDEN=("$SENT1" "$SENT2" "$PHRASE")
+    
+    hide() {
+      local line f
+      while IFS= read -r line || [ -n "$line" ]; do
+        line=${line//"$BASE"/<scratch>}
+        for f in "${FORBIDDEN[@]}"; do line=${line//"$f"/<fixture>}; done
+        printf '%s\n' "$line"
+      done
+    }
+    count_forbidden() { LC_ALL=C "$G" -a -c -F -f <(printf '%s\n' "${FORBIDDEN[@]}") "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # all_zero <n>...: every count given is 0.
+    all_zero() { local v; for v in "$@"; do [ "$v" -eq 0 ] || return 1; done; }
+    
+    echo "about: T1 P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T1 P3 (specs/0004-xlsx-diff.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Archives are generated under <scratch> with python3 zipfile from fictional content, and deleted on exit."
+    echo "fixture strings counted in every captured output: ${#FORBIDDEN[@]} (two random content sentinels and the content phrase, all built at run time; values never printed)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## counter controls"
+    printf '%s\n' "${FORBIDDEN[@]}" >"$BASE/ctl-forbidden"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    printf 'plain\ttab\r\n' >"$BASE/ctl-clean"
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    ctl "lines with a fixture string in a file holding each once" "$(count_forbidden "$BASE/ctl-forbidden")" "${#FORBIDDEN[@]}"
+    ctl "lines with a fixture string in a clean file" "$(count_forbidden "$BASE/ctl-clean")" 0
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p xlsx-diff"
+    cargo build -p xlsx-diff >"$BASE/build.out" 2>&1 </dev/null
+    RC=$?
+    echo "  exit: $RC"
+    note "build exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "binary $BIN exists" "$(is [ -x "$BIN" ])"
+    
+    run_tool() { # run_tool <name> <input> <output>
+      local name=$1 fb c n r
+      echo "command: $BIN $(printf '%s' "$2" | hide) $(printf '%s' "$3" | hide)"
+      "$BIN" "$2" "$3" >"$BASE/$name.out" 2>"$BASE/$name.err" </dev/null
+      RC=$?
+      echo "  stdout:"
+      hide <"$BASE/$name.out" | sed 's/^/    /'
+      echo "  stderr:"
+      hide <"$BASE/$name.err" | sed 's/^/    /'
+      echo "  exit: $RC"
+      cat "$BASE/$name.out" "$BASE/$name.err" >"$BASE/$name.both"
+      fb=$(count_forbidden "$BASE/$name.both")
+      c=$(ctrl_bytes "$BASE/$name.both")
+      n=$(nonascii_bytes "$BASE/$name.both")
+      r=$(is all_zero "$fb" "$c" "$n")
+      echo "  captured output: lines with a fixture string=$fb, control bytes=$c, non-ASCII bytes=$n (expect 0, 0 and 0): $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    # row_is <file> <exact row>: the file holds that exact line.
+    row_is() { LC_ALL=C "$G" -q -x -F -e "$2" "$1"; }
+    # entry_rows_unflagged <file> <count> <status>: exactly <count> entry rows,
+    # all with <status> and an empty flags column.
+    entry_rows_unflagged() {
+      [ "$(LC_ALL=C "$G" -c -P '^entry\t' "$1")" = "$2" ] &&
+        [ "$(LC_ALL=C "$G" -c -P "^entry\t[^\t]*\t$3\t([^\t]*\t){13}\$" "$1")" = "$2" ]
+    }
+    # equal_before_comment_length <shorter> <longer>: the files are byte-equal
+    # up to the shorter file's last two bytes (its comment length field).
+    equal_before_comment_length() {
+      local n
+      n=$(( $(wc -c <"$1") - 2 ))
+      cmp -s -n "$n" "$1" "$2"
+    }
+    
+    echo
+    echo "## generated archives"
+    cat >"$BASE/gen.py" <<'PY'
+    import sys, zipfile
+    out_dir, s1, s2, phrase = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    names = ("[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml")
+    for archive, comment in (("input.zip", b""), ("comment.zip", ("archive comment " + s2).encode())):
+        with zipfile.ZipFile(out_dir + "/" + archive, "w") as z:
+            for k, name in enumerate(names):
+                body = "".join(phrase + " %s row %d %s\n" % (name, i, s1) for i in range(200 * (k + 1))).encode()
+                info = zipfile.ZipInfo(name, date_time=(2026, 9, 15, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                z.writestr(info, body)
+            z.comment = comment
+    PY
+    echo "command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>"
+    python3 "$BASE/gen.py" "$BASE" "$SENT1" "$SENT2" "$PHRASE"
+    echo "  exit: $?"
+    echo "  input.zip $(wc -c <"$BASE/input.zip") bytes; comment.zip $(wc -c <"$BASE/comment.zip") bytes"
+    note "the two archives are byte-equal before input.zip's comment length field" "$(is equal_before_comment_length "$BASE/input.zip" "$BASE/comment.zip")"
+    
+    echo
+    echo "## case a: two files that differ only in the archive comment"
+    run_tool a "$BASE/input.zip" "$BASE/comment.zip"
+    note "exit 1" "$(is [ "$RC" -eq 1 ])"
+    note "three entry rows, all identical with an empty flags column" "$(is entry_rows_unflagged "$BASE/a.out" 3 identical)"
+    note "archive row comment_equal is no" "$(is row_is "$BASE/a.out" "$(printf 'archive\tcomment_equal\tno')")"
+    note "archive row flagged is 0" "$(is row_is "$BASE/a.out" "$(printf 'archive\tflagged\t0')")"
+    note "archive row order_preserved is yes" "$(is row_is "$BASE/a.out" "$(printf 'archive\torder_preserved\tyes')")"
+    note "archive row files_identical is no" "$(is row_is "$BASE/a.out" "$(printf 'archive\tfiles_identical\tno')")"
+    note "stderr is empty" "$(is [ ! -s "$BASE/a.err" ])"
+    
+    echo
+    echo "## case b: the same file given twice"
+    run_tool b "$BASE/comment.zip" "$BASE/comment.zip"
+    note "exit 0" "$(is [ "$RC" -eq 0 ])"
+    note "three entry rows, all identical with an empty flags column" "$(is entry_rows_unflagged "$BASE/b.out" 3 identical)"
+    note "archive row files_identical is yes" "$(is row_is "$BASE/b.out" "$(printf 'archive\tfiles_identical\tyes')")"
+    note "archive row comment_equal is yes" "$(is row_is "$BASE/b.out" "$(printf 'archive\tcomment_equal\tyes')")"
+    note "stderr is empty" "$(is [ ! -s "$BASE/b.err" ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "main working tree status (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## counter controls
+  control lines with a fixture string in a file holding each once: 3 (expect 3): as-expected
+  control lines with a fixture string in a clean file: 0 (expect 0): as-expected
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+
+## build
+command: cargo build -p xlsx-diff
+  exit: 0
+  build exit 0: as-expected
+  binary target/debug/xlsx-diff exists: as-expected
+
+## generated archives
+command: python3 <scratch>/gen.py <scratch> <sentinel> <sentinel> <phrase>
+  exit: 0
+  input.zip 3803 bytes; comment.zip 3835 bytes
+  the two archives are byte-equal before input.zip's comment length field: as-expected
+
+## case a: two files that differ only in the archive comment
+command: target/debug/xlsx-diff <scratch>/input.zip <scratch>/comment.zip
+  stdout:
+    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	cde00982	cde00982				
+    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1159	1159	5ae8b759	5ae8b759				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1673	1673	b7500974	b7500974				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	3
+    archive	recompressed	0
+    archive	changed	0
+    archive	dropped	0
+    archive	added	0
+    archive	flagged	0
+    archive	order_preserved	yes
+    archive	comment_equal	no
+    archive	prefix_in	0
+    archive	prefix_out	0
+    archive	central_start_in	3585
+    archive	central_start_out	3585
+    archive	uncompressed_in	87470
+    archive	uncompressed_out	87470
+    archive	compressed_in	3437
+    archive	compressed_out	3437
+    archive	bytes_in	3803
+    archive	bytes_out	3835
+    archive	files_identical	no
+  stderr:
+  exit: 1
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 1: as-expected
+  three entry rows, all identical with an empty flags column: as-expected
+  archive row comment_equal is no: as-expected
+  archive row flagged is 0: as-expected
+  archive row order_preserved is yes: as-expected
+  archive row files_identical is no: as-expected
+  stderr is empty: as-expected
+
+## case b: the same file given twice
+command: target/debug/xlsx-diff <scratch>/comment.zip <scratch>/comment.zip
+  stdout:
+    entry	[Content_Types].xml	identical	0	0	8	8	14290	14290	605	605	cde00982	cde00982				
+    entry	xl/workbook.xml	identical	1	1	8	8	27090	27090	1159	1159	5ae8b759	5ae8b759				
+    entry	xl/worksheets/sheet1.xml	identical	2	2	8	8	46090	46090	1673	1673	b7500974	b7500974				
+    archive	entries_in	3
+    archive	entries_out	3
+    archive	identical	3
+    archive	recompressed	0
+    archive	changed	0
+    archive	dropped	0
+    archive	added	0
+    archive	flagged	0
+    archive	order_preserved	yes
+    archive	comment_equal	yes
+    archive	prefix_in	0
+    archive	prefix_out	0
+    archive	central_start_in	3585
+    archive	central_start_out	3585
+    archive	uncompressed_in	87470
+    archive	uncompressed_out	87470
+    archive	compressed_in	3437
+    archive	compressed_out	3437
+    archive	bytes_in	3835
+    archive	bytes_out	3835
+    archive	files_identical	yes
+  stderr:
+  exit: 0
+  captured output: lines with a fixture string=0, control bytes=0, non-ASCII bytes=0 (expect 0, 0 and 0): as-expected
+  exit 0: as-expected
+  three entry rows, all identical with an empty flags column: as-expected
+  archive row files_identical is yes: as-expected
+  archive row comment_equal is yes: as-expected
+  stderr is empty: as-expected
+
+  main working tree status (expect empty): : as-expected
+run ended at 2026-09-15T17:56:29Z
+all negative cases as expected: yes
