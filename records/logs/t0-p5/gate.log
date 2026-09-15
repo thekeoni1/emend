@@ -1,0 +1,171 @@
+about: P5 phase commit 346385c8c8934c3485b27160a69fd032f35ef8b5; HEAD at run: 346385c8c8934c3485b27160a69fd032f35ef8b5
+phase: T0 P5 (specs/0001-bootstrap.md) gate.log; run at 2026-09-15T01:21:18Z
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P5 gate log and toolchain record.
+    # Usage: p5-logs.sh <phase commit> <toolchain record scratch file> > <gate log scratch file>
+    # The caller moves both files into the repo afterwards, so nothing is written in the
+    # working tree while this runs. The toolchain record is written only if the gate passes.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    RECORD=${2:?toolchain record scratch file required}
+    ROOT=$(pwd)
+    I686=i686-unknown-linux-musl
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    
+    echo "about: P5 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P5 (specs/0001-bootstrap.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc (expect 0)"
+    [ "$rc" -eq 0 ] || fail=1
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|"
+    got=$(tr '\n' '|' < "$T/out")
+    echo "stdout is exactly the seven PASS lines in order: $([ "$got" = "$want" ] && echo yes || echo no)"
+    [ "$got" = "$want" ] || fail=1
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    echo "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$(ctrl_bytes "$T/ctl") (expect lines 1, bytes 3)"
+    [ "$(ctrl_bytes "$T/ctl")" -eq 3 ] || fail=1
+    echo "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$(ctrl_bytes "$T/clean") (expect 0 and 0)"
+    [ "$(ctrl_bytes "$T/clean")" -eq 0 ] || fail=1
+    for s in out err; do
+      echo "std$s: lines=$(f_ctrl "$T/$s") bytes=$(ctrl_bytes "$T/$s") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$T/$s")" -eq 0 ] || fail=1
+    done
+    echo
+    echo "## facts for the toolchain record"
+    tc=$(rustup show active-toolchain 2>&1 | sed "s|$ROOT/||")
+    targets=$(rustup target list --installed 2>&1 | tr '\n' ' ' | sed 's/ $//')
+    echo "command: cargo test --workspace --target $I686 --no-run"
+    cargo test --workspace --target "$I686" --no-run > "$T/norun" 2>&1; nrc=$?
+    sed "s|$ROOT/||g; s/^/    /" "$T/norun"
+    echo "exit: $nrc"
+    [ "$nrc" -eq 0 ] || fail=1
+    bin=$(sed -n "s|^ *Executable unittests src/main.rs (\(target/$I686/debug/deps/xlsx_diff-[0-9a-f]*\))$|\1|p" "$T/norun" | head -1)
+    echo "i686 test binary: ${bin:-NOT FOUND}"
+    [ -n "$bin" ] || fail=1
+    fileout=$( [ -n "$bin" ] && file "$bin" )
+    echo "command: file $bin"
+    echo "    $fileout"
+    echo "command: rustc -vV"; rustc -vV | sed 's/^/    /'
+    echo "command: cargo -V"; cargo -V | sed 's/^/    /'
+    echo "active toolchain: $tc"
+    echo "installed targets: $targets"
+    echo "command: uname -r"; uname -r | sed 's/^/    /'
+    echo
+    echo "status after the run (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    
+    if [ "$fail" -eq 0 ]; then
+      {
+        echo "# Toolchain record, $(date -u +%Y-%m-%d) (UTC)"
+        echo
+        echo "Written by the T0 P5 log script from the same run as"
+        echo "records/logs/t0-p5/gate.log. No toolchain or target was installed in P5."
+        echo
+        echo "- Full gate (all seven steps) passed at: $C"
+        echo "- rustc: $(rustc -V)"
+        rustc -vV | sed -n 's/^\(host\|release\|commit-hash\|LLVM version\): /  - \1: /p'
+        echo "- cargo: $(cargo -V)"
+        echo "- Active toolchain: $tc"
+        echo "- Installed targets for that toolchain: $targets"
+        echo "- Kernel (\`uname -r\`): $(uname -r)"
+        echo "- i686 test binary (\`file\`): $fileout"
+        echo "- Guard: every rustup and cargo command ran with RUSTUP_AUTO_INSTALL=0 and CARGO_TERM_COLOR=never."
+      } > "$RECORD"
+      echo "toolchain record written: yes"
+    else
+      echo "toolchain record written: no (the gate or a check failed)"
+    fi
+    exit "$fail"
+
+## gate files at 346385c8c8934c3485b27160a69fd032f35ef8b5
+scripts/check.sh on disk sha256 c722e9e89500d7f7e90958b3dff27eb9ef908de1498625ed2f59dd9eabf4c5a1; at 346385c8c8934c3485b27160a69fd032f35ef8b5 sha256 c722e9e89500d7f7e90958b3dff27eb9ef908de1498625ed2f59dd9eabf4c5a1; bytes 8887
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 346385c8c8934c3485b27160a69fd032f35ef8b5 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 135 files, 32.8MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+stderr bytes: 0
+exit: 0 (expect 0)
+stdout is exactly the seven PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect lines 1, bytes 3)
+control: tab and CR file -> lines=0 bytes=0 (expect 0 and 0)
+stdout: lines=0 bytes=0 (expect 0 and 0)
+stderr: lines=0 bytes=0 (expect 0 and 0)
+
+## facts for the toolchain record
+command: cargo test --workspace --target i686-unknown-linux-musl --no-run
+        Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+      Executable unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0)
+exit: 0
+i686 test binary: target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0
+command: file target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0
+    target/i686-unknown-linux-musl/debug/deps/xlsx_diff-6260f7a0ee0830e0: ELF 32-bit LSB executable, Intel i386, version 1 (GNU/Linux), statically linked, BuildID[sha1]=ad7b0616635bbe5e3dc94cc97a74343633b44c0f, with debug_info, not stripped
+command: rustc -vV
+    rustc 1.98.1 (48a229cea 2026-09-01)
+    binary: rustc
+    commit-hash: 48a229ceaefd4985c50990b14116b6d856af0985
+    commit-date: 2026-09-01
+    host: x86_64-unknown-linux-gnu
+    release: 1.98.1
+    LLVM version: 22.1.8
+command: cargo -V
+    cargo 1.98.1 (797e8a9bc 2026-08-05)
+active toolchain: 1.98.1-x86_64-unknown-linux-gnu (overridden by 'rust-toolchain.toml')
+installed targets: i686-unknown-linux-musl x86_64-unknown-linux-gnu
+command: uname -r
+    6.18.33.2-microsoft-standard-WSL2
+
+status after the run (expect empty): 
+gate log checks all as expected: yes
+toolchain record written: yes

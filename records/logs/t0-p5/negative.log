@@ -1,0 +1,448 @@
+about: P5 phase commit 346385c8c8934c3485b27160a69fd032f35ef8b5; HEAD at run: 346385c8c8934c3485b27160a69fd032f35ef8b5
+phase: T0 P5 (specs/0001-bootstrap.md) negative.log; run at 2026-09-15T01:21:18Z
+Every case runs in a fresh clone at <scratch>/emend; fixture crates live in <scratch>/ext, outside the clone.
+DRYRUN_CHECK_SH is not set: each clone runs the check.sh committed at 346385c8c8934c3485b27160a69fd032f35ef8b5.
+ANTHROPIC_API_KEY set in this shell: no
+
+## script
+    #!/usr/bin/env bash
+    # T0 P5 negative tests: step hygiene (a to c), the P4 gap fixes in steps native
+    # and licences (d to i), and allowlisted names on pass (j, beyond the spec).
+    # Every case runs in a fresh clone outside the repo; fixture crates live outside
+    # the clone. Usage: p5-negative.sh <phase commit> > <scratch file>; the caller
+    # moves the output to records/logs/t0-p5/negative.log. Paths print as <scratch>.
+    # DRYRUN_CHECK_SH, if set, copies that check.sh into each clone (dry runs only).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    EXT=$BASE/ext
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$EXT|<scratch>/ext|g" -e "s|$BASE|<scratch>|g"; }
+    f_ctrl()     { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    
+    echo "about: P5 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P5 (specs/0001-bootstrap.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Every case runs in a fresh clone at <scratch>/emend; fixture crates live in <scratch>/ext, outside the clone."
+    if [ -n "${DRYRUN_CHECK_SH:-}" ]; then
+      echo "DRY RUN: DRYRUN_CHECK_SH is set, so each clone gets an uncommitted check.sh (sha256 $(sha256sum "$DRYRUN_CHECK_SH" | cut -d' ' -f1)). Not a phase log."
+    else
+      echo "DRYRUN_CHECK_SH is not set: each clone runs the check.sh committed at $C."
+    fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    # expect <output> <present|absent> <ERE> <label>
+    expect() {
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    fresh_clone() {
+      rm -rf "$CLONE" "$EXT"
+      mkdir -p "$EXT"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$C" || { echo "clone failed"; fail=1; return 1; }
+      if [ -n "${DRYRUN_CHECK_SH:-}" ]; then cp "$DRYRUN_CHECK_SH" "$CLONE/scripts/check.sh"; fi
+      echo "clone at $C: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    # ext_crate <package name> <licence>: a fixture crate outside the clone
+    ext_crate() {
+      mkdir -p "$EXT/$1/src"
+      printf '[package]\nname = "%s"\nversion = "0.1.0"\nedition = "2024"\nlicense = "%s"\npublish = false\n' "$1" "$2" > "$EXT/$1/Cargo.toml"
+      printf '//! Negative-test fixture crate.\n' > "$EXT/$1/src/lib.rs"
+      echo "created <scratch>/ext/$1 (package $1, license $2)"
+    }
+    # manifest_add <text>: append TOML to tools/xlsx-diff/Cargo.toml and print it
+    manifest_add() {
+      printf '%s\n' "$1" >> "$CLONE/tools/xlsx-diff/Cargo.toml"
+      echo "appended to tools/xlsx-diff/Cargo.toml:"
+      printf '%s\n' "$1" | hide | sed 's/^/    | /'
+    }
+    members() {
+      (cd "$CLONE" && cargo metadata --format-version 1 --no-deps 2>/dev/null) |
+        python3 -c 'import json,sys; print("  workspace members: " + " ".join(sorted(p["name"] for p in json.load(sys.stdin)["packages"])))'
+    }
+    # gate <name> [VAR=value]: run the clone's check.sh, optionally with one variable set for that command only
+    gate() {
+      local name=$1 rc
+      shift
+      if [ "$#" -gt 0 ]; then
+        echo "command: env $* scripts/check.sh (in the clone; the variable is set for this one command only)"
+        (cd "$CLONE" && env "$@" scripts/check.sh) > "$BASE/$name.out" 2>&1
+      else
+        echo "command: scripts/check.sh (in the clone)"
+        (cd "$CLONE" && scripts/check.sh) > "$BASE/$name.out" 2>&1
+      fi
+      rc=$?
+      hide < "$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      echo "  control characters in the captured output: lines=$(f_ctrl "$BASE/$name.out") bytes=$(ctrl_bytes "$BASE/$name.out") (expect 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/$name.out")" -eq 0 ] || fail=1
+      return "$rc"
+    }
+    nonzero() { echo "  exit non-zero: $([ "$1" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$1" -ne 0 ] || fail=1; }
+    
+    echo
+    echo "## case a: a staged file containing U+2014; expect FAIL hygiene"
+    fresh_clone
+    printf 'dash %s here\n' "$(printf '\342\200\224')" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt
+    echo "created notes.txt with the bytes E2 80 94 (written with printf escapes) and staged it"
+    gate a; rc=$?; nonzero "$rc"
+    expect "$BASE/a.out" present '^FAIL hygiene: U[+]2014 in tracked file[(]s[)]: notes[.]txt$' "FAIL hygiene naming notes.txt"
+    expect "$BASE/a.out" absent '^PASS hygiene$' "PASS hygiene"
+    
+    echo
+    echo "## case b1: force-added x.xlsx at the root; expect FAIL hygiene"
+    fresh_clone
+    printf 'not a workbook\n' > "$CLONE/x.xlsx"
+    git -C "$CLONE" add -f x.xlsx
+    echo "created x.xlsx and force-added it (it is ignored by .gitignore)"
+    gate b1; rc=$?; nonzero "$rc"
+    expect "$BASE/b1.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: x[.]xlsx$' "FAIL hygiene naming x.xlsx"
+    
+    echo
+    echo "## case b2: force-added Y.XLSM at the root; expect FAIL hygiene"
+    fresh_clone
+    printf 'not a workbook\n' > "$CLONE/Y.XLSM"
+    git -C "$CLONE" add -f Y.XLSM
+    echo "created Y.XLSM and force-added it"
+    gate b2; rc=$?; nonzero "$rc"
+    expect "$BASE/b2.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: Y[.]XLSM$' "FAIL hygiene naming Y.XLSM"
+    
+    echo
+    echo "## case c: ANTHROPIC_API_KEY=dummy for one command only; expect FAIL hygiene"
+    fresh_clone
+    gate c ANTHROPIC_API_KEY=dummy; rc=$?; nonzero "$rc"
+    expect "$BASE/c.out" present '^FAIL hygiene: ANTHROPIC_API_KEY is set in the environment$' "FAIL hygiene: API key set"
+    expect "$BASE/c.out" absent 'dummy' "the value in the output"
+    echo "  ANTHROPIC_API_KEY set in this shell after case c: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    
+    echo
+    echo "## case d: cc behind a feature of xlsx-diff that nothing enables; expect FAIL native"
+    fresh_clone
+    ext_crate cc MIT
+    manifest_add "$(printf '\n[dependencies]\ncc = { path = "%s/cc", optional = true }\n\n[features]\nextra = ["dep:cc"]' "$EXT")"
+    members
+    gate d; rc=$?; nonzero "$rc"
+    expect "$BASE/d.out" present '^FAIL native: C build tooling in the dependency tree: cc$' "FAIL native naming cc"
+    expect "$BASE/d.out" absent '^PASS native' "PASS native"
+    
+    echo
+    echo "## case e: a crate named fake_sys; expect FAIL native"
+    fresh_clone
+    ext_crate fake_sys MIT
+    manifest_add "$(printf '\n[dependencies]\nfake_sys = { path = "%s/fake_sys" }' "$EXT")"
+    members
+    gate e; rc=$?; nonzero "$rc"
+    expect "$BASE/e.out" present '^FAIL native: -sys or _sys crate not in scripts/sys-allowlist[.]txt: fake_sys$' "FAIL native naming fake_sys"
+    expect "$BASE/e.out" absent '^PASS native' "PASS native"
+    
+    echo
+    echo "## case f: an MPL-2.0 crate behind a feature of xlsx-diff that nothing enables; expect FAIL licences"
+    fresh_clone
+    ext_crate fake-mpl MPL-2.0
+    manifest_add "$(printf '\n[dependencies]\nfake-mpl = { path = "%s/fake-mpl", optional = true }\n\n[features]\nextra = ["dep:fake-mpl"]' "$EXT")"
+    members
+    gate f; rc=$?; nonzero "$rc"
+    expect "$BASE/f.out" present '^PASS native [(]allowlisted -sys: none[)]$' "PASS native (allowlisted -sys: none)"
+    expect "$BASE/f.out" present '^FAIL licences: fake-mpl 0[.]1[.]0 [(]MPL-2[.]0[)]$' "FAIL licences naming fake-mpl"
+    expect "$BASE/f.out" absent '^PASS licences$' "PASS licences"
+    
+    echo
+    echo "## case g: cc as a build-dependency; expect FAIL native"
+    fresh_clone
+    ext_crate cc MIT
+    manifest_add "$(printf '\n[build-dependencies]\ncc = { path = "%s/cc" }' "$EXT")"
+    members
+    gate g; rc=$?; nonzero "$rc"
+    expect "$BASE/g.out" present '^FAIL native: C build tooling in the dependency tree: cc$' "FAIL native naming cc"
+    
+    echo
+    echo "## case h: a renamed dependency, foo = { package = \"cc\" }; expect FAIL native"
+    fresh_clone
+    ext_crate cc MIT
+    manifest_add "$(printf '\n[dependencies]\nfoo = { path = "%s/cc", package = "cc" }' "$EXT")"
+    members
+    gate h; rc=$?; nonzero "$rc"
+    expect "$BASE/h.out" present '^FAIL native: C build tooling in the dependency tree: cc$' "FAIL native naming cc"
+    
+    echo
+    echo "## case i: cc under [target.'cfg(windows)'.dependencies]; expect FAIL native"
+    fresh_clone
+    ext_crate cc MIT
+    manifest_add "$(printf "\n[target.'cfg(windows)'.dependencies]\ncc = { path = \"%s/cc\" }" "$EXT")"
+    members
+    gate i; rc=$?; nonzero "$rc"
+    expect "$BASE/i.out" present '^FAIL native: C build tooling in the dependency tree: cc$' "FAIL native naming cc"
+    
+    echo
+    echo "## case j (beyond the spec): fake-sys and fake_sys both allowlisted; expect all seven PASS, naming both"
+    fresh_clone
+    ext_crate fake-sys MIT
+    ext_crate fake_sys MIT
+    manifest_add "$(printf '\n[dependencies]\nfake-sys = { path = "%s/fake-sys" }\nfake_sys = { path = "%s/fake_sys" }' "$EXT" "$EXT")"
+    printf '# test fixture allowlist\nfake-sys\nfake_sys\n' > "$CLONE/scripts/sys-allowlist.txt"
+    echo "scripts/sys-allowlist.txt now:"; sed 's/^/    | /' "$CLONE/scripts/sys-allowlist.txt"
+    gate j; rc=$?
+    echo "  exit zero: $([ "$rc" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$rc" -eq 0 ] || fail=1
+    expect "$BASE/j.out" present '^PASS native [(]allowlisted -sys: fake-sys fake_sys[)]$' "PASS native naming both allowlisted crates"
+    expect "$BASE/j.out" present '^PASS hygiene$' "PASS hygiene"
+    expect "$BASE/j.out" absent '^FAIL ' "any FAIL line"
+    
+    echo
+    rm -rf "$CLONE" "$EXT"
+    echo "scratch clone and fixtures removed: $([ -e "$CLONE" ] || [ -e "$EXT" ] && echo no || echo yes)"
+    echo "main working tree status (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## case a: a staged file containing U+2014; expect FAIL hygiene
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created notes.txt with the bytes E2 80 94 (written with printf escapes) and staged it
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: U+2014 in tracked file(s): notes.txt
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming notes.txt: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect absent; count=0 grep exit=1 -> as-expected
+
+## case b1: force-added x.xlsx at the root; expect FAIL hygiene
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created x.xlsx and force-added it (it is ignored by .gitignore)
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: x.xlsx
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming x.xlsx: expect present; count=1 grep exit=0 -> as-expected
+
+## case b2: force-added Y.XLSM at the root; expect FAIL hygiene
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created Y.XLSM and force-added it
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: Y.XLSM
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming Y.XLSM: expect present; count=1 grep exit=0 -> as-expected
+
+## case c: ANTHROPIC_API_KEY=dummy for one command only; expect FAIL hygiene
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+command: env ANTHROPIC_API_KEY=dummy scripts/check.sh (in the clone; the variable is set for this one command only)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: ANTHROPIC_API_KEY is set in the environment
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene: API key set: expect present; count=1 grep exit=0 -> as-expected
+  the value in the output: expect absent; count=0 grep exit=1 -> as-expected
+  ANTHROPIC_API_KEY set in this shell after case c: no
+
+## case d: cc behind a feature of xlsx-diff that nothing enables; expect FAIL native
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/cc (package cc, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [dependencies]
+    | cc = { path = "<scratch>/ext/cc", optional = true }
+    | 
+    | [features]
+    | extra = ["dep:cc"]
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        cc v0.1.0 (<scratch>/ext/cc)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc: expect present; count=1 grep exit=0 -> as-expected
+  PASS native: expect absent; count=0 grep exit=1 -> as-expected
+
+## case e: a crate named fake_sys; expect FAIL native
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/fake_sys (package fake_sys, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [dependencies]
+    | fake_sys = { path = "<scratch>/ext/fake_sys" }
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: -sys or _sys crate not in scripts/sys-allowlist.txt: fake_sys
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        fake_sys v0.1.0 (<scratch>/ext/fake_sys)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming fake_sys: expect present; count=1 grep exit=0 -> as-expected
+  PASS native: expect absent; count=0 grep exit=1 -> as-expected
+
+## case f: an MPL-2.0 crate behind a feature of xlsx-diff that nothing enables; expect FAIL licences
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/fake-mpl (package fake-mpl, license MPL-2.0)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [dependencies]
+    | fake-mpl = { path = "<scratch>/ext/fake-mpl", optional = true }
+    | 
+    | [features]
+    | extra = ["dep:fake-mpl"]
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    FAIL licences: fake-mpl 0.1.0 (MPL-2.0)
+        fake-mpl 0.1.0: MPL-2.0: NOT allowed
+        xlsx-diff 0.1.0: MIT OR Apache-2.0: allowed
+        fake-mpl 0.1.0 (MPL-2.0)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  PASS native (allowlisted -sys: none): expect present; count=1 grep exit=0 -> as-expected
+  FAIL licences naming fake-mpl: expect present; count=1 grep exit=0 -> as-expected
+  PASS licences: expect absent; count=0 grep exit=1 -> as-expected
+
+## case g: cc as a build-dependency; expect FAIL native
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/cc (package cc, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [build-dependencies]
+    | cc = { path = "<scratch>/ext/cc" }
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        cc v0.1.0 (<scratch>/ext/cc)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc: expect present; count=1 grep exit=0 -> as-expected
+
+## case h: a renamed dependency, foo = { package = "cc" }; expect FAIL native
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/cc (package cc, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [dependencies]
+    | foo = { path = "<scratch>/ext/cc", package = "cc" }
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        cc v0.1.0 (<scratch>/ext/cc)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc: expect present; count=1 grep exit=0 -> as-expected
+
+## case i: cc under [target.'cfg(windows)'.dependencies]; expect FAIL native
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/cc (package cc, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [target.'cfg(windows)'.dependencies]
+    | cc = { path = "<scratch>/ext/cc" }
+  workspace members: xlsx-diff
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    FAIL native: C build tooling in the dependency tree: cc
+        xlsx-diff v0.1.0 (<scratch>/emend/tools/xlsx-diff)
+        cc v0.1.0 (<scratch>/ext/cc)
+  exit: 1
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit non-zero: as-expected
+  FAIL native naming cc: expect present; count=1 grep exit=0 -> as-expected
+
+## case j (beyond the spec): fake-sys and fake_sys both allowlisted; expect all seven PASS, naming both
+clone at 346385c8c8934c3485b27160a69fd032f35ef8b5: 346385c8c8934c3485b27160a69fd032f35ef8b5
+created <scratch>/ext/fake-sys (package fake-sys, license MIT)
+created <scratch>/ext/fake_sys (package fake_sys, license MIT)
+appended to tools/xlsx-diff/Cargo.toml:
+    | 
+    | [dependencies]
+    | fake-sys = { path = "<scratch>/ext/fake-sys" }
+    | fake_sys = { path = "<scratch>/ext/fake_sys" }
+scripts/sys-allowlist.txt now:
+    | # test fixture allowlist
+    | fake-sys
+    | fake_sys
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: fake-sys fake_sys)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  control characters in the captured output: lines=0 bytes=0 (expect 0 and 0)
+  exit zero: as-expected
+  PASS native naming both allowlisted crates: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL line: expect absent; count=0 grep exit=1 -> as-expected
+
+scratch clone and fixtures removed: yes
+main working tree status (expect empty): 
+all negative cases as expected: yes
