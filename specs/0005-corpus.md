@@ -1,8 +1,8 @@
 # 0005: T2 corpus (maintainer-led)
 
-Status: P2 to P4 assigned to the CORPUS session (maintainer decision,
-2026-09-15); P1 READY, scheduled after the corpus session's first
-report. Runs alongside T1.
+Status: P2, P3 and P4 DONE by the CORPUS session, verified by planning
+2026-09-15 from the corpus directory (rulings below). P1 READY. P5 and
+P6 are the maintainer's. P7 after them.
 
 The CORPUS session is a third session, separate from planning and
 implementing. It works only under the corpus directory, never changes
@@ -88,12 +88,18 @@ planning rules on (CLAUDE.md, "Secrets and boundaries").
 
 ### P1: manifest scripts
 
-Two scripts in `scripts/`, bash, `#!/usr/bin/env bash`, `set -euo
-pipefail`, `/usr/bin/grep` explicitly, no dependency beyond coreutils,
-`sha256sum`, `python3` (for reading `docProps/app.xml` with the
-standard `zipfile` module; no third-party module).
+Two scripts in `scripts/`. Planning ruled on 2026-09-15 that they may
+be python3 (standard library only, `#!/usr/bin/env python3`), like
+`scripts/passthrough-record.py`, instead of bash; the corpus session's
+private helper `tools/corpus-add.py` is written that way and follows
+these rules. Importing it into the repository as `scripts/corpus-add.py`
+is a deliberate, recorded step (CLAUDE.md, "Secrets and boundaries"):
+the phase report names the private file's sha256 at import and every
+change made to it, and the phase adds the logged negative cases below,
+which the private helper never had. No other file from the corpus
+directory enters the repository.
 
-`scripts/corpus-add.sh <file> <producer> <producer_version> <source> <tags> [note]`:
+`scripts/corpus-add.py <file> <producer> <producer_version> <source> <tags> [note]`:
 - Resolves the corpus directory from `EMEND_CORPUS_DIR` or the default,
   requires it to exist with mode 700, and requires it to be outside any
   git work tree (`git -C <dir> rev-parse` fails).
@@ -111,7 +117,7 @@ standard `zipfile` module; no third-party module).
   It never prints the original name, the note, the corpus path or any
   content of the file.
 
-`scripts/corpus-coverage.sh [--verify]`:
+`scripts/corpus-coverage.py [--verify]`:
 - Reads the manifest. Validates the header, the column count of every
   row, `producer`, `source`, the tags, the uniqueness of ids, and that
   every `corpus/<id>.<ext>` exists. With `--verify`, also recomputes
@@ -148,6 +154,59 @@ worksheets):
   counts, and `--verify` fails after one file is modified in place.
 
 Logs: `gate.log`, `positive.log`, `negative.log`, `scan.log`. No push.
+
+### Planning rulings on the corpus session's delivery (2026-09-15)
+
+Planning verified P2, P3 and P4 from the corpus directory itself, not
+from the session's report:
+- 27 files (17 `libreoffice`, `libreoffice-export`; 10 `excel-win`,
+  `ms-template`; 26 xlsx and 1 xltx), 17693628 bytes, all mode 600
+  under a mode 700 directory. The manifest has the 12 columns in order;
+  every id is unique and equals the first 12 hex digits of the file's
+  sha256; every byte count matches; every file starts with the zip
+  signature; every producer, source and tag is from the fixed lists;
+  every `ms-template` note holds a source URL.
+- Tags: planning checked every claimed tag against the file's own parts
+  with its own rules (charts, pivot, slicer, timeline, table, comment,
+  media, external and vbaProject entries; sparkline, conditional
+  formatting, data validation, hyperlink, autofilter, frozen pane,
+  merged cell, formula and protection elements; defined names, the
+  1904 flag, and the largest worksheet part). Every claimed tag is
+  present. 22 of 23 tags are covered; `macros` is not. Seven tags come
+  from one producer only: pivots, slicers, timelines, external,
+  sparklines (excel-win) and date1904, large (libreoffice). Threaded
+  comments and chartex charts appear in no file. LibreOffice writes an
+  empty `<workbookProtection/>` element in every file; the session
+  rightly does not count it as protection.
+- Privacy: `dc:creator`, `cp:lastModifiedBy`, `Company` and `Manager`
+  are empty or absent in all 27 files. No part of any file holds the
+  user name, the host name, a home path, an email address outside the
+  example domains, or a private-denylist entry. One Microsoft template
+  carries its own author's Windows path in an `x15ac:absPath` element:
+  Microsoft's public metadata, not this project's, and workbook content
+  never reaches the repository.
+- The image: `localhost/emend-lo:25.2.3-2-deb13u6`, id
+  `3f9baefc6e23...`, present in local podman storage with the size the
+  record gives; LibreOffice 25.2.3.2 from Debian `4:25.2.3-2+deb13u6`
+  on `debian@sha256:abc9cb88...`. Conversions run through a Basic macro
+  in a warmed profile because headless `--convert-to` drops frozen
+  panes and left cached formula values at 0 on the 130000-row sheet;
+  the session recorded both findings.
+- The repository was not changed by the corpus session.
+
+Rulings:
+- P2, P3 and P4 are DONE. The corpus is usable for T3 P3 and P4 now.
+- P5 and P6 (maintainer): what only the maintainer can supply is one
+  `.xlsm` with a macro (`macros`), a desktop Excel file with threaded
+  comments, one with a chartex chart such as a waterfall, and a few
+  Google Sheets exports so that the single-producer tags gain a second
+  producer. Added with `scripts/corpus-add.py` once P1 lands, or with
+  the private helper before then.
+- P1 (implementing session): the two scripts in python3, as the "P1"
+  section now says, with the private helper imported through the
+  recorded step. P7 follows P5 and P6, or runs with the gaps listed if
+  the maintainer prefers to start T3 P4 first (T3 P4 may run before P7
+  in any case; the record cites the corpus as it stands).
 
 ### P2: LibreOffice, pinned (CORPUS session)
 

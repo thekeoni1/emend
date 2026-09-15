@@ -75,12 +75,12 @@ implementing session does P1 and P7.
 | Phase | Part | Status |
 |-------|------|--------|
 | P0 | Privacy gate corpus-era additions: Zone.Identifier files, OLE2 and other archive signatures, both forms of patterns 10 and 11 in the self-test, checked pipeline exits (`specs/0002-gate-corpus-additions.md`); runs before T1 and before any corpus file | DONE (9324e64 to 0870c36) |
-| P1 | Manifest format (in the spec) and two scripts in the repo, `corpus-add.sh` and `corpus-coverage.sh`, that print only ids, producers, sources, tags and counts; after the corpus session's first report | READY |
-| P2 | Corpus session: LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | ACTIVE |
-| P3 | Corpus session: LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | ACTIVE |
-| P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | ACTIVE |
-| P5 | Maintainer: about 5 Google Sheets exports covering the tag list | PLANNED |
-| P6 | Maintainer: desktop Excel files for pivots, macros (.xlsm), threaded comments and slicers, plus any own workbooks | PLANNED |
+| P1 | Manifest format (in the spec) and two python3 scripts in the repo, `corpus-add.py` (the corpus session's helper, imported through a recorded step) and `corpus-coverage.py`, that print only ids, producers, sources, tags and counts, with logged negative cases | READY |
+| P2 | Corpus session: LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | DONE (verified 2026-09-15; image `localhost/emend-lo:25.2.3-2-deb13u6`) |
+| P3 | Corpus session: LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | DONE (17 files, verified 2026-09-15) |
+| P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | DONE (10 files, verified 2026-09-15) |
+| P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED |
+| P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED |
 | P7 | Coverage check: every tag covered, or gaps listed for a planning ruling on starting T3 anyway | PLANNED |
 
 ### T3: passthrough baseline (`specs/0006-passthrough.md`)
@@ -89,9 +89,9 @@ implementing session does P1 and P7.
 |-------|------|--------|
 | P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | DONE (d63ad31 to 33c0198; finding: the zip crate's raw copy is not byte-preserving) |
 | P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | DONE (8bbda4d to b1e7982; baseline 473636 and 539172 bytes, `records/size-baseline-2026-09-15-6a7533e.md`) |
-| Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | READY |
-| P3 | LibreOffice open check with the corpus session's image: definition pinned, implemented, negative test on a deliberately corrupted output | PLANNED |
-| P4 | First full recorded run over the corpus: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED |
+| Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | DONE (pushed 29b0bad; run 35032688348 success; record 24d4a16 local) |
+| P3 | LibreOffice open check with the corpus session's image: definition pinned, `lo` and `lo_in` columns, the LibreOffice record, negative tests on a corrupted output | READY |
+| P4 | First full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED (after P3) |
 
 ### T4: moved into Milestone 1
 

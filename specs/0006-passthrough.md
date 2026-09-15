@@ -326,22 +326,76 @@ recorded. Logs in `records/logs/t3-close/`: `push.log`, `ci-run.log`,
 `scan.log`. No independent check. Report and STOP. The record commit
 goes with the next push.
 
+Planning ruling (2026-09-15): the close-out push is verified and DONE.
+- GitHub `thekeoni1/emend` is PRIVATE, one branch `main` at 29b0bad, 142
+  commits, no tags, every author and committer the noreply address, the
+  Actions settings unchanged.
+- Doc commit 29b0bad holds exactly planning's two doc files (79
+  insertions, 10 deletions). Record commit 24d4a16 touches only
+  `records/logs/t3-close/`. Every message in 83c9852..29b0bad ends with
+  the Co-Authored-By trailer only.
+- `push.log` recorded the base before the push (83c9852, 32 commits),
+  the eight PASS lines, the hook equal to the installer's, and the
+  hook's scan of `83c9852..29b0bad`, 32 commits and 244 blobs, 0
+  findings. Run 35032688348 on 29b0bad concluded `success` on
+  `ubuntu-24.04`; planning filtered its log itself: seven PASS lines,
+  then the SKIP privacy line, `rustc 1.98.1`.
+- The three logs have zero hits on every scan. `scripts/privacy.sh` over
+  the 143 local commits: PASS.
+- The implementing session that built T0 to T3 P2 ends here; the
+  maintainer starts a fresh one.
+
 ### P3: LibreOffice open check
 
-Scoped when the corpus session has delivered its image (T2 P2). Outline:
-the runner gains `--libreoffice <image>` and, for every `ok` output,
-converts it headless to ODS in the container; "opens without repair"
-means exit 0, no load error on stderr, and the sheet count of the
-conversion equal to the input's `xl/workbook.xml` sheet count. The
-result is a `lo` column in the summary.
+Scoped 2026-09-15, after the corpus session delivered its image (T2 P2,
+verified by planning: image `localhost/emend-lo:25.2.3-2-deb13u6`, id
+`3f9baefc6e23...`, LibreOffice 25.2.3.2 from Debian package
+`4:25.2.3-2+deb13u6` on a base pinned by digest; the pins are in the
+corpus directory's `tools/libreoffice.md`, to be copied into
+`records/libreoffice-<date>.md` in this phase).
+
+- The runner gains `--libreoffice <image>`. For every `ok` output it
+  runs, with `podman run --rm --network=none --userns=keep-id`, the
+  output's directory mounted read-only as `/in` and a scratch directory
+  as `/out`, a headless conversion of the copy to ODS
+  (`soffice --headless --norestore --convert-to ods --outdir /out
+  /in/<file>`), under the same `timeout`.
+- "Opens without repair" is pinned as: the conversion exits 0 within
+  the timeout, its stderr holds no line containing `Error` or
+  `Warning`, the ODS file exists and is a zip whose `content.xml`
+  holds as many `<table:table ` elements as the input's
+  `xl/workbook.xml` holds `<sheet ` elements, and every one of those
+  elements is present. Chart sheets count as sheets.
+- The result is an `lo` column after `leftover` in the summary:
+  `ok`, `fail` (any condition above not met, with the reason kept in
+  the run subdirectory, never printed) or `-` (no image given or no
+  `ok` output). The record script reads it and lists `fail` files by
+  id.
+- The same check is run once on the input itself, recorded as
+  `lo_in`, so a file LibreOffice cannot open on either side is told
+  apart from one the copy broke.
+- `records/libreoffice-<date>.md`: the pins and versions copied from the
+  corpus directory's record, with the sha256 of that private file.
+- Tests: none in Rust (no crate changes). Negative cases in
+  `negative.log`, in the scratch corpus: the check passes on a
+  generated workbook; fails on a copy with one worksheet entry
+  truncated (a deliberately corrupted output); fails on a copy whose
+  `xl/workbook.xml` names a sheet that has no part; and `-` when no
+  image is given. The container's stderr never reaches the log; only
+  counts and `ok`/`fail` do.
+- Acceptance: gate all PASS; every negative case as stated; the
+  LibreOffice record committed.
 
 ### P4: the first recorded run
 
-After the corpus session's first report and P3: the runner over the
-whole corpus on both targets, the record committed as
-`records/step0-<utc-date>-<shortsha>.md` and `.tsv`, and planning's
-ruling on the findings. Raw outputs stay under the corpus directory's
-`runs/`.
+After P3: the runner over the whole corpus (27 files as of 2026-09-15,
+plus whatever the maintainer adds) on both targets with the LibreOffice
+check, the record committed as `records/step0-<utc-date>-<shortsha>.md`
+and `.tsv`, and planning's ruling on the findings. Raw outputs stay
+under the corpus directory's `runs/`. The expectation, after P1's
+finding table: every entry `identical` with the writer's flags
+catalogued; any `changed`, `dropped`, `added`, error, crash, or `lo`
+`fail` on an `lo_in` `ok` file is a finding about real archives.
 
 ## Out of scope
 
