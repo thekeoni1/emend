@@ -1,0 +1,374 @@
+about: P5b phase commit aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511; HEAD at run: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+phase: T0 P5b (specs/0001-bootstrap.md) negative.log; run at 2026-09-15T01:56:59Z
+Every case runs in a fresh clone at <scratch>/emend, outside the repo.
+DRYRUN_CHECK_SH is not set: each clone runs the check.sh committed at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511.
+ANTHROPIC_API_KEY set in this shell: no
+
+## script
+    #!/usr/bin/env bash
+    # T0 P5b negative tests for the hardened step 7 of scripts/check.sh: cases (a)
+    # to (g) from the spec, plus (h) and (i) beyond it. Every case runs in a fresh
+    # clone outside the repo. Usage: p5b-negative.sh <phase commit> > <scratch file>;
+    # the caller moves the output to records/logs/t0-p5b/negative.log.
+    # Paths print as <scratch>. DRYRUN_CHECK_SH, if set, copies that check.sh into
+    # each clone (dry runs only).
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    REPO=$(pwd)
+    G=/usr/bin/grep
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    BASE=$(mktemp -d)
+    CLONE=$BASE/emend
+    trap 'rm -rf "$BASE"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    fail=0
+    
+    hide() { sed -e "s|$CLONE|<scratch>/emend|g" -e "s|$BASE|<scratch>|g"; }
+    f_ctrl()     { LC_ALL=C "$G" -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' < "$1" | wc -c; }
+    
+    echo "about: P5b phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P5b (specs/0001-bootstrap.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Every case runs in a fresh clone at <scratch>/emend, outside the repo."
+    if [ -n "${DRYRUN_CHECK_SH:-}" ]; then
+      echo "DRY RUN: DRYRUN_CHECK_SH is set, so each clone gets an uncommitted check.sh (sha256 $(sha256sum "$DRYRUN_CHECK_SH" | cut -d' ' -f1)). Not a phase log."
+    else
+      echo "DRYRUN_CHECK_SH is not set: each clone runs the check.sh committed at $C."
+    fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    expect() { # expect <output> <present|absent> <ERE> <label>
+      local n rc want
+      n=$(LC_ALL=C "$G" -c -E -e "$3" "$1"); rc=$?
+      if [ "$rc" -ge 2 ]; then echo "  $4: grep error (exit $rc)"; fail=1; return; fi
+      if [ "$2" = present ]; then want=0; else want=1; fi
+      echo "  $4: expect $2; count=${n:-0} grep exit=$rc -> $([ "$rc" -eq "$want" ] && echo as-expected || echo UNEXPECTED)"
+      [ "$rc" -eq "$want" ] || fail=1
+    }
+    fresh_clone() {
+      rm -rf "$CLONE"
+      git clone -q "$REPO" "$CLONE" && git -C "$CLONE" checkout -q "$C" || { echo "clone failed"; fail=1; return 1; }
+      if [ -n "${DRYRUN_CHECK_SH:-}" ]; then cp "$DRYRUN_CHECK_SH" "$CLONE/scripts/check.sh"; fi
+      echo "clone at $C: $(git -C "$CLONE" rev-parse HEAD)"
+    }
+    staged() { git -C "$CLONE" -c core.quotepath=true diff --cached --name-status | sed 's/^/    | /'; }
+    gate() { # gate <name> [VAR=value]
+      local name=$1 rc
+      shift
+      if [ "$#" -gt 0 ]; then
+        echo "command: env $* scripts/check.sh (in the clone; the variable is set for this one command only)"
+        (cd "$CLONE" && env "$@" scripts/check.sh) > "$BASE/$name.out" 2>&1
+      else
+        echo "command: scripts/check.sh (in the clone)"
+        (cd "$CLONE" && scripts/check.sh) > "$BASE/$name.out" 2>&1
+      fi
+      rc=$?
+      hide < "$BASE/$name.out" | sed 's/^/    /'
+      echo "  exit: $rc"
+      echo "  captured output: control lines=$(f_ctrl "$BASE/$name.out") control bytes=$(ctrl_bytes "$BASE/$name.out") non-ASCII bytes=$(nonascii_bytes "$BASE/$name.out") (expect 0, 0 and 0)"
+      [ "$(ctrl_bytes "$BASE/$name.out")" -eq 0 ] || fail=1
+      [ "$(nonascii_bytes "$BASE/$name.out")" -eq 0 ] || fail=1
+      return "$rc"
+    }
+    nonzero() { echo "  exit non-zero: $([ "$1" -ne 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$1" -ne 0 ] || fail=1; }
+    zero()    { echo "  exit zero: $([ "$1" -eq 0 ] && echo as-expected || echo UNEXPECTED)"; [ "$1" -eq 0 ] || fail=1; }
+    
+    echo
+    echo "## case a: stage a file holding U+2014, then delete it from the working tree; expect FAIL hygiene"
+    fresh_clone
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt && rm "$CLONE/notes.txt"
+    echo "staged notes.txt (bytes E2 80 94, written with printf escapes), then removed it from the working tree:"; staged
+    echo "  notes.txt present in the working tree: $([ -e "$CLONE/notes.txt" ] && echo yes || echo no)"
+    gate a; rc=$?; nonzero "$rc"
+    expect "$BASE/a.out" present '^FAIL hygiene: U[+]2014 in tracked file[(]s[)]: notes[.]txt$' "FAIL hygiene naming notes.txt"
+    expect "$BASE/a.out" absent '^PASS hygiene$' "PASS hygiene"
+    
+    echo
+    echo "## case b: an office file under a directory whose name holds a newline, before tests/fixtures/; expect FAIL hygiene"
+    fresh_clone
+    d="$CLONE/$(printf 'evil\ntests')/fixtures"
+    mkdir -p "$d" && printf 'stand-in\n' > "$d/x.xlsx"
+    git -C "$CLONE" add -f "$(printf 'evil\ntests')/fixtures/x.xlsx"
+    echo "staged (quoted by git):"; staged
+    gate b; rc=$?; nonzero "$rc"
+    expect "$BASE/b.out" present '^FAIL hygiene: 1 tracked path[(]s[)] contain control bytes [(]paths not printed[)]$' "FAIL hygiene counting one path with control bytes"
+    expect "$BASE/b.out" absent '^PASS hygiene$' "PASS hygiene"
+    
+    echo
+    echo "## case c: a tracked symlink to a file outside the repository that holds U+2014; expect PASS hygiene"
+    fresh_clone
+    printf 'outside dash %s\n' "$EMDASH" > "$BASE/outside.txt"
+    ln -s "$BASE/outside.txt" "$CLONE/link-outside"
+    git -C "$CLONE" add link-outside
+    echo "staged link-outside, a symlink to <scratch>/outside.txt (the target file holds the dash; the target string does not):"; staged
+    gate c; rc=$?; zero "$rc"
+    expect "$BASE/c.out" present '^PASS hygiene$' "PASS hygiene"
+    expect "$BASE/c.out" absent '^FAIL ' "any FAIL line"
+    
+    echo
+    echo "## case d: tracked Emend-Testing/x.txt; expect FAIL hygiene"
+    fresh_clone
+    mkdir -p "$CLONE/Emend-Testing" && printf 'fictional\n' > "$CLONE/Emend-Testing/x.txt"
+    git -C "$CLONE" add Emend-Testing/x.txt
+    echo "staged:"; staged
+    gate d; rc=$?; nonzero "$rc"
+    expect "$BASE/d.out" present '^FAIL hygiene: tracked path[(]s[)] containing emend-testing: Emend-Testing/x[.]txt$' "FAIL hygiene naming Emend-Testing/x.txt"
+    
+    echo
+    echo "## case e: ANTHROPIC_API_KEY=dummy for one command only; expect the hygiene FAIL line first and no PASS host"
+    fresh_clone
+    gate e ANTHROPIC_API_KEY=dummy; rc=$?; nonzero "$rc"
+    first=$(head -n 1 "$BASE/e.out")
+    echo "  first output line is the hygiene FAIL line: $([ "$first" = "FAIL hygiene: ANTHROPIC_API_KEY is set in the environment" ] && echo as-expected || echo UNEXPECTED)"
+    [ "$first" = "FAIL hygiene: ANTHROPIC_API_KEY is set in the environment" ] || fail=1
+    expect "$BASE/e.out" absent '^PASS host$' "PASS host"
+    expect "$BASE/e.out" absent 'dummy' "the value in the output"
+    echo "  output lines: $(wc -l < "$BASE/e.out") (expect 1)"; [ "$(wc -l < "$BASE/e.out")" -eq 1 ] || fail=1
+    echo "  ANTHROPIC_API_KEY set in this shell after case e: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    
+    echo
+    echo "## case f: an office file with a non-ASCII byte in its name; expect FAIL hygiene with the path quoted"
+    fresh_clone
+    printf 'stand-in\n' > "$CLONE/$(printf 'caf\303\251').xlsx"
+    git -C "$CLONE" add -f "$(printf 'caf\303\251').xlsx"
+    echo "staged (quoted by git):"; staged
+    gate f; rc=$?; nonzero "$rc"
+    expect "$BASE/f.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: "caf\\303\\251[.]xlsx"$' "FAIL hygiene naming the quoted path"
+    
+    echo
+    echo "## case g: P5 negatives (a) and (b) again"
+    echo "### g1: a staged file holding U+2014, still in the working tree"
+    fresh_clone
+    printf 'dash %s here\n' "$EMDASH" > "$CLONE/notes.txt"
+    git -C "$CLONE" add notes.txt
+    gate g1; rc=$?; nonzero "$rc"
+    expect "$BASE/g1.out" present '^FAIL hygiene: U[+]2014 in tracked file[(]s[)]: notes[.]txt$' "FAIL hygiene naming notes.txt"
+    echo "### g2: force-added x.xlsx at the root"
+    fresh_clone
+    printf 'not a workbook\n' > "$CLONE/x.xlsx"
+    git -C "$CLONE" add -f x.xlsx
+    gate g2; rc=$?; nonzero "$rc"
+    expect "$BASE/g2.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: x[.]xlsx$' "FAIL hygiene naming x.xlsx"
+    echo "### g3: force-added Y.XLSM at the root"
+    fresh_clone
+    printf 'not a workbook\n' > "$CLONE/Y.XLSM"
+    git -C "$CLONE" add -f Y.XLSM
+    gate g3; rc=$?; nonzero "$rc"
+    expect "$BASE/g3.out" present '^FAIL hygiene: office file[(]s[)] tracked outside tests/fixtures/: Y[.]XLSM$' "FAIL hygiene naming Y.XLSM"
+    
+    echo
+    echo "## case h (beyond the spec): a dangling symlink whose target string holds U+2014; expect FAIL hygiene"
+    fresh_clone
+    ln -s "dangling-$EMDASH-target" "$CLONE/link-dangling"
+    git -C "$CLONE" add link-dangling
+    echo "staged link-dangling:"; staged
+    gate h; rc=$?; nonzero "$rc"
+    expect "$BASE/h.out" present '^FAIL hygiene: U[+]2014 in tracked file[(]s[)]: link-dangling$' "FAIL hygiene naming link-dangling"
+    
+    echo
+    echo "## case i (beyond the spec): a file git treats as binary (a NUL byte) before U+2014; expect PASS hygiene"
+    fresh_clone
+    printf 'x\000y dash %s here\n' "$EMDASH" > "$CLONE/blob.bin"
+    git -C "$CLONE" add blob.bin
+    echo "staged:"; staged
+    gate i; rc=$?; zero "$rc"
+    expect "$BASE/i.out" present '^PASS hygiene$' "PASS hygiene"
+    
+    echo
+    rm -rf "$CLONE"
+    echo "scratch clone removed: $([ -e "$CLONE" ] && echo no || echo yes)"
+    echo "main working tree status (expect empty): $(git status --porcelain | tr '\n' ' ')"
+    [ -z "$(git status --porcelain)" ] || fail=1
+    echo "all negative cases as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## case a: stage a file holding U+2014, then delete it from the working tree; expect FAIL hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged notes.txt (bytes E2 80 94, written with printf escapes), then removed it from the working tree:
+    | A	notes.txt
+  notes.txt present in the working tree: no
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: U+2014 in tracked file(s): notes.txt
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming notes.txt: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect absent; count=0 grep exit=1 -> as-expected
+
+## case b: an office file under a directory whose name holds a newline, before tests/fixtures/; expect FAIL hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged (quoted by git):
+    | A	"evil\ntests/fixtures/x.xlsx"
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: 1 tracked path(s) contain control bytes (paths not printed)
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene counting one path with control bytes: expect present; count=1 grep exit=0 -> as-expected
+  PASS hygiene: expect absent; count=0 grep exit=1 -> as-expected
+
+## case c: a tracked symlink to a file outside the repository that holds U+2014; expect PASS hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged link-outside, a symlink to <scratch>/outside.txt (the target file holds the dash; the target string does not):
+    | A	link-outside
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit zero: as-expected
+  PASS hygiene: expect present; count=1 grep exit=0 -> as-expected
+  any FAIL line: expect absent; count=0 grep exit=1 -> as-expected
+
+## case d: tracked Emend-Testing/x.txt; expect FAIL hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged:
+    | A	Emend-Testing/x.txt
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: tracked path(s) containing emend-testing: Emend-Testing/x.txt
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming Emend-Testing/x.txt: expect present; count=1 grep exit=0 -> as-expected
+
+## case e: ANTHROPIC_API_KEY=dummy for one command only; expect the hygiene FAIL line first and no PASS host
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: env ANTHROPIC_API_KEY=dummy scripts/check.sh (in the clone; the variable is set for this one command only)
+    FAIL hygiene: ANTHROPIC_API_KEY is set in the environment
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  first output line is the hygiene FAIL line: as-expected
+  PASS host: expect absent; count=0 grep exit=1 -> as-expected
+  the value in the output: expect absent; count=0 grep exit=1 -> as-expected
+  output lines: 1 (expect 1)
+  ANTHROPIC_API_KEY set in this shell after case e: no
+
+## case f: an office file with a non-ASCII byte in its name; expect FAIL hygiene with the path quoted
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged (quoted by git):
+    | A	"caf\303\251.xlsx"
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: "caf\303\251.xlsx"
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming the quoted path: expect present; count=1 grep exit=0 -> as-expected
+
+## case g: P5 negatives (a) and (b) again
+### g1: a staged file holding U+2014, still in the working tree
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: U+2014 in tracked file(s): notes.txt
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming notes.txt: expect present; count=1 grep exit=0 -> as-expected
+### g2: force-added x.xlsx at the root
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: x.xlsx
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming x.xlsx: expect present; count=1 grep exit=0 -> as-expected
+### g3: force-added Y.XLSM at the root
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: office file(s) tracked outside tests/fixtures/: Y.XLSM
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming Y.XLSM: expect present; count=1 grep exit=0 -> as-expected
+
+## case h (beyond the spec): a dangling symlink whose target string holds U+2014; expect FAIL hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged link-dangling:
+    | A	link-dangling
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    FAIL hygiene: U+2014 in tracked file(s): link-dangling
+  exit: 1
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit non-zero: as-expected
+  FAIL hygiene naming link-dangling: expect present; count=1 grep exit=0 -> as-expected
+
+## case i (beyond the spec): a file git treats as binary (a NUL byte) before U+2014; expect PASS hygiene
+clone at aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511: aca5d3a20b9e1eb92eaf12b08ee1a98e1d4a8511
+staged:
+    | A	blob.bin
+command: scripts/check.sh (in the clone)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+  exit: 0
+  captured output: control lines=0 control bytes=0 non-ASCII bytes=0 (expect 0, 0 and 0)
+  exit zero: as-expected
+  PASS hygiene: expect present; count=1 grep exit=0 -> as-expected
+
+scratch clone removed: yes
+main working tree status (expect empty): 
+all negative cases as expected: yes
