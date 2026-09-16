@@ -1,6 +1,8 @@
-about: phase diff 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+about: phase diff 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) scan.log; run at 2026-09-16T13:24:34Z
+command: git rev-parse 0c3c6a34107e94314fcff32cd9d994386bda3cc1     (this run asserts HEAD equals it; the script exits 2 otherwise)
+phase: T2 P7 (specs/0005-corpus.md) scan.log; run at 2026-09-16T13:37:48Z
+rerun: this log replaces the scan.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. The script now asserts HEAD equals the commit it was given, which it previously took as a typed argument and never checked, and the shared library it prints was corrected. The other three logs were rerun for the same reason and are scanned here in their final state.
 temporary files live in <scratch> and are deleted on exit
 
 ## script that wrote this log
@@ -105,8 +107,13 @@ temporary files live in <scratch> and are deleted on exit
     yn() { if "$@"; then echo yes; else echo no; fi; }
     rep() { printf "$1%.0s" $(seq 1 "$2"); }
     
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$C")" ]; then
+      echo "HEAD is not $C" >&2
+      exit 2
+    fi
     echo "about: phase diff $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
     echo "command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)"
+    echo "command: git rev-parse $C     (this run asserts HEAD equals it; the script exits 2 otherwise)"
     echo "phase: T2 P7 (specs/0005-corpus.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "temporary files live in <scratch> and are deleted on exit"
@@ -265,8 +272,17 @@ temporary files live in <scratch> and are deleted on exit
     # checks found them, and twice I declared the class closed after repairing one
     # instance. Planning's remedy for T2 P7 is that every counting form, including
     # a throwaway one, is a named function that reads the exit and has a positive
-    # control, from the start. These are those functions; no log script in this
-    # phase counts any other way.
+    # control, from the start. These are those functions.
+    #
+    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
+    # version of this comment claimed no log script counted any other way, and
+    # independent check 1 showed that was false. Every counting site that feeds an
+    # ASSERTION goes through these functions. Some informational lines do not, and
+    # they are these: the manifest row count and corpus file count printed by
+    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
+    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
+    # fails closed because files_complete requires a count above zero. None of
+    # those figures is asserted against.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -385,7 +401,7 @@ grep: /usr/bin/grep, grep (GNU grep) 3.12
 EMEND_PRIVATE_DENYLIST set: no (unset by this script)
 private denylist: present, mode 600
 denylist entries: 7 (never printed)
-this script's patterns equal scripts/privacy-patterns.txt at 8f5553c9f8934601694ef0ebe29db6564d14a009: yes
+this script's patterns equal scripts/privacy-patterns.txt at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: yes
 
 ## controls (the same command forms as the scans)
   control f_nonascii on a file with a two-byte character count=2 expected=2: as-expected
@@ -414,7 +430,9 @@ this script's patterns equal scripts/privacy-patterns.txt at 8f5553c9f8934601694
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..8f5553c9f8934601694ef0ebe29db6564d14a009
+command: git rev-list --parents 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1
+0c3c6a34107e94314fcff32cd9d994386bda3cc1 ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db
+ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db 8f5553c9f8934601694ef0ebe29db6564d14a009
 8f5553c9f8934601694ef0ebe29db6564d14a009 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
 command: git show --name-status --format='%H parents=%P %s' 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
@@ -426,13 +444,64 @@ command: git show --name-status --format='%H parents=%P %s' 8f5553c9f8934601694e
     8f5553c9f8934601694ef0ebe29db6564d14a009 parents=58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 T2 P7 record: corpus coverage over the real corpus, 27 workbooks
     
     A	records/corpus-coverage-2026-09-16.md
+command: git show --name-status --format='%H parents=%P %s' ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db
+    ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db parents=8f5553c9f8934601694ef0ebe29db6564d14a009 T2 P7 record: the gate, positive, negative and scan logs at 8f5553c
+    
+    A	records/logs/t2-p7/gate.log
+    A	records/logs/t2-p7/negative.log
+    A	records/logs/t2-p7/positive.log
+    A	records/logs/t2-p7/scan.log
+command: git show --name-status --format='%H parents=%P %s' 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+    0c3c6a34107e94314fcff32cd9d994386bda3cc1 parents=ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db T2 P7: the usage failure exits 2 with no FAIL line, so say so
+    
+    M	scripts/corpus-coverage.py
 
-## files changed in the phase diff (contents at 8f5553c9f8934601694ef0ebe29db6564d14a009)
-command: git diff --name-status 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 8f5553c9f8934601694ef0ebe29db6564d14a009
+## files changed in the phase diff (contents at 0c3c6a34107e94314fcff32cd9d994386bda3cc1)
+command: git diff --name-status 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 0c3c6a34107e94314fcff32cd9d994386bda3cc1
     A	records/corpus-coverage-2026-09-16.md
+    A	records/logs/t2-p7/gate.log
+    A	records/logs/t2-p7/negative.log
+    A	records/logs/t2-p7/positive.log
+    A	records/logs/t2-p7/scan.log
     M	scripts/corpus-add.py
     M	scripts/corpus-coverage.py
 file records/corpus-coverage-2026-09-16.md (sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/gate.log (sha256 69e2f0e005454897baeb55d11ade14cbde4568240c1f292671a5ebcb027065a1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/negative.log (sha256 70a21e1a92dae1891b373ddacac420f7269782783be8b61d873381c0e0c9cc14)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/positive.log (sha256 6494dd08da0df46648635b7b10dabc0ec6e4360dd3cb1812525af6bfe3183733)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/scan.log (sha256 d8b42079690508286d96231b1569d3b69c111de226c03873e61b65010667c44a)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -450,7 +519,7 @@ file scripts/corpus-add.py (sha256 d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file scripts/corpus-coverage.py (sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70)
+file scripts/corpus-coverage.py (sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -459,9 +528,29 @@ file scripts/corpus-coverage.py (sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-files in diff: 3; scanned: 3; read: 3: yes
+files in diff: 7; scanned: 7; read: 7: yes
 
 ## commit messages in the phase range
+message 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
 message 8f5553c9f8934601694ef0ebe29db6564d14a009
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0
@@ -482,10 +571,10 @@ message 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-messages scanned: 2; commits in range: 2: yes
+messages scanned: 4; commits in range: 4: yes
 
 ## the other T2 P7 logs in the working tree (a log cannot scan itself)
-log records/logs/t2-p7/gate.log (sha256 69e2f0e005454897baeb55d11ade14cbde4568240c1f292671a5ebcb027065a1)
+log records/logs/t2-p7/gate.log (sha256 366e4f9b66c45e5d3e0cc61eb8c6871d1eb50e01674e3f0810729cf9ed92265b)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -494,7 +583,7 @@ log records/logs/t2-p7/gate.log (sha256 69e2f0e005454897baeb55d11ade14cbde456824
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t2-p7/positive.log (sha256 6494dd08da0df46648635b7b10dabc0ec6e4360dd3cb1812525af6bfe3183733)
+log records/logs/t2-p7/positive.log (sha256 d8f98ec22a6299a3da8d0df07e3464855b146acf2a5054b988284986bd135e56)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -503,7 +592,7 @@ log records/logs/t2-p7/positive.log (sha256 6494dd08da0df46648635b7b10dabc0ec6e4
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t2-p7/negative.log (sha256 70a21e1a92dae1891b373ddacac420f7269782783be8b61d873381c0e0c9cc14)
+log records/logs/t2-p7/negative.log (sha256 f9f028b6425962e8aad33df27087409e7333be3f5546848ec71fb7fe05c8a13a)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -522,6 +611,10 @@ pre-P6d forms are run here for that, with the control above.
   pre-P6d forms in records/logs/t2-p7/positive.log: count=0
   pre-P6d forms in records/logs/t2-p7/negative.log: count=0
   pre-P6d forms in records/corpus-coverage-2026-09-16.md: count=0
+  pre-P6d forms in records/logs/t2-p7/gate.log: count=0
+  pre-P6d forms in records/logs/t2-p7/negative.log: count=0
+  pre-P6d forms in records/logs/t2-p7/positive.log: count=0
+  pre-P6d forms in records/logs/t2-p7/scan.log: count=0
   pre-P6d forms in scripts/corpus-add.py: count=0
   pre-P6d forms in scripts/corpus-coverage.py: count=0
 bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
@@ -529,5 +622,5 @@ bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 total hits: 0
 read or counting errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T13:24:35Z
+run ended at 2026-09-16T13:37:49Z
 RESULT: PASS

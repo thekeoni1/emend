@@ -1,6 +1,7 @@
-about: T2 P7 phase commit 8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+about: T2 P7 phase commit 0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) positive.log; run at 2026-09-16T13:24:03Z
+phase: T2 P7 (specs/0005-corpus.md) positive.log; run at 2026-09-16T13:37:17Z
+rerun: this log replaces the positive.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. Two repairs: each of the four privacy counts now has its OWN hit control, where an earlier version controlled only the stem count while the report claimed the control covered all four, so three of the four zeros rested on a form never shown able to match; and the corpus file count no longer goes through ls piped to wc, so it cannot report a number when the directory could not be listed.
 This log reads the real corpus. The corpus directory is written as
 <corpus> everywhere; no original name, note, producer version or
 application string is printed, and no stem is ever echoed, only counted.
@@ -88,7 +89,9 @@ application string is printed, and no stem is ever echoed, only counted.
     echo "## the corpus as it stands"
     echo "corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else \$HOME/emend-testing)"
     echo "manifest rows (excluding the header): $(awk -F'\t' 'NR > 1 && NF == 12' "$MANIFEST" | wc -l)"
-    echo "corpus files present: $(ls -1 "$CORPUS/corpus" | wc -l)"
+    ls -1 "$CORPUS/corpus" >"$T/corpus-listing" 2>/dev/null ||
+      printf 'the corpus directory could not be listed\n' >"$T/corpus-listing"
+    echo "corpus files present: $(count_lines "$T/corpus-listing")"
     echo "$SCRIPT at $C: sha256 $(git show "$C:$SCRIPT" | sha), bytes $(git show "$C:$SCRIPT" | wc -c)"
     echo "$SCRIPT on disk: sha256 $(sha <"$SCRIPT")"
     check "the script on disk is the script at the phase commit" \
@@ -142,12 +145,19 @@ application string is printed, and no stem is ever echoed, only counted.
       echo "  $label in the record: $n (expect 0)"
       check "the record holds no $label" "$(yn [ "$n" = 0 ])"
     done
-    # The same forms must be able to report a hit, or the zeros above prove nothing.
-    cp "$RECORD" "$T/salted"
-    head -n 1 "$T/stems" >>"$T/salted"
-    n=$(count_from_file -F "$T/stems" "$T/salted")
-    echo "  control: the same form over a copy of the record with one stem appended: $n (expect 1)"
-    check "the stem check can report a hit" "$(yn [ "$n" = 1 ])"
+    # Each of the four counts gets its OWN hit control, because a zero from a form
+    # never shown able to match proves nothing. An earlier version controlled only
+    # the stem count and claimed the control covered all four; independent check 1
+    # found that three of the four zeros rested on an unproven form.
+    for pair in "original_name stems:$T/stems" "notes:$T/notes" "producer_version values:$T/versions" "app strings:$T/apps"; do
+      label=${pair%%:*}; file=${pair#*:}
+      [ "$(count_lines "$file")" = 0 ] && continue
+      cp "$RECORD" "$T/salted"
+      head -n 1 "$file" >>"$T/salted"
+      n=$(count_from_file -F "$file" "$T/salted")
+      echo "  control: the $label form over a copy of the record with one value appended: $n (expect 1)"
+      check "the $label check can report a hit" "$(yn [ "$n" = 1 ])"
+    done
     n=$(count_matches -E 'emend-testing|/home/|/Users/|/root/' "$RECORD")
     echo "  corpus or home paths in the record: $n (expect 0)"
     check "the record names no corpus or home path" "$(yn [ "$n" = 0 ])"
@@ -215,8 +225,17 @@ application string is printed, and no stem is ever echoed, only counted.
     # checks found them, and twice I declared the class closed after repairing one
     # instance. Planning's remedy for T2 P7 is that every counting form, including
     # a throwaway one, is a named function that reads the exit and has a positive
-    # control, from the start. These are those functions; no log script in this
-    # phase counts any other way.
+    # control, from the start. These are those functions.
+    #
+    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
+    # version of this comment claimed no log script counted any other way, and
+    # independent check 1 showed that was false. Every counting site that feeds an
+    # ASSERTION goes through these functions. Some informational lines do not, and
+    # they are these: the manifest row count and corpus file count printed by
+    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
+    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
+    # fails closed because files_complete requires a count above zero. None of
+    # those figures is asserted against.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -334,8 +353,8 @@ every counting form behaves on a match, a miss and an unreadable file: yes
 corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else $HOME/emend-testing)
 manifest rows (excluding the header): 27
 corpus files present: 27
-scripts/corpus-coverage.py at 8f5553c9f8934601694ef0ebe29db6564d14a009: sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70, bytes 6329
-scripts/corpus-coverage.py on disk: sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70
+scripts/corpus-coverage.py at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21, bytes 6416
+scripts/corpus-coverage.py on disk: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21
 the script on disk is the script at the phase commit: yes
 
 ## the run
@@ -403,7 +422,7 @@ stdout, in full (53 lines):
   manifest parses)
 
 ## the committed record, and that its body is this run's stdout
-records/corpus-coverage-2026-09-16.md as committed at 8f5553c9f8934601694ef0ebe29db6564d14a009: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+records/corpus-coverage-2026-09-16.md as committed at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
 records/corpus-coverage-2026-09-16.md on disk: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
 the record on disk is the record at the phase commit: yes
 the record's fenced body is byte for byte this run's stdout: yes
@@ -439,8 +458,14 @@ the record holds no notes: yes
 the record holds no producer_version values: yes
   app strings in the record: 0 (expect 0)
 the record holds no app strings: yes
-  control: the same form over a copy of the record with one stem appended: 1 (expect 1)
-the stem check can report a hit: yes
+  control: the original_name stems form over a copy of the record with one value appended: 1 (expect 1)
+the original_name stems check can report a hit: yes
+  control: the notes form over a copy of the record with one value appended: 1 (expect 1)
+the notes check can report a hit: yes
+  control: the producer_version values form over a copy of the record with one value appended: 1 (expect 1)
+the producer_version values check can report a hit: yes
+  control: the app strings form over a copy of the record with one value appended: 1 (expect 1)
+the app strings check can report a hit: yes
   corpus or home paths in the record: 0 (expect 0)
 the record names no corpus or home path: yes
   control: the same form over a file holding the corpus path: 1 (expect 1)
@@ -471,5 +496,5 @@ no control or non-ASCII byte in the captured output: yes
 the run's stdout names no corpus path: yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T13:24:04Z
+run ended at 2026-09-16T13:37:18Z
 positive log checks all as expected: yes

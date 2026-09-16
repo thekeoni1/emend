@@ -1,6 +1,7 @@
-about: T2 P7 phase commit 8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+about: T2 P7 phase commit 0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) negative.log; run at 2026-09-16T13:23:05Z
+phase: T2 P7 (specs/0005-corpus.md) negative.log; run at 2026-09-16T13:37:25Z
+rerun: this log replaces the negative.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. Two repairs: state() counted through ls piped to grep -c with 2>/dev/null and || true, returning the identical string files=0 rows=0 temporaries=0 for an empty corpus AND for one that could not be read, so N4 and N5 would have passed vacuously on an unreadable corpus; it now reports the word error instead, through the shared library. And N3's attempt 2 is now RUN rather than asserted: an earlier version of this log stated its exit status and exception without executing it, which breaks this phase's own rule that nothing is called measured unless the log prints the measurement.
 Every corpus below is built under <scratch> and deleted on exit;
 EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
 
@@ -55,12 +56,37 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     }
     # state <corpus>: files, rows and temporaries, as one string, so a case asserts
     # all three together and none is dropped.
+    # Every count here reports the word "error" rather than a number when it cannot
+    # read, so a case can never pass because the corpus was unreadable. The first
+    # version of this function counted through `ls ... 2>/dev/null | grep -c ...
+    # || true`, which returned the identical string "files=0 rows=0 temporaries=0"
+    # for an empty corpus AND for one that could not be read at all: N4 and N5
+    # assert exactly that string, so both would have passed vacuously. Independent
+    # check 1 of this phase found it, in the script whose own header claimed no log
+    # counted any other way.
     state() {
-      local files rows temps
-      files=$(ls -1A "$1/corpus" 2>/dev/null | LC_ALL=C "$G" -a -c -v -e 'corpus-add[.]tmp$' || true)
-      temps=$(ls -1A "$1/corpus" 2>/dev/null | LC_ALL=C "$G" -a -c -e 'corpus-add[.]tmp$' || true)
-      if [ -f "$1/manifest.tsv" ]; then rows=$(awk -F'\t' 'NR > 1 && NF == 12' "$1/manifest.tsv" | wc -l); else rows=0; fi
-      printf 'files=%s rows=%s temporaries=%s' "${files:-0}" "${rows:-0}" "${temps:-0}"
+      local dir=$1 listing files rows temps
+      listing=$(mktemp) || { printf 'files=error rows=error temporaries=error'; return; }
+      if ! ls -1A "$dir/corpus" >"$listing" 2>/dev/null; then
+        rm -f "$listing"
+        printf 'files=error rows=error temporaries=error'
+        return
+      fi
+      temps=$(count_matches -E 'corpus-add[.]tmp$' "$listing")
+      files=$(count_lines "$listing")
+      if [ "$files" != error ] && [ "$temps" != error ]; then
+        files=$((files - temps))
+      else
+        files=error
+      fi
+      if [ -f "$dir/manifest.tsv" ]; then
+        rows=$(awk -F'\t' 'NR > 1 && NF == 12' "$dir/manifest.tsv" 2>/dev/null | wc -l)
+        [ -r "$dir/manifest.tsv" ] || rows=error
+      else
+        rows=0
+      fi
+      rm -f "$listing"
+      printf 'files=%s rows=%s temporaries=%s' "$files" "$rows" "$temps"
     }
     # refused_with <exit> <stdout file> <stderr file> <message>: exit 1, nothing on
     # stdout, and exactly that refusal on stderr.
@@ -162,9 +188,11 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     echo "      exercised the guard and not the rename. Its output looked like a"
     echo "      pass (exit 1, state unchanged, no temporary) while testing nothing"
     echo "      of the branch."
-    echo "    attempt 2: make corpus/ read-only so os.replace fails. The staging"
-    echo "      copy into the same directory fails first, with exit 2 and"
-    echo "      PermissionError, before any append."
+    echo "    attempt 2: make corpus/ read-only so os.replace fails. It is run"
+    echo "      below rather than asserted: an earlier version of this log stated"
+    echo "      its outcome without running it, which independent check 1 found and"
+    echo "      which breaks this phase's own rule that nothing is called measured"
+    echo "      unless the log prints the measurement."
     echo "  Recorded as unproven, not as passing."
     W3=$BASE/n3; mkcorpus "$W3"; mkbook "$BASE/n3a.xlsx"
     EMEND_CORPUS_DIR=$W3 ./"$ADD" "$BASE/n3a.xlsx" libreoffice 7.0 libreoffice-export plain >/dev/null 2>&1
@@ -177,6 +205,20 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     echo "  attempt 1 rerun here: exit $RC, stderr: $(hide <"$BASE/n3.err")"
     note "N3 attempt 1 is refused by the duplicate guard, not by the rename" "$(is refused_with "$RC" "$BASE/n3.out" "$BASE/n3.err" 'refused: duplicate id')"
     note "N3 attempt 1 changed nothing, so it tested the guard only" "$(is [ "$(state "$W3")" = "$BEFORE3" ])"
+    rmdir "$W3/corpus/$FID.xlsx" 2>/dev/null || rm -rf "$W3/corpus/$FID.xlsx"
+    # Attempt 2, run rather than asserted.
+    BEFORE3B=$(state "$W3")
+    chmod 500 "$W3/corpus"
+    EMEND_CORPUS_DIR=$W3 ./"$ADD" "$BASE/n3b.xlsx" libreoffice 7.0 libreoffice-export plain >"$BASE/n3b.out" 2>"$BASE/n3b.err"
+    RC=$?
+    chmod 700 "$W3/corpus"
+    echo "  attempt 2 run here, corpus/ mode 500: exit $RC, stderr: $(hide <"$BASE/n3b.err")"
+    echo "  state before: $BEFORE3B; after: $(state "$W3")"
+    note "N3 attempt 2 fails with exit 2 before any append, so it tested the staging copy" \
+      "$(is failed_with "$RC" "$BASE/n3b.err" 'error: PermissionError')"
+    note "N3 attempt 2 changed nothing" "$(is [ "$(state "$W3")" = "$BEFORE3B" ])"
+    echo "  Both attempts stop before os.replace. The rename-failure branch is"
+    echo "  therefore PRESENT AND UNEXERCISED, and is recorded as unproven."
     
     echo
     echo "## N4: a producer_version that is not valid UTF-8"
@@ -286,8 +328,17 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     # checks found them, and twice I declared the class closed after repairing one
     # instance. Planning's remedy for T2 P7 is that every counting form, including
     # a throwaway one, is a named function that reads the exit and has a positive
-    # control, from the start. These are those functions; no log script in this
-    # phase counts any other way.
+    # control, from the start. These are those functions.
+    #
+    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
+    # version of this comment claimed no log script counted any other way, and
+    # independent check 1 showed that was false. Every counting site that feeds an
+    # ASSERTION goes through these functions. Some informational lines do not, and
+    # they are these: the manifest row count and corpus file count printed by
+    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
+    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
+    # fails closed because files_complete requires a count above zero. None of
+    # those figures is asserted against.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -402,7 +453,7 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
   every counting form behaves on a match, a miss and an unreadable file: as-expected
 
 ## N1: the staged order, the happy path
-  exit: 0; stdout: added e00725adcf55 xlsx 907 libreoffice plain,strings
+  exit: 0; stdout: added fa1f7b2e708e xlsx 907 libreoffice plain,strings
   state: files=1 rows=1 temporaries=0
   N1 the add succeeds: as-expected
   N1 one file, one row, no temporary: as-expected
@@ -430,13 +481,21 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
       exercised the guard and not the rename. Its output looked like a
       pass (exit 1, state unchanged, no temporary) while testing nothing
       of the branch.
-    attempt 2: make corpus/ read-only so os.replace fails. The staging
-      copy into the same directory fails first, with exit 2 and
-      PermissionError, before any append.
+    attempt 2: make corpus/ read-only so os.replace fails. It is run
+      below rather than asserted: an earlier version of this log stated
+      its outcome without running it, which independent check 1 found and
+      which breaks this phase's own rule that nothing is called measured
+      unless the log prints the measurement.
   Recorded as unproven, not as passing.
   attempt 1 rerun here: exit 1, stderr: refused: duplicate id
   N3 attempt 1 is refused by the duplicate guard, not by the rename: as-expected
   N3 attempt 1 changed nothing, so it tested the guard only: as-expected
+  attempt 2 run here, corpus/ mode 500: exit 2, stderr: error: PermissionError
+  state before: files=1 rows=1 temporaries=0; after: files=1 rows=1 temporaries=0
+  N3 attempt 2 fails with exit 2 before any append, so it tested the staging copy: as-expected
+  N3 attempt 2 changed nothing: as-expected
+  Both attempts stop before os.replace. The rename-failure branch is
+  therefore PRESENT AND UNEXERCISED, and is recorded as unproven.
 
 ## N4: a producer_version that is not valid UTF-8
   the version carries a lone surrogate; it is never printed
@@ -476,10 +535,10 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
   N8 nothing changed and no temporary survives: as-expected
 
 ## the log itself
-  captured outputs counted (16 file(s)): <scratch>/n1.out <scratch>/n2.out <scratch>/n3.out <scratch>/n4.out <scratch>/n5.out <scratch>/n6.out <scratch>/n7a.out <scratch>/n7b.out <scratch>/n8.out <scratch>/n1.err <scratch>/n2.err <scratch>/n3.err <scratch>/n4.err <scratch>/n5.err <scratch>/n6.err <scratch>/n8.err 
-  total lines: 9
+  captured outputs counted (18 file(s)): <scratch>/n1.out <scratch>/n2.out <scratch>/n3.out <scratch>/n3b.out <scratch>/n4.out <scratch>/n5.out <scratch>/n6.out <scratch>/n7a.out <scratch>/n7b.out <scratch>/n8.out <scratch>/n1.err <scratch>/n2.err <scratch>/n3.err <scratch>/n3b.err <scratch>/n4.err <scratch>/n5.err <scratch>/n6.err <scratch>/n8.err 
+  total lines: 10
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   lines naming the scratch path in every captured output: 0 (expect 0): as-expected
   the working tree is still clean (expect empty): : as-expected
-run ended at 2026-09-16T13:23:07Z
+run ended at 2026-09-16T13:37:27Z
 negative log checks all as expected: yes
