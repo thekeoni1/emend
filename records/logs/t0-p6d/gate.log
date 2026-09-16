@@ -1,0 +1,241 @@
+about: T0 P6d phase commit 721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at 2026-09-16T00:48:42Z
+commit before the phase: 2638d219f1c480f98594df72c78c0b1298da60c5
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_CORPUS_DIR set: no; the corpus directory prints as <corpus dir>
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T0 P6d gate log: the phase's commits, the changed files, the narrowed path
+    # patterns, and a full run of all eight check.sh steps on a cold cache.
+    # Usage: t0p6d-gate.sh <phase commit> [<stopped-run note>] > <gate log scratch file>
+    # The note records an earlier run of this log that the environment stopped
+    # (specs/0001 "Rules for every phase": start time, last completed check, reason).
+    # The caller moves the file into records/logs/t0-p6d/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed; a check with more than one condition is
+    # evaluated inside one function. The corpus directory's path is never printed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    STOPPED=${2:-}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset EMEND_PRIVATE_DENYLIST
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    BEFORE=2638d219f1c480f98594df72c78c0b1298da60c5
+    PATTERNS=scripts/privacy-patterns.txt
+    CHANGED=("$PATTERNS" scripts/privacy.sh ROADMAP.md specs/0002-gate-corpus-additions.md specs/0006-passthrough.md)
+    # The three path patterns this phase narrows, by their line number in the file.
+    # They are never written out here: a log must not carry a bare shape.
+    NARROWED=(8 10 11)
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$1" | wc -c; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    # ends_with_path_char <line number>: that pattern in the file ends with the
+    # path-character class this phase adds, so a bare shape cannot match it.
+    ends_with_path_char() {
+      [ "$(sed -n "${1}p" "$PATTERNS" | tail -c 15)" = '[A-Za-z0-9._-]' ]
+    }
+    # pattern_count_is <n>: the file holds n non-comment, non-blank patterns.
+    pattern_count_is() {
+      [ "$(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$PATTERNS")" -eq "$1" ]
+    }
+    # record_states <record> <string>...: the record holds every line given.
+    record_states() {
+      local file=$1 line
+      shift
+      for line in "$@"; do
+        LC_ALL=C /usr/bin/grep -q -F -e "$line" "$file" || return 1
+      done
+    }
+    
+    echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
+    echo "commit before the phase: $BEFORE"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_CORPUS_DIR set: $([ -n "${EMEND_CORPUS_DIR+set}" ] && echo yes || echo no); the corpus directory prints as <corpus dir>"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); step 8 reads the private denylist at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## commits of the phase"
+    echo "command: git log --format='%H parents=%P %s' $BEFORE..$C"
+    git log --format='%H parents=%P %s' "$BEFORE..$C" | sed 's/^/    /'
+    for c in $(git rev-list --reverse "$BEFORE..$C"); do
+      echo "command: git show --stat --format='%H %s' $c"
+      git show --stat --format='%H %s' "$c" | sed 's/^/    /'
+    done
+    echo "command: git diff --stat $BEFORE $C"
+    git diff --stat "$BEFORE" "$C" | sed 's/^/    /'
+    
+    echo
+    echo "## the changed files at $C"
+    for f in "${CHANGED[@]}"; do
+      echo "$f: sha256 $(git show "$C:$f" | sha), bytes $(git show "$C:$f" | wc -c), git mode $(git ls-tree "$C" -- "$f" | cut -d' ' -f1)"
+    done
+    bash -n scripts/privacy.sh >"$T/bash-n.out" 2>&1
+    rc=$?
+    echo "command: bash -n scripts/privacy.sh -> exit $rc"
+    check "scripts/privacy.sh parses" "$(yn [ "$rc" -eq 0 ])"
+    
+    echo
+    echo "## the narrowed patterns (named by line number; no shape is written here)"
+    echo "patterns in $PATTERNS: $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$PATTERNS")"
+    check "the file still holds 11 patterns" "$(yn pattern_count_is 11)"
+    for n in "${NARROWED[@]}"; do
+      check "pattern $n ends with the path-character class" "$(yn ends_with_path_char "$n")"
+    done
+    echo "command: git diff --numstat $BEFORE $C -- $PATTERNS -> $(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | tr '\t' ' ')"
+    check "exactly three pattern lines changed" "$(yn [ "$(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | cut -f1)" = 3 ])"
+    check "the identity file and the hook installer did not change" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/privacy-identity.txt scripts/install-hooks.sh)"
+    n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/root/' scripts/privacy.sh | awk -F: '{ n += $2 } END { print n + 0 }')
+    printf 'x = "/home/someone/x"\n' > "$T/home-ctl"
+    check "lines with a literal home path in scripts/privacy.sh: $n (expect 0; the control file counts $(LC_ALL=C /usr/bin/grep -c -E '/home/|/root/' "$T/home-ctl"))" "$(yn [ "$n" -eq 0 ])"
+    
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml Cargo.toml Cargo.lock; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
+    done
+    check "no crate, Cargo file or workflow changed in $BEFORE..$C" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/check.sh scripts/sys-allowlist.txt .gitignore .github Cargo.toml Cargo.lock tools)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed -e "s#$ROOT#<repo>#g" -e 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    printf 'plain\ttab\r\n' > "$T/clean"
+    n=$(ctrl_bytes "$T/ctl"); check "control: ESC and SI file -> lines=$(f_ctrl "$T/ctl") bytes=$n (expect bytes 3)" "$(yn [ "$n" -eq 3 ])"
+    n=$(ctrl_bytes "$T/clean"); check "control: tab and CR file -> lines=$(f_ctrl "$T/clean") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    for s in out err; do
+      n=$(ctrl_bytes "$T/$s"); check "std$s: lines=$(f_ctrl "$T/$s") bytes=$n (expect 0)" "$(yn [ "$n" -eq 0 ])"
+    done
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## commits of the phase
+command: git log --format='%H parents=%P %s' 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464
+    721e86323e41fe6090b95ce3e26876e81e27b464 parents=4641ae3b4b6382947aad55d7bfd6605e6eabc429 T0 P6d: narrow the three path patterns so a bare shape is not a hit
+    4641ae3b4b6382947aad55d7bfd6605e6eabc429 parents=2638d219f1c480f98594df72c78c0b1298da60c5 T0 P6d: commit planning doc updates (P6d section, T3 P3 rulings, P4 text)
+command: git show --stat --format='%H %s' 4641ae3b4b6382947aad55d7bfd6605e6eabc429
+    4641ae3b4b6382947aad55d7bfd6605e6eabc429 T0 P6d: commit planning doc updates (P6d section, T3 P3 rulings, P4 text)
+    
+     ROADMAP.md                          |   5 +-
+     specs/0002-gate-corpus-additions.md |  41 +++++++++++++
+     specs/0006-passthrough.md           | 117 +++++++++++++++++++++++++++++-------
+     3 files changed, 140 insertions(+), 23 deletions(-)
+command: git show --stat --format='%H %s' 721e86323e41fe6090b95ce3e26876e81e27b464
+    721e86323e41fe6090b95ce3e26876e81e27b464 T0 P6d: narrow the three path patterns so a bare shape is not a hit
+    
+     scripts/privacy-patterns.txt | 6 +++---
+     scripts/privacy.sh           | 8 ++++++++
+     2 files changed, 11 insertions(+), 3 deletions(-)
+command: git diff --stat 2638d219f1c480f98594df72c78c0b1298da60c5 721e86323e41fe6090b95ce3e26876e81e27b464
+     ROADMAP.md                          |   5 +-
+     scripts/privacy-patterns.txt        |   6 +-
+     scripts/privacy.sh                  |   8 +++
+     specs/0002-gate-corpus-additions.md |  41 +++++++++++++
+     specs/0006-passthrough.md           | 117 +++++++++++++++++++++++++++++-------
+     5 files changed, 151 insertions(+), 26 deletions(-)
+
+## the changed files at 721e86323e41fe6090b95ce3e26876e81e27b464
+scripts/privacy-patterns.txt: sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16, bytes 376, git mode 100644
+scripts/privacy.sh: sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb, bytes 23525, git mode 100755
+ROADMAP.md: sha256 a6356c88af1d9ed27fe6561ad4ef4acc0a632c1aa65b547af341c4a3430fc3eb, bytes 14800, git mode 100644
+specs/0002-gate-corpus-additions.md: sha256 05c8478dbb5d1ff54371b98d9a5059fd5c37a458dda61fea8598b695f6619c4d, bytes 8089, git mode 100644
+specs/0006-passthrough.md: sha256 c8ec782ba2fbe56e9d8cbb7c0ff7eae50f8999f054a588e5eccb92cdcb377108, bytes 27415, git mode 100644
+command: bash -n scripts/privacy.sh -> exit 0
+scripts/privacy.sh parses: yes
+
+## the narrowed patterns (named by line number; no shape is written here)
+patterns in scripts/privacy-patterns.txt: 11
+the file still holds 11 patterns: yes
+pattern 8 ends with the path-character class: yes
+pattern 10 ends with the path-character class: yes
+pattern 11 ends with the path-character class: yes
+command: git diff --numstat 2638d219f1c480f98594df72c78c0b1298da60c5 721e86323e41fe6090b95ce3e26876e81e27b464 -- scripts/privacy-patterns.txt -> 3 3 scripts/privacy-patterns.txt
+exactly three pattern lines changed: yes
+the identity file and the hook installer did not change: yes
+lines with a literal home path in scripts/privacy.sh: 0 (expect 0; the control file counts 1): yes
+
+## gate files at 721e86323e41fe6090b95ce3e26876e81e27b464
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; bytes 23525
+scripts/privacy-patterns.txt on disk sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16; bytes 376
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no crate, Cargo file or workflow changed in 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 3613 files, 696.2MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+control: ESC and SI file -> lines=1 bytes=3 (expect bytes 3): yes
+control: tab and CR file -> lines=0 bytes=0 (expect 0): yes
+stdout: lines=0 bytes=0 (expect 0): yes
+stderr: lines=0 bytes=0 (expect 0): yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-16T00:49:29Z
+gate log checks all as expected: yes

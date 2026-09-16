@@ -1,0 +1,73 @@
+about: T0 P6d phase commit 721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) privacy.log; run at 2026-09-16T00:47:32Z
+EMEND_PRIVATE_DENYLIST set: no (unset by this script); the private denylist is read at $HOME/.config/emend/private-denylist.txt
+private denylist: present, mode 600, entries 7 (never printed)
+scripts/privacy.sh sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; scripts/privacy-patterns.txt sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16, 11 patterns
+the three patterns this phase narrows are named by line number only: 8, 10 and 11; no shape is written in this log
+
+## script
+    #!/usr/bin/env bash
+    # T0 P6d privacy.log (specs/0002-gate-corpus-additions.md, "P6d"): the gate's
+    # privacy scan over every local commit, with the narrowed patterns in place.
+    # The log prints counts, the scan's own lines and the file hashes; it never
+    # writes a pattern shape.
+    # Usage: t0p6d-privacy.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t0-p6d/privacy.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    C=${1:?phase commit required}
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    unset EMEND_PRIVATE_DENYLIST
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # grep_q <arguments>: grep under LC_ALL=C, callable through yn().
+    grep_q() { LC_ALL=C /usr/bin/grep "$@"; }
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6d (specs/0002-gate-corpus-additions.md) privacy.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script); the private denylist is read at \$HOME/.config/emend/private-denylist.txt"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null), entries $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$DENY_FILE") (never printed)"
+    echo "scripts/privacy.sh sha256 $(sha256sum scripts/privacy.sh | cut -c1-64); scripts/privacy-patterns.txt sha256 $(sha256sum scripts/privacy-patterns.txt | cut -c1-64), $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' scripts/privacy-patterns.txt) patterns"
+    echo "the three patterns this phase narrows are named by line number only: 8, 10 and 11; no shape is written in this log"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the scan over every local commit"
+    echo "command: scripts/privacy.sh (default range: every commit reachable from HEAD)"
+    scripts/privacy.sh >"$T/out" 2>"$T/err"
+    rc=$?
+    echo "exit: $rc"
+    echo "stdout:"; sed 's/^/    /' "$T/out"
+    echo "stderr:"; sed 's/^/    /' "$T/err"
+    check "the scan exits 0" "$(yn [ "$rc" -eq 0 ])"
+    check "the scan printed PASS privacy" "$(yn grep_q -q -x -F -e 'PASS privacy' "$T/out")"
+    check "the scan reported no finding" "$(yn grep_q -q -E '^privacy: [0-9]+ commit\(s\), [0-9]+ blob\(s\) scanned, 0 finding\(s\)$' "$T/err")"
+    n=$(cat "$T/out" "$T/err" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c)
+    printf 'x \033[31mred\033[m\017 y\n' > "$T/ctl"
+    check "control bytes in the captured output: $n (expect 0; the control file holds $(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' < "$T/ctl" | wc -c))" "$(yn [ "$n" -eq 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "privacy log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the scan over every local commit
+command: scripts/privacy.sh (default range: every commit reachable from HEAD)
+exit: 0
+stdout:
+    PASS privacy
+stderr:
+    privacy: 162 commit(s), 399 blob(s) scanned, 0 finding(s)
+the scan exits 0: yes
+the scan printed PASS privacy: yes
+the scan reported no finding: yes
+control bytes in the captured output: 0 (expect 0; the control file holds 3): yes
+status after the run (expect empty): : yes
+run ended at 2026-09-16T00:48:12Z
+privacy log checks all as expected: yes

@@ -1,0 +1,318 @@
+about: T0 P6d phase commit 721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) negative.log; run at 2026-09-16T00:46:12Z
+Every case runs in a scratch clone under <scratch>, deleted on exit; the working tree is never scanned by these cases.
+The three narrowed patterns are named by line number only: 8, 10 and 11. No shape is written in this log.
+
+## script
+    #!/usr/bin/env bash
+    # T0 P6d negative.log (specs/0002-gate-corpus-additions.md, "P6d: narrow the
+    # path patterns"). Every case runs scripts/privacy.sh in a scratch clone of this
+    # repository, never in the working tree, and each case commits its fixtures on
+    # a branch of its own and scans that commit alone.
+    #   NO SHAPE IS WRITTEN IN THIS LOG. The three narrowed patterns are named by
+    #   their line number in scripts/privacy-patterns.txt: 8 (the /mnt drive form),
+    #   10 (the drive-letter form) and 11 (the dot-claude form). The fixtures are
+    #   built at run time from concatenated pieces, and this log prints only
+    #   counts, pattern numbers, exit statuses and the finding lines the gate
+    #   itself emits, which never carry matched text.
+    #   cases:
+    #     a  a commit holding a real path of each of the three forms still fails,
+    #        each under its own pattern number;
+    #     b  a commit holding the bare shape of each narrowed pattern passes;
+    #     c  the P6b form (single separator, mixed case) and the P6c form (doubled
+    #        separators, upper case) of pattern 10 still fail when they carry a
+    #        following segment;
+    #     d  the T3 P3 independent check 1 answer as extracted (sha256
+    #        762fc434..., the file whose one bare shape forced the documented
+    #        replacement) passes the narrowed scan;
+    #     e  the self-test refuses to run when a narrowed pattern is widened back:
+    #        exit 2, with the planted bare shape reported.
+    # Each check is evaluated once; a check with more than one condition is
+    # evaluated inside one function.
+    # Usage: t0p6d-negative.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/t0-p6d/negative.log. Paths print as <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    G=/usr/bin/grep
+    ROOT=$(pwd)
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    RC=0
+    CLONE=$BASE/clone
+    ANSWER=$ROOT/records/logs/t3-p3/independent-check-1.md
+    ANSWER_SHA=762fc4342b9f031f3a680d72c85fe3193989237b1c95b0de57437128c36523fd
+    for v in $(env | sed -n 's/^\(GIT_[A-Za-z_]*\)=.*/\1/p'); do unset "$v"; done
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    hide() {
+      local line
+      while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "${line//"$BASE"/<scratch>}"
+      done
+    }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
+    grep_q() { LC_ALL=C "$G" "$@"; }
+    ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
+    nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
+    count_path() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$BASE"; }
+    
+    # The fixtures, built from pieces so this script holds no matching literal.
+    real_line() {   # real_line <8|10|11>: a real path of that pattern's form
+      case $1 in
+        8)  printf '%s%s%s\n' '/mnt/' 'c/' 'Users/person/Documents/report.txt' ;;
+        10) printf 'C%s%sUSERS%sperson%sDocuments\n' ':' '\\' '\\' '\\' ;;
+        11) printf '%%USERPROFILE%%%s%s%s\n' '\' '.claude' '\projects\-home-person-work\a1b2.jsonl' ;;
+      esac
+    }
+    bare_line() {   # bare_line <8|10|11>: the same form with nothing after it
+      case $1 in
+        8)  printf '%s%s%s\n' '/mnt/' 'c/' 'Users/' ;;
+        10) printf 'C%s%sUSERS%s\n' ':' '\\' '\\' ;;
+        11) printf '%%USERPROFILE%%%s%s%s\n' '\' '.claude' '\projects\' ;;
+      esac
+    }
+    p6b_line() { printf 'C%s%sUsers%sperson%sDocuments\n' ':' '\' '\' '\'; }
+    p6c_line() { printf 'C%s%sUSERS%sperson%sDocuments\n' ':' '\\' '\\' '\\'; }
+    
+    # commit_file <name> <source file>: commit that file in the clone on a new
+    # branch and print the commit.
+    commit_file() {
+      local name=$1 src=$2 branch
+      branch=b$RANDOM$RANDOM
+      cp "$src" "$CLONE/$name" || return 1
+      git -C "$CLONE" checkout -q -b "$branch" "$C" >/dev/null 2>&1 || return 1
+      git -C "$CLONE" add -f "$name" >/dev/null 2>&1 || return 1
+      git -C "$CLONE" commit -q -m "p6d case $name" >/dev/null 2>&1 || return 1
+      git -C "$CLONE" rev-parse HEAD
+    }
+    # only_added <commit> <name>: that commit's tree differs from the phase commit
+    # by exactly that one added file, so no earlier case's fixture is in it.
+    only_added() {
+      [ "$(git -C "$CLONE" diff --name-only "$C" "$1")" = "$2" ]
+    }
+    # scan_commit <commit> <output file>: run the gate's privacy scan over that one
+    # commit in the clone, and set RC.
+    scan_commit() {
+      ( cd "$CLONE" && timeout 600 scripts/privacy.sh --range "$1^!" ) >"$2" 2>&1
+      RC=$?
+    }
+    # reported <output> <commit> <path> <pattern>: the scan reported that path under
+    # that pattern number.
+    reported() {
+      grep_q -q -F -e "FAIL patterns: commit $2 path $3 pattern $4 " "$1"
+    }
+    # clean_pass <output>: exit 0 and the PASS line, with no pattern finding.
+    clean_pass() {
+      [ "$RC" -eq 0 ] && grep_q -q -x -F -e 'PASS privacy' "$1" && ! grep_q -q -F -e 'FAIL patterns' "$1"
+    }
+    # both_older_reported <output>: pattern 10 reported both lines of the file that
+    # holds the P6b and P6c forms.
+    both_older_reported() {
+      grep_q -q -F -e "path older.txt pattern 10 line 1" "$1" &&
+        grep_q -q -F -e "path older.txt pattern 10 line 2" "$1"
+    }
+    # selftest_refused <output>: exit 2 and the self-test's own refusal, naming the
+    # planted bare shape.
+    selftest_refused() {
+      [ "$RC" -eq 2 ] && grep_q -q -F -e 'self-test failed: a bare pattern shape was reported' "$1"
+    }
+    
+    echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T0 P6d (specs/0002-gate-corpus-additions.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "Every case runs in a scratch clone under <scratch>, deleted on exit; the working tree is never scanned by these cases."
+    echo "The three narrowed patterns are named by line number only: 8, 10 and 11. No shape is written in this log."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## the clone"
+    git clone --quiet --no-hardlinks "$ROOT" "$CLONE" 2>&1 | hide
+    RC=$?
+    echo "  clone exit: $RC"
+    git -C "$CLONE" config user.name "$(sed -n 1p scripts/privacy-identity.txt)"
+    git -C "$CLONE" config user.email "$(sed -n 2p scripts/privacy-identity.txt)"
+    note "the clone is at the phase commit" "$(is [ "$(git -C "$CLONE" rev-parse HEAD)" = "$C" ])"
+    note "the clone's pattern file equals the working tree's" "$(is cmp -s "$CLONE/scripts/privacy-patterns.txt" scripts/privacy-patterns.txt)"
+    echo "  patterns in the file: $(LC_ALL=C "$G" -c -v -E '^[[:space:]]*(#|$)' scripts/privacy-patterns.txt)"
+    
+    echo
+    echo "## controls: the fixtures are what they claim to be"
+    for n in 8 10 11; do
+      real_line "$n" >"$BASE/real-$n"
+      bare_line "$n" >"$BASE/bare-$n"
+      live=$(sed -n "${n}p" scripts/privacy-patterns.txt | sed 's/\[\(.\)\]/\1/g')
+      ctl "pattern $n matches its real-path fixture" "$(LC_ALL=C "$G" -a -c -E -e "$live" "$BASE/real-$n")" 1
+      ctl "pattern $n does not match its bare shape" "$(LC_ALL=C "$G" -a -c -E -e "$live" "$BASE/bare-$n")" 0
+    done
+    cat "$BASE/real-8" "$BASE/real-10" "$BASE/real-11" >"$BASE/real.txt"
+    cat "$BASE/bare-8" "$BASE/bare-10" "$BASE/bare-11" >"$BASE/bare.txt"
+    { p6b_line; p6c_line; } >"$BASE/older.txt"
+    
+    echo
+    echo "## case a: a commit holding a real path of each form still fails"
+    A=$(commit_file real.txt "$BASE/real.txt")
+    scan_commit "$A" "$BASE/a.out"
+    echo "  commit: $A; exit: $RC"
+    note "a: the commit adds real.txt and nothing else" "$(is only_added "$A" real.txt)"
+    grep_q -E '^(FAIL patterns|PASS|ERROR)' "$BASE/a.out" | hide | sed 's/^/    /'
+    note "a: the scan exits 1" "$(is [ "$RC" -eq 1 ])"
+    for n in 8 10 11; do
+      note "a: pattern $n reported the line of its own form" "$(is reported "$BASE/a.out" "$A" real.txt "$n")"
+    done
+    
+    echo
+    echo "## case b: a commit holding the bare shape of each narrowed pattern passes"
+    B=$(commit_file bare.txt "$BASE/bare.txt")
+    scan_commit "$B" "$BASE/b.out"
+    echo "  commit: $B; exit: $RC"
+    note "b: the commit adds bare.txt and nothing else" "$(is only_added "$B" bare.txt)"
+    grep_q -E '^(FAIL|PASS|ERROR|privacy:)' "$BASE/b.out" | hide | sed 's/^/    /'
+    note "b: the scan exits 0 with PASS and no pattern finding" "$(is clean_pass "$BASE/b.out")"
+    
+    echo
+    echo "## case c: the older forms of pattern 10 still fail when they carry a segment"
+    CC=$(commit_file older.txt "$BASE/older.txt")
+    scan_commit "$CC" "$BASE/c.out"
+    echo "  commit: $CC; exit: $RC"
+    note "c: the commit adds older.txt and nothing else" "$(is only_added "$CC" older.txt)"
+    grep_q -E '^(FAIL patterns|PASS|ERROR)' "$BASE/c.out" | hide | sed 's/^/    /'
+    note "c: the scan exits 1" "$(is [ "$RC" -eq 1 ])"
+    note "c: pattern 10 reported both older forms" "$(is both_older_reported "$BASE/c.out")"
+    
+    echo
+    echo "## case d: the T3 P3 check 1 answer, as extracted, passes the narrowed scan"
+    python3 - "$ANSWER" "$BASE/answer.txt" <<'PY'
+    import sys
+    # The committed file is the header, a --- line, then the answer with one token
+    # in place of the bare shape. The extracted answer is reconstructed by taking
+    # the text after the header separator and putting the original back, exactly as
+    # the header of that file describes (specs/0002 P6d, case d).
+    src, dst = sys.argv[1:3]
+    data = open(src, "rb").read()
+    answer = data.split(b"\n---\n", 1)[1]
+    original = b"." + b"claude" + b"/" + b"projects" + b"/"
+    answer = answer.replace(b"<pattern 10 shape>", original, 1)
+    open(dst, "wb").write(answer)
+    PY
+    echo "  reconstructed from $ANSWER and its header"
+    echo "  sha256 of the reconstruction: $(sha256sum <"$BASE/answer.txt" | cut -c1-64)"
+    note "d: the reconstruction is the extracted answer the header names" "$(is [ "$(sha256sum <"$BASE/answer.txt" | cut -c1-64)" = "$ANSWER_SHA" ])"
+    live11=$(sed -n 11p scripts/privacy-patterns.txt | sed 's/\[\(.\)\]/\1/g')
+    old11='[.]claude[\\/]+projects[\\/]'
+    ctl "the reconstruction matches pattern 11's form before this phase" "$(LC_ALL=C "$G" -a -c -E -e "$old11" "$BASE/answer.txt")" 1
+    ctl "the reconstruction does not match pattern 11 as narrowed" "$(LC_ALL=C "$G" -a -c -E -e "$live11" "$BASE/answer.txt")" 0
+    D=$(commit_file answer.txt "$BASE/answer.txt")
+    scan_commit "$D" "$BASE/d.out"
+    echo "  commit: $D; exit: $RC"
+    note "d: the commit adds answer.txt and nothing else" "$(is only_added "$D" answer.txt)"
+    grep_q -E '^(FAIL|PASS|ERROR|privacy:)' "$BASE/d.out" | hide | sed 's/^/    /'
+    note "d: the scan exits 0 with PASS and no pattern finding" "$(is clean_pass "$BASE/d.out")"
+    
+    echo
+    echo "## case e: the self-test refuses to run when a narrowed pattern is widened back"
+    git -C "$CLONE" checkout -q "$C" -- scripts/privacy-patterns.txt
+    python3 - "$CLONE/scripts/privacy-patterns.txt" <<'PY'
+    import sys
+    # Widen pattern 8 back: drop the path-character class this phase added.
+    p = sys.argv[1]
+    lines = open(p, encoding="utf-8").read().split("\n")
+    lines[7] = lines[7].replace("[A-Za-z0-9._-]", "")
+    open(p, "w", encoding="utf-8").write("\n".join(lines))
+    PY
+    echo "  pattern 8 in the clone widened back to its pre-P6d form"
+    ( cd "$CLONE" && timeout 600 scripts/privacy.sh --range "$B^!" ) >"$BASE/e.out" 2>&1
+    RC=$?
+    echo "  exit: $RC"
+    grep_q -E '^(ERROR|FAIL|PASS)' "$BASE/e.out" | hide | sed 's/^/    /'
+    note "e: exit 2, and the self-test names the bare shape it was asked to ignore" "$(is selftest_refused "$BASE/e.out")"
+    git -C "$CLONE" checkout -q "$C" -- scripts/privacy-patterns.txt
+    
+    echo
+    echo "## the log itself"
+    OUTS=("$BASE/a.out" "$BASE/b.out" "$BASE/c.out" "$BASE/d.out" "$BASE/e.out")
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
+    note "control and non-ASCII bytes in every captured output: $(ctrl_bytes "${OUTS[@]}") and $(nonascii_bytes "${OUTS[@]}") (expect 0 and 0)" "$(is [ $(( $(ctrl_bytes "${OUTS[@]}") + $(nonascii_bytes "${OUTS[@]}") )) -eq 0 ])"
+    note "lines with the scratch path in any captured output: $(count_path "${OUTS[@]}") (expect 0)" "$(is [ "$(count_path "${OUTS[@]}")" -eq 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "status after the run (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the clone
+  clone exit: 0
+  the clone is at the phase commit: as-expected
+  the clone's pattern file equals the working tree's: as-expected
+  patterns in the file: 11
+
+## controls: the fixtures are what they claim to be
+  control pattern 8 matches its real-path fixture: 1 (expect 1): as-expected
+  control pattern 8 does not match its bare shape: 0 (expect 0): as-expected
+  control pattern 10 matches its real-path fixture: 1 (expect 1): as-expected
+  control pattern 10 does not match its bare shape: 0 (expect 0): as-expected
+  control pattern 11 matches its real-path fixture: 1 (expect 1): as-expected
+  control pattern 11 does not match its bare shape: 0 (expect 0): as-expected
+
+## case a: a commit holding a real path of each form still fails
+  commit: dc6d180037981f4420d8f27ee5abf9611b0b92eb; exit: 1
+  a: the commit adds real.txt and nothing else: as-expected
+    FAIL patterns: commit dc6d180037981f4420d8f27ee5abf9611b0b92eb path real.txt pattern 8 line 1
+    FAIL patterns: commit dc6d180037981f4420d8f27ee5abf9611b0b92eb path real.txt pattern 10 line 2
+    FAIL patterns: commit dc6d180037981f4420d8f27ee5abf9611b0b92eb path real.txt pattern 11 line 3
+  a: the scan exits 1: as-expected
+  a: pattern 8 reported the line of its own form: as-expected
+  a: pattern 10 reported the line of its own form: as-expected
+  a: pattern 11 reported the line of its own form: as-expected
+
+## case b: a commit holding the bare shape of each narrowed pattern passes
+  commit: 81d42aa1446daa47a5301348263fcebcac929600; exit: 0
+  b: the commit adds bare.txt and nothing else: as-expected
+    privacy: 1 commit(s), 206 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  b: the scan exits 0 with PASS and no pattern finding: as-expected
+
+## case c: the older forms of pattern 10 still fail when they carry a segment
+  commit: 2785ff00f6be983812213a6bd80ec26bbf16b1e8; exit: 1
+  c: the commit adds older.txt and nothing else: as-expected
+    FAIL patterns: commit 2785ff00f6be983812213a6bd80ec26bbf16b1e8 path older.txt pattern 10 line 1
+    FAIL patterns: commit 2785ff00f6be983812213a6bd80ec26bbf16b1e8 path older.txt pattern 10 line 2
+  c: the scan exits 1: as-expected
+  c: pattern 10 reported both older forms: as-expected
+
+## case d: the T3 P3 check 1 answer, as extracted, passes the narrowed scan
+  reconstructed from /home/dev/emend/records/logs/t3-p3/independent-check-1.md and its header
+  sha256 of the reconstruction: 762fc4342b9f031f3a680d72c85fe3193989237b1c95b0de57437128c36523fd
+  d: the reconstruction is the extracted answer the header names: as-expected
+  control the reconstruction matches pattern 11's form before this phase: 1 (expect 1): as-expected
+  control the reconstruction does not match pattern 11 as narrowed: 0 (expect 0): as-expected
+  commit: eefe22bff8ef710d627644e469d60e36f719c475; exit: 0
+  d: the commit adds answer.txt and nothing else: as-expected
+    privacy: 1 commit(s), 206 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  d: the scan exits 0 with PASS and no pattern finding: as-expected
+
+## case e: the self-test refuses to run when a narrowed pattern is widened back
+  pattern 8 in the clone widened back to its pre-P6d form
+  exit: 2
+    ERROR privacy: self-test failed: a bare pattern shape was reported
+  e: exit 2, and the self-test names the bare shape it was asked to ignore: as-expected
+
+## the log itself
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
+  control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
+  lines with the scratch path in any captured output: 0 (expect 0): as-expected
+  status after the run (expect empty): : as-expected
+run ended at 2026-09-16T00:46:48Z
+negative log checks all as expected: yes
