@@ -26,10 +26,14 @@ phase ends with:
 
 1. The phase commit(s).
 2. The phase's logs, written to `records/logs/t0-<phase>/` (for example
-   `records/logs/t0-p1r/`) and committed in one or more record commits
-   after the phase commit. Each record commit's message says what it
-   adds. The first line of every log names the commit the log is about
-   and the HEAD at the time it ran.
+   `records/logs/t0-p1r/`) and committed after the phase commit. Since
+   the maintainer's decision of 2026-09-16 the logs are committed ONCE,
+   after the independent checks and the repairs they force, together
+   with the check answers, in one record commit; a log is not committed
+   before a check reads it (the check header pins every input by
+   sha256, so a commit is not needed). Each record commit's message says
+   what it adds. The first line of every log names the commit the log
+   is about and the HEAD at the time it ran.
 3. The independent check from CLAUDE.md, run by a fresh subagent (not a
    fork). Its inputs:
    - this spec;
@@ -59,16 +63,24 @@ phase ends with:
    answer verbatim or its committed path and sha256. Then STOP. The next
    phase starts only after planning's word.
 
+Before the report, the implementing session may amend or squash its
+own unpushed, unverified commits freely (a one-line fix to a record is
+an amend, not a commit); the doc commit, the code commit(s) and the
+record commit stay separate, so a phase lands in three or four commits.
+After the report, history is frozen: planning's rulings cite the ids
+(maintainer decision 2026-09-16).
+
 If a phase fails its checks, record the failure in the phase log, fix
 it, and re-run with the fix named in the log. Do not re-run until it
-passes without saying what changed. When the failed run is committed as
-its own log, the rerun's header names that log (T1 P2 gap 1). A rerun
-that replaces logs committed at an earlier phase commit names that
-record commit in its header (T1 P3 gap 3).
+passes without saying what changed. The rerun's header names the log it
+replaces: by its sha256 when it was not committed, or by the record
+commit when it was (T1 P2 gap 1, T1 P3 gap 3).
 
 Every negative test runs in a scratch copy (a `git worktree` or a clone
-outside the repo), never in the main working tree, and is never
-committed. Its output goes in the phase's `negative.log`.
+outside the repo, with the gate's built binaries copied in rather than
+rebuilt, as T3 P4 did), never in the main working tree, and is never
+committed. Its output goes in the phase's `negative.log`. A departure
+from this needs planning's word before the run (T2 P7 ruling).
 
 ## Rules for every phase
 

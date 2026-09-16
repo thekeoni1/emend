@@ -390,6 +390,31 @@ pushed commit recorded. Logs in `records/logs/t2-close/`: `push.log`,
 control. No independent check. Report and STOP. The record commit goes
 with the next push.
 
+Planning ruling (2026-09-16): the close-out push is verified and DONE.
+- GitHub `thekeoni1/emend` is PRIVATE, one branch `main` at d1868a7, 190
+  commits, no tags, every author and committer (380 identities) the
+  noreply address, the Actions settings unchanged (selected actions,
+  GitHub-owned only, no patterns).
+- Doc commit d1868a7 holds exactly planning's two doc files (86
+  insertions, 4 deletions). Record commit 731d6ff touches only
+  `records/logs/t2-close/`. Every message in 29b0bad..d1868a7 ends with
+  the Co-Authored-By trailer only.
+- `push.log` recorded the base before the push (29b0bad, read from git,
+  48 commits), the eight PASS lines, the hook equal to the installer's,
+  and the hook's scan of 29b0bad..d1868a7, 48 commits, 0 findings.
+  Planning ran `scripts/privacy.sh` over the same range itself: 296
+  blobs, 0 findings. Run 35106637754 on d1868a7 concluded `success` on
+  `ubuntu-24.04`, one job, no step other than success or skipped.
+- The three logs hold 120 results, one `no` (the API key check, as
+  intended); planning's own scans of them are clean.
+- The maintainer typed the authorisation in the implementing session
+  after part 1 stopped; its wording differs from the form planning
+  suggested, which is immaterial: the rule is where it is typed.
+- Noted: the CI script's polling loop ran zero times (the run had
+  already completed); the banned compound form was written into the CI
+  script and caught by the implementing session's own audit before it
+  ran.
+
 ## Out of scope
 
 - Encrypted workbooks, `.xlsb`, `.xls` (refused by `corpus-add.py`).

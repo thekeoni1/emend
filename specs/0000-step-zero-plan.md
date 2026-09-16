@@ -56,6 +56,7 @@ alongside T1.
 | T3 | Passthrough baseline: zip raw-copy run over the corpus, size baseline | `0006-passthrough.md` |
 | T4 | Moved into Milestone 1 (names-only XML comparison) | - |
 | T5 | Architecture decision record | `records/decision-architecture.md` |
+| T6 | Gate self-test: one case per detection class, rerun whenever a gate file changes (scoped 2026-09-16) | `0007-gate-self-test.md` |
 
 ### T1: xlsx-diff (outline)
 

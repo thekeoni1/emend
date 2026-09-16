@@ -83,7 +83,7 @@ implementing session does P1 and P7.
 | P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED |
 | P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED |
 | P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | DONE (58063fb to 7b9350a; `records/corpus-coverage-2026-09-16.md`: 27 files, 22 of 23 tags, 7 single-producer) |
-| Close | Push everything since 29b0bad (T3 P3, T0 P6d, T3 P4, T2 P1, T2 P7 and their records) with the pending doc updates; record the CI run (`specs/0005-corpus.md`, "Close-out push (after P7)") | READY (planning's word given 2026-09-16; needs the maintainer's authorisation typed in the implementing session) |
+| Close | Push everything since 29b0bad (T3 P3, T0 P6d, T3 P4, T2 P1, T2 P7 and their records) with the pending doc updates; record the CI run (`specs/0005-corpus.md`, "Close-out push (after P7)") | DONE (pushed d1868a7, 48 commits; run 35106637754 success; record 731d6ff local) |
 
 ### T3: passthrough baseline (`specs/0006-passthrough.md`), DONE 2026-09-16
 
@@ -105,6 +105,17 @@ ruling 12, 2026-09-14).
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `records/decision-architecture.md`: the maintainer chose greenfield on 2026-09-14, before any measurement | DONE (committed in ced7f91, byte-identical to planning's draft) |
+
+### T6: gate self-test (`specs/0007-gate-self-test.md`)
+
+Approved for scoping by the maintainer 2026-09-15; scoped 2026-09-16.
+One case per detection class from the T0, T2 P0 and T0 P6d negatives,
+run against scratch clones; run whenever a gate file changes.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `check.sh --only <step>`; `scripts/counting.sh` (the T2 P7 counting library, committed); `scripts/gate-self-test.sh` with the hygiene, privacy, hook and fmt cases and their controls; the first run committed as `self-test.log` | READY |
+| P2 | `--full`: the build-level cases (host, i686, licences, native), timed; the rule that a phase changing a gate file runs the self-test and commits its output | PLANNED |
 
 ## Standing items (maintainer rulings 2026-09-14)
 
@@ -162,9 +173,6 @@ approval.
   core, with the byte delta recorded against the commit measured.
 - A machine with desktop Excel for the per-milestone check. Milestone 1
   cannot be accepted without it.
-- Gate self-test script: a committed script that reruns every phase's
-  negative tests. The maintainer approved scoping it after T0
-  (2026-09-15).
 - xlsx-diff backlog: harness findings raised after T1 P6 that do not
   concern a real data flow (a corpus file in T3, or an emend output).
   - The zip64 test is rerun only when the gap or size code changes, not
