@@ -9,23 +9,55 @@
 # (specs/0003-ci.md). --quick and --ci cannot be combined.
 set -euo pipefail
 
-readonly USAGE="usage: scripts/check.sh [--quick | --ci]"
+readonly USAGE="usage: scripts/check.sh [--quick | --ci | --only <step>]"
+# The eight step names, in the order the gate runs them. --only names one.
+readonly STEPS="host i686 fmt clippy native licences hygiene privacy"
 QUICK=0
 CI=0
-for arg in "$@"; do
-  case "$arg" in
+ONLY=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --quick) QUICK=1 ;;
     --ci) CI=1 ;;
+    --only)
+      # --only takes a value, so it is parsed with a shift rather than in the
+      # value-less loop this replaced (specs/0007-gate-self-test.md).
+      [ "$#" -ge 2 ] || { echo "$USAGE" >&2; exit 2; }
+      ONLY=$2
+      shift
+      ;;
     *)
       echo "$USAGE" >&2
       exit 2
       ;;
   esac
+  shift
 done
 if [ "$QUICK" -eq 1 ] && [ "$CI" -eq 1 ]; then
   echo "$USAGE" >&2
   exit 2
 fi
+if [ -n "$ONLY" ]; then
+  # --only runs one step, so it cannot be combined with a mode that selects a
+  # different set of steps.
+  if [ "$QUICK" -eq 1 ] || [ "$CI" -eq 1 ]; then
+    echo "$USAGE" >&2
+    exit 2
+  fi
+  # A step name that is not one of the eight is a usage error, not a silent
+  # no-op that would report success without running anything.
+  case " $STEPS " in
+    *" $ONLY "*) ;;
+    *) echo "$USAGE" >&2; exit 2 ;;
+  esac
+fi
+
+# wanted <step>: whether this run should perform that step. Without --only
+# every step is wanted; with it, exactly one is. The ANTHROPIC_API_KEY check
+# below is not a step and always runs.
+wanted() {
+  [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]
+}
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -76,10 +108,13 @@ executed_tests() {
     awk '{ for (i = 1; i < NF; i++) if ($(i + 1) ~ /^(passed|failed);$/) n += $i } END { print n + 0 }'
 }
 
+if wanted host; then
 quiet host "$OUT/host-build" cargo build --workspace --all-targets
 quiet host "$OUT/host-test" cargo test --workspace
 echo "PASS host"
+fi
 
+if wanted i686; then
 if [ "$QUICK" -eq 1 ]; then
   echo "SKIP i686: --quick"
 else
@@ -93,17 +128,23 @@ else
   fi
   echo "PASS i686"
 fi
+fi
 
+if wanted fmt; then
 quiet fmt "$OUT/fmt" cargo fmt --all --check -- --color never
 echo "PASS fmt"
+fi
 
+if wanted clippy; then
 if [ "$QUICK" -eq 1 ]; then
   echo "SKIP clippy: --quick"
 else
   quiet clippy "$OUT/clippy" cargo clippy --workspace --all-targets -- -D warnings
   echo "PASS clippy"
 fi
+fi
 
+if wanted native; then
 # Step 5: no C build tooling in the dependency tree, and no -sys or _sys
 # crate outside the allowlist. Adding to the allowlist needs a planning
 # ruling. --all-features shows crates behind features nothing enables.
@@ -131,7 +172,9 @@ if [ -n "$unlisted" ]; then
 fi
 allowlisted=${allowlisted# }
 echo "PASS native (allowlisted -sys: ${allowlisted:-none})"
+fi
 
+if wanted licences; then
 # Step 6: every package's licence expression, workspace members included,
 # passes against the allowed identifiers. Do not widen the list without a
 # planning ruling.
@@ -232,7 +275,9 @@ PY
   fail licences "$(tail -n 1 "$OUT/licences")" "$OUT/licences"
 fi
 echo "PASS licences"
+fi
 
+if wanted hygiene; then
 # Step 7: repository hygiene. It reads what would be committed (the index),
 # never follows a symlink, and runs a positive control for every grep form
 # before using it. Exit 2 or more from any grep is an error, never zero hits.
@@ -392,7 +437,9 @@ if [ "$rc" -eq 0 ]; then
   fail hygiene "U+2014 in tracked file(s): $(quoted "$OUT/dash.z")"
 fi
 echo "PASS hygiene"
+fi
 
+if wanted privacy; then
 # Step 8: the privacy gate over every commit reachable from HEAD. The denylist
 # override is for negative tests only, so the gate refuses to run with it.
 # In CI mode the step is skipped: the private denylist never leaves the
@@ -413,3 +460,4 @@ if [ "$rc" -ne 0 ]; then
   fail privacy "scripts/privacy.sh exited $rc" "$OUT/privacy"
 fi
 echo "PASS privacy"
+fi
