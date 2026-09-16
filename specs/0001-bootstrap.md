@@ -31,9 +31,14 @@ phase ends with:
    after the independent checks and the repairs they force, together
    with the check answers, in one record commit; a log is not committed
    before a check reads it (the check header pins every input by
-   sha256, so a commit is not needed). Each record commit's message says
-   what it adds. The first line of every log names the commit the log
-   is about and the HEAD at the time it ran.
+   sha256, so a commit is not needed). The scan log is the LAST log
+   written, after the check answers are saved under the log directory,
+   so it covers them, and it lists each answer it scanned with its
+   sha256 (T6 P1 ruling, 2026-09-16). A record commit cannot be
+   scanned by its own phase; planning's verification scan covers it.
+   Each record commit's message says what it adds. The first line of
+   every log names the commit the log is about and the HEAD at the
+   time it ran.
 3. The independent check from CLAUDE.md, run by a fresh subagent (not a
    fork). Its inputs:
    - this spec;
@@ -137,6 +142,9 @@ from this needs planning's word before the run (T2 P7 ruling).
     a figure in a script's prose or comments is not one (T3 P4
     check 1).
   - Print the exact script into the log.
+  - A range scan is written `<base>..HEAD`. `scripts/privacy.sh
+    --range <rev>` with a single revision scans that revision's whole
+    ancestry and nothing after it (T6 P1, 2026-09-16).
 - Log privacy: logs are committed and will be pushed. They must never
   contain:
   - the hostname, or `uname -a` output (the kernel version is

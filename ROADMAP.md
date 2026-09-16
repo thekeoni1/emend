@@ -114,8 +114,8 @@ run against scratch clones; run whenever a gate file changes.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `check.sh --only <step>`; `scripts/counting.sh` (the T2 P7 counting library, committed); `scripts/gate-self-test.sh` with the hygiene, privacy, hook and fmt cases and their controls; the first run committed as `self-test.log` | READY |
-| P2 | `--full`: the build-level cases (host, i686, licences, native), timed; the rule that a phase changing a gate file runs the self-test and commits its output | PLANNED |
+| P1 | `check.sh --only <step>`; `scripts/counting.sh` (the T2 P7 counting library, committed); `scripts/gate-self-test.sh` with the hygiene, privacy, hook and fmt cases and their controls; the first run committed as `self-test.log` | DONE 2026-09-16 (code 0a337fb and f7d9dc7; records 4d2ece2 and 6f4764d) |
+| P2 | `--full`: the build-level cases (host, i686, licences, native), timed; the rule that a phase changing a gate file runs the self-test and commits its output; carried from P1 check 2: gap 8 (H3 and K3 sourcing), finding 17 (V12 arithmetic), a coverage regression check, a parallel mode with the wall time re-measured, the `--range <base>..HEAD` note | PLANNED (after Milestone 1 part 1) |
 
 ## Standing items (maintainer rulings 2026-09-14)
 
@@ -135,7 +135,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (PROPOSED)
+## Milestone 1: greenfield core (part 1 READY; parts 2 to 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -164,13 +164,28 @@ the new zip layer over the corpus must show every untouched entry
 8. LibreOffice open checks for every edit test; the per-milestone Excel
    check.
 
+### Part 1: the zip layer (`specs/0008-zip-layer.md`)
+
+Approved by the maintainer 2026-09-16. `crates/emend` with the
+`archive` module: open and index with `u64` offsets, verbatim spans
+for untouched entries, streamed replacements through the `zip` crate,
+the corpus run as acceptance, the size delta measured. No push during
+the part; the close-out push follows P3.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `Archive`, `Entry`, `Edits`, `Error`; open, index, verbatim write with empty edits; byte-built unit tests on both targets; `tools/emend-copy`; the corpus run on both targets recorded as `records/m1p1-p1-<date>-<sha>.md` and `.txt`, every entry `identical` and unflagged, `files_identical` `yes` | READY |
+| P2 | replace, remove, add; `--replace <name>`; the corpus run replacing `[Content_Types].xml` | PLANNED |
+| P3 | `probe-emend-copy` and the size record with both deltas; the maintainer re-rules the budget | PLANNED |
+| Close | close-out push after P3, as T2's | PLANNED |
+
 ## Unscoped
 
 Listed so they are not lost. Scoping any of them needs the maintainer's
 approval.
 
-- Size-measurement consumer: a small i686 musl binary that links the
-  core, with the byte delta recorded against the commit measured.
+- Size-measurement consumer: scoped into Milestone 1 part 1 P3 as
+  `probe-emend-copy` (2026-09-16).
 - A machine with desktop Excel for the per-milestone check. Milestone 1
   cannot be accepted without it.
 - xlsx-diff backlog: harness findings raised after T1 P6 that do not
