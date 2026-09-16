@@ -1,5 +1,6 @@
-about: phase diff 869796bd659d5ba810979e428a311b9c3a2a2124..2623b70d92dbc1c33d15783749297435178244e6; HEAD at run: 2623b70d92dbc1c33d15783749297435178244e6
-phase: T3 P3 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T00:20:01Z
+about: phase diff 869796bd659d5ba810979e428a311b9c3a2a2124..2b97b11b4e1d44bc176b88853f02a189a84d0a95; HEAD at run: 2b97b11b4e1d44bc176b88853f02a189a84d0a95
+phase: T3 P3 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T00:31:11Z
+rerun: replaces the scan log of record commit bd8c581, which replaced the one of record commit 9be61d6 (range 869796b..17ec824) but carried no rerun header of its own; independent check 2 found that omission, which specs/0001-bootstrap.md forbids. This run also widens the range to every commit of the phase, so both independent-check files and the current logs are scanned as files, not only the phase commits
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -247,7 +248,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 2623b70d92dbc1c33d15783749297435178244e6: yes
+this script's patterns equal scripts/privacy-patterns.txt at 2b97b11b4e1d44bc176b88853f02a189a84d0a95: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -310,7 +311,10 @@ this script's patterns equal scripts/privacy-patterns.txt at 2623b70d92dbc1c33d1
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 869796bd659d5ba810979e428a311b9c3a2a2124..2623b70d92dbc1c33d15783749297435178244e6
+command: git rev-list --parents 869796bd659d5ba810979e428a311b9c3a2a2124..2b97b11b4e1d44bc176b88853f02a189a84d0a95
+2b97b11b4e1d44bc176b88853f02a189a84d0a95 99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9
+99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9 bd8c581578de25a85b7e08f5ea1caae576d145db
+bd8c581578de25a85b7e08f5ea1caae576d145db 2623b70d92dbc1c33d15783749297435178244e6
 2623b70d92dbc1c33d15783749297435178244e6 8a7c862e5e8c132b0d8318bf4dbfa18249164a5f
 8a7c862e5e8c132b0d8318bf4dbfa18249164a5f 9be61d6c5492f20b83bacc72b95ca632e3a822b9
 9be61d6c5492f20b83bacc72b95ca632e3a822b9 17ec824d227887d0b4f21e4f104ec54e97a6f0de
@@ -342,13 +346,28 @@ command: git show --name-status --format='%H parents=%P %s' 2623b70d92dbc1c33d15
     
     M	scripts/passthrough-record.py
     M	scripts/passthrough-run.sh
+command: git show --name-status --format='%H parents=%P %s' bd8c581578de25a85b7e08f5ea1caae576d145db
+    bd8c581578de25a85b7e08f5ea1caae576d145db parents=2623b70d92dbc1c33d15783749297435178244e6 T3 P3 record: gate, negative and scan logs rerun at 2623b70
+    
+    M	records/logs/t3-p3/gate.log
+    M	records/logs/t3-p3/negative.log
+    M	records/logs/t3-p3/scan.log
+command: git show --name-status --format='%H parents=%P %s' 99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9
+    99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9 parents=bd8c581578de25a85b7e08f5ea1caae576d145db T3 P3 record: independent check 2 answer, verbatim
+    
+    A	records/logs/t3-p3/independent-check-2.md
+command: git show --name-status --format='%H parents=%P %s' 2b97b11b4e1d44bc176b88853f02a189a84d0a95
+    2b97b11b4e1d44bc176b88853f02a189a84d0a95 parents=99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9 T3 P3 record: name the post-replacement byte count in check 1's header
+    
+    M	records/logs/t3-p3/independent-check-1.md
 
-## files changed in the phase diff (contents at 2623b70d92dbc1c33d15783749297435178244e6)
-command: git diff --name-status 869796bd659d5ba810979e428a311b9c3a2a2124 2623b70d92dbc1c33d15783749297435178244e6
+## files changed in the phase diff (contents at 2b97b11b4e1d44bc176b88853f02a189a84d0a95)
+command: git diff --name-status 869796bd659d5ba810979e428a311b9c3a2a2124 2b97b11b4e1d44bc176b88853f02a189a84d0a95
     M	ROADMAP.md
     A	records/libreoffice-2026-09-15.md
     A	records/logs/t3-p3/gate.log
     A	records/logs/t3-p3/independent-check-1.md
+    A	records/logs/t3-p3/independent-check-2.md
     A	records/logs/t3-p3/negative.log
     A	records/logs/t3-p3/scan.log
     M	scripts/passthrough-record.py
@@ -372,7 +391,7 @@ file records/libreoffice-2026-09-15.md (sha256 ef2177180704b1a7ecfc5bdd215410498
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p3/gate.log (sha256 24b75cdb990f1e608697942df9a19d993bf01b9d22de8d48332804465dc1e238)
+file records/logs/t3-p3/gate.log (sha256 aad7302a35e4552b2ad842ba6a345562b684ba4c3f28b2213d36b3cbd5be7212)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -381,7 +400,7 @@ file records/logs/t3-p3/gate.log (sha256 24b75cdb990f1e608697942df9a19d993bf01b9
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p3/independent-check-1.md (sha256 85dc71c2bf6475668d542f8da91b5f6242df6e4275a884b58e4fed024af8e9c1)
+file records/logs/t3-p3/independent-check-1.md (sha256 9657db986cabedaa91c57908b1c10d95734b9ae4c37bcaf1bb21ca9fcc2d950d)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -390,7 +409,7 @@ file records/logs/t3-p3/independent-check-1.md (sha256 85dc71c2bf6475668d542f8da
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p3/negative.log (sha256 062d6bdd42291258177f9793e28fca59a1218cbc0d5c0a8fa2abf174309b1f2d)
+file records/logs/t3-p3/independent-check-2.md (sha256 574953850843c6806aaba9393ca2a70cbff732e50c1b28d4bfc2a69c4c7ef6e1)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -399,7 +418,16 @@ file records/logs/t3-p3/negative.log (sha256 062d6bdd42291258177f9793e28fca59a12
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p3/scan.log (sha256 5047a29179d4e72edaa4d9db6e6a1e70108b34e7f1320f97811fdc82b0cac8a1)
+file records/logs/t3-p3/negative.log (sha256 41cbd2f91845a37e3e530f4f017f5489b2a1424b7071e7b96793d5bb757831a1)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p3/scan.log (sha256 e275d08fbf17366cc674795f4d52ccc4c7552b0c2c3f38d4676b2c3537f8ed20)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -435,9 +463,39 @@ file specs/0005-corpus.md (sha256 63bc947067d96e142ce21149e9b7bfe45d3aaad5417c48
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 9; files scanned: 9; files read: 9: yes
+files in diff: 10; files scanned: 10; files read: 10: yes
 
 ## commit messages in the phase range
+message 2b97b11b4e1d44bc176b88853f02a189a84d0a95
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message bd8c581578de25a85b7e08f5ea1caae576d145db
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 2623b70d92dbc1c33d15783749297435178244e6
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -488,7 +546,7 @@ message fd5dcf9b35d7f108493a89fcf33ff57b2c683481
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 5; commits in range: 5: yes
+messages scanned: 8; commits in range: 8: yes
 
 ## other T3 P3 logs in the working tree (a log cannot scan itself)
 log records/logs/t3-p3/gate.log (sha256 aad7302a35e4552b2ad842ba6a345562b684ba4c3f28b2213d36b3cbd5be7212)
@@ -514,5 +572,5 @@ T3 P3 logs scanned: 2 (expected 2): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T00:20:01Z
+run ended at 2026-09-16T00:31:12Z
 RESULT: PASS
