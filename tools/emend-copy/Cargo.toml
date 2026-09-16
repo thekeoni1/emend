@@ -1,0 +1,13 @@
+[package]
+name = "emend-copy"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# The corpus runner takes any copy tool through --passthrough, so this one goes
+# through scripts/passthrough-run.sh unchanged (specs/0008-zip-layer.md,
+# "Harness runs"). It links the core and nothing else: the zip crate arrives
+# transitively, so the tool adds no dependency of its own.
+[dependencies]
+emend = { path = "../../crates/emend" }

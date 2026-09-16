@@ -1,0 +1,16 @@
+[package]
+name = "emend"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# The core's only dependency in Milestone 1 part 1 (specs/0008-zip-layer.md,
+# "Crate"), pinned and featured exactly as the tools pin it. quick-xml joins in
+# part 2, so part 1's size measurement is the zip layer alone.
+[dependencies]
+zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+
+# No dev-dependencies: the tests build archives byte by byte rather than
+# through a library, so a bug in a builder cannot hide the same bug in the
+# layer.

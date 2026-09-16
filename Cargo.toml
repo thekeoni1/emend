@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["tools/passthrough", "tools/size-probe", "tools/xlsx-diff"]
+members = [
+    "crates/emend",
+    "tools/emend-copy",
+    "tools/passthrough",
+    "tools/size-probe",
+    "tools/xlsx-diff",
+]
 
 [workspace.package]
 edition = "2024"

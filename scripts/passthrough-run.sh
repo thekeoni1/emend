@@ -291,7 +291,17 @@ while IFS=$'\t' read -r id ext producer tags; do
     die "cannot remove an earlier reason file"
   # A temporary file from an earlier, stopped run into this directory is
   # removed first, so leftover below counts only this child's.
-  for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
+  # The glob matches ANY copy tool's temporary, not only the passthrough
+  # tool's (planning ruling, Milestone 1 part 1 P1, 2026-09-16, recorded in
+  # specs/0006-passthrough.md). It read ".out.$LABEL.$ext.passthrough-"*.tmp
+  # until then, while tools/emend-copy writes .<name>.emend-copy-<pid>.tmp,
+  # so for any tool but one the leftover column read no whatever happened.
+  # Here <name> is the output's own name, out.$LABEL.$ext, so that tool's
+  # temporary is .out.$LABEL.$ext.emend-copy-<pid>.tmp and the glob's
+  # .out. prefix does match it.
+  # The leading dot and the .tmp suffix keep it off every other file in the
+  # run directory, the output itself included.
+  for temporary in "$dir/.out.$LABEL.$ext."*.tmp; do
     [ -e "$temporary" ] || continue
     rm -f -- "$temporary" || die "cannot remove an earlier temporary file"
   done
@@ -304,9 +314,10 @@ while IFS=$'\t' read -r id ext producer tags; do
   rc=$?
 
   # A tool stopped by a signal (the timeout's kill included) cannot remove
-  # its temporary file, so the runner does, and notes it.
+  # its temporary file, so the runner does, and notes it. Any copy tool's
+  # temporary, on the same ruling as the clearing step above.
   leftover=no
-  for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
+  for temporary in "$dir/.out.$LABEL.$ext."*.tmp; do
     [ -e "$temporary" ] || continue
     rm -f -- "$temporary" || die "cannot remove a leftover temporary file"
     leftover=yes

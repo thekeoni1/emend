@@ -18,6 +18,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "emend"
+version = "0.1.0"
+dependencies = [
+ "zip",
+]
+
+[[package]]
+name = "emend-copy"
+version = "0.1.0"
+dependencies = [
+ "emend",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
