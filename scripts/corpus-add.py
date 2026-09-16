@@ -144,20 +144,47 @@ def main(argv):
         die("duplicate id")
 
     app = read_app(src)
+    # The workbook is copied to a temporary name inside corpus/, the row is
+    # appended, and only then is the file renamed into place; the temporary is
+    # removed on any failure (planning's ruling on P1, specs/0005-corpus.md).
+    # Copying straight to the final name and appending afterwards leaves a
+    # corpus file with no manifest row if the append fails, which is the
+    # hazard the surrogate check above guards against from the other side.
+    # The rename is within one directory, so it is atomic.
+    tmp = os.path.join(dest_dir, f".{fid}.{ext}.corpus-add.tmp")
     old = os.umask(0o077)
     try:
         os.makedirs(dest_dir, mode=0o700, exist_ok=True)
-        shutil.copyfile(src, dest)
-        os.chmod(dest, 0o600)
-        new = not os.path.exists(manifest)
-        with open(manifest, "a", encoding="utf-8") as f:
-            if new:
-                f.write("\t".join(HEADER) + "\n")
-            added = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
-            row = [fid, sha, str(size), ext, producer, pver, app, source, tags,
-                   added, os.path.basename(src), note]
-            f.write("\t".join(row) + "\n")
-        os.chmod(manifest, 0o600)
+        try:
+            shutil.copyfile(src, tmp)
+            os.chmod(tmp, 0o600)
+            new = not os.path.exists(manifest)
+            with open(manifest, "a", encoding="utf-8") as f:
+                if new:
+                    f.write("\t".join(HEADER) + "\n")
+                added = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+                row = [fid, sha, str(size), ext, producer, pver, app, source, tags,
+                       added, os.path.basename(src), note]
+                f.write("\t".join(row) + "\n")
+            os.chmod(manifest, 0o600)
+            os.replace(tmp, dest)
+        except BaseException:
+            # Any failure, including a signal, leaves no temporary behind.
+            #
+            # If the append succeeded and only the rename failed, the row
+            # stands with no file. That is the direction the ruling accepts,
+            # because a row without a file is visible to the coverage check
+            # while a file without a row is not. It is the INTENT of this
+            # ordering, not a measured behaviour: T2 P7 could not reach the
+            # branch from outside the process, since the duplicate guard above
+            # refuses a destination that already exists, and any permission
+            # that blocks os.replace also blocks the staging copy in the same
+            # directory. negative.log records it as present and unexercised.
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
     finally:
         os.umask(old)
     print(f"added {fid} {ext} {size} {producer} {tags}")
