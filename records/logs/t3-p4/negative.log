@@ -1,6 +1,6 @@
-about: T3 P4 phase commit 25e553a39d9cb89e672dafc52dd196c3c7fb539a; HEAD at run: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
-phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:24:14Z
-rerun: this log replaces the negative.log committed at record commit 4d3cb4dcb5bfb29e9706e9908d416937996b9c53; rerun at 25e553a39d9cb89e672dafc52dd196c3c7fb539a after the record script was changed to write the table as .txt and the record pair was committed. The cases are unchanged; C9 now asserts the .md and .txt pair, the run directory's own summary, entries and run files keeping their .tsv names.
+about: T3 P4 phase commit 9d5e06094624cf5fb0e8c93d7ad0c53692d66832; HEAD at run: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:39:55Z
+rerun: this log replaces the negative.log committed at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832; rerun at the same commit after independent check 1. Three repairs: the chart-sheet assertion used the form specs/0001 forbids by name and asserted only the input <sheet count, dropping the ODS <table:table count this finding turns on, and is now the named function chart_counts_agree printing both; the three count helpers compared a bare grep -c with 0 without reading the exit status, and now go through counted, which gives the files to grep directly and returns the word error on a read failure (the first repair to these helpers closed nothing: it read grep's status while cat was the command that failed); and C3 now prints the conversion status and two timings it measures, instead of a comment asserting them. No tracked file changed, so there is no new phase commit.
 The scratch clone, the scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read.
 DEPARTURE (planning's option (c) of 2026-09-16): this script runs in a scratch clone and copies the gate's two host binaries instead of building, so no cargo runs here and nothing is written in the main working tree.
 image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)
@@ -33,15 +33,13 @@ podman: podman version 5.7.0
     #                closed straight away, for the tolerant count;
     #     wstrap     a workbook holding <sheets>, <sheetData and <sheetPr text that
     #                a loose count would wrongly include;
-    #     slow       a 40000-row workbook used for the real forced timeout. Its
-    #                size is NOT what makes the conversion miss the budget:
-    #                measured on this box, a 40000-row workbook and a one-row
-    #                workbook both convert in about 2.1 s, because the cost is
-    #                LibreOffice's cold start and not the sheet. The one-second
-    #                budget of C3 is simply below that start-up time, which is why
-    #                the conversion is killed at 1.0 s with status 124. The fixture
-    #                is kept large only so the case does not depend on a start-up
-    #                that happens to be fast on another machine.
+    #     slow       a 40000-row workbook used for the real forced timeout. C3
+    #                times this fixture and a one-row fixture against the same
+    #                image and prints both, and prints the status the conversion
+    #                really returns under a one-second budget, so the log holds
+    #                the figures rather than this comment asserting them. The
+    #                fixture is kept large so the case does not depend on a
+    #                start-up that happens to be fast on another machine.
     #   cases:
     #     C1  healthy is lo ok and lo_in ok, and run.host.tsv carries lo_timeout_s;
     #     C2  truncated fails the check (lo_in fail), the reason kept;
@@ -101,8 +99,29 @@ podman: podman version 5.7.0
     grep_q() { LC_ALL=C "$G" "$@"; }
     is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
     ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
-    count_path() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$BASE"; }
-    count_container_words() { cat "$@" | LC_ALL=C "$G" -a -c -E 'Error|Warning|javaldx'; }
+    # The three count helpers read grep's exit status and print "error" rather than
+    # a count when grep fails, because grep exits 2 or more on an error while
+    # printing nothing, and a bare count compared with 0 reads that error as "no
+    # hits" (specs/0001: an error is never reported as zero hits). Independent
+    # check 1 of this phase found the bare-count form in all three.
+    # counted <-F|-E> <pattern> <file>...: the total count across the files, or the
+    # word "error" if any file could not be read.
+    #
+    # The files go to grep directly and are summed with -H, rather than through
+    # `cat ... | grep -c`. With cat in front, an unreadable file makes CAT fail
+    # while grep counts 0 over the empty stream and exits 1, so the read error
+    # reads as "no hits" -- which is the very defect independent check 1 found, and
+    # which my first repair did not close: it read grep's status, and grep had not
+    # failed. grep given the files itself exits 2 on an unreadable one.
+    counted() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    count_path() { counted -F "$BASE" "$@"; }
+    count_container_words() { counted -E 'Error|Warning|javaldx' "$@"; }
     ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
     nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
     sha() { sha256sum | cut -c1-64; }
@@ -376,8 +395,19 @@ podman: podman version 5.7.0
                            ",".join(names)))
     ' 2>"$BASE/cs-count.err")
     echo "  input <sheet count, chartsheet parts, ods <table:table count, table names: $CS_COUNTS"
+    # Both counts inside one named function. The form $(is [ ... ] && [ ... ])
+    # captures only the first test, which specs/0001 forbids by name: it dropped
+    # the ODS <table:table count, which is the half this finding actually turns on.
+    # Independent check 1 of this phase found it.
+    chart_counts_agree() {
+      local sheets tables
+      sheets=$(printf '%s\n' "$1" | awk '{ print $1 }')
+      tables=$(printf '%s\n' "$1" | awk '{ print $3 }')
+      [ "$sheets" = 2 ] && [ "$tables" = 2 ]
+    }
+    echo "  the two counts this assertion reads: input <sheet=$(printf '%s\n' "$CS_COUNTS" | awk '{ print $1 }'), ods <table:table=$(printf '%s\n' "$CS_COUNTS" | awk '{ print $3 }')"
     note "C7 the chart sheet is counted as a sheet on both sides, so the spec's conditional does not apply" \
-      "$(is [ "${CS_COUNTS%% *}" = 2 ] && [ "$(echo "$CS_COUNTS" | awk '{ print $3 }')" = 2 ])"
+      "$(is chart_counts_agree "$CS_COUNTS")"
     note "C7 the runner's own check passes the chart-sheet workbook" "$(is lo_is "$RUN" chartsheet ok ok)"
     
     echo
@@ -404,16 +434,42 @@ podman: podman version 5.7.0
     echo
     echo "## C3: a real forced timeout reads error, not fail (planning's ruling 1)"
     echo "  --lo-timeout 1 against the pinned image, on a workbook with 40000 rows."
-    echo "  Measured on this box: a 40000-row and a one-row workbook both convert in"
-    echo "  about 2.1 s, so the cost is LibreOffice's cold start, not the sheet. The"
-    echo "  one-second budget is below that start-up time; the size of the fixture is"
-    echo "  not what makes the conversion miss it. This is a real conversion under a"
-    echo "  real budget, not a stub (planning's ruling of 2026-09-16)."
+    echo "  This is a real conversion under a real budget, not a stub (planning's"
+    echo "  ruling of 2026-09-16). The two timings below are measured here, not"
+    echo "  asserted: the same image converts the 40000-row fixture and a one-row"
+    echo "  fixture, each timed, so the log shows whether the cost is LibreOffice's"
+    echo "  cold start or the sheet. Independent check 1 found the earlier form"
+    echo "  claiming a conversion time the log did not hold."
+    mkdir -p "$BASE/t-out"
+    for pair in "slow:$(id_of slow)" "healthy:$(id_of healthy)"; do
+      tname=${pair%%:*}; tid=${pair#*:}
+      t0=$(date +%s.%N)
+      timeout 300 podman run --rm --network=none --userns=keep-id -v "$CORPUS/corpus":/in:ro -v "$BASE/t-out":/out \
+        "$IMAGE" --convert-to ods --outdir /out "/in/$tid.xlsx" >/dev/null 2>"$BASE/t-$tname.err" </dev/null
+      trc=$?
+      t1=$(date +%s.%N)
+      printf '    %-8s conversion exit=%s wall=%s s\n' "$tname" "$trc" \
+        "$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }')"
+    done
+    echo "  (both are compared with the one-second budget C3 uses; if they are close"
+    echo "  to each other the sheet size is not what exhausts the budget)"
     RUN3=$BASE/run-timeout
     "$CLONE/$RUNNER" --label host --passthrough "$PT" --xlsx-diff "$XD" \
       --corpus "$CORPUS" --out "$RUN3" --timeout 300 --libreoffice "$IMAGE" --lo-timeout 1 \
       --ids "$BASE/ids-slow" >"$BASE/run-timeout.stdout" 2>"$BASE/run-timeout.stderr" </dev/null
     echo "  run exit: $?"
+    # The status the conversion really returned, measured here rather than inferred
+    # from the reason text. Independent check 1 noted that the report claimed a
+    # status of 124 that no log printed.
+    t0=$(date +%s.%N)
+    timeout --signal=KILL 1 podman run --rm --network=none --userns=keep-id -v "$CORPUS/corpus":/in:ro -v "$BASE/t-out":/out \
+      "$IMAGE" --convert-to ods --outdir /out "/in/$(id_of slow).xlsx" >/dev/null 2>/dev/null </dev/null
+    TIMEOUT_RC=$?
+    t1=$(date +%s.%N)
+    printf '  the same conversion under a one-second budget, timed here: exit=%s wall=%s s\n' \
+      "$TIMEOUT_RC" "$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }')"
+    note "C3 the conversion under a one-second budget really returns 124, the status the ladder reads as a timeout" \
+      "$(is [ "$TIMEOUT_RC" -eq 124 ])"
     echo "  lo=$(field "$RUN3/summary.host.tsv" "$(id_of slow)" lo) lo_in=$(field "$RUN3/summary.host.tsv" "$(id_of slow)" lo_in)"
     echo "  reason: $(hide <"$RUN3/$(id_of slow)/lo-in-reason.host.txt")"
     note "C3 the timed-out conversion reads error on the input side" "$(is [ "$(field "$RUN3/summary.host.tsv" "$(id_of slow)" lo_in)" = error ])"
@@ -580,7 +636,7 @@ podman: podman version 5.7.0
     ALL=("${OUTS[@]}" "$BASE/gen.out" "$BASE/record.stdout" "$BASE/record.stderr" "$BASE/record-bad.stderr"
          "$BASE/record-mut.stderr" "$BASE/cs.out")
     CONTAINER_LINE='Error: source file could not be loaded'
-    count_container_line() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$CONTAINER_LINE"; }
+    count_container_line() { counted -F "$CONTAINER_LINE" "$@"; }
     ctl "the container's own line anywhere in the runner's output" "$(count_container_line "${OUTS[@]}")" 0
     note "lines with Error, Warning or javaldx in the runner's output: $(count_container_words "${OUTS[@]}") (expect 0)" \
       "$(is [ "$(count_container_words "${OUTS[@]}")" -eq 0 ])"
@@ -605,8 +661,8 @@ podman: podman version 5.7.0
 ## the scratch clone and the gate's binaries (option (c))
 command: git clone --quiet --shared <main tree> <scratch>/clone
   exit: 0
-  clone HEAD: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
-  the clone is at 25e553a39d9cb89e672dafc52dd196c3c7fb539a and its tree is clean: as-expected
+  clone HEAD: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+  the clone is at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832 and its tree is clean: as-expected
   copied from the main tree, read only (gate.log prints these same two hashes):
     target/debug/passthrough: sha256 2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162, bytes 10507136
     target/debug/xlsx-diff:   sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
@@ -632,12 +688,12 @@ command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
 command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --ids <scratch>/ids-main
   exit: 0
   stdout:
-    3f032c69b908 host ok 0 0.10 7612
-    c36a06a7d22b host error - 0.10 7564
-    d8022ea2d56c host ok 0 0.10 7740
-    0a2c75eb1ccc host ok 0 0.10 7804
-    0d0e0dc537d7 host ok 0 0.10 7964
-    ceedb27c21a0 host ok 0 0.10 7692
+    3f032c69b908 host ok 0 0.10 7836
+    c36a06a7d22b host error - 0.10 7732
+    d8022ea2d56c host ok 0 0.10 7912
+    0a2c75eb1ccc host ok 0 0.10 7720
+    0d0e0dc537d7 host ok 0 0.10 7836
+    ceedb27c21a0 host ok 0 0.10 7636
     files 6 ok 5 error 1 timeout 0 panic 0 crash 0
   stderr bytes: 0
   the run exits 0: as-expected
@@ -650,7 +706,7 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
     wstrap      outcome=ok lo=ok lo_in=ok
   C1 healthy: lo ok, lo_in ok: as-expected
   run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
-  run.host.tsv row: 25e553a39d9cb89e672dafc52dd196c3c7fb539a	2026-09-16T12:24:15Z	2026-09-16T12:24:35Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
+  run.host.tsv row: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832	2026-09-16T12:39:56Z	2026-09-16T12:40:16Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
   C1 run.host.tsv carries lo_timeout_s and the value given: as-expected
   C2 truncated: lo_in fail: as-expected
   C2 truncated: the reason is the stderr branch, since the conversion itself exits 0: as-expected
@@ -670,6 +726,7 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
   the sheet count excludes <chartsheet parts. This measures it.
   conversion exit: 0; stderr lines: 1
   input <sheet count, chartsheet parts, ods <table:table count, table names: 2 1 2 Alpha,Chart
+  the two counts this assertion reads: input <sheet=2, ods <table:table=2
   C7 the chart sheet is counted as a sheet on both sides, so the spec's conditional does not apply: as-expected
   C7 the runner's own check passes the chart-sheet workbook: as-expected
 
@@ -696,12 +753,19 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
 
 ## C3: a real forced timeout reads error, not fail (planning's ruling 1)
   --lo-timeout 1 against the pinned image, on a workbook with 40000 rows.
-  Measured on this box: a 40000-row and a one-row workbook both convert in
-  about 2.1 s, so the cost is LibreOffice's cold start, not the sheet. The
-  one-second budget is below that start-up time; the size of the fixture is
-  not what makes the conversion miss it. This is a real conversion under a
-  real budget, not a stub (planning's ruling of 2026-09-16).
+  This is a real conversion under a real budget, not a stub (planning's
+  ruling of 2026-09-16). The two timings below are measured here, not
+  asserted: the same image converts the 40000-row fixture and a one-row
+  fixture, each timed, so the log shows whether the cost is LibreOffice's
+  cold start or the sheet. Independent check 1 found the earlier form
+  claiming a conversion time the log did not hold.
+    slow     conversion exit=0 wall=2.1 s
+    healthy  conversion exit=0 wall=1.8 s
+  (both are compared with the one-second budget C3 uses; if they are close
+  to each other the sheet size is not what exhausts the budget)
   run exit: 0
+  the same conversion under a one-second budget, timed here: exit=124 wall=1.0 s
+  C3 the conversion under a one-second budget really returns 124, the status the ladder reads as a timeout: as-expected
   lo=error lo_in=error
   reason: the conversion timed out after 1 s
   C3 the timed-out conversion reads error on the input side: as-expected
@@ -787,6 +851,6 @@ command: scripts/passthrough-record.py --run <scratch>/run-record --out <scratch
   control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   the main working tree is still clean and was never built in (expect empty): : as-expected
-  the main tree is still at 25e553a39d9cb89e672dafc52dd196c3c7fb539a: as-expected
-run ended at 2026-09-16T12:24:45Z
+  the main tree is still at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832: as-expected
+run ended at 2026-09-16T12:40:31Z
 negative log checks all as expected: yes

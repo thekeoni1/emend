@@ -1,6 +1,6 @@
-about: phase diff 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a; HEAD at run: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
-phase: T3 P4 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T12:23:31Z
-rerun: this log replaces the scan.log committed at record commit 4d3cb4dcb5bfb29e9706e9908d416937996b9c53; rerun at 25e553a39d9cb89e672dafc52dd196c3c7fb539a, now covering the record pair (.md and .txt) as tracked files of the phase diff and four committed logs instead of three. The scan.log it reads is the one committed at 4d3cb4d, not the file this run writes, so no log scans itself. run.log is not rerun.
+about: phase diff 0c2caf21f2f8e062c13945eac8332a534512e0d7..9d5e06094624cf5fb0e8c93d7ad0c53692d66832; HEAD at run: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+phase: T3 P4 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T12:39:32Z
+rerun: this log replaces the scan.log committed at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832; rerun at the same commit after independent check 1 found that the bare-shape structural check used the form specs/0001 forbids by name, $(yn [ ... ] && [ ... ]), which captures only the first test and silently dropped the grep-error condition. That check is now the named function pre_clean. No tracked file changed, so there is no new phase commit.
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -276,8 +276,13 @@ temporary files live in <scratch> and are deleted on exit
       echo "  pre-P6d forms in $f: count=${n:-none} exit=$rc"
       if [ "$rc" -ge 2 ]; then pre_err=1; elif [ "$rc" -eq 0 ]; then pre_hits=$((pre_hits+n)); fi
     done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    # Both conditions inside one named function: the form
+    # $(yn [ ... ] && [ ... ]) captures only the first test, which specs/0001
+    # forbids by name. Independent check 1 of this phase found it here, where it
+    # silently dropped the grep-error condition from the printed result.
+    pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
     structural "bare shapes found by the pre-P6d forms: $pre_hits (expect 0); errors: $pre_err" \
-      "$(yn [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ])"
+      "$(yn pre_clean)"
     
     echo
     echo "total hits: $hits"
@@ -300,7 +305,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 25e553a39d9cb89e672dafc52dd196c3c7fb539a: yes
+this script's patterns equal scripts/privacy-patterns.txt at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -370,7 +375,8 @@ this script's patterns equal scripts/privacy-patterns.txt at 25e553a39d9cb89e672
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a
+command: git rev-list --parents 0c2caf21f2f8e062c13945eac8332a534512e0d7..9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+9d5e06094624cf5fb0e8c93d7ad0c53692d66832 25e553a39d9cb89e672dafc52dd196c3c7fb539a
 25e553a39d9cb89e672dafc52dd196c3c7fb539a 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
 4d3cb4d5b5bfb29e9706e9908d416937996b9c53 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
@@ -396,9 +402,15 @@ command: git show --name-status --format='%H parents=%P %s' 25e553a39d9cb89e672d
     
     A	records/step0-2026-09-16-39defb7.md
     A	records/step0-2026-09-16-39defb7.txt
+command: git show --name-status --format='%H parents=%P %s' 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+    9d5e06094624cf5fb0e8c93d7ad0c53692d66832 parents=25e553a39d9cb89e672dafc52dd196c3c7fb539a T3 P4 record: gate, negative and scan logs rerun at 25e553a
+    
+    M	records/logs/t3-p4/gate.log
+    M	records/logs/t3-p4/negative.log
+    M	records/logs/t3-p4/scan.log
 
-## files changed in the phase diff (contents at 25e553a39d9cb89e672dafc52dd196c3c7fb539a)
-command: git diff --name-status 0c2caf21f2f8e062c13945eac8332a534512e0d7 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+## files changed in the phase diff (contents at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832)
+command: git diff --name-status 0c2caf21f2f8e062c13945eac8332a534512e0d7 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
     A	records/logs/t3-p4/gate.log
     A	records/logs/t3-p4/negative.log
     A	records/logs/t3-p4/run.log
@@ -407,7 +419,7 @@ command: git diff --name-status 0c2caf21f2f8e062c13945eac8332a534512e0d7 25e553a
     A	records/step0-2026-09-16-39defb7.txt
     M	scripts/passthrough-record.py
     M	scripts/passthrough-run.sh
-file records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5da2ca29d574c5c1f325781c0bf)
+file records/logs/t3-p4/gate.log (sha256 5b81b4dfdbd78c96d3da2ee987817129db97a91ccd47e9713b098ea66b13a4a3)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -416,7 +428,7 @@ file records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5d
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p4/negative.log (sha256 29879d777ad4df6166075c1de78f2e6d4b1e93cce60ce4178b4817d3cc26cedd)
+file records/logs/t3-p4/negative.log (sha256 30e11ce707b0ed421208da2d4465a9d8d1c3f754ab88d81a0e2b7045ef23575e)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -434,7 +446,7 @@ file records/logs/t3-p4/run.log (sha256 91501ef1659a6c1e1b200ee8f75a420c3943353b
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file records/logs/t3-p4/scan.log (sha256 871b93f01e8fd33d7ce6c011e369ffa8fcdd4e94e56d52f6c682cc7c7ee8f7d0)
+file records/logs/t3-p4/scan.log (sha256 53eb75701cf09b94021dbb21d60712d0e3961271d0c15baed7cbe1e078d94171)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -482,6 +494,16 @@ file scripts/passthrough-run.sh (sha256 7ef3cc162dc436d16be9685e4bd742d87b2f0eba
 files in diff: 8; files scanned: 8; files read: 8: yes
 
 ## commit messages in the phase range
+message 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 25e553a39d9cb89e672dafc52dd196c3c7fb539a
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -522,14 +544,14 @@ message 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 4; commits in range: 4: yes
+messages scanned: 5; commits in range: 5: yes
 
 ## other T3 P4 logs in the working tree (a log cannot scan itself)
 Four logs are committed by this phase. The scan.log read here is the one
 committed at the first record commit, not the file this run is writing:
 this run's output goes to <scratch> and is moved in afterwards, so no log
 scans itself. run.log is not rerun; it stays the primary of the run.
-log records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5da2ca29d574c5c1f325781c0bf)
+log records/logs/t3-p4/gate.log (sha256 5b81b4dfdbd78c96d3da2ee987817129db97a91ccd47e9713b098ea66b13a4a3)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -538,7 +560,7 @@ log records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5da
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t3-p4/negative.log (sha256 29879d777ad4df6166075c1de78f2e6d4b1e93cce60ce4178b4817d3cc26cedd)
+log records/logs/t3-p4/negative.log (sha256 30e11ce707b0ed421208da2d4465a9d8d1c3f754ab88d81a0e2b7045ef23575e)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -556,7 +578,7 @@ log records/logs/t3-p4/run.log (sha256 91501ef1659a6c1e1b200ee8f75a420c3943353b7
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t3-p4/scan.log (sha256 871b93f01e8fd33d7ce6c011e369ffa8fcdd4e94e56d52f6c682cc7c7ee8f7d0)
+log records/logs/t3-p4/scan.log (sha256 53eb75701cf09b94021dbb21d60712d0e3961271d0c15baed7cbe1e078d94171)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -588,5 +610,5 @@ bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T12:23:31Z
+run ended at 2026-09-16T12:39:32Z
 RESULT: PASS

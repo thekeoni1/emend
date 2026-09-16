@@ -1,0 +1,291 @@
+command: git rev-parse HEAD
+about: T3 P4 record.log; HEAD at run: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+phase: T3 P4 (specs/0006-passthrough.md) record.log; run at 2026-09-16T12:39:23Z
+command: git rev-parse 25e553a  (the record commit whose files this log describes)
+record commit described: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+commit ids in this log are read from git by the commands printed above, never typed.
+
+## why this log exists
+run.log stays untouched as the primary of the run as run. What it says was
+true when it was written at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06: the record
+script then wrote a .tsv. The script was changed to write .txt and the
+record was regenerated from the same run directory, with no new corpus
+run, so two lines of run.log are superseded. Planning ruled on 2026-09-16
+that a committed log is never edited and that a correction is a new log
+naming the superseded lines. These are those two lines, verbatim:
+  superseded run.log line 1:     wrote step0-2026-09-16-39defb7.tsv and step0-2026-09-16-39defb7.md: labels host,i686; files 27,27; entry rows 870,870
+  superseded run.log line 2:   records/step0-2026-09-16-39defb7.md:  sha256 88173268ca625b49fe6b81af927f5b68127d88adc3906f3e33f27f7d3f4dc98b, bytes 14595
+run.log still holds both superseded lines, so this log names what is really there: yes
+run.log still holds the superseded .md hash line: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T3 P4 record.log: the regeneration of the record pair, recorded as a fact.
+    #
+    # WHY THIS LOG EXISTS. run.log is the primary of the run as run, and what it
+    # says was true when it was written at 39defb7: the record script then wrote a
+    # .tsv. After planning's ruling of 2026-09-16 the script was changed to write
+    # .txt (4a4867b) and the record was regenerated from the SAME run directory,
+    # with no new corpus run. run.log therefore names a file that was never
+    # committed and an .md hash that is not the committed one. Planning ruled
+    # (option (d), 2026-09-16) that a committed log is never edited and that
+    # rerunning run.log would forge a transcript of a run that did not happen: the
+    # correction is a NEW log that names the superseded lines. This is that log.
+    #
+    # Usage: t3p4-record.sh > <scratch file>; the caller moves the output to
+    # records/logs/t3-p4/record.log. Nothing is written in the working tree while
+    # this runs: the old script and its output live under <scratch>, never under
+    # records/. Each check is evaluated once and that single result is printed; a
+    # check with more than one condition is evaluated inside one named function.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    G=/usr/bin/grep
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    RUN_NAME=2026-09-16-39defb7
+    OLD_SCRIPT_COMMIT=39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+    MD=records/step0-$RUN_NAME.md
+    TXT=records/step0-$RUN_NAME.txt
+    RUNLOG=records/logs/t3-p4/run.log
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    RUN_DIR=$CORPUS/runs/$RUN_NAME
+    # The two lines of run.log this log supersedes, quoted verbatim so the
+    # correction names what it corrects.
+    SUPERSEDED_1='    wrote step0-2026-09-16-39defb7.tsv and step0-2026-09-16-39defb7.md: labels host,i686; files 27,27; entry rows 870,870'
+    SUPERSEDED_2='  records/step0-2026-09-16-39defb7.md:  sha256 88173268ca625b49fe6b81af927f5b68127d88adc3906f3e33f27f7d3f4dc98b, bytes 14595'
+    OLD_TSV_SHA=8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0
+    
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    # holds_line <file> <line>: the file holds that line, whole.
+    holds_line() { LC_ALL=C "$G" -a -q -x -F -e "$2" "$1"; }
+    # same_text <a> <b>: two files are byte for byte the same.
+    same_text() { cmp -s "$1" "$2"; }
+    # only_expected_changes <diff file>: the unified diff's changed lines (those
+    # starting with a single + or -, excluding the ---/+++ headers) are exactly the
+    # Record written timestamp line and the companion-file sentence, one of each
+    # side. Evaluated in one function so no condition is dropped.
+    # The changed lines are counted by matching every ^- and ^+ line and then
+    # excluding ONLY the unified diff's own file headers, "--- " and "+++ ".
+    # The obvious-looking ^-([^-]|$) is wrong here and measured wrong: the removed
+    # timestamp line is "-- Record written: ...", the diff's - marker followed by
+    # the markdown list's own "- ", so [^-] rejects a real content line and the
+    # count reads 1 instead of 2. That made this check report "no" against a diff
+    # that was exactly right.
+    only_expected_changes() {
+      local removed added ts_removed ts_added comp_added comp_removed
+      removed=$(LC_ALL=C "$G" -a -e '^-' "$1" | LC_ALL=C "$G" -a -c -v -e '^--- ')
+      added=$(LC_ALL=C "$G" -a -e '^+' "$1" | LC_ALL=C "$G" -a -c -v -e '^+++ ')
+      ts_removed=$(LC_ALL=C "$G" -a -c -E '^-- Record written: ' "$1")
+      ts_added=$(LC_ALL=C "$G" -a -c -E '^\+- Record written: ' "$1")
+      comp_removed=$(LC_ALL=C "$G" -a -c -E '^-Written by .*passthrough-record' "$1")
+      comp_added=$(LC_ALL=C "$G" -a -c -E '^\+Written by .*passthrough-record' "$1")
+      [ "$removed" -eq 2 ] && [ "$added" -eq 2 ] &&
+        [ "$ts_removed" -eq 1 ] && [ "$ts_added" -eq 1 ] &&
+        [ "$comp_removed" -eq 1 ] && [ "$comp_added" -eq 1 ]
+    }
+    
+    echo "command: git rev-parse HEAD"
+    HEAD_SHA=$(git rev-parse HEAD)
+    echo "about: T3 P4 record.log; HEAD at run: $HEAD_SHA"
+    echo "phase: T3 P4 (specs/0006-passthrough.md) record.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "command: git rev-parse 25e553a  (the record commit whose files this log describes)"
+    echo "record commit described: $(git rev-parse 25e553a)"
+    echo "commit ids in this log are read from git by the commands printed above, never typed."
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo
+    echo "## why this log exists"
+    echo "run.log stays untouched as the primary of the run as run. What it says was"
+    echo "true when it was written at $OLD_SCRIPT_COMMIT: the record"
+    echo "script then wrote a .tsv. The script was changed to write .txt and the"
+    echo "record was regenerated from the same run directory, with no new corpus"
+    echo "run, so two lines of run.log are superseded. Planning ruled on 2026-09-16"
+    echo "that a committed log is never edited and that a correction is a new log"
+    echo "naming the superseded lines. These are those two lines, verbatim:"
+    printf '  superseded run.log line 1: %s\n' "$SUPERSEDED_1"
+    printf '  superseded run.log line 2: %s\n' "$SUPERSEDED_2"
+    check "run.log still holds both superseded lines, so this log names what is really there" \
+      "$(yn holds_line "$RUNLOG" "$SUPERSEDED_1")"
+    check "run.log still holds the superseded .md hash line" \
+      "$(yn holds_line "$RUNLOG" "$SUPERSEDED_2")"
+    
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    
+    echo
+    echo "## the record script at this commit"
+    echo "command: git show HEAD:scripts/passthrough-record.py | sha256sum"
+    echo "  scripts/passthrough-record.py at HEAD: sha256 $(git show HEAD:scripts/passthrough-record.py | sha), bytes $(git show HEAD:scripts/passthrough-record.py | wc -c)"
+    echo "command: git show $OLD_SCRIPT_COMMIT:scripts/passthrough-record.py | sha256sum"
+    echo "  the same file at $OLD_SCRIPT_COMMIT: sha256 $(git show "$OLD_SCRIPT_COMMIT:scripts/passthrough-record.py" | sha), bytes $(git show "$OLD_SCRIPT_COMMIT:scripts/passthrough-record.py" | wc -c)"
+    
+    echo
+    echo "## the run directory the record was built from, unchanged"
+    echo "  the run directory is runs/$RUN_NAME under the corpus directory; no absolute path is printed"
+    for f in summary.host.tsv summary.i686.tsv entries.host.tsv entries.i686.tsv; do
+      if [ -f "$RUN_DIR/$f" ]; then
+        printf '  %s: sha256 %s, bytes %s\n' "$f" "$(sha <"$RUN_DIR/$f")" "$(wc -c <"$RUN_DIR/$f")"
+      else
+        printf '  %s: MISSING\n' "$f"
+        fail=1
+      fi
+    done
+    inputs_present() {
+      local f
+      for f in summary.host.tsv summary.i686.tsv entries.host.tsv entries.i686.tsv; do
+        [ -f "$RUN_DIR/$f" ] || return 1
+      done
+    }
+    check "the four inputs are the ones in the run directory, so the regeneration used the same run" "$(yn inputs_present)"
+    
+    echo
+    echo "## the committed record pair, read from git"
+    echo "command: git show HEAD:$MD | sha256sum"
+    MD_SHA=$(git show "HEAD:$MD" | sha)
+    MD_BYTES=$(git show "HEAD:$MD" | wc -c)
+    echo "  $MD: sha256 $MD_SHA, bytes $MD_BYTES"
+    echo "command: git show HEAD:$TXT | sha256sum"
+    TXT_SHA=$(git show "HEAD:$TXT" | sha)
+    TXT_BYTES=$(git show "HEAD:$TXT" | wc -c)
+    echo "  $TXT: sha256 $TXT_SHA, bytes $TXT_BYTES"
+    echo "  the superseded .tsv hash from run.log: $OLD_TSV_SHA"
+    check "the committed .txt is byte for byte the table run.log recorded as a .tsv" \
+      "$(yn [ "$TXT_SHA" = "$OLD_TSV_SHA" ])"
+    echo "  so only the .md changed: run.log records $(printf '%s' "$SUPERSEDED_2" | sed 's/.*sha256 //'), the committed .md is $MD_SHA, $MD_BYTES bytes"
+    
+    echo
+    echo "## the .md proof: what the old script produces from the same run directory"
+    echo "The old record script is taken from git into <scratch> and run over the"
+    echo "same run directory, with its output in <scratch>. Nothing is written under"
+    echo "records/. Its .md is then compared with the committed one. The expected"
+    echo "difference is the Record written timestamp line and the companion-file"
+    echo "sentence the .txt change added, and nothing else."
+    mkdir -p "$T/old" "$T/out"
+    git show "$OLD_SCRIPT_COMMIT:scripts/passthrough-record.py" >"$T/old/record.py"
+    chmod 755 "$T/old/record.py"
+    echo "command: python3 <scratch>/old/record.py --run <corpus>/runs/$RUN_NAME --out <scratch>/out"
+    python3 "$T/old/record.py" --run "$RUN_DIR" --out "$T/out" >"$T/old.stdout" 2>"$T/old.stderr" </dev/null
+    rc=$?
+    echo "  exit: $rc"
+    echo "  stdout: $(sed 's/^/    /' "$T/old.stdout" | tr -d '\n')"
+    echo "  stderr bytes: $(wc -c <"$T/old.stderr")"
+    check "the old script still runs over the same run directory" "$(yn [ "$rc" -eq 0 ])"
+    echo "  it writes: $(ls -1 "$T/out" | tr '\n' ' ')"
+    git show "HEAD:$MD" >"$T/committed.md"
+    if [ -f "$T/out/step0-$RUN_NAME.md" ]; then
+      printf '  the old script .md: sha256 %s, bytes %s\n' "$(sha <"$T/out/step0-$RUN_NAME.md")" "$(wc -c <"$T/out/step0-$RUN_NAME.md")"
+      echo "command: diff -u <old script .md> <committed .md>"
+      diff -u "$T/out/step0-$RUN_NAME.md" "$T/committed.md" >"$T/md.diff"
+      echo "  diff exit: $?"
+      echo "  the diff, in full:"
+      sed 's/^/    /' "$T/md.diff"
+      check "the only differences are the timestamp line and the companion-file sentence" \
+        "$(yn only_expected_changes "$T/md.diff")"
+    else
+      echo "  the old script wrote no .md for this run name: $(ls -1 "$T/out" | tr '\n' ' ')"
+      fail=1
+    fi
+    echo "  (the old script's .tsv is not compared here: the committed .txt was shown"
+    echo "  above to be byte for byte the table run.log recorded, which is the same fact)"
+    
+    echo
+    echo "## control characters and paths in this log's own captured output"
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$T/ctl"
+    ctrl_bytes() { LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' <"$1" | wc -c; }
+    nonascii_bytes() { LC_ALL=C tr -cd '\200-\377' <"$1" | wc -c; }
+    echo "  control: a file with ESC, ESC and SI -> $(ctrl_bytes "$T/ctl") control bytes (expect 3), $(nonascii_bytes "$T/ctl") non-ASCII bytes (expect 2)"
+    for f in old.stdout old.stderr md.diff; do
+      [ -f "$T/$f" ] || continue
+      echo "  $f: $(ctrl_bytes "$T/$f") control bytes, $(nonascii_bytes "$T/$f") non-ASCII bytes (expect 0 and 0)"
+    done
+    clean_outputs() {
+      local f
+      for f in old.stdout old.stderr md.diff; do
+        [ -f "$T/$f" ] || continue
+        [ "$(ctrl_bytes "$T/$f")" -eq 0 ] && [ "$(nonascii_bytes "$T/$f")" -eq 0 ] || return 1
+      done
+    }
+    check "no control or non-ASCII bytes in any captured output" "$(yn clean_outputs)"
+    n=$(LC_ALL=C "$G" -a -c -i -F -e emend-testing "$T/old.stdout" "$T/md.diff" 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }')
+    echo "  lines naming the corpus directory in the captured output: $n (expect 0)"
+    check "the captured output names no corpus path" "$(yn [ "$n" -eq 0 ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "record log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the record script at this commit
+command: git show HEAD:scripts/passthrough-record.py | sha256sum
+  scripts/passthrough-record.py at HEAD: sha256 e8764387e603872da39fb117a92f6f08493e210e6cad3221fa9602b3f3ed27c5, bytes 17294
+command: git show 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06:scripts/passthrough-record.py | sha256sum
+  the same file at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06: sha256 cd853e1483d9c2d648d8806cd52369010eb4d7a37b7fa3a79e75481d07eedb9a, bytes 16380
+
+## the run directory the record was built from, unchanged
+  the run directory is runs/2026-09-16-39defb7 under the corpus directory; no absolute path is printed
+  summary.host.tsv: sha256 5a5a17f4b591565ee3aeed060fbbd97369a41f3de68ee6d45a5f5c889072be47, bytes 4437
+  summary.i686.tsv: sha256 3c9bbd202d3a07717056ff7f4bc7008642e729ef94721adc6da11c7da6ace07b, bytes 4437
+  entries.host.tsv: sha256 15df8dffaa1aade162c26c5b4275cf0ae6c56f71789aa9218dc9afeebb40e124, bytes 110023
+  entries.i686.tsv: sha256 b24cedb4c11f49113faec8808c7220c79ca90cb6472712c61b0fa26b6132bff1, bytes 110023
+the four inputs are the ones in the run directory, so the regeneration used the same run: yes
+
+## the committed record pair, read from git
+command: git show HEAD:records/step0-2026-09-16-39defb7.md | sha256sum
+  records/step0-2026-09-16-39defb7.md: sha256 8ee0314e6c0b021131a5c204508040aaadcb5675b03688e9edb3d8c74191a9e1, bytes 14799
+command: git show HEAD:records/step0-2026-09-16-39defb7.txt | sha256sum
+  records/step0-2026-09-16-39defb7.txt: sha256 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0, bytes 228516
+  the superseded .tsv hash from run.log: 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0
+the committed .txt is byte for byte the table run.log recorded as a .tsv: yes
+  so only the .md changed: run.log records 88173268ca625b49fe6b81af927f5b68127d88adc3906f3e33f27f7d3f4dc98b, bytes 14595, the committed .md is 8ee0314e6c0b021131a5c204508040aaadcb5675b03688e9edb3d8c74191a9e1, 14799 bytes
+
+## the .md proof: what the old script produces from the same run directory
+The old record script is taken from git into <scratch> and run over the
+same run directory, with its output in <scratch>. Nothing is written under
+records/. Its .md is then compared with the committed one. The expected
+difference is the Record written timestamp line and the companion-file
+sentence the .txt change added, and nothing else.
+command: python3 <scratch>/old/record.py --run <corpus>/runs/2026-09-16-39defb7 --out <scratch>/out
+  exit: 0
+  stdout:     wrote step0-2026-09-16-39defb7.tsv and step0-2026-09-16-39defb7.md: labels host,i686; files 27,27; entry rows 870,870
+  stderr bytes: 0
+the old script still runs over the same run directory: yes
+  it writes: step0-2026-09-16-39defb7.md step0-2026-09-16-39defb7.tsv 
+  the old script .md: sha256 e382dcc57bceaf77b4c660eb3825f4ee4032db19e1e263d40942aee1b0ac6df4, bytes 14595
+command: diff -u <old script .md> <committed .md>
+  diff exit: 1
+  the diff, in full:
+    --- /tmp/tmp.JBtjAcd9RX/out/step0-2026-09-16-39defb7.md	2026-09-16 05:39:23.753826966 -0700
+    +++ /tmp/tmp.JBtjAcd9RX/committed.md	2026-09-16 05:39:23.778270366 -0700
+    @@ -1,8 +1,8 @@
+     # step0 passthrough run 2026-09-16-39defb7
+     
+    -Written by `scripts/passthrough-record.py` from the run directory `2026-09-16-39defb7` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`).
+    +Written by `scripts/passthrough-record.py` from the run directory `2026-09-16-39defb7` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`). The machine-readable companion to this file is `step0-2026-09-16-39defb7.txt`, the same two tab-separated tables; it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
+     
+    -- Record written: 2026-09-16T12:39:23Z
+    +- Record written: 2026-09-16T12:18:53Z
+     - Commit: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+     - Runs: 2, from 2026-09-16T12:06:35Z to 2026-09-16T12:11:35Z
+     - Targets: host, i686
+the only differences are the timestamp line and the companion-file sentence: yes
+  (the old script's .tsv is not compared here: the committed .txt was shown
+  above to be byte for byte the table run.log recorded, which is the same fact)
+
+## control characters and paths in this log's own captured output
+  control: a file with ESC, ESC and SI -> 3 control bytes (expect 3), 2 non-ASCII bytes (expect 2)
+  old.stdout: 0 control bytes, 0 non-ASCII bytes (expect 0 and 0)
+  old.stderr: 0 control bytes, 0 non-ASCII bytes (expect 0 and 0)
+  md.diff: 0 control bytes, 0 non-ASCII bytes (expect 0 and 0)
+no control or non-ASCII bytes in any captured output: yes
+  lines naming the corpus directory in the captured output: 0 (expect 0)
+the captured output names no corpus path: yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-16T12:39:23Z
+record log checks all as expected: yes
