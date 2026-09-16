@@ -5,11 +5,15 @@ Written by `scripts/corpus-coverage.py --verify` over the private corpus
 record holds only ids, extensions, byte counts, producers, sources, tags and
 counts, which is the whole of the script stdout reproduced below.
 
-- Commit: 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
+- Commit: 8f4388242d866b93a6da90dcd876a622561d0a2f
 - Date: 2026-09-16
-- Script: `scripts/corpus-coverage.py`, sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70
+- Script: `scripts/corpus-coverage.py`, sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21
 - Command: `scripts/corpus-coverage.py --verify`, exit 0, no stderr
 - `--verify` recomputed every file size and sha256 against the manifest.
+- The body below is the whole of that run stdout. An earlier version of this
+  record attested the script at 58063fb (sha256 2b8be584...), which the
+  docstring correction at 0c3c6a3 superseded; independent check 2 found that
+  no current log showed the attested script producing this body.
 
 ---
 
