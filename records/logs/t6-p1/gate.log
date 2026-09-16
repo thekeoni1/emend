@@ -1,0 +1,414 @@
+command: git rev-parse HEAD
+about: T6 P1 phase commit 0a337fb79ad03aff9d78756c387cc7fa96571cf4; HEAD at run: 0a337fb79ad03aff9d78756c387cc7fa96571cf4
+phase: T6 P1 (specs/0007-gate-self-test.md) gate.log; run at 2026-09-16T16:12:51Z
+rerun: this replaces two earlier attempts of this log, neither committed. The first, sha256 61cbe7faf59d1d9917d67e5ef466215a88c87795a5e97896a5af385c0227dd50, invoked the gate as "$(pwd)/scripts/check.sh" inside a subshell that had already cd'd to /, so the command was not found (exit 127), and discarded the stderr that would have named the cause. The second, sha256 0e132c350251e14523e1e14acfc32cfbda46cba9228060970fbb4fe5f09ff9db, was built from an inline block and so printed no script at all: its four scan numbers had no printed command form and no positive control, while the report cited them, and it ran only five of the eight --only steps although the report claimed --only i686 had been exercised. Independent check 1 found both. This log is a file, prints itself, runs all eight steps, controls every counting form it uses, and is produced at the phase commit 0a337fb after H3 and K3 were restored on planning's ruling.
+ANTHROPIC_API_KEY set in this shell: no
+DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)
+
+## script
+    #!/usr/bin/env bash
+    # T6 P1 gate.log (specs/0007-gate-self-test.md, "P1: the file-level
+    # self-test"): the full gate on a cold cache, every scripts/check.sh --only
+    # step, and the new script scored against the gate it tests.
+    #
+    # Usage: t6p1-gate.sh > <scratch file>; the caller moves the output to
+    # records/logs/t6-p1/gate.log.
+    #
+    # This is a FILE, not an inline block. The first gate.log of this phase was
+    # built inline and so printed no script at all: its four scan numbers had no
+    # printed command form and no positive control anywhere, and the report cited
+    # them (independent check 1, T6 P1). "Print the exact script into the log" is
+    # a rule for every phase, and this log now keeps it.
+    #
+    # Its own text is committed inside the log, so it holds no office file name,
+    # no path shape and no address: the office regex is read from check.sh, the
+    # pre-P6d path forms are read from git, and every control fixture is assembled
+    # at run time from pieces.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    W=$(mktemp -d)
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    
+    C=$(git rev-parse HEAD)
+    echo "command: git rev-parse HEAD"
+    echo "about: T6 P1 phase commit $C; HEAD at run: $C"
+    echo "phase: T6 P1 (specs/0007-gate-self-test.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the phase's commits"
+    echo "command: git log --format='%H %s' 731d6ff..HEAD"
+    git log --format='    %H %s' 731d6ff..HEAD
+    
+    echo
+    echo "## the changed files at the phase commit"
+    for f in $(git diff --name-only --diff-filter=d 731d6ff HEAD); do
+      git show "$C:$f" >"$W/f" 2>/dev/null || { echo "$f: READ ERROR"; fail=1; continue; }
+      echo "$f: sha256 $(sha256sum <"$W/f" | cut -d' ' -f1), bytes $(wc -c <"$W/f"), mode $(git ls-tree "$C" -- "$f" | awk '{print $1}')"
+    done
+    
+    echo
+    echo "## the three scripts parse"
+    for s in scripts/check.sh scripts/counting.sh scripts/gate-self-test.sh; do
+      bash -n "$s" 2>/dev/null
+      note "$s parses" "$(is [ $? -eq 0 ])"
+    done
+    
+    echo
+    echo "## check.sh --only: every refusal and every one of the eight steps"
+    echo "The first gate.log of this phase ran five of the eight single steps, and"
+    echo "the report nonetheless claimed --only i686 printed PASS i686 with no SKIP"
+    echo "line. That claim was true but it had never been run: it came from reading"
+    echo "the code, not from a log (independent check 1, T6 P1). All eight run here."
+    for a in "--only bogus" "--only" "--only fmt --quick" "--only privacy --ci" "--quick --ci"; do
+      out=$(./scripts/check.sh $a 2>&1); rc=$?
+      echo "refusal [$a]: exit $rc, output [$out]"
+      note "[$a] exits 2 with the usage line" "$(is [ "$rc" -eq 2 ])"
+    done
+    for s in host i686 fmt clippy native licences hygiene privacy; do
+      ./scripts/check.sh --only "$s" >"$W/only-$s" 2>&1
+      rc=$?
+      n=$(count_lines "$W/only-$s")
+      p=$(count_matches -E "^PASS $s" "$W/only-$s")
+      k=$(count_matches -F 'SKIP' "$W/only-$s")
+      echo "--only $s: exit $rc, lines $n, PASS lines $p, SKIP lines $k, [$(cat "$W/only-$s")]"
+      one_pass() { [ "$rc" -eq 0 ] && [ "$n" = 1 ] && [ "$p" = 1 ] && [ "$k" = 0 ]; }
+      note "--only $s exits 0 with exactly one PASS line and no SKIP line" "$(is one_pass)"
+    done
+    
+    echo
+    echo "## the self-test script scored against the gate it tests, with controls"
+    OFF=$(sed -n "s/^readonly OFFICE_RE='\(.*\)'\$/\1/p" scripts/check.sh)
+    note "OFFICE_RE was read from check.sh and is non-empty" "$(is [ -n "$OFF" ])"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    note "the P6d narrowing commit resolved from git" "$(is [ -n "$PRE_COMMIT" ])"
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$W/pre-all" 2>/dev/null || fail=1
+    sed -n '8p;10p;11p' "$W/pre-all" >"$W/pre-patterns"
+    note "three pre-P6d forms read from the narrowing commit's parent" \
+      "$(is [ "$(count_lines "$W/pre-patterns")" = 3 ])"
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_live()     { count_from_file -E scripts/privacy-patterns.txt "$1"; }
+    f_pre()      { count_from_file -E "$W/pre-patterns" "$1"; }
+    f_office()   { count_matches -E "$OFF" "$1"; }
+    
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    printf 'plain\nhas \303\251 byte\n' >"$W/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$W/c-ctrl"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$W/c-live"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$W/c-pre"
+    printf 'name.%s%s\n' 'xl' 'sx' >"$W/c-office"
+    printf 'plain ascii only\n' >"$W/c-clean"
+    ctl "f_nonascii on a two-byte character" 2 f_nonascii "$W/c-nonascii"
+    ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$W/c-ctrl"
+    ctl "f_live on a token shape" 1 f_live "$W/c-live"
+    ctl "f_pre on a bare path shape" 1 f_pre "$W/c-pre"
+    ctl "f_office on an office file name" 1 f_office "$W/c-office"
+    for f in f_nonascii f_ctrl f_live f_pre f_office; do
+      ctl "$f on a clean file" 0 "$f" "$W/c-clean"
+    done
+    
+    for s in scripts/gate-self-test.sh scripts/counting.sh; do
+      echo "$s:"
+      echo "  non-ASCII bytes: $(f_nonascii "$s")"
+      echo "  control bytes: $(f_ctrl "$s")"
+      echo "  hits against all $(count_lines scripts/privacy-patterns.txt) live privacy patterns: $(f_live "$s")"
+      echo "  hits against the three pre-P6d bare forms: $(f_pre "$s")"
+      echo "  office file names: $(f_office "$s")"
+      clean_script() {
+        [ "$(f_nonascii "$1")" = 0 ] && [ "$(f_ctrl "$1")" = 0 ] &&
+          [ "$(f_live "$1")" = 0 ] && [ "$(f_pre "$1")" = 0 ] && [ "$(f_office "$1")" = 0 ]
+      }
+      note "$s is clean on all five forms" "$(is clean_script "$s")"
+    done
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo clean 2>&1 | sed 's/^/    /'
+    GATE=$MAIN/scripts/check.sh
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    ( cd / && RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4 "$GATE" ) >"$W/gate.out" 2>"$W/gate.err"
+    grc=$?
+    sed 's/^/    /' "$W/gate.out"
+    echo "exit: $grc; stderr bytes: $(wc -c <"$W/gate.err")"
+    npass=$(count_matches -E '^PASS ' "$W/gate.out")
+    note "the gate exits 0" "$(is [ "$grc" -eq 0 ])"
+    note "eight PASS lines" "$(is [ "$npass" = 8 ])"
+    note "stderr is empty" "$(is [ "$(wc -c <"$W/gate.err")" -eq 0 ])"
+    
+    echo
+    echo "## status after the run"
+    git status --porcelain >"$W/status" 2>/dev/null || : >"$W/status"
+    st_all=$(count_lines "$W/status")
+    st_log=$(count_matches -F 'records/logs/t6-p1' "$W/status")
+    echo "status lines: $st_all; of those naming the log directory: $st_log"
+    status_only_logs() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "the working tree holds nothing but the untracked log directory" "$(is status_only_logs)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+
+## the phase's commits
+command: git log --format='%H %s' 731d6ff..HEAD
+    0a337fb79ad03aff9d78756c387cc7fa96571cf4 T6 P1: check.sh --only, scripts/counting.sh, the gate self-test
+    39b22495cc82f4d84db35c1feb1fb5a05bee69fc T6 P1: commit planning doc updates (two commit rules, the T6 spec)
+
+## the changed files at the phase commit
+ROADMAP.md: sha256 527115458df70b7709ce188510f95732c1f8e5243ae47a7f9f627a3572912b28, bytes 17152, mode 100644
+scripts/check.sh: sha256 7272fd137969c3b0df482e61affb8b23c8146046bdfb08ab8b3dd73879a9be5a, bytes 17075, mode 100755
+scripts/counting.sh: sha256 93a464cf601203a826974a09b79625f1da70ef5e88918546ac016d08908b96b7, bytes 6178, mode 100644
+scripts/gate-self-test.sh: sha256 33daf932a5e4973897e60a84878aa33ee6fe4be93b01a96cb38f1f2b9950779d, bytes 38159, mode 100755
+specs/0000-step-zero-plan.md: sha256 f403750b5957feb5cbe559e3d1263f90266e194a99d841a87daee9e1706fa3a8, bytes 11168, mode 100644
+specs/0001-bootstrap.md: sha256 82fe4bd43c332933fe09ae9c4519bdaf5eab853b336cfd48c339dd9129f9a506, bytes 63253, mode 100644
+specs/0005-corpus.md: sha256 4d26c6bdf2d1191dd3c09d20a040e3363deae3fd29cc20affbd4666ff2cedd6e, bytes 23266, mode 100644
+specs/0007-gate-self-test.md: sha256 4dd9c5ebe7b0e2355bba3e63e30f9f7eddbd13b9804e4f5053743a51c890bf87, bytes 10278, mode 100644
+
+## the three scripts parse
+  scripts/check.sh parses: as-expected
+  scripts/counting.sh parses: as-expected
+  scripts/gate-self-test.sh parses: as-expected
+
+## check.sh --only: every refusal and every one of the eight steps
+The first gate.log of this phase ran five of the eight single steps, and
+the report nonetheless claimed --only i686 printed PASS i686 with no SKIP
+line. That claim was true but it had never been run: it came from reading
+the code, not from a log (independent check 1, T6 P1). All eight run here.
+refusal [--only bogus]: exit 2, output [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  [--only bogus] exits 2 with the usage line: as-expected
+refusal [--only]: exit 2, output [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  [--only] exits 2 with the usage line: as-expected
+refusal [--only fmt --quick]: exit 2, output [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  [--only fmt --quick] exits 2 with the usage line: as-expected
+refusal [--only privacy --ci]: exit 2, output [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  [--only privacy --ci] exits 2 with the usage line: as-expected
+refusal [--quick --ci]: exit 2, output [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  [--quick --ci] exits 2 with the usage line: as-expected
+--only host: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS host]
+  --only host exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only i686: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS i686]
+  --only i686 exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only fmt: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS fmt]
+  --only fmt exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only clippy: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS clippy]
+  --only clippy exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only native: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS native (allowlisted -sys: none)]
+  --only native exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only licences: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS licences]
+  --only licences exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only hygiene: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS hygiene]
+  --only hygiene exits 0 with exactly one PASS line and no SKIP line: as-expected
+--only privacy: exit 0, lines 1, PASS lines 1, SKIP lines 0, [PASS privacy]
+  --only privacy exits 0 with exactly one PASS line and no SKIP line: as-expected
+
+## the self-test script scored against the gate it tests, with controls
+  OFFICE_RE was read from check.sh and is non-empty: as-expected
+  the P6d narrowing commit resolved from git: as-expected
+  three pre-P6d forms read from the narrowing commit's parent: as-expected
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_live on a token shape count=1 expected=1: as-expected
+  control f_pre on a bare path shape count=1 expected=1: as-expected
+  control f_office on an office file name count=1 expected=1: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_live on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+  control f_office on a clean file count=0 expected=0: as-expected
+scripts/gate-self-test.sh:
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  scripts/gate-self-test.sh is clean on all five forms: as-expected
+scripts/counting.sh:
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  scripts/counting.sh is clean on all five forms: as-expected
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 3613 files, 696.2MiB total
+command: (cd / && <repo>/scripts/check.sh)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+exit: 0; stderr bytes: 0
+  the gate exits 0: as-expected
+  eight PASS lines: as-expected
+  stderr is empty: as-expected
+
+## status after the run
+status lines: 1; of those naming the log directory: 1
+  the working tree holds nothing but the untracked log directory: as-expected
+run ended at 2026-09-16T16:14:30Z
+gate log checks all as expected: yes

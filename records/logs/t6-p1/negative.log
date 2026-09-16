@@ -1,0 +1,575 @@
+command: git rev-parse HEAD
+about: T6 P1 phase commit 0a337fb79ad03aff9d78756c387cc7fa96571cf4; HEAD at run: 0a337fb79ad03aff9d78756c387cc7fa96571cf4
+phase: T6 P1 (specs/0007-gate-self-test.md) negative.log; run at 2026-09-16T16:12:21Z
+rerun: this replaces an earlier attempt of this log, not committed, sha256 18bdac3c2a35b69ae4ca49147eedf47be810d6c0a1264c8a7a85e6dc862509f1. That attempt stated in its own header that every case ran in a scratch clone while N2, N3 and N4 ran in the main working tree; it asserted the tree was clean through a bare grep -c with its exit status swallowed by || true, contradicting the header line above it; and it hand-copied the gate's two regexes. Independent check 1 found all three. This run adds N6, the detached-run mechanism probe, and N7 and N8, which establish the expectations for self-test cases H3 and K3 on planning's ruling of 2026-09-16.
+
+## script
+    #!/usr/bin/env bash
+    # T6 P1 negative.log (specs/0007-gate-self-test.md, "P1: the file-level
+    # self-test"): the self-test's own failure modes, and the four faults found
+    # while building it, each with the measurement that established it.
+    #
+    # Usage: t6p1-negative.sh > <scratch file>; the caller moves the output to
+    # records/logs/t6-p1/negative.log.
+    #
+    # This is a FILE, not an inline block, so "$0" names it and the log prints the
+    # script rather than the shell binary. An earlier attempt built this log from a
+    # { ... } block run interactively, where "$0" is bash: sed succeeded on the ELF
+    # binary and wrote 541127 control bytes and 532500 non-ASCII bytes into the
+    # log, along with an address embedded in that binary. The fallback guarded the
+    # wrong failure, because sed did not fail. The privacy-shape check before the
+    # commit is what caught it.
+    #
+    # Every case runs in a scratch clone under <scratch>, never in the main working
+    # tree, which specs/0001 now requires as the rule rather than a departure.
+    # An earlier version of this script asserted that sentence while N2, N3 and N4
+    # ran in the main working tree (independent check 1, T6 P1). They were
+    # read-only, so nothing was written, but the claim was false and it was about
+    # to be committed in a primary. They now run in a scratch clone like the rest,
+    # which is what makes the sentence true.
+    # Every count goes through scripts/counting.sh, whose controls run first. The
+    # same check found one count that did not: a bare "grep -c ... || true" whose
+    # status was swallowed, in the line asserting the working tree was clean.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    # Fixture pieces, assembled from parts so no shape appears literally in this
+    # script: its text is printed into the committed log, which the privacy gate
+    # scans. Defined here rather than in the faults section below, because N7 uses
+    # them and runs first; under set -u an undefined one would abort the script.
+    EXT_A=$(printf 'x%s' 'lsx')
+    EXT_C=$(printf 'c%s' 'sv')
+    EXT_D=$(printf 't%s' 'sv')
+    EXT_E=$(printf 'o%s' 'ds')
+    ZONE=$(printf 'Zone.%s' 'Identifier')
+    
+    W=$(mktemp -d)
+    trap 'chmod -R u+rwX "$W" 2>/dev/null; rm -rf "$W"' EXIT INT TERM HUP
+    fail=0
+    hide() { sed "s#$W#<scratch>#g; s#$MAIN#<repo>#g"; }
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: T6 P1 phase commit $(git rev-parse HEAD); HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T6 P1 (specs/0007-gate-self-test.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## N1: a case forced to the wrong result reports UNEXPECTED and the run exits 1"
+    git clone --shared --quiet . "$W/n1" 2>/dev/null
+    sed -i '0,/result H0 "control, unchanged clone" "exit 0; PASS hygiene"/s//result H0 "control, unchanged clone" "exit 0; PASS NOTHING"/' "$W/n1/scripts/gate-self-test.sh"
+    ( cd "$W/n1" && ./scripts/gate-self-test.sh --case H0 ) >"$W/n1.out" 2>&1
+    rc=$?
+    echo "  the control case's expectation was altered to a value the gate never prints"
+    echo "  exit: $rc"
+    LC_ALL=C "$G" -a -E '^case H0|^self-test:|^RESULT' "$W/n1.out" | hide | sed 's/^/    /'
+    note "N1 the forced case reports UNEXPECTED" "$(is [ "$(count_matches -F 'UNEXPECTED' "$W/n1.out")" != 0 ])"
+    note "N1 the run exits 1" "$(is [ "$rc" -eq 1 ])"
+    
+    echo
+    echo "## the scratch clone N2, N3 and N4 run in (never the main working tree)"
+    git clone --shared --quiet . "$W/nmain" 2>/dev/null
+    NM=$W/nmain
+    note "the clone exists and is not the main tree" "$(is [ -d "$NM/.git" ] && [ "$NM" != "$MAIN" ])"
+    
+    echo
+    echo "## N2: a run with EMEND_PRIVATE_DENYLIST set is refused"
+    ( cd "$NM" && EMEND_PRIVATE_DENYLIST=/dev/null ./scripts/gate-self-test.sh --case H0 ) >"$W/n2.out" 2>&1
+    rc=$?
+    echo "  exit: $rc; output: [$(hide <"$W/n2.out")]"
+    note "N2 refused with exit 2" "$(is [ "$rc" -eq 2 ])"
+    note "N2 the refusal names the variable" "$(is [ "$(count_matches -F 'EMEND_PRIVATE_DENYLIST is set' "$W/n2.out")" = 1 ])"
+    
+    echo
+    echo "## N3: check.sh --only refusals"
+    for a in "--only bogus" "--only" "--only fmt --quick" "--only privacy --ci"; do
+      out=$( cd "$NM" && ./scripts/check.sh $a 2>&1 ); rc=$?
+      echo "  [$a]: exit $rc, [$out]"
+      note "N3 [$a] exits 2 with the usage line" "$(is [ "$rc" -eq 2 ])"
+    done
+    
+    echo
+    echo "## N4: --only hygiene on the unchanged tree prints exactly one PASS line"
+    ( cd "$NM" && ./scripts/check.sh --only hygiene ) >"$W/n4.out" 2>&1
+    rc=$?
+    echo "  exit: $rc, lines: $(count_lines "$W/n4.out"), [$(cat "$W/n4.out")]"
+    n4_one_pass() { [ "$rc" -eq 0 ] && [ "$(count_lines "$W/n4.out")" = 1 ] && [ "$(count_matches -F 'PASS hygiene' "$W/n4.out")" = 1 ]; }
+    note "N4 exit 0, exactly one line, and it is PASS hygiene" "$(is n4_one_pass)"
+    
+    echo
+    echo "## N5: an unreadable capture reads error, it does not read as zero"
+    printf 'x\n' >"$W/readable"; printf 'x\n' >"$W/locked"; chmod 000 "$W/locked"
+    echo "  count_matches on a readable file: $(count_matches -F x "$W/readable")"
+    echo "  count_matches on an unreadable file: $(count_matches -F x "$W/locked")"
+    echo "  count_bytes on an unreadable file: $(count_bytes '\000-\377' "$W/locked")"
+    echo "  count_lines on an unreadable file: $(count_lines "$W/locked")"
+    n5_all_error() {
+      [ "$(count_matches -F x "$W/locked")" = error ] &&
+        [ "$(count_bytes '\000-\377' "$W/locked")" = error ] &&
+        [ "$(count_lines "$W/locked")" = error ]
+    }
+    note "N5 every form reads error on an unreadable file, and 1 on the readable one" \
+      "$(is n5_all_error)"
+    chmod 644 "$W/locked"
+    
+    echo
+    echo "## N6: the detached-run mechanism, proven before the evidence run uses it"
+    echo "  Why this exists. The command tool kills a background task after roughly"
+    echo "  150 to 300 s and caps a foreground call at 10 minutes, and one full"
+    echo "  default run of the self-test costs about 17 minutes at full history."
+    echo "  Three background attempts were killed at 167 s, 293 s and 143 s. The"
+    echo "  kills are the tool's limit, not the OS: memory sampled every 8 s through"
+    echo "  a run stayed between 18446 and 18539 MB available of 22015, the run"
+    echo "  never entered the top three by RSS, and a loop that allocates nothing"
+    echo "  was killed in the same window. The evidence run is therefore started"
+    echo "  detached (setsid, nohup, stdout and stderr to a file, stdin from"
+    echo "  /dev/null, disowned) from one short call and polled from later ones."
+    echo "  This case proves a detached process outlives that window before the"
+    echo "  evidence run relies on it: a no-op that sleeps 400 s, then writes a"
+    echo "  marker. The probe's own output is copied here; no path is printed."
+    if [ -n "${PROBE_OUT:-}" ] && [ -r "${PROBE_OUT:-/nonexistent}" ]; then
+      cp "$PROBE_OUT" "$W/probe.out"
+      sed 's/^/    /' "$W/probe.out"
+      n6_marker=$(count_matches -F 'marker OK' "$W/probe.out")
+      n6_start=$(count_matches -F 'start ' "$W/probe.out")
+      n6_end=$(count_matches -F 'end ' "$W/probe.out")
+      echo "  marker lines $n6_marker, start lines $n6_start, end lines $n6_end (expect 1, 1 and 1)"
+      n6_ok() { [ "$n6_marker" = 1 ] && [ "$n6_start" = 1 ] && [ "$n6_end" = 1 ]; }
+      note "N6 a detached process survived 400 s and wrote its marker" "$(is n6_ok)"
+    else
+      echo "  PROBE_OUT is not set or not readable"
+      note "N6 a detached process survived 400 s and wrote its marker" UNEXPECTED
+    fi
+    
+    echo
+    echo "## N7: the expectation for self-test case H3, established here"
+    echo "  specs/0007 names T0 P6c b as H3's source, but that case recorded a"
+    echo "  privacy FAIL paths line, not a hygiene line, and no log anywhere"
+    echo "  records a csv or a tsv at step 7. Planning's ruling (2026-09-16) is to"
+    echo "  establish it here and then source the self-test case to this log by"
+    echo "  case name, rather than assert it against the gate's own regex."
+    git clone --shared --quiet . "$W/n7" 2>/dev/null
+    git -C "$W/n7" config user.name "$(sed -n 1p scripts/privacy-identity.txt)"
+    git -C "$W/n7" config user.email "$(sed -n 2p scripts/privacy-identity.txt)"
+    printf 'x\n' >"$W/n7/data.$EXT_C"; printf 'x\n' >"$W/n7/data.$EXT_D"
+    git -C "$W/n7" add -f . >/dev/null 2>&1
+    ( cd "$W/n7" && ./scripts/check.sh --only hygiene ) >"$W/n7.out" 2>&1
+    n7rc=$?
+    echo "  staged paths: $(git -C "$W/n7" diff --cached --name-only | wc -l)"
+    echo "  exit: $n7rc"
+    sed 's/^/    /' "$W/n7.out"
+    note "N7 the hygiene step fails with exactly one FAIL line" \
+      "$(is [ "$n7rc" -eq 1 ] && [ "$(count_matches -E '^FAIL ' "$W/n7.out")" = 1 ])"
+    
+    echo
+    echo "## N8: the expectation for self-test case K3, established here"
+    echo "  specs/0007 names T0 P6b d as K3's source, but that case recorded d1, d2"
+    echo "  and d3 and holds no hooksPath case; no log in this project records this"
+    echo "  refusal. This is the first time it has been exercised. Planning's"
+    echo "  ruling (2026-09-16) is to establish it here and source the self-test"
+    echo "  case to this log by case name."
+    git clone --shared --quiet . "$W/n8" 2>/dev/null
+    git -C "$W/n8" config core.hooksPath .githooks
+    ( cd "$W/n8" && ./scripts/install-hooks.sh ) >"$W/n8.out" 2>&1
+    n8rc=$?
+    echo "  exit: $n8rc"
+    sed 's/^/    /' "$W/n8.out"
+    note "N8 install-hooks.sh refuses with exactly one line" \
+      "$(is [ "$n8rc" -eq 1 ] && [ "$(count_lines "$W/n8.out")" = 1 ])"
+    
+    echo
+    echo "## the four faults found while building the self-test, with their measurements"
+    # The fixture pieces are set once near the top of this script.
+    # The two regexes are READ FROM check.sh, not typed here. F1 was itself a
+    # re-implementation of the gate's matching, and the first fix repaired the
+    # flags while leaving the patterns a hand copy that nothing compared against
+    # the gate (independent check 1, T6 P1). A hand copy that is correct today is
+    # still a second source of truth.
+    OFF=$(sed -n "s/^readonly OFFICE_RE='\(.*\)'\$/\1/p" scripts/check.sh)
+    ZON=$(sed -n "s/^readonly ZONE_RE='\(.*\)'\$/\1/p" scripts/check.sh)
+    echo "  OFFICE_RE and ZONE_RE read from scripts/check.sh, not typed in this script"
+    note "both regexes were read from check.sh and are non-empty" \
+      "$(is [ -n "$OFF" ] && [ -n "$ZON" ])"
+    echo "F1 H4a used an office base name. The office check runs before the Zone"
+    echo "   check in check.sh, and OFFICE_RE matches an office extension followed"
+    echo "   by a colon, so the run stopped on the office rule and never reached"
+    echo "   ZONE_RE. Measured, both names through both regexes:"
+    # The gate applies both regexes case-insensitively (check.sh matches ZONE_RE
+    # with -i, and the fixture is written Zone.Identifier while the pattern is
+    # lower case). An earlier version of this measurement used the library's
+    # count_matches, which has no -i, and scored zone=0 for both names: that was
+    # the re-measurement diverging from the gate, not a fact about the gate. The
+    # counts below use the gate's own invocation form, and read the exit status so
+    # a read failure reports error rather than a number.
+    gate_count() {
+      local mode=$1 pattern=$2 file=$3 out rc
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$file" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    for nm in "r.$EXT_A:$ZONE" "r.txt:$ZONE"; do
+      printf '%s\n' "$nm" >"$W/nm"
+      printf '     %-30s office=%s zone=%s\n' "[$nm]" \
+        "$(gate_count -E "$OFF" "$W/nm")" "$(gate_count -E "$ZON" "$W/nm")"
+    done
+    f1_isolated() {
+      printf 'r.txt:%s\n' "$ZONE" >"$W/nm2"
+      [ "$(gate_count -E "$OFF" "$W/nm2")" = 0 ] && [ "$(gate_count -E "$ZON" "$W/nm2")" = 1 ]
+    }
+    note "F1 a non-office base name reaches the Zone rule alone" "$(is f1_isolated)"
+    echo "   Fixture fault, not a gate finding. The fixture now uses a non-office name."
+    
+    echo
+    echo "F2 outcome() took the first verdict-shaped line, and privacy.sh prints its"
+    echo "   NOTICE first when EMEND_PRIVATE_DENYLIST is set, so the NOTICE masked"
+    echo "   every privacy FAIL. Measured order of privacy.sh's own output:"
+    git clone --shared --quiet . "$W/f2" 2>/dev/null
+    git -C "$W/f2" config user.name "$(sed -n 1p scripts/privacy-identity.txt)"
+    git -C "$W/f2" config user.email "$(sed -n 2p scripts/privacy-identity.txt)"
+    b=$(git -C "$W/f2" rev-parse HEAD)
+    printf 'x\n' >"$W/f2/f2.txt"
+    git -C "$W/f2" add -A >/dev/null 2>&1
+    git -C "$W/f2" commit -q -m "$(printf 'probe\n\nClaude-Session: control\n')"
+    printf 'zqprobe0000\n' >"$W/f2deny"; chmod 600 "$W/f2deny"
+    ( cd "$W/f2" && EMEND_PRIVATE_DENYLIST="$W/f2deny" ./scripts/privacy.sh --range "$b..HEAD" ) >"$W/f2.out" 2>&1
+    cat -n "$W/f2.out" | hide | sed 's/^/     /'
+    f2_notice_first() {
+      [ "$(count_matches -E '^NOTICE' "$W/f2.out")" = 1 ] &&
+        [ "$(count_matches -E '^FAIL message' "$W/f2.out")" = 1 ]
+    }
+    note "F2 the NOTICE is present and the FAIL sits below it" "$(is f2_notice_first)"
+    echo "   outcome() now prefers FAIL, ERROR and usage over the NOTICE preamble."
+    
+    echo
+    echo "F3 commit_in used a plain git add, and .gitignore ignores the office"
+    echo "   extensions the fixtures use, so three cases committed nothing and the"
+    echo "   gate correctly found nothing. Measured:"
+    git clone --shared --quiet . "$W/f3" 2>/dev/null
+    git -C "$W/f3" config user.name x
+    git -C "$W/f3" config user.email "x@$(printf 'example.%s' invalid)"
+    for n in ".~lock.n.$EXT_E#" "n.$EXT_A~" "n.$EXT_A.bak" "data.$EXT_C" "r.$EXT_A:$ZONE"; do
+      printf 'x\n' >"$W/f3/$n"
+    done
+    git -C "$W/f3" add -A >/dev/null 2>&1
+    git -C "$W/f3" diff --cached --name-only >"$W/f3-plain"
+    git -C "$W/f3" add -A -f >/dev/null 2>&1
+    git -C "$W/f3" diff --cached --name-only >"$W/f3-forced"
+    echo "     staged by a plain add: $(count_lines "$W/f3-plain") of 5; by a forced add: $(count_lines "$W/f3-forced") of 5"
+    f3_counts() {
+      [ "$(count_lines "$W/f3-plain")" = 0 ] && [ "$(count_lines "$W/f3-forced")" = 5 ]
+    }
+    note "F3 a plain add stages none of them and a forced add stages all five" "$(is f3_counts)"
+    echo "   commit_in now forces the add."
+    
+    echo
+    echo "F4 K1 exported EMEND_PRIVATE_DENYLIST for both pushes, so its clean push"
+    echo "   hit the hook's refusal of that variable, which is what K2 exists to"
+    echo "   prove, and never reached the privacy scan. Its source ran the clean"
+    echo "   push with the real denylist and no override. The hook's refusal, from"
+    echo "   the heredoc install-hooks.sh writes:"
+    awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh >"$W/hook"
+    LC_ALL=C "$G" -a -n -A1 -e 'EMEND_PRIVATE_DENYLIST' "$W/hook" | sed 's/^/     /'
+    f4_refusal_present() { [ "$(count_matches -F 'FAIL privacy: EMEND_PRIVATE_DENYLIST is set' "$W/hook")" = 1 ]; }
+    note "F4 the hook refuses that variable before running privacy.sh" "$(is f4_refusal_present)"
+    echo "   K1 now pushes the clean branch with no override, as its source did."
+    
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$W"/n1.out "$W"/n2.out "$W"/n4.out "$W"/f2.out; do [ -e "$f" ] && ALL+=("$f"); done
+    echo "  captured outputs counted (${#ALL[@]}): $(count_lines "${ALL[@]}") line(s)"
+    echo "  control bytes $(count_bytes '\000-\010\013\014\016-\037\177' "${ALL[@]}"), non-ASCII bytes $(count_bytes '\200-\377' "${ALL[@]}") (expect 0 and 0)"
+    captured_clean() {
+      [ "$(count_bytes '\000-\010\013\014\016-\037\177' "${ALL[@]}")" = 0 ] &&
+        [ "$(count_bytes '\200-\377' "${ALL[@]}")" = 0 ]
+    }
+    note "no control or non-ASCII byte in any captured output" "$(is captured_clean)"
+    # Both counts go through the library and read an exit status. This was a bare
+    # "grep -c -v ... || true" compared with 0: if git status or grep had failed,
+    # STATUS would have been 0 and the check would have passed (independent check
+    # 1, T6 P1). counting.sh has no -v form, so instead of inverting the match the
+    # check counts every status line and the log-directory lines separately and
+    # requires them equal, which says the same thing without swallowing a status.
+    git status --porcelain >"$W/status" 2>/dev/null || : >"$W/status"
+    st_all=$(count_lines "$W/status")
+    st_log=$(count_matches -F 'records/logs/t6-p1' "$W/status")
+    echo "  status lines: $st_all; of those naming the log directory: $st_log"
+    status_only_logs() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "the working tree holds nothing but the untracked log directory" "$(is status_only_logs)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+
+## N1: a case forced to the wrong result reports UNEXPECTED and the run exits 1
+  the control case's expectation was altered to a value the gate never prints
+  exit: 1
+    case H0   source control, unchanged clone           expect [exit 0; PASS NOTHING]; got [exit 0; PASS hygiene]; UNEXPECTED; 0s
+    self-test: 1 cases, 1 unexpected, 0 errors
+    RESULT: FAIL
+  N1 the forced case reports UNEXPECTED: as-expected
+  N1 the run exits 1: as-expected
+
+## the scratch clone N2, N3 and N4 run in (never the main working tree)
+  the clone exists and is not the main tree: as-expected
+
+## N2: a run with EMEND_PRIVATE_DENYLIST set is refused
+  exit: 2; output: [gate-self-test: EMEND_PRIVATE_DENYLIST is set; unset it and run again]
+  N2 refused with exit 2: as-expected
+  N2 the refusal names the variable: as-expected
+
+## N3: check.sh --only refusals
+  [--only bogus]: exit 2, [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  N3 [--only bogus] exits 2 with the usage line: as-expected
+  [--only]: exit 2, [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  N3 [--only] exits 2 with the usage line: as-expected
+  [--only fmt --quick]: exit 2, [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  N3 [--only fmt --quick] exits 2 with the usage line: as-expected
+  [--only privacy --ci]: exit 2, [usage: scripts/check.sh [--quick | --ci | --only <step>]]
+  N3 [--only privacy --ci] exits 2 with the usage line: as-expected
+
+## N4: --only hygiene on the unchanged tree prints exactly one PASS line
+  exit: 0, lines: 1, [PASS hygiene]
+  N4 exit 0, exactly one line, and it is PASS hygiene: as-expected
+
+## N5: an unreadable capture reads error, it does not read as zero
+  count_matches on a readable file: 1
+  count_matches on an unreadable file: error
+  count_bytes on an unreadable file: error
+  count_lines on an unreadable file: error
+  N5 every form reads error on an unreadable file, and 1 on the readable one: as-expected
+
+## N6: the detached-run mechanism, proven before the evidence run uses it
+  Why this exists. The command tool kills a background task after roughly
+  150 to 300 s and caps a foreground call at 10 minutes, and one full
+  default run of the self-test costs about 17 minutes at full history.
+  Three background attempts were killed at 167 s, 293 s and 143 s. The
+  kills are the tool's limit, not the OS: memory sampled every 8 s through
+  a run stayed between 18446 and 18539 MB available of 22015, the run
+  never entered the top three by RSS, and a loop that allocates nothing
+  was killed in the same window. The evidence run is therefore started
+  detached (setsid, nohup, stdout and stderr to a file, stdin from
+  /dev/null, disowned) from one short call and polled from later ones.
+  This case proves a detached process outlives that window before the
+  evidence run relies on it: a no-op that sleeps 400 s, then writes a
+  marker. The probe's own output is copied here; no path is printed.
+    detached probe
+    start 2026-09-16T16:03:19Z
+    marker OK
+    end 2026-09-16T16:09:59Z
+  marker lines 1, start lines 1, end lines 1 (expect 1, 1 and 1)
+  N6 a detached process survived 400 s and wrote its marker: as-expected
+
+## N7: the expectation for self-test case H3, established here
+  specs/0007 names T0 P6c b as H3's source, but that case recorded a
+  privacy FAIL paths line, not a hygiene line, and no log anywhere
+  records a csv or a tsv at step 7. Planning's ruling (2026-09-16) is to
+  establish it here and then source the self-test case to this log by
+  case name, rather than assert it against the gate's own regex.
+  staged paths: 2
+  exit: 1
+    FAIL hygiene: 2 office file(s) tracked outside tests/fixtures/ (paths not printed)
+  N7 the hygiene step fails with exactly one FAIL line: as-expected
+
+## N8: the expectation for self-test case K3, established here
+  specs/0007 names T0 P6b d as K3's source, but that case recorded d1, d2
+  and d3 and holds no hooksPath case; no log in this project records this
+  refusal. This is the first time it has been exercised. Planning's
+  ruling (2026-09-16) is to establish it here and source the self-test
+  case to this log by case name.
+  exit: 1
+    install-hooks: core.hooksPath is set to '.githooks'; git would not run .git/hooks/pre-push
+  N8 install-hooks.sh refuses with exactly one line: as-expected
+
+## the four faults found while building the self-test, with their measurements
+  OFFICE_RE and ZONE_RE read from scripts/check.sh, not typed in this script
+  both regexes were read from check.sh and are non-empty: as-expected
+F1 H4a used an office base name. The office check runs before the Zone
+   check in check.sh, and OFFICE_RE matches an office extension followed
+   by a colon, so the run stopped on the office rule and never reached
+   ZONE_RE. Measured, both names through both regexes:
+     [r.xlsx:Zone.Identifier]       office=1 zone=1
+     [r.txt:Zone.Identifier]        office=0 zone=1
+  F1 a non-office base name reaches the Zone rule alone: as-expected
+   Fixture fault, not a gate finding. The fixture now uses a non-office name.
+
+F2 outcome() took the first verdict-shaped line, and privacy.sh prints its
+   NOTICE first when EMEND_PRIVATE_DENYLIST is set, so the NOTICE masked
+   every privacy FAIL. Measured order of privacy.sh's own output:
+          1	NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
+          2	privacy: 1 commit(s), 234 blob(s) scanned, 1 finding(s)
+          3	FAIL message: commit 5c20e83435bc88e607b078630e030f47f1dfa07f has a Claude-Session line
+  F2 the NOTICE is present and the FAIL sits below it: as-expected
+   outcome() now prefers FAIL, ERROR and usage over the NOTICE preamble.
+
+F3 commit_in used a plain git add, and .gitignore ignores the office
+   extensions the fixtures use, so three cases committed nothing and the
+   gate correctly found nothing. Measured:
+     staged by a plain add: 0 of 5; by a forced add: 5 of 5
+  F3 a plain add stages none of them and a forced add stages all five: as-expected
+   commit_in now forces the add.
+
+F4 K1 exported EMEND_PRIVATE_DENYLIST for both pushes, so its clean push
+   hit the hook's refusal of that variable, which is what K2 exists to
+   prove, and never reached the privacy scan. Its source ran the clean
+   push with the real denylist and no override. The hook's refusal, from
+   the heredoc install-hooks.sh writes:
+     9:if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then
+     10:  echo "FAIL privacy: EMEND_PRIVATE_DENYLIST is set"
+     11-  exit 1
+  F4 the hook refuses that variable before running privacy.sh: as-expected
+   K1 now pushes the clean branch with no override, as its source did.
+
+## the log itself
+  captured outputs counted (4): 56 line(s)
+  control bytes 0, non-ASCII bytes 0 (expect 0 and 0)
+  no control or non-ASCII byte in any captured output: as-expected
+  status lines: 1; of those naming the log directory: 1
+  the working tree holds nothing but the untracked log directory: as-expected
+run ended at 2026-09-16T16:12:30Z
+negative log checks all as expected: yes
