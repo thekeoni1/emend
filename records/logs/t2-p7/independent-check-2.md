@@ -11,7 +11,11 @@ Inputs, as they stood at the checked commit:
   records/logs/t2-p7/gate.log            sha256 366e4f9b66c45e5d3e0cc61eb8c6871d1eb50e01674e3f0810729cf9ed92265b
   records/logs/t2-p7/scan.log            sha256 ed71f3352aca0dead3610b533ab116812b7dd54d88b3eac22db20d75c5b64a94
   the phase diff                         git diff 854dbaa 8f43882
-  the draft report (scratch)             sha256 UNRECOVERABLE, overwritten by the next draft
+  the draft report (scratch)             sha256 03811b0c619e05a20b22e5719e8071f5417f445cdbedf16c13bd8dbda5fb8231
+    (this hash was recorded as UNRECOVERABLE when this file was first
+    committed at a182fc4. That was false: the draft check 2 read is still
+    on disk, unmodified, ending CHECK2-PENDING. The claim was carried over
+    from check 1's header, where it is true, without being looked at.)
   The checker could also read positive.log, negative.log and the record.
 
 ASCII substitutions made before committing: none. The answer as returned
