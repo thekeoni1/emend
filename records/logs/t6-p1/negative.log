@@ -1,7 +1,8 @@
 command: git rev-parse HEAD
-about: T6 P1 phase commit 0a337fb79ad03aff9d78756c387cc7fa96571cf4; HEAD at run: 0a337fb79ad03aff9d78756c387cc7fa96571cf4
-phase: T6 P1 (specs/0007-gate-self-test.md) negative.log; run at 2026-09-16T16:12:21Z
-rerun: this replaces an earlier attempt of this log, not committed, sha256 18bdac3c2a35b69ae4ca49147eedf47be810d6c0a1264c8a7a85e6dc862509f1. That attempt stated in its own header that every case ran in a scratch clone while N2, N3 and N4 ran in the main working tree; it asserted the tree was clean through a bare grep -c with its exit status swallowed by || true, contradicting the header line above it; and it hand-copied the gate's two regexes. Independent check 1 found all three. This run adds N6, the detached-run mechanism probe, and N7 and N8, which establish the expectations for self-test cases H3 and K3 on planning's ruling of 2026-09-16.
+about: T6 P1 phase commit f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28; HEAD at run: f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28
+phase: T6 P1 (specs/0007-gate-self-test.md) negative.log; run at 2026-09-16T23:01:33Z
+rerun: this replaces the negative.log committed in record commit 4d2ece2 (that file's sha256 288a457ce31d8d29211eeca5f8a2d45278552ee538e436700969c38e00c09731). Planning's ruling of 2026-09-16 on independent check 2: the clean-tree check read a FAILED git status as a clean tree and now runs the command through counting.sh's run_lines and run_matches, distinguishing an untracked log directory from a tracked file modified under it; the hand-rolled case-insensitive counting form is now count_matches_i in the library, with its own control; and case N9 is new, requiring zero executable references to the private denylist in the committed self-test. This run is at the repair commit f7d9dc7 and is serialized: no other run was in flight.
+SERIALIZED: produced with no other run in flight (independent check 2, gap 6)
 
 ## script
     #!/usr/bin/env bash
@@ -19,6 +20,11 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
     # log, along with an address embedded in that binary. The fallback guarded the
     # wrong failure, because sed did not fail. The privacy-shape check before the
     # commit is what caught it.
+    #
+    # SERIALIZED: this log was produced with no other run in flight. The first
+    # evidence runs of this phase overlapped in time and no log said so
+    # (independent check 2, T6 P1, gap 6); planning's ruling is that the runs are
+    # serialized and each header says so.
     #
     # Every case runs in a scratch clone under <scratch>, never in the main working
     # tree, which specs/0001 now requires as the rule rather than a departure.
@@ -56,6 +62,7 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
     echo "about: T6 P1 phase commit $(git rev-parse HEAD); HEAD at run: $(git rev-parse HEAD)"
     echo "phase: T6 P1 (specs/0007-gate-self-test.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight (independent check 2, gap 6)"
     echo
     echo "## script"
     sed 's/^/    /' "$0"
@@ -147,6 +154,31 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
       n6_start=$(count_matches -F 'start ' "$W/probe.out")
       n6_end=$(count_matches -F 'end ' "$W/probe.out")
       echo "  marker lines $n6_marker, start lines $n6_start, end lines $n6_end (expect 1, 1 and 1)"
+      # PROVENANCE. This case does not run the probe; it copies in a capture the
+      # caller names through PROBE_OUT. So the capture is not contemporaneous with
+      # this run, and an earlier version of this log copied it in without saying so,
+      # which read as though the probe had just happened. The window is read from
+      # the capture's own lines and the commit is resolved from git by that
+      # timestamp, never typed (specs/0001, after a padded id reached a gate script
+      # in T3 P4). Unsetting PROBE_OUT flips this case to UNEXPECTED, which is the
+      # safe direction and is how the omission was found.
+      n6_start_ts=$(sed -n 's/^start //p' "$W/probe.out" | head -1)
+      n6_end_ts=$(sed -n 's/^end //p' "$W/probe.out" | head -1)
+      n6_commit=""
+      if [ -n "$n6_start_ts" ] && [ -n "$n6_end_ts" ]; then
+        n6_ps=$(date -u -d "$n6_start_ts" +%s 2>/dev/null || printf '')
+        if [ -n "$n6_ps" ]; then
+          for c in $(git rev-list HEAD); do
+            n6_ct=$(date -u -d "$(git log -1 --format=%cI "$c")" +%s 2>/dev/null || printf '')
+            [ -n "$n6_ct" ] || continue
+            if [ "$n6_ct" -le "$n6_ps" ]; then n6_commit=$c; break; fi
+          done
+        fi
+      fi
+      echo "  the capture above was COPIED from an earlier probe run, not produced by"
+      echo "  this run: it ran $n6_start_ts to $n6_end_ts, when HEAD was ${n6_commit:-unresolved}."
+      n6_prov() { [ -n "$n6_start_ts" ] && [ -n "$n6_end_ts" ] && [ -n "$n6_commit" ]; }
+      note "N6 the capture's provenance is recorded, not implied" "$(is n6_prov)"
       n6_ok() { [ "$n6_marker" = 1 ] && [ "$n6_start" = 1 ] && [ "$n6_end" = 1 ]; }
       note "N6 a detached process survived 400 s and wrote its marker" "$(is n6_ok)"
     else
@@ -191,6 +223,27 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
       "$(is [ "$n8rc" -eq 1 ] && [ "$(count_lines "$W/n8.out")" = 1 ])"
     
     echo
+    echo "## N9: the committed self-test never reads the private denylist"
+    echo "  An earlier K1 read the first entry of the maintainer's private denylist"
+    echo "  into a variable and committed it into a scratch clone. It was never"
+    echo "  printed and nothing leaked, but it put private data into a git object in"
+    echo "  a directory disposed of only by a trap, in a tool that runs many times"
+    echo "  (independent check 2, T6 P1). Planning's ruling, 2026-09-16: the"
+    echo "  self-test never reads the private denylist, by any path. K1's blocked"
+    echo "  push now carries a run-time-assembled pattern hit, as V4 assembles one."
+    echo "  This case greps the COMMITTED script. The prohibition is documented in a"
+    echo "  comment there, so mentions in comments are counted separately from"
+    echo "  executable reads, and only the executable count must be 0."
+    git show HEAD:scripts/gate-self-test.sh >"$W/committed-self-test" 2>/dev/null || : >"$W/committed-self-test"
+    LC_ALL=C "$G" -a -v -E '^[[:space:]]*#' "$W/committed-self-test" >"$W/self-test-code" || : >"$W/self-test-code"
+    n9_code=$(count_matches -E 'private-denylist|HOME' "$W/self-test-code")
+    n9_comment=$(count_matches -E 'private-denylist' "$W/committed-self-test")
+    echo "  executable lines naming the private denylist or HOME: $n9_code (expect 0)"
+    echo "  comment lines naming it, which document the ban: $n9_comment"
+    note "N9 the committed self-test contains no executable read of the private denylist" \
+      "$(is [ "$n9_code" = 0 ])"
+    
+    echo
     echo "## the four faults found while building the self-test, with their measurements"
     # The fixture pieces are set once near the top of this script.
     # The two regexes are READ FROM check.sh, not typed here. F1 was itself a
@@ -214,12 +267,10 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
     # the re-measurement diverging from the gate, not a fact about the gate. The
     # counts below use the gate's own invocation form, and read the exit status so
     # a read failure reports error rather than a number.
-    gate_count() {
-      local mode=$1 pattern=$2 file=$3 out rc
-      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$file" 2>/dev/null); rc=$?
-      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
-      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
-    }
+    # The case-insensitive form is count_matches_i in scripts/counting.sh, with its
+    # own control. It was a hand-rolled copy here, outside the library and with no
+    # control of its own (independent check 2, gap 14).
+    gate_count() { count_matches_i "$@"; }
     for nm in "r.$EXT_A:$ZONE" "r.txt:$ZONE"; do
       printf '%s\n' "$nm" >"$W/nm"
       printf '     %-30s office=%s zone=%s\n' "[$nm]" \
@@ -297,20 +348,32 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
         [ "$(count_bytes '\200-\377' "${ALL[@]}")" = 0 ]
     }
     note "no control or non-ASCII byte in any captured output" "$(is captured_clean)"
-    # Both counts go through the library and read an exit status. This was a bare
-    # "grep -c -v ... || true" compared with 0: if git status or grep had failed,
-    # STATUS would have been 0 and the check would have passed (independent check
-    # 1, T6 P1). counting.sh has no -v form, so instead of inverting the match the
-    # check counts every status line and the log-directory lines separately and
-    # requires them equal, which says the same thing without swallowing a status.
-    git status --porcelain >"$W/status" 2>/dev/null || : >"$W/status"
-    st_all=$(count_lines "$W/status")
-    st_log=$(count_matches -F 'records/logs/t6-p1' "$W/status")
-    echo "  status lines: $st_all; of those naming the log directory: $st_log"
-    status_only_logs() {
-      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    # Both counts RUN the command and read its exit status, through counting.sh.
+    # The first version used a bare "grep -c -v ... || true" compared with 0
+    # (independent check 1). The second wrote "git status ... || : >file", which
+    # moved the swallow one command upstream: a FAILED git status produced an empty
+    # file and the check read a clean tree, while the comment claimed otherwise
+    # (independent check 2, gap 1; planning reproduced it). run_lines and
+    # run_matches print "error" when the command itself fails, and both have
+    # controls that force that failure.
+    # The claim is that every change is under the phase's log directory. Counting
+    # "lines naming the log directory" cannot distinguish an UNTRACKED log directory
+    # from a TRACKED file under it that has been modified, so the two counts could
+    # agree while the sentence was false. During this round the replaced check
+    # answer is a tracked modification under that directory, carried into the record
+    # commit on planning's ruling, so the distinction is live rather than
+    # hypothetical. Each category is counted on its own porcelain prefix.
+    st_all=$(run_lines git status --porcelain)
+    st_untracked_log=$(run_matches -E '^[?][?] records/logs/t6-p1' git status --porcelain)
+    st_tracked_log=$(run_matches -E '^ ?[MARCD] records/logs/t6-p1' git status --porcelain)
+    echo "  status lines: $st_all; untracked under the log directory: $st_untracked_log; tracked and modified under it: $st_tracked_log"
+    echo "  the tracked modification is independent-check-1.md, whose reversible"
+    echo "  replacement planning ruled is carried into the new record commit."
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_untracked_log" != error ] && [ "$st_tracked_log" != error ] &&
+        [ "$st_all" = "$((st_untracked_log + st_tracked_log))" ]
     }
-    note "the working tree holds nothing but the untracked log directory" "$(is status_only_logs)"
+    note "every change in the working tree is under the phase's log directory" "$(is status_accounted)"
     echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
     exit "$fail"
@@ -388,6 +451,46 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
       printf '%s' "$total"
     }
     
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
     CTRL_CLASS='\000-\010\013\014\016-\037\177'
     NONASCII_CLASS='\200-\377'
     
@@ -421,6 +524,16 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
       r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
       r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
       r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
     
       chmod 644 "$d/locked"
       rm -rf "$d"
@@ -444,6 +557,15 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
   control count_bytes on an unreadable file: error (expect error)
   control count_lines on a three-line file: 3 (expect 3)
   control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
   counting controls: all as expected
 
 ## N1: a case forced to the wrong result reports UNEXPECTED and the run exits 1
@@ -503,6 +625,9 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
     marker OK
     end 2026-09-16T16:09:59Z
   marker lines 1, start lines 1, end lines 1 (expect 1, 1 and 1)
+  the capture above was COPIED from an earlier probe run, not produced by
+  this run: it ran 2026-09-16T16:03:19Z to 2026-09-16T16:09:59Z, when HEAD was 39b22495cc82f4d84db35c1feb1fb5a05bee69fc.
+  N6 the capture's provenance is recorded, not implied: as-expected
   N6 a detached process survived 400 s and wrote its marker: as-expected
 
 ## N7: the expectation for self-test case H3, established here
@@ -526,6 +651,21 @@ rerun: this replaces an earlier attempt of this log, not committed, sha256 18bda
     install-hooks: core.hooksPath is set to '.githooks'; git would not run .git/hooks/pre-push
   N8 install-hooks.sh refuses with exactly one line: as-expected
 
+## N9: the committed self-test never reads the private denylist
+  An earlier K1 read the first entry of the maintainer's private denylist
+  into a variable and committed it into a scratch clone. It was never
+  printed and nothing leaked, but it put private data into a git object in
+  a directory disposed of only by a trap, in a tool that runs many times
+  (independent check 2, T6 P1). Planning's ruling, 2026-09-16: the
+  self-test never reads the private denylist, by any path. K1's blocked
+  push now carries a run-time-assembled pattern hit, as V4 assembles one.
+  This case greps the COMMITTED script. The prohibition is documented in a
+  comment there, so mentions in comments are counted separately from
+  executable reads, and only the executable count must be 0.
+  executable lines naming the private denylist or HOME: 0 (expect 0)
+  comment lines naming it, which document the ban: 1
+  N9 the committed self-test contains no executable read of the private denylist: as-expected
+
 ## the four faults found while building the self-test, with their measurements
   OFFICE_RE and ZONE_RE read from scripts/check.sh, not typed in this script
   both regexes were read from check.sh and are non-empty: as-expected
@@ -542,8 +682,9 @@ F2 outcome() took the first verdict-shaped line, and privacy.sh prints its
    NOTICE first when EMEND_PRIVATE_DENYLIST is set, so the NOTICE masked
    every privacy FAIL. Measured order of privacy.sh's own output:
           1	NOTICE privacy: using the denylist from EMEND_PRIVATE_DENYLIST
-          2	privacy: 1 commit(s), 234 blob(s) scanned, 1 finding(s)
-          3	FAIL message: commit 5c20e83435bc88e607b078630e030f47f1dfa07f has a Claude-Session line
+          2	privacy: 1 commit(s), 240 blob(s) scanned, 2 finding(s)
+          3	FAIL message: commit edacd9ac88441ea8c7b4b1d0bf874e56dd7dd719 has a Claude-Session line
+          4	FAIL denylist: commit edacd9ac88441ea8c7b4b1d0bf874e56dd7dd719 path records/logs/t6-p1/negative.log denylist entry 1 line 246
   F2 the NOTICE is present and the FAIL sits below it: as-expected
    outcome() now prefers FAIL, ERROR and usage over the NOTICE preamble.
 
@@ -566,10 +707,12 @@ F4 K1 exported EMEND_PRIVATE_DENYLIST for both pushes, so its clean push
    K1 now pushes the clean branch with no override, as its source did.
 
 ## the log itself
-  captured outputs counted (4): 56 line(s)
+  captured outputs counted (4): 66 line(s)
   control bytes 0, non-ASCII bytes 0 (expect 0 and 0)
   no control or non-ASCII byte in any captured output: as-expected
-  status lines: 1; of those naming the log directory: 1
-  the working tree holds nothing but the untracked log directory: as-expected
-run ended at 2026-09-16T16:12:30Z
+  status lines: 1; untracked under the log directory: 0; tracked and modified under it: 1
+  the tracked modification is independent-check-1.md, whose reversible
+  replacement planning ruled is carried into the new record commit.
+  every change in the working tree is under the phase's log directory: as-expected
+run ended at 2026-09-16T23:01:43Z
 negative log checks all as expected: yes

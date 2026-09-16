@@ -22,6 +22,26 @@ inputs given to the checker:
   records/logs/t6-p1/self-test.log (superseded): sha256 5170cd870dfa15f7c3444066a2f7c60c21e313d883a86beceecbfe4ab370ed1a
   the draft report of the first round (session file, not committed)
 
+REVERSIBLE REPLACEMENT (planning's ruling, 2026-09-16). This answer quoted a
+bare shape of privacy pattern 8 while describing scan.log's control for it.
+The live patterns are blind to a bare shape by design, so the gate scored 0 on
+this file, but the pre-P6d bare-shape control fires on it, and specs/0001
+line 126 allows a documented, reversible replacement as the only exception.
+specs/0001 line 55 defines the mechanism for a non-ASCII CODE POINT; planning
+extended it to an ASCII shape for this case. The original bytes are given as
+hex, not literally, because writing them here would reintroduce the shape.
+
+  position:        line 357, column 39 of the answer; byte offset 22490 in the
+                   whole file as committed at 4d2ece2 (equivalently, offset
+                   20479 within the extracted answer)
+  original bytes:  hex 2f6d6e742f632f55736572732f (13 bytes)
+  replacement:     hex 3c62617265207061746820736861706520313e (19 bytes)
+  extracted answer before: 25392 bytes, sha256 3da5c8792fc60bf64c10dab7c4177fc51b2d2fcb707c7a6532da8a7df4d5e204
+  extracted answer after:  25398 bytes, sha256 6704066d8a7b8b24101830d0aa821993625dafb53ba6107ec102a0b757442bcd
+  whole file before:       27403 bytes, sha256 d685c29aff702de154bcdbbf15661d9a69d8d6b6fbf1ef931d775bcfcd75b6f6
+To reverse: replace the replacement bytes at that position with the original
+bytes. Nothing else in the answer is altered.
+
 ASCII substitutions: the answer arrived with angle brackets HTML-escaped by
 the transport (&lt; and &gt;); they are restored to < and > here. Nothing
 else is altered. The answer holds no non-ASCII byte and no U+2014.
@@ -354,7 +374,7 @@ diverges" - still stands in three places:
 - scan.log:51-56 hand-types the three pre-P6d patterns into PRE. I checked them
   against git show 721e863^:scripts/privacy-patterns.txt lines 8, 10 and 11: they
   match exactly today. But only one of the three has a positive control -
-  scan.log:140 builds c-bare with the /mnt/c/Users/ shape only, and :155 controls
+  scan.log:140 builds c-bare with the <bare path shape 1> shape only, and :155 controls
   f_pre against it. The pre-P6d forms of patterns 10 and 11 have no control, so a
   typo in either would score 0 hits and read as clean. That matters because
   scan.log:549-559 is the P1 acceptance condition the spec names. The contrast is

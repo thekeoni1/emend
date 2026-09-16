@@ -1,9 +1,10 @@
 command: git rev-parse HEAD
-about: T6 P1 phase diff 731d6ff0a458d161cf7cdad6ba51286d704daff9..0a337fb79ad03aff9d78756c387cc7fa96571cf4; HEAD at run: 0a337fb79ad03aff9d78756c387cc7fa96571cf4
+about: T6 P1 phase diff 731d6ff0a458d161cf7cdad6ba51286d704daff9..f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28; HEAD at run: f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28
 command: git log --format='%H' --grep='^T6 P1: commit planning doc updates' -n 1
   the doc commit resolves to 39b22495cc82f4d84db35c1feb1fb5a05bee69fc; its parent is the base, 731d6ff0a458d161cf7cdad6ba51286d704daff9
-phase: T6 P1 (specs/0007-gate-self-test.md) scan.log; run at 2026-09-16T16:26:28Z
-rerun: this replaces an earlier attempt of this log, not committed, sha256 672c028fb8aa9afdcabb3db86ef552d2cf0196f4c6036df326ec0b013c77ab61. That attempt hand-typed the three pre-P6d path forms into the script and gave a positive control to only one of the three, under the very condition P1's acceptance names, so a typo in either of the other two would have scored 0 hits and read as clean; independent check 1 found it. The three forms are now read from the parent of the P6d narrowing commit, resolved from git by its subject, and each has its own control. This run is at the phase commit 0a337fb, after H3 and K3 were restored on planning's ruling.
+phase: T6 P1 (specs/0007-gate-self-test.md) scan.log; run at 2026-09-16T23:08:21Z
+rerun: this replaces the scan.log committed in record commit 4d2ece2, and supersedes the scan run of 23:02:34Z in this same repair round. That earlier scan recorded independent-check-1.md at sha256 54097fa72ab65716a7516d96e7674c2f9956164bf8b2d6407e82ab7aa8138a28; the answer's documented reversible replacement was then repaired, because the placeholder had been written without its closing delimiter and read as a truncation, so the file changed and the scan had to be taken again. Planning's ruling of 2026-09-16 on independent check 2: the scan is the LAST log written, after both check answers are saved in the log directory, so it covers them and lists them. This run is at commit f7d9dc7 and is serialized: no other run was in flight.
+SERIALIZED: produced with no other run in flight (independent check 2, gap 6)
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -113,6 +114,7 @@ temporary files live in <scratch> and are deleted on exit
     echo "  the doc commit resolves to $DOC; its parent is the base, $BASE"
     echo "phase: T6 P1 (specs/0007-gate-self-test.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight (independent check 2, gap 6)"
     echo "temporary files live in <scratch> and are deleted on exit"
     echo
     echo "## script"
@@ -222,15 +224,23 @@ temporary files live in <scratch> and are deleted on exit
     structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
     
     echo
-    echo "## the sibling T6 P1 logs (a log cannot scan itself)"
+    echo "## the sibling T6 P1 logs AND both check answers (a log cannot scan itself)"
+    echo "This scan is the LAST log written, after both check answers are saved in the"
+    echo "log directory, so it covers them. The first round's scan ran before the"
+    echo "answers were written and covered neither, and a bare path shape in check 1's"
+    echo "answer went unscanned (independent check 2, T6 P1, gap 2). Planning's ruling,"
+    echo "2026-09-16: the scan is last, and it lists the answers it scanned."
     nl=0
-    for f in records/logs/t6-p1/gate.log records/logs/t6-p1/negative.log records/logs/t6-p1/self-test.log; do
-      if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
+    for f in records/logs/t6-p1/gate.log records/logs/t6-p1/negative.log \
+             records/logs/t6-p1/self-test.log \
+             records/logs/t6-p1/independent-check-1.md \
+             records/logs/t6-p1/independent-check-2.md; do
+      if [ ! -f "$f" ]; then echo "file $f: MISSING"; bad=1; continue; fi
       nl=$((nl + 1))
-      echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      echo "scanned $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
       for form in $FORMS; do run "$form" "$f"; done
     done
-    structural "T6 P1 logs scanned: $nl (expected 3; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 3 ])"
+    structural "T6 P1 logs and check answers scanned: $nl (expected 5; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 5 ])"
     
     echo
     echo "## the pre-P6d bare-shape control over the new script (P1 acceptance)"
@@ -239,7 +249,10 @@ temporary files live in <scratch> and are deleted on exit
     echo "pre-P6d forms are run here for that, with the control above."
     pre_hits=0; pre_err=0
     for f in scripts/gate-self-test.sh scripts/counting.sh scripts/check.sh \
-             records/logs/t6-p1/gate.log records/logs/t6-p1/negative.log records/logs/t6-p1/self-test.log; do
+             records/logs/t6-p1/gate.log records/logs/t6-p1/negative.log \
+             records/logs/t6-p1/self-test.log \
+             records/logs/t6-p1/independent-check-1.md \
+             records/logs/t6-p1/independent-check-2.md; do
       [ -f "$f" ] || continue
       n=$(f_pre "$f")
       echo "  pre-P6d forms in $f: count=$n"
@@ -334,6 +347,46 @@ temporary files live in <scratch> and are deleted on exit
       printf '%s' "$total"
     }
     
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
     CTRL_CLASS='\000-\010\013\014\016-\037\177'
     NONASCII_CLASS='\200-\377'
     
@@ -367,6 +420,16 @@ temporary files live in <scratch> and are deleted on exit
       r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
       r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
       r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
     
       chmod 644 "$d/locked"
       rm -rf "$d"
@@ -390,6 +453,15 @@ temporary files live in <scratch> and are deleted on exit
   control count_bytes on an unreadable file: error (expect error)
   control count_lines on a three-line file: 3 (expect 3)
   control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
   counting controls: all as expected
 every counting form behaves on a match, a miss and an unreadable file: yes
 
@@ -399,7 +471,7 @@ EMEND_PRIVATE_DENYLIST set: no (unset by this script)
 private denylist: present, mode 600
 denylist entries: 7 (never printed)
 the denylist is readable and not empty: yes
-this script's patterns equal scripts/privacy-patterns.txt at 0a337fb79ad03aff9d78756c387cc7fa96571cf4: yes
+this script's patterns equal scripts/privacy-patterns.txt at f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28: yes
 command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
   the narrowing commit resolves to 721e86323e41fe6090b95ce3e26876e81e27b464; the pre-P6d patterns are read from its parent
 the three pre-P6d forms were read from git, not typed (lines read: 3): yes
@@ -436,13 +508,21 @@ the three pre-P6d forms were read from git, not typed (lines read: 3): yes
 controls: all as expected
 
 ## commits in the phase range
-command: git log --reverse --format='%H %s' 731d6ff0a458d161cf7cdad6ba51286d704daff9..0a337fb79ad03aff9d78756c387cc7fa96571cf4
+command: git log --reverse --format='%H %s' 731d6ff0a458d161cf7cdad6ba51286d704daff9..f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28
     39b22495cc82f4d84db35c1feb1fb5a05bee69fc T6 P1: commit planning doc updates (two commit rules, the T6 spec)
     0a337fb79ad03aff9d78756c387cc7fa96571cf4 T6 P1: check.sh --only, scripts/counting.sh, the gate self-test
+    4d2ece28cf179db160c3633aca928e971bf838b2 T6 P1 record: the four logs and both independent check answers
+    f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28 T6 P1 repairs: the self-test never reads the private denylist
 
-## files changed in the phase diff (contents at 0a337fb79ad03aff9d78756c387cc7fa96571cf4)
-command: git diff --name-status 731d6ff0a458d161cf7cdad6ba51286d704daff9 0a337fb79ad03aff9d78756c387cc7fa96571cf4
+## files changed in the phase diff (contents at f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28)
+command: git diff --name-status 731d6ff0a458d161cf7cdad6ba51286d704daff9 f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28
     M	ROADMAP.md
+    A	records/logs/t6-p1/gate.log
+    A	records/logs/t6-p1/independent-check-1.md
+    A	records/logs/t6-p1/independent-check-2.md
+    A	records/logs/t6-p1/negative.log
+    A	records/logs/t6-p1/scan.log
+    A	records/logs/t6-p1/self-test.log
     M	scripts/check.sh
     A	scripts/counting.sh
     A	scripts/gate-self-test.sh
@@ -451,6 +531,60 @@ command: git diff --name-status 731d6ff0a458d161cf7cdad6ba51286d704daff9 0a337fb
     M	specs/0005-corpus.md
     A	specs/0007-gate-self-test.md
 file ROADMAP.md (sha256 527115458df70b7709ce188510f95732c1f8e5243ae47a7f9f627a3572912b28)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/gate.log (sha256 f5fe4eda7449a88c9ffe6d65ea69d9f693d644ee3d04622f97adf62859953709)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/independent-check-1.md (sha256 d685c29aff702de154bcdbbf15661d9a69d8d6b6fbf1ef931d775bcfcd75b6f6)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/independent-check-2.md (sha256 5a0882df4a5c3982753355fe92bfe8cd2f081018ef59410147b5e29efbe7c503)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/negative.log (sha256 288a457ce31d8d29211eeca5f8a2d45278552ee538e436700969c38e00c09731)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/scan.log (sha256 fbc58191a6defb6dec02cbe227d551c131f2af4caeb2923eb592702a1e0eca87)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t6-p1/self-test.log (sha256 97872c292d9875abadd47ee919d1d176218baf81350b7ab391a60551c51b7aa6)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -468,7 +602,7 @@ file scripts/check.sh (sha256 7272fd137969c3b0df482e61affb8b23c8146046bdfb08ab8b
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file scripts/counting.sh (sha256 93a464cf601203a826974a09b79625f1da70ef5e88918546ac016d08908b96b7)
+file scripts/counting.sh (sha256 60a379312a5681cba0c1acfb128402c95fa1ec753158d1b29962bce2320e742c)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -477,7 +611,7 @@ file scripts/counting.sh (sha256 93a464cf601203a826974a09b79625f1da70ef5e8891854
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file scripts/gate-self-test.sh (sha256 33daf932a5e4973897e60a84878aa33ee6fe4be93b01a96cb38f1f2b9950779d)
+file scripts/gate-self-test.sh (sha256 2d533b3bb49a6d21c67e1f1262d2346bcc6172b196a24bc58eff9c0c1561c4ca)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -522,9 +656,29 @@ file specs/0007-gate-self-test.md (sha256 4dd9c5ebe7b0e2355bba3e63e30f9f7eddbd13
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-files in the diff: 8; scanned: 8; read: 8: yes
+files in the diff: 14; scanned: 14; read: 14: yes
 
 ## commit messages in the phase range
+message f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4d2ece28cf179db160c3633aca928e971bf838b2
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
 message 0a337fb79ad03aff9d78756c387cc7fa96571cf4
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0
@@ -545,10 +699,15 @@ message 39b22495cc82f4d84db35c1feb1fb5a05bee69fc
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-messages scanned: 2; commits in range: 2: yes
+messages scanned: 4; commits in range: 4: yes
 
-## the sibling T6 P1 logs (a log cannot scan itself)
-log records/logs/t6-p1/gate.log (sha256 f5fe4eda7449a88c9ffe6d65ea69d9f693d644ee3d04622f97adf62859953709)
+## the sibling T6 P1 logs AND both check answers (a log cannot scan itself)
+This scan is the LAST log written, after both check answers are saved in the
+log directory, so it covers them. The first round's scan ran before the
+answers were written and covered neither, and a bare path shape in check 1's
+answer went unscanned (independent check 2, T6 P1, gap 2). Planning's ruling,
+2026-09-16: the scan is last, and it lists the answers it scanned.
+scanned records/logs/t6-p1/gate.log (sha256 15324ef23285bb5cd90444784a0de5e2ad3cf6c205bda6d3acd2e6770392b039)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -557,7 +716,7 @@ log records/logs/t6-p1/gate.log (sha256 f5fe4eda7449a88c9ffe6d65ea69d9f693d644ee
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t6-p1/negative.log (sha256 288a457ce31d8d29211eeca5f8a2d45278552ee538e436700969c38e00c09731)
+scanned records/logs/t6-p1/negative.log (sha256 87435f2e9ecb860a8908ced111da2608df15460b4de06b9386d2e3970ae53b40)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -566,7 +725,7 @@ log records/logs/t6-p1/negative.log (sha256 288a457ce31d8d29211eeca5f8a2d4527855
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t6-p1/self-test.log (sha256 97872c292d9875abadd47ee919d1d176218baf81350b7ab391a60551c51b7aa6)
+scanned records/logs/t6-p1/self-test.log (sha256 31609fb8c7b8f1ef8d755cb91d38c4945c913fdd28b2449f7730bb3766b51c35)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -575,7 +734,25 @@ log records/logs/t6-p1/self-test.log (sha256 97872c292d9875abadd47ee919d1d176218
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-T6 P1 logs scanned: 3 (expected 3; scan.log cannot scan itself): yes
+scanned records/logs/t6-p1/independent-check-1.md (sha256 35515ad29d1053da561045a03ae8410a9e72f383a2ffe66279daa99283b7cb7c)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/t6-p1/independent-check-2.md (sha256 5a0882df4a5c3982753355fe92bfe8cd2f081018ef59410147b5e29efbe7c503)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+T6 P1 logs and check answers scanned: 5 (expected 5; scan.log cannot scan itself): yes
 
 ## the pre-P6d bare-shape control over the new script (P1 acceptance)
 The narrowed patterns are blind to a bare shape by design, so this scan's
@@ -587,10 +764,12 @@ pre-P6d forms are run here for that, with the control above.
   pre-P6d forms in records/logs/t6-p1/gate.log: count=0
   pre-P6d forms in records/logs/t6-p1/negative.log: count=0
   pre-P6d forms in records/logs/t6-p1/self-test.log: count=0
+  pre-P6d forms in records/logs/t6-p1/independent-check-1.md: count=0
+  pre-P6d forms in records/logs/t6-p1/independent-check-2.md: count=0
 bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 
 total hits: 0
 read or counting errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T16:26:29Z
+run ended at 2026-09-16T23:08:22Z
 RESULT: PASS
