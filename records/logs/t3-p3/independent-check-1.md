@@ -44,7 +44,11 @@
   form the shape either. It was replaced by the token `<pattern 10 shape>`.
   The change is reversible from this description, and the sha256 above is of
   the answer before the replacement; the answer below hashes to
-  49f6c6d9da88661ff72507f9c64b6dc9c63fa17f3368f81b2746d40223198d78.
+  49f6c6d9da88661ff72507f9c64b6dc9c63fa17f3368f81b2746d40223198d78. The
+  answer below is 22220 bytes, one more than the 22219 extracted, because the
+  original is 17 characters and the token that replaced it is 18 (added on
+  planning's ruling of 2026-09-15, after independent check 2 noted that the
+  header gave the pre-replacement count only).
   Planning also scoped T0 P6d to narrow patterns 9 and 10 so that a real path
   still matches and the bare name does not; it runs after this phase and before
   T3 P4.
