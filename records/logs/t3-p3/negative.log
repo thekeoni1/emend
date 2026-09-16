@@ -1,6 +1,6 @@
-about: T3 P3 phase commit 17ec824d227887d0b4f21e4f104ec54e97a6f0de; HEAD at run: 17ec824d227887d0b4f21e4f104ec54e97a6f0de
-phase: T3 P3 (specs/0006-passthrough.md) negative.log; run at 2026-09-15T23:57:04Z
-rerun: an earlier run of this log was stopped by the environment: it started 2026-09-15T23:55:51Z, completed its last check 'six workbooks and a manifest of six rows: as-expected', and was stopped inside the C1 to C6 runner invocation; reason given: the system was running low on memory. No log of that run was committed, so this rerun replaces no record commit. Free memory before this run: 18201 MiB available
+about: T3 P3 phase commit 2623b70d92dbc1c33d15783749297435178244e6; HEAD at run: 2623b70d92dbc1c33d15783749297435178244e6
+phase: T3 P3 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T00:19:00Z
+rerun: replaces the negative log of record commit 9be61d6 (run at 17ec824); rerun at phase commit 2, 2623b70d92dbc1c33d15783749297435178244e6, after independent check 1 (record commit 8a7c862). What changed: lo_check tells a check that could not run (error) from one LibreOffice refused (fail), both greps' exit codes are read so an error can never pass as no hits, and a reason file from an earlier run is removed before the child runs. This log adds C11 (an internal failure reads as error, with its reason), C12 (--libreoffice refuses a value that is not an image name) and the measured section M1 to M4 that planning ruled on 2026-09-15, and it fixes a control of its own that passed grep through is(), which tried to run LC_ALL=C as a command
 The scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read.
 image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)
 podman: podman version 5.7.0
@@ -13,7 +13,8 @@ podman: podman version 5.7.0
     # script on a scratch corpus built under <scratch> and reached through
     # --corpus, with generated workbooks only. The real corpus directory is never
     # read: --corpus always names the scratch one.
-    #   The scratch corpus holds five generated workbooks:
+    #   The scratch corpus holds six generated workbooks (a seventh, cutdir, is
+    #   generated for the measured section only and is not added to the corpus):
     #     healthy   two sheets, sound zip;
     #     truncated one worksheet entry cut in half (the archive ends mid-entry);
     #     noct      [Content_Types].xml removed, everything else sound;
@@ -42,7 +43,17 @@ podman: podman version 5.7.0
     #         reason (a control);
     #     C10 the record script over the run: the lo and lo_in columns are carried
     #         into the record, failing ids are listed, and a summary holding an
-    #         invalid lo value is refused.
+    #         invalid lo value is refused;
+    #     C11 an internal failure of the check (python3 made to fail through a
+    #         wrapper earlier in PATH) reads as error, not fail, and its reason
+    #         says so (planning's ruling of 2026-09-15);
+    #     C12 --libreoffice with a value that is not an image name is refused;
+    #     M1 to M4 the measured section planning asked for on 2026-09-15: the
+    #         conversion run directly on the healthy, truncated, noct, cutdir and
+    #         ghost fixtures, printing each exit status and stderr line count, and
+    #         the ghost ODS table count with the third table's emptiness, so that
+    #         "every conversion exits 0" and the two claims in
+    #         records/libreoffice-2026-09-15.md have a primary.
     # Every check is evaluated once; a check with more than one condition is
     # evaluated inside one function.
     # Usage: t3p3-negative.sh <phase commit> > <scratch file>; the caller moves the
@@ -75,6 +86,9 @@ podman: podman version 5.7.0
       done
     }
     note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    # grep_q <grep arguments...>: grep under LC_ALL=C, callable through is().
+    # `is LC_ALL=C grep ...` would try to run LC_ALL=C as a command.
+    grep_q() { LC_ALL=C "$G" "$@"; }
     is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
     ctl() { local r; r=$([ "$2" = "$3" ] && echo as-expected || echo UNEXPECTED); echo "  control $1: $2 (expect $3): $r"; [ "$r" = as-expected ] || fail=1; }
     count_path() { cat "$@" | LC_ALL=C "$G" -a -c -F -e "$BASE"; }
@@ -195,6 +209,11 @@ podman: podman version 5.7.0
     # badxml: a sound zip whose second worksheet part is cut mid-element
     build(os.path.join(work, "badxml.xlsx"),
           [(n, b[:len(b) // 2] if n == "xl/worksheets/sheet2.xml" else b) for n, b in PARTS])
+    # cutdir: the healthy archive with its last 200 bytes removed, so the central
+    # directory is gone. Generated for the measured section only.
+    data0 = open(healthy, "rb").read()
+    open(os.path.join(work, "cutdir.xlsx"), "wb").write(data0[:-200])
+    print("cutdir: %d bytes of %d (measured section only)" % (len(data0) - 200, len(data0)))
     # truncated: the healthy archive cut inside the second worksheet entry
     data = open(healthy, "rb").read()
     info = zipfile.ZipFile(healthy).getinfo("xl/worksheets/sheet2.xml")
@@ -321,7 +340,8 @@ podman: podman version 5.7.0
     note "C10: the record's summary header carries lo and lo_in" "$(is [ "$(head -n 1 "$TSV" | awk -F'\t' '{ print $(NF-1), $NF }')" = "lo lo_in" ])"
     echo "  the outcome table of the record:"
     LC_ALL=C "$G" -A3 -F '## Files by outcome' "$MD" | sed 's/^/    /'
-    note "C10: the outcome table has the lo fail and lo_in fail columns" "$(is $G -q -F -e '| lo fail | lo_in fail |' "$MD")"
+    note "C10: the outcome table has the lo fail, lo_in fail, lo error and lo_in error columns" "$(is grep_q -q -F -e '| lo fail | lo_in fail | lo error | lo_in error |' "$MD")"
+    note "C10: the record has the section for checks that could not run" "$(is grep_q -q -x -F -e '## Files whose open check could not run' "$MD")"
     echo "  the failing rows the record lists:"
     LC_ALL=C "$G" -E "^\| $(id_of truncated)|^\| $(id_of noct)" "$MD" | sed 's/^/    /'
     note "C10: the truncated and noct workbooks are listed by id" "$(is both_listed "$MD" "$(id_of truncated)" "$(id_of noct)")"
@@ -335,8 +355,80 @@ podman: podman version 5.7.0
     note "C10: a summary with an lo value other than ok, fail or - is refused with exit 2" "$(is refused_bad "$RC" "$BASE/record-bad.stdout" "$BASE/record-bad.stderr" "error: summary.host.tsv has a lo value other than ok, fail or -")"
     
     echo
+    echo "## C11: an internal failure of the check reads as error, not fail"
+    mkdir -p "$BASE/fakebin-py"
+    cat >"$BASE/fakebin-py/python3" <<'SH'
+    #!/usr/bin/env bash
+    # Test wrapper: python3 that always fails, so lo_check cannot count sheets.
+    exit 1
+    SH
+    chmod 755 "$BASE/fakebin-py/python3"
+    echo "  (a directory holding only the python3 wrapper, so C8's podman wrapper cannot take part)"
+    RUN5=$BASE/run-error
+    PATH=$BASE/fakebin-py:$PATH "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$RUN5" --timeout 120 --libreoffice "$IMAGE" --ids "$BASE/ids-healthy" \
+      >"$BASE/run-error.stdout" 2>"$BASE/run-error.stderr" </dev/null
+    echo "  run exit: $?  (python3 replaced by a wrapper that exits 1)"
+    note "C11: the healthy workbook reads error on both sides, not fail" "$(is lo_is "$RUN5" healthy error error)"
+    echo "  the reason recorded: $(hide <"$RUN5/$(id_of healthy)/lo-in-reason.host.txt")"
+    note "C11: the reason names the count step, not LibreOffice" "$(is grep_q -q -x -F -e 'cannot count sheets and tables' "$RUN5/$(id_of healthy)/lo-in-reason.host.txt")"
+    rm -rf "$BASE/fakebin-py"
+    
+    echo
+    echo "## C12: --libreoffice with a value that is not an image name"
+    "$ROOT/$RUNNER" --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff \
+      --corpus "$CORPUS" --out "$BASE/run-badimage" --timeout 120 --libreoffice 'not an image!' \
+      >"$BASE/badimage.stdout" 2>"$BASE/badimage.stderr" </dev/null
+    RC=$?
+    echo "  exit: $RC; stderr: $(hide <"$BASE/badimage.stderr")"
+    note "C12: exit 2, no stdout, stderr exactly the refusal" "$(is refused_bad "$RC" "$BASE/badimage.stdout" "$BASE/badimage.stderr" 'error: --libreoffice must name an image')"
+    note "C12: no run directory was created" "$(is [ ! -e "$BASE/run-badimage" ])"
+    
+    echo
+    echo "## M1 to M4: the conversion measured directly (planning's ruling of 2026-09-15)"
+    echo "  command, per fixture: podman run --rm --network=none --userns=keep-id -v <scratch>/work:/in:ro -v <scratch>/m-out:/out $IMAGE --convert-to ods --outdir /out /in/<fixture>"
+    mkdir -p "$BASE/m-out"
+    CONTAINER_LINE='Error: source file could not be loaded'
+    m_exits=""
+    for name in healthy truncated noct cutdir ghost; do
+      timeout 300 podman run --rm --network=none --userns=keep-id -v "$BASE/work":/in:ro -v "$BASE/m-out":/out \
+        "$IMAGE" --convert-to ods --outdir /out "/in/$name.xlsx" >"$BASE/m-$name.out" 2>"$BASE/m-$name.err" </dev/null
+      rc=$?
+      m_exits="$m_exits $rc"
+      ods=$BASE/m-out/$name.ods
+      printf '    %-9s exit=%s stderr_lines=%s container_error_lines=%s ods=%s\n' "$name" "$rc" \
+        "$(wc -l <"$BASE/m-$name.err")" "$(LC_ALL=C "$G" -a -c -F -e "$CONTAINER_LINE" "$BASE/m-$name.err")" \
+        "$([ -f "$ods" ] && echo written || echo none)"
+    done
+    # all_zero_exits <exits>: every conversion exited 0.
+    all_zero_exits() { local e; for e in $1; do [ "$e" -eq 0 ] || return 1; done; }
+    note "M1: every conversion exits 0, including the three that load nothing:$m_exits" "$(is all_zero_exits "$m_exits")"
+    # ods_written <yes names> / <no names>: exactly those fixtures wrote an ODS.
+    ods_state() { local n; for n in $1; do [ -f "$BASE/m-out/$n.ods" ] || return 1; done; for n in $2; do [ ! -f "$BASE/m-out/$n.ods" ] || return 1; done; }
+    note "M2: healthy and ghost wrote an ODS; truncated, noct and cutdir did not" "$(is ods_state "healthy ghost" "truncated noct cutdir")"
+    # error_lines <with> / <without>: the container's own error line appears only for the three.
+    error_state() {
+      local n
+      for n in $1; do [ "$(LC_ALL=C "$G" -a -c -F -e "$CONTAINER_LINE" "$BASE/m-$n.err")" -eq 1 ] || return 1; done
+      for n in $2; do [ "$(LC_ALL=C "$G" -a -c -F -e "$CONTAINER_LINE" "$BASE/m-$n.err")" -eq 0 ] || return 1; done
+    }
+    note "M3: the container's error line appears for truncated, noct and cutdir, and for neither healthy nor ghost" "$(is error_state "truncated noct cutdir" "healthy ghost")"
+    GHOST=$(python3 -c '
+    import re, sys, zipfile
+    content = zipfile.ZipFile(sys.argv[1]).read("content.xml").decode("utf-8", "replace")
+    tables = re.findall(r"<table:table .*?</table:table>", content, re.S)
+    print(len(tables), len(re.findall(r"<text:p", tables[-1])) if tables else -1)
+    ' "$BASE/m-out/ghost.ods")
+    echo "    ghost ods: table count and text paragraphs in the last table: $GHOST"
+    note "M4: the ghost ods holds 3 tables and the third holds no text (the record's claim)" "$(is [ "$GHOST" = "3 0" ])"
+    
+    echo
     echo "## the log itself"
-    ALL=("${OUTS[@]}" "$BASE/gen.out" "$BASE/record.stdout" "$BASE/record.stderr" "$BASE/record-bad.stderr")
+    ALL=("${OUTS[@]}" "$BASE/gen.out" "$BASE/record.stdout" "$BASE/record.stderr" "$BASE/record-bad.stderr"
+         "$BASE/run-error.stdout" "$BASE/run-error.stderr" "$BASE/badimage.stdout" "$BASE/badimage.stderr")
+    printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
+    ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
+    ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
     note "control and non-ASCII bytes in every captured output: $(ctrl_bytes "${ALL[@]}") and $(nonascii_bytes "${ALL[@]}") (expect 0 and 0)" "$(is [ $(( $(ctrl_bytes "${ALL[@]}") + $(nonascii_bytes "${ALL[@]}") )) -eq 0 ])"
     STATUS=$(git status --porcelain | tr '\n' ' ')
     note "status after the run (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
@@ -356,6 +448,7 @@ command: cargo build -p passthrough -p xlsx-diff
 ## the scratch corpus
 command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
   exit: 0
+    cutdir: 1710 bytes of 1910 (measured section only)
     healthy: id d72f39c105ad, 1910 bytes
     truncated: id 08ddb9e2479e, 1402 bytes
     noct: id 4feecc0dd1da, 1534 bytes
@@ -369,12 +462,12 @@ command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
 command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6
   exit: 0
   stdout:
-    d72f39c105ad host ok 0 0.10 7776
-    08ddb9e2479e host error - 0.10 7616
-    4feecc0dd1da host ok 0 0.10 7628
-    03063cc31c62 host ok 0 0.10 7608
-    63b1c2b6c46d host ok 0 0.10 7908
-    b39cfeec3992 host ok 0 0.10 7776
+    d72f39c105ad host ok 0 0.10 7620
+    08ddb9e2479e host error - 0.10 7740
+    4feecc0dd1da host ok 0 0.10 7836
+    03063cc31c62 host ok 0 0.10 7840
+    63b1c2b6c46d host ok 0 0.10 7676
+    b39cfeec3992 host ok 0 0.10 7820
     files 6 ok 5 error 1 timeout 0 panic 0 crash 0
   stderr bytes: 0
   the run exits 0: as-expected
@@ -425,9 +518,10 @@ command: scripts/passthrough-record.py --run <scratch>/run-lo --out <scratch>/re
   the outcome table of the record:
     ## Files by outcome
     
-    | label | files | ok | error | timeout | panic | crash | leftover | lo fail | lo_in fail |
-    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-  C10: the outcome table has the lo fail and lo_in fail columns: as-expected
+    | label | files | ok | error | timeout | panic | crash | leftover | lo fail | lo_in fail | lo error | lo_in error |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  C10: the outcome table has the lo fail, lo_in fail, lo error and lo_in error columns: as-expected
+  C10: the record has the section for checks that could not run: as-expected
   the failing rows the record lists:
     | 08ddb9e2479e | host | libreoffice | plain,strings | error | 2 | - | - | no | - | fail | not compared |
     | 4feecc0dd1da | host | libreoffice | plain,strings | ok | 0 | - | 0 | no | fail | fail | - |
@@ -435,8 +529,35 @@ command: scripts/passthrough-record.py --run <scratch>/run-lo --out <scratch>/re
   a summary with lo=maybe: exit 2, stderr: error: summary.host.tsv has a lo value other than ok, fail or -
   C10: a summary with an lo value other than ok, fail or - is refused with exit 2: as-expected
 
+## C11: an internal failure of the check reads as error, not fail
+  (a directory holding only the python3 wrapper, so C8's podman wrapper cannot take part)
+  run exit: 0  (python3 replaced by a wrapper that exits 1)
+  C11: the healthy workbook reads error on both sides, not fail: as-expected
+  the reason recorded: cannot count sheets and tables
+  C11: the reason names the count step, not LibreOffice: as-expected
+
+## C12: --libreoffice with a value that is not an image name
+  exit: 2; stderr: error: --libreoffice must name an image
+  C12: exit 2, no stdout, stderr exactly the refusal: as-expected
+  C12: no run directory was created: as-expected
+
+## M1 to M4: the conversion measured directly (planning's ruling of 2026-09-15)
+  command, per fixture: podman run --rm --network=none --userns=keep-id -v <scratch>/work:/in:ro -v <scratch>/m-out:/out localhost/emend-lo:25.2.3-2-deb13u6 --convert-to ods --outdir /out /in/<fixture>
+    healthy   exit=0 stderr_lines=1 container_error_lines=0 ods=written
+    truncated exit=0 stderr_lines=2 container_error_lines=1 ods=none
+    noct      exit=0 stderr_lines=2 container_error_lines=1 ods=none
+    cutdir    exit=0 stderr_lines=2 container_error_lines=1 ods=none
+    ghost     exit=0 stderr_lines=1 container_error_lines=0 ods=written
+  M1: every conversion exits 0, including the three that load nothing: 0 0 0 0 0: as-expected
+  M2: healthy and ghost wrote an ODS; truncated, noct and cutdir did not: as-expected
+  M3: the container's error line appears for truncated, noct and cutdir, and for neither healthy nor ghost: as-expected
+    ghost ods: table count and text paragraphs in the last table: 3 0
+  M4: the ghost ods holds 3 tables and the third holds no text (the record's claim): as-expected
+
 ## the log itself
+  control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
+  control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   status after the run (expect empty): : as-expected
-run ended at 2026-09-15T23:57:45Z
+run ended at 2026-09-16T00:19:43Z
 negative log checks all as expected: yes

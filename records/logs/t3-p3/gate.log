@@ -1,5 +1,6 @@
-about: T3 P3 phase commit 17ec824d227887d0b4f21e4f104ec54e97a6f0de; HEAD at run: 17ec824d227887d0b4f21e4f104ec54e97a6f0de
-phase: T3 P3 (specs/0006-passthrough.md) gate.log; run at 2026-09-15T23:53:19Z
+about: T3 P3 phase commit 2623b70d92dbc1c33d15783749297435178244e6; HEAD at run: 2623b70d92dbc1c33d15783749297435178244e6
+phase: T3 P3 (specs/0006-passthrough.md) gate.log; run at 2026-09-16T00:16:45Z
+rerun: replaces the gate log of record commit 9be61d6 (run at 17ec824); rerun at phase commit 2, 2623b70d92dbc1c33d15783749297435178244e6, after independent check 1 (record commit 8a7c862): lo_check now tells a check that could not run (error) from one LibreOffice refused (fail) and reads both greps' exit codes, and the record script counts and lists the new value; this log adds the image inspection planning ruled on 2026-09-15, so the record is no longer its own evidence (check 1 gap 8)
 commit before the phase: 869796bd659d5ba810979e428a311b9c3a2a2124
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
@@ -55,6 +56,20 @@ private denylist: present, mode 600, entries 7 (never printed)
       local got
       got=$(podman image inspect "$1" --format '{{.Id}}' 2>/dev/null) || return 1
       [ "$got" = "$2" ]
+    }
+    # entrypoint_is <image> <path>: the image's configured entrypoint is exactly
+    # that one-element list.
+    entrypoint_is() {
+      [ "$(podman image inspect "$1" --format '{{json .Config.Entrypoint}}' 2>/dev/null)" = "[\"$2\"]" ]
+    }
+    # entry_has_flags <file> <flag>...: the entry script read out of the image holds
+    # every flag given.
+    entry_has_flags() {
+      local file=$1 flag
+      shift
+      for flag in "$@"; do
+        LC_ALL=C /usr/bin/grep -q -F -e "$flag" "$file" || return 1
+      done
     }
     # record_states <record> <string>...: the record holds every line given.
     record_states() {
@@ -119,9 +134,28 @@ private denylist: present, mode 600, entries 7 (never printed)
     check "the pinned image is in local storage with the recorded id" "$(yn image_present "$IMAGE" "$IMAGE_ID")"
     check "$RECORD states the image tag and id" "$(yn record_states "$RECORD" "$IMAGE" "$IMAGE_ID")"
     check "$RECORD states the allowed stderr line and the entrypoint flags" "$(yn record_states "$RECORD" 'Warning: failed to launch javaldx - java may not function correctly' '--headless --norestore --nolockcheck --nologo')"
+    echo "  (the two checks above prove the record holds those strings; the image itself is inspected below, so the record is not its own evidence)"
     check "$RECORD states the two measured findings" "$(yn record_states "$RECORD" 'The exit status is not evidence of a good load' 'substitutes an empty sheet')"
     echo "the record holds no corpus path: $(LC_ALL=C /usr/bin/grep -c -i -F -e emend-testing "$RECORD") line(s) with the corpus directory name (expect 0)"
     check "the record names no corpus path" "$(yn [ "$(LC_ALL=C /usr/bin/grep -c -i -F -e emend-testing "$RECORD")" -eq 0 ])"
+    
+    echo
+    echo "## the image itself, not the record's own words (planning's ruling of 2026-09-15)"
+    echo "The commands below are read-only container operations with rootless podman: an"
+    echo "image inspect, and one container that runs cat over the entry script and exits."
+    echo "No elevation, no network, nothing written outside <scratch>."
+    echo "command: podman image inspect $IMAGE --format '{{json .Config.Entrypoint}}' -> $(podman image inspect "$IMAGE" --format '{{json .Config.Entrypoint}}' 2>&1 | head -c 120)"
+    check "the image's entrypoint is /usr/local/bin/lo-entry.sh, as $RECORD says" "$(yn entrypoint_is "$IMAGE" /usr/local/bin/lo-entry.sh)"
+    echo "command: podman run --rm --network=none --entrypoint cat $IMAGE /usr/local/bin/lo-entry.sh > <scratch>/entry"
+    timeout 120 podman run --rm --network=none --entrypoint cat "$IMAGE" /usr/local/bin/lo-entry.sh >"$T/entry" 2>"$T/entry-err" </dev/null
+    rc=$?
+    echo "  exit: $rc; bytes $(wc -c <"$T/entry"); sha256 $(sha <"$T/entry")"
+    echo "  (the file itself is not printed: it is a build input of the corpus session, and only facts about it belong in this repository)"
+    check "the entry script was read out of the image" "$(yn [ "$rc" -eq 0 ] )"
+    check "the entry script runs soffice with the flags $RECORD names" "$(yn entry_has_flags "$T/entry" soffice -env:UserInstallation= --headless --norestore --nolockcheck --nologo)"
+    check "the entry script passes the caller's arguments through" "$(yn entry_has_flags "$T/entry" '"$@"')"
+    n=$(LC_ALL=C /usr/bin/grep -c -F -e '--convert-to' "$T/entry")
+    check "the entry script does not itself supply --convert-to, so the runner's tail form is what converts: $n line(s) (expect 0)" "$(yn [ "$n" -eq 0 ])"
     
     echo
     echo "## gate files at $C"
@@ -165,7 +199,10 @@ private denylist: present, mode 600, entries 7 (never printed)
     exit "$fail"
 
 ## commits of the phase
-command: git log --format='%H parents=%P %s' 869796bd659d5ba810979e428a311b9c3a2a2124..17ec824d227887d0b4f21e4f104ec54e97a6f0de
+command: git log --format='%H parents=%P %s' 869796bd659d5ba810979e428a311b9c3a2a2124..2623b70d92dbc1c33d15783749297435178244e6
+    2623b70d92dbc1c33d15783749297435178244e6 parents=8a7c862e5e8c132b0d8318bf4dbfa18249164a5f T3 P3: tell a check that could not run from one LibreOffice refused
+    8a7c862e5e8c132b0d8318bf4dbfa18249164a5f parents=9be61d6c5492f20b83bacc72b95ca632e3a822b9 T3 P3 record: independent check 1 answer, with one documented replacement
+    9be61d6c5492f20b83bacc72b95ca632e3a822b9 parents=17ec824d227887d0b4f21e4f104ec54e97a6f0de T3 P3 record: gate, negative and scan logs at 17ec824
     17ec824d227887d0b4f21e4f104ec54e97a6f0de parents=fd5dcf9b35d7f108493a89fcf33ff57b2c683481 T3 P3: LibreOffice open check in the runner, lo and lo_in columns
     fd5dcf9b35d7f108493a89fcf33ff57b2c683481 parents=869796bd659d5ba810979e428a311b9c3a2a2124 T3 P3: commit planning doc updates (T2 P1 DONE, P1 rulings, P7 follow-ups)
 command: git show --stat --format='%H %s' fd5dcf9b35d7f108493a89fcf33ff57b2c683481
@@ -181,17 +218,39 @@ command: git show --stat --format='%H %s' 17ec824d227887d0b4f21e4f104ec54e97a6f0
      scripts/passthrough-record.py     |  31 ++++++++----
      scripts/passthrough-run.sh        | 100 +++++++++++++++++++++++++++++++++++---
      3 files changed, 213 insertions(+), 16 deletions(-)
-command: git diff --stat 869796bd659d5ba810979e428a311b9c3a2a2124 17ec824d227887d0b4f21e4f104ec54e97a6f0de
-     ROADMAP.md                        |   4 +-
-     records/libreoffice-2026-09-15.md |  98 +++++++++++++++++++++++++++++++++++++
-     scripts/passthrough-record.py     |  31 ++++++++----
-     scripts/passthrough-run.sh        | 100 +++++++++++++++++++++++++++++++++++---
-     specs/0005-corpus.md              |  71 ++++++++++++++++++++++-----
-     5 files changed, 275 insertions(+), 29 deletions(-)
+command: git show --stat --format='%H %s' 9be61d6c5492f20b83bacc72b95ca632e3a822b9
+    9be61d6c5492f20b83bacc72b95ca632e3a822b9 T3 P3 record: gate, negative and scan logs at 17ec824
+    
+     records/logs/t3-p3/gate.log     | 257 +++++++++++++++++++++++
+     records/logs/t3-p3/negative.log | 442 ++++++++++++++++++++++++++++++++++++++++
+     records/logs/t3-p3/scan.log     | 430 ++++++++++++++++++++++++++++++++++++++
+     3 files changed, 1129 insertions(+)
+command: git show --stat --format='%H %s' 8a7c862e5e8c132b0d8318bf4dbfa18249164a5f
+    8a7c862e5e8c132b0d8318bf4dbfa18249164a5f T3 P3 record: independent check 1 answer, with one documented replacement
+    
+     records/logs/t3-p3/independent-check-1.md | 153 ++++++++++++++++++++++++++++++
+     1 file changed, 153 insertions(+)
+command: git show --stat --format='%H %s' 2623b70d92dbc1c33d15783749297435178244e6
+    2623b70d92dbc1c33d15783749297435178244e6 T3 P3: tell a check that could not run from one LibreOffice refused
+    
+     scripts/passthrough-record.py | 33 ++++++++++++++++++----
+     scripts/passthrough-run.sh    | 64 +++++++++++++++++++++++++++++++------------
+     2 files changed, 74 insertions(+), 23 deletions(-)
+command: git diff --stat 869796bd659d5ba810979e428a311b9c3a2a2124 2623b70d92dbc1c33d15783749297435178244e6
+     ROADMAP.md                                |   4 +-
+     records/libreoffice-2026-09-15.md         |  98 +++++++
+     records/logs/t3-p3/gate.log               | 257 +++++++++++++++++
+     records/logs/t3-p3/independent-check-1.md | 153 +++++++++++
+     records/logs/t3-p3/negative.log           | 442 ++++++++++++++++++++++++++++++
+     records/logs/t3-p3/scan.log               | 430 +++++++++++++++++++++++++++++
+     scripts/passthrough-record.py             |  52 +++-
+     scripts/passthrough-run.sh                | 130 ++++++++-
+     specs/0005-corpus.md                      |  71 ++++-
+     9 files changed, 1608 insertions(+), 29 deletions(-)
 
-## the changed files at 17ec824d227887d0b4f21e4f104ec54e97a6f0de
-scripts/passthrough-run.sh: sha256 2c7c804474ed3a5ab3a577e4654823ccf10bdc8d302822adad3c278f914e5741, bytes 15931, git mode 100755
-scripts/passthrough-record.py: sha256 b76bc058c4a37dabe1a0fdbee47df63edc757a7177ee8206006c551d92524fa3, bytes 13943, git mode 100755
+## the changed files at 2623b70d92dbc1c33d15783749297435178244e6
+scripts/passthrough-run.sh: sha256 fc4f3bddd10b6a57c1052755f96ad2919ffeac0006ce786872db33aa56a3f6c0, bytes 17310, git mode 100755
+scripts/passthrough-record.py: sha256 61b34ae1713897efb825c71af8044ae8c74fe839f210222decfc90e6443d1ab0, bytes 14926, git mode 100755
 records/libreoffice-2026-09-15.md: sha256 ef2177180704b1a7ecfc5bdd215410498d2c9b868055f52e35042131735dceeb, bytes 4999, git mode 100644
 ROADMAP.md: sha256 db90d10f7130d1c10d99f59cb0265def9215a94a46a2bfdb311e22c2f74f24a3, bytes 14438, git mode 100644
 specs/0005-corpus.md: sha256 63bc947067d96e142ce21149e9b7bfe45d3aaad5417c4881bd174472f67ec85c, bytes 16928, git mode 100644
@@ -210,22 +269,37 @@ command: podman image inspect localhost/emend-lo:25.2.3-2-deb13u6 --format '{{.I
 the pinned image is in local storage with the recorded id: yes
 records/libreoffice-2026-09-15.md states the image tag and id: yes
 records/libreoffice-2026-09-15.md states the allowed stderr line and the entrypoint flags: yes
+  (the two checks above prove the record holds those strings; the image itself is inspected below, so the record is not its own evidence)
 records/libreoffice-2026-09-15.md states the two measured findings: yes
 the record holds no corpus path: 0 line(s) with the corpus directory name (expect 0)
 the record names no corpus path: yes
 
-## gate files at 17ec824d227887d0b4f21e4f104ec54e97a6f0de
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
-scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 17ec824d227887d0b4f21e4f104ec54e97a6f0de sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
-no gate file, Cargo file, crate or workflow changed in 869796bd659d5ba810979e428a311b9c3a2a2124..17ec824d227887d0b4f21e4f104ec54e97a6f0de: yes
+## the image itself, not the record's own words (planning's ruling of 2026-09-15)
+The commands below are read-only container operations with rootless podman: an
+image inspect, and one container that runs cat over the entry script and exits.
+No elevation, no network, nothing written outside <scratch>.
+command: podman image inspect localhost/emend-lo:25.2.3-2-deb13u6 --format '{{json .Config.Entrypoint}}' -> ["/usr/local/bin/lo-entry.sh"]
+the image's entrypoint is /usr/local/bin/lo-entry.sh, as records/libreoffice-2026-09-15.md says: yes
+command: podman run --rm --network=none --entrypoint cat localhost/emend-lo:25.2.3-2-deb13u6 /usr/local/bin/lo-entry.sh > <scratch>/entry
+  exit: 0; bytes 340; sha256 2c09931b3928938209647c6739705518c3502ce7d3c0e87c06825b863b670860
+  (the file itself is not printed: it is a build input of the corpus session, and only facts about it belong in this repository)
+the entry script was read out of the image: yes
+the entry script runs soffice with the flags records/libreoffice-2026-09-15.md names: yes
+the entry script passes the caller's arguments through: yes
+the entry script does not itself supply --convert-to, so the runner's tail form is what converts: 0 line(s) (expect 0): yes
+
+## gate files at 2623b70d92dbc1c33d15783749297435178244e6
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 3ecb98800165c0a7605d04b1b650e567258d676eb393ce8f9e56a0042230e465; bytes 23016
+scripts/privacy-patterns.txt on disk sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 b66bf180a7a2d6e2e47a9962c1800220b6a7c25c871e889be64e7852b4aaf031; bytes 332
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 2623b70d92dbc1c33d15783749297435178244e6 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no gate file, Cargo file, crate or workflow changed in 869796bd659d5ba810979e428a311b9c3a2a2124..2623b70d92dbc1c33d15783749297435178244e6: yes
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## full run on a cold cache, started from / by absolute path
@@ -253,5 +327,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-15T23:54:04Z
+run ended at 2026-09-16T00:17:33Z
 gate log checks all as expected: yes
