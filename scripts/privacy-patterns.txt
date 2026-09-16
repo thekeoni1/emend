@@ -5,7 +5,7 @@ sk[-]ant[-][A-Za-z0-9_-]{20,}
 claude[.]ai/code/session[_][A-Za-z0-9]+
 session[_][A-Za-z0-9]{20,}
 /tmp/claude[-][0-9]+/
-/mnt/[a-z]/[Uu]sers/[A-Za-z0-9._-]
+/mnt/[a-z]/[Uu]sers/([A-Za-z0-9._-]|[^[:print:][:space:]])
 DESKTOP[-][A-Z0-9]{5,}
-[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+[A-Za-z0-9._-]
-[.]claude[\\/]+projects[\\/]+[A-Za-z0-9._-]
+[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])
+[.]claude[\\/]+projects[\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])
