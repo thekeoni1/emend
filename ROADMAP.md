@@ -42,6 +42,7 @@ private corpus and a measured passthrough baseline. Plan:
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | DONE (pushed af4b355; records 9c63579 to 302b1b2 local) |
 | P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | DONE (a371cff to 8e7e665) |
 | Close | Push the local P7 and P6c record commits, using P7's pre-push checks | DONE (pushed e0a5175; records 00c64bb and 41e2919 local) |
+| P6d | Narrow the three path patterns so a bare shape named in prose passes and a real path still fails; self-test and negative cases (`specs/0002-gate-corpus-additions.md`, added 2026-09-15) | READY |
 
 ### T0b: continuous integration (`specs/0003-ci.md`), DONE 2026-09-15
 
@@ -90,8 +91,8 @@ implementing session does P1 and P7.
 | P1 | The `passthrough` copy tool (raw copy of every entry in order, archive comment, fault injection behind a guard), the runner script with subprocess isolation (timeout, panic, abort, memory) and the record script, all on the host with generated archives; the first finding table on what the zip writer preserves | DONE (d63ad31 to 33c0198; finding: the zip crate's raw copy is not byte-preserving) |
 | P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | DONE (8bbda4d to b1e7982; baseline 473636 and 539172 bytes, `records/size-baseline-2026-09-15-6a7533e.md`) |
 | Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | DONE (pushed 29b0bad; run 35032688348 success; record 24d4a16 local) |
-| P3 | LibreOffice open check with the corpus session's image: definition pinned, `lo` and `lo_in` columns, the LibreOffice record, negative tests on a corrupted output | READY |
-| P4 | First full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | PLANNED (after P3) |
+| P3 | LibreOffice open check with the corpus session's image: definition pinned, `lo`, `lo_in` and the `error` value, the LibreOffice record, negative tests on corrupted files, two measured findings | DONE (fd5dcf9 to 2638d21) |
+| P4 | Pre-run work (P3 carry-overs, `--lo-timeout`, tolerant tag matching, a chart-sheet measurement), then the first full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | READY (after T0 P6d) |
 
 ### T4: moved into Milestone 1
 

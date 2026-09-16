@@ -1,10 +1,10 @@
 # 0006: T3 passthrough baseline
 
-Status: P1 and P2 DONE, verified by planning 2026-09-15 (P1: d63ad31 to
+Status: P1 to P3 DONE, verified by planning 2026-09-15 (P1: d63ad31 to
 33c0198, phase commits 9eaee47, 79d17ba and cb94097; P2: 8bbda4d to
-b1e7982, phase commits 2845fab and 6a7533e). A close-out push follows
-P2 (maintainer decision). P3 and P4 wait for the corpus
-(`specs/0005-corpus.md`).
+b1e7982, phase commits 2845fab and 6a7533e; P3: fd5dcf9 to 2638d21,
+phase commits 17ec824 and 2623b70). The close-out push after P2 is
+recorded. P4 READY after T0 P6d (`specs/0002-gate-corpus-additions.md`).
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` ("T3: passthrough
 baseline (outline)", the part families, the record layout),
 `specs/0001-bootstrap.md` ("How this task runs", "Rules for every
@@ -357,20 +357,29 @@ corpus directory's `tools/libreoffice.md`, to be copied into
 - The runner gains `--libreoffice <image>`. For every `ok` output it
   runs, with `podman run --rm --network=none --userns=keep-id`, the
   output's directory mounted read-only as `/in` and a scratch directory
-  as `/out`, a headless conversion of the copy to ODS
-  (`soffice --headless --norestore --convert-to ods --outdir /out
-  /in/<file>`), under the same `timeout`.
-- "Opens without repair" is pinned as: the conversion exits 0 within
-  the timeout, its stderr holds no line containing `Error` or
-  `Warning`, the ODS file exists and is a zip whose `content.xml`
-  holds as many `<table:table ` elements as the input's
-  `xl/workbook.xml` holds `<sheet ` elements, and every one of those
-  elements is present. Chart sheets count as sheets.
-- The result is an `lo` column after `leftover` in the summary:
-  `ok`, `fail` (any condition above not met, with the reason kept in
-  the run subdirectory, never printed) or `-` (no image given or no
-  `ok` output). The record script reads it and lists `fail` files by
-  id.
+  as `/out`, a headless conversion of the copy to ODS under the same
+  `timeout`. The image's entrypoint supplies `soffice` and its headless
+  flags, so the runner passes only `--convert-to ods --outdir /out
+  /in/<file>` (P3 ruling; `records/libreoffice-<date>.md` names the
+  flags so the command is reproducible from the record).
+- "Opens without repair" is pinned as: the conversion completes within
+  the timeout; its stderr holds no line containing `Error` or `Warning`
+  other than the exact line `Warning: failed to launch javaldx - java
+  may not function correctly`, which the image prints on every run
+  because it has no Java by design (P3 ruling; matched as a whole
+  line; any other wording fails); the ODS file exists and is a zip
+  whose `content.xml` holds as many `<table:table ` elements as the
+  input's `xl/workbook.xml` holds `<sheet ` elements (count only; P3
+  ruling). Chart sheets count as sheets. The conversion's exit status
+  is not a condition: it is 0 even when nothing loads (measured in P3).
+- The result is an `lo` column after `leftover` in the summary: `ok`,
+  `fail` (LibreOffice refused the file or the ODS is wrong, with the
+  reason kept in the run subdirectory, never printed), `error` (the
+  check could not run: the directory, podman itself, python3, an
+  unreadable ODS; P3 ruling, so a broken tool is never read as a broken
+  archive) or `-` (no image given or no `ok` output). The record script
+  reads it, counts `fail` and `error` per label, and lists both by id
+  in separate sections.
 - The same check is run once on the input itself, recorded as
   `lo_in`, so a file LibreOffice cannot open on either side is told
   apart from one the copy broke.
@@ -386,16 +395,82 @@ corpus directory's `tools/libreoffice.md`, to be copied into
 - Acceptance: gate all PASS; every negative case as stated; the
   LibreOffice record committed.
 
+### Planning rulings on P3 (2026-09-15)
+
+- P3 is verified from primaries by planning's own checks:
+  - Doc commit fd5dcf9 holds exactly planning's two doc files (62
+    insertions, 30 deletions), unchanged since. The two phase commits
+    touch only the runner, the record script and
+    `records/libreoffice-2026-09-15.md`; the six record commits only
+    `records/logs/t3-p3/`. All nine messages end with the Co-Authored-By
+    trailer only, under the noreply identity.
+  - Planning ran the full gate: eight PASS.
+  - Planning read the runner's `lo_check`, the record script's changes
+    and the LibreOffice record against this spec and the mid-phase
+    rulings: the whole-line allowance, the entrypoint tail form, the
+    count-only condition, the `error` value with both greps' exit codes
+    read, the reasons kept in the run subdirectory, the image inspected
+    in the gate log rather than the record quoting itself.
+  - Planning ran the runner with `--libreoffice` over two real corpus
+    files (one LibreOffice export, one Microsoft template) into a
+    scratch directory: both `ok`, every entry `identical`, `lo` and
+    `lo_in` `ok` on both, no reason file; the LibreOffice file's twelve
+    entries carried `gpflags,descriptor,attrs,local` (data descriptors
+    rewritten) and the template's twenty-four `extra,attrs` (extra
+    fields dropped), as P1's finding table predicts. The record script
+    wrote the record with the new columns.
+  - The six record files, the LibreOffice record and the two scripts
+    have zero hits on every scan; the superseded logs at 9be61d6 and
+    bd8c581 hold no non-ASCII byte and no pattern hit. `scripts/privacy.sh`
+    over the 160 local commits: PASS.
+- The mid-phase rulings are now in the P3 text above: the javaldx
+  allowance, the entrypoint tail form, count only, the `error` value,
+  and the exit status carrying no evidence. The two measured findings
+  stand in `records/libreoffice-2026-09-15.md`: LibreOffice substitutes
+  an empty sheet for a missing or unreferenced part, so a dropped
+  worksheet part is caught by `xlsx-diff`'s `dropped` rows, not by this
+  check.
+- Check 1's grep-error inversion was real and is fixed. Check 1's
+  answer carried the bare shape of a privacy pattern; it was committed
+  with one documented, reversible replacement (the specs/0001 mechanism
+  extended to a pattern hit, P3 ruling), and T0 P6d narrows the path
+  patterns so this does not recur.
+- Departures accepted: the corrupted-input form of the truncated case,
+  the negative script running from the main tree behind its guards, and
+  the two record commits added instead of amending.
+- Check 2's gaps are P4 work, listed under P4: the stale "ok, fail or
+  -" refusal and the case that pins it; the error/fail boundary (a
+  timeout or kill is `error`; the conversion's own result is evaluated
+  first; a count step that cannot read the input or the ODS afterwards
+  is `error`); the unexercised `error` branches; `error` rows listed
+  under a heading that says failing; `both_listed` without `-a`; the
+  gate asserting the entry-script hash against the record rather than
+  printing it.
+
 ### P4: the first recorded run
 
-After P3: the runner over the whole corpus (27 files as of 2026-09-15,
-plus whatever the maintainer adds) on both targets with the LibreOffice
+After T0 P6d. Pre-run work first, each with a negative case:
+- the P3 carry-overs listed in the P3 rulings (the stale refusal text,
+  the error/fail boundary as ruled, the `error` branches exercised, the
+  record's headings and `both_listed`, the entry-script hash asserted);
+- a separate `--lo-timeout <secs>` (default 600) for each conversion,
+  since a LibreOffice cold start on the two `large` files may exceed
+  the copy timeout; a conversion that times out is `error`;
+- a whitespace-tolerant `<sheet` match (a producer may break the line
+  after the tag name), and the same for `<table:table`;
+- a chart-sheet workbook generated in the scratch corpus and measured:
+  if LibreOffice writes no `<table:table` for a chart sheet, the sheet
+  count excludes `<chartsheet` parts and the record says so.
+
+Then the runner over the whole corpus (27 files as of 2026-09-15, plus
+whatever the maintainer adds) on both targets with the LibreOffice
 check, the record committed as `records/step0-<utc-date>-<shortsha>.md`
 and `.tsv`, and planning's ruling on the findings. Raw outputs stay
 under the corpus directory's `runs/`. The expectation, after P1's
 finding table: every entry `identical` with the writer's flags
 catalogued; any `changed`, `dropped`, `added`, error, crash, or `lo`
-`fail` on an `lo_in` `ok` file is a finding about real archives.
+`fail` on an `lo_in` `ok` file is a finding about real archives; `lo`
+`error` is a finding about the tooling, listed apart.
 
 ## Out of scope
 

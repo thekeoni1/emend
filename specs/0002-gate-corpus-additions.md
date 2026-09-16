@@ -137,3 +137,44 @@ There is no reliable signature for them.
   only the terminal or a local log.
 - Both backlog items fit the gate self-test script task the maintainer
   approved for after T0.
+
+## P6d: narrow the path patterns (added 2026-09-15, READY)
+
+T3 P3's first independent check named the bare shape of privacy
+pattern 10 in prose (the string formed by `.claude` and `/projects/`),
+and the gate would have refused the verbatim answer. The T0 P2 ruling
+says patterns match the shape of a real secret or path, never a bare
+name; patterns 0 to 6 were narrowed then, the three path patterns were
+not. This phase narrows them.
+
+Changes:
+- In `scripts/privacy-patterns.txt`, the three path patterns require a
+  path character after their trailing separator: the `/mnt/<drive>/Users/`
+  form, the drive-letter `Users` form and the `.claude` + `/projects/`
+  form each gain `[A-Za-z0-9._-]` after the final separator class (the
+  drive-letter and `.claude` forms keep their `[\\/]+` separators). A
+  real path always has a following segment; the bare name never does.
+  The count stays 11.
+- The per-pattern self-test in `scripts/privacy.sh` plants fakes with a
+  following segment, and gains one planted bare shape per narrowed
+  pattern that must NOT be reported.
+- Every phase scan script from now on copies the new lines (they check
+  their copy against the file at the phase commit).
+- No change to the hook, the identity file or the denylist.
+
+Logs, in `records/logs/t0-p6d/`:
+- `gate.log`: the full gate.
+- `privacy.log`: `scripts/privacy.sh` over every local commit,
+  expected PASS.
+- `negative.log`, in scratch clones: (a) a committed file holding a
+  real path of each of the three forms still fails, each under its own
+  pattern number; (b) a committed file holding each bare shape passes;
+  (c) the P6b and P6c forms of the drive-letter pattern still fail
+  with a segment; (d) the T3 P3 check-1 answer as extracted (sha256
+  762fc434..., reconstructed from the committed file and its header if
+  the scratch copy is gone) passes the narrowed scan; (e) the self-test
+  fails with exit 2 when one narrowed pattern is widened back.
+- `scan.log`: per the scan rules.
+
+Acceptance: all eight PASS; `privacy.log` PASS; every negative case as
+stated.
