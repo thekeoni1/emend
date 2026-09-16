@@ -42,7 +42,7 @@ private corpus and a measured passthrough baseline. Plan:
 | P7 | First push to the private GitHub repo, after the maintainer's GitHub email settings and authorisation in the implementing session | DONE (pushed af4b355; records 9c63579 to 302b1b2 local) |
 | P6c | Privacy gate remaining gaps: office names with suffixes, more spreadsheet types, archive signatures, full commit headers, emails in paths, more Windows path forms; no push after P7 until done | DONE (a371cff to 8e7e665) |
 | Close | Push the local P7 and P6c record commits, using P7's pre-push checks | DONE (pushed e0a5175; records 00c64bb and 41e2919 local) |
-| P6d | Narrow the three path patterns so a bare shape named in prose passes and a real path still fails; self-test and negative cases (`specs/0002-gate-corpus-additions.md`, added 2026-09-15) | READY |
+| P6d | Narrow the three path patterns so a bare shape named in prose passes and a real path still fails; self-test and negative cases (`specs/0002-gate-corpus-additions.md`, added 2026-09-15) | DONE (4641ae3 to 8f45639) |
 
 ### T0b: continuous integration (`specs/0003-ci.md`), DONE 2026-09-15
 
@@ -92,7 +92,7 @@ implementing session does P1 and P7.
 | P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | DONE (8bbda4d to b1e7982; baseline 473636 and 539172 bytes, `records/size-baseline-2026-09-15-6a7533e.md`) |
 | Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | DONE (pushed 29b0bad; run 35032688348 success; record 24d4a16 local) |
 | P3 | LibreOffice open check with the corpus session's image: definition pinned, `lo`, `lo_in` and the `error` value, the LibreOffice record, negative tests on corrupted files, two measured findings | DONE (fd5dcf9 to 2638d21) |
-| P4 | Pre-run work (P3 carry-overs, `--lo-timeout`, tolerant tag matching, a chart-sheet measurement), then the first full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | READY (after T0 P6d) |
+| P4 | Pre-run work (P3 carry-overs, `--lo-timeout`, tolerant tag matching, a chart-sheet measurement), then the first full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | READY |
 
 ### T4: moved into Milestone 1
 
@@ -181,6 +181,12 @@ approval.
   record's feature text is literal in the size script.
 - Privacy gate backlog: findings raised after T2 P0 that do not concern a
   data flow this project has.
+  - Committed logs before T0 P6d hold absolute paths under the generic
+    account name (86 occurrences in 55 files); accepted as recorded, no
+    rewrite (T0 P6d ruling).
+  - The narrowed path patterns leave a segment starting with a byte
+    outside the path-character class unmatched, and match a bare shape
+    followed by a full stop (T0 P6d residue).
   - Unchecked `sed`, `tr` and `cut` exit statuses in two helper
     pipelines of `scripts/privacy.sh` (T2 P0 finding 1).
   - Content findings in archive or compound-file blobs at ordinary paths

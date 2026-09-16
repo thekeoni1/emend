@@ -108,6 +108,14 @@ committed. Its output goes in the phase's `negative.log`.
     An error is never reported as zero hits.
   - Every scan form has a positive control that uses the same command
     form.
+  - Since T0 P6d the three path patterns (8, 10 and 11) are blind to a
+    bare shape by design, so every scan script also scans its files
+    with the pre-P6d forms of those patterns as a bare-shape control
+    and expects 0; a documented, reversible replacement (as in T1 P2
+    departure 12) is the only allowed exception.
+  - Logs and check answers write the repository as `<repo>`, scratch
+    locations as `<scratch>` and the home directory as `<home>`; an
+    absolute machine path in a log is a defect (T0 P6d ruling).
   - Print the exact script into the log.
 - Log privacy: logs are committed and will be pushed. They must never
   contain:

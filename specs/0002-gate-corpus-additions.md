@@ -138,23 +138,31 @@ There is no reliable signature for them.
 - Both backlog items fit the gate self-test script task the maintainer
   approved for after T0.
 
-## P6d: narrow the path patterns (added 2026-09-15, READY)
+## P6d: narrow the path patterns (added 2026-09-15; DONE 2026-09-16)
 
 T3 P3's first independent check named the bare shape of privacy
-pattern 10 in prose (the string formed by `.claude` and `/projects/`),
+pattern 11 in prose (the string formed by `.claude` and `/projects/`),
 and the gate would have refused the verbatim answer. The T0 P2 ruling
 says patterns match the shape of a real secret or path, never a bare
-name; patterns 0 to 6 were narrowed then, the three path patterns were
-not. This phase narrows them.
+name; patterns 1 to 7 were narrowed then, the three path patterns (8,
+10 and 11, counted from 1 as `scripts/privacy.sh` prints them) were
+not. This phase narrows them. Planning's first draft of this section
+counted from 0; the implementing session read the tool's numbering and
+was right to.
 
 Changes:
-- In `scripts/privacy-patterns.txt`, the three path patterns require a
-  path character after their trailing separator: the `/mnt/<drive>/Users/`
-  form, the drive-letter `Users` form and the `.claude` + `/projects/`
-  form each gain `[A-Za-z0-9._-]` after the final separator class (the
-  drive-letter and `.claude` forms keep their `[\\/]+` separators). A
-  real path always has a following segment; the bare name never does.
-  The count stays 11.
+- In `scripts/privacy-patterns.txt`, the three path patterns require,
+  after their trailing separator, a path character or any byte that is
+  not printable ASCII and not whitespace:
+  `([A-Za-z0-9._-]|[^[:print:][:space:]])`. A real path always has a
+  following segment, an accented folder name included; the bare name
+  never does, and neither does a shape written in prose inside
+  backticks or quotes or followed by a comma (planning's first wording,
+  "any byte that is not a separator and not whitespace", was measured
+  by the implementing session to re-match exactly those, and was
+  withdrawn). The count stays 11. Accepted residue: a segment starting
+  with any byte outside the class is unmatched, and a bare shape
+  followed by a full stop still matches.
 - The per-pattern self-test in `scripts/privacy.sh` plants fakes with a
   following segment, and gains one planted bare shape per narrowed
   pattern that must NOT be reported.
@@ -178,3 +186,41 @@ Logs, in `records/logs/t0-p6d/`:
 
 Acceptance: all eight PASS; `privacy.log` PASS; every negative case as
 stated.
+
+Planning rulings (2026-09-16): P6d is verified and DONE (4641ae3 to
+8f45639; phase commits 721e863 and 14c669f).
+- Doc commit 4641ae3 holds exactly planning's three doc files (140
+  insertions, 23 deletions). The phase commits touch only
+  `scripts/privacy-patterns.txt` (three lines) and `scripts/privacy.sh`
+  (the bare-shape plant); the five record commits only
+  `records/logs/t0-p6d/`. All eight messages end with the Co-Authored-By
+  trailer only, under the noreply identity.
+- Planning ran the full gate (eight PASS) and `scripts/privacy.sh` over
+  the 168 local commits (PASS). Planning scanned every tracked file at
+  HEAD with the pre-P6d forms of patterns 8, 10 and 11 and with the new
+  forms: 0 hits each way, so no committed file writes a bare shape.
+- In a scratch clone planning committed a real path of each form (the
+  scan failed under patterns 8, 10 and 11), the three bare shapes with
+  backticks, quotes and a comma (PASS), and the T3 P3 check-1 answer
+  reconstructed from the committed file and its header (22219 bytes,
+  sha256 762fc434..., PASS); with the pre-P6d pattern file restored the
+  self-test refused to run, as case e says.
+- The false home-path check in the first gate log (a single-file
+  `grep -c` summed through `awk -F:` always gave 0) was found by check 2
+  and repaired with controls that use the same form; the reruns after
+  check 2 are log-only and are accepted as verified by planning. The
+  wrong reason for pattern 11's `[\\/]+` in 721e863's message stays
+  in history, corrected in the report; the widening it makes is real
+  and tested (case g).
+- The absolute-path drift in committed logs (86 occurrences in 55
+  files, recounted by the implementing session and listed by planning):
+  the repository path, the corpus directory name and deliberate test
+  fixtures, plus the bare account name, which the T0 P1R ruling
+  (`specs/0001-bootstrap.md`, question 2) accepted as generic. Nothing
+  under the account home outside the repository is named. Accepted as
+  recorded, no rewrite; from now on logs and check answers write
+  `<repo>` and `<home>`.
+- New scan rule (in `specs/0001-bootstrap.md`): every scan script also
+  scans with the pre-P6d forms of patterns 8, 10 and 11 as a
+  bare-shape control, expecting 0, so "no log writes a shape" stays
+  provable now that the live patterns are blind to a bare shape.
