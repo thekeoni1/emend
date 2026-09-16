@@ -1,0 +1,160 @@
+about: T3 P4 phase commit 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06; HEAD at run: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+phase: T3 P4 (specs/0006-passthrough.md) run.log; written at 2026-09-16T12:13:09Z
+The first recorded run over the whole corpus, both targets, with the
+LibreOffice open check. Raw outputs stay under the corpus directory as
+runs/2026-09-16-39defb7; only the record pair comes into the repository.
+Workbooks appear as ids only: no original name, note, producer_version or
+app, and no corpus path (specs/0005-corpus.md, planning ruling 5 of
+2026-09-16).
+
+TERMS, as planning authorised on 2026-09-16 (ruling 6):
+  - both target builds were finished by the gate before this run started,
+    so no cargo ran during it;
+  - foreground, serialized, host then i686, nothing else running;
+  - CARGO_BUILD_JOBS=4, this box having stopped two T0 P6d gate runs for
+    low memory;
+  - no mid-run tuning: a conversion that timed out or was killed would be
+    recorded as error and listed apart, never rerun with a larger value.
+  Neither run was stopped by the environment, so no rerun note applies.
+
+## settings
+  --timeout 300 (default, the copy child only); --lo-timeout 600 (per
+  conversion, input and copy each); --memory 2048 MiB;
+  image localhost/emend-lo:25.2.3-2-deb13u6
+  host binaries:  passthrough sha256 2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162
+                  xlsx-diff   sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  i686 binaries:  passthrough sha256 66d47481c6c6c12206fef6473cfd80fe5eaaad3bb860fc7e7670b463f1c23fa2
+                  xlsx-diff   sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  (the two host hashes are the ones gate.log and negative.log both print)
+
+## host run
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-16-39defb7 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600
+started 2026-09-16T12:06:35Z; exit 0; stderr 0 bytes
+stdout:
+    d8245b84086f host ok 1 0.10 7764
+    f56906d42e0a host ok 1 0.10 7724
+    0fbf4e5e3be9 host ok 1 0.10 7564
+    bdfe649d5b97 host ok 1 0.10 7808
+    ae7e17525a35 host ok 1 0.10 7768
+    63e820d98612 host ok 1 0.10 7860
+    054df34b1472 host ok 1 0.10 7540
+    9132ce5303d8 host ok 1 0.10 7708
+    ed2fbd304d51 host ok 1 0.10 7788
+    80adab651c77 host ok 1 0.10 7904
+    9ada43d71c80 host ok 1 0.10 7840
+    885819a9642e host ok 1 0.10 7512
+    f2ba081da509 host ok 1 0.10 7704
+    16c3be622455 host ok 1 0.10 7832
+    a72460f992a8 host ok 1 0.10 7836
+    f8459281d739 host ok 1 0.10 7552
+    ab0e6a529465 host ok 1 0.10 7884
+    f9efcac9808f host ok 1 0.10 7840
+    8aaebea134fb host ok 1 0.10 7624
+    6778a242d1f9 host ok 1 0.10 7800
+    75387404b8af host ok 1 0.10 7924
+    40d747fb5d9e host ok 1 0.10 7520
+    3084c0591814 host ok 1 0.10 7720
+    f3a462783621 host ok 1 0.10 7560
+    ed4c55f07c69 host ok 1 0.10 7800
+    7935c5119065 host ok 1 0.10 7556
+    18d1e8ba72b5 host ok 1 0.10 7852
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+
+## i686 run
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/passthrough --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-16-39defb7 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600
+started 2026-09-16T12:09:15Z; exit 0; stderr 0 bytes
+stdout:
+    d8245b84086f i686 ok 1 0.10 7696
+    f56906d42e0a i686 ok 1 0.10 7684
+    0fbf4e5e3be9 i686 ok 1 0.10 7836
+    bdfe649d5b97 i686 ok 1 0.10 7792
+    ae7e17525a35 i686 ok 1 0.10 7828
+    63e820d98612 i686 ok 1 0.10 7804
+    054df34b1472 i686 ok 1 0.10 7632
+    9132ce5303d8 i686 ok 1 0.10 7784
+    ed2fbd304d51 i686 ok 1 0.10 7752
+    80adab651c77 i686 ok 1 0.10 7892
+    9ada43d71c80 i686 ok 1 0.10 7612
+    885819a9642e i686 ok 1 0.10 7732
+    f2ba081da509 i686 ok 1 0.10 7692
+    16c3be622455 i686 ok 1 0.10 7572
+    a72460f992a8 i686 ok 1 0.10 7836
+    f8459281d739 i686 ok 1 0.10 7884
+    ab0e6a529465 i686 ok 1 0.10 7856
+    f9efcac9808f i686 ok 1 0.10 7612
+    8aaebea134fb i686 ok 1 0.10 7796
+    6778a242d1f9 i686 ok 1 0.10 7680
+    75387404b8af i686 ok 1 0.10 7700
+    40d747fb5d9e i686 ok 1 0.10 7748
+    3084c0591814 i686 ok 1 0.10 7920
+    f3a462783621 i686 ok 1 0.10 7768
+    ed4c55f07c69 i686 ok 1 0.10 7612
+    7935c5119065 i686 ok 1 0.10 7568
+    18d1e8ba72b5 i686 ok 1 0.10 7636
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
+  run.host.tsv row:    39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06	2026-09-16T12:06:35Z	2026-09-16T12:08:55Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
+  run.i686.tsv row:    39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06	2026-09-16T12:09:15Z	2026-09-16T12:11:35Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	66d47481c6c6c12206fef6473cfd80fe5eaaad3bb860fc7e7670b463f1c23fa2	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27
+
+## the record script
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-16-39defb7
+exit 0; stderr 0 bytes
+stdout:
+    wrote step0-2026-09-16-39defb7.tsv and step0-2026-09-16-39defb7.md: labels host,i686; files 27,27; entry rows 870,870
+  records/step0-2026-09-16-39defb7.md:  sha256 88173268ca625b49fe6b81af927f5b68127d88adc3906f3e33f27f7d3f4dc98b, bytes 14595
+  records/step0-2026-09-16-39defb7.tsv: sha256 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0, bytes 228516
+
+## what the run measured, from the two summaries
+  host: files 27
+    outcome ok: 27
+    diff_exit 1: 27
+    entries identical 870; recompressed 0; changed 0; dropped 0; added 0; flagged 870
+    order_preserved yes: 27
+    comment_equal yes: 27
+    files_identical no: 27
+    leftover no: 27
+    lo ok: 27
+    lo_in ok: 27
+  i686: files 27
+    outcome ok: 27
+    diff_exit 1: 27
+    entries identical 870; recompressed 0; changed 0; dropped 0; added 0; flagged 870
+    order_preserved yes: 27
+    comment_equal yes: 27
+    files_identical no: 27
+    leftover no: 27
+    lo ok: 27
+    lo_in ok: 27
+
+## reading of the result, stated so the numbers are not misread
+  Every file on both targets is outcome ok, lo ok and lo_in ok: all 27
+  real workbooks opened in LibreOffice as input and as copy, on host and
+  on i686.
+  Every entry row on both targets is status identical: 870 per label,
+  1740 in all, with recompressed, changed, dropped and added all 0. No
+  entry content differs.
+  diff_exit is 1 for all 54 rows, which xlsx-diff documents as
+  "differences found", not an error; rows are trusted at exit 0 or 1.
+  files_identical is no for all 54 rows, and flagged is non-zero, because
+  of zip metadata only: attrs on all 870 entries, extra on 578, and
+  gpflags, descriptor and local on 292 each; mtime and comment are 0.
+  That is the spec P4 expectation, "every entry identical with the
+  writer's flags catalogued", and not a fidelity defect.
+  WORDING, a finding about the record and not about the run: the record
+  section headed "Files not ok, with a diff exit other than 0, with a
+  leftover temporary file, or failing the LibreOffice open check" lists
+  all 54 rows. None of them is an open-check failure; every lo and lo_in
+  in that table reads ok. They are listed on the diff_exit condition of a
+  four-condition heading. The heading behaves as planning ruled, but a
+  reader skimming it can take 54 rows for 54 failures.
+
+## the two labels compared
+  host entry name+status digest: dc9d540d4359c2c85c5429c12de4e49f
+  i686 entry name+status digest: dc9d540d4359c2c85c5429c12de4e49f
+  The two digests are equal, so host and i686 agree entry for entry on
+  every name and status across all 870 entries.
+
+run ended at 2026-09-16T12:13:09Z
