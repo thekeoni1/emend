@@ -1,10 +1,13 @@
 # 0006: T3 passthrough baseline
 
-Status: P1 to P3 DONE, verified by planning 2026-09-15 (P1: d63ad31 to
+Status: T3 DONE 2026-09-16. P1 to P3 verified by planning 2026-09-15 (P1: d63ad31 to
 33c0198, phase commits 9eaee47, 79d17ba and cb94097; P2: 8bbda4d to
 b1e7982, phase commits 2845fab and 6a7533e; P3: fd5dcf9 to 2638d21,
 phase commits 17ec824 and 2623b70). The close-out push after P2 is
-recorded. P4 READY after T0 P6d (`specs/0002-gate-corpus-additions.md`).
+recorded. P4 verified by planning 2026-09-16 (39defb7 to 2222c66, phase
+commits 39defb7 and 4a4867b); the baseline record is
+`records/step0-2026-09-16-39defb7.md` and `.txt`; the P3 and P4
+records go with the next authorised push.
 Context: `CLAUDE.md`, `specs/0000-step-zero-plan.md` ("T3: passthrough
 baseline (outline)", the part families, the record layout),
 `specs/0001-bootstrap.md` ("How this task runs", "Rules for every
@@ -111,7 +114,9 @@ kept in the run directory, not printed.
 `scripts/passthrough-record.py` (python3, standard library only) reads
 `summary.<label>.tsv` and `entries.<label>.tsv` for both labels and
 writes:
-- `records/step0-<utc-date>-<shortsha>.tsv`: every summary row, both
+- `records/step0-<utc-date>-<shortsha>.txt` (tab-separated; `.txt`
+  because the hygiene gate refuses a tracked spreadsheet extension and
+  `.gitignore` ignores `*.tsv`, P4 ruling): every summary row, both
   labels, plus every entry row, in a second table after a blank line,
   with the entry name escaped as the harness prints it;
 - `records/step0-<utc-date>-<shortsha>.md`: the run's commit, date,
@@ -154,8 +159,8 @@ way (maintainer ruling 4, `specs/0000-step-zero-plan.md`).
 
 Each phase ends as in `specs/0001-bootstrap.md`: phase commit(s), logs
 in `records/logs/t3-<phase>/` (`gate.log`, `test.log` on both targets
-where a Rust crate changed, `negative.log`, `scan.log`), at most two
-independent checks in plain ASCII, report, STOP. Fixtures are generated
+where a Rust crate changed, `negative.log`, `scan.log`, and in P4
+`run.log` and `record.log`), at most two independent checks in plain ASCII, report, STOP. Fixtures are generated
 in test code or by the negative script into temporary directories and
 never committed. No push during T3 phases; the T3 close-out push comes
 after P4, or earlier on the maintainer's decision.
@@ -458,19 +463,95 @@ After T0 P6d. Pre-run work first, each with a negative case:
   the copy timeout; a conversion that times out is `error`;
 - a whitespace-tolerant `<sheet` match (a producer may break the line
   after the tag name), and the same for `<table:table`;
-- a chart-sheet workbook generated in the scratch corpus and measured:
-  if LibreOffice writes no `<table:table` for a chart sheet, the sheet
-  count excludes `<chartsheet` parts and the record says so.
+- a chart-sheet workbook generated in the scratch corpus and measured
+  (measured in P4: LibreOffice writes a `<table:table` for a chart
+  sheet, so the count rule stands unchanged; the conditional this
+  bullet first carried did not fire and was struck after the phase).
 
 Then the runner over the whole corpus (27 files as of 2026-09-15, plus
 whatever the maintainer adds) on both targets with the LibreOffice
 check, the record committed as `records/step0-<utc-date>-<shortsha>.md`
-and `.tsv`, and planning's ruling on the findings. Raw outputs stay
+and `.txt`, and planning's ruling on the findings. Raw outputs stay
 under the corpus directory's `runs/`. The expectation, after P1's
 finding table: every entry `identical` with the writer's flags
 catalogued; any `changed`, `dropped`, `added`, error, crash, or `lo`
 `fail` on an `lo_in` `ok` file is a finding about real archives; `lo`
 `error` is a finding about the tooling, listed apart.
+
+### Planning rulings on P4 (2026-09-16)
+
+- P4 is verified from primaries by planning's own checks and is DONE
+  (39defb7 to 2222c66; phase commits 39defb7 and 4a4867b):
+  - Doc commit 0c2caf2 holds exactly planning's three doc files (73
+    insertions, 13 deletions). The phase commits touch only the runner
+    and the record script; record commit 25e553a only the record pair;
+    the other five only `records/logs/t3-p4/`. All nine messages end
+    with the Co-Authored-By trailer only, under the noreply identity.
+  - Planning ran the full gate (eight PASS) and `scripts/privacy.sh`
+    over the 35 local commits since the last push (269 blobs, PASS),
+    and scanned the eleven new or changed files itself: no non-ASCII
+    or control byte, no U+2014, no email beyond the scan's own
+    `example.invalid` control, no hit under the live or the pre-P6d
+    pattern forms, no denylist hit, no hostname.
+  - Planning read the private run directory: 27 summary rows per
+    label, all `ok`, diff exit 1, `files_identical` `no`, `lo` and
+    `lo_in` `ok`, no leftover; 870 entry rows per label, all
+    `identical`; flags `attrs` 870, `extra` 578, `gpflags`,
+    `descriptor` and `local` 292 each; no reason file. Planning's own
+    row, name and status digest is equal for the two labels. The
+    committed `.txt` is byte for byte the two summaries followed by
+    the two entries files; the 27 ids are the manifest's; no original
+    name, note, producer version or application string appears in the
+    record pair.
+  - Planning re-ran the two repaired counting functions from the final
+    gate and negative logs against an unreadable file: both print
+    `error`, and the same forms count 1 on their controls.
+  - The negative log holds 57 results, none unexpected: the forced
+    timeout is a real conversion returning 124 in 1.0 s, the signal
+    kill 137, podman 125, the count-step error, the chart sheet with
+    both counts (2 and 2), the fourteen tag shapes, the record's four
+    counts and headings, the mutated-copy guard, and the `--lo-timeout`
+    refusal.
+- The result is the P4 expectation and the step-zero baseline: every
+  entry identical on both targets, with the zip writer's flags
+  catalogued (`attrs` on every entry; `extra` on the 578 entries of the
+  ten Microsoft templates; `gpflags`, `descriptor` and `local` on the
+  292 entries of the seventeen LibreOffice files, as planning recounted
+  by producer from the run directory), and every workbook opening in
+  LibreOffice as input and as copy. No finding about a real archive; nothing listed apart.
+  Milestone 1's zip layer is measured against
+  `records/step0-2026-09-16-39defb7.txt`: its runs must show every
+  untouched entry identical AND unflagged.
+- Mid-phase rulings, now in force: the error ladder (124, 125 to 127
+  and 128 or more are `error`; 1 to 123 `fail`; 0 decides nothing);
+  `--lo-timeout` per conversion, independent of `--timeout`; the
+  record named after the commit the run was made at; `error` rows only
+  under the could-not-run heading, with four counts per column summing
+  to the file count; only the record pair enters the repository; the
+  heavy run in the foreground, serialized, builds finished first; the
+  negative script in a scratch clone with the gate's binaries copied
+  in (no cargo); the record's table as `.txt`; `run.log` never edited
+  or rerun, the regeneration recorded in `record.log`.
+- The chart-sheet conditional was measured by both sessions and did
+  not fire (LibreOffice writes a `<table:table` per chart sheet); the
+  P4 text above now says so.
+- Accepted residue, log-only, no data flow, all to the passthrough
+  backlog: `record.log`'s corpus-name count keeps the bare `grep -c`
+  form check 2 named (its inputs are files the script itself wrote
+  moments before); `record.log` line 1 is the command that read the id
+  on line 2; the gate's corpus-name control asserts the grep form, not
+  the function. The status 1 to 123 `fail` branch has no positive
+  control on the pinned image (every conversion exits 0). The record's
+  four-condition heading lists all 54 rows on the diff-exit condition.
+- The implementing session's own findings stand as reported: three
+  repairs declared complete after fixing one instance of a class; a
+  padded commit id caught before anything ran; check 2's finding that
+  the check answers were not committed, repaired at f4e03b0. New rules
+  in `specs/0001-bootstrap.md`: commit ids in logs are read from git;
+  a committed log is never edited; nothing is called measured unless
+  a log prints it.
+- T3 is DONE. The P3 and P4 records go with the next authorised push,
+  together with T0 P6d and T2 P1.
 
 ## Out of scope
 

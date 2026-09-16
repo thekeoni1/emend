@@ -82,9 +82,9 @@ implementing session does P1 and P7.
 | P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | DONE (10 files, verified 2026-09-15) |
 | P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED |
 | P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED |
-| P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | PLANNED |
+| P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | READY (after T3 P4) |
 
-### T3: passthrough baseline (`specs/0006-passthrough.md`)
+### T3: passthrough baseline (`specs/0006-passthrough.md`), DONE 2026-09-16
 
 | Phase | Part | Status |
 |-------|------|--------|
@@ -92,7 +92,7 @@ implementing session does P1 and P7.
 | P2 | i686 musl runs; `tools/size-probe` and the `size` profile; stripped sizes of the `zip` and `zip` plus `quick-xml` consumers recorded (size baseline); the `zip` feature and licence tree cited; runner fixes (leftover temporary files, guarded commands) | DONE (8bbda4d to b1e7982; baseline 473636 and 539172 bytes, `records/size-baseline-2026-09-15-6a7533e.md`) |
 | Close | Push the T1 P5 and P6, T3 P1 and T3 P2 records with the pending doc updates, after P2 (maintainer decision); record the CI run | DONE (pushed 29b0bad; run 35032688348 success; record 24d4a16 local) |
 | P3 | LibreOffice open check with the corpus session's image: definition pinned, `lo`, `lo_in` and the `error` value, the LibreOffice record, negative tests on corrupted files, two measured findings | DONE (fd5dcf9 to 2638d21) |
-| P4 | Pre-run work (P3 carry-overs, `--lo-timeout`, tolerant tag matching, a chart-sheet measurement), then the first full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.tsv`, aggregated by part family | READY |
+| P4 | Pre-run work (P3 carry-overs, `--lo-timeout`, tolerant tag matching, a chart-sheet measurement), then the first full recorded run over the corpus on both targets: `records/step0-<date>-<sha>.md` and `.txt`, aggregated by part family | DONE (39defb7 to 2222c66; every entry identical on both targets with the writer's flags catalogued, every workbook opening in LibreOffice; `records/step0-2026-09-16-39defb7.md` and `.txt`) |
 
 ### T4: moved into Milestone 1
 
@@ -127,7 +127,11 @@ ruling 12, 2026-09-14).
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
-The core depends on `zip` and `quick-xml` only.
+The core depends on `zip` and `quick-xml` only. The step-zero baseline
+is `records/step0-2026-09-16-39defb7.md` and `.txt` (T3 P4): a run of
+the new zip layer over the corpus must show every untouched entry
+`identical` with no flag, where the zip crate's raw copy flagged all
+870 entries.
 
 1. Zip layer: read the central directory with `u64` sizes and offsets,
    copy untouched entries as their original compressed bytes in the
@@ -179,6 +183,14 @@ approval.
   negative log counts no fixture strings; some guards sit outside the
   reviewed diff hunks; a fixed 1 s wait in `faults.rs`; the size
   record's feature text is literal in the size script.
+  - T3 P4: the status 1 to 123 `fail` branch of the open check has no
+    positive control on the pinned image (every conversion exits 0);
+    the record's four-condition section lists every diff-exit-1 row
+    under a heading that says failing, to be split per condition;
+    `record.log`'s corpus-name count and two minor gate forms keep a
+    bare `grep -c` (check 2); the per-run record holds every entry row
+    (1797 lines), so Milestone 1 decides whether later records keep
+    entry rows only for entries that are not identical and unflagged.
 - Privacy gate backlog: findings raised after T2 P0 that do not concern a
   data flow this project has.
   - Committed logs before T0 P6d hold absolute paths under the generic

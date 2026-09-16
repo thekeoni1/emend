@@ -116,6 +116,14 @@ committed. Its output goes in the phase's `negative.log`.
   - Logs and check answers write the repository as `<repo>`, scratch
     locations as `<scratch>` and the home directory as `<home>`; an
     absolute machine path in a log is a defect (T0 P6d ruling).
+  - Every commit id in a log or check answer is read from git at run
+    time by a command the log prints, never typed or padded (T3 P4).
+  - A committed log is never edited or regenerated: a correction is a
+    new log whose header names the superseded lines and the commit
+    they were committed at (T3 P4, `record.log`).
+  - Nothing is called measured unless the log prints the measurement;
+    a figure in a script's prose or comments is not one (T3 P4
+    check 1).
   - Print the exact script into the log.
 - Log privacy: logs are committed and will be pushed. They must never
   contain:
