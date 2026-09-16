@@ -1,6 +1,6 @@
-about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at 2026-09-16T01:12:49Z
-rerun: replaces the gate log of record commit 4eb5a98 (run at 721e8632); rerun at phase commit 2, 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093, after independent check 1 (record commit ad1683c): the character required after each narrowed pattern's trailing separator is now a path character or any byte that is not printable ASCII and not whitespace (planning's ruling of 2026-09-16), and this log's script no longer carries the dead record_states function check 1 found. Three earlier runs of this log at this same commit were not committed. The first reported three checks 'no': the log's own check compared each pattern's last fifteen bytes against the pre-ruling class string, so it went stale when the class changed; it now tests for the class as ruled, as a suffix rather than a fixed byte count. The second started 2026-09-16T01:10:01Z and the third started 2026-09-16T01:10:53Z; each completed the pattern checks, the changed-file checks and the gate-files section, ran cargo clean, and was stopped by the environment during the cold check.sh run, reason given: the system was running low on memory. DEPARTURE, named because it changes the environment of a recorded run: this run sets CARGO_BUILD_JOBS=4, so cargo compiles with four parallel jobs instead of the sixteen this machine defaults to. The steps, their commands and what they verify are unchanged; only the number of concurrent compilations is. Free memory before this run: 18630 MiB available
+about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: dda939ec200dc7eab9512f5a93d76af758c8f432 (record commits only in between, nothing outside records/logs differs)
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at 2026-09-16T01:34:43Z
+rerun: replaces the gate log of record commit 91775fe (run at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093); rerun at the same phase commit after independent check 2 (record commit dda939e), which found that this log's home-path check could not fail: it piped a single-file grep -c into awk -F:, and with one file argument grep prints a bare count with no colon, so the sum was always 0 while the raw count was 1. The check now runs grep with /dev/null as a second argument so every line is file-prefixed, exempts the self-test's own fixture line by its literal source text, and has three controls that run the same pipeline form: a file holding one such line, a clean file, and a file holding only the exempted fixture. This log also now prints CARGO_BUILD_JOBS beside the other environment settings, so the departure below is evidenced by the log rather than only declared in this header. DEPARTURE, unchanged from the previous run: CARGO_BUILD_JOBS=4, four parallel compilations instead of this machine's sixteen, after two runs at the default were stopped for low memory; the steps and what they verify are unchanged. THIS RERUN LANDED AFTER INDEPENDENT CHECK 2 AND IS THEREFORE UNCHECKED BY ANY CHECKER, on planning's ruling of 2026-09-16, which also ruled the fix log-only. Free memory before this run: 18681 MiB available
 commit before the phase: 2638d219f1c480f98594df72c78c0b1298da60c5
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
@@ -38,7 +38,17 @@ private denylist: present, mode 600, entries 7 (never printed)
     # They are never written out here: a log must not carry a bare shape.
     NARROWED=(8 10 11)
     
-    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    HEAD_AT_RUN=$(git rev-parse HEAD)
+    # The log is about the phase commit. HEAD may sit above it only when every
+    # commit in between touches records/logs/ alone, so the code under test is
+    # byte-identical at both; anything else is refused.
+    if [ "$HEAD_AT_RUN" != "$C" ]; then
+      if ! git merge-base --is-ancestor "$C" "$HEAD_AT_RUN" ||
+        [ -n "$(git diff --name-only "$C" "$HEAD_AT_RUN" -- . ':(exclude)records/logs/**')" ]; then
+        echo "HEAD is $HEAD_AT_RUN, which is not $C and differs from it outside records/logs" >&2
+        exit 2
+      fi
+    fi
     if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
     
     f_ctrl()     { LC_ALL=C /usr/bin/grep -a -c -P '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "$1"; }
@@ -50,6 +60,20 @@ private denylist: present, mode 600, entries 7 (never printed)
     # ruling of 2026-09-16): a path character, or any byte that is not printable
     # ASCII and not whitespace.
     ADDED_CLASS='([A-Za-z0-9._-]|[^[:print:][:space:]])'
+    # The self-test plants a home-shaped control fixture of its own; that one line
+    # is exempt by its literal source text. FIXTURE_LINE is where it sits, printed
+    # so a reader can find it.
+    FIXTURE_LINE=422
+    FIXTURE_TEXT='"/home/user/""'
+    # home_paths <file>: lines holding an absolute home or root path, other than
+    # the exempted fixture. grep is given /dev/null as a second argument so it
+    # prefixes every line with a file name: with one argument it prints a bare
+    # count, which the first form of this check summed with awk -F: and so always
+    # read 0 (independent check 2).
+    home_paths() {
+      LC_ALL=C /usr/bin/grep -H -n -E '/home/|/root/' "$1" /dev/null |
+        LC_ALL=C /usr/bin/grep -c -v -F -e "$FIXTURE_TEXT"
+    }
     # ends_with_added_class <line number>: that pattern in the file ends with the
     # class above, so a bare shape cannot match it. The test is a suffix match, not
     # a fixed byte count: the first form of this check compared a fixed tail and
@@ -65,7 +89,7 @@ private denylist: present, mode 600, entries 7 (never printed)
       [ "$(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$PATTERNS")" -eq "$1" ]
     }
     
-    echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "about: T0 P6d phase commit $C; HEAD at run: $HEAD_AT_RUN$([ "$HEAD_AT_RUN" = "$C" ] || echo " (record commits only in between, nothing outside records/logs differs)")"
     echo "phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
@@ -110,9 +134,20 @@ private denylist: present, mode 600, entries 7 (never printed)
     echo "command: git diff --numstat $BEFORE $C -- $PATTERNS -> $(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | tr '\t' ' ')"
     check "exactly three pattern lines changed" "$(yn [ "$(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | cut -f1)" = 3 ])"
     check "the identity file and the hook installer did not change" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/privacy-identity.txt scripts/install-hooks.sh)"
-    n=$(LC_ALL=C /usr/bin/grep -c -E '/home/|/root/' scripts/privacy.sh | awk -F: '{ n += $2 } END { print n + 0 }')
     printf 'x = "/home/someone/x"\n' > "$T/home-ctl"
-    check "lines with a literal home path in scripts/privacy.sh: $n (expect 0; the control file counts $(LC_ALL=C /usr/bin/grep -c -E '/home/|/root/' "$T/home-ctl"))" "$(yn [ "$n" -eq 0 ])"
+    printf 'nothing to see here\n' > "$T/home-clean"
+    sed -n "${FIXTURE_LINE}p" scripts/privacy.sh > "$T/home-fixture"
+    echo "the home-path check, with its controls (the first form of this check piped a single-file grep -c into awk -F:, which always summed to 0 and so could not fail; independent check 2 found it):"
+    echo "  command: home_paths <file>, which is grep -H -n over the file and /dev/null, then grep -c -v of the self-test's own fixture text"
+    echo "  control, a file holding one such line: $(home_paths "$T/home-ctl") (expect 1)"
+    check "the control file with one home path counts 1" "$(yn [ "$(home_paths "$T/home-ctl")" -eq 1 ])"
+    echo "  control, a clean file: $(home_paths "$T/home-clean") (expect 0)"
+    check "the clean control file counts 0" "$(yn [ "$(home_paths "$T/home-clean")" -eq 0 ])"
+    echo "  control, a file holding only the self-test's fixture line: $(home_paths "$T/home-fixture") (expect 0, the exemption)"
+    check "the exempted fixture line counts 0" "$(yn [ "$(home_paths "$T/home-fixture")" -eq 0 ])"
+    n=$(home_paths scripts/privacy.sh)
+    echo "  scripts/privacy.sh, raw grep -c for comparison: $(LC_ALL=C /usr/bin/grep -c -E '/home/|/root/' scripts/privacy.sh); through home_paths: $n"
+    check "lines with a literal home path in scripts/privacy.sh, other than the self-test fixture at line $FIXTURE_LINE: $n (expect 0)" "$(yn [ "$n" -eq 0 ])"
     
     echo
     echo "## gate files at $C"
@@ -120,7 +155,7 @@ private denylist: present, mode 600, entries 7 (never printed)
       echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1); bytes $(wc -c < "$f")"
     done
     check "no crate, Cargo file or workflow changed in $BEFORE..$C" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/check.sh scripts/sys-allowlist.txt .gitignore .github Cargo.toml Cargo.lock tools)"
-    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-unset}"
     
     echo
     echo "## full run on a cold cache, started from / by absolute path"
@@ -224,7 +259,16 @@ pattern 11 ends with the added character class: yes
 command: git diff --numstat 2638d219f1c480f98594df72c78c0b1298da60c5 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 -- scripts/privacy-patterns.txt -> 3 3 scripts/privacy-patterns.txt
 exactly three pattern lines changed: yes
 the identity file and the hook installer did not change: yes
-lines with a literal home path in scripts/privacy.sh: 0 (expect 0; the control file counts 1): yes
+the home-path check, with its controls (the first form of this check piped a single-file grep -c into awk -F:, which always summed to 0 and so could not fail; independent check 2 found it):
+  command: home_paths <file>, which is grep -H -n over the file and /dev/null, then grep -c -v of the self-test's own fixture text
+  control, a file holding one such line: 1 (expect 1)
+the control file with one home path counts 1: yes
+  control, a clean file: 0 (expect 0)
+the clean control file counts 0: yes
+  control, a file holding only the self-test's fixture line: 0 (expect 0, the exemption)
+the exempted fixture line counts 0: yes
+  scripts/privacy.sh, raw grep -c for comparison: 1; through home_paths: 0
+lines with a literal home path in scripts/privacy.sh, other than the self-test fixture at line 422: 0 (expect 0): yes
 
 ## gate files at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
 scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
@@ -238,7 +282,7 @@ scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac57
 Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
 Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
 no crate, Cargo file or workflow changed in 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093: yes
-RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4
 
 ## full run on a cold cache, started from / by absolute path
 command: cargo clean
@@ -265,5 +309,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T01:13:39Z
+run ended at 2026-09-16T01:35:34Z
 gate log checks all as expected: yes

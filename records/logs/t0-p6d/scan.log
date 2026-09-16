@@ -1,6 +1,6 @@
-about: phase diff 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) scan.log; run at 2026-09-16T01:14:07Z
-rerun: replaces the scan log of record commit 4eb5a98 (range 2638d21..721e8632); rerun over 2638d21..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 after phase commit 2 and the check 1 record commit ad1683c; this script's embedded pattern copy carries the class as planning ruled it on 2026-09-16, and the three logs it scans in the working tree are the reruns at phase commit 2
+about: phase diff 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: dda939ec200dc7eab9512f5a93d76af758c8f432
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) scan.log; run at 2026-09-16T01:37:05Z
+rerun: replaces the scan log of record commit 91775fe (range 2638d21..14c669f); rerun over the same range after independent check 2 (record commit dda939e) and the log-only fixes planning ruled on 2026-09-16: the gate's home-path check, which check 2 found could not fail, and the negative log's cases f and g. The three logs it scans in the working tree are those reruns. THIS RERUN LANDED AFTER CHECK 2 AND IS UNCHECKED BY ANY CHECKER, verified by planning alone
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -511,7 +511,7 @@ message 4641ae3b4b6382947aad55d7bfd6605e6eabc429
 messages scanned: 5; commits in range: 5: yes
 
 ## other T0 P6d logs in the working tree (a log cannot scan itself)
-log records/logs/t0-p6d/gate.log (sha256 1ed319e7c1dcd5fba6775cc95f1969fc6b48fa3290c5458f32db44ec93391916)
+log records/logs/t0-p6d/gate.log (sha256 804879d437b2014a41109777893099ae75f28a780f4247efc772238a002f0c97)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -529,7 +529,7 @@ log records/logs/t0-p6d/privacy.log (sha256 f0c828cfa740e700d8bb40b2aee544e62c27
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t0-p6d/negative.log (sha256 1fa3cb1345a78546cc766889a86b949bf946fe2f5ab874b0bbf851584ddb8626)
+log records/logs/t0-p6d/negative.log (sha256 e59361082e7c684d4a9a53372499f25a6bbcf658ff906bd288a47d0b8220b17f)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -543,5 +543,5 @@ T0 P6d logs scanned: 3 (expected 3): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T01:14:07Z
+run ended at 2026-09-16T01:37:06Z
 RESULT: PASS

@@ -1,6 +1,6 @@
-about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) negative.log; run at 2026-09-16T01:08:09Z
-rerun: replaces the negative log of record commit 4eb5a98 (run at 721e8632); rerun at phase commit 2, 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093, after independent check 1 (record commit ad1683c). What changed: the added character class takes a non-ASCII byte too (planning's ruling of 2026-09-16); case e now widens each of the three patterns back in turn, so every bare plant is proved live, not only pattern 8's; case f is new, a real path whose segment starts with a byte that is not ASCII; case b gains a control that each bare fixture would have been reported before this phase; the reconstruction source prints as a repository-relative path, not an absolute one; and the live pattern is no longer passed through a sed that widened it before use
+about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: dda939ec200dc7eab9512f5a93d76af758c8f432 (record commits only in between, nothing outside records/logs differs)
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) negative.log; run at 2026-09-16T01:35:53Z
+rerun: replaces the negative log of record commit 91775fe (run at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093); rerun at the same phase commit after independent check 2 (record commit dda939e). What changed, all on planning's ruling of 2026-09-16 and all log-only: case f now covers all three narrowed patterns rather than pattern 8 alone, so the class added in phase commit 2 is exercised where it was untested; case g is new, a doubled-separator form of pattern 11, which that pattern's trailing plus allows and which nothing tested before; and the check that the clone matches the phase commit now states the property that actually holds, since the clone is taken from the working tree and so lands at this run's HEAD, with nothing outside records/logs differing between that HEAD and the phase commit. THIS RERUN LANDED AFTER INDEPENDENT CHECK 2 AND IS THEREFORE UNCHECKED BY ANY CHECKER, on planning's ruling, verified by planning alone
 Every case runs in a scratch clone under <scratch>, deleted on exit; the working tree is never scanned by these cases.
 The three narrowed patterns are named by line number only: 8, 10 and 11. No shape is written in this log.
 
@@ -30,9 +30,12 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
     #        exit 2, with the planted bare shape reported. Each of the three is
     #        widened back in turn, so every bare plant is proved live;
     #     f  a real path whose segment starts with a byte that is not ASCII is
-    #        reported under pattern 8 (planning's ruling of 2026-09-16: the added
-    #        class takes a path character or any byte that is not printable ASCII
-    #        and not whitespace).
+    #        reported, once per narrowed pattern (planning's ruling of 2026-09-16:
+    #        the added class takes a path character or any byte that is not
+    #        printable ASCII and not whitespace);
+    #     g  pattern 11 with doubled separators, the widening its trailing plus
+    #        allows and which nothing tested before (planning's ruling after
+    #        independent check 2).
     # Each check is evaluated once; a check with more than one condition is
     # evaluated inside one function.
     # Usage: t0p6d-negative.sh <phase commit> > <scratch file>; the caller moves the
@@ -53,7 +56,17 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
     ANSWER_SHA=762fc4342b9f031f3a680d72c85fe3193989237b1c95b0de57437128c36523fd
     for v in $(env | sed -n 's/^\(GIT_[A-Za-z_]*\)=.*/\1/p'); do unset "$v"; done
     
-    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    HEAD_AT_RUN=$(git rev-parse HEAD)
+    # The log is about the phase commit. HEAD may sit above it only when every
+    # commit in between touches records/logs/ alone, so the code under test is
+    # byte-identical at both; anything else is refused.
+    if [ "$HEAD_AT_RUN" != "$C" ]; then
+      if ! git merge-base --is-ancestor "$C" "$HEAD_AT_RUN" ||
+        [ -n "$(git diff --name-only "$C" "$HEAD_AT_RUN" -- . ':(exclude)records/logs/**')" ]; then
+        echo "HEAD is $HEAD_AT_RUN, which is not $C and differs from it outside records/logs" >&2
+        exit 2
+      fi
+    fi
     if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
     
     hide() {
@@ -131,7 +144,7 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
       [ "$RC" -eq 2 ] && grep_q -q -F -e 'self-test failed: a bare pattern shape was reported' "$1"
     }
     
-    echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "about: T0 P6d phase commit $C; HEAD at run: $HEAD_AT_RUN$([ "$HEAD_AT_RUN" = "$C" ] || echo " (record commits only in between, nothing outside records/logs differs)")"
     echo "phase: T0 P6d (specs/0002-gate-corpus-additions.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "Every case runs in a scratch clone under <scratch>, deleted on exit; the working tree is never scanned by these cases."
@@ -147,7 +160,14 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
     echo "  clone exit: $RC"
     git -C "$CLONE" config user.name "$(sed -n 1p scripts/privacy-identity.txt)"
     git -C "$CLONE" config user.email "$(sed -n 2p scripts/privacy-identity.txt)"
-    note "the clone is at the phase commit" "$(is [ "$(git -C "$CLONE" rev-parse HEAD)" = "$C" ])"
+    # clone_matches: the clone is at the HEAD this run was made from, and nothing
+    # outside records/logs differs between that HEAD and the phase commit, so the
+    # patterns and the gate script in the clone are the phase commit's.
+    clone_matches() {
+      [ "$(git -C "$CLONE" rev-parse HEAD)" = "$HEAD_AT_RUN" ] &&
+        [ -z "$(git diff --name-only "$C" "$HEAD_AT_RUN" -- . ':(exclude)records/logs/**')" ]
+    }
+    note "the clone is at the HEAD of this run, whose code under test is the phase commit's" "$(is clone_matches)"
     note "the clone's pattern file equals the working tree's" "$(is cmp -s "$CLONE/scripts/privacy-patterns.txt" scripts/privacy-patterns.txt)"
     echo "  patterns in the file: $(LC_ALL=C "$G" -c -v -E '^[[:space:]]*(#|$)' scripts/privacy-patterns.txt)"
     
@@ -261,22 +281,43 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
     
     echo
     echo "## case f: a real path whose segment starts with a byte that is not ASCII"
-    echo "  the byte is written by printf in the clone; no tracked file holds one, and this log prints only counts and pattern numbers"
-    printf '%s%s%s\303\251lodie/Documents\n' '/mnt/' 'c/' 'Users/' >"$BASE/accented.txt"
-    echo "  the fixture holds $(LC_ALL=C tr -cd '\200-\377' <"$BASE/accented.txt" | wc -c) bytes that are not ASCII"
-    live8=$(sed -n 8p scripts/privacy-patterns.txt)
-    ctl "pattern 8 matches a segment starting with a byte that is not ASCII" "$(LC_ALL=C "$G" -a -c -E -e "$live8" "$BASE/accented.txt")" 1
-    F=$(commit_file accented.txt "$BASE/accented.txt")
-    scan_commit "$F" "$BASE/f.out"
-    echo "  commit: $F; exit: $RC"
-    note "f: the commit adds accented.txt and nothing else" "$(is only_added "$F" accented.txt)"
-    grep_q -E '^(FAIL patterns|PASS|ERROR)' "$BASE/f.out" | hide | sed 's/^/    /'
-    note "f: the scan exits 1" "$(is [ "$RC" -eq 1 ])"
-    note "f: pattern 8 reported it" "$(is reported "$BASE/f.out" "$F" accented.txt 8)"
+    echo "  one per narrowed pattern. The byte is written by printf in the clone; no tracked file holds one, and this log prints only counts and pattern numbers"
+    accented_line() {
+      case $1 in
+        8)  printf '%s%s%s\303\251lodie/Documents\n' '/mnt/' 'c/' 'Users/' ;;
+        10) printf 'C%s%sUSERS%s\303\251lodie%sDocuments\n' ':' '\\' '\\' '\\' ;;
+        11) printf '%%USERPROFILE%%%s%s%s\303\251lodie%sa1b2.jsonl\n' '\\' '.claude' '\\projects\\' '\\' ;;
+      esac
+    }
+    for n in 8 10 11; do
+      accented_line "$n" >"$BASE/accented-$n.txt"
+      live=$(sed -n "${n}p" scripts/privacy-patterns.txt)
+      echo "  pattern $n fixture: $(LC_ALL=C tr -cd '\200-\377' <"$BASE/accented-$n.txt" | wc -c) bytes that are not ASCII"
+      ctl "pattern $n matches a segment starting with a byte that is not ASCII" "$(LC_ALL=C "$G" -a -c -E -e "$live" "$BASE/accented-$n.txt")" 1
+      FA=$(commit_file "accented-$n.txt" "$BASE/accented-$n.txt")
+      scan_commit "$FA" "$BASE/f-$n.out"
+      echo "  pattern $n: commit $FA; exit: $RC"
+      note "f: the commit for pattern $n adds accented-$n.txt and nothing else" "$(is only_added "$FA" "accented-$n.txt")"
+      note "f: the scan exits 1 for pattern $n" "$(is [ "$RC" -eq 1 ])"
+      note "f: pattern $n reported it" "$(is reported "$BASE/f-$n.out" "$FA" "accented-$n.txt" "$n")"
+    done
+    
+    echo
+    echo "## case g: pattern 11 with doubled separators, the widening its trailing plus allows"
+    echo "  phase commit 1 gave pattern 11 a [\\\\/]+ separator for symmetry with pattern 10, which nothing tested; this case tests it"
+    printf '%%USERPROFILE%%%s%s%s\n' '\\\\' '.claude' '\\\\projects\\\\p\\\\a1b2.jsonl' >"$BASE/doubled.txt"
+    live11d=$(sed -n 11p scripts/privacy-patterns.txt)
+    ctl "pattern 11 matches a doubled-separator form" "$(LC_ALL=C "$G" -a -c -E -e "$live11d" "$BASE/doubled.txt")" 1
+    GG=$(commit_file doubled.txt "$BASE/doubled.txt")
+    scan_commit "$GG" "$BASE/g.out"
+    echo "  commit: $GG; exit: $RC"
+    note "g: the commit adds doubled.txt and nothing else" "$(is only_added "$GG" doubled.txt)"
+    note "g: the scan exits 1" "$(is [ "$RC" -eq 1 ])"
+    note "g: pattern 11 reported it" "$(is reported "$BASE/g.out" "$GG" doubled.txt 11)"
     
     echo
     echo "## the log itself"
-    OUTS=("$BASE/a.out" "$BASE/b.out" "$BASE/c.out" "$BASE/d.out" "$BASE/e-8.out" "$BASE/e-10.out" "$BASE/e-11.out" "$BASE/f.out")
+    OUTS=("$BASE/a.out" "$BASE/b.out" "$BASE/c.out" "$BASE/d.out" "$BASE/e-8.out" "$BASE/e-10.out" "$BASE/e-11.out" "$BASE/f-8.out" "$BASE/f-10.out" "$BASE/f-11.out" "$BASE/g.out")
     printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$BASE/ctl-bytes"
     ctl "control bytes in a file with ESC, ESC and SI" "$(ctrl_bytes "$BASE/ctl-bytes")" 3
     ctl "non-ASCII bytes in a file with one two-byte character" "$(nonascii_bytes "$BASE/ctl-bytes")" 2
@@ -290,7 +331,7 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
 
 ## the clone
   clone exit: 0
-  the clone is at the phase commit: as-expected
+  the clone is at the HEAD of this run, whose code under test is the phase commit's: as-expected
   the clone's pattern file equals the working tree's: as-expected
   patterns in the file: 11
 
@@ -306,28 +347,28 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
   control pattern 11 as it read before this phase matches its own bare shape: 1 (expect 1): as-expected
 
 ## case a: a commit holding a real path of each form still fails
-  commit: ef0ff9653f7bf665063c42a8601c78cd08940b42; exit: 1
+  commit: 1855064482eaa56ff12e3cdceaf3eaa2d5bfe5fb; exit: 1
   a: the commit adds real.txt and nothing else: as-expected
-    FAIL patterns: commit ef0ff9653f7bf665063c42a8601c78cd08940b42 path real.txt pattern 8 line 1
-    FAIL patterns: commit ef0ff9653f7bf665063c42a8601c78cd08940b42 path real.txt pattern 10 line 2
-    FAIL patterns: commit ef0ff9653f7bf665063c42a8601c78cd08940b42 path real.txt pattern 11 line 3
+    FAIL patterns: commit 1855064482eaa56ff12e3cdceaf3eaa2d5bfe5fb path real.txt pattern 8 line 1
+    FAIL patterns: commit 1855064482eaa56ff12e3cdceaf3eaa2d5bfe5fb path real.txt pattern 10 line 2
+    FAIL patterns: commit 1855064482eaa56ff12e3cdceaf3eaa2d5bfe5fb path real.txt pattern 11 line 3
   a: the scan exits 1: as-expected
   a: pattern 8 reported the line of its own form: as-expected
   a: pattern 10 reported the line of its own form: as-expected
   a: pattern 11 reported the line of its own form: as-expected
 
 ## case b: a commit holding the bare shape of each narrowed pattern passes
-  commit: aab7d378e7be60fe132e9479bc0bb1ffb39bb68f; exit: 0
+  commit: 6f3249a1c4360919b8a7c9645bea6bae36a79e02; exit: 0
   b: the commit adds bare.txt and nothing else: as-expected
     privacy: 1 commit(s), 211 blob(s) scanned, 0 finding(s)
     PASS privacy
   b: the scan exits 0 with PASS and no pattern finding: as-expected
 
 ## case c: the older forms of pattern 10 still fail when they carry a segment
-  commit: f7aaefc5d9c48ab3f101bbc6aefa7fce8b49b7ab; exit: 1
+  commit: 658334afc552379c93bb5a4c9de7b96eaa26b3e7; exit: 1
   c: the commit adds older.txt and nothing else: as-expected
-    FAIL patterns: commit f7aaefc5d9c48ab3f101bbc6aefa7fce8b49b7ab path older.txt pattern 10 line 1
-    FAIL patterns: commit f7aaefc5d9c48ab3f101bbc6aefa7fce8b49b7ab path older.txt pattern 10 line 2
+    FAIL patterns: commit 658334afc552379c93bb5a4c9de7b96eaa26b3e7 path older.txt pattern 10 line 1
+    FAIL patterns: commit 658334afc552379c93bb5a4c9de7b96eaa26b3e7 path older.txt pattern 10 line 2
   c: the scan exits 1: as-expected
   c: pattern 10 reported both older forms: as-expected
 
@@ -337,7 +378,7 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
   d: the reconstruction is the extracted answer the header names: as-expected
   control the reconstruction matches pattern 11's form before this phase: 1 (expect 1): as-expected
   control the reconstruction does not match pattern 11 as narrowed: 0 (expect 0): as-expected
-  commit: bc431f6d5b90d50064f44d9848bd247f21278a23; exit: 0
+  commit: f08c34de3741fcb671166a8541b35acbc0de4501; exit: 0
   d: the commit adds answer.txt and nothing else: as-expected
     privacy: 1 commit(s), 211 blob(s) scanned, 0 finding(s)
     PASS privacy
@@ -357,14 +398,33 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
   e: the clone's pattern file is restored: as-expected
 
 ## case f: a real path whose segment starts with a byte that is not ASCII
-  the byte is written by printf in the clone; no tracked file holds one, and this log prints only counts and pattern numbers
-  the fixture holds 2 bytes that are not ASCII
+  one per narrowed pattern. The byte is written by printf in the clone; no tracked file holds one, and this log prints only counts and pattern numbers
+  pattern 8 fixture: 2 bytes that are not ASCII
   control pattern 8 matches a segment starting with a byte that is not ASCII: 1 (expect 1): as-expected
-  commit: 9047e5a59b59ce58f3765025e028f8a3e9943b07; exit: 1
-  f: the commit adds accented.txt and nothing else: as-expected
-    FAIL patterns: commit 9047e5a59b59ce58f3765025e028f8a3e9943b07 path accented.txt pattern 8 line 1
-  f: the scan exits 1: as-expected
+  pattern 8: commit 8ba76a22672d232979202471993e2b61cda23f2c; exit: 1
+  f: the commit for pattern 8 adds accented-8.txt and nothing else: as-expected
+  f: the scan exits 1 for pattern 8: as-expected
   f: pattern 8 reported it: as-expected
+  pattern 10 fixture: 2 bytes that are not ASCII
+  control pattern 10 matches a segment starting with a byte that is not ASCII: 1 (expect 1): as-expected
+  pattern 10: commit ba5d9189355e5a7ada0d3a978485bc6880e9bf70; exit: 1
+  f: the commit for pattern 10 adds accented-10.txt and nothing else: as-expected
+  f: the scan exits 1 for pattern 10: as-expected
+  f: pattern 10 reported it: as-expected
+  pattern 11 fixture: 2 bytes that are not ASCII
+  control pattern 11 matches a segment starting with a byte that is not ASCII: 1 (expect 1): as-expected
+  pattern 11: commit 9f8d2bcadd1907009679f51500eaa3217d035ad0; exit: 1
+  f: the commit for pattern 11 adds accented-11.txt and nothing else: as-expected
+  f: the scan exits 1 for pattern 11: as-expected
+  f: pattern 11 reported it: as-expected
+
+## case g: pattern 11 with doubled separators, the widening its trailing plus allows
+  phase commit 1 gave pattern 11 a [\\/]+ separator for symmetry with pattern 10, which nothing tested; this case tests it
+  control pattern 11 matches a doubled-separator form: 1 (expect 1): as-expected
+  commit: 704fb7aa188eafb8a7e1d8358a58abc22810c485; exit: 1
+  g: the commit adds doubled.txt and nothing else: as-expected
+  g: the scan exits 1: as-expected
+  g: pattern 11 reported it: as-expected
 
 ## the log itself
   control control bytes in a file with ESC, ESC and SI: 3 (expect 3): as-expected
@@ -372,5 +432,5 @@ The three narrowed patterns are named by line number only: 8, 10 and 11. No shap
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   lines with the scratch path in any captured output: 0 (expect 0): as-expected
   status after the run (expect empty): : as-expected
-run ended at 2026-09-16T01:08:58Z
+run ended at 2026-09-16T01:36:49Z
 negative log checks all as expected: yes
