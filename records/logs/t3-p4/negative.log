@@ -1,6 +1,6 @@
-about: T3 P4 phase commit 9d5e06094624cf5fb0e8c93d7ad0c53692d66832; HEAD at run: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
-phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:39:55Z
-rerun: this log replaces the negative.log committed at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832; rerun at the same commit after independent check 1. Three repairs: the chart-sheet assertion used the form specs/0001 forbids by name and asserted only the input <sheet count, dropping the ODS <table:table count this finding turns on, and is now the named function chart_counts_agree printing both; the three count helpers compared a bare grep -c with 0 without reading the exit status, and now go through counted, which gives the files to grep directly and returns the word error on a read failure (the first repair to these helpers closed nothing: it read grep's status while cat was the command that failed); and C3 now prints the conversion status and two timings it measures, instead of a comment asserting them. No tracked file changed, so there is no new phase commit.
+about: T3 P4 phase commit f4e03b011843caee88a8a5022c66262ece01df54; HEAD at run: f4e03b011843caee88a8a5022c66262ece01df54
+phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:57:06Z
+rerun: this log replaces the negative.log committed at 182be0498ea34cf7717310dbbbc37ae6cffe4792; rerun at f4e03b0 after independent check 2. One repair: ctrl_bytes and nonascii_bytes still read through 'cat "$@" | tr | wc -c', so an unreadable file among the captured outputs would make cat fail while tr saw an empty stream and wc printed 0, reading as clean. That is the same cat-in-front failure this script already documents for the grep count helpers, fixed there and left here. Both counters are now byte_class_count, which reads each file itself and returns the word error on a read failure.
 The scratch clone, the scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read.
 DEPARTURE (planning's option (c) of 2026-09-16): this script runs in a scratch clone and copies the gate's two host binaries instead of building, so no cargo runs here and nothing is written in the main working tree.
 image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)
@@ -122,8 +122,23 @@ podman: podman version 5.7.0
     }
     count_path() { counted -F "$BASE" "$@"; }
     count_container_words() { counted -E 'Error|Warning|javaldx' "$@"; }
-    ctrl_bytes() { cat "$@" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177' | wc -c; }
-    nonascii_bytes() { cat "$@" | LC_ALL=C tr -cd '\200-\377' | wc -c; }
+    # The two byte counters read each file themselves rather than through
+    # `cat "$@" | tr | wc -c`. With cat in front, an unreadable file makes cat fail
+    # while tr sees an empty stream and wc prints 0, so the file reads as clean.
+    # That is the same cat-in-front failure documented for the grep helpers above,
+    # which I fixed there and left here; independent check 2 found it.
+    byte_class_count() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        if [ ! -r "$f" ]; then printf 'error'; return; fi
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    ctrl_bytes() { byte_class_count '\000-\010\013\014\016-\037\177' "$@"; }
+    nonascii_bytes() { byte_class_count '\200-\377' "$@"; }
     sha() { sha256sum | cut -c1-64; }
     id_of() { cat "$BASE/id-$1"; }
     # field <summary> <id> <column>: one column of the summary row for that id.
@@ -661,8 +676,8 @@ podman: podman version 5.7.0
 ## the scratch clone and the gate's binaries (option (c))
 command: git clone --quiet --shared <main tree> <scratch>/clone
   exit: 0
-  clone HEAD: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
-  the clone is at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832 and its tree is clean: as-expected
+  clone HEAD: f4e03b011843caee88a8a5022c66262ece01df54
+  the clone is at f4e03b011843caee88a8a5022c66262ece01df54 and its tree is clean: as-expected
   copied from the main tree, read only (gate.log prints these same two hashes):
     target/debug/passthrough: sha256 2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162, bytes 10507136
     target/debug/xlsx-diff:   sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
@@ -688,12 +703,12 @@ command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
 command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --ids <scratch>/ids-main
   exit: 0
   stdout:
-    3f032c69b908 host ok 0 0.10 7836
-    c36a06a7d22b host error - 0.10 7732
-    d8022ea2d56c host ok 0 0.10 7912
-    0a2c75eb1ccc host ok 0 0.10 7720
-    0d0e0dc537d7 host ok 0 0.10 7836
-    ceedb27c21a0 host ok 0 0.10 7636
+    3f032c69b908 host ok 0 0.10 7892
+    c36a06a7d22b host error - 0.10 7628
+    d8022ea2d56c host ok 0 0.10 7868
+    0a2c75eb1ccc host ok 0 0.10 7628
+    0d0e0dc537d7 host ok 0 0.10 7764
+    ceedb27c21a0 host ok 0 0.10 7948
     files 6 ok 5 error 1 timeout 0 panic 0 crash 0
   stderr bytes: 0
   the run exits 0: as-expected
@@ -706,7 +721,7 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
     wstrap      outcome=ok lo=ok lo_in=ok
   C1 healthy: lo ok, lo_in ok: as-expected
   run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
-  run.host.tsv row: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832	2026-09-16T12:39:56Z	2026-09-16T12:40:16Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
+  run.host.tsv row: f4e03b011843caee88a8a5022c66262ece01df54	2026-09-16T12:57:07Z	2026-09-16T12:57:28Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
   C1 run.host.tsv carries lo_timeout_s and the value given: as-expected
   C2 truncated: lo_in fail: as-expected
   C2 truncated: the reason is the stderr branch, since the conversion itself exits 0: as-expected
@@ -760,7 +775,7 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
   cold start or the sheet. Independent check 1 found the earlier form
   claiming a conversion time the log did not hold.
     slow     conversion exit=0 wall=2.1 s
-    healthy  conversion exit=0 wall=1.8 s
+    healthy  conversion exit=0 wall=1.7 s
   (both are compared with the one-second budget C3 uses; if they are close
   to each other the sheet size is not what exhausts the budget)
   run exit: 0
@@ -851,6 +866,6 @@ command: scripts/passthrough-record.py --run <scratch>/run-record --out <scratch
   control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   the main working tree is still clean and was never built in (expect empty): : as-expected
-  the main tree is still at 9d5e06094624cf5fb0e8c93d7ad0c53692d66832: as-expected
-run ended at 2026-09-16T12:40:31Z
+  the main tree is still at f4e03b011843caee88a8a5022c66262ece01df54: as-expected
+run ended at 2026-09-16T12:57:43Z
 negative log checks all as expected: yes

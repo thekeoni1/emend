@@ -1,9 +1,10 @@
 command: git rev-parse HEAD
-about: T3 P4 record.log; HEAD at run: 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
-phase: T3 P4 (specs/0006-passthrough.md) record.log; run at 2026-09-16T12:39:23Z
+about: T3 P4 record.log; HEAD at run: f4e03b011843caee88a8a5022c66262ece01df54
+phase: T3 P4 (specs/0006-passthrough.md) record.log; run at 2026-09-16T12:58:03Z
 command: git rev-parse 25e553a  (the record commit whose files this log describes)
 record commit described: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
 commit ids in this log are read from git by the commands printed above, never typed.
+rerun: this log replaces the record.log committed at 182be0498ea34cf7717310dbbbc37ae6cffe4792; rerun at f4e03b0 after independent check 2. One repair: the diff -u that proves the .md printed its two file headers with the real temporary directory, so this log carried the only two absolute machine paths in any of the five logs, which specs/0001 calls a defect (the T0 P6d ruling). diff -u is now given --label for both sides, so the headers read <scratch>. Nothing else in the log changed.
 
 ## why this log exists
 run.log stays untouched as the primary of the run as run. What it says was
@@ -179,9 +180,12 @@ run.log still holds the superseded .md hash line: yes
     if [ -f "$T/out/step0-$RUN_NAME.md" ]; then
       printf '  the old script .md: sha256 %s, bytes %s\n' "$(sha <"$T/out/step0-$RUN_NAME.md")" "$(wc -c <"$T/out/step0-$RUN_NAME.md")"
       echo "command: diff -u <old script .md> <committed .md>"
-      diff -u "$T/out/step0-$RUN_NAME.md" "$T/committed.md" >"$T/md.diff"
+      diff -u --label '<scratch>/out/step0-RUN.md' --label '<scratch>/committed.md' \
+        "$T/out/step0-$RUN_NAME.md" "$T/committed.md" >"$T/md.diff"
       echo "  diff exit: $?"
-      echo "  the diff, in full:"
+      echo "  the diff, in full. The two file headers are labelled <scratch>: an"
+      echo "  absolute machine path in a log is a defect (specs/0001, T0 P6d ruling),"
+      echo "  and diff -u would otherwise print the real temporary directory."
       sed 's/^/    /' "$T/md.diff"
       check "the only differences are the timestamp line and the companion-file sentence" \
         "$(yn only_expected_changes "$T/md.diff")"
@@ -256,19 +260,21 @@ command: python3 <scratch>/old/record.py --run <corpus>/runs/2026-09-16-39defb7 
   stderr bytes: 0
 the old script still runs over the same run directory: yes
   it writes: step0-2026-09-16-39defb7.md step0-2026-09-16-39defb7.tsv 
-  the old script .md: sha256 e382dcc57bceaf77b4c660eb3825f4ee4032db19e1e263d40942aee1b0ac6df4, bytes 14595
+  the old script .md: sha256 48ae9f4151ddc15fc786085c30108286f453893813d25134b61e17093ae33f34, bytes 14595
 command: diff -u <old script .md> <committed .md>
   diff exit: 1
-  the diff, in full:
-    --- /tmp/tmp.JBtjAcd9RX/out/step0-2026-09-16-39defb7.md	2026-09-16 05:39:23.753826966 -0700
-    +++ /tmp/tmp.JBtjAcd9RX/committed.md	2026-09-16 05:39:23.778270366 -0700
+  the diff, in full. The two file headers are labelled <scratch>: an
+  absolute machine path in a log is a defect (specs/0001, T0 P6d ruling),
+  and diff -u would otherwise print the real temporary directory.
+    --- <scratch>/out/step0-RUN.md
+    +++ <scratch>/committed.md
     @@ -1,8 +1,8 @@
      # step0 passthrough run 2026-09-16-39defb7
      
     -Written by `scripts/passthrough-record.py` from the run directory `2026-09-16-39defb7` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`).
     +Written by `scripts/passthrough-record.py` from the run directory `2026-09-16-39defb7` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`). The machine-readable companion to this file is `step0-2026-09-16-39defb7.txt`, the same two tab-separated tables; it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
      
-    -- Record written: 2026-09-16T12:39:23Z
+    -- Record written: 2026-09-16T12:58:03Z
     +- Record written: 2026-09-16T12:18:53Z
      - Commit: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
      - Runs: 2, from 2026-09-16T12:06:35Z to 2026-09-16T12:11:35Z
@@ -287,5 +293,5 @@ no control or non-ASCII bytes in any captured output: yes
 the captured output names no corpus path: yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T12:39:23Z
+run ended at 2026-09-16T12:58:03Z
 record log checks all as expected: yes
