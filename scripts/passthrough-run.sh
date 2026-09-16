@@ -18,12 +18,12 @@
 set -uo pipefail
 umask 077
 
-readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>]"
+readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>]"
 readonly G=/usr/bin/grep
 readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
 readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in'
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
-readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
+readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tlo_timeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
 # The image has no Java by design, so every conversion writes this one line to
 # stderr. Planning ruled on 2026-09-15 that it is the only allowed line holding
 # Error or Warning, matched whole (records/libreoffice-2026-09-15.md).
@@ -35,10 +35,10 @@ die() {
   exit 2
 }
 
-LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS="" LO_IMAGE=""
+LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS="" LO_IMAGE="" LO_TIMEOUT=600
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice)
+    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice | --lo-timeout)
       [ "$#" -ge 2 ] || die "$1 needs a value; $USAGE"
       case "$1" in
         --label) LABEL=$2 ;;
@@ -50,6 +50,7 @@ while [ "$#" -gt 0 ]; do
         --memory) MEMORY=$2 ;;
         --ids) IDS=$2 ;;
         --libreoffice) LO_IMAGE=$2 ;;
+        --lo-timeout) LO_TIMEOUT=$2 ;;
       esac
       shift 2
       ;;
@@ -65,6 +66,9 @@ esac
 [ -n "$XD" ] && [ -f "$XD" ] && [ -x "$XD" ] || die "--xlsx-diff must name an executable file"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive whole number of seconds"
 [[ "$MEMORY" =~ ^[1-9][0-9]*$ ]] || die "--memory must be a positive whole number of MiB"
+# Each conversion gets its own budget, independent of --timeout, which keeps
+# bounding the copy child only (planning's ruling 2 of 2026-09-16).
+[[ "$LO_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--lo-timeout must be a positive whole number of seconds"
 if [ -n "$LO_IMAGE" ]; then
   [[ "$LO_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@-]*$ ]] || die "--libreoffice must name an image"
   command -v podman >/dev/null 2>&1 || die "--libreoffice needs podman"
@@ -168,15 +172,19 @@ seconds() {
 # lo_check <file> <work dir> <reason file> <reference workbook>: the open check
 # of specs/0006-passthrough.md P3. The file's directory is mounted read-only as
 # /in and the work directory's ods/ as /out, and the copy is converted to ODS
-# under the same timeout. It is ok when the conversion exits 0, its stderr holds
-# no line with Error or Warning other than the allowed javaldx line, the ODS
-# exists, and its content.xml holds as many <table:table elements as the
-# reference workbook's xl/workbook.xml holds <sheet elements. It prints nothing:
-# the reason goes to the reason file, which stays in the run directory.
+# under --lo-timeout, which is its own budget, one per conversion. It is ok
+# when the conversion exits 0, its stderr holds no line with Error or Warning
+# other than the allowed javaldx line, the ODS exists, and its content.xml
+# holds as many <table:table elements as the reference workbook's
+# xl/workbook.xml holds <sheet elements. It prints nothing: the reason goes to
+# the reason file, which stays in the run directory.
 # Returns 0 for ok, 1 for fail (LibreOffice refused the file, or the ODS is
-# wrong) and 2 for error (the check could not run: the directory, podman
-# itself, python3, or an unreadable ODS). Planning ruled the two apart on
-# 2026-09-15, so a broken tool is not read as a broken archive.
+# missing or wrong) and 2 for error, which is the check not running at all:
+# the conversion directory, a conversion that timed out under --lo-timeout, a
+# conversion killed by a signal, podman itself, python3, or an ODS or workbook
+# part that cannot be read. Planning ruled the two apart on 2026-09-15 and
+# fixed their order on 2026-09-16, so a broken tool is never read as a broken
+# archive.
 lo_check() {
   local file=$1 work=$2 reason=$3 reference=$4
   local indir base outdir ods rc counts sheets tables
@@ -185,15 +193,29 @@ lo_check() {
   outdir=$work/ods
   mkdir -p "$work" && rm -rf "$outdir" && mkdir -p "$outdir" ||
     { printf 'cannot prepare the conversion directory\n' >"$reason"; return 2; }
-  timeout --signal=KILL "$TIMEOUT" podman run --rm --network=none --userns=keep-id \
+  timeout --signal=KILL "$LO_TIMEOUT" podman run --rm --network=none --userns=keep-id \
     -v "$indir":/in:ro -v "$outdir":/out "$LO_IMAGE" \
     --convert-to ods --outdir /out "/in/$base" \
     </dev/null >"$work/stdout.txt" 2>"$work/stderr.txt" 3>&-
   rc=$?
-  # 125 to 127 are podman itself failing to start the container, not LibreOffice
-  # refusing the file.
+  # Planning's ruling 1 of 2026-09-16: the conversion process itself is judged
+  # first, and a status of 0 decides nothing on its own, so it falls through to
+  # the checks below. 124 is this timeout's own kill; 125 to 127 are podman
+  # failing to start the container; 128 and above mean the contained process
+  # died by a signal (137 is KILL, which is also what the kernel's OOM killer
+  # produces). None of those three is evidence about the archive, so each is an
+  # error. A status of 1 to 123 is LibreOffice refusing the file: a fail, with
+  # the status in the reason.
+  if [ "$rc" -eq 124 ]; then
+    printf 'the conversion timed out after %s s\n' "$LO_TIMEOUT" >"$reason"
+    return 2
+  fi
   if [ "$rc" -ge 125 ] && [ "$rc" -le 127 ]; then
     printf 'podman could not run the container, exit %s\n' "$rc" >"$reason"
+    return 2
+  fi
+  if [ "$rc" -ge 128 ]; then
+    printf 'the conversion was killed, exit status %s\n' "$rc" >"$reason"
     return 2
   fi
   if [ "$rc" -ne 0 ]; then
@@ -234,7 +256,12 @@ try:
 except Exception as err:
     sys.stdout.write("error %s" % type(err).__name__)
 else:
-    sys.stdout.write("%d %d" % (len(re.findall(r"<sheet ", workbook)), len(re.findall(r"<table:table ", content))))
+    # Tolerant of any whitespace after the name, and of a tag closed straight
+    # away: <sheet\n, <sheet\t, <sheet/> and <sheet> all count, while <sheets>
+    # and <sheetData do not, and <table:table-row and <table:table-cell do not.
+    sheet = r"<sheet(?=[\s/>])"
+    table = r"<table:table(?=[\s/>])"
+    sys.stdout.write("%d %d" % (len(re.findall(sheet, workbook)), len(re.findall(table, content))))
 ') || { printf 'cannot count sheets and tables\n' >"$reason"; return 2; }
   read -r sheets tables <<<"$counts"
   if ! [[ "$sheets" =~ ^[0-9]+$ ]] || ! [[ "${tables:-}" =~ ^[0-9]+$ ]]; then
@@ -364,7 +391,7 @@ while IFS=$'\t' read -r id ext producer tags; do
   esac
 done <"$WORK/selected"
 
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" >>"$RUNS" ||
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$LO_TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" >>"$RUNS" ||
   die "cannot append to run.$LABEL.tsv"
 echo "files $n_files ok $n_ok error $n_error timeout $n_timeout panic $n_panic crash $n_crash"

@@ -28,6 +28,10 @@ STATUSES = ("identical", "recompressed", "changed", "dropped", "added")
 # could not run at all (planning's ruling of 2026-09-15), which is not a
 # finding about the archive.
 LO_VALUES = ("ok", "fail", "error", "-")
+# The four counts reported for each column. "-" is written "not-run" in the
+# record so the heading reads as a count and not as an empty cell.
+LO_COUNTS = tuple("%s %s" % (column, "not-run" if value == "-" else value)
+                  for column in ("lo", "lo_in") for value in LO_VALUES)
 
 SUMMARY_HEADER = [
     "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
@@ -43,8 +47,8 @@ ENTRIES_HEADER = [
     "first_difference", "differing_bytes", "last_difference", "flags",
 ]
 RUN_HEADER = [
-    "commit", "started", "ended", "rustc", "zip", "timeout_s", "memory_mib",
-    "passthrough_sha256", "xlsx_diff_sha256", "files",
+    "commit", "started", "ended", "rustc", "zip", "timeout_s", "lo_timeout_s",
+    "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files",
 ]
 
 # The part families of specs/0000-step-zero-plan.md, in its order, and the
@@ -160,12 +164,33 @@ def load(run_dir):
                 raise Failure("summary.%s.tsv has a leftover value other than yes or no" % label)
             for column in ("lo", "lo_in"):
                 if row[column] not in LO_VALUES:
-                    raise Failure("summary.%s.tsv has a %s value other than ok, fail or -" % (label, column))
+                    raise Failure("summary.%s.tsv has a %s value other than ok, fail, error or -" % (label, column))
         for row in entries:
             if row["label"] != label or row["id"] not in seen:
                 raise Failure("entries.%s.tsv holds a row without a summary row" % label)
         data[label] = (summary, entries, runs)
     return labels, data
+
+
+def lo_tally(label, summary):
+    """The four counts (ok, fail, error, not-run) for each of lo and lo_in.
+
+    Planning's ruling 4 of 2026-09-16 asks that the four account for every
+    file. load() has already refused any value outside LO_VALUES, so a
+    mismatch here cannot be caused by the input: it would mean this function
+    miscounted. The check guards the script, not the run.
+    """
+    counts = {}
+    for column in ("lo", "lo_in"):
+        tally = dict.fromkeys(LO_VALUES, 0)
+        for row in summary:
+            tally[row[column]] += 1
+        if sum(tally.values()) != len(summary):
+            raise Failure("summary.%s.tsv: the %s counts total %d, not the %d files"
+                          % (label, column, sum(tally.values()), len(summary)))
+        for value in LO_VALUES:
+            counts["%s %s" % (column, "not-run" if value == "-" else value)] = tally[value]
+    return counts
 
 
 def distinct(values):
@@ -208,23 +233,22 @@ def write_md(path, run_name, labels, data):
         "- Targets: %s" % ", ".join(labels),
         "- Tool versions: %s; zip %s" % (
             "; ".join(distinct(r["rustc"] for r in runs)), ", ".join(distinct(r["zip"] for r in runs))),
-        "- Settings: timeout %s s; memory %s MiB" % (
-            ", ".join(distinct(r["timeout_s"] for r in runs)), ", ".join(distinct(r["memory_mib"] for r in runs))),
+        "- Settings: timeout %s s; open-check timeout %s s; memory %s MiB" % (
+            ", ".join(distinct(r["timeout_s"] for r in runs)),
+            ", ".join(distinct(r["lo_timeout_s"] for r in runs)),
+            ", ".join(distinct(r["memory_mib"] for r in runs))),
         "",
         "## Files by outcome",
         "",
-        md_row(("label", "files") + OUTCOMES
-               + ("leftover", "lo fail", "lo_in fail", "lo error", "lo_in error")),
-        md_row(("---",) * (7 + len(OUTCOMES))),
+        md_row(("label", "files") + OUTCOMES + ("leftover",) + LO_COUNTS),
+        md_row(("---",) * (3 + len(OUTCOMES) + len(LO_COUNTS))),
     ]
     for label in labels:
         summary = data[label][0]
+        counts = lo_tally(label, summary)
         out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]
-                          + [sum(1 for r in summary if r["leftover"] == "yes"),
-                             sum(1 for r in summary if r["lo"] == "fail"),
-                             sum(1 for r in summary if r["lo_in"] == "fail"),
-                             sum(1 for r in summary if r["lo"] == "error"),
-                             sum(1 for r in summary if r["lo_in"] == "error")]))
+                          + [sum(1 for r in summary if r["leftover"] == "yes")]
+                          + [counts[k] for k in LO_COUNTS]))
 
     columns = ("family", "entries") + STATUSES + ("flagged",) + FLAGS
     for label in labels:
@@ -261,8 +285,13 @@ def write_md(path, run_name, labels, data):
     listed = 0
     for label in labels:
         for row in data[label][0]:
+            # Only "fail" belongs under a heading that says failing: planning's
+            # ruling 4 of 2026-09-16. A check that could not run is not a
+            # finding about the archive, so an "error" row that is otherwise
+            # clean is listed under the next heading and not here. A row listed
+            # here for another reason still shows its real lo value.
             if (row["outcome"] == "ok" and row["diff_exit"] == "0" and row["leftover"] == "no"
-                    and row["lo"] in ("ok", "-") and row["lo_in"] in ("ok", "-")):
+                    and row["lo"] != "fail" and row["lo_in"] != "fail"):
                 continue
             listed += 1
             if row["outcome"] != "ok":
