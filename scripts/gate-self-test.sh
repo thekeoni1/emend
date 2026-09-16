@@ -102,7 +102,7 @@ want() {
 # it performed exactly as many as want() selects, so a case that vanishes --
 # a clone that failed, a block that was skipped -- is a failure rather than a
 # quieter PASS (independent check 1, T6 P1).
-ALL_IDS="H0 H1a H1b H2 H3 H4a H4b H5 H6 H7 H8a H8b H9 H10
+ALL_IDS="H0 H1a H1b H2a H2b H2c H3 H4a H4b H5 H6 H7 H8a H8b H9 H10
 V0 V1 V2 V3 V4 V5 V6 V7a V7b V7c V7d V8 V9a V9b V10
 V11missing V11mode644 V11empty V11space V12remove V12add V13 V14 V15 V16
 V17a V17b V17c V17d V18 K1 K2 K3 B1"
@@ -115,8 +115,11 @@ expected_cases() {
 # normalise: commit ids become <sha>, as the source logs print them, and a
 # tree-entry ordinal becomes <n>. That ordinal is the offending entry's
 # position in the commit's ROOT TREE, so it moves whenever the repository gains
-# or loses a root file: t0-p6c recorded 8 when the tree was smaller and the
-# same fixture now lands at 9. Normalising it makes the case assert the
+# or loses a root file: t0-p6c recorded 8 when the tree was smaller, and the
+# position this fixture reaches now is not recorded in any log, which is why it
+# is normalised rather than asserted. An earlier version of this comment named a
+# figure no log holds, which is a measurement in prose (independent check 2,
+# T6 P1, gap 13). Normalising it makes the case assert the
 # detection, which is what the source established, rather than a position that
 # is not a property of the gate. This canonicalises the OBSERVATION; no
 # expectation was altered to fit the gate.
@@ -277,15 +280,30 @@ if want H1b; then
       "$(outcome "$HOUT" "$HRC")" "$(secs "$t")"
   }
 fi
-if want H2; then
-  t=$(date +%s.%N); d=$(fresh H2) && {
-    printf 'x\n' >"$d/n.$EXT_A~"
-    git -C "$d" add -f . >/dev/null 2>&1
-    hyg "$d"
-    result H2 "t0-p6c i L843" \
-      "exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)" \
-      "$(outcome "$HOUT" "$HRC")" "$(secs "$t")"
-  }
+# H2 plants ONE fixture per sub-case, so each count is the count its source
+# recorded, and all THREE forms specs/0007:112 names reach the hygiene step.
+# Reducing H2 to the tilde form alone fixed check 1's gap 14 but dropped the
+# lock and .bak forms from step 7 entirely, leaving them covered only through
+# privacy.sh as V17a and V17c (independent check 2, T6 P1, gap 7). The count-only
+# wording and the count 1 come from t0-p6c i L843; the three forms come from
+# t0-p6c a1, a2 and a3, which planted them one at a time in their own clones.
+if want H2a || want H2b || want H2c; then
+  for sub in a b c; do
+    case "$sub" in
+      a) nm=".~lock.n.$EXT_E#"; src="t0-p6c a1 + i L843" ;;
+      b) nm="n.$EXT_A~";        src="t0-p6c a2 + i L843" ;;
+      c) nm="n.$EXT_A.bak";     src="t0-p6c a3 + i L843" ;;
+    esac
+    want "H2$sub" || continue
+    t=$(date +%s.%N); d=$(fresh "H2$sub") && {
+      printf 'x\n' >"$d/$nm"
+      git -C "$d" add -f . >/dev/null 2>&1
+      hyg "$d"
+      result "H2$sub" "$src" \
+        "exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)" \
+        "$(outcome "$HOUT" "$HRC")" "$(secs "$t")"
+    }
+  done
 fi
 # H3's source is this phase's own negative log. specs/0007 names T0 P6c b, but
 # that case recorded a privacy "FAIL paths" line, not a hygiene line, and no
@@ -315,7 +333,7 @@ if want H4a; then
     printf 'x\n' >"$d/r.txt:$ZONE"
     git -C "$d" add -f . >/dev/null 2>&1
     hyg "$d"
-    result H4a "check.sh ZONE_RE + its control" \
+    result H4a "t2-p0 g L837 (same wording as H4b, root path)" \
       "exit 1; FAIL hygiene: 1 tracked Zone.Identifier file(s) (paths not printed)" \
       "$(outcome "$HOUT" "$HRC")" "$(secs "$t")"
   }
@@ -436,9 +454,11 @@ if want V3; then
     first=$(git -C "$d" rev-parse HEAD)
     rm -f "$d/c.txt"; commit_in "$d" "v3 remove"
     priv "$d" "$(deny_for "$d")" "$b"
-    n=$(count_matches -F "$(printf '%.7s' "$first")" "$POUT")
-    result V3 "t0-p6 c L514" "exit 1; FAIL denylist: commit <sha> path c.txt denylist entry 1 line 1" \
-      "$(outcome "$POUT" "$PRC")" "$PINV, first commit named $n time(s), $(secs "$t")"
+    # The FAIL lines are compared through all_fails(), not counted in the note.
+    # result() prints the note without examining it, so "first commit named 1
+    # time(s)" looked like an assertion and was not (independent check 2, gap 9).
+    result V3 "t0-p6 c L514" "FAIL denylist: commit <sha> path c.txt denylist entry 1 line 1" \
+      "$(all_fails "$POUT")" "$PINV, exit $PRC, $(secs "$t")"
   }
 fi
 if want V4; then
@@ -459,9 +479,18 @@ if want V5; then
       printf 'x %s%s y\n' '.claude' '/projects/x'; } >"$d/h.txt"
     commit_in "$d" "v5"
     priv "$d" "$(deny_for "$d")" "$b"
+    # All three FAIL lines are compared. outcome() takes only the first, because
+    # of -m 1, so V5 asserted one line where its source recorded three and the
+    # "FAIL lines 3" rode in the uncompared note: if the gate stopped reporting
+    # patterns 10 and 11, V5 would still have read as-expected (independent
+    # check 2, T6 P1, gap 9). t0-p6d a recorded all three at L352-354, as
+    # patterns 8, 10 and 11 on lines 1, 2 and 3 of the fixture. The path differs
+    # from the source's: t0-p6d a wrote real.txt and this case writes h.txt, so
+    # the path in the expectation is this fixture's and the rest is the
+    # source's, word for word.
     result V5 "t0-p6d a L352-354" \
-      "exit 1; FAIL patterns: commit <sha> path h.txt pattern 8 line 1" \
-      "$(outcome "$POUT" "$PRC")" "$PINV, FAIL lines $(count_matches -E '^FAIL patterns' "$POUT"), $(secs "$t")"
+      "FAIL patterns: commit <sha> path h.txt pattern 8 line 1 + FAIL patterns: commit <sha> path h.txt pattern 10 line 2 + FAIL patterns: commit <sha> path h.txt pattern 11 line 3" \
+      "$(all_fails "$POUT")" "$PINV, exit $PRC, $(secs "$t")"
   }
 fi
 if want V6; then
@@ -555,21 +584,27 @@ if want V9a; then
     printf 'PK\003\004rest\n' >"$d/notes.txt"
     commit_in "$d" "v9a"
     priv "$d" "$(deny_for "$d")" "$b"
-    result V9a "t0-p6c c via t2-p0 b wording" \
+    result V9a "t0-p6c c L590 via t2-p0 b1 L524 (wording)" \
       "exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)" \
       "$(outcome "$POUT" "$PRC")" "$PINV, $(secs "$t")"
   }
 fi
+# V9a's citation splits fixture from wording, as V8's does: t0-p6c c L590
+# planted the zip signature and recorded the archives class, but in the
+# SUPERSEDED wording ("with a zip, gzip or 7z signature"), which d97b9ef
+# replaced. The current wording is t2-p0 b1 L524. Citing L590 alone would name a
+# line that does not say what the case asserts.
+#
 # The compound-file half of specs/0007's V9, which had no case: t2-p0 case b1
 # added exactly this signature in a file named x.bin and recorded one
-# count-only archives line.
+# count-only archives line at L524.
 if want V9b; then
   t=$(date +%s.%N); d=$(fresh V9b) && {
     b=$(git -C "$d" rev-parse HEAD)
     printf '\320\317\021\340\241\261\032\341rest\n' >"$d/x.bin"
     commit_in "$d" "v9b"
     priv "$d" "$(deny_for "$d")" "$b"
-    result V9b "t2-p0 b1 L522" \
+    result V9b "t2-p0 b1 L524" \
       "exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)" \
       "$(outcome "$POUT" "$PRC")" "$PINV, $(secs "$t")"
   }
@@ -606,7 +641,11 @@ if want V11missing || want V11mode644 || want V11empty || want V11space; then
         space)   exp_line="ERROR privacy: denylist entry 1 contains whitespace"; src="t0-p6b f L776" ;;
       esac
       POUT=$d/p.out
-      ( cd "$d" && EMEND_PRIVATE_DENYLIST="$f" ./scripts/privacy.sh --range "$b..HEAD" ) >"$POUT" 2>&1
+      # Full history: t0-p6 e1, e2 and e3 each ran "scripts/privacy.sh" with no
+      # --range. An earlier version passed --range even in default mode, so
+      # these cases did not reproduce their source's invocation while the log
+      # header claimed the run did (independent check 2, T6 P1, gap 10).
+      ( cd "$d" && EMEND_PRIVATE_DENYLIST="$f" ./scripts/privacy.sh ) >"$POUT" 2>&1
       PRC=$?
       result "V11$sub" "$src" "exit 2; $exp_line" \
         "$(outcome "$POUT" "$PRC")" "$(secs "$t")"
@@ -625,7 +664,8 @@ if want V12remove || want V12add; then
         printf 'zzzz[q]zzzz\n' >>"$d/scripts/privacy-patterns.txt"; n=$((want_n + 1))
       fi
       POUT=$d/p.out
-      ( cd "$d" && EMEND_PRIVATE_DENYLIST="$(deny_for "$d")" ./scripts/privacy.sh --range "$b..HEAD" ) >"$POUT" 2>&1
+      # Full history, as t0-p6b e ran it (gap 10).
+      ( cd "$d" && EMEND_PRIVATE_DENYLIST="$(deny_for "$d")" ./scripts/privacy.sh ) >"$POUT" 2>&1
       PRC=$?
       result "V12$sub" "t0-p6b e L589,L677 (count read at run time)" \
         "exit 2; ERROR privacy: scripts/privacy-patterns.txt holds $n pattern(s); expected $want_n" \
@@ -645,7 +685,8 @@ if want V13; then
     # mechanism would not be the source's case (independent check 1, T6 P1).
     rm -f "$p"
     POUT=$d/p.out
-    ( cd "$d" && EMEND_PRIVATE_DENYLIST="$(deny_for "$d")" ./scripts/privacy.sh --range "$b..HEAD" ) >"$POUT" 2>&1
+    # Full history, as t0-p6 i ran it (gap 10).
+    ( cd "$d" && EMEND_PRIVATE_DENYLIST="$(deny_for "$d")" ./scripts/privacy.sh ) >"$POUT" 2>&1
     PRC=$?
     result V13 "t0-p6 i L675" "exit 2; ERROR privacy: git failed: cat-file blob <sha>" \
       "$(outcome "$POUT" "$PRC")" "$(secs "$t")"
@@ -729,9 +770,21 @@ if want K1; then
   # line 9, which is the thing K2 exists to prove, and never reached the scan.
   # That was a harness fault, not a gate finding.
   #
-  # The sentinel half therefore needs a fixture the REAL denylist matches. One
-  # entry is read into a variable and committed as file content; it is never
-  # printed, and only counts are reported.
+  # THE BLOCKED HALF USES A PATTERN HIT, NOT THE REAL DENYLIST. An earlier
+  # version read the first entry of $HOME/.config/emend/private-denylist.txt
+  # into a variable and committed it into a scratch clone. It was never printed
+  # and nothing leaked, but it put private data into a git object in a
+  # mktemp -d tree disposed of only by a trap, in a committed tool that runs
+  # many times (independent check 2, T6 P1). Planning's ruling, 2026-09-16: the
+  # self-test never reads the private denylist, by any path. negative.log
+  # greps this committed script for that path and expects 0.
+  #
+  # The source, t0-p6 g, blocked its push with a scratch denylist supplied
+  # through EMEND_PRIVATE_DENYLIST. The hook has refused that variable since
+  # P6b (install-hooks.sh line 9, which is what K2 proves), so that route is no
+  # longer available to any push. The faithful equivalent is the other class
+  # the hook blocks on: a pattern hit, assembled at run time exactly as V4
+  # assembles one, whose wording t0-p6 d recorded at L528.
   t=$(date +%s.%N); d=$(fresh K1) && {
     bare=$SCRATCH/K1.git; rm -rf "$bare"; git init -q --bare "$bare"
     o=$d/k1.out
@@ -743,16 +796,16 @@ if want K1; then
     o2=$d/k1-push.out
     ( cd "$d" && git push scratch clean ) >"$o2" 2>&1
     prc=$?
-    entry=$(LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$HOME/.config/emend/private-denylist.txt" | sed -n 1p)
+    entry="$(printf '%s%s%s' 'gh' 'p_' "$(printf 'a%.0s' $(seq 1 24))")"
     git -C "$d" checkout -q -b dirty
-    printf '%s\n' "$entry" >"$d/c.txt"; commit_in "$d" "k1 denied"
+    printf 'x %s y\n' "$entry" >"$d/c.txt"; commit_in "$d" "k1 blocked"
     o3=$d/k1-block.out
     ( cd "$d" && git push scratch dirty ) >"$o3" 2>&1
     brc=$?
     git -C "$bare" for-each-ref --format='%(refname)' >"$d/k1-refs" 2>/dev/null || : >"$d/k1-refs"
     refs=$(count_lines "$d/k1-refs")
     pass=$(count_matches -F 'PASS privacy' "$o2")
-    deny=$(count_matches -E '^FAIL denylist: ' "$o3")
+    deny=$(count_matches -E '^FAIL patterns: ' "$o3")
     leak=$(count_matches -F "$entry" "$o2")
     leak2=$(count_matches -F "$entry" "$o3")
     # NOT $((leak + leak2)). count_matches prints the word "error" when it
@@ -761,9 +814,9 @@ if want K1; then
     # therefore have reported the safe answer, and this case, the one guarding a
     # real denylist entry, could not have failed (independent check 1, T6 P1).
     # The counts are compared as strings, so "error" is a mismatch.
-    result K1 "t0-p6 g L578-L630" \
-      "install 0; clean push 0 with PASS privacy 1; denied push 1 with FAIL denylist 1; remote refs 1; entry printed 0 and 0" \
-      "install $irc; clean push $prc with PASS privacy $pass; denied push $brc with FAIL denylist $deny; remote refs $refs; entry printed $leak and $leak2" \
+    result K1 "t0-p6 g L578-L630 structure + t0-p6 d L528 (pattern class; the source's denylist route is refused by the hook since P6b)" \
+      "install 0; clean push 0 with PASS privacy 1; blocked push 1 with FAIL patterns 1; remote refs 1; fixture printed 0 and 0" \
+      "install $irc; clean push $prc with PASS privacy $pass; blocked push $brc with FAIL patterns $deny; remote refs $refs; fixture printed $leak and $leak2" \
       "$(secs "$t")"
   }
 fi

@@ -70,6 +70,46 @@ count_lines() {
   printf '%s' "$total"
 }
 
+# count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+# the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+# hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+# 14); a counting form belongs here, with a control, even a throwaway one.
+count_matches_i() {
+  local mode=$1 pattern=$2 out rc
+  shift 2
+  out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+  if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+  printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+}
+
+# run_lines <command...>: run the command, and print the number of lines it
+# wrote on stdout, or "error" if the command itself failed. The log scripts
+# asserted a clean working tree with
+#   git status --porcelain >file 2>/dev/null || : >file
+# which turns a FAILED git status into an empty file, so the check read a
+# failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+# reproduced it). Reading the command's exit status is the whole point: a
+# command that could not run is never the same as a command that found nothing.
+run_lines() {
+  local out rc
+  out=$("$@" 2>/dev/null); rc=$?
+  if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+  if [ -z "$out" ]; then printf '0'; return; fi
+  printf '%s\n' "$out" | wc -l | tr -d ' '
+}
+
+# run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+# that match, so a caller can compare "all lines" with "lines of the expected
+# shape" without either count hiding a failed command.
+run_matches() {
+  local mode=$1 pattern=$2 out rc
+  shift 2
+  out=$("$@" 2>/dev/null); rc=$?
+  if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+  if [ -z "$out" ]; then printf '0'; return; fi
+  printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+}
+
 CTRL_CLASS='\000-\010\013\014\016-\037\177'
 NONASCII_CLASS='\200-\377'
 
@@ -103,6 +143,16 @@ counting_controls() {
   r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
   r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
   r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+  printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+  r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+  r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+  r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+  r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+  r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+  r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+  r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+  r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+  r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
 
   chmod 644 "$d/locked"
   rm -rf "$d"
