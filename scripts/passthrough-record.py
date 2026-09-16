@@ -3,7 +3,14 @@
 
 Reads summary.<label>.tsv, entries.<label>.tsv and run.<label>.tsv from a run
 directory written by scripts/passthrough-run.sh, for every label present
-(host, i686), and writes <stem>.tsv and <stem>.md. The stem defaults to
+(host, i686), and writes <stem>.txt and <stem>.md. The table is written as
+.txt, not .tsv: scripts/check.sh's hygiene step refuses any tracked path with
+a spreadsheet extension outside tests/fixtures/, and .gitignore ignores *.tsv,
+so a .tsv record could not be committed without widening a privacy gate that
+exists to keep spreadsheet exports out (planning's ruling of 2026-09-16). The
+content is unchanged: the same two tab-separated tables with the same headers.
+The run directory's own summary.<label>.tsv, entries.<label>.tsv and
+run.<label>.tsv keep their names; they are never committed. The stem defaults to
 step0-<run directory name>, the directory to records/ in the repository. A
 run directory with only one label is refused unless --allow-single is given.
 
@@ -217,14 +224,19 @@ def write_tsv(path, labels, data):
         handle.write("\n".join(lines) + "\n")
 
 
-def write_md(path, run_name, labels, data):
+def write_md(path, run_name, stem, labels, data):
+    """The record's prose table. `stem` names the companion .txt, which is not
+    always "step0-" + run_name: --stem overrides it."""
     runs = [row for label in labels for row in data[label][2]]
     out = [
         "# step0 passthrough run %s" % run_name,
         "",
         "Written by `scripts/passthrough-record.py` from the run directory `%s`"
         " (raw outputs stay under the corpus directory's `runs/`). Workbooks"
-        " are cited by id, producer and tags only (`specs/0005-corpus.md`)." % run_name,
+        " are cited by id, producer and tags only (`specs/0005-corpus.md`)."
+        " The machine-readable companion to this file is `%s.txt`, the same two"
+        " tab-separated tables; it is written as `.txt` because the hygiene gate"
+        " refuses a tracked spreadsheet extension." % (run_name, stem),
         "",
         "- Record written: %s" % datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "- Commit: %s" % ", ".join(distinct(r["commit"] for r in runs)),
@@ -351,9 +363,9 @@ def main(argv):
     labels, data = load(run_dir)
     if len(labels) == 1 and not args.allow_single:
         raise Failure("the run directory has only the %s label; give --allow-single for a single-label record" % labels[0])
-    write_tsv(os.path.join(out_dir, stem + ".tsv"), labels, data)
-    write_md(os.path.join(out_dir, stem + ".md"), run_name, labels, data)
-    print("wrote %s.tsv and %s.md: labels %s; files %s; entry rows %s" % (
+    write_tsv(os.path.join(out_dir, stem + ".txt"), labels, data)
+    write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data)
+    print("wrote %s.txt and %s.md: labels %s; files %s; entry rows %s" % (
         stem, stem, ",".join(labels),
         ",".join(str(len(data[l][0])) for l in labels),
         ",".join(str(len(data[l][1])) for l in labels)))
