@@ -1,7 +1,7 @@
-about: T2 P7 phase commit 0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+about: T2 P7 phase commit 4f4b683a022a4a7478a06738335f5c30e5ebe1f4; HEAD at run: 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) gate.log; run at 2026-09-16T13:36:04Z
-rerun: this log replaces the gate.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. Three things changed since: the docstring's usage-failure half was corrected (a new phase commit), EXPECTED_PATHS now names all seven paths of the phase diff because the four logs are committed, and the shared library's header no longer claims that no log script counts any other way, which check 1 showed was false. The library is printed into every log, so every log is rerun.
+phase: T2 P7 (specs/0005-corpus.md) gate.log; run at 2026-09-16T13:51:33Z
+rerun: this log replaces the gate.log committed at 8f43882; rerun at 4f4b683 after independent check 2. Since that commit: the record was regenerated so its header attests the script that produced it (check 2 found it attested a superseded blob), the record's Commit line was briefly broken and restored because an explanation made record_shape's anchored pattern match nothing, negative.log gained N9 and N10 to give two committed messages the primaries they claimed, state()'s row count was routed through the library after check 2 found it still returned a clean zero for a directory or dangling-symlink manifest, positive.log's privacy block now fails rather than skips on an empty pattern file, and the shared library header was corrected for the third time. Both independent checks are spent; every repair since check 2 is unchecked.
 command: git rev-parse 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
 commit before the phase: 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
@@ -208,15 +208,21 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     # a throwaway one, is a named function that reads the exit and has a positive
     # control, from the start. These are those functions.
     #
-    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
-    # version of this comment claimed no log script counted any other way, and
-    # independent check 1 showed that was false. Every counting site that feeds an
-    # ASSERTION goes through these functions. Some informational lines do not, and
-    # they are these: the manifest row count and corpus file count printed by
-    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
-    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
-    # fails closed because files_complete requires a count above zero. None of
-    # those figures is asserted against.
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -331,7 +337,11 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
 every counting form behaves on a match, a miss and an unreadable file: yes
 
 ## commits of the phase
-command: git log --format='%H parents=%P %s' 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1
+command: git log --format='%H parents=%P %s' 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+    4f4b683a022a4a7478a06738335f5c30e5ebe1f4 parents=c2493d8ddfa9d0d095bbb95881e5f094f194186f T2 P7: restore the bare commit id the gate asserts
+    c2493d8ddfa9d0d095bbb95881e5f094f194186f parents=743b6f133f49f65050d5e9fa6306ae5e071eeda6 T2 P7: say why the record names three different commits
+    743b6f133f49f65050d5e9fa6306ae5e071eeda6 parents=8f4388242d866b93a6da90dcd876a622561d0a2f T2 P7: the record attests the script that produced it
+    8f4388242d866b93a6da90dcd876a622561d0a2f parents=0c3c6a34107e94314fcff32cd9d994386bda3cc1 T2 P7 record: four logs rerun at 0c3c6a3, after independent check 1
     0c3c6a34107e94314fcff32cd9d994386bda3cc1 parents=ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db T2 P7: the usage failure exits 2 with no FAIL line, so say so
     ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db parents=8f5553c9f8934601694ef0ebe29db6564d14a009 T2 P7 record: the gate, positive, negative and scan logs at 8f5553c
     8f5553c9f8934601694ef0ebe29db6564d14a009 parents=58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 T2 P7 record: corpus coverage over the real corpus, 27 workbooks
@@ -360,11 +370,34 @@ command: git show --stat --format='%H %s' 0c3c6a34107e94314fcff32cd9d994386bda3c
     
      scripts/corpus-coverage.py | 5 +++--
      1 file changed, 3 insertions(+), 2 deletions(-)
+command: git show --stat --format='%H %s' 8f4388242d866b93a6da90dcd876a622561d0a2f
+    8f4388242d866b93a6da90dcd876a622561d0a2f T2 P7 record: four logs rerun at 0c3c6a3, after independent check 1
+    
+     records/logs/t2-p7/gate.log     |  79 ++++++++++++++++++--------
+     records/logs/t2-p7/negative.log |  97 ++++++++++++++++++++++++-------
+     records/logs/t2-p7/positive.log |  59 +++++++++++++------
+     records/logs/t2-p7/scan.log     | 123 +++++++++++++++++++++++++++++++++++-----
+     4 files changed, 282 insertions(+), 76 deletions(-)
+command: git show --stat --format='%H %s' 743b6f133f49f65050d5e9fa6306ae5e071eeda6
+    743b6f133f49f65050d5e9fa6306ae5e071eeda6 T2 P7: the record attests the script that produced it
+    
+     records/corpus-coverage-2026-09-16.md | 8 ++++++--
+     1 file changed, 6 insertions(+), 2 deletions(-)
+command: git show --stat --format='%H %s' c2493d8ddfa9d0d095bbb95881e5f094f194186f
+    c2493d8ddfa9d0d095bbb95881e5f094f194186f T2 P7: say why the record names three different commits
+    
+     records/corpus-coverage-2026-09-16.md | 5 ++++-
+     1 file changed, 4 insertions(+), 1 deletion(-)
+command: git show --stat --format='%H %s' 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+    4f4b683a022a4a7478a06738335f5c30e5ebe1f4 T2 P7: restore the bare commit id the gate asserts
+    
+     records/corpus-coverage-2026-09-16.md | 8 ++++----
+     1 file changed, 4 insertions(+), 4 deletions(-)
 
-## the changed files at 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+## the changed files at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 scripts/corpus-add.py: sha256 d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b948b8041bf23ace82b7, bytes 7894, git mode 100755
 scripts/corpus-coverage.py: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21, bytes 6416, git mode 100755
-records/corpus-coverage-2026-09-16.md: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615, git mode 100644
+records/corpus-coverage-2026-09-16.md: sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa, bytes 5120, git mode 100644
 phase diff paths: records/corpus-coverage-2026-09-16.md records/logs/t2-p7/gate.log records/logs/t2-p7/negative.log records/logs/t2-p7/positive.log records/logs/t2-p7/scan.log scripts/corpus-add.py scripts/corpus-coverage.py 
 the phase diff touches exactly the two scripts, the record and the four logs: yes
 command: py_compile scripts/corpus-add.py -> exit 0
@@ -372,32 +405,32 @@ scripts/corpus-add.py compiles: yes
 command: py_compile scripts/corpus-coverage.py -> exit 0
 scripts/corpus-coverage.py compiles: yes
 
-## the P7 changes are in the scripts at 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+## the P7 changes are in the scripts at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 corpus-add.py stages the copy, appends, renames and cleans up: yes
 corpus-add.py no longer copies straight to the final name: yes
 corpus-coverage.py's line-number claim is narrowed to the per-row failures: yes
   (the strings above prove the code is present; positive.log and negative.log run it)
 
 ## the committed coverage record
-records/corpus-coverage-2026-09-16.md: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+records/corpus-coverage-2026-09-16.md: sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa, bytes 5120
 the record carries the ruled header: commit, date and the script's sha256: yes
 lines naming a corpus or home path in the record: 0 (expect 0)
 the record names no corpus or home path: yes
 non-ASCII bytes in the record: 0 (expect 0)
 the record is ASCII: yes
 
-## gate files at 0c3c6a34107e94314fcff32cd9d994386bda3cc1
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb
-scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 0c3c6a34107e94314fcff32cd9d994386bda3cc1 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7
-no gate file, Cargo file, crate or workflow changed in 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1: yes
+## gate files at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb
+scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7
+no gate file, Cargo file, crate or workflow changed in 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..4f4b683a022a4a7478a06738335f5c30e5ebe1f4: yes
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4
 
 ## full run on a cold cache, started from / by absolute path
@@ -423,5 +456,5 @@ stdout control bytes: 0 (expect 0): yes
 stderr control bytes: 0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T13:36:58Z
+run ended at 2026-09-16T13:52:28Z
 gate log checks all as expected: yes

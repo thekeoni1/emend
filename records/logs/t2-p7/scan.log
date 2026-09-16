@@ -1,8 +1,8 @@
-about: phase diff 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+about: phase diff 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..4f4b683a022a4a7478a06738335f5c30e5ebe1f4; HEAD at run: 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-command: git rev-parse 0c3c6a34107e94314fcff32cd9d994386bda3cc1     (this run asserts HEAD equals it; the script exits 2 otherwise)
-phase: T2 P7 (specs/0005-corpus.md) scan.log; run at 2026-09-16T13:37:48Z
-rerun: this log replaces the scan.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. The script now asserts HEAD equals the commit it was given, which it previously took as a typed argument and never checked, and the shared library it prints was corrected. The other three logs were rerun for the same reason and are scanned here in their final state.
+command: git rev-parse 4f4b683a022a4a7478a06738335f5c30e5ebe1f4     (this run asserts HEAD equals it; the script exits 2 otherwise)
+phase: T2 P7 (specs/0005-corpus.md) scan.log; run at 2026-09-16T13:53:19Z
+rerun: this log replaces the scan.log committed at 8f43882; rerun at 4f4b683 after independent check 2. The base commit is now resolved from git by a printed command rather than trusted as typed, which check 2 found was the one commit id in the phase that was not. The other three logs were rerun for the repairs check 2 forced and are scanned here in their final state.
 temporary files live in <scratch> and are deleted on exit
 
 ## script that wrote this log
@@ -25,8 +25,16 @@ temporary files live in <scratch> and are deleted on exit
     set -uo pipefail
     cd "$(git rev-parse --show-toplevel)" || exit 2
     
-    BASE=${1:?base commit required}
+    BASE_ARG=${1:?base commit required}
     C=${2:?phase commit required}
+    # The base is resolved from git rather than trusted as typed, and the command
+    # that resolved it is printed below: specs/0001 asks that every commit id in a
+    # log be read from git at run time. Independent check 2 found this was the one
+    # id in the phase that was not.
+    BASE=$(git rev-parse --verify "$BASE_ARG^{commit}") || {
+      echo "the base commit does not resolve" >&2
+      exit 2
+    }
     LIB=${T2P7_LIB:?the path to t2p7-lib.sh is required}
     . "$LIB"
     unset EMEND_PRIVATE_DENYLIST
@@ -274,15 +282,21 @@ temporary files live in <scratch> and are deleted on exit
     # a throwaway one, is a named function that reads the exit and has a positive
     # control, from the start. These are those functions.
     #
-    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
-    # version of this comment claimed no log script counted any other way, and
-    # independent check 1 showed that was false. Every counting site that feeds an
-    # ASSERTION goes through these functions. Some informational lines do not, and
-    # they are these: the manifest row count and corpus file count printed by
-    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
-    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
-    # fails closed because files_complete requires a count above zero. None of
-    # those figures is asserted against.
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -401,7 +415,7 @@ grep: /usr/bin/grep, grep (GNU grep) 3.12
 EMEND_PRIVATE_DENYLIST set: no (unset by this script)
 private denylist: present, mode 600
 denylist entries: 7 (never printed)
-this script's patterns equal scripts/privacy-patterns.txt at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: yes
+this script's patterns equal scripts/privacy-patterns.txt at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4: yes
 
 ## controls (the same command forms as the scans)
   control f_nonascii on a file with a two-byte character count=2 expected=2: as-expected
@@ -430,7 +444,11 @@ this script's patterns equal scripts/privacy-patterns.txt at 0c3c6a34107e94314fc
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..0c3c6a34107e94314fcff32cd9d994386bda3cc1
+command: git rev-list --parents 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+4f4b683a022a4a7478a06738335f5c30e5ebe1f4 c2493d8ddfa9d0d095bbb95881e5f094f194186f
+c2493d8ddfa9d0d095bbb95881e5f094f194186f 743b6f133f49f65050d5e9fa6306ae5e071eeda6
+743b6f133f49f65050d5e9fa6306ae5e071eeda6 8f4388242d866b93a6da90dcd876a622561d0a2f
+8f4388242d866b93a6da90dcd876a622561d0a2f 0c3c6a34107e94314fcff32cd9d994386bda3cc1
 0c3c6a34107e94314fcff32cd9d994386bda3cc1 ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db
 ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db 8f5553c9f8934601694ef0ebe29db6564d14a009
 8f5553c9f8934601694ef0ebe29db6564d14a009 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
@@ -455,9 +473,28 @@ command: git show --name-status --format='%H parents=%P %s' 0c3c6a34107e94314fcf
     0c3c6a34107e94314fcff32cd9d994386bda3cc1 parents=ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db T2 P7: the usage failure exits 2 with no FAIL line, so say so
     
     M	scripts/corpus-coverage.py
+command: git show --name-status --format='%H parents=%P %s' 8f4388242d866b93a6da90dcd876a622561d0a2f
+    8f4388242d866b93a6da90dcd876a622561d0a2f parents=0c3c6a34107e94314fcff32cd9d994386bda3cc1 T2 P7 record: four logs rerun at 0c3c6a3, after independent check 1
+    
+    M	records/logs/t2-p7/gate.log
+    M	records/logs/t2-p7/negative.log
+    M	records/logs/t2-p7/positive.log
+    M	records/logs/t2-p7/scan.log
+command: git show --name-status --format='%H parents=%P %s' 743b6f133f49f65050d5e9fa6306ae5e071eeda6
+    743b6f133f49f65050d5e9fa6306ae5e071eeda6 parents=8f4388242d866b93a6da90dcd876a622561d0a2f T2 P7: the record attests the script that produced it
+    
+    M	records/corpus-coverage-2026-09-16.md
+command: git show --name-status --format='%H parents=%P %s' c2493d8ddfa9d0d095bbb95881e5f094f194186f
+    c2493d8ddfa9d0d095bbb95881e5f094f194186f parents=743b6f133f49f65050d5e9fa6306ae5e071eeda6 T2 P7: say why the record names three different commits
+    
+    M	records/corpus-coverage-2026-09-16.md
+command: git show --name-status --format='%H parents=%P %s' 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+    4f4b683a022a4a7478a06738335f5c30e5ebe1f4 parents=c2493d8ddfa9d0d095bbb95881e5f094f194186f T2 P7: restore the bare commit id the gate asserts
+    
+    M	records/corpus-coverage-2026-09-16.md
 
-## files changed in the phase diff (contents at 0c3c6a34107e94314fcff32cd9d994386bda3cc1)
-command: git diff --name-status 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+## files changed in the phase diff (contents at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4)
+command: git diff --name-status 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
     A	records/corpus-coverage-2026-09-16.md
     A	records/logs/t2-p7/gate.log
     A	records/logs/t2-p7/negative.log
@@ -465,7 +502,7 @@ command: git diff --name-status 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 0c3c6a3
     A	records/logs/t2-p7/scan.log
     M	scripts/corpus-add.py
     M	scripts/corpus-coverage.py
-file records/corpus-coverage-2026-09-16.md (sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7)
+file records/corpus-coverage-2026-09-16.md (sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -474,7 +511,7 @@ file records/corpus-coverage-2026-09-16.md (sha256 ae73fa477438eddfac5c7fb7875c7
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file records/logs/t2-p7/gate.log (sha256 69e2f0e005454897baeb55d11ade14cbde4568240c1f292671a5ebcb027065a1)
+file records/logs/t2-p7/gate.log (sha256 366e4f9b66c45e5d3e0cc61eb8c6871d1eb50e01674e3f0810729cf9ed92265b)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -483,7 +520,7 @@ file records/logs/t2-p7/gate.log (sha256 69e2f0e005454897baeb55d11ade14cbde45682
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file records/logs/t2-p7/negative.log (sha256 70a21e1a92dae1891b373ddacac420f7269782783be8b61d873381c0e0c9cc14)
+file records/logs/t2-p7/negative.log (sha256 f9f028b6425962e8aad33df27087409e7333be3f5546848ec71fb7fe05c8a13a)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -492,7 +529,7 @@ file records/logs/t2-p7/negative.log (sha256 70a21e1a92dae1891b373ddacac420f7269
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file records/logs/t2-p7/positive.log (sha256 6494dd08da0df46648635b7b10dabc0ec6e4360dd3cb1812525af6bfe3183733)
+file records/logs/t2-p7/positive.log (sha256 d8f98ec22a6299a3da8d0df07e3464855b146acf2a5054b988284986bd135e56)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -501,7 +538,7 @@ file records/logs/t2-p7/positive.log (sha256 6494dd08da0df46648635b7b10dabc0ec6e
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file records/logs/t2-p7/scan.log (sha256 d8b42079690508286d96231b1569d3b69c111de226c03873e61b65010667c44a)
+file records/logs/t2-p7/scan.log (sha256 ed71f3352aca0dead3610b533ab116812b7dd54d88b3eac22db20d75c5b64a94)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -531,6 +568,46 @@ file scripts/corpus-coverage.py (sha256 ff02af14c45cd056b6296433a5583c8d9c6020d8
 files in diff: 7; scanned: 7; read: 7: yes
 
 ## commit messages in the phase range
+message 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message c2493d8ddfa9d0d095bbb95881e5f094f194186f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 743b6f133f49f65050d5e9fa6306ae5e071eeda6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 8f4388242d866b93a6da90dcd876a622561d0a2f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
 message 0c3c6a34107e94314fcff32cd9d994386bda3cc1
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0
@@ -571,10 +648,10 @@ message 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-messages scanned: 4; commits in range: 4: yes
+messages scanned: 8; commits in range: 8: yes
 
 ## the other T2 P7 logs in the working tree (a log cannot scan itself)
-log records/logs/t2-p7/gate.log (sha256 366e4f9b66c45e5d3e0cc61eb8c6871d1eb50e01674e3f0810729cf9ed92265b)
+log records/logs/t2-p7/gate.log (sha256 1c28fd61126abdbb4fd14f0b971d0b1110458fb2a4af56f9c0bf8ff4019a1507)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -583,7 +660,7 @@ log records/logs/t2-p7/gate.log (sha256 366e4f9b66c45e5d3e0cc61eb8c6871d1eb50e01
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t2-p7/positive.log (sha256 d8f98ec22a6299a3da8d0df07e3464855b146acf2a5054b988284986bd135e56)
+log records/logs/t2-p7/positive.log (sha256 e5c758f0220dcc00f935fe88a1d77d18881f7417e9e87ae5bad31c1fa105f8fc)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -592,7 +669,7 @@ log records/logs/t2-p7/positive.log (sha256 d8f98ec22a6299a3da8d0df07e3464855b14
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-log records/logs/t2-p7/negative.log (sha256 f9f028b6425962e8aad33df27087409e7333be3f5546848ec71fb7fe05c8a13a)
+log records/logs/t2-p7/negative.log (sha256 b3dd867b0c4d45a56d1822b1a0a2602a9cf0229b7463db44e28a44011af86aa3)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -622,5 +699,5 @@ bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 total hits: 0
 read or counting errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T13:37:49Z
+run ended at 2026-09-16T13:53:21Z
 RESULT: PASS

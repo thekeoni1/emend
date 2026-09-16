@@ -1,7 +1,7 @@
-about: T2 P7 phase commit 0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+about: T2 P7 phase commit 4f4b683a022a4a7478a06738335f5c30e5ebe1f4; HEAD at run: 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) positive.log; run at 2026-09-16T13:37:17Z
-rerun: this log replaces the positive.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. Two repairs: each of the four privacy counts now has its OWN hit control, where an earlier version controlled only the stem count while the report claimed the control covered all four, so three of the four zeros rested on a form never shown able to match; and the corpus file count no longer goes through ls piped to wc, so it cannot report a number when the directory could not be listed.
+phase: T2 P7 (specs/0005-corpus.md) positive.log; run at 2026-09-16T13:52:49Z
+rerun: this log replaces the positive.log committed at 8f43882; rerun at 4f4b683 after independent check 2. Three repairs: the privacy block now FAILS rather than skipping when a pattern file is empty, which check 2 found could let all four privacy assertions and all four hit controls be skipped while the log still reported all as expected; the manifest is asserted to be a readable regular file before the patterns are drawn from it; and the stderr-byte check and the manifest row count now go through the shared library instead of bare wc. The record it derives was regenerated at 743b6f1 and corrected at 4f4b683.
 This log reads the real corpus. The corpus directory is written as
 <corpus> everywhere; no original name, note, producer version or
 application string is printed, and no stem is ever echoed, only counted.
@@ -88,7 +88,11 @@ application string is printed, and no stem is ever echoed, only counted.
     echo
     echo "## the corpus as it stands"
     echo "corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else \$HOME/emend-testing)"
-    echo "manifest rows (excluding the header): $(awk -F'\t' 'NR > 1 && NF == 12' "$MANIFEST" | wc -l)"
+    check "the manifest is a readable regular file, so the patterns below are real" \
+      "$(yn [ -f "$MANIFEST" ] )"
+    awk -F'\t' 'NR > 1 && NF == 12' "$MANIFEST" >"$T/manifest-rows" 2>/dev/null ||
+      : >"$T/manifest-rows"
+    echo "manifest rows (excluding the header): $(count_lines "$T/manifest-rows")"
     ls -1 "$CORPUS/corpus" >"$T/corpus-listing" 2>/dev/null ||
       printf 'the corpus directory could not be listed\n' >"$T/corpus-listing"
     echo "corpus files present: $(count_lines "$T/corpus-listing")"
@@ -105,7 +109,7 @@ application string is printed, and no stem is ever echoed, only counted.
     echo "exit: $rc"
     echo "stderr bytes: $(wc -c <"$T/stderr")"
     check "the run exits 0" "$(yn [ "$rc" -eq 0 ])"
-    check "the run writes nothing to stderr" "$(yn [ "$(wc -c <"$T/stderr")" -eq 0 ])"
+    check "the run writes nothing to stderr" "$(yn [ "$(count_bytes '\000-\377' "$T/stderr")" = 0 ])"
     echo "stdout, in full ($(count_lines "$T/stdout") lines):"
     hide <"$T/stdout" | sed 's/^/    /'
     echo "  (--verify recomputed every file's size and sha256 against the manifest,"
@@ -137,8 +141,14 @@ application string is printed, and no stem is ever echoed, only counted.
     echo "patterns read from the manifest: $(count_lines "$T/stems") stem(s), $(count_lines "$T/notes") note(s), $(count_lines "$T/versions") version(s), $(count_lines "$T/apps") app string(s)"
     for pair in "original_name stems:$T/stems" "notes:$T/notes" "producer_version values:$T/versions" "app strings:$T/apps"; do
       label=${pair%%:*}; file=${pair#*:}
+      # An empty pattern file FAILS rather than skipping. Independent check 2 found
+      # that an unreadable manifest empties all four pattern files, so every
+      # privacy assertion and every hit control was skipped by `continue` and the
+      # log still ended "all as expected": the phase's central privacy claim could
+      # pass vacuously.
       if [ "$(count_lines "$file")" = 0 ]; then
-        echo "  $label in the record: no patterns to test (the manifest holds none)"
+        echo "  $label in the record: NO PATTERNS, so this check cannot be made"
+        check "the manifest yielded at least one $label pattern to test against" no
         continue
       fi
       n=$(count_from_file -F "$file" "$RECORD")
@@ -227,15 +237,21 @@ application string is printed, and no stem is ever echoed, only counted.
     # a throwaway one, is a named function that reads the exit and has a positive
     # control, from the start. These are those functions.
     #
-    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
-    # version of this comment claimed no log script counted any other way, and
-    # independent check 1 showed that was false. Every counting site that feeds an
-    # ASSERTION goes through these functions. Some informational lines do not, and
-    # they are these: the manifest row count and corpus file count printed by
-    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
-    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
-    # fails closed because files_complete requires a count above zero. None of
-    # those figures is asserted against.
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -351,9 +367,10 @@ every counting form behaves on a match, a miss and an unreadable file: yes
 
 ## the corpus as it stands
 corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else $HOME/emend-testing)
+the manifest is a readable regular file, so the patterns below are real: yes
 manifest rows (excluding the header): 27
 corpus files present: 27
-scripts/corpus-coverage.py at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21, bytes 6416
+scripts/corpus-coverage.py at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21, bytes 6416
 scripts/corpus-coverage.py on disk: sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21
 the script on disk is the script at the phase commit: yes
 
@@ -422,8 +439,8 @@ stdout, in full (53 lines):
   manifest parses)
 
 ## the committed record, and that its body is this run's stdout
-records/corpus-coverage-2026-09-16.md as committed at 0c3c6a34107e94314fcff32cd9d994386bda3cc1: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
-records/corpus-coverage-2026-09-16.md on disk: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+records/corpus-coverage-2026-09-16.md as committed at 4f4b683a022a4a7478a06738335f5c30e5ebe1f4: sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa, bytes 5120
+records/corpus-coverage-2026-09-16.md on disk: sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa, bytes 5120
 the record on disk is the record at the phase commit: yes
 the record's fenced body is byte for byte this run's stdout: yes
 what the record adds around the body, in full:
@@ -434,11 +451,18 @@ what the record adds around the body, in full:
     record holds only ids, extensions, byte counts, producers, sources, tags and
     counts, which is the whole of the script stdout reproduced below.
     
-    - Commit: 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
+    - Commit: 8f4388242d866b93a6da90dcd876a622561d0a2f
+    - That commit is where the run was made. This record is committed later,
+      and the script it names was introduced at 0c3c6a3 and is unchanged since,
+      so the three commits differ by design rather than by accident.
     - Date: 2026-09-16
-    - Script: `scripts/corpus-coverage.py`, sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70
+    - Script: `scripts/corpus-coverage.py`, sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21
     - Command: `scripts/corpus-coverage.py --verify`, exit 0, no stderr
     - `--verify` recomputed every file size and sha256 against the manifest.
+    - The body below is the whole of that run stdout. An earlier version of this
+      record attested the script at 58063fb (sha256 2b8be584...), which the
+      docstring correction at 0c3c6a3 superseded; independent check 2 found that
+      no current log showed the attested script producing this body.
     
     ---
     
@@ -496,5 +520,5 @@ no control or non-ASCII byte in the captured output: yes
 the run's stdout names no corpus path: yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T13:37:18Z
+run ended at 2026-09-16T13:52:50Z
 positive log checks all as expected: yes

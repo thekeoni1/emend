@@ -1,7 +1,7 @@
-about: T2 P7 phase commit 0c3c6a34107e94314fcff32cd9d994386bda3cc1; HEAD at run: 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+about: T2 P7 phase commit 4f4b683a022a4a7478a06738335f5c30e5ebe1f4; HEAD at run: 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
 command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
-phase: T2 P7 (specs/0005-corpus.md) negative.log; run at 2026-09-16T13:37:25Z
-rerun: this log replaces the negative.log committed at ae51d0a; rerun at 0c3c6a3 after independent check 1. Two repairs: state() counted through ls piped to grep -c with 2>/dev/null and || true, returning the identical string files=0 rows=0 temporaries=0 for an empty corpus AND for one that could not be read, so N4 and N5 would have passed vacuously on an unreadable corpus; it now reports the word error instead, through the shared library. And N3's attempt 2 is now RUN rather than asserted: an earlier version of this log stated its exit status and exception without executing it, which breaks this phase's own rule that nothing is called measured unless the log prints the measurement.
+phase: T2 P7 (specs/0005-corpus.md) negative.log; run at 2026-09-16T13:52:57Z
+rerun: this log replaces the negative.log committed at 8f43882; rerun at 4f4b683 after independent check 2. Two repairs and two new cases: state()'s row count still returned a clean rows=0 for a manifest that was a directory or a dangling symlink, which is exactly the string N4 and N5 assert, so it is now routed through the shared library and reports error (the fourth instance of a class I have declared closed four times, and the second hole in that one function); N9 runs the usage failure, which 0c3c6a3's commit message called measured while no log printed it; and N10 runs state() on an empty corpus, a directory manifest, a dangling-symlink manifest and an unreadable corpus, which 8f43882's message called measured while no log printed it.
 Every corpus below is built under <scratch> and deleted on exit;
 EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
 
@@ -79,9 +79,21 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
       else
         files=error
       fi
-      if [ -f "$dir/manifest.tsv" ]; then
-        rows=$(awk -F'\t' 'NR > 1 && NF == 12' "$dir/manifest.tsv" 2>/dev/null | wc -l)
-        [ -r "$dir/manifest.tsv" ] || rows=error
+      # The row count goes through the library too. The first repair of this
+      # function fixed the listing half and left this one counting through
+      # `awk | wc -l` with the pipeline's status discarded and `rows=0` whenever
+      # [ -f ] was false, so a manifest.tsv that was a directory or a dangling
+      # symlink returned the clean string "files=0 rows=0 temporaries=0" that N4
+      # and N5 assert. Independent check 2 found it: the fourth instance of this
+      # class, and the second in this one function.
+      if [ -e "$dir/manifest.tsv" ] || [ -L "$dir/manifest.tsv" ]; then
+        if [ -f "$dir/manifest.tsv" ] && [ -r "$dir/manifest.tsv" ]; then
+          awk -F'\t' 'NR > 1 && NF == 12' "$dir/manifest.tsv" >"$listing.rows" 2>/dev/null &&
+            rows=$(count_lines "$listing.rows") || rows=error
+          rm -f "$listing.rows"
+        else
+          rows=error
+        fi
       else
         rows=0
       fi
@@ -104,6 +116,22 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     # fail_names_no_line <output file>: the FAIL reason carries no line number.
     fail_names_no_line() {
       LC_ALL=C "$G" -a -q -e '^FAIL ' "$1" && ! LC_ALL=C "$G" -a -q -E '^FAIL line [0-9]+' "$1"
+    }
+    # refused_usage <stdout file> <stderr file>: nothing on stdout, and stderr is
+    # exactly the usage line.
+    refused_usage() {
+      [ ! -s "$1" ] && [ "$(cat "$2")" = 'usage: corpus-coverage.py [--verify]' ]
+    }
+    # fail_absent <file>...: no FAIL line anywhere in the given outputs.
+    fail_absent() {
+      [ "$(count_matches -E '^FAIL ' "$@")" = 0 ]
+    }
+    # state_rows_error <corpus>: state() reports the row count as error.
+    state_rows_error() {
+      case "$(state "$1")" in
+        *"rows=error"*) return 0 ;;
+        *) return 1 ;;
+      esac
     }
     mkcorpus() {
       local d=$1
@@ -281,6 +309,43 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     echo "  a row do not, because there is no row to name."
     
     echo
+    echo "## N9: the usage failure exits 2 with no FAIL line"
+    echo "  0c3c6a3's commit message called this measured while no log printed it."
+    echo "  Independent check 2 found that, and this case is the primary it lacked."
+    # No corpus is named: the argument check runs before any corpus is read, so
+    # this case tests the argument path alone.
+    ./"$COV" --bogus >"$BASE/n9.out" 2>"$BASE/n9.err"
+    RC=$?
+    echo "  command: scripts/corpus-coverage.py --bogus"
+    echo "  exit: $RC; stdout: [$(hide <"$BASE/n9.out")]; stderr: [$(hide <"$BASE/n9.err")]"
+    note "N9 a bad argument exits 2" "$(is [ "$RC" -eq 2 ])"
+    note "N9 it prints the usage line on stderr and nothing on stdout" \
+      "$(is refused_usage "$BASE/n9.out" "$BASE/n9.err")"
+    note "N9 it prints no FAIL line, unlike every other failure" "$(is fail_absent "$BASE/n9.out" "$BASE/n9.err")"
+    
+    echo
+    echo "## N10: state() reports error rather than a number when it cannot read"
+    echo "  8f43882's commit message called this measured while no log printed it."
+    echo "  Independent check 2 found that, and found a second hole in the same"
+    echo "  function: the row count still returned a clean 0 for a manifest that was"
+    echo "  a directory or a dangling symlink, which is what N4 and N5 assert."
+    W10=$BASE/n10; mkcorpus "$W10"
+    echo "  empty corpus, no manifest:        $(state "$W10")"
+    note "N10 an empty corpus reads as zeros, not error" "$(is [ "$(state "$W10")" = "files=0 rows=0 temporaries=0" ])"
+    mkdir "$W10/manifest.tsv"
+    echo "  manifest.tsv is a directory:      $(state "$W10")"
+    note "N10 a directory manifest reads as error, not a clean zero" "$(is state_rows_error "$W10")"
+    rmdir "$W10/manifest.tsv"
+    ln -s "$BASE/no-such-target" "$W10/manifest.tsv"
+    echo "  manifest.tsv is a dangling link:  $(state "$W10")"
+    note "N10 a dangling-symlink manifest reads as error" "$(is state_rows_error "$W10")"
+    rm -f "$W10/manifest.tsv"
+    chmod 000 "$W10/corpus"
+    echo "  the corpus directory is unreadable: $(state "$W10")"
+    note "N10 an unreadable corpus reads as error throughout" "$(is [ "$(state "$W10")" = "files=error rows=error temporaries=error" ])"
+    chmod 700 "$W10/corpus"
+    
+    echo
     echo "## N8: a duplicate id is refused before anything is staged"
     W8=$BASE/n8; mkcorpus "$W8"; mkbook "$BASE/n8.xlsx"
     EMEND_CORPUS_DIR=$W8 ./"$ADD" "$BASE/n8.xlsx" libreoffice 7.0 libreoffice-export plain >/dev/null 2>&1
@@ -330,15 +395,21 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
     # a throwaway one, is a named function that reads the exit and has a positive
     # control, from the start. These are those functions.
     #
-    # WHAT THIS LIBRARY DOES NOT COVER, named rather than glossed. An earlier
-    # version of this comment claimed no log script counted any other way, and
-    # independent check 1 showed that was false. Every counting site that feeds an
-    # ASSERTION goes through these functions. Some informational lines do not, and
-    # they are these: the manifest row count and corpus file count printed by
-    # positive.log; the byte counts printed with `git show ... | wc -c` by gate.log
-    # and positive.log; and scan.log's `git diff --name-only ... | wc -l`, which
-    # fails closed because files_complete requires a count above zero. None of
-    # those figures is asserted against.
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
     #
     # Every function prints either a number or the word "error". None of them ever
     # prints a matched line, a value, or a path.
@@ -453,7 +524,7 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
   every counting form behaves on a match, a miss and an unreadable file: as-expected
 
 ## N1: the staged order, the happy path
-  exit: 0; stdout: added fa1f7b2e708e xlsx 907 libreoffice plain,strings
+  exit: 0; stdout: added 661e16750f95 xlsx 907 libreoffice plain,strings
   state: files=1 rows=1 temporaries=0
   N1 the add succeeds: as-expected
   N1 one file, one row, no temporary: as-expected
@@ -528,6 +599,29 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
   while checking a row names that row, and the failures that are not about
   a row do not, because there is no row to name.
 
+## N9: the usage failure exits 2 with no FAIL line
+  0c3c6a3's commit message called this measured while no log printed it.
+  Independent check 2 found that, and this case is the primary it lacked.
+  command: scripts/corpus-coverage.py --bogus
+  exit: 2; stdout: []; stderr: [usage: corpus-coverage.py [--verify]]
+  N9 a bad argument exits 2: as-expected
+  N9 it prints the usage line on stderr and nothing on stdout: as-expected
+  N9 it prints no FAIL line, unlike every other failure: as-expected
+
+## N10: state() reports error rather than a number when it cannot read
+  8f43882's commit message called this measured while no log printed it.
+  Independent check 2 found that, and found a second hole in the same
+  function: the row count still returned a clean 0 for a manifest that was
+  a directory or a dangling symlink, which is what N4 and N5 assert.
+  empty corpus, no manifest:        files=0 rows=0 temporaries=0
+  N10 an empty corpus reads as zeros, not error: as-expected
+  manifest.tsv is a directory:      files=0 rows=error temporaries=0
+  N10 a directory manifest reads as error, not a clean zero: as-expected
+  manifest.tsv is a dangling link:  files=0 rows=error temporaries=0
+  N10 a dangling-symlink manifest reads as error: as-expected
+  the corpus directory is unreadable: files=error rows=error temporaries=error
+  N10 an unreadable corpus reads as error throughout: as-expected
+
 ## N8: a duplicate id is refused before anything is staged
   the same file added twice: exit 1, stderr: refused: duplicate id
   state before: files=1 rows=1 temporaries=0; after: files=1 rows=1 temporaries=0
@@ -535,10 +629,10 @@ EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
   N8 nothing changed and no temporary survives: as-expected
 
 ## the log itself
-  captured outputs counted (18 file(s)): <scratch>/n1.out <scratch>/n2.out <scratch>/n3.out <scratch>/n3b.out <scratch>/n4.out <scratch>/n5.out <scratch>/n6.out <scratch>/n7a.out <scratch>/n7b.out <scratch>/n8.out <scratch>/n1.err <scratch>/n2.err <scratch>/n3.err <scratch>/n3b.err <scratch>/n4.err <scratch>/n5.err <scratch>/n6.err <scratch>/n8.err 
-  total lines: 10
+  captured outputs counted (20 file(s)): <scratch>/n1.out <scratch>/n2.out <scratch>/n3.out <scratch>/n3b.out <scratch>/n4.out <scratch>/n5.out <scratch>/n6.out <scratch>/n7a.out <scratch>/n7b.out <scratch>/n8.out <scratch>/n9.out <scratch>/n1.err <scratch>/n2.err <scratch>/n3.err <scratch>/n3b.err <scratch>/n4.err <scratch>/n5.err <scratch>/n6.err <scratch>/n8.err <scratch>/n9.err 
+  total lines: 11
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   lines naming the scratch path in every captured output: 0 (expect 0): as-expected
   the working tree is still clean (expect empty): : as-expected
-run ended at 2026-09-16T13:37:27Z
+run ended at 2026-09-16T13:53:00Z
 negative log checks all as expected: yes
