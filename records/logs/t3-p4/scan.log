@@ -1,5 +1,6 @@
-about: phase diff 0c2caf21f2f8e062c13945eac8332a534512e0d7..39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06; HEAD at run: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-phase: T3 P4 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T12:14:10Z
+about: phase diff 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a; HEAD at run: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+phase: T3 P4 (specs/0006-passthrough.md) scan.log; run at 2026-09-16T12:23:31Z
+rerun: this log replaces the scan.log committed at record commit 4d3cb4dcb5bfb29e9706e9908d416937996b9c53; rerun at 25e553a39d9cb89e672dafc52dd196c3c7fb539a, now covering the record pair (.md and .txt) as tracked files of the phase diff and four committed logs instead of three. The scan.log it reads is the one committed at 4d3cb4d, not the file this run writes, so no log scans itself. run.log is not rerun.
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -244,14 +245,18 @@ temporary files live in <scratch> and are deleted on exit
     
     echo
     echo "## other T3 P4 logs in the working tree (a log cannot scan itself)"
+    echo "Four logs are committed by this phase. The scan.log read here is the one"
+    echo "committed at the first record commit, not the file this run is writing:"
+    echo "this run's output goes to <scratch> and is moved in afterwards, so no log"
+    echo "scans itself. run.log is not rerun; it stays the primary of the run."
     nl=0
-    for f in records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log; do
+    for f in records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log records/logs/t3-p4/scan.log; do
       if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
       nl=$((nl+1))
       echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
       for form in $FORMS; do run "$form" "$f"; done
     done
-    structural "T3 P4 logs scanned: $nl (expected 3)" "$(yn [ "$nl" -eq 3 ])"
+    structural "T3 P4 logs scanned: $nl (expected 4)" "$(yn [ "$nl" -eq 4 ])"
     
     echo
     echo "## the pre-P6d forms over the phase's files and logs (check 2's point)"
@@ -259,7 +264,7 @@ temporary files live in <scratch> and are deleted on exit
     echo "own zero hits cannot establish that no bare shape was committed. The three"
     echo "pre-P6d forms are run here for that, with a positive control above."
     pre_hits=0; pre_err=0
-    for f in records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log; do
+    for f in records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log records/logs/t3-p4/scan.log; do
       [ -f "$f" ] || continue
       n=$(f_pre "$f"); rc=$?
       echo "  pre-P6d forms in $f: count=${n:-none} exit=$rc"
@@ -295,7 +300,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06: yes
+this script's patterns equal scripts/privacy-patterns.txt at 25e553a39d9cb89e672dafc52dd196c3c7fb539a: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -365,19 +370,98 @@ this script's patterns equal scripts/privacy-patterns.txt at 39defb79a6ef64b3b2d
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 0c2caf21f2f8e062c13945eac8332a534512e0d7..39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+command: git rev-list --parents 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a
+25e553a39d9cb89e672dafc52dd196c3c7fb539a 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
+4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
+4d3cb4d5b5bfb29e9706e9908d416937996b9c53 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 0c2caf21f2f8e062c13945eac8332a534512e0d7
 command: git show --name-status --format='%H parents=%P %s' 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
     39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 parents=0c2caf21f2f8e062c13945eac8332a534512e0d7 T3 P4: --lo-timeout, the ruled error boundary, tolerant sheet counting
     
     M	scripts/passthrough-record.py
     M	scripts/passthrough-run.sh
+command: git show --name-status --format='%H parents=%P %s' 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
+    4d3cb4d5b5bfb29e9706e9908d416937996b9c53 parents=39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 T3 P4 record: the gate, negative, run and scan logs at 39defb7
+    
+    A	records/logs/t3-p4/gate.log
+    A	records/logs/t3-p4/negative.log
+    A	records/logs/t3-p4/run.log
+    A	records/logs/t3-p4/scan.log
+command: git show --name-status --format='%H parents=%P %s' 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
+    4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 parents=4d3cb4d5b5bfb29e9706e9908d416937996b9c53 T3 P4: write the record's table as .txt, not .tsv
+    
+    M	scripts/passthrough-record.py
+command: git show --name-status --format='%H parents=%P %s' 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+    25e553a39d9cb89e672dafc52dd196c3c7fb539a parents=4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 T3 P4 record: the first recorded run, 27 workbooks on host and i686
+    
+    A	records/step0-2026-09-16-39defb7.md
+    A	records/step0-2026-09-16-39defb7.txt
 
-## files changed in the phase diff (contents at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06)
-command: git diff --name-status 0c2caf21f2f8e062c13945eac8332a534512e0d7 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+## files changed in the phase diff (contents at 25e553a39d9cb89e672dafc52dd196c3c7fb539a)
+command: git diff --name-status 0c2caf21f2f8e062c13945eac8332a534512e0d7 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+    A	records/logs/t3-p4/gate.log
+    A	records/logs/t3-p4/negative.log
+    A	records/logs/t3-p4/run.log
+    A	records/logs/t3-p4/scan.log
+    A	records/step0-2026-09-16-39defb7.md
+    A	records/step0-2026-09-16-39defb7.txt
     M	scripts/passthrough-record.py
     M	scripts/passthrough-run.sh
-file scripts/passthrough-record.py (sha256 cd853e1483d9c2d648d8806cd52369010eb4d7a37b7fa3a79e75481d07eedb9a)
+file records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5da2ca29d574c5c1f325781c0bf)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p4/negative.log (sha256 29879d777ad4df6166075c1de78f2e6d4b1e93cce60ce4178b4817d3cc26cedd)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p4/run.log (sha256 91501ef1659a6c1e1b200ee8f75a420c3943353b7b1e1dcf1e3009bb2f5d08cf)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t3-p4/scan.log (sha256 871b93f01e8fd33d7ce6c011e369ffa8fcdd4e94e56d52f6c682cc7c7ee8f7d0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/step0-2026-09-16-39defb7.md (sha256 8ee0314e6c0b021131a5c204508040aaadcb5675b03688e9edb3d8c74191a9e1)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/step0-2026-09-16-39defb7.txt (sha256 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/passthrough-record.py (sha256 e8764387e603872da39fb117a92f6f08493e210e6cad3221fa9602b3f3ed27c5)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -395,9 +479,39 @@ file scripts/passthrough-run.sh (sha256 7ef3cc162dc436d16be9685e4bd742d87b2f0eba
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 2; files scanned: 2; files read: 2: yes
+files in diff: 8; files scanned: 8; files read: 8: yes
 
 ## commit messages in the phase range
+message 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -408,9 +522,13 @@ message 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 1; commits in range: 1: yes
+messages scanned: 4; commits in range: 4: yes
 
 ## other T3 P4 logs in the working tree (a log cannot scan itself)
+Four logs are committed by this phase. The scan.log read here is the one
+committed at the first record commit, not the file this run is writing:
+this run's output goes to <scratch> and is moved in afterwards, so no log
+scans itself. run.log is not rerun; it stays the primary of the run.
 log records/logs/t3-p4/gate.log (sha256 73005ec1b1cda179412b1d1a91475cafcfc4a5da2ca29d574c5c1f325781c0bf)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
@@ -438,7 +556,16 @@ log records/logs/t3-p4/run.log (sha256 91501ef1659a6c1e1b200ee8f75a420c3943353b7
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-T3 P4 logs scanned: 3 (expected 3): yes
+log records/logs/t3-p4/scan.log (sha256 871b93f01e8fd33d7ce6c011e369ffa8fcdd4e94e56d52f6c682cc7c7ee8f7d0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+T3 P4 logs scanned: 4 (expected 4): yes
 
 ## the pre-P6d forms over the phase's files and logs (check 2's point)
 The narrowed patterns are blind to a bare shape by design, so this scan's
@@ -447,6 +574,13 @@ pre-P6d forms are run here for that, with a positive control above.
   pre-P6d forms in records/logs/t3-p4/gate.log: count=0 exit=1
   pre-P6d forms in records/logs/t3-p4/negative.log: count=0 exit=1
   pre-P6d forms in records/logs/t3-p4/run.log: count=0 exit=1
+  pre-P6d forms in records/logs/t3-p4/scan.log: count=0 exit=1
+  pre-P6d forms in records/logs/t3-p4/gate.log: count=0 exit=1
+  pre-P6d forms in records/logs/t3-p4/negative.log: count=0 exit=1
+  pre-P6d forms in records/logs/t3-p4/run.log: count=0 exit=1
+  pre-P6d forms in records/logs/t3-p4/scan.log: count=0 exit=1
+  pre-P6d forms in records/step0-2026-09-16-39defb7.md: count=0 exit=1
+  pre-P6d forms in records/step0-2026-09-16-39defb7.txt: count=0 exit=1
   pre-P6d forms in scripts/passthrough-record.py: count=0 exit=1
   pre-P6d forms in scripts/passthrough-run.sh: count=0 exit=1
 bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
@@ -454,5 +588,5 @@ bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T12:14:11Z
+run ended at 2026-09-16T12:23:31Z
 RESULT: PASS

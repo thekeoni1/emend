@@ -1,5 +1,6 @@
-about: T3 P4 phase commit 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06; HEAD at run: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:05:21Z
+about: T3 P4 phase commit 25e553a39d9cb89e672dafc52dd196c3c7fb539a; HEAD at run: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+phase: T3 P4 (specs/0006-passthrough.md) negative.log; run at 2026-09-16T12:24:14Z
+rerun: this log replaces the negative.log committed at record commit 4d3cb4dcb5bfb29e9706e9908d416937996b9c53; rerun at 25e553a39d9cb89e672dafc52dd196c3c7fb539a after the record script was changed to write the table as .txt and the record pair was committed. The cases are unchanged; C9 now asserts the .md and .txt pair, the run directory's own summary, entries and run files keeping their .tsv names.
 The scratch clone, the scratch corpus, the run directories and every captured output live under <scratch> and are deleted on exit; --corpus always names the scratch corpus, so the real corpus directory is never read.
 DEPARTURE (planning's option (c) of 2026-09-16): this script runs in a scratch clone and copies the gate's two host binaries instead of building, so no cargo runs here and nothing is written in the main working tree.
 image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none, no elevation; pins in records/libreoffice-2026-09-15.md)
@@ -497,8 +498,12 @@ podman: podman version 5.7.0
     hide <"$BASE/record.stdout" | sed 's/^/    /'
     echo "  stderr: $(hide <"$BASE/record.stderr")"
     MD=$BASE/record/step0-t3p4-scratch.md
-    TSV=$BASE/record/step0-t3p4-scratch.tsv
-    note "C9 the record script exits 0 and wrote a .md and a .tsv" "$(is record_written "$RC" "$MD" "$TSV")"
+    # The record's table is .txt, not .tsv (planning's ruling of 2026-09-16: the
+    # hygiene gate refuses a tracked spreadsheet extension). The run directory's
+    # own summary.host.tsv, entries.host.tsv and run.host.tsv keep their names and
+    # are never committed, so every other .tsv in this script is deliberate.
+    TABLE=$BASE/record/step0-t3p4-scratch.txt
+    note "C9 the record script exits 0 and wrote a .md and a .txt" "$(is record_written "$RC" "$MD" "$TABLE")"
     echo "  the outcome table of the record:"
     LC_ALL=C "$G" -a -A3 -F '## Files by outcome' "$MD" | sed 's/^/    /'
     note "C9 the outcome table carries the four counts for each column" \
@@ -600,8 +605,8 @@ podman: podman version 5.7.0
 ## the scratch clone and the gate's binaries (option (c))
 command: git clone --quiet --shared <main tree> <scratch>/clone
   exit: 0
-  clone HEAD: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-  the clone is at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 and its tree is clean: as-expected
+  clone HEAD: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+  the clone is at 25e553a39d9cb89e672dafc52dd196c3c7fb539a and its tree is clean: as-expected
   copied from the main tree, read only (gate.log prints these same two hashes):
     target/debug/passthrough: sha256 2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162, bytes 10507136
     target/debug/xlsx-diff:   sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
@@ -627,12 +632,12 @@ command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
 command: scripts/passthrough-run.sh --label host --passthrough target/debug/passthrough --xlsx-diff target/debug/xlsx-diff --corpus <scratch>/corpus --out <scratch>/run-lo --timeout 120 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --ids <scratch>/ids-main
   exit: 0
   stdout:
-    3f032c69b908 host ok 0 0.10 7592
-    c36a06a7d22b host error - 0.10 7884
-    d8022ea2d56c host ok 0 0.10 7748
-    0a2c75eb1ccc host ok 0 0.10 7860
-    0d0e0dc537d7 host ok 0 0.10 7676
-    ceedb27c21a0 host ok 0 0.10 7748
+    3f032c69b908 host ok 0 0.10 7612
+    c36a06a7d22b host error - 0.10 7564
+    d8022ea2d56c host ok 0 0.10 7740
+    0a2c75eb1ccc host ok 0 0.10 7804
+    0d0e0dc537d7 host ok 0 0.10 7964
+    ceedb27c21a0 host ok 0 0.10 7692
     files 6 ok 5 error 1 timeout 0 panic 0 crash 0
   stderr bytes: 0
   the run exits 0: as-expected
@@ -645,7 +650,7 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
     wstrap      outcome=ok lo=ok lo_in=ok
   C1 healthy: lo ok, lo_in ok: as-expected
   run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files
-  run.host.tsv row: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06	2026-09-16T12:05:21Z	2026-09-16T12:05:41Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
+  run.host.tsv row: 25e553a39d9cb89e672dafc52dd196c3c7fb539a	2026-09-16T12:24:15Z	2026-09-16T12:24:35Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	120	300	2048	2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	6
   C1 run.host.tsv carries lo_timeout_s and the value given: as-expected
   C2 truncated: lo_in fail: as-expected
   C2 truncated: the reason is the stderr branch, since the conversion itself exits 0: as-expected
@@ -735,9 +740,9 @@ command: scripts/passthrough-run.sh --label host --passthrough target/debug/pass
     f99738cc01fe lo=error lo_in=error
 command: scripts/passthrough-record.py --run <scratch>/run-record --out <scratch>/record --allow-single --stem step0-t3p4-scratch
   exit: 0
-    wrote step0-t3p4-scratch.tsv and step0-t3p4-scratch.md: labels host; files 7; entry rows 29
+    wrote step0-t3p4-scratch.txt and step0-t3p4-scratch.md: labels host; files 7; entry rows 29
   stderr: 
-  C9 the record script exits 0 and wrote a .md and a .tsv: as-expected
+  C9 the record script exits 0 and wrote a .md and a .txt: as-expected
   the outcome table of the record:
     ## Files by outcome
     
@@ -782,6 +787,6 @@ command: scripts/passthrough-record.py --run <scratch>/run-record --out <scratch
   control non-ASCII bytes in a file with one two-byte character: 2 (expect 2): as-expected
   control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
   the main working tree is still clean and was never built in (expect empty): : as-expected
-  the main tree is still at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06: as-expected
-run ended at 2026-09-16T12:05:51Z
+  the main tree is still at 25e553a39d9cb89e672dafc52dd196c3c7fb539a: as-expected
+run ended at 2026-09-16T12:24:45Z
 negative log checks all as expected: yes

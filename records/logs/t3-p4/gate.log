@@ -1,5 +1,6 @@
-about: T3 P4 phase commit 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06; HEAD at run: 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-phase: T3 P4 (specs/0006-passthrough.md) gate.log; run at 2026-09-16T12:03:15Z
+about: T3 P4 phase commit 25e553a39d9cb89e672dafc52dd196c3c7fb539a; HEAD at run: 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+phase: T3 P4 (specs/0006-passthrough.md) gate.log; run at 2026-09-16T12:21:24Z
+rerun: this log replaces the gate.log committed at record commit 4d3cb4dcb5bfb29e9706e9908d416937996b9c53; rerun at 25e553a39d9cb89e672dafc52dd196c3c7fb539a after the record script was changed to write the table as .txt and the record pair was committed. run.log is not rerun: it stays the primary of the run.
 commit before the phase: 0c2caf21f2f8e062c13945eac8332a534512e0d7
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
@@ -48,7 +49,8 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     # The entry script's sha256 as records/libreoffice-2026-09-15.md records it.
     # The gate reads the script out of the image and compares the two as text.
     ENTRY_SHA=2c09931b3928938209647c6739705518c3502ce7d3c0e87c06825b863b670860
-    CHANGED=(scripts/passthrough-run.sh scripts/passthrough-record.py)
+    CHANGED=(scripts/passthrough-run.sh scripts/passthrough-record.py
+      records/step0-2026-09-16-39defb7.md records/step0-2026-09-16-39defb7.txt)
     BINARIES=(target/debug/passthrough target/debug/xlsx-diff)
     
     if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
@@ -161,8 +163,13 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     for f in "${CHANGED[@]}"; do
       echo "$f: sha256 $(git show "$C:$f" | sha), bytes $(git show "$C:$f" | wc -c), git mode $(git ls-tree "$C" -- "$f" | cut -d' ' -f1)"
     done
-    check "the phase diff changes only the two scripts" \
-      "$(yn [ "$(git diff --name-only "$BEFORE" "$C" | tr '\n' ' ')" = "scripts/passthrough-record.py scripts/passthrough-run.sh " ])"
+    # The phase diff is no longer just the two scripts: by this rerun it also
+    # carries the four logs of the first record commit and the record pair. The
+    # expected set is named in full, so an unexpected path fails here.
+    EXPECTED_PATHS="records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log records/logs/t3-p4/scan.log records/step0-2026-09-16-39defb7.md records/step0-2026-09-16-39defb7.txt scripts/passthrough-record.py scripts/passthrough-run.sh "
+    echo "phase diff paths: $(git diff --name-only "$BEFORE" "$C" | tr '\n' ' ')"
+    check "the phase diff touches exactly the two scripts, the four logs and the record pair" \
+      "$(yn [ "$(git diff --name-only "$BEFORE" "$C" | tr '\n' ' ')" = "$EXPECTED_PATHS" ])"
     bash -n scripts/passthrough-run.sh >"$T/bash-n.out" 2>&1
     rc=$?
     echo "command: bash -n scripts/passthrough-run.sh -> exit $rc"
@@ -284,7 +291,10 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     exit "$fail"
 
 ## commits of the phase
-command: git log --format='%H parents=%P %s' 0c2caf21f2f8e062c13945eac8332a534512e0d7..39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+command: git log --format='%H parents=%P %s' 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a
+    25e553a39d9cb89e672dafc52dd196c3c7fb539a parents=4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 T3 P4 record: the first recorded run, 27 workbooks on host and i686
+    4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 parents=4d3cb4d5b5bfb29e9706e9908d416937996b9c53 T3 P4: write the record's table as .txt, not .tsv
+    4d3cb4d5b5bfb29e9706e9908d416937996b9c53 parents=39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 T3 P4 record: the gate, negative, run and scan logs at 39defb7
     39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 parents=0c2caf21f2f8e062c13945eac8332a534512e0d7 T3 P4: --lo-timeout, the ruled error boundary, tolerant sheet counting
 command: git show --stat --format='%H %s' 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
     39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 T3 P4: --lo-timeout, the ruled error boundary, tolerant sheet counting
@@ -292,22 +302,50 @@ command: git show --stat --format='%H %s' 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec
      scripts/passthrough-record.py | 57 +++++++++++++++++++++++++++++----------
      scripts/passthrough-run.sh    | 63 ++++++++++++++++++++++++++++++-------------
      2 files changed, 88 insertions(+), 32 deletions(-)
-command: git diff --stat 0c2caf21f2f8e062c13945eac8332a534512e0d7 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-     scripts/passthrough-record.py | 57 +++++++++++++++++++++++++++++----------
-     scripts/passthrough-run.sh    | 63 ++++++++++++++++++++++++++++++-------------
-     2 files changed, 88 insertions(+), 32 deletions(-)
+command: git show --stat --format='%H %s' 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
+    4d3cb4d5b5bfb29e9706e9908d416937996b9c53 T3 P4 record: the gate, negative, run and scan logs at 39defb7
+    
+     records/logs/t3-p4/gate.log     | 395 ++++++++++++++++++++
+     records/logs/t3-p4/negative.log | 787 ++++++++++++++++++++++++++++++++++++++++
+     records/logs/t3-p4/run.log      | 160 ++++++++
+     records/logs/t3-p4/scan.log     | 458 +++++++++++++++++++++++
+     4 files changed, 1800 insertions(+)
+command: git show --stat --format='%H %s' 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
+    4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 T3 P4: write the record's table as .txt, not .tsv
+    
+     scripts/passthrough-record.py | 24 ++++++++++++++++++------
+     1 file changed, 18 insertions(+), 6 deletions(-)
+command: git show --stat --format='%H %s' 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+    25e553a39d9cb89e672dafc52dd196c3c7fb539a T3 P4 record: the first recorded run, 27 workbooks on host and i686
+    
+     records/step0-2026-09-16-39defb7.md  |  140 +++
+     records/step0-2026-09-16-39defb7.txt | 1797 ++++++++++++++++++++++++++++++++++
+     2 files changed, 1937 insertions(+)
+command: git diff --stat 0c2caf21f2f8e062c13945eac8332a534512e0d7 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+     records/logs/t3-p4/gate.log          |  395 ++++++++
+     records/logs/t3-p4/negative.log      |  787 +++++++++++++++
+     records/logs/t3-p4/run.log           |  160 +++
+     records/logs/t3-p4/scan.log          |  458 +++++++++
+     records/step0-2026-09-16-39defb7.md  |  140 +++
+     records/step0-2026-09-16-39defb7.txt | 1797 ++++++++++++++++++++++++++++++++++
+     scripts/passthrough-record.py        |   81 +-
+     scripts/passthrough-run.sh           |   63 +-
+     8 files changed, 3843 insertions(+), 38 deletions(-)
 
-## the changed files at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+## the changed files at 25e553a39d9cb89e672dafc52dd196c3c7fb539a
 scripts/passthrough-run.sh: sha256 7ef3cc162dc436d16be9685e4bd742d87b2f0ebaab60e3f99bb0a076584d1e56, bytes 18922, git mode 100755
-scripts/passthrough-record.py: sha256 cd853e1483d9c2d648d8806cd52369010eb4d7a37b7fa3a79e75481d07eedb9a, bytes 16380, git mode 100755
-the phase diff changes only the two scripts: yes
+scripts/passthrough-record.py: sha256 e8764387e603872da39fb117a92f6f08493e210e6cad3221fa9602b3f3ed27c5, bytes 17294, git mode 100755
+records/step0-2026-09-16-39defb7.md: sha256 8ee0314e6c0b021131a5c204508040aaadcb5675b03688e9edb3d8c74191a9e1, bytes 14799, git mode 100644
+records/step0-2026-09-16-39defb7.txt: sha256 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0, bytes 228516, git mode 100644
+phase diff paths: records/logs/t3-p4/gate.log records/logs/t3-p4/negative.log records/logs/t3-p4/run.log records/logs/t3-p4/scan.log records/step0-2026-09-16-39defb7.md records/step0-2026-09-16-39defb7.txt scripts/passthrough-record.py scripts/passthrough-run.sh 
+the phase diff touches exactly the two scripts, the four logs and the record pair: yes
 command: bash -n scripts/passthrough-run.sh -> exit 0
 scripts/passthrough-run.sh parses: yes
 command: py_compile scripts/passthrough-record.py -> exit 0
 scripts/passthrough-record.py compiles: yes
 lines with a literal home path in the two scripts and the record: 0 (expect 0; the control file counts 1): yes
 
-## the P4 changes are in the scripts at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+## the P4 changes are in the scripts at 25e553a39d9cb89e672dafc52dd196c3c7fb539a
 --lo-timeout is parsed, validated, used by the conversion and recorded: yes
 the status ladder is planning's ruling 1: 124, 125-127 and 128 or more: yes
 the sheet and table counts use the tolerant forms: yes
@@ -344,18 +382,18 @@ the entry script runs soffice with the flags records/libreoffice-2026-09-15.md n
 the entry script passes the caller's arguments through: yes
 the entry script does not itself supply --convert-to, so the runner's tail form is what converts: 0 line(s) (expect 0): yes
 
-## gate files at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; bytes 23525
-scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; bytes 448
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
-no gate file, Cargo file, crate or workflow changed in 0c2caf21f2f8e062c13945eac8332a534512e0d7..39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06: yes
+## gate files at 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; bytes 23525
+scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; bytes 448
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 25e553a39d9cb89e672dafc52dd196c3c7fb539a sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no gate file, Cargo file, crate or workflow changed in 0c2caf21f2f8e062c13945eac8332a534512e0d7..25e553a39d9cb89e672dafc52dd196c3c7fb539a: yes
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4
 
 ## full run on a cold cache, started from / by absolute path
@@ -379,7 +417,7 @@ stdout is exactly the eight PASS lines in order: yes
 ## the two host binaries this run leaves in target/debug
 negative.log copies these two files and prints the same two hashes, so the
 two logs are tied by the hash text (planning's option (c) of 2026-09-16).
-They are the binaries check.sh step 1 built at 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06, after the cargo clean above.
+They are the binaries check.sh step 1 built at 25e553a39d9cb89e672dafc52dd196c3c7fb539a, after the cargo clean above.
 target/debug/passthrough: sha256 2b961ccead1573f9ce2c19998f8d58254613c0d7c27860559e53121c7b4b9162, bytes 10507136
 target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
 both host binaries are present and executable after the cold gate run: yes
@@ -391,5 +429,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T12:04:08Z
+run ended at 2026-09-16T12:22:18Z
 gate log checks all as expected: yes
