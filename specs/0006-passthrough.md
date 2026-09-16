@@ -87,8 +87,11 @@ For every manifest row (or every listed id), in manifest order:
    signal 9), `panic` (exit 101), `crash` (a `Command terminated by
    signal` line, any other status, or no report), with the exit status
    and signal recorded as well. From P2, a temporary file the tool left
-   behind (`.out.<label>.<ext>.passthrough-*.tmp`) is removed after the
-   child ends and noted in a `leftover` column.
+   behind is removed after the child ends and noted in a `leftover`
+   column. The glob was `.out.<label>.<ext>.passthrough-*.tmp` until
+   Milestone 1 part 1 P1 widened it to `.out.<label>.<ext>.*.tmp` (the
+   ruling below), so the column is evidence for any tool the runner is
+   given.
 4. On `ok`, runs `<xlsx-diff> <input> <out>/<id>/out.<label>.<ext>`
    with stdout to `<out>/<id>/diff.<label>.tsv` and stderr captured,
    and records its exit status.
@@ -553,7 +556,41 @@ catalogued; any `changed`, `dropped`, `added`, error, crash, or `lo`
 - T3 is DONE. The P3 and P4 records go with the next authorised push,
   together with T0 P6d and T2 P1.
 
-## Out of scope
+### Planning ruling for Milestone 1 part 1 P1 (2026-09-16): the leftover glob
+
+The implementing session found, before its first corpus run with
+`tools/emend-copy`, that both leftover globs in
+`scripts/passthrough-run.sh` (the clearing before the child at line
+294 and the accounting after it at line 309) name the passthrough
+tool's temporary form, `.out.<label>.<ext>.passthrough-*.tmp`, while
+`emend-copy` names its temporary `.<name>.emend-copy-<pid>.tmp`. With
+the runner unchanged the `leftover` column would read `no` for every
+file whatever happened, and `specs/0008-zip-layer.md` claimed the
+runner takes any copy tool unchanged. Planning verified both globs,
+both tools' names and the claim.
+
+Ruling, given before any run:
+
+- Departure approved: both globs become `"$dir/.out.$LABEL.$ext."*.tmp`,
+  tool-neutral, with no other change to the runner. Naming the new
+  tool's temporary after the old tool was refused: a check that
+  exists to catch debris must not be satisfied by disguising it.
+- The runner change goes into part 1 P1's one code commit, with the
+  crate and the tool; the report names the runner hunk. This spec and
+  `specs/0008` carry the ruling in a second doc commit, made before
+  the code commit and holding only these two files.
+- P1's `negative.log` shows the widened check working, in a scratch
+  clone with the built binaries copied in, each with its control: a
+  stand-in tool given through `--passthrough` that writes the output
+  and leaves `.out.<label>.<ext>.stand-in-<pid>.tmp` (`leftover` `yes`
+  and the file gone afterwards); the same leaving the old
+  `passthrough-` form (`yes`, the regression pin); the same leaving
+  nothing (`no`); and a stale `.out.<label>.<ext>.emend-copy-1.tmp`
+  planted before the run, removed by the clearing step with `leftover`
+  still `no`, since only this child's file counts. The last case
+  closes the "stale-temporary-file removal has no negative case" item
+  of the passthrough backlog on `ROADMAP.md`. No fault hook is added
+  to `emend-copy` for this; the stand-in exercises the runner.
 
 - Any edit to a workbook. T3 copies only.
 - Excel checks (maintainer ruling 3).

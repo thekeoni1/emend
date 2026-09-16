@@ -165,9 +165,13 @@ measured against once `quick-xml` is linked. Both go in the record.
 ### Harness runs
 
 `scripts/passthrough-run.sh` takes any copy tool through
-`--passthrough`, so the corpus runs use it unchanged with
-`tools/emend-copy` (`emend-copy <in> <out> [--replace <name>]`,
-exit 0 or 2, errors on stderr as `error: ...`). The record script
+`--passthrough` for the output path; its leftover accounting matched
+only the passthrough tool's temporary name until the P1 ruling in
+`specs/0006-passthrough.md` widened the glob to any tool's. With that
+one change the corpus runs use it with `tools/emend-copy`
+(`emend-copy <in> <out> [--replace <name>]`, exit 0 or 2, errors on
+stderr as `error: ...`; its temporary is
+`.<name>.emend-copy-<pid>.tmp`). The record script
 writes the records with `--stem`. Raw outputs stay under the corpus
 directory's `runs/`.
 
