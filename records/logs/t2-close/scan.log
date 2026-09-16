@@ -1,0 +1,1513 @@
+command: git rev-parse HEAD
+about: T2 close-out scan over the pushed range 29b0bad50d2097d8d4748735f91eb5d011cb003b..d1868a71d3f2a461182871a5ed4e8f791bbe93e1; HEAD at run: d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+command: git log --format='%H' --grep='^T3 close-out: commit planning doc updates' -n 1
+  the base resolves from git to 29b0bad50d2097d8d4748735f91eb5d011cb003b and the argument matches it
+phase: T2 close-out (specs/0005-corpus.md "Close-out push (after P7)") scan.log; run at 2026-09-16T14:13:14Z
+origin/main has already moved with the push, so the base is not read from
+it; it is the argument, checked against the commit git resolves by subject.
+temporary files live in <scratch> and are deleted on exit
+
+## script
+    #!/usr/bin/env bash
+    # T2 close-out scan.log (specs/0005-corpus.md "Close-out push (after P7)",
+    # following specs/0003-ci.md "Close-out push (after P2)").
+    #
+    # Scans the pushed range: every file changed in <base>..<commit> (contents at
+    # <commit>), every commit message in the range, and the other two close-out
+    # logs. Never prints matched text, an email address, a denylist entry or a
+    # pattern.
+    #
+    # Usage: T2CLOSE_LIB=<lib> t2close-scan.sh <base> <commit> > <scratch file>
+    # The caller moves the output to records/logs/t2-close/scan.log, so nothing is
+    # written in the tree during the run.
+    #
+    # The base is taken as an argument and then RESOLVED AND CHECKED against git:
+    # origin/main has already moved with the push, so it cannot be read back from
+    # there. The base is the T3 close-out doc commit, which git resolves by its
+    # subject, and the script refuses if the argument is not that commit.
+    #
+    # The pattern array is the post-P6d form: patterns 8, 10 and 11 require a path
+    # character, or a byte that is not printable ASCII, after the trailing
+    # separator. It is compared against scripts/privacy-patterns.txt at the pushed
+    # commit, so a stale copy fails here rather than scanning with the wrong forms.
+    # Because the narrowed patterns are by design blind to a bare shape, this
+    # scan's own zero hits do not establish the absence of one: the pre-P6d forms
+    # are run separately at the end, with a positive control.
+    #
+    # Every count goes through the shared counting library, which reads exit
+    # statuses and reports "error" rather than a number when it cannot read; its
+    # controls run before any of them is used.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    BASE_ARG=${1:?base commit required}
+    C_ARG=${2:?pushed commit required}
+    LIB=${T2CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    BASE=$(git rev-parse --verify "$BASE_ARG^{commit}") || { echo "the base does not resolve" >&2; exit 2; }
+    C=$(git rev-parse --verify "$C_ARG^{commit}") || { echo "the commit does not resolve" >&2; exit 2; }
+    EXPECT_BASE=$(git rev-parse "$(git log --format='%H' --grep='^T3 close-out: commit planning doc updates' -n 1)" 2>/dev/null)
+    if [ "$BASE" != "$EXPECT_BASE" ]; then
+      echo "the base given is not the T3 close-out doc commit git resolves" >&2
+      exit 2
+    fi
+    if [ "$C" != "$(git rev-parse HEAD)" ]; then
+      echo "HEAD is not $C_ARG" >&2
+      exit 2
+    fi
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/([A-Za-z0-9._-]|[^[:print:][:space:]])'
+      'DESKTOP[-][A-Z0-9]{5,}'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
+      '[.]claude[\\/]+projects[\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
+    )
+    PRE=(
+      '/mnt/[a-z]/[Uu]sers/'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]'
+      '[.]claude[\\/]+projects[\\/]'
+    )
+    printf '%s\n' "${P6[@]}" >"$T/p6-patterns"
+    printf '%s\n' "${PRE[@]}" >"$T/pre-patterns"
+    printf '%s\n%s\n' "$HOST" "$FQDN" | sort -u >"$T/host-patterns"
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_emdash()   { count_matches -F "$EMDASH" "$1"; }
+    f_session()  { count_matches -E '^Claude-Session:' "$1"; }
+    f_p6()       { count_from_file -E "$T/p6-patterns" "$1"; }
+    f_pre()      { count_from_file -E "$T/pre-patterns" "$1"; }
+    f_host()     { count_from_file -F "$T/host-patterns" "$1"; }
+    f_deny()     { count_from_file -F "$T/deny" "$1"; }
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      if [ "$rc" -eq 1 ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0 }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_host f_deny f_email"
+    
+    run() {
+      local n
+      n=$("$1" "$2")
+      echo "  form=$1 count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    }
+    check_ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: T2 close-out scan over the pushed range $BASE..$C; HEAD at run: $(git rev-parse HEAD)"
+    echo "command: git log --format='%H' --grep='^T3 close-out: commit planning doc updates' -n 1"
+    echo "  the base resolves from git to $EXPECT_BASE and the argument matches it"
+    echo "phase: T2 close-out (specs/0005-corpus.md \"Close-out push (after P7)\") scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "origin/main has already moved with the push, so the base is not read from"
+    echo "it; it is the argument, checked against the commit git resolves by subject."
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    structural "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE")"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >"$T/deny"
+    NDENY=$(count_lines "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    denylist_usable() { [ "$NDENY" != error ] && [ "$NDENY" -gt 0 ]; }
+    structural "the denylist is readable and not empty" "$(yn denylist_usable)"
+    if git show "$C:scripts/privacy-patterns.txt" >"$T/patterns-at-c" 2>/dev/null; then
+      structural "this script's patterns equal scripts/privacy-patterns.txt at $C" "$(yn cmp -s "$T/p6-patterns" "$T/patterns-at-c")"
+    else
+      echo "scripts/privacy-patterns.txt at $C: READ ERROR"; err=1
+    fi
+    
+    echo
+    echo "## controls (the same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' >"$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$T/c-ctrl"
+    printf 'plain\ttab\r\n' >"$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" >"$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' >"$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$T/c-p6"
+    printf 'x %s%s%s%s y\n' '/mnt/' 'c/' 'Users/' 'bob' >"$T/c-p6-path"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$T/c-bare"
+    printf 'x %s y\n' "$HOST" >"$T/c-host"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' >"$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" >"$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' >"$T/c-clean"
+    sed -n 1p "$T/deny" | awk '{ print "x " $0 " y" }' >"$T/c-deny"
+    check_ctl "f_nonascii on a two-byte character" 2 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl on tab and CR only" 0 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash on U+2014" 1 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash on another non-ASCII byte" 0 f_emdash "$T/c-nonascii"
+    check_ctl "f_session on the trailer" 1 f_session "$T/c-session"
+    check_ctl "f_p6 on a token shape" 1 f_p6 "$T/c-p6"
+    check_ctl "f_p6 on a real path of the narrowed form" 1 f_p6 "$T/c-p6-path"
+    check_ctl "f_p6 on a bare shape (P6d: must not match)" 0 f_p6 "$T/c-bare"
+    check_ctl "f_pre on the same bare shape (the pre-P6d form does match)" 1 f_pre "$T/c-bare"
+    check_ctl "f_host on a file naming this host" 1 f_host "$T/c-host"
+    check_ctl "f_deny on one denylist entry (not printed)" 1 f_deny "$T/c-deny"
+    check_ctl "f_email on an address outside the allowlist" 1 f_email "$T/c-email-bad"
+    check_ctl "f_email on only allowed addresses" 0 f_email "$T/c-email-ok"
+    for f in $FORMS; do check_ctl "$f on a clean file" 0 "$f" "$T/c-clean"; done
+    check_ctl "f_pre on a clean file" 0 f_pre "$T/c-clean"
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the pushed range"
+    echo "command: git rev-list --count $BASE..$C -> $(git rev-list --count "$BASE..$C")"
+    echo "command: git log --reverse --format='%H %s' $BASE..$C"
+    git log --reverse --format='    %H %s' "$BASE..$C"
+    
+    echo
+    echo "## files changed in the pushed range (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf + 1))
+      if git show "$C:$f" >"$T/f" 2>/dev/null; then nread=$((nread + 1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum <"$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    git diff --name-only --diff-filter=d "$BASE" "$C" >"$T/difffiles"
+    want=$(count_lines "$T/difffiles")
+    files_complete() { [ "$want" != error ] && [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in the range: $want; scanned: $nf; read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the pushed range"
+    nm=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm + 1))
+      if ! git cat-file commit "$c" >"$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" >"$T/m"
+      last=$(awk 'NF { l = $0 } END { print l }' "$T/m")
+      echo "message $c"
+      structural "  last non-empty line is the Co-Authored-By line" "$(yn [ "$last" = "$COAUTHOR" ])"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    
+    echo
+    echo "## the other T2 close-out logs (a log cannot scan itself)"
+    nl=0
+    for f in records/logs/t2-close/push.log records/logs/t2-close/ci-run.log; do
+      if [ ! -f "$f" ]; then echo "log $f: MISSING"; bad=1; continue; fi
+      nl=$((nl + 1))
+      echo "log $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    structural "T2 close-out logs scanned: $nl (expected 2; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 2 ])"
+    
+    echo
+    echo "## the pre-P6d forms over the range's files and the two logs"
+    echo "The narrowed patterns are blind to a bare shape by design, so this scan's"
+    echo "own zero hits cannot establish that no bare shape was pushed. The three"
+    echo "pre-P6d forms are run here for that, with the control above."
+    pre_hits=0; pre_err=0
+    for f in records/logs/t2-close/push.log records/logs/t2-close/ci-run.log; do
+      [ -f "$f" ] || continue
+      n=$(f_pre "$f")
+      echo "  pre-P6d forms in $f: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done
+    while IFS= read -r f; do
+      git show "$C:$f" >"$T/f" 2>/dev/null || continue
+      n=$(f_pre "$T/f")
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    echo "  pre-P6d forms over all $want files of the range: $pre_hits hit(s), $pre_err error(s)"
+    pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
+    structural "bare shapes found by the pre-P6d forms: $pre_hits (expect 0); errors: $pre_err" "$(yn pre_clean)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "read or counting errors: $err"
+    echo "structural checks failed: $bad"
+    scan_passed() { [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## the shared counting library this log sources
+    # Shared counting forms, sourced by every log script of the T2 close-out.
+    # Copied unchanged from the T2 P7 library except for this header.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 I wrote four counting sites that compared a
+    # bare `grep -c` (or a `cat ... | tr ... | wc -c`) with 0 without reading the
+    # exit status, so a read error printed 0 and the check passed. Two independent
+    # checks found them, and twice I declared the class closed after repairing one
+    # instance. Planning's remedy for T2 P7 is that every counting form, including
+    # a throwaway one, is a named function that reads the exit and has a positive
+    # control, from the start. These are those functions.
+    #
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+the denylist is readable and not empty: yes
+this script's patterns equal scripts/privacy-patterns.txt at d1868a71d3f2a461182871a5ed4e8f791bbe93e1: yes
+
+## controls (the same command forms as the scans)
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_ctrl on tab and CR only count=0 expected=0: as-expected
+  control f_emdash on U+2014 count=1 expected=1: as-expected
+  control f_emdash on another non-ASCII byte count=0 expected=0: as-expected
+  control f_session on the trailer count=1 expected=1: as-expected
+  control f_p6 on a token shape count=1 expected=1: as-expected
+  control f_p6 on a real path of the narrowed form count=1 expected=1: as-expected
+  control f_p6 on a bare shape (P6d: must not match) count=0 expected=0: as-expected
+  control f_pre on the same bare shape (the pre-P6d form does match) count=1 expected=1: as-expected
+  control f_host on a file naming this host count=1 expected=1: as-expected
+  control f_deny on one denylist entry (not printed) count=1 expected=1: as-expected
+  control f_email on an address outside the allowlist count=1 expected=1: as-expected
+  control f_email on only allowed addresses count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_emdash on a clean file count=0 expected=0: as-expected
+  control f_session on a clean file count=0 expected=0: as-expected
+  control f_p6 on a clean file count=0 expected=0: as-expected
+  control f_host on a clean file count=0 expected=0: as-expected
+  control f_deny on a clean file count=0 expected=0: as-expected
+  control f_email on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+controls: all as expected
+
+## commits in the pushed range
+command: git rev-list --count 29b0bad50d2097d8d4748735f91eb5d011cb003b..d1868a71d3f2a461182871a5ed4e8f791bbe93e1 -> 48
+command: git log --reverse --format='%H %s' 29b0bad50d2097d8d4748735f91eb5d011cb003b..d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+    24d4a165b0e250f05b6c53db6747f95a28d28796 T3 close-out record: push, ci-run and scan logs
+    45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6 T2 P1: commit planning doc updates (corpus delivery rulings, T3 close-out, T3 P3 scope)
+    e8087f6b990d13c4ccf69a1ae934050f1d14cb48 T2 P1: import the corpus session's corpus-add.py unchanged
+    e3dd52e777fe16fb58e5bf7cff6e562f2c332673 T2 P1: corpus-add.py changes for the spec, corpus-coverage.py
+    f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e T2 P1 record: gate, positive, negative and scan logs at e3dd52e
+    17c6c4b48964941ad203f40a6927189a528bbba3 T2 P1 record: independent check 1 answer, verbatim
+    43188208156df77ff9a8fc8b982649ab5b4c818a T2 P1: refuse a text field that is not valid UTF-8 before copying
+    40e32c9c56d1a65c21bec81c5cab71235bc1d75c T2 P1 record: logs rerun at 4318820 after the check 1 fixes
+    869796bd659d5ba810979e428a311b9c3a2a2124 T2 P1 record: independent check 2 answer, verbatim
+    fd5dcf9b35d7f108493a89fcf33ff57b2c683481 T3 P3: commit planning doc updates (T2 P1 DONE, P1 rulings, P7 follow-ups)
+    17ec824d227887d0b4f21e4f104ec54e97a6f0de T3 P3: LibreOffice open check in the runner, lo and lo_in columns
+    9be61d6c5492f20b83bacc72b95ca632e3a822b9 T3 P3 record: gate, negative and scan logs at 17ec824
+    8a7c862e5e8c132b0d8318bf4dbfa18249164a5f T3 P3 record: independent check 1 answer, with one documented replacement
+    2623b70d92dbc1c33d15783749297435178244e6 T3 P3: tell a check that could not run from one LibreOffice refused
+    bd8c581578de25a85b7e08f5ea1caae576d145db T3 P3 record: gate, negative and scan logs rerun at 2623b70
+    99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9 T3 P3 record: independent check 2 answer, verbatim
+    2b97b11b4e1d44bc176b88853f02a189a84d0a95 T3 P3 record: name the post-replacement byte count in check 1's header
+    2638d219f1c480f98594df72c78c0b1298da60c5 T3 P3 record: scan rerun with the header it was missing
+    4641ae3b4b6382947aad55d7bfd6605e6eabc429 T0 P6d: commit planning doc updates (P6d section, T3 P3 rulings, P4 text)
+    721e86323e41fe6090b95ce3e26876e81e27b464 T0 P6d: narrow the three path patterns so a bare shape is not a hit
+    4eb5a980d0da9417f291bcceb468332221c5d196 T0 P6d record: gate, privacy, negative and scan logs at 721e8632
+    ad1683c00ba3407a5d633c711b25cdcd851424c9 T0 P6d record: independent check 1 answer, verbatim
+    14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 T0 P6d: take a non-ASCII byte as a path character too
+    91775fe09b3f1f6c653a0454bf26a7f360516795 T0 P6d record: the four logs rerun at 14c669f
+    dda939ec200dc7eab9512f5a93d76af758c8f432 T0 P6d record: independent check 2 answer, verbatim
+    8f45639f1978eebbc400421c5a7ede3612954be9 T0 P6d record: gate, negative and scan logs rerun after check 2
+    0c2caf21f2f8e062c13945eac8332a534512e0d7 T3 P4: commit planning doc updates (P6d rulings, two new phase rules, P4 READY)
+    39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06 T3 P4: --lo-timeout, the ruled error boundary, tolerant sheet counting
+    4d3cb4d5b5bfb29e9706e9908d416937996b9c53 T3 P4 record: the gate, negative, run and scan logs at 39defb7
+    4a4867be6ce32156ebfc320ff6be8c61d3deb2a5 T3 P4: write the record's table as .txt, not .tsv
+    25e553a39d9cb89e672dafc52dd196c3c7fb539a T3 P4 record: the first recorded run, 27 workbooks on host and i686
+    9d5e06094624cf5fb0e8c93d7ad0c53692d66832 T3 P4 record: gate, negative and scan logs rerun at 25e553a
+    182be0498ea34cf7717310dbbbc37ae6cffe4792 T3 P4 record: three logs rerun and record.log added, after check 1
+    f4e03b011843caee88a8a5022c66262ece01df54 T3 P4 record: the two independent check answers, verbatim
+    2222c667d5771826fbc6a187ea091ededc155325 T3 P4 record: four logs rerun at f4e03b0, after check 2
+    854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 T2 P7: commit planning doc updates (T3 DONE, three new phase rules)
+    58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 T2 P7: stage the corpus file before the manifest row; narrow a claim
+    8f5553c9f8934601694ef0ebe29db6564d14a009 T2 P7 record: corpus coverage over the real corpus, 27 workbooks
+    ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db T2 P7 record: the gate, positive, negative and scan logs at 8f5553c
+    0c3c6a34107e94314fcff32cd9d994386bda3cc1 T2 P7: the usage failure exits 2 with no FAIL line, so say so
+    8f4388242d866b93a6da90dcd876a622561d0a2f T2 P7 record: four logs rerun at 0c3c6a3, after independent check 1
+    743b6f133f49f65050d5e9fa6306ae5e071eeda6 T2 P7: the record attests the script that produced it
+    c2493d8ddfa9d0d095bbb95881e5f094f194186f T2 P7: say why the record names three different commits
+    4f4b683a022a4a7478a06738335f5c30e5ebe1f4 T2 P7: restore the bare commit id the gate asserts
+    89dbe8fa50978d1c2f2cbe6a457a3d788ecf4b7b T2 P7 record: four logs rerun at 4f4b683, after independent check 2
+    a182fc464a9d41c6fb9ad3a3d349c6ee92a93e5e T2 P7 record: the two independent check answers, verbatim
+    7b9350a714653c80706f7a973e48902dd34f7d8b T2 P7 record: check 2's header claimed a hash was unrecoverable
+    d1868a71d3f2a461182871a5ed4e8f791bbe93e1 T2 close-out: commit planning doc updates (P7 rulings, close-out push)
+
+## files changed in the pushed range (contents at d1868a71d3f2a461182871a5ed4e8f791bbe93e1)
+command: git diff --name-status 29b0bad50d2097d8d4748735f91eb5d011cb003b d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+    M	ROADMAP.md
+    A	records/corpus-coverage-2026-09-16.md
+    A	records/libreoffice-2026-09-15.md
+    A	records/logs/t0-p6d/gate.log
+    A	records/logs/t0-p6d/independent-check-1.md
+    A	records/logs/t0-p6d/independent-check-2.md
+    A	records/logs/t0-p6d/negative.log
+    A	records/logs/t0-p6d/privacy.log
+    A	records/logs/t0-p6d/scan.log
+    A	records/logs/t2-p1/gate.log
+    A	records/logs/t2-p1/independent-check-1.md
+    A	records/logs/t2-p1/independent-check-2.md
+    A	records/logs/t2-p1/negative.log
+    A	records/logs/t2-p1/positive.log
+    A	records/logs/t2-p1/scan.log
+    A	records/logs/t2-p7/gate.log
+    A	records/logs/t2-p7/independent-check-1.md
+    A	records/logs/t2-p7/independent-check-2.md
+    A	records/logs/t2-p7/negative.log
+    A	records/logs/t2-p7/positive.log
+    A	records/logs/t2-p7/scan.log
+    A	records/logs/t3-close/ci-run.log
+    A	records/logs/t3-close/push.log
+    A	records/logs/t3-close/scan.log
+    A	records/logs/t3-p3/gate.log
+    A	records/logs/t3-p3/independent-check-1.md
+    A	records/logs/t3-p3/independent-check-2.md
+    A	records/logs/t3-p3/negative.log
+    A	records/logs/t3-p3/scan.log
+    A	records/logs/t3-p4/gate.log
+    A	records/logs/t3-p4/independent-check-1.md
+    A	records/logs/t3-p4/independent-check-2.md
+    A	records/logs/t3-p4/negative.log
+    A	records/logs/t3-p4/record.log
+    A	records/logs/t3-p4/run.log
+    A	records/logs/t3-p4/scan.log
+    A	records/step0-2026-09-16-39defb7.md
+    A	records/step0-2026-09-16-39defb7.txt
+    A	scripts/corpus-add.py
+    A	scripts/corpus-coverage.py
+    M	scripts/passthrough-record.py
+    M	scripts/passthrough-run.sh
+    M	scripts/privacy-patterns.txt
+    M	scripts/privacy.sh
+    M	specs/0001-bootstrap.md
+    M	specs/0002-gate-corpus-additions.md
+    M	specs/0005-corpus.md
+    M	specs/0006-passthrough.md
+file ROADMAP.md (sha256 3e955e50724b942af51769df12d02243a0bc8aabdf93c044e9fa57966e3d4aa7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/corpus-coverage-2026-09-16.md (sha256 7b1de83d8f16abdeab23852936651e75341f79277b8f2a1a140a0742fbd0a5aa)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/libreoffice-2026-09-15.md (sha256 ef2177180704b1a7ecfc5bdd215410498d2c9b868055f52e35042131735dceeb)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/gate.log (sha256 804879d437b2014a41109777893099ae75f28a780f4247efc772238a002f0c97)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/independent-check-1.md (sha256 485d1f1bd52ad596c41de29027b6063375db5dae81995f5dfa09965a6bf2df7f)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/independent-check-2.md (sha256 eb075b68a1e21b50ef2c601cc13aa65ee5739cf8f6196adb06a8577b697c745a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/negative.log (sha256 e59361082e7c684d4a9a53372499f25a6bbcf658ff906bd288a47d0b8220b17f)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/privacy.log (sha256 f0c828cfa740e700d8bb40b2aee544e62c272f50ab7937666ea38d3bffe3ebf6)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t0-p6d/scan.log (sha256 287f2a41dfb7ee9a39348ce2a888882ba835d41c9d726e9fa904e3f3ef281b3b)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/gate.log (sha256 7528b700fcd671a8a12b5ccc5827b2be50a4de1baa7aa22c666f8ee5191190be)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/independent-check-1.md (sha256 3be0d7d72cb21767cc9d6b51a754dfc9bdf306a155d1c705f9a6000f1b912a44)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/independent-check-2.md (sha256 c930c6adcf42e0393559a65e2bb84378d631b6353c36558e2c09739a8933e4df)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/negative.log (sha256 c4c3803526fc1c77a0f1fd70b234bf24e09e47a9d1a7f71d568a60251969c300)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/positive.log (sha256 dca8ddf9a04377a61f96477e005e887d93eaffce3629b5e901d1ee56b8fb55b3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p1/scan.log (sha256 e74ef8ceb8726c971ad1d8f886ec0de65310372bbf59685a6fa68c8a86e4d172)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/gate.log (sha256 1c28fd61126abdbb4fd14f0b971d0b1110458fb2a4af56f9c0bf8ff4019a1507)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/independent-check-1.md (sha256 bfd43a4dc80486ac4d386ad8151e8717422e91bb10ca18fe56aa49ea52946c63)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/independent-check-2.md (sha256 f77d5a7f6be1748233b013c1cff729fd72551abf5fc4cea7cc06e491b8afd031)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/negative.log (sha256 b3dd867b0c4d45a56d1822b1a0a2602a9cf0229b7463db44e28a44011af86aa3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/positive.log (sha256 e5c758f0220dcc00f935fe88a1d77d18881f7417e9e87ae5bad31c1fa105f8fc)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t2-p7/scan.log (sha256 fb87fabb01fd7ccb7eb6c4cd44f4029cd43ced814f754b469a4baf0d9b36b297)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-close/ci-run.log (sha256 f9f0319bfe14ea1bf341444ca586545ed59fb376188997fffe62f83783ec0654)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-close/push.log (sha256 74fa69eb1d681d45d3a23d1d8162f8de401e19c81a1c5c77761d8a9bcbca4e93)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-close/scan.log (sha256 6297ed269edb5aff92135cd8e55976d5055db1ccb6674f01a33e1484679cc381)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p3/gate.log (sha256 aad7302a35e4552b2ad842ba6a345562b684ba4c3f28b2213d36b3cbd5be7212)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p3/independent-check-1.md (sha256 9657db986cabedaa91c57908b1c10d95734b9ae4c37bcaf1bb21ca9fcc2d950d)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p3/independent-check-2.md (sha256 574953850843c6806aaba9393ca2a70cbff732e50c1b28d4bfc2a69c4c7ef6e1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p3/negative.log (sha256 41cbd2f91845a37e3e530f4f017f5489b2a1424b7071e7b96793d5bb757831a1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p3/scan.log (sha256 463d4bad140e88a97f8e7cfb49c1fc9f5e7c3eedcfeff717fff954931bbdb4a9)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/gate.log (sha256 a88343c9d0c31a84468b6f584a5aaf1108e507754b22c2f9fbcd686b47dd2b50)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/independent-check-1.md (sha256 f51e1a9b7f9e60ec07bcb2e68c76de1e94036ca6fd423dec7744e5e7ccabb9b2)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/independent-check-2.md (sha256 15b6ab406ece1173736c960ed6e5831644d7506596f08c4337c825d7e24e0393)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/negative.log (sha256 da31ee0d8bae0b214ee6112ba2ac8f2dd8a882ec3b3044292c2c8d5296c142b1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/record.log (sha256 3a9796e71786cf7e1d315958474a267a8ba9f70e27fa9227ba997de97a4623b7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/run.log (sha256 91501ef1659a6c1e1b200ee8f75a420c3943353b7b1e1dcf1e3009bb2f5d08cf)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/t3-p4/scan.log (sha256 d622339924a0fc824e20a7efaa1c7b0fded1e1e6c35b047a9db571022b7da461)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/step0-2026-09-16-39defb7.md (sha256 8ee0314e6c0b021131a5c204508040aaadcb5675b03688e9edb3d8c74191a9e1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/step0-2026-09-16-39defb7.txt (sha256 8d0c78f82230961a70b8921b6d45d5111627d4d3c71a9d6800e5ab3f4a188bf0)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/corpus-add.py (sha256 d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b948b8041bf23ace82b7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/corpus-coverage.py (sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/passthrough-record.py (sha256 e8764387e603872da39fb117a92f6f08493e210e6cad3221fa9602b3f3ed27c5)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/passthrough-run.sh (sha256 7ef3cc162dc436d16be9685e4bd742d87b2f0ebaab60e3f99bb0a076584d1e56)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/privacy-patterns.txt (sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/privacy.sh (sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0001-bootstrap.md (sha256 5d7ef86b6939c58aa4fda4b87360fe6e6cc1eb12087ee7ed9078ce47a8626a7e)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0002-gate-corpus-additions.md (sha256 76c92fc30b94719ebf1a7ba0ec1a2e5e10d8cf4b76319c0930045e1e338104f3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0005-corpus.md (sha256 205f1aec4433963665d1c240572f8d99d39e09d59712d56829f433a3bd49f46e)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0006-passthrough.md (sha256 9ebafe4769a72b1d9da19705cbd256d586c3bd185b5843523e4b5d038f410688)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+files in the range: 48; scanned: 48; read: 48: yes
+
+## commit messages in the pushed range
+message d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 7b9350a714653c80706f7a973e48902dd34f7d8b
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message a182fc464a9d41c6fb9ad3a3d349c6ee92a93e5e
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 89dbe8fa50978d1c2f2cbe6a457a3d788ecf4b7b
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4f4b683a022a4a7478a06738335f5c30e5ebe1f4
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message c2493d8ddfa9d0d095bbb95881e5f094f194186f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 743b6f133f49f65050d5e9fa6306ae5e071eeda6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 8f4388242d866b93a6da90dcd876a622561d0a2f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 0c3c6a34107e94314fcff32cd9d994386bda3cc1
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message ae51d0a4a41a0671e4df712dc6c7bfcc4082c9db
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 8f5553c9f8934601694ef0ebe29db6564d14a009
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2222c667d5771826fbc6a187ea091ededc155325
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message f4e03b011843caee88a8a5022c66262ece01df54
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 182be0498ea34cf7717310dbbbc37ae6cffe4792
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 9d5e06094624cf5fb0e8c93d7ad0c53692d66832
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 25e553a39d9cb89e672dafc52dd196c3c7fb539a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4a4867be6ce32156ebfc320ff6be8c61d3deb2a5
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4d3cb4d5b5bfb29e9706e9908d416937996b9c53
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 39defb79a6ef64b3b2d8829b3a0dbbcd74d4ec06
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 0c2caf21f2f8e062c13945eac8332a534512e0d7
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 8f45639f1978eebbc400421c5a7ede3612954be9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message dda939ec200dc7eab9512f5a93d76af758c8f432
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 91775fe09b3f1f6c653a0454bf26a7f360516795
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message ad1683c00ba3407a5d633c711b25cdcd851424c9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4eb5a980d0da9417f291bcceb468332221c5d196
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 721e86323e41fe6090b95ce3e26876e81e27b464
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4641ae3b4b6382947aad55d7bfd6605e6eabc429
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2638d219f1c480f98594df72c78c0b1298da60c5
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2b97b11b4e1d44bc176b88853f02a189a84d0a95
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 99a9f4d94b6efbeb9d2cfdb8db22e4801bd366f9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message bd8c581578de25a85b7e08f5ea1caae576d145db
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2623b70d92dbc1c33d15783749297435178244e6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 8a7c862e5e8c132b0d8318bf4dbfa18249164a5f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 9be61d6c5492f20b83bacc72b95ca632e3a822b9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 17ec824d227887d0b4f21e4f104ec54e97a6f0de
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message fd5dcf9b35d7f108493a89fcf33ff57b2c683481
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 869796bd659d5ba810979e428a311b9c3a2a2124
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 40e32c9c56d1a65c21bec81c5cab71235bc1d75c
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 43188208156df77ff9a8fc8b982649ab5b4c818a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 17c6c4b48964941ad203f40a6927189a528bbba3
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message f692dbf5fbbaf2f2e7d3ae9135a195442ccb5f4e
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message e3dd52e777fe16fb58e5bf7cff6e562f2c332673
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message e8087f6b990d13c4ccf69a1ae934050f1d14cb48
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 45dd9e3efdf7c4f4a332bf3df4eaffbc10db82b6
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 24d4a165b0e250f05b6c53db6747f95a28d28796
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+messages scanned: 48; commits in range: 48: yes
+
+## the other T2 close-out logs (a log cannot scan itself)
+log records/logs/t2-close/push.log (sha256 af2c605ae1b6014a18c54a46a8fa20799008b7fb063973e555365b95f714687c)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+log records/logs/t2-close/ci-run.log (sha256 dfcb3981f85876d58c53ed03a3dcf87bec8915700eedab0aabab18575f7090df)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+T2 close-out logs scanned: 2 (expected 2; scan.log cannot scan itself): yes
+
+## the pre-P6d forms over the range's files and the two logs
+The narrowed patterns are blind to a bare shape by design, so this scan's
+own zero hits cannot establish that no bare shape was pushed. The three
+pre-P6d forms are run here for that, with the control above.
+  pre-P6d forms in records/logs/t2-close/push.log: count=0
+  pre-P6d forms in records/logs/t2-close/ci-run.log: count=0
+  pre-P6d forms over all 48 files of the range: 0 hit(s), 0 error(s)
+bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
+
+total hits: 0
+read or counting errors: 0
+structural checks failed: 0
+run ended at 2026-09-16T14:13:20Z
+RESULT: PASS

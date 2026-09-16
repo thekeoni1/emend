@@ -1,0 +1,371 @@
+command: git rev-parse main
+about: T2 close-out CI run for pushed commit d1868a71d3f2a461182871a5ed4e8f791bbe93e1; HEAD at run: d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+phase: T2 close-out (specs/0005-corpus.md "Close-out push (after P7)") ci-run.log; run at 2026-09-16T14:11:11Z
+the commit given is main as git reports it: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 close-out ci-run.log (specs/0005-corpus.md "Close-out push (after P7)",
+    # step 5, following specs/0003-ci.md "Close-out push (after P2)").
+    #
+    # Records the CI run on the pushed commit: the run's identity, its status and
+    # conclusion, every job and step conclusion, and the repository's Actions
+    # settings. It waits for the run to finish, polling at a fixed interval, and
+    # says how long it waited.
+    #
+    # Usage: T2CLOSE_LIB=<lib> t2close-ci.sh <pushed sha> > <scratch file>
+    # The caller moves the output to records/logs/t2-close/ci-run.log.
+    #
+    # Every commit id this log reports is read from git at run time by a command
+    # the log prints, or is the argument given by the caller, which is checked
+    # against git. Every count goes through the shared counting library, which
+    # reads exit statuses and reports "error" rather than a number when it cannot
+    # read; its controls run before any of them is used.
+    # No token or authentication output is captured: gh reads its own credentials.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    SHA=${1:?the pushed commit is required}
+    LIB=${T2CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    REPO=thekeoni1/emend
+    INTERVAL=30
+    MAX=90
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    
+    show() { echo "$1:"; sed 's/^/    /' "$2"; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # jfield <json file> <python expression over d>: one value from the JSON, or
+    # nothing if it cannot be read.
+    jfield() {
+      python3 -c '
+    import json, sys
+    d = json.load(open(sys.argv[1]))
+    print('"$2"')
+    ' "$1" 2>/dev/null
+    }
+    
+    echo "command: git rev-parse main"
+    echo "about: T2 close-out CI run for pushed commit $SHA; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: T2 close-out (specs/0005-corpus.md \"Close-out push (after P7)\") ci-run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    check "the commit given is main as git reports it" "$(yn [ "$SHA" = "$(git rev-parse main)" ])"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    check "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## waiting for the run on $SHA to complete"
+    echo "polled every $INTERVAL seconds, at most $MAX times"
+    waited=0
+    ID=""
+    while [ "$waited" -lt "$MAX" ]; do
+      if gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" \
+          --json databaseId,status,conclusion > "$T/runs.json" 2>"$T/runs.err" </dev/null; then
+        ID=$(jfield "$T/runs.json" 'd[0]["databaseId"] if d else ""')
+        ST=$(jfield "$T/runs.json" 'd[0]["status"] if d else ""')
+        if [ -n "$ID" ] && [ "$ST" = completed ]; then
+          echo "  run $ID is completed after $((waited * INTERVAL)) second(s) of polling"
+          break
+        fi
+        echo "  poll $((waited + 1)): run ${ID:-none yet}, status ${ST:-none}"
+      else
+        echo "  poll $((waited + 1)): gh run list failed"
+      fi
+      waited=$((waited + 1))
+      sleep "$INTERVAL"
+    done
+    check "a completed run was found for $SHA" "$(yn [ -n "$ID" ])"
+    
+    echo
+    echo "## the run"
+    echo "command: gh run list --repo $REPO --workflow ci.yml --commit $SHA"
+    gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" \
+      --json databaseId,workflowName,headBranch,event,status,conclusion \
+      --jq '.[] | "\(.databaseId) \(.workflowName) \(.headBranch) \(.event) \(.status) \(.conclusion)"' \
+      > "$T/list" 2>"$T/listerr" </dev/null
+    show output "$T/list"
+    n=$(count_lines "$T/list")
+    check "exactly one ci.yml run on this commit: $n" "$(yn [ "$n" = 1 ])"
+    
+    echo "command: gh run view $ID --json headSha,headBranch,event,status,conclusion,workflowName,jobs"
+    gh run view "$ID" --repo "$REPO" \
+      --json headSha,headBranch,event,status,conclusion,workflowName,jobs > "$T/view.json" 2>"$T/viewerr" </dev/null
+    rc=$?
+    check "gh run view exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    python3 -c '
+    import json, sys
+    d = json.load(open(sys.argv[1]))
+    print("workflow %s; head %s; branch %s; event %s" % (d["workflowName"], d["headSha"], d["headBranch"], d["event"]))
+    print("status %s; conclusion %s" % (d["status"], d["conclusion"]))
+    for j in d["jobs"]:
+        print("job %s: status %s; conclusion %s" % (j["name"], j["status"], j["conclusion"]))
+        for s in j["steps"]:
+            print("  step %s %s: status %s; conclusion %s" % (s["number"], s["name"], s["status"], s["conclusion"]))
+    ' "$T/view.json" 2>/dev/null | sed 's/^/    /'
+    v=$(jfield "$T/view.json" '"%s %s %s %s" % (d["headSha"], d["headBranch"], d["event"], d["conclusion"])')
+    check "head, branch, event and conclusion: $v (expect $SHA main push success)" "$(yn [ "$v" = "$SHA main push success" ])"
+    v=$(jfield "$T/view.json" 'sum(1 for j in d["jobs"] for s in j["steps"] if s["conclusion"] not in ("success", "skipped"))')
+    check "steps with a conclusion other than success or skipped: $v (expect 0)" "$(yn [ "$v" = 0 ])"
+    
+    echo
+    echo "## the runner and the job labels"
+    echo "command: gh api repos/$REPO/actions/runs/$ID/jobs"
+    gh api "repos/$REPO/actions/runs/$ID/jobs" \
+      --jq '.jobs[] | "job \(.name): labels \(.labels | join(",")); runner \(.runner_name // "none"); conclusion \(.conclusion)"' \
+      > "$T/jobs" 2>"$T/joberr" </dev/null
+    show output "$T/jobs"
+    
+    echo
+    echo "## Actions settings, unchanged since T0b"
+    for ep in "actions/permissions" "actions/permissions/selected-actions"; do
+      echo "command: gh api repos/$REPO/$ep"
+      gh api "repos/$REPO/$ep" > "$T/perm" 2>"$T/permerr" </dev/null && show output "$T/perm" || show error "$T/permerr"
+    done
+    
+    echo
+    echo "## the log of the run, filtered as in P1"
+    echo "command: gh run view $ID --log  (filtered: the PASS and SKIP lines and the rustc version)"
+    gh run view "$ID" --repo "$REPO" --log > "$T/log" 2>"$T/logerr" </dev/null
+    rc=$?
+    echo "  gh run view --log exit: $rc; bytes $(count_bytes '\000-\377' "$T/log")"
+    if [ "$rc" -eq 0 ]; then
+      LC_ALL=C "$G" -a -E '(PASS|SKIP) [a-z]|rustc [0-9]' "$T/log" | sed 's/^/    /' | head -40
+      # counted_some <count>: the count is a real number and is not zero. A named
+      # function, because $(yn [ ... ] && [ ... ]) captures only the first test and
+      # specs/0001 forbids it. I wrote that form here after auditing three other
+      # scripts for it in this same session.
+      counted_some() { [ "$1" != error ] && [ "$1" != 0 ]; }
+      n=$(count_matches -E '^.*PASS host' "$T/log")
+      check "the run's log holds a PASS host line: $n" "$(yn counted_some "$n")"
+      n=$(count_matches -E 'SKIP privacy' "$T/log")
+      check "the run skipped the privacy step, as CI mode requires: $n" "$(yn counted_some "$n")"
+    else
+      echo "  the run log could not be fetched; the conclusion above is from the API"
+    fi
+    
+    echo
+    echo "## this log's own output"
+    ALL=()
+    for f in "$T/list" "$T/jobs" "$T/view.json"; do [ -e "$f" ] && ALL+=("$f"); done
+    echo "  files counted (${#ALL[@]}): $(printf '%s ' "${ALL[@]##*/}")"
+    captured_clean() {
+      [ "$(count_bytes "$CTRL_CLASS" "${ALL[@]}")" = 0 ] &&
+        [ "$(count_bytes "$NONASCII_CLASS" "${ALL[@]}")" = 0 ]
+    }
+    echo "  control bytes $(count_bytes "$CTRL_CLASS" "${ALL[@]}"), non-ASCII bytes $(count_bytes "$NONASCII_CLASS" "${ALL[@]}") (expect 0 and 0)"
+    check "no control or non-ASCII byte in the captured output" "$(yn captured_clean)"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "working tree clean (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "ci-run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # Shared counting forms, sourced by every log script of the T2 close-out.
+    # Copied unchanged from the T2 P7 library except for this header.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 I wrote four counting sites that compared a
+    # bare `grep -c` (or a `cat ... | tr ... | wc -c`) with 0 without reading the
+    # exit status, so a read error printed 0 and the check passed. Two independent
+    # checks found them, and twice I declared the class closed after repairing one
+    # instance. Planning's remedy for T2 P7 is that every counting form, including
+    # a throwaway one, is a named function that reads the exit and has a positive
+    # control, from the start. These are those functions.
+    #
+    # WHAT THIS LIBRARY DOES NOT COVER. This comment has been wrong twice. It first
+    # claimed no log script counted any other way (check 1 disproved it); it then
+    # claimed every ASSERTED site went through the library and listed exceptions
+    # that omitted two asserted sites (check 2 disproved that). The list below is
+    # the third attempt and is stated as what I believe rather than as a guarantee.
+    #
+    # Sites NOT using these functions, every one I can find, asserted or not:
+    #   - gate.log and positive.log: `git show ... | wc -c` byte counts, printed
+    #     beside a sha256, informational.
+    #   - scan.log: `git diff --name-only ... | wc -l`, informational, and
+    #     fail-closed because files_complete requires a count above zero.
+    #   - scan.log's f_email: counts with `grep -o` piped to awk, but reads grep's
+    #     exit status itself and returns "error" on 2 or more.
+    # Everything that feeds an assertion goes through the functions above. If that
+    # is wrong again, the fault is this comment, not the functions.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## waiting for the run on d1868a71d3f2a461182871a5ed4e8f791bbe93e1 to complete
+polled every 30 seconds, at most 90 times
+  run 35106637754 is completed after 0 second(s) of polling
+a completed run was found for d1868a71d3f2a461182871a5ed4e8f791bbe93e1: yes
+
+## the run
+command: gh run list --repo thekeoni1/emend --workflow ci.yml --commit d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+output:
+    35106637754 ci main push completed success
+exactly one ci.yml run on this commit: 1: yes
+command: gh run view 35106637754 --json headSha,headBranch,event,status,conclusion,workflowName,jobs
+gh run view exit is 0: yes
+    workflow ci; head d1868a71d3f2a461182871a5ed4e8f791bbe93e1; branch main; event push
+    status completed; conclusion success
+    job check: status completed; conclusion success
+      step 1 Set up job: status completed; conclusion success
+      step 2 Check out: status completed; conclusion success
+      step 3 Install the pinned toolchain: status completed; conclusion success
+      step 4 Gate in CI mode: status completed; conclusion success
+      step 8 Post Check out: status completed; conclusion success
+      step 9 Complete job: status completed; conclusion success
+head, branch, event and conclusion: d1868a71d3f2a461182871a5ed4e8f791bbe93e1 main push success (expect d1868a71d3f2a461182871a5ed4e8f791bbe93e1 main push success): yes
+steps with a conclusion other than success or skipped: 0 (expect 0): yes
+
+## the runner and the job labels
+command: gh api repos/thekeoni1/emend/actions/runs/35106637754/jobs
+output:
+    job check: labels ubuntu-24.04; runner GitHub Actions 1000000341; conclusion success
+
+## Actions settings, unchanged since T0b
+command: gh api repos/thekeoni1/emend/actions/permissions
+output:
+    {"enabled":true,"allowed_actions":"selected","selected_actions_url":"https://api.github.com/repositories/1370425646/actions/permissions/selected-actions","sha_pinning_required":true}command: gh api repos/thekeoni1/emend/actions/permissions/selected-actions
+output:
+    {"github_owned_allowed":true,"patterns_allowed":[],"verified_allowed":false}
+## the log of the run, filtered as in P1
+command: gh run view 35106637754 --log  (filtered: the PASS and SKIP lines and the rustc version)
+  gh run view --log exit: 0; bytes 19916
+    check	Install the pinned toolchain	2026-09-16T14:10:03.1873789Z   1.98.1-x86_64-unknown-linux-gnu installed - rustc 1.98.1 (48a229cea 2026-09-01)
+    check	Install the pinned toolchain	2026-09-16T14:10:03.2223275Z rustc 1.98.1 (48a229cea 2026-09-01)
+    check	Gate in CI mode	2026-09-16T14:10:17.9908189Z PASS host
+    check	Gate in CI mode	2026-09-16T14:10:33.4078005Z PASS i686
+    check	Gate in CI mode	2026-09-16T14:10:33.5237880Z PASS fmt
+    check	Gate in CI mode	2026-09-16T14:10:36.9494485Z PASS clippy
+    check	Gate in CI mode	2026-09-16T14:10:37.0487148Z PASS native (allowlisted -sys: none)
+    check	Gate in CI mode	2026-09-16T14:10:37.0991104Z PASS licences
+    check	Gate in CI mode	2026-09-16T14:10:37.1624536Z PASS hygiene
+    check	Gate in CI mode	2026-09-16T14:10:37.1634876Z SKIP privacy: --ci (the private denylist never leaves the maintainer's machine)
+the run's log holds a PASS host line: 1: yes
+the run skipped the privacy step, as CI mode requires: 1: yes
+
+## this log's own output
+  files counted (3): list jobs view.json 
+  control bytes 0, non-ASCII bytes 0 (expect 0 and 0)
+no control or non-ASCII byte in the captured output: yes
+working tree clean (expect empty): : yes
+run ended at 2026-09-16T14:11:18Z
+ci-run log checks all as expected: yes
