@@ -1,0 +1,475 @@
+about: T2 P7 phase commit 8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
+phase: T2 P7 (specs/0005-corpus.md) positive.log; run at 2026-09-16T13:24:03Z
+This log reads the real corpus. The corpus directory is written as
+<corpus> everywhere; no original name, note, producer version or
+application string is printed, and no stem is ever echoed, only counted.
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 P7 positive.log: the real-corpus coverage run and the committed record's
+    # derivation from it (planning's ruling of 2026-09-16, option (a)).
+    #
+    # This is the one log of the phase that reads the REAL corpus. It runs
+    # scripts/corpus-coverage.py --verify over it, prints the exact command with
+    # the corpus directory written as <corpus>, the exit status and the whole of
+    # stdout, and then shows that the committed record's body is byte for byte
+    # that stdout. Because the record is derived from private files, this log also
+    # asserts, with the counting forms, that the record holds no original_name
+    # stem, note, producer_version or app string from the manifest, and no corpus
+    # path. A stem is never printed: only counts are.
+    #
+    # Usage: T2P7_LIB=<lib> t2p7-positive.sh <phase commit> > <scratch file>
+    # The caller moves the output to records/logs/t2-p7/positive.log. Each check is
+    # evaluated once; a check with more than one condition is evaluated inside one
+    # named function. Every counting form comes from t2p7-lib.sh, reads the exit
+    # status, and has a positive control.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    LIB=${T2P7_LIB:?the path to t2p7-lib.sh is required}
+    . "$LIB"
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    MANIFEST=$CORPUS/manifest.tsv
+    RECORD=records/corpus-coverage-2026-09-16.md
+    SCRIPT=scripts/corpus-coverage.py
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    hide() {
+      local line
+      while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "${line//"$CORPUS"/<corpus>}"
+      done
+    }
+    # body_is_stdout <record> <stdout file> <extracted body file>: the record's
+    # fenced body is byte for byte the run's stdout. Extraction and comparison in
+    # one function so neither half is dropped.
+    body_is_stdout() {
+      awk '/^```$/ { n++; next } n == 1 { print }' "$1" >"$3" || return 1
+      cmp -s "$3" "$2"
+    }
+    # record_header_only <record>: around the body the record adds the commit, the
+    # date, the script's sha256, the command and the --verify note, and nothing
+    # else that could carry private text. Counted as lines outside the fence that
+    # are not blank, not the title, not prose about the corpus.
+    record_extras() {
+      awk '/^```$/ { n++; next } n != 1 { print }' "$1"
+    }
+    
+    echo "about: T2 P7 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)"
+    echo "phase: T2 P7 (specs/0005-corpus.md) positive.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "This log reads the real corpus. The corpus directory is written as"
+    echo "<corpus> everywhere; no original name, note, producer version or"
+    echo "application string is printed, and no stem is ever echoed, only counted."
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    check "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## the corpus as it stands"
+    echo "corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else \$HOME/emend-testing)"
+    echo "manifest rows (excluding the header): $(awk -F'\t' 'NR > 1 && NF == 12' "$MANIFEST" | wc -l)"
+    echo "corpus files present: $(ls -1 "$CORPUS/corpus" | wc -l)"
+    echo "$SCRIPT at $C: sha256 $(git show "$C:$SCRIPT" | sha), bytes $(git show "$C:$SCRIPT" | wc -c)"
+    echo "$SCRIPT on disk: sha256 $(sha <"$SCRIPT")"
+    check "the script on disk is the script at the phase commit" \
+      "$(yn [ "$(sha <"$SCRIPT")" = "$(git show "$C:$SCRIPT" | sha)" ])"
+    
+    echo
+    echo "## the run"
+    echo "command: scripts/corpus-coverage.py --verify        (EMEND_CORPUS_DIR=<corpus>)"
+    ./"$SCRIPT" --verify >"$T/stdout" 2>"$T/stderr"
+    rc=$?
+    echo "exit: $rc"
+    echo "stderr bytes: $(wc -c <"$T/stderr")"
+    check "the run exits 0" "$(yn [ "$rc" -eq 0 ])"
+    check "the run writes nothing to stderr" "$(yn [ "$(wc -c <"$T/stderr")" -eq 0 ])"
+    echo "stdout, in full ($(count_lines "$T/stdout") lines):"
+    hide <"$T/stdout" | sed 's/^/    /'
+    echo "  (--verify recomputed every file's size and sha256 against the manifest,"
+    echo "  so exit 0 means the corpus matches its manifest, not merely that the"
+    echo "  manifest parses)"
+    
+    echo
+    echo "## the committed record, and that its body is this run's stdout"
+    echo "$RECORD as committed at $C: sha256 $(git show "$C:$RECORD" | sha), bytes $(git show "$C:$RECORD" | wc -c)"
+    echo "$RECORD on disk: sha256 $(sha <"$RECORD"), bytes $(wc -c <"$RECORD")"
+    check "the record on disk is the record at the phase commit" \
+      "$(yn [ "$(sha <"$RECORD")" = "$(git show "$C:$RECORD" | sha)" ])"
+    check "the record's fenced body is byte for byte this run's stdout" \
+      "$(yn body_is_stdout "$RECORD" "$T/stdout" "$T/body")"
+    echo "what the record adds around the body, in full:"
+    record_extras "$RECORD" | sed 's/^/    /'
+    echo "  (a title, a sentence naming the script and the privacy rule, the commit,"
+    echo "  the date, the script's sha256, the command and the --verify note)"
+    
+    echo
+    echo "## the record carries nothing private"
+    echo "Each count below is over the committed record. A stem, note or version is"
+    echo "never printed: the manifest's own values are written to a pattern file in"
+    echo "<scratch> and grep reads them with -f, so only counts reach this log."
+    awk -F'\t' 'NR > 1 && NF == 12 { print $11 }' "$MANIFEST" | sed 's/[.][^.]*$//' | sort -u >"$T/stems"
+    awk -F'\t' 'NR > 1 && NF == 12 && $12 != "" { print $12 }' "$MANIFEST" | sort -u >"$T/notes"
+    awk -F'\t' 'NR > 1 && NF == 12 && $6 != "" { print $6 }' "$MANIFEST" | sort -u >"$T/versions"
+    awk -F'\t' 'NR > 1 && NF == 12 && $7 != "" && $7 != "none" { print $7 }' "$MANIFEST" | sort -u >"$T/apps"
+    echo "patterns read from the manifest: $(count_lines "$T/stems") stem(s), $(count_lines "$T/notes") note(s), $(count_lines "$T/versions") version(s), $(count_lines "$T/apps") app string(s)"
+    for pair in "original_name stems:$T/stems" "notes:$T/notes" "producer_version values:$T/versions" "app strings:$T/apps"; do
+      label=${pair%%:*}; file=${pair#*:}
+      if [ "$(count_lines "$file")" = 0 ]; then
+        echo "  $label in the record: no patterns to test (the manifest holds none)"
+        continue
+      fi
+      n=$(count_from_file -F "$file" "$RECORD")
+      echo "  $label in the record: $n (expect 0)"
+      check "the record holds no $label" "$(yn [ "$n" = 0 ])"
+    done
+    # The same forms must be able to report a hit, or the zeros above prove nothing.
+    cp "$RECORD" "$T/salted"
+    head -n 1 "$T/stems" >>"$T/salted"
+    n=$(count_from_file -F "$T/stems" "$T/salted")
+    echo "  control: the same form over a copy of the record with one stem appended: $n (expect 1)"
+    check "the stem check can report a hit" "$(yn [ "$n" = 1 ])"
+    n=$(count_matches -E 'emend-testing|/home/|/Users/|/root/' "$RECORD")
+    echo "  corpus or home paths in the record: $n (expect 0)"
+    check "the record names no corpus or home path" "$(yn [ "$n" = 0 ])"
+    printf 'x %s y\n' "$CORPUS" >"$T/path-ctl"
+    n=$(count_matches -E 'emend-testing|/home/|/Users/|/root/' "$T/path-ctl")
+    echo "  control: the same form over a file holding the corpus path: $n (expect 1)"
+    check "the path check can report a hit" "$(yn [ "$n" = 1 ])"
+    
+    echo
+    echo "## the record against the T3 P4 baseline"
+    echo "The same corpus was run by T3 P4. The ids and byte counts must agree."
+    BASE=records/step0-2026-09-16-39defb7.txt
+    BLANK=$(awk '/^$/ { print NR; exit }' "$BASE")
+    awk '/^[0-9a-f]{12} /{ print $1, $3 }' "$T/stdout" | sort >"$T/p7-bytes"
+    awk -F'\t' -v stop="$BLANK" 'NR > 1 && NR < stop && $2 == "host" { print $1, $10 }' "$BASE" | sort >"$T/p4-bytes"
+    echo "  coverage id+bytes pairs: $(count_lines "$T/p7-bytes"); baseline host pairs: $(count_lines "$T/p4-bytes")"
+    check "every id and byte count agrees with the T3 P4 baseline" "$(yn cmp -s "$T/p7-bytes" "$T/p4-bytes")"
+    sed '1s/ [0-9]*$/ 999999/' "$T/p7-bytes" >"$T/p7-mutated"
+    # differs <a> <b>: the two files are NOT identical. A named function, because
+    # `yn ! cmp ...` passes the shell keyword `!` to a function that runs "$@",
+    # and bash then looks for a command called `!` and fails. That is the same
+    # shape as `is LC_ALL=C grep ...`, which has bitten this project before.
+    differs() { ! cmp -s "$1" "$2"; }
+    check "control: the same comparison fails when one byte count is altered" "$(yn differs "$T/p7-mutated" "$T/p4-bytes")"
+    echo "  (the baseline's column 10 is in_bytes in the summary block and"
+    echo "  uncompressed_in in the entries block, so the comparison is restricted to"
+    echo "  the summary block above the blank separator at line $BLANK)"
+    
+    echo
+    echo "## coverage, and the gaps that go to planning"
+    LC_ALL=C "$G" -a -E '^(files|uncovered|single-producer) ' "$T/stdout" | sed 's/^/    /'
+    echo "  macros is the only uncovered tag and is the maintainer's P6 item."
+    echo "  The seven single-producer tags are listed for planning's ruling; closing"
+    echo "  them needs workbooks this phase does not add."
+    
+    echo
+    echo "## this log's own output"
+    for f in "$T/stdout" "$T/stderr"; do
+      echo "  $(basename "$f"): $(count_bytes "$CTRL_CLASS" "$f") control byte(s), $(count_bytes "$NONASCII_CLASS" "$f") non-ASCII byte(s) (expect 0 and 0)"
+    done
+    clean_capture() {
+      local f
+      for f in "$T/stdout" "$T/stderr"; do
+        [ "$(count_bytes "$CTRL_CLASS" "$f")" = 0 ] && [ "$(count_bytes "$NONASCII_CLASS" "$f")" = 0 ] || return 1
+      done
+    }
+    check "no control or non-ASCII byte in the captured output" "$(yn clean_capture)"
+    n=$(count_matches -F "$CORPUS" "$T/stdout")
+    echo "  lines naming the corpus path in the run's stdout: $n (expect 0)"
+    check "the run's stdout names no corpus path" "$(yn [ "$n" = 0 ])"
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "positive log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # T2 P7 shared counting forms, sourced by every log script of this phase.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 I wrote four counting sites that compared a
+    # bare `grep -c` (or a `cat ... | tr ... | wc -c`) with 0 without reading the
+    # exit status, so a read error printed 0 and the check passed. Two independent
+    # checks found them, and twice I declared the class closed after repairing one
+    # instance. Planning's remedy for T2 P7 is that every counting form, including
+    # a throwaway one, is a named function that reads the exit and has a positive
+    # control, from the start. These are those functions; no log script in this
+    # phase counts any other way.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## the corpus as it stands
+corpus directory: <corpus> (from EMEND_CORPUS_DIR if set, else $HOME/emend-testing)
+manifest rows (excluding the header): 27
+corpus files present: 27
+scripts/corpus-coverage.py at 8f5553c9f8934601694ef0ebe29db6564d14a009: sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70, bytes 6329
+scripts/corpus-coverage.py on disk: sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70
+the script on disk is the script at the phase commit: yes
+
+## the run
+command: scripts/corpus-coverage.py --verify        (EMEND_CORPUS_DIR=<corpus>)
+exit: 0
+stderr bytes: 0
+the run exits 0: yes
+the run writes nothing to stderr: yes
+stdout, in full (53 lines):
+    files 27
+    d8245b84086f xlsx 16710 libreoffice libreoffice-export plain,strings,formulas,names,merge,autofilter,freeze
+    f56906d42e0a xlsx 15789 libreoffice libreoffice-export plain,strings,merge,validation,hyperlinks,comments
+    0fbf4e5e3be9 xlsx 17407 libreoffice libreoffice-export plain,strings,formulas,cf,charts
+    bdfe649d5b97 xlsx 30622 libreoffice libreoffice-export plain,strings,merge,images
+    ae7e17525a35 xlsx 10783 libreoffice libreoffice-export plain,strings,formulas,names,protection
+    63e820d98612 xlsx 11722 libreoffice libreoffice-export plain,strings,formulas,freeze,date1904
+    054df34b1472 xlsx 38257 libreoffice libreoffice-export plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,charts,comments,images,protection
+    9132ce5303d8 xlsx 8283997 libreoffice libreoffice-export plain,strings,formulas,large
+    ed2fbd304d51 xltx 15792 libreoffice libreoffice-export plain,strings,merge,validation,hyperlinks,comments
+    80adab651c77 xlsx 17140 libreoffice libreoffice-export plain,strings,formulas,names,merge,autofilter,freeze
+    9ada43d71c80 xlsx 16190 libreoffice libreoffice-export plain,strings,merge,validation,hyperlinks,comments
+    885819a9642e xlsx 17853 libreoffice libreoffice-export plain,strings,formulas,cf,charts
+    f2ba081da509 xlsx 31035 libreoffice libreoffice-export plain,strings,merge,images
+    16c3be622455 xlsx 11116 libreoffice libreoffice-export plain,strings,formulas,names,protection
+    a72460f992a8 xlsx 12069 libreoffice libreoffice-export plain,strings,formulas,freeze,date1904
+    f8459281d739 xlsx 38699 libreoffice libreoffice-export plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,charts,comments,images,protection
+    ab0e6a529465 xlsx 8284163 libreoffice libreoffice-export plain,strings,formulas,large
+    f9efcac9808f xlsx 68407 excel-win ms-template plain,strings,formulas,names,merge,validation,autofilter,cf,tables,charts,pivots,slicers,timelines,sparklines
+    8aaebea134fb xlsx 149135 excel-win ms-template plain,strings,formulas,names,merge,validation,hyperlinks,tables,charts,pivots,external,sparklines
+    6778a242d1f9 xlsx 41906 excel-win ms-template plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,cf,tables,charts,slicers,images
+    75387404b8af xlsx 82449 excel-win ms-template plain,strings,formulas,names,merge,validation,autofilter,cf,tables,pivots,comments,images
+    40d747fb5d9e xlsx 23197 excel-win ms-template plain,strings,formulas,names,merge,validation,autofilter,freeze,cf,tables
+    3084c0591814 xlsx 46339 excel-win ms-template plain,strings,formulas,names,validation,cf,charts,sparklines,protection
+    f3a462783621 xlsx 97184 excel-win ms-template plain,strings,formulas,names,merge,validation,autofilter,cf,tables,charts,images
+    ed4c55f07c69 xlsx 21395 excel-win ms-template plain,strings,names,merge,validation,hyperlinks,freeze,tables
+    7935c5119065 xlsx 224149 excel-win ms-template plain,strings,formulas,names,merge,validation,cf,tables,charts,pivots,images,external
+    18d1e8ba72b5 xlsx 70123 excel-win ms-template plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,tables,charts,sparklines
+    tag plain 27 excel-win,libreoffice
+    tag strings 27 excel-win,libreoffice
+    tag formulas 21 excel-win,libreoffice
+    tag names 16 excel-win,libreoffice
+    tag merge 18 excel-win,libreoffice
+    tag validation 15 excel-win,libreoffice
+    tag hyperlinks 9 excel-win,libreoffice
+    tag autofilter 10 excel-win,libreoffice
+    tag freeze 8 excel-win,libreoffice
+    tag cf 11 excel-win,libreoffice
+    tag tables 11 excel-win,libreoffice
+    tag charts 11 excel-win,libreoffice
+    tag pivots 4 excel-win
+    tag slicers 2 excel-win
+    tag timelines 1 excel-win
+    tag macros 0 -
+    tag comments 6 excel-win,libreoffice
+    tag images 8 excel-win,libreoffice
+    tag external 2 excel-win
+    tag sparklines 4 excel-win
+    tag protection 5 excel-win,libreoffice
+    tag date1904 2 libreoffice
+    tag large 2 libreoffice
+    uncovered 1: macros
+    single-producer 7: pivots,slicers,timelines,external,sparklines,date1904,large
+  (--verify recomputed every file's size and sha256 against the manifest,
+  so exit 0 means the corpus matches its manifest, not merely that the
+  manifest parses)
+
+## the committed record, and that its body is this run's stdout
+records/corpus-coverage-2026-09-16.md as committed at 8f5553c9f8934601694ef0ebe29db6564d14a009: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+records/corpus-coverage-2026-09-16.md on disk: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+the record on disk is the record at the phase commit: yes
+the record's fenced body is byte for byte this run's stdout: yes
+what the record adds around the body, in full:
+    # emend corpus coverage, 2026-09-16
+    
+    Written by `scripts/corpus-coverage.py --verify` over the private corpus
+    (T2 P7, `specs/0005-corpus.md`). The corpus itself is never committed; this
+    record holds only ids, extensions, byte counts, producers, sources, tags and
+    counts, which is the whole of the script stdout reproduced below.
+    
+    - Commit: 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
+    - Date: 2026-09-16
+    - Script: `scripts/corpus-coverage.py`, sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70
+    - Command: `scripts/corpus-coverage.py --verify`, exit 0, no stderr
+    - `--verify` recomputed every file size and sha256 against the manifest.
+    
+    ---
+    
+  (a title, a sentence naming the script and the privacy rule, the commit,
+  the date, the script's sha256, the command and the --verify note)
+
+## the record carries nothing private
+Each count below is over the committed record. A stem, note or version is
+never printed: the manifest's own values are written to a pattern file in
+<scratch> and grep reads them with -f, so only counts reach this log.
+patterns read from the manifest: 18 stem(s), 27 note(s), 2 version(s), 2 app string(s)
+  original_name stems in the record: 0 (expect 0)
+the record holds no original_name stems: yes
+  notes in the record: 0 (expect 0)
+the record holds no notes: yes
+  producer_version values in the record: 0 (expect 0)
+the record holds no producer_version values: yes
+  app strings in the record: 0 (expect 0)
+the record holds no app strings: yes
+  control: the same form over a copy of the record with one stem appended: 1 (expect 1)
+the stem check can report a hit: yes
+  corpus or home paths in the record: 0 (expect 0)
+the record names no corpus or home path: yes
+  control: the same form over a file holding the corpus path: 1 (expect 1)
+the path check can report a hit: yes
+
+## the record against the T3 P4 baseline
+The same corpus was run by T3 P4. The ids and byte counts must agree.
+  coverage id+bytes pairs: 27; baseline host pairs: 27
+every id and byte count agrees with the T3 P4 baseline: yes
+control: the same comparison fails when one byte count is altered: yes
+  (the baseline's column 10 is in_bytes in the summary block and
+  uncompressed_in in the entries block, so the comparison is restricted to
+  the summary block above the blank separator at line 56)
+
+## coverage, and the gaps that go to planning
+    files 27
+    uncovered 1: macros
+    single-producer 7: pivots,slicers,timelines,external,sparklines,date1904,large
+  macros is the only uncovered tag and is the maintainer's P6 item.
+  The seven single-producer tags are listed for planning's ruling; closing
+  them needs workbooks this phase does not add.
+
+## this log's own output
+  stdout: 0 control byte(s), 0 non-ASCII byte(s) (expect 0 and 0)
+  stderr: 0 control byte(s), 0 non-ASCII byte(s) (expect 0 and 0)
+no control or non-ASCII byte in the captured output: yes
+  lines naming the corpus path in the run's stdout: 0 (expect 0)
+the run's stdout names no corpus path: yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-16T13:24:04Z
+positive log checks all as expected: yes

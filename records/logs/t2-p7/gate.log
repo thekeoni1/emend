@@ -1,0 +1,398 @@
+about: T2 P7 phase commit 8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
+phase: T2 P7 (specs/0005-corpus.md) gate.log; run at 2026-09-16T13:21:45Z
+command: git rev-parse 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
+commit before the phase: 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6
+working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
+ANTHROPIC_API_KEY set in this shell: no
+EMEND_CORPUS_DIR set: no; the corpus directory prints as <corpus dir>
+private denylist: present, mode 600 (never printed)
+DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 P7 gate log: the phase's commits, the changed files, the P7 changes present
+    # in both scripts, the gate files unchanged, and a full run of all eight
+    # check.sh steps on a cold cache.
+    # Usage: t2p7-gate.sh <phase commit> [<stopped-run note>] > <gate log scratch file>
+    # The caller moves the file into records/logs/t2-p7/ afterwards, so nothing is
+    # written in the working tree while this runs. Each check is evaluated once and
+    # that single result is printed; a check with more than one condition is
+    # evaluated inside one named function. Every counting form comes from
+    # t2p7-lib.sh, reads the exit status, and has a positive control: see the
+    # counting controls section below.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    STOPPED=${2:-}
+    ROOT=$(pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    # This box stopped two T0 P6d gate runs for low memory, so cargo is capped.
+    export CARGO_BUILD_JOBS=4
+    unset EMEND_PRIVATE_DENYLIST
+    LIB=${T2P7_LIB:?the path to t2p7-lib.sh is required}
+    . "$LIB"
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    # The commit before the phase is resolved from git, not typed: specs/0001's
+    # rule (added in this phase's own doc commit) is that every commit id in a log
+    # is read from git at run time by a command the log prints. The doc commit is
+    # named by the tip of the phase's first commit, found by its subject, so no
+    # 40-character id is typed anywhere in this script.
+    BEFORE=$(git rev-parse "$(git log --format='%H' --grep='^T2 P7: commit planning doc updates' -n 1)") ||
+      { echo "cannot resolve the phase's doc commit" >&2; exit 2; }
+    [ -n "$BEFORE" ] || { echo "the phase's doc commit was not found" >&2; exit 2; }
+    RECORD=records/corpus-coverage-2026-09-16.md
+    CHANGED=(scripts/corpus-add.py scripts/corpus-coverage.py "$RECORD")
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha() { sha256sum | cut -c1-64; }
+    # staged_order <script>: the ruled order is present as code, all four steps in
+    # one function so no condition is dropped.
+    staged_order() {
+      local f=$1
+      LC_ALL=C "$G" -a -q -F -e 'tmp = os.path.join(dest_dir, f".{fid}.{ext}.corpus-add.tmp")' "$f" &&
+        LC_ALL=C "$G" -a -q -F -e 'shutil.copyfile(src, tmp)' "$f" &&
+        LC_ALL=C "$G" -a -q -F -e 'os.replace(tmp, dest)' "$f" &&
+        LC_ALL=C "$G" -a -q -F -e 'os.unlink(tmp)' "$f"
+    }
+    # copy_is_staged <script>: the script no longer copies straight to the final
+    # name. The old form was shutil.copyfile(src, dest).
+    copy_is_staged() {
+      local n
+      n=$(count_matches -F 'shutil.copyfile(src, dest)' "$1")
+      [ "$n" = 0 ]
+    }
+    # docstring_narrowed <script>: the line-number claim names the per-row failures
+    # and lists the ones that carry no line.
+    docstring_narrowed() {
+      local f=$1
+      LC_ALL=C "$G" -a -q -F -e 'A failure found while checking a' "$f" &&
+        LC_ALL=C "$G" -a -q -F -e 'do not, because there is no row to name' "$f"
+    }
+    # record_shape <record>: the committed record carries the header planning ruled
+    # and nothing else around the body.
+    record_shape() {
+      local f=$1
+      LC_ALL=C "$G" -a -q -E '^- Commit: [0-9a-f]{40}$' "$f" &&
+        LC_ALL=C "$G" -a -q -E '^- Date: [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$f" &&
+        LC_ALL=C "$G" -a -q -E '^- Script: `scripts/corpus-coverage\.py`, sha256 [0-9a-f]{64}$' "$f"
+    }
+    
+    echo "about: T2 P7 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)"
+    echo "phase: T2 P7 (specs/0005-corpus.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    if [ -n "$STOPPED" ]; then echo "earlier run stopped by the environment: $STOPPED"; fi
+    echo "command: git rev-parse $BEFORE"
+    echo "commit before the phase: $(git rev-parse "$BEFORE")"
+    echo "working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "EMEND_CORPUS_DIR set: $([ -n "${EMEND_CORPUS_DIR+set}" ] && echo yes || echo no); the corpus directory prints as <corpus dir>"
+    echo "private denylist: $([ -f "$DENY_FILE" ] && echo present || echo MISSING), mode $(stat -c %a "$DENY_FILE" 2>/dev/null) (never printed)"
+    echo "DEPARTURE: CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS (this box stopped two T0 P6d gate runs for low memory)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    check "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## commits of the phase"
+    echo "command: git log --format='%H parents=%P %s' $BEFORE..$C"
+    git log --format='%H parents=%P %s' "$BEFORE..$C" | sed 's/^/    /'
+    for c in $(git rev-list --reverse "$BEFORE..$C"); do
+      echo "command: git show --stat --format='%H %s' $c"
+      git show --stat --format='%H %s' "$c" | sed 's/^/    /'
+    done
+    
+    echo
+    echo "## the changed files at $C"
+    for f in "${CHANGED[@]}"; do
+      echo "$f: sha256 $(git show "$C:$f" | sha), bytes $(git show "$C:$f" | wc -c), git mode $(git ls-tree "$C" -- "$f" | cut -d' ' -f1)"
+    done
+    EXPECTED_PATHS="records/corpus-coverage-2026-09-16.md scripts/corpus-add.py scripts/corpus-coverage.py "
+    echo "phase diff paths: $(git diff --name-only "$BEFORE" "$C" | tr '\n' ' ')"
+    check "the phase diff touches exactly the two scripts and the coverage record" \
+      "$(yn [ "$(git diff --name-only "$BEFORE" "$C" | tr '\n' ' ')" = "$EXPECTED_PATHS" ])"
+    for f in scripts/corpus-add.py scripts/corpus-coverage.py; do
+      python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' \
+        "$f" "$T/compiled.pyc" >"$T/py.out" 2>&1
+      rc=$?
+      echo "command: py_compile $f -> exit $rc"
+      check "$f compiles" "$(yn [ "$rc" -eq 0 ])"
+    done
+    
+    echo
+    echo "## the P7 changes are in the scripts at $C"
+    check "corpus-add.py stages the copy, appends, renames and cleans up" "$(yn staged_order scripts/corpus-add.py)"
+    check "corpus-add.py no longer copies straight to the final name" "$(yn copy_is_staged scripts/corpus-add.py)"
+    check "corpus-coverage.py's line-number claim is narrowed to the per-row failures" "$(yn docstring_narrowed scripts/corpus-coverage.py)"
+    echo "  (the strings above prove the code is present; positive.log and negative.log run it)"
+    
+    echo
+    echo "## the committed coverage record"
+    echo "$RECORD: sha256 $(git show "$C:$RECORD" | sha), bytes $(git show "$C:$RECORD" | wc -c)"
+    check "the record carries the ruled header: commit, date and the script's sha256" "$(yn record_shape "$RECORD")"
+    n=$(count_matches -E 'emend-testing|/home/|/Users/|/root/' "$RECORD")
+    echo "lines naming a corpus or home path in the record: $n (expect 0)"
+    check "the record names no corpus or home path" "$(yn [ "$n" = 0 ])"
+    n=$(count_bytes "$NONASCII_CLASS" "$RECORD")
+    echo "non-ASCII bytes in the record: $n (expect 0)"
+    check "the record is ASCII" "$(yn [ "$n" = 0 ])"
+    
+    echo
+    echo "## gate files at $C"
+    for f in scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github/workflows/ci.yml Cargo.toml Cargo.lock; do
+      echo "$f on disk sha256 $(sha256sum "$f" | cut -d' ' -f1); at $C sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1)"
+    done
+    check "no gate file, Cargo file, crate or workflow changed in $BEFORE..$C" "$(yn git diff --quiet "$BEFORE" "$C" -- scripts/check.sh scripts/sys-allowlist.txt scripts/privacy.sh scripts/privacy-patterns.txt scripts/privacy-identity.txt scripts/install-hooks.sh .gitignore .github Cargo.toml Cargo.lock tools)"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    cargo clean 2>&1 | sed -e "s#$ROOT#<repo>#g" -e 's/^/    /'
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    (cd / && "$ROOT/scripts/check.sh") > "$T/out" 2> "$T/err"
+    rc=$?
+    echo "stdout:"
+    sed 's/^/    /' "$T/out"
+    echo "stderr bytes: $(wc -c < "$T/err")"
+    echo "exit: $rc"
+    check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    want="PASS host|PASS i686|PASS fmt|PASS clippy|PASS native (allowlisted -sys: none)|PASS licences|PASS hygiene|PASS privacy|"
+    got=$(tr '\n' '|' < "$T/out")
+    check "stdout is exactly the eight PASS lines in order" "$(yn [ "$got" = "$want" ])"
+    
+    echo
+    echo "## control characters in the captured output (tab, LF and CR allowed)"
+    for s in out err; do
+      n=$(count_bytes "$CTRL_CLASS" "$T/$s")
+      check "std$s control bytes: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    done
+    
+    echo
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    check "status after the run (expect empty): $STATUS" "$(yn [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # T2 P7 shared counting forms, sourced by every log script of this phase.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 I wrote four counting sites that compared a
+    # bare `grep -c` (or a `cat ... | tr ... | wc -c`) with 0 without reading the
+    # exit status, so a read error printed 0 and the check passed. Two independent
+    # checks found them, and twice I declared the class closed after repairing one
+    # instance. Planning's remedy for T2 P7 is that every counting form, including
+    # a throwaway one, is a named function that reads the exit and has a positive
+    # control, from the start. These are those functions; no log script in this
+    # phase counts any other way.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## commits of the phase
+command: git log --format='%H parents=%P %s' 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..8f5553c9f8934601694ef0ebe29db6564d14a009
+    8f5553c9f8934601694ef0ebe29db6564d14a009 parents=58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 T2 P7 record: corpus coverage over the real corpus, 27 workbooks
+    58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 parents=854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6 T2 P7: stage the corpus file before the manifest row; narrow a claim
+command: git show --stat --format='%H %s' 58063fbf20bc33bf4ea8cb11f7377f1e909e4df3
+    58063fbf20bc33bf4ea8cb11f7377f1e909e4df3 T2 P7: stage the corpus file before the manifest row; narrow a claim
+    
+     scripts/corpus-add.py      | 49 +++++++++++++++++++++++++++++++++++-----------
+     scripts/corpus-coverage.py | 11 ++++++++---
+     2 files changed, 46 insertions(+), 14 deletions(-)
+command: git show --stat --format='%H %s' 8f5553c9f8934601694ef0ebe29db6564d14a009
+    8f5553c9f8934601694ef0ebe29db6564d14a009 T2 P7 record: corpus coverage over the real corpus, 27 workbooks
+    
+     records/corpus-coverage-2026-09-16.md | 70 +++++++++++++++++++++++++++++++++++
+     1 file changed, 70 insertions(+)
+
+## the changed files at 8f5553c9f8934601694ef0ebe29db6564d14a009
+scripts/corpus-add.py: sha256 d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b948b8041bf23ace82b7, bytes 7894, git mode 100755
+scripts/corpus-coverage.py: sha256 2b8be58452a6d6e430f36db0c03cde0c979373ad23d6805dcb47a32ca989bc70, bytes 6329, git mode 100755
+records/corpus-coverage-2026-09-16.md: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615, git mode 100644
+phase diff paths: records/corpus-coverage-2026-09-16.md scripts/corpus-add.py scripts/corpus-coverage.py 
+the phase diff touches exactly the two scripts and the coverage record: yes
+command: py_compile scripts/corpus-add.py -> exit 0
+scripts/corpus-add.py compiles: yes
+command: py_compile scripts/corpus-coverage.py -> exit 0
+scripts/corpus-coverage.py compiles: yes
+
+## the P7 changes are in the scripts at 8f5553c9f8934601694ef0ebe29db6564d14a009
+corpus-add.py stages the copy, appends, renames and cleans up: yes
+corpus-add.py no longer copies straight to the final name: yes
+corpus-coverage.py's line-number claim is narrowed to the per-row failures: yes
+  (the strings above prove the code is present; positive.log and negative.log run it)
+
+## the committed coverage record
+records/corpus-coverage-2026-09-16.md: sha256 ae73fa477438eddfac5c7fb7875c7a4ab78a09e46561444821785e1b892807b7, bytes 4615
+the record carries the ruled header: commit, date and the script's sha256: yes
+lines naming a corpus or home path in the record: 0 (expect 0)
+the record names no corpus or home path: yes
+non-ASCII bytes in the record: 0 (expect 0)
+the record is ASCII: yes
+
+## gate files at 8f5553c9f8934601694ef0ebe29db6564d14a009
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb
+scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 8f5553c9f8934601694ef0ebe29db6564d14a009 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7
+no gate file, Cargo file, crate or workflow changed in 854dbaaf4f7e7d10835dcc9b0f3593ad7511baf6..8f5553c9f8934601694ef0ebe29db6564d14a009: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 3613 files, 696.2MiB total
+command: (cd / && <repo>/scripts/check.sh)
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr bytes: 0
+exit: 0
+exit is 0: yes
+stdout is exactly the eight PASS lines in order: yes
+
+## control characters in the captured output (tab, LF and CR allowed)
+stdout control bytes: 0 (expect 0): yes
+stderr control bytes: 0 (expect 0): yes
+
+status after the run (expect empty): : yes
+run ended at 2026-09-16T13:22:37Z
+gate log checks all as expected: yes

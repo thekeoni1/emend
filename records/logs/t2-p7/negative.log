@@ -1,0 +1,485 @@
+about: T2 P7 phase commit 8f5553c9f8934601694ef0ebe29db6564d14a009; HEAD at run: 8f5553c9f8934601694ef0ebe29db6564d14a009
+command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)
+phase: T2 P7 (specs/0005-corpus.md) negative.log; run at 2026-09-16T13:23:05Z
+Every corpus below is built under <scratch> and deleted on exit;
+EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read.
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # T2 P7 negative.log: the P1 follow-ups exercised, and the coverage script's
+    # refusals, in a scratch corpus built under <scratch>. The real corpus is never
+    # read: EMEND_CORPUS_DIR always names the scratch one.
+    #
+    #   cases:
+    #     N1  the staged order, the happy path: one corpus file, one manifest row,
+    #         no temporary left behind;
+    #     N2  the hazard the ruling is about: the manifest append is made to fail,
+    #         and no corpus file, no row and no temporary survive. Under the old
+    #         copy-then-append order this left a corpus file with no row;
+    #     N3  the rename-failure branch, PRESENT AND UNEXERCISED, with both
+    #         attempts to reach it recorded and why each stopped short;
+    #     N4  a producer_version that is not valid UTF-8 is refused, nothing added;
+    #     N5  a file name the file system gives as undecodable bytes is refused,
+    #         nothing added;
+    #     N6  the coverage script's per-row failures name a line number;
+    #     N7  the coverage script's non-row failures name no line number, which is
+    #         what the narrowed docstring now claims;
+    #     N8  a duplicate id is refused before anything is staged.
+    # Usage: T2P7_LIB=<lib> t2p7-negative.sh <phase commit> > <scratch file>
+    # Each check is evaluated once; a check with more than one condition is
+    # evaluated inside one named function. Every counting form comes from
+    # t2p7-lib.sh, reads the exit status, and has a positive control.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    C=${1:?phase commit required}
+    LIB=${T2P7_LIB:?the path to t2p7-lib.sh is required}
+    . "$LIB"
+    unset EMEND_CORPUS_DIR
+    BASE=$(mktemp -d)
+    trap 'rm -rf "$BASE"' EXIT
+    fail=0
+    ADD=scripts/corpus-add.py
+    COV=scripts/corpus-coverage.py
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    if [ -n "$(git status --porcelain)" ]; then echo "working tree not clean" >&2; exit 2; fi
+    
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    hide() {
+      local line
+      while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "${line//"$BASE"/<scratch>}"
+      done
+    }
+    # state <corpus>: files, rows and temporaries, as one string, so a case asserts
+    # all three together and none is dropped.
+    state() {
+      local files rows temps
+      files=$(ls -1A "$1/corpus" 2>/dev/null | LC_ALL=C "$G" -a -c -v -e 'corpus-add[.]tmp$' || true)
+      temps=$(ls -1A "$1/corpus" 2>/dev/null | LC_ALL=C "$G" -a -c -e 'corpus-add[.]tmp$' || true)
+      if [ -f "$1/manifest.tsv" ]; then rows=$(awk -F'\t' 'NR > 1 && NF == 12' "$1/manifest.tsv" | wc -l); else rows=0; fi
+      printf 'files=%s rows=%s temporaries=%s' "${files:-0}" "${rows:-0}" "${temps:-0}"
+    }
+    # refused_with <exit> <stdout file> <stderr file> <message>: exit 1, nothing on
+    # stdout, and exactly that refusal on stderr.
+    refused_with() {
+      [ "$1" -eq 1 ] && [ ! -s "$2" ] && [ "$(cat "$3")" = "$4" ]
+    }
+    # failed_with <exit> <stderr file> <message>: exit 2 and exactly that error.
+    failed_with() {
+      [ "$1" -eq 2 ] && [ "$(cat "$2")" = "$3" ]
+    }
+    # fail_names_line <output file>: the FAIL reason names a manifest line number.
+    fail_names_line() {
+      LC_ALL=C "$G" -a -q -E '^FAIL line [0-9]+: ' "$1"
+    }
+    # fail_names_no_line <output file>: the FAIL reason carries no line number.
+    fail_names_no_line() {
+      LC_ALL=C "$G" -a -q -e '^FAIL ' "$1" && ! LC_ALL=C "$G" -a -q -E '^FAIL line [0-9]+' "$1"
+    }
+    mkcorpus() {
+      local d=$1
+      mkdir -p "$d/corpus" && chmod 700 "$d" "$d/corpus"
+    }
+    mkbook() {
+      python3 - "$1" "${2:-}" <<'OUTER_PY'
+    import sys, zipfile
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+     '<Default Extension="xml" ContentType="application/xml"/>'
+     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+     '<sheets><sheet name="A" sheetId="1"/></sheets></workbook>')
+    with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+        for n, b in (("[Content_Types].xml", CT), ("_rels/.rels", RELS), ("xl/workbook.xml", WB)):
+            z.writestr(n, b)
+    if len(sys.argv) > 2 and sys.argv[2]:
+        with open(sys.argv[1], "ab") as f:
+            f.write(sys.argv[2].encode())
+    OUTER_PY
+    }
+    
+    echo "about: T2 P7 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "command: git rev-parse HEAD   (every commit id in this log is read from git, never typed)"
+    echo "phase: T2 P7 (specs/0005-corpus.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "Every corpus below is built under <scratch> and deleted on exit;"
+    echo "EMEND_CORPUS_DIR is unset and set per case, so the real corpus is never read."
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    note "every counting form behaves on a match, a miss and an unreadable file" "$(is [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## N1: the staged order, the happy path"
+    W=$BASE/n1; mkcorpus "$W"; mkbook "$BASE/n1.xlsx"
+    EMEND_CORPUS_DIR=$W ./"$ADD" "$BASE/n1.xlsx" libreoffice 7.0 libreoffice-export plain,strings generated >"$BASE/n1.out" 2>"$BASE/n1.err"
+    RC=$?
+    echo "  exit: $RC; stdout: $(hide <"$BASE/n1.out")"
+    echo "  state: $(state "$W")"
+    note "N1 the add succeeds" "$(is [ "$RC" -eq 0 ])"
+    note "N1 one file, one row, no temporary" "$(is [ "$(state "$W")" = "files=1 rows=1 temporaries=0" ])"
+    
+    echo
+    echo "## N2: the manifest append fails, the hazard the ruling is about"
+    mkbook "$BASE/n2.xlsx" second
+    BEFORE_STATE=$(state "$W")
+    chmod 400 "$W/manifest.tsv"
+    EMEND_CORPUS_DIR=$W ./"$ADD" "$BASE/n2.xlsx" libreoffice 7.0 libreoffice-export plain >"$BASE/n2.out" 2>"$BASE/n2.err"
+    RC=$?
+    chmod 600 "$W/manifest.tsv"
+    echo "  the manifest was made unwritable, so the append fails after the copy is staged"
+    echo "  exit: $RC; stderr: $(hide <"$BASE/n2.err")"
+    echo "  state before: $BEFORE_STATE"
+    echo "  state after:  $(state "$W")"
+    note "N2 the add fails with exit 2 and names only the exception class" "$(is failed_with "$RC" "$BASE/n2.err" 'error: PermissionError')"
+    note "N2 nothing was added and no temporary survives" "$(is [ "$(state "$W")" = "$BEFORE_STATE" ])"
+    echo "  Under the old order (copy to the final name, then append) this left a"
+    echo "  corpus file with no manifest row. The staged order is what prevents it."
+    
+    echo
+    echo "## N3: the rename-failure branch, PRESENT AND UNEXERCISED"
+    echo "  The other direction of the ruling is: the append succeeds and the rename"
+    echo "  fails, leaving a row with no file. Planning ruled that direction"
+    echo "  acceptable, because corpus-coverage.py's per-row 'corpus file missing'"
+    echo "  failure catches it on the next run (N6 below exercises that failure)."
+    echo "  This log does NOT exercise the branch. Two attempts were made and both"
+    echo "  stopped short, and planning ruled on 2026-09-16 that corpus-add.py is"
+    echo "  not to be changed to make it testable:"
+    echo "    attempt 1: pre-create the destination so os.replace fails. The"
+    echo "      duplicate guard refuses first, before anything is staged, so the run"
+    echo "      exercised the guard and not the rename. Its output looked like a"
+    echo "      pass (exit 1, state unchanged, no temporary) while testing nothing"
+    echo "      of the branch."
+    echo "    attempt 2: make corpus/ read-only so os.replace fails. The staging"
+    echo "      copy into the same directory fails first, with exit 2 and"
+    echo "      PermissionError, before any append."
+    echo "  Recorded as unproven, not as passing."
+    W3=$BASE/n3; mkcorpus "$W3"; mkbook "$BASE/n3a.xlsx"
+    EMEND_CORPUS_DIR=$W3 ./"$ADD" "$BASE/n3a.xlsx" libreoffice 7.0 libreoffice-export plain >/dev/null 2>&1
+    mkbook "$BASE/n3b.xlsx" other
+    FID=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest()[:12], end="")' "$BASE/n3b.xlsx")
+    mkdir -p "$W3/corpus/$FID.xlsx"
+    BEFORE3=$(state "$W3")
+    EMEND_CORPUS_DIR=$W3 ./"$ADD" "$BASE/n3b.xlsx" libreoffice 7.0 libreoffice-export plain >"$BASE/n3.out" 2>"$BASE/n3.err"
+    RC=$?
+    echo "  attempt 1 rerun here: exit $RC, stderr: $(hide <"$BASE/n3.err")"
+    note "N3 attempt 1 is refused by the duplicate guard, not by the rename" "$(is refused_with "$RC" "$BASE/n3.out" "$BASE/n3.err" 'refused: duplicate id')"
+    note "N3 attempt 1 changed nothing, so it tested the guard only" "$(is [ "$(state "$W3")" = "$BEFORE3" ])"
+    
+    echo
+    echo "## N4: a producer_version that is not valid UTF-8"
+    W4=$BASE/n4; mkcorpus "$W4"; mkbook "$BASE/n4.xlsx"
+    PV=$(python3 -c 'print("7.0" + chr(0xDC80), end="")')
+    EMEND_CORPUS_DIR=$W4 ./"$ADD" "$BASE/n4.xlsx" libreoffice "$PV" libreoffice-export plain >"$BASE/n4.out" 2>"$BASE/n4.err"
+    RC=$?
+    echo "  the version carries a lone surrogate; it is never printed"
+    echo "  exit: $RC; stderr: $(hide <"$BASE/n4.err")"
+    echo "  state: $(state "$W4")"
+    note "N4 refused, with the refusal naming a text field and no value" "$(is refused_with "$RC" "$BASE/n4.out" "$BASE/n4.err" 'refused: a text field is not valid UTF-8')"
+    note "N4 nothing was added" "$(is [ "$(state "$W4")" = "files=0 rows=0 temporaries=0" ])"
+    
+    echo
+    echo "## N5: a file name the file system gives as undecodable bytes"
+    W5=$BASE/n5; mkcorpus "$W5"; mkbook "$BASE/n5.xlsx"
+    BADNAME=$(python3 -c '
+    import os, shutil, sys
+    bad = os.path.join(sys.argv[2], os.fsdecode(b"n5\xff\xfe.xlsx"))
+    shutil.copyfile(sys.argv[1], bad)
+    sys.stdout.write(bad)
+    ' "$BASE/n5.xlsx" "$BASE")
+    EMEND_CORPUS_DIR=$W5 ./"$ADD" "$BADNAME" libreoffice 7.0 libreoffice-export plain >"$BASE/n5.out" 2>"$BASE/n5.err"
+    RC=$?
+    echo "  the name holds two bytes that are not valid UTF-8; it is never printed"
+    echo "  exit: $RC; stderr: $(hide <"$BASE/n5.err")"
+    echo "  state: $(state "$W5")"
+    note "N5 refused, with the same refusal" "$(is refused_with "$RC" "$BASE/n5.out" "$BASE/n5.err" 'refused: a text field is not valid UTF-8')"
+    note "N5 nothing was added" "$(is [ "$(state "$W5")" = "files=0 rows=0 temporaries=0" ])"
+    
+    echo
+    echo "## N6: the coverage script's per-row failures name a line number"
+    W6=$BASE/n6; mkcorpus "$W6"; mkbook "$BASE/n6.xlsx"
+    EMEND_CORPUS_DIR=$W6 ./"$ADD" "$BASE/n6.xlsx" libreoffice 7.0 libreoffice-export plain >/dev/null 2>&1
+    ID=$(awk -F'\t' 'NR == 2 { print $1 }' "$W6/manifest.tsv")
+    EXT=$(awk -F'\t' 'NR == 2 { print $4 }' "$W6/manifest.tsv")
+    rm -f "$W6/corpus/$ID.$EXT"
+    EMEND_CORPUS_DIR=$W6 ./"$COV" >"$BASE/n6.out" 2>"$BASE/n6.err"
+    RC=$?
+    echo "  the corpus file for row 2 was removed, leaving a row with no file"
+    echo "  exit: $RC; stdout: $(hide <"$BASE/n6.out")"
+    note "N6 the coverage run fails with exit 1" "$(is [ "$RC" -eq 1 ])"
+    note "N6 the reason names the manifest line and no value" "$(is fail_names_line "$BASE/n6.out")"
+    echo "  This is the failure that catches N3's accepted direction: a row with no"
+    echo "  file is visible to the coverage check on the next run."
+    
+    echo
+    echo "## N7: the coverage script's non-row failures name no line number"
+    W7=$BASE/n7; mkcorpus "$W7"
+    printf 'not a manifest at all\n' >"$W7/manifest.tsv"
+    EMEND_CORPUS_DIR=$W7 ./"$COV" >"$BASE/n7a.out" 2>&1
+    echo "  a manifest with a wrong header: $(hide <"$BASE/n7a.out")"
+    note "N7 the header failure names no line number" "$(is fail_names_no_line "$BASE/n7a.out")"
+    W7b=$BASE/n7b; mkcorpus "$W7b"
+    EMEND_CORPUS_DIR=$W7b ./"$COV" >"$BASE/n7b.out" 2>&1
+    echo "  a corpus with no manifest at all: $(hide <"$BASE/n7b.out")"
+    note "N7 the missing-manifest failure names no line number" "$(is fail_names_no_line "$BASE/n7b.out")"
+    echo "  These two are what the narrowed docstring now claims: a failure found"
+    echo "  while checking a row names that row, and the failures that are not about"
+    echo "  a row do not, because there is no row to name."
+    
+    echo
+    echo "## N8: a duplicate id is refused before anything is staged"
+    W8=$BASE/n8; mkcorpus "$W8"; mkbook "$BASE/n8.xlsx"
+    EMEND_CORPUS_DIR=$W8 ./"$ADD" "$BASE/n8.xlsx" libreoffice 7.0 libreoffice-export plain >/dev/null 2>&1
+    BEFORE8=$(state "$W8")
+    EMEND_CORPUS_DIR=$W8 ./"$ADD" "$BASE/n8.xlsx" libreoffice 7.0 libreoffice-export plain >"$BASE/n8.out" 2>"$BASE/n8.err"
+    RC=$?
+    echo "  the same file added twice: exit $RC, stderr: $(hide <"$BASE/n8.err")"
+    echo "  state before: $BEFORE8; after: $(state "$W8")"
+    note "N8 refused as a duplicate" "$(is refused_with "$RC" "$BASE/n8.out" "$BASE/n8.err" 'refused: duplicate id')"
+    note "N8 nothing changed and no temporary survives" "$(is [ "$(state "$W8")" = "$BEFORE8" ])"
+    
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$BASE"/n*.out "$BASE"/n*.err; do
+      [ -e "$f" ] && ALL+=("$f")
+    done
+    # The files are listed by name, so a missing one shows as a shorter list rather
+    # than as a counting error with no cause named.
+    echo "  captured outputs counted (${#ALL[@]} file(s)): $(printf '%s ' "${ALL[@]}" | hide)"
+    echo "  total lines: $(count_lines "${ALL[@]}")"
+    # Both byte classes inside one named function. Printing two counts and
+    # asserting only one is the defect independent check 1 found in T3 P4; it is
+    # not repeated here.
+    captured_clean() {
+      [ "$(count_bytes "$CTRL_CLASS" "${ALL[@]}")" = 0 ] &&
+        [ "$(count_bytes "$NONASCII_CLASS" "${ALL[@]}")" = 0 ]
+    }
+    note "control and non-ASCII bytes in every captured output: $(count_bytes "$CTRL_CLASS" "${ALL[@]}") and $(count_bytes "$NONASCII_CLASS" "${ALL[@]}") (expect 0 and 0)" \
+      "$(is captured_clean)"
+    n=$(count_matches -F "$BASE" "${ALL[@]}")
+    note "lines naming the scratch path in every captured output: $n (expect 0)" "$(is [ "$n" = 0 ])"
+    STATUS=$(git status --porcelain | tr '\n' ' ')
+    note "the working tree is still clean (expect empty): $STATUS" "$(is [ -z "$STATUS" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # T2 P7 shared counting forms, sourced by every log script of this phase.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 I wrote four counting sites that compared a
+    # bare `grep -c` (or a `cat ... | tr ... | wc -c`) with 0 without reading the
+    # exit status, so a read error printed 0 and the check passed. Two independent
+    # checks found them, and twice I declared the class closed after repairing one
+    # instance. Planning's remedy for T2 P7 is that every counting form, including
+    # a throwaway one, is a named function that reads the exit and has a positive
+    # control, from the start. These are those functions; no log script in this
+    # phase counts any other way.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  counting controls: all as expected
+  every counting form behaves on a match, a miss and an unreadable file: as-expected
+
+## N1: the staged order, the happy path
+  exit: 0; stdout: added e00725adcf55 xlsx 907 libreoffice plain,strings
+  state: files=1 rows=1 temporaries=0
+  N1 the add succeeds: as-expected
+  N1 one file, one row, no temporary: as-expected
+
+## N2: the manifest append fails, the hazard the ruling is about
+  the manifest was made unwritable, so the append fails after the copy is staged
+  exit: 2; stderr: error: PermissionError
+  state before: files=1 rows=1 temporaries=0
+  state after:  files=1 rows=1 temporaries=0
+  N2 the add fails with exit 2 and names only the exception class: as-expected
+  N2 nothing was added and no temporary survives: as-expected
+  Under the old order (copy to the final name, then append) this left a
+  corpus file with no manifest row. The staged order is what prevents it.
+
+## N3: the rename-failure branch, PRESENT AND UNEXERCISED
+  The other direction of the ruling is: the append succeeds and the rename
+  fails, leaving a row with no file. Planning ruled that direction
+  acceptable, because corpus-coverage.py's per-row 'corpus file missing'
+  failure catches it on the next run (N6 below exercises that failure).
+  This log does NOT exercise the branch. Two attempts were made and both
+  stopped short, and planning ruled on 2026-09-16 that corpus-add.py is
+  not to be changed to make it testable:
+    attempt 1: pre-create the destination so os.replace fails. The
+      duplicate guard refuses first, before anything is staged, so the run
+      exercised the guard and not the rename. Its output looked like a
+      pass (exit 1, state unchanged, no temporary) while testing nothing
+      of the branch.
+    attempt 2: make corpus/ read-only so os.replace fails. The staging
+      copy into the same directory fails first, with exit 2 and
+      PermissionError, before any append.
+  Recorded as unproven, not as passing.
+  attempt 1 rerun here: exit 1, stderr: refused: duplicate id
+  N3 attempt 1 is refused by the duplicate guard, not by the rename: as-expected
+  N3 attempt 1 changed nothing, so it tested the guard only: as-expected
+
+## N4: a producer_version that is not valid UTF-8
+  the version carries a lone surrogate; it is never printed
+  exit: 1; stderr: refused: a text field is not valid UTF-8
+  state: files=0 rows=0 temporaries=0
+  N4 refused, with the refusal naming a text field and no value: as-expected
+  N4 nothing was added: as-expected
+
+## N5: a file name the file system gives as undecodable bytes
+  the name holds two bytes that are not valid UTF-8; it is never printed
+  exit: 1; stderr: refused: a text field is not valid UTF-8
+  state: files=0 rows=0 temporaries=0
+  N5 refused, with the same refusal: as-expected
+  N5 nothing was added: as-expected
+
+## N6: the coverage script's per-row failures name a line number
+  the corpus file for row 2 was removed, leaving a row with no file
+  exit: 1; stdout: FAIL line 2: corpus file missing
+  N6 the coverage run fails with exit 1: as-expected
+  N6 the reason names the manifest line and no value: as-expected
+  This is the failure that catches N3's accepted direction: a row with no
+  file is visible to the coverage check on the next run.
+
+## N7: the coverage script's non-row failures name no line number
+  a manifest with a wrong header: FAIL manifest header mismatch
+  N7 the header failure names no line number: as-expected
+  a corpus with no manifest at all: FAIL manifest missing
+  N7 the missing-manifest failure names no line number: as-expected
+  These two are what the narrowed docstring now claims: a failure found
+  while checking a row names that row, and the failures that are not about
+  a row do not, because there is no row to name.
+
+## N8: a duplicate id is refused before anything is staged
+  the same file added twice: exit 1, stderr: refused: duplicate id
+  state before: files=1 rows=1 temporaries=0; after: files=1 rows=1 temporaries=0
+  N8 refused as a duplicate: as-expected
+  N8 nothing changed and no temporary survives: as-expected
+
+## the log itself
+  captured outputs counted (16 file(s)): <scratch>/n1.out <scratch>/n2.out <scratch>/n3.out <scratch>/n4.out <scratch>/n5.out <scratch>/n6.out <scratch>/n7a.out <scratch>/n7b.out <scratch>/n8.out <scratch>/n1.err <scratch>/n2.err <scratch>/n3.err <scratch>/n4.err <scratch>/n5.err <scratch>/n6.err <scratch>/n8.err 
+  total lines: 9
+  control and non-ASCII bytes in every captured output: 0 and 0 (expect 0 and 0): as-expected
+  lines naming the scratch path in every captured output: 0 (expect 0): as-expected
+  the working tree is still clean (expect empty): : as-expected
+run ended at 2026-09-16T13:23:07Z
+negative log checks all as expected: yes
