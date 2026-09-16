@@ -24,8 +24,10 @@ OUTCOMES = ("ok", "error", "timeout", "panic", "crash")
 FLAGS = ("mtime", "extra", "gpflags", "descriptor", "attrs", "comment", "local")
 STATUSES = ("identical", "recompressed", "changed", "dropped", "added")
 # The LibreOffice open check of specs/0006-passthrough.md P3: "-" when no image
-# was given, or when there was no ok output to convert.
-LO_VALUES = ("ok", "fail", "-")
+# was given, or when there was no ok output to convert; "error" when the check
+# could not run at all (planning's ruling of 2026-09-15), which is not a
+# finding about the archive.
+LO_VALUES = ("ok", "fail", "error", "-")
 
 SUMMARY_HEADER = [
     "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
@@ -211,15 +213,18 @@ def write_md(path, run_name, labels, data):
         "",
         "## Files by outcome",
         "",
-        md_row(("label", "files") + OUTCOMES + ("leftover", "lo fail", "lo_in fail")),
-        md_row(("---",) * (5 + len(OUTCOMES))),
+        md_row(("label", "files") + OUTCOMES
+               + ("leftover", "lo fail", "lo_in fail", "lo error", "lo_in error")),
+        md_row(("---",) * (7 + len(OUTCOMES))),
     ]
     for label in labels:
         summary = data[label][0]
         out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]
                           + [sum(1 for r in summary if r["leftover"] == "yes"),
                              sum(1 for r in summary if r["lo"] == "fail"),
-                             sum(1 for r in summary if r["lo_in"] == "fail")]))
+                             sum(1 for r in summary if r["lo_in"] == "fail"),
+                             sum(1 for r in summary if r["lo"] == "error"),
+                             sum(1 for r in summary if r["lo_in"] == "error")]))
 
     columns = ("family", "entries") + STATUSES + ("flagged",) + FLAGS
     for label in labels:
@@ -257,7 +262,7 @@ def write_md(path, run_name, labels, data):
     for label in labels:
         for row in data[label][0]:
             if (row["outcome"] == "ok" and row["diff_exit"] == "0" and row["leftover"] == "no"
-                    and row["lo"] != "fail" and row["lo_in"] != "fail"):
+                    and row["lo"] in ("ok", "-") and row["lo_in"] in ("ok", "-")):
                 continue
             listed += 1
             if row["outcome"] != "ok":
@@ -271,6 +276,22 @@ def write_md(path, run_name, labels, data):
                                row["leftover"], row["lo"], row["lo_in"], differs]))
     if not listed:
         out.append(md_row(("none",) + ("",) * 11))
+
+    # An open check that could not run says nothing about the archive, so its
+    # files are listed apart from the ones LibreOffice refused.
+    could_not_run = [(label, row) for label in labels for row in data[label][0]
+                     if "error" in (row["lo"], row["lo_in"])]
+    out += [
+        "",
+        "## Files whose open check could not run",
+        "",
+        md_row(("id", "label", "lo", "lo_in")),
+        md_row(("---",) * 4),
+    ]
+    for label, row in could_not_run:
+        out.append(md_row([row["id"], label, row["lo"], row["lo_in"]]))
+    if not could_not_run:
+        out.append(md_row(("none",) + ("",) * 3))
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(out) + "\n")
 

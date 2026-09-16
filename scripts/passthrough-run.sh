@@ -172,8 +172,11 @@ seconds() {
 # no line with Error or Warning other than the allowed javaldx line, the ODS
 # exists, and its content.xml holds as many <table:table elements as the
 # reference workbook's xl/workbook.xml holds <sheet elements. It prints nothing:
-# the reason for a fail goes to the reason file, which stays in the run
-# directory. Returns 0 for ok, 1 for fail.
+# the reason goes to the reason file, which stays in the run directory.
+# Returns 0 for ok, 1 for fail (LibreOffice refused the file, or the ODS is
+# wrong) and 2 for error (the check could not run: the directory, podman
+# itself, python3, or an unreadable ODS). Planning ruled the two apart on
+# 2026-09-15, so a broken tool is not read as a broken archive.
 lo_check() {
   local file=$1 work=$2 reason=$3 reference=$4
   local indir base outdir ods rc counts sheets tables
@@ -181,18 +184,40 @@ lo_check() {
   base=$(basename -- "$file")
   outdir=$work/ods
   mkdir -p "$work" && rm -rf "$outdir" && mkdir -p "$outdir" ||
-    { printf 'cannot prepare the conversion directory\n' >"$reason"; return 1; }
+    { printf 'cannot prepare the conversion directory\n' >"$reason"; return 2; }
   timeout --signal=KILL "$TIMEOUT" podman run --rm --network=none --userns=keep-id \
     -v "$indir":/in:ro -v "$outdir":/out "$LO_IMAGE" \
     --convert-to ods --outdir /out "/in/$base" \
     </dev/null >"$work/stdout.txt" 2>"$work/stderr.txt" 3>&-
   rc=$?
+  # 125 to 127 are podman itself failing to start the container, not LibreOffice
+  # refusing the file.
+  if [ "$rc" -ge 125 ] && [ "$rc" -le 127 ]; then
+    printf 'podman could not run the container, exit %s\n' "$rc" >"$reason"
+    return 2
+  fi
   if [ "$rc" -ne 0 ]; then
     printf 'the conversion exited %s\n' "$rc" >"$reason"
     return 1
   fi
-  if LC_ALL=C "$G" -a -E 'Error|Warning' "$work/stderr.txt" |
-    LC_ALL=C "$G" -a -q -v -x -F -e "$LO_ALLOWED_STDERR"; then
+  # The two greps are evaluated with their exit codes read, because an error
+  # from either (exit 2 or more) must never read as "no disallowed line"
+  # (specs/0001-bootstrap.md, "Rules for every phase": an error is never
+  # reported as zero hits). Independent check 1 found the piped form doing
+  # exactly that.
+  LC_ALL=C "$G" -a -E 'Error|Warning' "$work/stderr.txt" >"$work/flagged.txt"
+  rc=$?
+  if [ "$rc" -ge 2 ]; then
+    printf 'the stderr scan failed, grep exit %s\n' "$rc" >"$reason"
+    return 2
+  fi
+  LC_ALL=C "$G" -a -q -v -x -F -e "$LO_ALLOWED_STDERR" "$work/flagged.txt"
+  rc=$?
+  if [ "$rc" -ge 2 ]; then
+    printf 'the stderr allowance scan failed, grep exit %s\n' "$rc" >"$reason"
+    return 2
+  fi
+  if [ "$rc" -eq 0 ]; then
     printf 'stderr holds a line with Error or Warning other than the allowed javaldx line\n' >"$reason"
     return 1
   fi
@@ -210,11 +235,11 @@ except Exception as err:
     sys.stdout.write("error %s" % type(err).__name__)
 else:
     sys.stdout.write("%d %d" % (len(re.findall(r"<sheet ", workbook)), len(re.findall(r"<table:table ", content))))
-') || { printf 'cannot count sheets and tables\n' >"$reason"; return 1; }
+') || { printf 'cannot count sheets and tables\n' >"$reason"; return 2; }
   read -r sheets tables <<<"$counts"
   if ! [[ "$sheets" =~ ^[0-9]+$ ]] || ! [[ "${tables:-}" =~ ^[0-9]+$ ]]; then
     printf 'cannot read the ods or the workbook part\n' >"$reason"
-    return 1
+    return 2
   fi
   if [ "$sheets" -eq 0 ] || [ "$sheets" -ne "$tables" ]; then
     printf 'the ods holds %s table elements and the workbook %s sheet elements\n' "$tables" "$sheets" >"$reason"
@@ -234,6 +259,9 @@ while IFS=$'\t' read -r id ext producer tags; do
   rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
     die "cannot remove an earlier output"
   rm -rf "$dir/lo.$LABEL" "$dir/lo-in.$LABEL" || die "cannot remove an earlier conversion directory"
+  # A reason from an earlier run must not outlive it (independent check 1).
+  rm -f "$dir/lo-reason.$LABEL.txt" "$dir/lo-in-reason.$LABEL.txt" ||
+    die "cannot remove an earlier reason file"
   # A temporary file from an earlier, stopped run into this directory is
   # removed first, so leftover below counts only this child's.
   for temporary in "$dir/.out.$LABEL.$ext.passthrough-"*.tmp; do
@@ -306,17 +334,19 @@ while IFS=$'\t' read -r id ext producer tags; do
   # when there is one. The reasons stay in the run subdirectory.
   lo=- lo_in=-
   if [ -n "$LO_IMAGE" ]; then
-    if lo_check "$input" "$dir/lo-in.$LABEL" "$dir/lo-in-reason.$LABEL.txt" "$input"; then
-      lo_in=ok
-    else
-      lo_in=fail
-    fi
+    lo_check "$input" "$dir/lo-in.$LABEL" "$dir/lo-in-reason.$LABEL.txt" "$input"
+    case $? in
+      0) lo_in=ok ;;
+      1) lo_in=fail ;;
+      *) lo_in=error ;;
+    esac
     if [ "$outcome" = ok ]; then
-      if lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$input"; then
-        lo=ok
-      else
-        lo=fail
-      fi
+      lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$input"
+      case $? in
+        0) lo=ok ;;
+        1) lo=fail ;;
+        *) lo=error ;;
+      esac
     fi
   fi
 
