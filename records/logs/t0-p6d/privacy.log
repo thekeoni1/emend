@@ -1,8 +1,9 @@
-about: T0 P6d phase commit 721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) privacy.log; run at 2026-09-16T00:47:32Z
+about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) privacy.log; run at 2026-09-16T01:05:34Z
+rerun: replaces the privacy log of record commit 4eb5a98 (run at 721e8632); rerun at phase commit 2, 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093, after independent check 1 (record commit ad1683c): the character required after each narrowed pattern's trailing separator is now a path character or any byte that is not printable ASCII and not whitespace, so a user folder whose name starts with an accented letter is still caught (planning's ruling of 2026-09-16)
 EMEND_PRIVATE_DENYLIST set: no (unset by this script); the private denylist is read at $HOME/.config/emend/private-denylist.txt
 private denylist: present, mode 600, entries 7 (never printed)
-scripts/privacy.sh sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; scripts/privacy-patterns.txt sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16, 11 patterns
+scripts/privacy.sh sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; scripts/privacy-patterns.txt sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212, 11 patterns
 the three patterns this phase narrows are named by line number only: 8, 10 and 11; no shape is written in this log
 
 ## script
@@ -63,11 +64,11 @@ exit: 0
 stdout:
     PASS privacy
 stderr:
-    privacy: 162 commit(s), 399 blob(s) scanned, 0 finding(s)
+    privacy: 165 commit(s), 405 blob(s) scanned, 0 finding(s)
 the scan exits 0: yes
 the scan printed PASS privacy: yes
 the scan reported no finding: yes
 control bytes in the captured output: 0 (expect 0; the control file holds 3): yes
 status after the run (expect empty): : yes
-run ended at 2026-09-16T00:48:12Z
+run ended at 2026-09-16T01:06:05Z
 privacy log checks all as expected: yes

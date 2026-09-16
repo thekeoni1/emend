@@ -1,5 +1,6 @@
-about: phase diff 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) scan.log; run at 2026-09-16T00:49:41Z
+about: phase diff 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) scan.log; run at 2026-09-16T01:14:07Z
+rerun: replaces the scan log of record commit 4eb5a98 (range 2638d21..721e8632); rerun over 2638d21..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 after phase commit 2 and the check 1 record commit ad1683c; this script's embedded pattern copy carries the class as planning ruled it on 2026-09-16, and the three logs it scans in the working tree are the reruns at phase commit 2
 temporary files live in <scratch> and are deleted on exit
 
 ## script
@@ -37,10 +38,10 @@ temporary files live in <scratch> and are deleted on exit
       'claude[.]ai/code/session[_][A-Za-z0-9]+'
       'session[_][A-Za-z0-9]{20,}'
       '/tmp/claude[-][0-9]+/'
-      '/mnt/[a-z]/[Uu]sers/[A-Za-z0-9._-]'
+      '/mnt/[a-z]/[Uu]sers/([A-Za-z0-9._-]|[^[:print:][:space:]])'
       'DESKTOP[-][A-Z0-9]{5,}'
-      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+[A-Za-z0-9._-]'
-      '[.]claude[\\/]+projects[\\/]+[A-Za-z0-9._-]'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
+      '[.]claude[\\/]+projects[\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
     )
     P6ARGS=()
     for p in "${P6[@]}"; do P6ARGS+=(-e "$p"); done
@@ -253,7 +254,7 @@ private denylist: present, mode 600
 denylist entries: 7 (never printed)
 denylist entries holding whitespace: 0 (expect 0): yes
 private denylist mode is 600: yes
-this script's patterns equal scripts/privacy-patterns.txt at 721e86323e41fe6090b95ce3e26876e81e27b464: yes
+this script's patterns equal scripts/privacy-patterns.txt at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093: yes
 
 ## controls (same command forms as the scans)
   control f_nonascii file=c-nonascii count=1 exit=0 expected_exit=0: as-expected
@@ -319,7 +320,10 @@ this script's patterns equal scripts/privacy-patterns.txt at 721e86323e41fe6090b
 controls: all as expected
 
 ## commits in the phase range, with their files
-command: git rev-list --parents 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464
+command: git rev-list --parents 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 ad1683c00ba3407a5d633c711b25cdcd851424c9
+ad1683c00ba3407a5d633c711b25cdcd851424c9 4eb5a980d0da9417f291bcceb468332221c5d196
+4eb5a980d0da9417f291bcceb468332221c5d196 721e86323e41fe6090b95ce3e26876e81e27b464
 721e86323e41fe6090b95ce3e26876e81e27b464 4641ae3b4b6382947aad55d7bfd6605e6eabc429
 4641ae3b4b6382947aad55d7bfd6605e6eabc429 2638d219f1c480f98594df72c78c0b1298da60c5
 command: git show --name-status --format='%H parents=%P %s' 4641ae3b4b6382947aad55d7bfd6605e6eabc429
@@ -333,10 +337,30 @@ command: git show --name-status --format='%H parents=%P %s' 721e86323e41fe6090b9
     
     M	scripts/privacy-patterns.txt
     M	scripts/privacy.sh
+command: git show --name-status --format='%H parents=%P %s' 4eb5a980d0da9417f291bcceb468332221c5d196
+    4eb5a980d0da9417f291bcceb468332221c5d196 parents=721e86323e41fe6090b95ce3e26876e81e27b464 T0 P6d record: gate, privacy, negative and scan logs at 721e8632
+    
+    A	records/logs/t0-p6d/gate.log
+    A	records/logs/t0-p6d/negative.log
+    A	records/logs/t0-p6d/privacy.log
+    A	records/logs/t0-p6d/scan.log
+command: git show --name-status --format='%H parents=%P %s' ad1683c00ba3407a5d633c711b25cdcd851424c9
+    ad1683c00ba3407a5d633c711b25cdcd851424c9 parents=4eb5a980d0da9417f291bcceb468332221c5d196 T0 P6d record: independent check 1 answer, verbatim
+    
+    A	records/logs/t0-p6d/independent-check-1.md
+command: git show --name-status --format='%H parents=%P %s' 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+    14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 parents=ad1683c00ba3407a5d633c711b25cdcd851424c9 T0 P6d: take a non-ASCII byte as a path character too
+    
+    M	scripts/privacy-patterns.txt
 
-## files changed in the phase diff (contents at 721e86323e41fe6090b95ce3e26876e81e27b464)
-command: git diff --name-status 2638d219f1c480f98594df72c78c0b1298da60c5 721e86323e41fe6090b95ce3e26876e81e27b464
+## files changed in the phase diff (contents at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093)
+command: git diff --name-status 2638d219f1c480f98594df72c78c0b1298da60c5 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
     M	ROADMAP.md
+    A	records/logs/t0-p6d/gate.log
+    A	records/logs/t0-p6d/independent-check-1.md
+    A	records/logs/t0-p6d/negative.log
+    A	records/logs/t0-p6d/privacy.log
+    A	records/logs/t0-p6d/scan.log
     M	scripts/privacy-patterns.txt
     M	scripts/privacy.sh
     M	specs/0002-gate-corpus-additions.md
@@ -350,7 +374,52 @@ file ROADMAP.md (sha256 a6356c88af1d9ed27fe6561ad4ef4acc0a632c1aa65b547af341c4a3
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-file scripts/privacy-patterns.txt (sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16)
+file records/logs/t0-p6d/gate.log (sha256 074b0f951ec9c4853f4e0610c954e6eb1b456c547be3cd9c1cff3a9a6ecc8994)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t0-p6d/independent-check-1.md (sha256 485d1f1bd52ad596c41de29027b6063375db5dae81995f5dfa09965a6bf2df7f)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t0-p6d/negative.log (sha256 6f8a77ff72bf18ed90f810f21a227d1cc8a022b27f4dfbfcd19877069354f1f6)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t0-p6d/privacy.log (sha256 42d09e88982ba41d662c52236caf2a14f0f29c4965019c4c13d1accb8f745daf)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file records/logs/t0-p6d/scan.log (sha256 2bc0cefb754d073034cc1cd783eec5eb51cce22a98d181671d775bc9febb39e0)
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+file scripts/privacy-patterns.txt (sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -386,9 +455,39 @@ file specs/0006-passthrough.md (sha256 c8ec782ba2fbe56e9d8cbb7c0ff7eae50f8999f05
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-files in diff: 5; files scanned: 5; files read: 5: yes
+files in diff: 10; files scanned: 10; files read: 10: yes
 
 ## commit messages in the phase range
+message 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message ad1683c00ba3407a5d633c711b25cdcd851424c9
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
+message 4eb5a980d0da9417f291bcceb468332221c5d196
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0 exit=1
+  form=f_ctrl count=0 exit=1
+  form=f_emdash count=0 exit=1
+  form=f_session count=0 exit=1
+  form=f_p6 count=0 exit=1
+  form=f_host count=0 exit=1
+  form=f_deny count=0 exit=1
+  form=f_email count=0 exit=1
 message 721e86323e41fe6090b95ce3e26876e81e27b464
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0 exit=1
@@ -409,10 +508,10 @@ message 4641ae3b4b6382947aad55d7bfd6605e6eabc429
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-messages scanned: 2; commits in range: 2: yes
+messages scanned: 5; commits in range: 5: yes
 
 ## other T0 P6d logs in the working tree (a log cannot scan itself)
-log records/logs/t0-p6d/gate.log (sha256 074b0f951ec9c4853f4e0610c954e6eb1b456c547be3cd9c1cff3a9a6ecc8994)
+log records/logs/t0-p6d/gate.log (sha256 1ed319e7c1dcd5fba6775cc95f1969fc6b48fa3290c5458f32db44ec93391916)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -421,7 +520,7 @@ log records/logs/t0-p6d/gate.log (sha256 074b0f951ec9c4853f4e0610c954e6eb1b456c5
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t0-p6d/privacy.log (sha256 42d09e88982ba41d662c52236caf2a14f0f29c4965019c4c13d1accb8f745daf)
+log records/logs/t0-p6d/privacy.log (sha256 f0c828cfa740e700d8bb40b2aee544e62c272f50ab7937666ea38d3bffe3ebf6)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -430,7 +529,7 @@ log records/logs/t0-p6d/privacy.log (sha256 42d09e88982ba41d662c52236caf2a14f0f2
   form=f_host count=0 exit=1
   form=f_deny count=0 exit=1
   form=f_email count=0 exit=1
-log records/logs/t0-p6d/negative.log (sha256 6f8a77ff72bf18ed90f810f21a227d1cc8a022b27f4dfbfcd19877069354f1f6)
+log records/logs/t0-p6d/negative.log (sha256 1fa3cb1345a78546cc766889a86b949bf946fe2f5ab874b0bbf851584ddb8626)
   form=f_nonascii count=0 exit=1
   form=f_ctrl count=0 exit=1
   form=f_emdash count=0 exit=1
@@ -444,5 +543,5 @@ T0 P6d logs scanned: 3 (expected 3): yes
 total hits: 0
 grep or read errors: 0
 structural checks failed: 0
-run ended at 2026-09-16T00:49:41Z
+run ended at 2026-09-16T01:14:07Z
 RESULT: PASS

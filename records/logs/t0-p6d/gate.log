@@ -1,5 +1,6 @@
-about: T0 P6d phase commit 721e86323e41fe6090b95ce3e26876e81e27b464; HEAD at run: 721e86323e41fe6090b95ce3e26876e81e27b464
-phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at 2026-09-16T00:48:42Z
+about: T0 P6d phase commit 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093; HEAD at run: 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+phase: T0 P6d (specs/0002-gate-corpus-additions.md) gate.log; run at 2026-09-16T01:12:49Z
+rerun: replaces the gate log of record commit 4eb5a98 (run at 721e8632); rerun at phase commit 2, 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093, after independent check 1 (record commit ad1683c): the character required after each narrowed pattern's trailing separator is now a path character or any byte that is not printable ASCII and not whitespace (planning's ruling of 2026-09-16), and this log's script no longer carries the dead record_states function check 1 found. Three earlier runs of this log at this same commit were not committed. The first reported three checks 'no': the log's own check compared each pattern's last fifteen bytes against the pre-ruling class string, so it went stale when the class changed; it now tests for the class as ruled, as a suffix rather than a fixed byte count. The second started 2026-09-16T01:10:01Z and the third started 2026-09-16T01:10:53Z; each completed the pattern checks, the changed-file checks and the gate-files section, ran cargo clean, and was stopped by the environment during the cold check.sh run, reason given: the system was running low on memory. DEPARTURE, named because it changes the environment of a recorded run: this run sets CARGO_BUILD_JOBS=4, so cargo compiles with four parallel jobs instead of the sixteen this machine defaults to. The steps, their commands and what they verify are unchanged; only the number of concurrent compilations is. Free memory before this run: 18630 MiB available
 commit before the phase: 2638d219f1c480f98594df72c78c0b1298da60c5
 working tree clean before the run: yes (the script exits 2 otherwise); output goes to <scratch> and is moved in afterwards
 ANTHROPIC_API_KEY set in this shell: no
@@ -45,22 +46,23 @@ private denylist: present, mode 600, entries 7 (never printed)
     check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
     yn() { if "$@"; then echo yes; else echo no; fi; }
     sha() { sha256sum | cut -c1-64; }
-    # ends_with_path_char <line number>: that pattern in the file ends with the
-    # path-character class this phase adds, so a bare shape cannot match it.
-    ends_with_path_char() {
-      [ "$(sed -n "${1}p" "$PATTERNS" | tail -c 15)" = '[A-Za-z0-9._-]' ]
+    # The class this phase requires after the trailing separator (planning's
+    # ruling of 2026-09-16): a path character, or any byte that is not printable
+    # ASCII and not whitespace.
+    ADDED_CLASS='([A-Za-z0-9._-]|[^[:print:][:space:]])'
+    # ends_with_added_class <line number>: that pattern in the file ends with the
+    # class above, so a bare shape cannot match it. The test is a suffix match, not
+    # a fixed byte count: the first form of this check compared a fixed tail and
+    # went stale the moment the class changed.
+    ends_with_added_class() {
+      case "$(sed -n "${1}p" "$PATTERNS")" in
+        *"$ADDED_CLASS") return 0 ;;
+        *) return 1 ;;
+      esac
     }
     # pattern_count_is <n>: the file holds n non-comment, non-blank patterns.
     pattern_count_is() {
       [ "$(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$PATTERNS")" -eq "$1" ]
-    }
-    # record_states <record> <string>...: the record holds every line given.
-    record_states() {
-      local file=$1 line
-      shift
-      for line in "$@"; do
-        LC_ALL=C /usr/bin/grep -q -F -e "$line" "$file" || return 1
-      done
     }
     
     echo "about: T0 P6d phase commit $C; HEAD at run: $(git rev-parse HEAD)"
@@ -103,7 +105,7 @@ private denylist: present, mode 600, entries 7 (never printed)
     echo "patterns in $PATTERNS: $(LC_ALL=C /usr/bin/grep -c -v -E '^[[:space:]]*(#|$)' "$PATTERNS")"
     check "the file still holds 11 patterns" "$(yn pattern_count_is 11)"
     for n in "${NARROWED[@]}"; do
-      check "pattern $n ends with the path-character class" "$(yn ends_with_path_char "$n")"
+      check "pattern $n ends with the added character class" "$(yn ends_with_added_class "$n")"
     done
     echo "command: git diff --numstat $BEFORE $C -- $PATTERNS -> $(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | tr '\t' ' ')"
     check "exactly three pattern lines changed" "$(yn [ "$(git diff --numstat "$BEFORE" "$C" -- "$PATTERNS" | cut -f1)" = 3 ])"
@@ -154,7 +156,10 @@ private denylist: present, mode 600, entries 7 (never printed)
     exit "$fail"
 
 ## commits of the phase
-command: git log --format='%H parents=%P %s' 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464
+command: git log --format='%H parents=%P %s' 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+    14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 parents=ad1683c00ba3407a5d633c711b25cdcd851424c9 T0 P6d: take a non-ASCII byte as a path character too
+    ad1683c00ba3407a5d633c711b25cdcd851424c9 parents=4eb5a980d0da9417f291bcceb468332221c5d196 T0 P6d record: independent check 1 answer, verbatim
+    4eb5a980d0da9417f291bcceb468332221c5d196 parents=721e86323e41fe6090b95ce3e26876e81e27b464 T0 P6d record: gate, privacy, negative and scan logs at 721e8632
     721e86323e41fe6090b95ce3e26876e81e27b464 parents=4641ae3b4b6382947aad55d7bfd6605e6eabc429 T0 P6d: narrow the three path patterns so a bare shape is not a hit
     4641ae3b4b6382947aad55d7bfd6605e6eabc429 parents=2638d219f1c480f98594df72c78c0b1298da60c5 T0 P6d: commit planning doc updates (P6d section, T3 P3 rulings, P4 text)
 command: git show --stat --format='%H %s' 4641ae3b4b6382947aad55d7bfd6605e6eabc429
@@ -170,16 +175,39 @@ command: git show --stat --format='%H %s' 721e86323e41fe6090b95ce3e26876e81e27b4
      scripts/privacy-patterns.txt | 6 +++---
      scripts/privacy.sh           | 8 ++++++++
      2 files changed, 11 insertions(+), 3 deletions(-)
-command: git diff --stat 2638d219f1c480f98594df72c78c0b1298da60c5 721e86323e41fe6090b95ce3e26876e81e27b464
-     ROADMAP.md                          |   5 +-
-     scripts/privacy-patterns.txt        |   6 +-
-     scripts/privacy.sh                  |   8 +++
-     specs/0002-gate-corpus-additions.md |  41 +++++++++++++
-     specs/0006-passthrough.md           | 117 +++++++++++++++++++++++++++++-------
-     5 files changed, 151 insertions(+), 26 deletions(-)
+command: git show --stat --format='%H %s' 4eb5a980d0da9417f291bcceb468332221c5d196
+    4eb5a980d0da9417f291bcceb468332221c5d196 T0 P6d record: gate, privacy, negative and scan logs at 721e8632
+    
+     records/logs/t0-p6d/gate.log     | 241 +++++++++++++++++++++
+     records/logs/t0-p6d/negative.log | 318 +++++++++++++++++++++++++++
+     records/logs/t0-p6d/privacy.log  |  73 +++++++
+     records/logs/t0-p6d/scan.log     | 448 +++++++++++++++++++++++++++++++++++++++
+     4 files changed, 1080 insertions(+)
+command: git show --stat --format='%H %s' ad1683c00ba3407a5d633c711b25cdcd851424c9
+    ad1683c00ba3407a5d633c711b25cdcd851424c9 T0 P6d record: independent check 1 answer, verbatim
+    
+     records/logs/t0-p6d/independent-check-1.md | 154 +++++++++++++++++++++++++++++
+     1 file changed, 154 insertions(+)
+command: git show --stat --format='%H %s' 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+    14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 T0 P6d: take a non-ASCII byte as a path character too
+    
+     scripts/privacy-patterns.txt | 6 +++---
+     1 file changed, 3 insertions(+), 3 deletions(-)
+command: git diff --stat 2638d219f1c480f98594df72c78c0b1298da60c5 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+     ROADMAP.md                                 |   5 +-
+     records/logs/t0-p6d/gate.log               | 241 ++++++++++++++++
+     records/logs/t0-p6d/independent-check-1.md | 154 ++++++++++
+     records/logs/t0-p6d/negative.log           | 318 ++++++++++++++++++++
+     records/logs/t0-p6d/privacy.log            |  73 +++++
+     records/logs/t0-p6d/scan.log               | 448 +++++++++++++++++++++++++++++
+     scripts/privacy-patterns.txt               |   6 +-
+     scripts/privacy.sh                         |   8 +
+     specs/0002-gate-corpus-additions.md        |  41 +++
+     specs/0006-passthrough.md                  | 117 ++++++--
+     10 files changed, 1385 insertions(+), 26 deletions(-)
 
-## the changed files at 721e86323e41fe6090b95ce3e26876e81e27b464
-scripts/privacy-patterns.txt: sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16, bytes 376, git mode 100644
+## the changed files at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+scripts/privacy-patterns.txt: sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212, bytes 448, git mode 100644
 scripts/privacy.sh: sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb, bytes 23525, git mode 100755
 ROADMAP.md: sha256 a6356c88af1d9ed27fe6561ad4ef4acc0a632c1aa65b547af341c4a3430fc3eb, bytes 14800, git mode 100644
 specs/0002-gate-corpus-additions.md: sha256 05c8478dbb5d1ff54371b98d9a5059fd5c37a458dda61fea8598b695f6619c4d, bytes 8089, git mode 100644
@@ -190,26 +218,26 @@ scripts/privacy.sh parses: yes
 ## the narrowed patterns (named by line number; no shape is written here)
 patterns in scripts/privacy-patterns.txt: 11
 the file still holds 11 patterns: yes
-pattern 8 ends with the path-character class: yes
-pattern 10 ends with the path-character class: yes
-pattern 11 ends with the path-character class: yes
-command: git diff --numstat 2638d219f1c480f98594df72c78c0b1298da60c5 721e86323e41fe6090b95ce3e26876e81e27b464 -- scripts/privacy-patterns.txt -> 3 3 scripts/privacy-patterns.txt
+pattern 8 ends with the added character class: yes
+pattern 10 ends with the added character class: yes
+pattern 11 ends with the added character class: yes
+command: git diff --numstat 2638d219f1c480f98594df72c78c0b1298da60c5 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 -- scripts/privacy-patterns.txt -> 3 3 scripts/privacy-patterns.txt
 exactly three pattern lines changed: yes
 the identity file and the hook installer did not change: yes
 lines with a literal home path in scripts/privacy.sh: 0 (expect 0; the control file counts 1): yes
 
-## gate files at 721e86323e41fe6090b95ce3e26876e81e27b464
-scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
-scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
-scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; bytes 23525
-scripts/privacy-patterns.txt on disk sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 61379589eac728af24f2f67b35e98c461847a9f0d98c85aa7e1be36277d75c16; bytes 376
-scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
-scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
-.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
-.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
-Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
-Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 721e86323e41fe6090b95ce3e26876e81e27b464 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
-no crate, Cargo file or workflow changed in 2638d219f1c480f98594df72c78c0b1298da60c5..721e86323e41fe6090b95ce3e26876e81e27b464: yes
+## gate files at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093
+scripts/check.sh on disk sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 c9c7d709c102007ec537db6dcc98dec828749d9a82cf57467554560d6ba83c1a; bytes 15754
+scripts/sys-allowlist.txt on disk sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; bytes 0
+scripts/privacy.sh on disk sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 dd65c7201cb516676c861343a3cd07dd00ca7d043b074a71d54a1ad6e249f6fb; bytes 23525
+scripts/privacy-patterns.txt on disk sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 4331b647fae6cb6e5b3a95e827ab09fd40689acae7e08bcdc0ec774dbb076212; bytes 448
+scripts/privacy-identity.txt on disk sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 20dd0deb23453dee11f5f0f1d767243ba9a7744b0a49603ac48a2cdb31ae0edc; bytes 54
+scripts/install-hooks.sh on disk sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 d1436bbdec09a4c315f508d707981a790291ac5769e0d1355872f0fc08fceb56; bytes 2043
+.gitignore on disk sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 91559d80cbdf56fb7959f57a77fd9c0a7e4b72daebb966f0abb6905bbe34f703; bytes 1512
+.github/workflows/ci.yml on disk sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 55d264685708d15dbf0340d2be0e2db876f99d7babb4b95d738fe26f78cee473; bytes 959
+Cargo.toml on disk sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 63f933f38dcfddbcf81c06edf62d081f51205fd8e3ed98e243a3fd1e9185dc98; bytes 435
+Cargo.lock on disk sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; at 14c669f0aa5f8dca2e5e1fe2e66f1aa767379093 sha256 648122e5b4bec175bcd67295e1ef1b47d9a365eca0a37e02331b1db8b110c3f7; bytes 2699
+no crate, Cargo file or workflow changed in 2638d219f1c480f98594df72c78c0b1298da60c5..14c669f0aa5f8dca2e5e1fe2e66f1aa767379093: yes
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
 
 ## full run on a cold cache, started from / by absolute path
@@ -237,5 +265,5 @@ stdout: lines=0 bytes=0 (expect 0): yes
 stderr: lines=0 bytes=0 (expect 0): yes
 
 status after the run (expect empty): : yes
-run ended at 2026-09-16T00:49:29Z
+run ended at 2026-09-16T01:13:39Z
 gate log checks all as expected: yes
