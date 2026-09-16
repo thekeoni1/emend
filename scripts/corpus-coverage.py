@@ -14,8 +14,9 @@ covered by a single producer.
 
 Only ids, extensions, byte counts, producers, sources, tags and counts are
 printed: never the original_name or note columns, the producer_version or app
-columns, or the corpus path. Any failure prints one "FAIL <reason>" line and
-exits 1, and no reason ever names a value. A failure found while checking a
+columns, or the corpus path. A bad argument prints the usage line to stderr and
+exits 2, with no FAIL line. Every other failure prints one "FAIL <reason>" line
+and exits 1, and no reason ever names a value. A failure found while checking a
 manifest row names that row's line number; the failures that are not about a
 row do not, because there is no row to name: a missing or unreadable manifest,
 a manifest that is not UTF-8, one that does not end with a newline, a header
