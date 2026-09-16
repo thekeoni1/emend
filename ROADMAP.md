@@ -66,7 +66,7 @@ Approved by the maintainer on 2026-09-15. Ran after T2 P0 and before T1.
 | P5 | Flag completeness: `local` narrowed to local-only differences, `attrs` with internal attributes and disk number, `descriptor` with the bytes after the data; records go with the next push | DONE (b58c086 to 4f6f347) |
 | P6 | Closing the exit-0 guarantee: `attrs` covers raw central size, CRC and method bytes that decode equal (zip64 placeholders); `order_preserved` covers the file order; the data-overrun case tested; the last T1 phase | DONE (8a898b3 to 8c979bc; records local until the next push) |
 
-### T2: corpus (runs alongside T1; `specs/0005-corpus.md`)
+### T2: corpus (`specs/0005-corpus.md`), P7 DONE 2026-09-16; P5 and P6 open (maintainer)
 
 Private, in `/home/dev/emend-testing`. Nothing from it is committed. A
 separate CORPUS session generates and downloads files (P2 to P4,
@@ -82,7 +82,8 @@ implementing session does P1 and P7.
 | P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | DONE (10 files, verified 2026-09-15) |
 | P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED |
 | P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED |
-| P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | READY (after T3 P4) |
+| P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | DONE (58063fb to 7b9350a; `records/corpus-coverage-2026-09-16.md`: 27 files, 22 of 23 tags, 7 single-producer) |
+| Close | Push everything since 29b0bad (T3 P3, T0 P6d, T3 P4, T2 P1, T2 P7 and their records) with the pending doc updates; record the CI run (`specs/0005-corpus.md`, "Close-out push (after P7)") | READY (planning's word given 2026-09-16; needs the maintainer's authorisation typed in the implementing session) |
 
 ### T3: passthrough baseline (`specs/0006-passthrough.md`), DONE 2026-09-16
 

@@ -3,8 +3,10 @@
 Status: P1 DONE, verified by planning 2026-09-15 (45dd9e3 to 869796b;
 import commit e8087f6, phase commits e3dd52e and 4318820). P2, P3 and
 P4 DONE by the CORPUS session, verified by planning 2026-09-15 from the
-corpus directory (rulings below). P5 and P6 are the maintainer's. P7
-after them, with the P1 follow-ups listed in its section.
+corpus directory (rulings below). P5 and P6 are the maintainer's, open.
+P7 DONE, verified by planning 2026-09-16 (58063fb to 7b9350a;
+`records/corpus-coverage-2026-09-16.md`). T2 is DONE apart from P5 and
+P6; the close-out push follows (section below).
 
 The CORPUS session is a third session, separate from planning and
 implementing. It works only under the corpus directory, never changes
@@ -308,6 +310,85 @@ from the corpus directory's `tools/libreoffice.md` into
 `records/libreoffice-<date>.md` if T3 P3 has not done so. Every tag
 covered, or the gaps listed for a planning ruling. The `large` tag is
 covered (two files over 60 MB uncompressed).
+
+### Planning rulings on P7 (2026-09-16)
+
+- P7 is verified from primaries by planning's own checks and is DONE
+  (58063fb to 7b9350a; phase commits 58063fb, 0c3c6a3, 743b6f1, c2493d8
+  and 4f4b683; the record 8f5553c and the record-log commits):
+  - Doc commit 854dbaa holds exactly planning's three doc files (114
+    insertions, 13 deletions). The phase commits touch only the two
+    scripts and the coverage record; the record commits only
+    `records/logs/t2-p7/`. All twelve messages end with the
+    Co-Authored-By trailer only, under the noreply identity.
+  - Planning ran the full gate (eight PASS) and `scripts/privacy.sh`
+    over the 47 local commits since the last push (294 blobs, PASS),
+    and scanned the nine changed files itself: no non-ASCII or control
+    byte, no U+2014, no email beyond the scan's `example.invalid`
+    control, no pattern hit under the live or the pre-P6d forms, no
+    denylist hit, no hostname. Planning's stem scan of the manifest's
+    original names against the nine files matched two six-letter
+    English words, the names of fictional generated exports, used as
+    ordinary prose (one appears in `CLAUDE.md` from before the corpus
+    existed) and as a scratch file name; not a finding.
+  - Planning ran `corpus-coverage.py --verify` over the real corpus
+    itself: exit 0, and its stdout is byte for byte the record's body.
+    The record's script hash is the script at 0c3c6a3 and since.
+  - Planning reproduced the staged order in a scratch corpus: the
+    happy path leaves one file, one row and no temporary; with the
+    manifest read-only the add exits 2 naming only `PermissionError`
+    and leaves the file count, the row count and the temporaries as
+    they were.
+  - The four logs hold 107 results, none unexpected; both check
+    answers are committed in ASCII with the specs/0001 header.
+- Gaps ruled:
+  - `macros` uncovered: the maintainer's P6 item, open.
+  - Seven single-producer tags (`pivots`, `slicers`, `timelines`,
+    `external`, `sparklines` from `excel-win`; `date1904`, `large` from
+    `libreoffice`): the maintainer's P5 and P6 items, open. Milestone 1
+    starts on the corpus as it is.
+  - The `large` claim above ("two files over 60 MB uncompressed") was
+    not measured in this phase; planning measured it from the T3 P4
+    run's entries: the two `large` files total 66508521 and 66509534
+    bytes uncompressed over ten and eleven entries, the largest entry
+    63745319 and 63745347 bytes. The claim stands as measured.
+  - The LibreOffice-pins clause is satisfied by
+    `records/libreoffice-2026-09-15.md` (T3 P3); no new record.
+  - The negative tests ran from the main working tree with every write
+    under a temporary directory and the tree asserted clean before and
+    after; accepted as a departure this once, as in T3 P3. From the
+    next phase the scratch-clone form of T3 P4 is the rule, and a
+    departure from it needs planning's word before the run.
+  - The rename-failure branch of the staged order is present and
+    unexercised (planning's ruling: no fault hook; the direction is
+    the benign one and the coverage check catches it).
+- Findings the implementing session reported against itself stand as
+  reported: a class of defect declared closed four times while an
+  instance stood (remedied by the shared counting library with its
+  controls, run before any form is used); two commit messages (0c3c6a3,
+  8f43882) stating measurements no log printed, later named rather than
+  superseded; check 2's answer first committed with a false
+  "unrecoverable" hash, corrected at 7b9350a. The record's Commit line
+  names the run commit 8f43882, the script commit 0c3c6a3 and the
+  record commit, by design.
+- T2 is DONE apart from the maintainer's P5 and P6 items. The next
+  step is the close-out push below.
+
+### Close-out push (after P7)
+
+Everything since 29b0bad (T3 P3, T0 P6d, T3 P4, T2 P1 and T2 P7 with
+their records, the T3 close record 24d4a16 and the pending doc updates)
+goes to GitHub in one push, on planning's word and the maintainer's
+authorisation typed in the implementing session. The push follows the
+T0b close-out steps (`specs/0003-ci.md`, "Close-out push (after P2)"):
+planning's pending doc updates committed unedited first; the hook,
+`core.hooksPath` and `EMEND_PRIVATE_DENYLIST` checks and the full gate;
+the base recorded before the push; `git push origin main`; `ls-remote`
+equal to local main and the repository still PRIVATE; the CI run on the
+pushed commit recorded. Logs in `records/logs/t2-close/`: `push.log`,
+`ci-run.log`, `scan.log`, every count in the counting form with a
+control. No independent check. Report and STOP. The record commit goes
+with the next push.
 
 ## Out of scope
 
