@@ -420,6 +420,11 @@ selftest() {
   # forward slashes), so an edit that narrows either pattern is caught.
   printf '%s\n' "C:""\\Users\\user$(hex 2)\\Documents" \
     "/home/user/"".claude""/projects/-home-user-project/$(hex 8).jsonl" >"$repo/w.txt"
+  # P6d: one bare shape per narrowed path pattern, with nothing after the
+  # trailing separator. A real path always has a following segment; a name
+  # written in prose does not, and must not be reported, so that a record, a
+  # log or a checker's answer may name the shapes.
+  printf '%s\n' "/mnt/""c/""Users/" "C:""\\\\USERS\\\\" "%USERPROFILE%\\"".claude""\\projects\\" >"$repo/bare.txt"
   printf 'self-test sentinel %s\n' "$sentinel" >"$repo/b.txt"
   printf 'contact %s\n' "$email" >"$repo/e.txt"
   printf '%s noreply@anthropic.com zq%s@example.invalid\n' "$ID_EMAIL" "$(hex 2)" >"$repo/ok.txt"
@@ -496,6 +501,9 @@ selftest() {
     error "self-test failed: a planted hit was not detected"
   if screen "$SINK" -F -e "path ok.txt"; then
     error "self-test failed: an allowed address was reported"
+  fi
+  if screen "$SINK" -F -e "path bare.txt"; then
+    error "self-test failed: a bare pattern shape was reported"
   fi
 
   DENY_ACTIVE=("${DENY[@]}")
