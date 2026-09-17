@@ -272,14 +272,31 @@ impl Edits {
 
 /// An opened zip archive, indexed and ready to be written back.
 pub struct Archive<R: Read + Seek> {
-    /// `None` only while [`Archive::write_to`] has the reader out.
+    /// The reader, held plain until a [`Archive::read`] needs the `zip` crate.
+    /// Exactly one of `reader` and `inner` is `Some` at any time.
+    ///
+    /// `open` no longer constructs a `ZipArchive`, so what this layer accepts
+    /// is decided by this layer's parser alone, as the module header says
+    /// (`specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 4).
+    reader: Option<R>,
+    /// Built on the first `read`, from `reader`.
     inner: Option<zip::ZipArchive<R>>,
     /// Entries in central directory order.
     entries: Vec<Entry>,
     /// Indices into `entries`, ordered by `span_start`. T1 P6 showed file
     /// order can differ from central directory order.
     file_order: Vec<usize>,
-    /// Bytes before the first local header, copied verbatim.
+    /// What a recorded offset is added to in order to get a file position:
+    /// `central_start - central_offset`.
+    ///
+    /// This is NOT the length of the prefix, and conflating the two was the
+    /// defect the independent checks of e14dbee found. They coincide only
+    /// when a producer records offsets relative to the archive proper; a
+    /// producer that records them file-absolute gives a base of 0 while the
+    /// prefix is any length at all. See the P1 rulings of 2026-09-17, item 1.
+    offset_base: u64,
+    /// Bytes before the first local header in file order, copied verbatim;
+    /// `central_start` when the archive has no entries.
     prefix_len: u64,
     /// The archive comment, from the end-of-central-directory record.
     comment: Vec<u8>,
@@ -347,12 +364,30 @@ impl<R: Read + Seek> Archive<R> {
             .checked_sub(central_size)
             .ok_or(Error::Truncated)?;
 
-        // From the real position, the prefix: the recorded offset is relative
-        // to the archive proper, so a self-extracting stub or any other
-        // leading bytes shift it.
-        let prefix_len = central_start
+        // THE OFFSET BASE, which is what a recorded offset is added to in
+        // order to get a file position. It is NOT the length of the prefix.
+        // The two coincide only when a producer records offsets relative to
+        // the archive proper; a producer that records them file-absolute
+        // gives a base of 0 behind a prefix of any length. Using one value
+        // for both dropped the prefix silently, at exit 0 (the P1 rulings of
+        // 2026-09-17, item 1).
+        let offset_base = central_start
             .checked_sub(central_offset)
             .ok_or(Error::Truncated)?;
+
+        // The locator states the base too. If the two disagree the archive is
+        // not one this layer can rewrite without guessing which to believe.
+        if let Some(z) = &zip64 {
+            let locator_base = z
+                .record_position
+                .checked_sub(z.locator_offset)
+                .ok_or(Error::Truncated)?;
+            if locator_base != offset_base {
+                return Err(Error::Unsupported(
+                    "the zip64 locator and the central directory disagree on the offset base",
+                ));
+            }
+        }
 
         let mut central = vec![0u8; usize_of(central_size)?];
         reader.seek(SeekFrom::Start(central_start))?;
@@ -364,7 +399,7 @@ impl<R: Read + Seek> Archive<R> {
         // Each entry's local header, read where the central record says it
         // is. Data is never read here.
         for entry in entries.iter_mut() {
-            let start = prefix_len
+            let start = offset_base
                 .checked_add(entry.local_offset)
                 .ok_or(Error::Truncated)?;
             if start.checked_add(LOCAL_FIXED).ok_or(Error::Truncated)? > file_len {
@@ -389,6 +424,14 @@ impl<R: Read + Seek> Archive<R> {
             entries[this].span_end = end;
         }
 
+        // THE PREFIX: the bytes before the first local header in file order,
+        // whatever the recorded offsets say. With no entries there is no
+        // local header, so everything up to the central directory is prefix.
+        let prefix_len = match file_order.first() {
+            Some(&first) => entries[first].span_start,
+            None => central_start,
+        };
+
         let comment = eocd.comment.clone();
         // The end records are kept as raw bytes so the writer re-emits
         // whatever the input carried, extensible data sector included, with
@@ -397,12 +440,13 @@ impl<R: Read + Seek> Archive<R> {
             Some(z) => (Some(z.locator_raw), Some(z.record_raw)),
             None => (None, None),
         };
-        let inner = zip::ZipArchive::new(reader).map_err(zip_open_error)?;
 
         Ok(Archive {
-            inner: Some(inner),
+            reader: Some(reader),
+            inner: None,
             entries,
             file_order,
+            offset_base,
             prefix_len,
             comment,
             eocd_raw,
@@ -428,7 +472,12 @@ impl<R: Read + Seek> Archive<R> {
         &self.comment
     }
 
-    /// The number of bytes before the first local header.
+    /// The number of bytes before the first local header in file order, or
+    /// the bytes before the central directory when the archive has no
+    /// entries.
+    ///
+    /// This is a measured position, not `central_start - central_offset`:
+    /// the two differ whenever a producer records file-absolute offsets.
     pub fn prefix_len(&self) -> u64 {
         self.prefix_len
     }
@@ -440,6 +489,16 @@ impl<R: Read + Seek> Archive<R> {
         }
         if self.entries[index].is_encrypted() {
             return Err(Error::Unsupported("reading an encrypted entry"));
+        }
+        // The `zip` archive is built here, on the first read, and not in
+        // `open`: what this layer ACCEPTS is then decided by this layer's
+        // parser alone, as the module header claims, rather than gated on the
+        // crate's agreement (the P1 rulings of 2026-09-17, item 4). An
+        // archive this layer can parse can therefore always be byte-copied,
+        // even if the crate would refuse to decompress an entry of it.
+        if self.inner.is_none() {
+            let reader = self.take_reader()?;
+            self.inner = Some(zip::ZipArchive::new(reader).map_err(zip_open_error)?);
         }
         let inner = self
             .inner
@@ -463,24 +522,30 @@ impl<R: Read + Seek> Archive<R> {
             ));
         }
 
-        let archive = self
-            .inner
-            .take()
-            .ok_or(Error::Unsupported("the archive's reader is checked out"))?;
-        let mut reader = archive.into_inner();
-
+        let mut reader = self.take_reader()?;
         let result = self.write_all_parts(&mut reader, &mut out);
-
-        // The reader goes back whatever happened, so a failed write leaves a
-        // usable Archive rather than one that has lost its reader. A failure
-        // to rebuild must not hide the write's own error: `and` keeps the
-        // first error, so the write's wins and the rebuild's surfaces only
-        // when the write succeeded.
-        match zip::ZipArchive::new(reader) {
-            Ok(archive) => self.inner = Some(archive),
-            Err(e) => return result.and(Err(zip_open_error(e))),
-        }
+        // The reader goes back plain, whatever happened, so a failed write
+        // leaves a usable Archive rather than one that has lost it. Nothing
+        // is rebuilt here, so no recovery failure can mask the write's own
+        // error; a later read builds the `zip` archive again from this
+        // reader.
+        self.reader = Some(reader);
         result
+    }
+
+    /// The reader, from wherever it currently lives.
+    ///
+    /// Exactly one of `reader` and `inner` holds it. Both being `None` means
+    /// a previous call panicked between taking and returning it, which no
+    /// path here does.
+    fn take_reader(&mut self) -> Result<R, Error> {
+        if let Some(reader) = self.reader.take() {
+            return Ok(reader);
+        }
+        if let Some(archive) = self.inner.take() {
+            return Ok(archive.into_inner());
+        }
+        Err(Error::Unsupported("the archive's reader is checked out"))
     }
 
     /// The write itself, with the reader in hand.
@@ -493,11 +558,17 @@ impl<R: Read + Seek> Archive<R> {
         //    new offsets equal the old ones, which is why the round trip is
         //    byte-identical; they are still computed rather than assumed, so
         //    part 2 inherits a writer that already tracks them.
+        //    Every recorded offset is a file position MINUS THE OFFSET BASE,
+        //    never minus the prefix length: that is what keeps the output in
+        //    the input's own convention, and conflating the two is what
+        //    dropped the prefix (the P1 rulings of 2026-09-17, item 1).
         let mut written = self.prefix_len;
         let mut new_offsets = vec![0u64; self.entries.len()];
         for &index in &self.file_order {
             let entry = &self.entries[index];
-            new_offsets[index] = written - self.prefix_len;
+            new_offsets[index] = written
+                .checked_sub(self.offset_base)
+                .ok_or(Error::Truncated)?;
             reader.seek(SeekFrom::Start(entry.span_start))?;
             copy_exact(reader, out, entry.span_len())?;
             written += entry.span_len();
@@ -505,22 +576,30 @@ impl<R: Read + Seek> Archive<R> {
 
         // 3. The central directory, in the original order, each record
         //    verbatim but for its local header offset.
-        let central_offset = written - self.prefix_len;
+        let central_offset = written
+            .checked_sub(self.offset_base)
+            .ok_or(Error::Truncated)?;
         let mut central_size = 0u64;
         for (index, entry) in self.entries.iter().enumerate() {
             let record = rewrite_central_offset(&entry.central, new_offsets[index])?;
             out.write_all(&record)?;
             central_size += record.len() as u64;
+            written += record.len() as u64;
         }
 
         // 4. The end records, as the input carried them, with the counts,
-        //    sizes and offsets rewritten and nothing else.
+        //    sizes and offsets rewritten and nothing else. `written` is now a
+        //    real position, the zip64 record's own, rather than a sum
+        //    recomputed from the prefix.
         let total = self.entries.len() as u64;
         if let (Some(z64), Some(locator)) = (&self.zip64_eocd_raw, &self.zip64_locator_raw) {
-            let z64_position = self.prefix_len + central_offset + central_size;
+            let z64_position = written;
             let record = rewrite_zip64_eocd(z64, total, central_size, central_offset)?;
             out.write_all(&record)?;
-            let locator = rewrite_zip64_locator(locator, z64_position)?;
+            let recorded = z64_position
+                .checked_sub(self.offset_base)
+                .ok_or(Error::Truncated)?;
+            let locator = rewrite_zip64_locator(locator, recorded)?;
             out.write_all(&locator)?;
         }
         let eocd = rewrite_eocd(&self.eocd_raw, total, central_size, central_offset)?;
@@ -600,23 +679,37 @@ struct Zip64Eocd {
 
 /// What the end of a zip64 archive carries.
 ///
-/// `record_position` is the one the first version of this layer discarded:
-/// the central directory ends where the zip64 record begins, not where the
-/// end-of-central-directory record does, and without it `open` computed a
-/// 76-byte prefix for an archive that had none.
+/// `record_position` is where the record ACTUALLY is, found by its signature;
+/// `locator_offset` is what the locator RECORDS. Their difference is the
+/// offset base as the locator states it, which `open` requires to agree with
+/// the base the central directory gives.
 struct Zip64End {
     locator_raw: Vec<u8>,
     record_raw: Vec<u8>,
     fields: Zip64Eocd,
     record_position: u64,
+    locator_offset: u64,
 }
+
+/// The furthest back a zip64 end record's extensible data sector is followed
+/// when scanning for its signature.
+const MAX_ZIP64_SCAN: u64 = 0xFFFF;
 
 /// Reads the zip64 locator and record when the locator sits immediately
 /// before the end-of-central-directory record.
+///
+/// The record is found BY ITS SIGNATURE, scanning back from the locator, and
+/// not by seeking to the offset the locator records. An earlier version
+/// seeked to that offset as though it were a file position, which is only one
+/// of the two conventions in use: an archive behind a prefix whose locator
+/// records an archive-relative offset was refused as "a zip64 locator without
+/// its record" (`specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17,
+/// item 2). The record must end exactly where the locator begins, which is
+/// what makes a positional search safe.
 fn read_zip64<R: Read + Seek>(
     reader: &mut R,
     eocd_pos: u64,
-    file_len: u64,
+    _file_len: u64,
 ) -> Result<Option<Zip64End>, Error> {
     if eocd_pos < ZIP64_LOCATOR_LEN {
         return Ok(None);
@@ -628,35 +721,43 @@ fn read_zip64<R: Read + Seek>(
     if read_u32(&locator)? != ZIP64_LOCATOR_SIG {
         return Ok(None);
     }
+    let locator_offset = read_u64(&locator[8..])?;
 
-    let record_pos = read_u64(&locator[8..])?;
-    if record_pos
-        .checked_add(ZIP64_EOCD_FIXED)
-        .ok_or(Error::Truncated)?
-        > file_len
-    {
-        return Err(Error::Truncated);
-    }
-    let mut fixed = vec![0u8; usize_of(ZIP64_EOCD_FIXED)?];
-    reader.seek(SeekFrom::Start(record_pos))?;
-    reader.read_exact(&mut fixed)?;
-    if read_u32(&fixed)? != ZIP64_EOCD_SIG {
+    // The window that could hold the record: its fixed part plus whatever
+    // extensible data sector it carries, ending where the locator begins.
+    if locator_pos < ZIP64_EOCD_FIXED {
         return Err(Error::Unsupported("a zip64 locator without its record"));
     }
+    let window = (ZIP64_EOCD_FIXED + MAX_ZIP64_SCAN).min(locator_pos);
+    let window_start = locator_pos - window;
+    let mut buffer = vec![0u8; usize_of(window)?];
+    reader.seek(SeekFrom::Start(window_start))?;
+    reader.read_exact(&mut buffer)?;
 
-    // The recorded size covers everything after its own 12 bytes, so the
-    // extensible data sector is whatever is left over.
-    let recorded = read_u64(&fixed[4..])?;
-    let total_len = recorded.checked_add(12).ok_or(Error::Truncated)?;
-    if total_len < ZIP64_EOCD_FIXED {
-        return Err(Error::Truncated);
+    // The record's own size field covers everything after its first 12 bytes,
+    // so a candidate is the record only if it ends exactly at the locator.
+    let fixed = usize_of(ZIP64_EOCD_FIXED)?;
+    let mut found = None;
+    for at in (0..=buffer.len().saturating_sub(fixed)).rev() {
+        if read_u32(&buffer[at..])? != ZIP64_EOCD_SIG {
+            continue;
+        }
+        let recorded = read_u64(&buffer[at + 4..])?;
+        let total_len = match recorded.checked_add(12) {
+            Some(n) => n,
+            None => continue,
+        };
+        if total_len < ZIP64_EOCD_FIXED {
+            continue;
+        }
+        if (at as u64).checked_add(total_len) == Some(window) {
+            found = Some((at, usize_of(total_len)?));
+            break;
+        }
     }
-    if record_pos.checked_add(total_len).ok_or(Error::Truncated)? > file_len {
-        return Err(Error::Truncated);
-    }
-    let mut raw = vec![0u8; usize_of(total_len)?];
-    reader.seek(SeekFrom::Start(record_pos))?;
-    reader.read_exact(&mut raw)?;
+    let (at, total) = found.ok_or(Error::Unsupported("a zip64 locator without its record"))?;
+    let raw = buffer[at..at + total].to_vec();
+    let record_position = window_start + at as u64;
 
     let parsed = Zip64Eocd {
         disk: read_u32(&raw[16..])?,
@@ -669,7 +770,8 @@ fn read_zip64<R: Read + Seek>(
         locator_raw: locator,
         record_raw: raw,
         fields: parsed,
-        record_position: record_pos,
+        record_position,
+        locator_offset,
     }))
 }
 
@@ -949,7 +1051,12 @@ fn clamp_u32(value: u64) -> u32 {
 /// Copies exactly `len` bytes through a fixed buffer, so a large entry never
 /// lands in memory whole.
 fn copy_exact<R: Read, W: Write>(reader: &mut R, out: &mut W, len: u64) -> Result<(), Error> {
-    let mut buffer = [0u8; COPY_BUFFER];
+    // On the heap, not the stack: `usize` is 32 bits on
+    // i686-unknown-linux-musl and a musl thread's default stack is far
+    // smaller than the main thread's, so a 64 KiB frame leaves a consumer
+    // calling from a spawned thread little margin (independent check 2 of
+    // e14dbee; the P1 rulings of 2026-09-17, item 4).
+    let mut buffer = vec![0u8; COPY_BUFFER];
     let mut left = len;
     while left > 0 {
         let want = left.min(COPY_BUFFER as u64) as usize;

@@ -133,6 +133,15 @@ struct Build {
     zip64_end: bool,
     /// Written into the end-of-central-directory record's disk fields.
     disk: u16,
+    /// Whether the recorded offsets COUNT THE PREFIX (file-absolute) or not
+    /// (relative to the archive proper). Both conventions are in use, and a
+    /// fixture must state which it builds rather than inherit whatever the
+    /// implementation happens to do: an earlier version of this builder wrote
+    /// the entry offsets relative and the zip64 locator absolute, so it
+    /// encoded the layer's own mixture and no test could fail on the
+    /// difference. That is how the silent prefix loss survived
+    /// (`specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 3).
+    absolute_offsets: bool,
 }
 
 impl Build {
@@ -144,12 +153,24 @@ impl Build {
             comment: Vec::new(),
             zip64_end: false,
             disk: 0,
+            absolute_offsets: false,
         }
     }
 
     fn bytes(&self) -> Vec<u8> {
         let mut out = self.prefix.clone();
-        let base = self.prefix.len() as u64;
+        // The one value every recorded offset is measured from. With
+        // `absolute_offsets` the producer counts the prefix, so the base is
+        // 0; otherwise offsets are relative to the archive proper and the
+        // base is the prefix length. Every recorded quantity below goes
+        // through it: the local header offsets, the zip64 extra field's
+        // offset, the central directory's offset in both end records, and
+        // the locator's record offset.
+        let base = if self.absolute_offsets {
+            0
+        } else {
+            self.prefix.len() as u64
+        };
         let mut offsets = vec![0u64; self.specs.len()];
 
         for (index, spec) in self.specs.iter().enumerate() {
@@ -267,7 +288,10 @@ impl Build {
 
             out.extend_from_slice(&ZIP64_LOCATOR_SIG.to_le_bytes());
             out.extend_from_slice(&0u32.to_le_bytes());
-            out.extend_from_slice(&record_position.to_le_bytes());
+            // Through the base, like every other recorded offset. Writing the
+            // absolute position here regardless was what made the locator
+            // fixture agree with the implementation whatever it did.
+            out.extend_from_slice(&(record_position - base).to_le_bytes());
             out.extend_from_slice(&1u32.to_le_bytes());
         }
 
@@ -397,8 +421,10 @@ fn a_zip64_archive_has_no_prefix() {
 
 #[test]
 fn a_zip64_archive_with_a_prefix_round_trips() {
-    // The same shape with a real prefix, so the two corrections cannot
-    // cancel: a prefix of 0 would hide an off-by-the-end-records error.
+    // A zip64 archive behind a real prefix, in the RELATIVE convention only.
+    // An earlier comment here claimed this case stopped the zip64 and prefix
+    // corrections cancelling; it does not, because it builds one convention.
+    // The four cases below cover both, which is what pins them.
     let mut spec = Spec::new(b"big.txt", b"behind a stub");
     spec.zip64 = true;
     let mut build = Build::new(vec![spec, Spec::new(b"small.txt", b"plain")]);
@@ -482,6 +508,73 @@ fn an_archive_comment_on_an_empty_archive_round_trips() {
     check_round_trip(&build);
 }
 
+// ------------------------------------------- both offset conventions
+
+/// A stub, then two entries, in the convention the caller names.
+///
+/// `specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 3: fixtures
+/// are built in BOTH conventions from an explicit parameter, never from what
+/// the implementation happens to do. The defect these pin dropped the prefix
+/// silently at exit 0, because `prefix_len` was derived as
+/// `central_start - central_offset`, which is 0 when a producer records
+/// file-absolute offsets.
+fn check_behind_a_stub(zip64: bool, absolute: bool) {
+    let mut first = Spec::new(b"one.txt", b"behind a stub");
+    first.zip64 = zip64;
+    let mut build = Build::new(vec![first, Spec::new(b"two.txt", b"plain")]);
+    build.zip64_end = zip64;
+    build.prefix = b"MZ stub bytes before the archive".to_vec();
+    build.absolute_offsets = absolute;
+
+    let input = build.bytes();
+    let archive = Archive::open(Cursor::new(input.clone())).expect("open");
+    // The value the defect got wrong. It is the bytes before the first local
+    // header, in either convention.
+    assert_eq!(archive.prefix_len(), build.prefix.len() as u64);
+    let output = round_trip(&input);
+    assert_identical(&input, &output);
+}
+
+#[test]
+fn a_plain_archive_behind_a_stub_with_relative_offsets_round_trips() {
+    check_behind_a_stub(false, false);
+}
+
+#[test]
+fn a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips() {
+    check_behind_a_stub(false, true);
+}
+
+#[test]
+fn a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips() {
+    check_behind_a_stub(true, false);
+}
+
+#[test]
+fn a_zip64_archive_behind_a_stub_with_absolute_offsets_round_trips() {
+    check_behind_a_stub(true, true);
+}
+
+#[test]
+fn an_empty_archive_behind_a_stub_round_trips_in_both_conventions() {
+    for absolute in [false, true] {
+        let mut build = Build::new(Vec::new());
+        build.prefix = b"MZ stub".to_vec();
+        build.absolute_offsets = absolute;
+        let input = build.bytes();
+        let archive = Archive::open(Cursor::new(input.clone())).expect("open");
+        // With no entries there is no local header, so everything up to the
+        // central directory is prefix.
+        assert_eq!(
+            archive.prefix_len(),
+            build.prefix.len() as u64,
+            "absolute_offsets = {absolute}"
+        );
+        let output = round_trip(&input);
+        assert_identical(&input, &output);
+    }
+}
+
 // --------------------------------------------------------------- the index
 
 #[test]
@@ -521,11 +614,24 @@ fn reading_an_entry_gives_its_bytes_back() {
     let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
 
     let mut got = Vec::new();
-    archive.read(0).expect("read 0").read_to_end(&mut got).ok();
+    // The read's own result is asserted, not discarded: with `.ok()` a read
+    // error inside the test was invisible and only the value assertion stood
+    // (independent check 2 of e14dbee; the P1 rulings of 2026-09-17, item 4).
+    let n = archive
+        .read(0)
+        .expect("read 0")
+        .read_to_end(&mut got)
+        .expect("read 0 to the end");
+    assert_eq!(n, b"stored bytes".len());
     assert_eq!(got, b"stored bytes");
 
     let mut got = Vec::new();
-    archive.read(1).expect("read 1").read_to_end(&mut got).ok();
+    let n = archive
+        .read(1)
+        .expect("read 1")
+        .read_to_end(&mut got)
+        .expect("read 1 to the end");
+    assert_eq!(n, b"deflated bytes".len());
     assert_eq!(got, b"deflated bytes");
 }
 
@@ -541,7 +647,11 @@ fn a_write_after_a_read_still_round_trips() {
     let mut first = Vec::new();
     archive.write_to(&mut first, Edits::new()).expect("first");
     let mut bytes = Vec::new();
-    archive.read(0).expect("read").read_to_end(&mut bytes).ok();
+    archive
+        .read(0)
+        .expect("read")
+        .read_to_end(&mut bytes)
+        .expect("read to the end");
     assert_eq!(bytes, b"payload");
     let mut second = Vec::new();
     archive.write_to(&mut second, Edits::new()).expect("second");
@@ -640,10 +750,15 @@ impl std::io::Write for FailingWriter {
 
 #[test]
 fn a_failed_write_leaves_a_usable_archive() {
-    // Planning's pin (2026-09-16): after a write that fails part-way, every
-    // later call returns Err or works, never panics, and this test says
-    // which. Both of them WORK: write_to puts the reader back on the failure
-    // path as well as the success path, so the Option cannot strand it.
+    // `specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 6: after
+    // a write that fails part-way, every later call returns Err or works,
+    // never panics, and this test says which. Both of them WORK: write_to
+    // puts the reader back on the failure path as well as the success path,
+    // so neither Option can strand it.
+    //
+    // An earlier version of this comment cited "Planning's pin", which was a
+    // cross-session message and not a primary. Both independent checks of
+    // e14dbee found it. A planning message is an instruction, never a source.
     let build = Build::new(vec![
         Spec::new(b"one.txt", b"payload one"),
         Spec::new(b"two.txt", b"payload two"),
@@ -666,7 +781,7 @@ fn a_failed_write_leaves_a_usable_archive() {
         .read(0)
         .expect("read works after a failed write")
         .read_to_end(&mut bytes)
-        .ok();
+        .expect("read to the end after a failed write");
     assert_eq!(bytes, b"payload one");
 
     // Works, not Err: a second write still produces the input byte for byte.
