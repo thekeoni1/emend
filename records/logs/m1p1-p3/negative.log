@@ -1,7 +1,7 @@
 command: git rev-parse HEAD
-about: M1 part 1 P3 phase commit 5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
-phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) negative.log; run at 2026-09-17T14:10:57Z
-rerun: this replaces the negative.log of the first run, sha256 4a4918c8a6a1d2a93ef23f86a7bb658f8ea5c256e90ae850a83de0863d809a8d, which ran at 2026-09-17T14:08:56Z at this same commit and reported every check as expected, one of them for the wrong reason. D1 timed the removal test with GNU time and read the whole of its output file as the figure. When the command fails, GNU time writes a line 'Command exited with non-zero status N' BEFORE the figure, so the pre-repair run's value was that line and the number together; the log printed 'wall seconds: Command exited with non-zero status 101' with the figure on the next line. The ten-times check then handed that value to gawk, which, the value not being numeric, compared it as a STRING against 10 times the other figure: 'Command exited...' against '7.5', true because C sorts after 7, so the check would have passed whatever the timings were. Measured before this run on a failing and a passing command. The figure is now read from the last line and must look like a number, the comparison is made on numbers, and the two forms have controls, one of them the failure shape of the first run. The real figures happened to satisfy the check, 30.45 s against 0.75 s; this run is what establishes it. Every other case is as the first run printed it.
+about: M1 part 1 P3 phase commit 6cec4161000c0c20bf55a797bf1fb972f0794960; HEAD at run: 6cec4161000c0c20bf55a797bf1fb972f0794960
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) negative.log; run at 2026-09-17T15:09:03Z
+rerun: this replaces four earlier negative logs. (1) The one committed in the first P3 record, b28d8394a292e2243bf771ec0b87a5d1ec5c5e12, sha256 6a361c739d434b791ecda8c53f87fcf38b7dae662c273f129bcff41bcdfc8ecd, run at 2026-09-17T14:10:57Z at 5a8b491ca402e9248cd4130890e7c353ec212a82, reported every check as expected. (2) An uncommitted run of this round at this same commit, sha256 45128b1410fca59614af4b9c9da02bb548bd7cc93f79821929ea1073e52ca5e1, run at 2026-09-17T14:54:26Z, FAILED six checks, all of one defect in its script: the helper comparing a copied binary with its log's hash printed a line INSIDE the verdict's capture, so each verdict was that line followed by 'as-expected' on a line of its own, which is not the verdict 'as-expected', and the run ended 'negative log checks all as expected: no'; the hashes themselves agreed, as it printed. The helper now prints outside the capture and sets a flag the verdict reads. (3) sha256 393a6b7fb26c2ae27f12d2313432f40d84ebe62c93ff738c255de21b2f9e2d21, run after that fix, passed, but its header said run (2) had 'reported six checks UNEXPECTED', which is not what run (2) printed. (4) sha256 57961f663065f7d2e7ca8e8a7f8ebbbb9aff74099cf5d5ed3b14d29d249c933b, run at 2026-09-17T14:56:30Z with the corrected description, passed and was given to the second independent check, which found its two compound checks written inline rather than as the named functions specs/0001 asks for; they are named functions now, and that is the only change since (4). This round's changes since (1), after code commit 740648e and rulings doc commit 6cec416 (specs/0008, 'Planning rulings on P3 (2026-09-17, first verification)', item 7, and 'Planning rulings during the P3 repair round'): every binary copied in is compared with the hash its own log prints (gate.log, size.log, and test.log for the test executable, which gate.log does not hash); the find-based counts of fixtures and temporaries go through a form that reads a failed find as error, with planted-file controls, and the layer's temporaries are counted in the temporary directory without the -newer filter; probe-emend-edit-xml is copied in and gets P8, P9 and P9c; and two checks that reported only their first condition are evaluated whole. D1's pre-repair binary is the same declared input as before.
 SERIALIZED: produced with no other run in flight
 every fixture is generated; no corpus file is copied or read; nothing is built
 
@@ -31,7 +31,16 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     #  T1 and T2, the error catalogue: two refusals that P3 gave their own wording,
     #  seen through the tool rather than only in a unit test. Each has a control.
     #
-    #  P1 to P7, the two new size probes' exit codes and refusals.
+    #  P1 to P7, the two new size probes' exit codes and refusals; P8 and P9,
+    #  with the control P9c, the repair round's probe-emend-edit-xml.
+    #
+    # REPAIR ROUND (specs/0008, "Planning rulings on P3 (2026-09-17, first
+    # verification)", item 7): every binary copied in is compared with the hash
+    # the log that built it prints (gate.log, size.log, and test.log for the test
+    # executable, which gate.log does not hash), read from those logs in the
+    # working tree, which this round rewrote before this log runs. Every
+    # find-based count goes through a form that says "error" when find fails, and
+    # has a positive control: a planted file is counted, then removed.
     #
     # Every case runs in a scratch clone under <scratch>, never in the main working
     # tree, with the gate's binaries and size.log's probes copied in rather than
@@ -42,6 +51,11 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     # <phase commit> > <scratch file>; the caller moves the output to
     # records/logs/m1p1-p3/negative.log.
     set -uo pipefail
+    # Every check with more than one condition is a named function, all_of_<n>,
+    # defined on the line before it and called through yn or is
+    # (specs/0001-bootstrap.md, "Rules for every phase"). An earlier form of these
+    # scripts wrote the conditions inline, which evaluated them whole but was not
+    # the form that rule gives (independent check 2 of this round).
     cd "$(git rev-parse --show-toplevel)" || exit 2
     MAIN=$(pwd)
     . scripts/counting.sh
@@ -98,8 +112,40 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     echo "  size.log's probes (size.log prints these hashes):"
     copy_in target/i686-unknown-linux-musl/size/probe-emend-copy probe-emend-copy
     copy_in target/i686-unknown-linux-musl/size/probe-emend-edit probe-emend-edit
+    copy_in target/i686-unknown-linux-musl/size/probe-emend-edit-xml probe-emend-edit-xml
     echo "  every command below runs in <scratch>/clone or <scratch>"
     EC=$B/bin/emend-copy
+    
+    # logged_sha <log> <binary path as the log prints it>: the sha256 that log
+    # prints for that binary, or nothing. Lines of the forms
+    #   "  <path>: sha256 <hex>, bytes N"            (gate.log)
+    #   "<path>: file N bytes; ...; sha256 <hex>"     (size.log)
+    #   "  test executable <path>: sha256 <hex>"     (test.log)
+    logged_sha() {
+      sed -n -e "s#^ *\(test executable \)\{0,1\}$2: sha256 \([0-9a-f]\{64\}\).*#\2#p" \
+             -e "s#^$2: file .*; sha256 \([0-9a-f]\{64\}\)\$#\1#p" "$1" | sort -u
+    }
+    # same_as_logged <log> <path as logged> <copy>: prints what the log gives,
+    # then sets same_ok to yes or no. It prints OUTSIDE any capture: an earlier
+    # form printed inside `$(is ...)`, so the verdict carried that line too and
+    # never read as exactly "as-expected".
+    same_as_logged() {
+      local want got
+      want=$(logged_sha "$1" "$2")
+      got=$(sha256sum <"$3" | cut -d' ' -f1)
+      echo "    $(basename "$1") prints for $2: ${want:-nothing}"
+      if [ -n "$want" ] && [ "$want" = "$got" ]; then same_ok=yes; else same_ok=no; fi
+    }
+    echo "  each copy against the hash its own log prints:"
+    L=$MAIN/records/logs/m1p1-p3
+    for pair in "gate.log target/debug/emend-copy emend-copy" "gate.log target/debug/xlsx-diff xlsx-diff" \
+                "size.log target/i686-unknown-linux-musl/size/probe-emend-copy probe-emend-copy" \
+                "size.log target/i686-unknown-linux-musl/size/probe-emend-edit probe-emend-edit" \
+                "size.log target/i686-unknown-linux-musl/size/probe-emend-edit-xml probe-emend-edit-xml"; do
+      set -- $pair
+      same_as_logged "$L/$1" "$2" "$B/bin/$3"
+      note "$3 is the binary $1 measured" "$(is [ "$same_ok" = yes ])"
+    done
     
     # The gate-built test binary, found by glob and copied in; no cargo command
     # runs in this log (specs/0001, "How this task runs").
@@ -114,6 +160,29 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     cp "$(head -n 1 "$B/testbins")" "$B/bin/testbin" 2>/dev/null && chmod 755 "$B/bin/testbin"
     [ -x "$B/bin/testbin" ] && echo "  the gate's test binary: sha256 $(sha256sum <"$B/bin/testbin" | cut -d' ' -f1), bytes $(wc -c <"$B/bin/testbin")"
     note "the gate's test binary was copied in" "$(is [ -x "$B/bin/testbin" ])"
+    TB_REL=$(head -n 1 "$B/testbins" | sed "s#^$MAIN/##")
+    echo "  as test.log names it: $TB_REL"
+    same_as_logged "$L/test.log" "$TB_REL" "$B/bin/testbin"
+    note "the test binary is the one test.log ran and hashed" "$(is [ "$same_ok" = yes ])"
+    
+    # count_named <directory> <name glob> [depth]: files of that name, or "error"
+    # when find fails; never a bare 0 for a directory that could not be read.
+    count_named() {
+      local out
+      out=$(find "$1" -maxdepth "${3:-1}" -name "$2" -print 2>/dev/null) || { echo error; return; }
+      if [ -z "$out" ]; then echo 0; else printf '%s\n' "$out" | wc -l; fi
+    }
+    mkdir -p "$B/ctl-dir"
+    : >"$B/ctl-dir/emend-4gib-plant"
+    : >"$B/ctl-dir/.plant.xlsx.emend-copy-1.tmp"
+    : >"$B/ctl-dir/emend-replace-1-0.tmp"
+    note "control: a planted 4 GiB fixture name is counted" "$(is [ "$(count_named "$B/ctl-dir" 'emend-4gib-*')" = 1 ])"
+    note "control: a planted emend-copy temporary name is counted" "$(is [ "$(count_named "$B/ctl-dir" '.*.emend-copy*.tmp')" = 1 ])"
+    note "control: a planted layer temporary name is counted" "$(is [ "$(count_named "$B/ctl-dir" 'emend-replace-*.tmp')" = 1 ])"
+    rm -f "$B/ctl-dir/"*  "$B/ctl-dir/".plant*
+    note "control: removed, none is counted" "$(is [ "$(count_named "$B/ctl-dir" '*emend*')" = 0 ])"
+    note "control: a directory that does not exist reads as error" "$(is [ "$(count_named "$B/no-such-dir" '*')" = error ])"
+    rmdir "$B/ctl-dir"
     
     echo
     echo "## D1: the removal test before and after the repair"
@@ -123,7 +192,8 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     P2_CODE=$(git log --format='%H' --grep='^M1 part 1 P2: replace, remove and add' -n 1)
     echo "command: git log --format='%H' --grep=<the repairs commit's subject> -n 1; the same for P2's code commit"
     echo "  the repairs commit resolves to $REPAIR; P2's code commit to $P2_CODE"
-    note "both commits resolved from git" "$(is [ -n "$REPAIR" ] && [ -n "$P2_CODE" ])"
+    all_of_1() { [ -n "$REPAIR" ] && [ -n "$P2_CODE" ]; }
+    note "both commits resolved from git" "$(is all_of_1)"
     echo "  the two sources it names, hashed here from git for comparison:"
     echo "    P2's crates/emend/src/archive.rs:           $(git show "$P2_CODE:crates/emend/src/archive.rs" | sha256sum | cut -d' ' -f1)"
     echo "    the repairs commit's archive/tests.rs:     $(git show "$REPAIR:crates/emend/src/archive/tests.rs" | sha256sum | cut -d' ' -f1)"
@@ -196,7 +266,8 @@ every fixture is generated; no corpus file is copied or read; nothing is built
       T_OLD=$(elapsed_of "$B/before.time")
       T_NEW=$(elapsed_of "$B/after.time")
       echo "  the quadratic duplicate check is in the pre-repair binary only: $T_OLD s against $T_NEW s for the same test"
-      note "both timings were read as numbers" "$(is [ "$T_OLD" != error ] && [ "$T_NEW" != error ])"
+      all_of_2() { [ "$T_OLD" != error ] && [ "$T_NEW" != error ]; }
+      note "both timings were read as numbers" "$(is all_of_2)"
       note "the pre-repair run takes more than ten times as long, compared as numbers" "$(is ten_times "$T_OLD" "$T_NEW")"
     fi
     
@@ -211,11 +282,11 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     hide <"$B/X1.out" | sed 's/^/    /'
     hide <"$B/X1.err" | sed 's/^/    /'
     x1_named=$(count_matches -F 'EMEND_XLSX_DIFF is unset' "$B/X1.out" "$B/X1.err")
-    x1_files=$(find "$B/x1tmp" -maxdepth 1 -name 'emend-4gib-*' | wc -l)
+    x1_files=$(count_named "$B/x1tmp" 'emend-4gib-*')
     echo "  lines naming the unset variable: $x1_named; 4 GiB fixtures written: $x1_files"
     note "X1 the run fails" "$(is [ "$x1rc" -ne 0 ])"
     note "X1 it says which variable is unset" "$(is [ "$x1_named" -ge 1 ])"
-    note "X1 it wrote no fixture" "$(is [ "$x1_files" -eq 0 ])"
+    note "X1 it wrote no fixture" "$(is [ "$x1_files" = 0 ])"
     
     echo
     echo "## the generated fixtures"
@@ -244,6 +315,10 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     data = open(os.path.join(w, "sound.xlsx"), "rb").read()
     open(os.path.join(w, "trailing.xlsx"), "wb").write(data + b"trailing")
     open(os.path.join(w, "notzip.xlsx"), "wb").write(b"this is not a zip archive\n" * 8)
+    with zipfile.ZipFile(os.path.join(w, "badxml.xlsx"), "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", CT)
+        z.writestr("xl/workbook.xml", b"<workbook></sheets>")
+        z.writestr("docProps/app.xml", APP)
     
     
     def zip64(sector):
@@ -277,7 +352,7 @@ every fixture is generated; no corpus file is copied or read; nothing is built
     
     open(os.path.join(w, "sector-over.zip"), "wb").write(zip64(0x10000))
     open(os.path.join(w, "sector-edge.zip"), "wb").write(zip64(0xFFFF))
-    for name in ("sound.xlsx", "trailing.xlsx", "notzip.xlsx", "sector-over.zip", "sector-edge.zip"):
+    for name in ("sound.xlsx", "trailing.xlsx", "notzip.xlsx", "badxml.xlsx", "sector-over.zip", "sector-edge.zip"):
         print("%s: %d bytes" % (name, os.path.getsize(os.path.join(w, name))))
     GEN_PY
     echo "command: python3 <scratch>/gen.py <scratch>"
@@ -362,15 +437,32 @@ every fixture is generated; no corpus file is copied or read; nothing is built
         [ "$(awk -F'\t' '$1 == "entry" && $17 != "" { n++ } END { print n + 0 }' "$B/P7c.tsv")" = 0 ]
     }
     note "P7c the harness sees one entry dropped, one added, nothing flagged" "$(is p7c_ok)"
+    PX=$B/bin/probe-emend-edit-xml
+    echo "P8: probe-emend-edit-xml with four arguments"
+    run_case P8 2 'error: usage: probe-emend-edit-xml <archive> <output> <entry to replace> <entry to remove> <entry to add>' \
+      "$PX" "$B/sound.xlsx" "$B/out-P8.zip" a b
+    echo "P9: probe-emend-edit-xml replacing an entry that is not well-formed XML"
+    run_case P9 2 'error: the entry is not well-formed XML' \
+      "$PX" "$B/badxml.xlsx" "$B/out-P9.zip" xl/workbook.xml docProps/app.xml added.xml
+    note "P9 no output file was created, because the count comes before it" "$(is [ ! -e "$B/out-P9.zip" ])"
+    echo "P9c: the control, the same edits on the sound archive"
+    run_case P9c 0 "" "$PX" "$B/sound.xlsx" "$B/out-P9c.zip" xl/workbook.xml docProps/app.xml added.xml
+    sed 's/^/      /' "$B/P9c.out"
+    note "P9c prints three entries and the replaced entry's three elements" \
+      "$(is [ "$(cat "$B/P9c.out")" = "$(printf 'entries 3\nelements 3')" ])"
     
     echo
     echo "## no temporary of any kind survived"
-    ectmp=$(find "$B" -maxdepth 2 -name '.*.emend-copy*.tmp' | wc -l)
-    laytmp=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'emend-replace-*.tmp' -newer "$B/gen.py" 2>/dev/null | wc -l)
+    # The layer's temporaries go to the temporary directory of the process that
+    # made them; none of the commands above set TMPDIR except X1, so that is this
+    # shell's. It is named by what it is, not printed.
+    LAYDIR=${TMPDIR:-/tmp}
+    ectmp=$(count_named "$B" '.*.emend-copy*.tmp' 2)
+    laytmp=$(count_named "$LAYDIR" 'emend-replace-*.tmp')
     echo "  emend-copy temporaries left in <scratch>: $ectmp"
-    echo "  layer replacement temporaries newer than this run's fixtures: $laytmp"
-    note "no emend-copy temporary survived" "$(is [ "$ectmp" -eq 0 ])"
-    note "no layer replacement temporary survived" "$(is [ "$laytmp" -eq 0 ])"
+    echo "  layer replacement temporaries in the temporary directory: $laytmp"
+    note "no emend-copy temporary survived" "$(is [ "$ectmp" = 0 ])"
+    note "no layer replacement temporary survived" "$(is [ "$laytmp" = 0 ])"
     
     echo
     echo "## the main working tree was never used"
@@ -575,20 +667,40 @@ every fixture is generated; no corpus file is copied or read; nothing is built
 
 ## the scratch clone and the binaries copied in
 command: git clone --quiet --shared <repo> <scratch>/clone
-  clone HEAD: 5a8b491ca402e9248cd4130890e7c353ec212a82
+  clone HEAD: 6cec4161000c0c20bf55a797bf1fb972f0794960
   the clone is at the phase commit: as-expected
   the gate's binaries (gate.log prints these hashes):
-  copied target/debug/emend-copy: sha256 d305211c4f265d8b6d9b36b9ebe25298f74b0585fed39fd7a71f3f7610c13bac, bytes 12218232
+  copied target/debug/emend-copy: sha256 b100d084f85fe1000a81f0dc92fab76b3b432fa3c963083b35ad0acd6d6aee16, bytes 12218240
   copied target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
   size.log's probes (size.log prints these hashes):
-  copied target/i686-unknown-linux-musl/size/probe-emend-copy: sha256 c737458b3f61ec2bb83c4170ac738c76d7b7ac104ba1c378f96e9a906ae0226a, bytes 592420
-  copied target/i686-unknown-linux-musl/size/probe-emend-edit: sha256 9d5c661573756bd1d1699060a51d95de06f7b0cd44b64f65fcf683353fdcf899, bytes 657956
+  copied target/i686-unknown-linux-musl/size/probe-emend-copy: sha256 d5a4a6174e774ae60bce5c0e658f4cb52838032a85aeb7c5fa767d87f51b7271, bytes 592420
+  copied target/i686-unknown-linux-musl/size/probe-emend-edit: sha256 c3ae08975db3f59e4cb7edde3f160d6450912171d1d7d430558096ec27d7bb1c, bytes 657956
+  copied target/i686-unknown-linux-musl/size/probe-emend-edit-xml: sha256 4d7300b2d360e408c7c33570b802b5e5b1404f859e5aa98aa5da34f15adc4e09, bytes 670244
   every command below runs in <scratch>/clone or <scratch>
+  each copy against the hash its own log prints:
+    gate.log prints for target/debug/emend-copy: b100d084f85fe1000a81f0dc92fab76b3b432fa3c963083b35ad0acd6d6aee16
+  emend-copy is the binary gate.log measured: as-expected
+    gate.log prints for target/debug/xlsx-diff: a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  xlsx-diff is the binary gate.log measured: as-expected
+    size.log prints for target/i686-unknown-linux-musl/size/probe-emend-copy: d5a4a6174e774ae60bce5c0e658f4cb52838032a85aeb7c5fa767d87f51b7271
+  probe-emend-copy is the binary size.log measured: as-expected
+    size.log prints for target/i686-unknown-linux-musl/size/probe-emend-edit: c3ae08975db3f59e4cb7edde3f160d6450912171d1d7d430558096ec27d7bb1c
+  probe-emend-edit is the binary size.log measured: as-expected
+    size.log prints for target/i686-unknown-linux-musl/size/probe-emend-edit-xml: 4d7300b2d360e408c7c33570b802b5e5b1404f859e5aa98aa5da34f15adc4e09
+  probe-emend-edit-xml is the binary size.log measured: as-expected
 command: for f in <repo>/target/debug/deps/emend-*; executable candidates only
   executable candidates: 1
   exactly one test binary candidate, so no choice is being made: as-expected
-  the gate's test binary: sha256 832230ba1d32279ae1d537b8510f8afea80aa5c95e4e4c6c467ab8c04112165c, bytes 16783576
+  the gate's test binary: sha256 112ac9063300a4f1f2abad6ae34d0ea4ae0518a3b449176a6428adeea8fca000, bytes 16929416
   the gate's test binary was copied in: as-expected
+  as test.log names it: target/debug/deps/emend-23afe3b113568f31
+    test.log prints for target/debug/deps/emend-23afe3b113568f31: 112ac9063300a4f1f2abad6ae34d0ea4ae0518a3b449176a6428adeea8fca000
+  the test binary is the one test.log ran and hashed: as-expected
+  control: a planted 4 GiB fixture name is counted: as-expected
+  control: a planted emend-copy temporary name is counted: as-expected
+  control: a planted layer temporary name is counted: as-expected
+  control: removed, none is counted: as-expected
+  control: a directory that does not exist reads as error: as-expected
 
 ## D1: the removal test before and after the repair
 The pre-repair binary is a declared input. Its provenance, as supplied:
@@ -610,24 +722,24 @@ command: git log --format='%H' --grep=<the repairs commit's subject> -n 1; the s
   control: the failure shape of the first run is refused, not compared as a string: as-expected
   the pre-repair binary contains the removal test: as-expected
 command: <pre-repair binary> --exact archive::tests::removing_from_65535_entries_writes_a_plain_count --test-threads=1
-  exit: 101; wall seconds: 30.53
+  exit: 101; wall seconds: 30.37
     test archive::tests::removing_from_65535_entries_writes_a_plain_count ... FAILED
-    thread 'archive::tests::removing_from_65535_entries_writes_a_plain_count' (2036276) panicked at crates/emend/src/archive/tests.rs:2034:5:
+    thread 'archive::tests::removing_from_65535_entries_writes_a_plain_count' (2136583) panicked at crates/emend/src/archive/tests.rs:2034:5:
     assertion `left == right` failed: entries on this disk
       left: 65535
      right: 65534
-    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 58 filtered out; finished in 30.53s
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 58 filtered out; finished in 30.37s
   before the repair the removal test FAILS: as-expected
   it fails on the entry count: as-expected
   the end record says 65535: as-expected
   over an archive of 65534: as-expected
 command: <the gate's test binary> --exact archive::tests::removing_from_65535_entries_writes_a_plain_count --test-threads=1
-  exit: 0; wall seconds: 0.73
+  exit: 0; wall seconds: 0.75
     test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.74s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 0.75s
   after the repair the removal test passes: as-expected
   and it ran, rather than being filtered out: as-expected
-  the quadratic duplicate check is in the pre-repair binary only: 30.53 s against 0.73 s for the same test
+  the quadratic duplicate check is in the pre-repair binary only: 30.37 s against 0.75 s for the same test
   both timings were read as numbers: as-expected
   the pre-repair run takes more than ten times as long, compared as numbers: as-expected
 
@@ -642,7 +754,7 @@ command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <the gate's test binary> 
     
     ---- archive::tests::zip64_replace_in_an_archive_over_4_gib stdout ----
     
-    thread 'archive::tests::zip64_replace_in_an_archive_over_4_gib' (2036370) panicked at crates/emend/src/archive/tests.rs:1796:9:
+    thread 'archive::tests::zip64_replace_in_an_archive_over_4_gib' (2136678) panicked at crates/emend/src/archive/tests.rs:1796:9:
     EMEND_XLSX_DIFF is unset; it must name the xlsx-diff binary of this target
     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
     
@@ -650,7 +762,7 @@ command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <the gate's test binary> 
     failures:
         archive::tests::zip64_replace_in_an_archive_over_4_gib
     
-    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.00s
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 78 filtered out; finished in 0.00s
     
   lines naming the unset variable: 1; 4 GiB fixtures written: 0
   X1 the run fails: as-expected
@@ -662,6 +774,7 @@ command: python3 <scratch>/gen.py <scratch>
     sound.xlsx: 531 bytes
     trailing.xlsx: 539 bytes
     notzip.xlsx: 208 bytes
+    badxml.xlsx: 484 bytes
     sector-over.zip: 65725 bytes
     sector-edge.zip: 65724 bytes
   the generator exits 0: as-expected
@@ -727,15 +840,30 @@ P7c: the control, the same edits with a new name
       docProps/app.xml dropped flags=[]
       added.xml added flags=[]
   P7c the harness sees one entry dropped, one added, nothing flagged: as-expected
+P8: probe-emend-edit-xml with four arguments
+  P8: exit 2; stderr lines 1
+      error: usage: probe-emend-edit-xml <archive> <output> <entry to replace> <entry to remove> <entry to add>
+  P8 exits 2 and stderr is exactly the expected line: as-expected
+P9: probe-emend-edit-xml replacing an entry that is not well-formed XML
+  P9: exit 2; stderr lines 1
+      error: the entry is not well-formed XML
+  P9 exits 2 and stderr is exactly the expected line: as-expected
+  P9 no output file was created, because the count comes before it: as-expected
+P9c: the control, the same edits on the sound archive
+  P9c: exit 0; stderr lines 0
+  P9c exits 0 and says nothing on stderr: as-expected
+      entries 3
+      elements 3
+  P9c prints three entries and the replaced entry's three elements: as-expected
 
 ## no temporary of any kind survived
   emend-copy temporaries left in <scratch>: 0
-  layer replacement temporaries newer than this run's fixtures: 0
+  layer replacement temporaries in the temporary directory: 0
   no emend-copy temporary survived: as-expected
   no layer replacement temporary survived: as-expected
 
 ## the main working tree was never used
-status lines in the main tree: 1; of them this phase's logs or its size record: 1
+status lines in the main tree: 6; of them this phase's logs or its size record: 6
   every change in the main tree is this phase's logs or its size record: as-expected
-run ended at 2026-09-17T14:11:29Z
+run ended at 2026-09-17T15:09:35Z
 negative log checks all as expected: yes

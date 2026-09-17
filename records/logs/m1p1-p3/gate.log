@@ -1,6 +1,7 @@
 command: git rev-parse HEAD
-about: M1 part 1 P3 phase commit 5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
-phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) gate.log; run at 2026-09-17T14:01:47Z
+about: M1 part 1 P3 phase commit 740648e76196587a85a6d100216f6819acf21e5f; HEAD at run: 740648e76196587a85a6d100216f6819acf21e5f
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) gate.log; run at 2026-09-17T14:40:37Z
+rerun: this replaces the gate.log committed in the first P3 record, b28d8394a292e2243bf771ec0b87a5d1ec5c5e12, sha256 07c400167ccdd2bc815ccee9199ffe87cd3c3b2b98f3f05de6e83209ad2ddb61, which ran at 2026-09-17T14:01:47Z at 5a8b491ca402e9248cd4130890e7c353ec212a82 and passed. It is rerun because the repair round (specs/0008, 'Planning rulings on P3 (2026-09-17, first verification)') added a doc commit and a code commit, so the phase commit is now HEAD. What changed in the script: it expects three doc commits and seven commits in the range; the gate-file membership is read through count_matches, with a planted-file control, so a read error is never taken for absence; the section that parsed four scripts this phase does not touch is replaced by a check that the phase touches no file under scripts/; and the first record's files, now in the range, are listed as records and not scored as sources. Independent check 1 found the second and third.
 SERIALIZED: produced with no other run in flight
 ANTHROPIC_API_KEY set in this shell: no
 DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)
@@ -12,6 +13,16 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     # commits and files, the changed sources scored against the gate they must
     # pass, the ten gate-file names in the checks section, and the four binary
     # hashes that test.log and negative.log then cite rather than recompute.
+    #
+    # REPAIR ROUND (specs/0008, "Planning rulings on P3 (2026-09-17, first
+    # verification)"). The phase range is still the base to HEAD, so it now holds
+    # seven commits: the three doc commits, the repairs, the features, the first
+    # record commit and the repair round's code commit. The first record's files
+    # are in the diff; they are records, not sources, and scan.log scans them, so
+    # the source scoring below lists them and skips them. Item 7: the gate-file
+    # membership is read through a counting.sh form with a positive control, so a
+    # read error is never taken for absence; and the section that parsed scripts
+    # this phase does not touch is replaced by a check that it touches none.
     #
     # Usage: m1p1-p3-gate.sh > <scratch file>; the caller moves the output to
     # records/logs/m1p1-p3/gate.log.
@@ -70,13 +81,15 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     # ruling 10: a ruling that arrives after the phase's doc commit goes in as its
     # own doc commit). `git log -n 1` returns the NEWEST, whose parent is the first
     # doc commit, so a base taken that way would lose the first doc commit's files.
-    # The base is the parent of the OLDEST match, and the count is asserted.
+    # The base is the parent of the OLDEST match, and the count is asserted. The
+    # repair round added a THIRD doc commit with the same prefix (the first
+    # verification and the repair round), so the count is now three.
     DOC_PATTERN='^M1 part 1 P3: commit planning doc update'
     echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
     git log --format='%H' --grep="$DOC_PATTERN" >"$W/doc-matches"
     nmatch=$(count_lines "$W/doc-matches")
     echo "  commits matching the pattern: $nmatch"
-    note "the doc commit pattern matches exactly two commits" "$(is [ "$nmatch" = 2 ])"
+    note "the doc commit pattern matches exactly three commits" "$(is [ "$nmatch" = 3 ])"
     DOC=$(tail -n 1 "$W/doc-matches")
     BASE=$(git rev-parse --verify "$DOC^" 2>/dev/null)
     echo "  the oldest matching doc commit is $DOC"
@@ -89,7 +102,7 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     git log --reverse --format='    %H %s' "$BASE..HEAD"
     ncommits=$(git rev-list --count "$BASE..HEAD")
     echo "  commits in the range: $ncommits"
-    note "four commits: two doc, the repairs, the features" "$(is [ "$ncommits" = 4 ])"
+    note "seven commits: three doc, the repairs, the features, the first record, the repair round" "$(is [ "$ncommits" = 7 ])"
     
     echo
     echo "## the changed files at the phase commit"
@@ -122,32 +135,40 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
     .gitignore
     .github/workflows/ci.yml
     EOF
+    # Each name is matched as a whole line through count_matches, which prints
+    # "error" when it cannot read, so a failed read is never an absence. The
+    # pattern is the name with every regex character escaped, anchored both ends.
+    whole_line() { printf '^%s$' "$(printf '%s' "$1" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"; }
+    # The control: a copy of the diff list with one gate file planted counts 1 for
+    # it, the real list's count is read the same way, and an unreadable list reads
+    # as error.
+    cp "$W/difffiles" "$W/difffiles-planted"
+    printf '%s\n' .github/workflows/ci.yml >>"$W/difffiles-planted"
+    { cat "$W/difffiles"; printf '%s\n' scripts/counting.sh; } >"$W/difffiles-planted-script"
+    ctl "a planted gate file is counted" 1 count_matches -E "$(whole_line .github/workflows/ci.yml)" "$W/difffiles-planted"
+    ctl "a name that only contains a gate file is not" 0 count_matches -E "$(whole_line scripts/check.s)" "$W/difffiles-planted"
+    ctl "an unreadable diff list reads as error" error count_matches -E "$(whole_line scripts/check.sh)" "$W/no-such-list"
     touched=0
     while IFS= read -r g; do
-      # /usr/bin/grep explicitly: in the Claude Code tool shell `grep` is a
-      # different program (specs/0001, "Rules for every phase").
-      if LC_ALL=C "$G" -Fxq -- "$g" "$W/difffiles"; then
-        echo "  gate file $g: in the phase diff"
-        touched=$((touched + 1))
-      else
-        echo "  gate file $g: not in the phase diff"
-      fi
+      n=$(count_matches -E "$(whole_line "$g")" "$W/difffiles")
+      case $n in
+        0) echo "  gate file $g: not in the phase diff" ;;
+        error) echo "  gate file $g: READ ERROR"; fail=1 ;;
+        *) echo "  gate file $g: in the phase diff ($n)"; touched=$((touched + 1)) ;;
+      esac
     done <"$W/gate-files"
     echo "  gate files checked: $(count_lines "$W/gate-files"); of them in the phase diff: $touched"
     note "ten gate files are listed" "$(is [ "$(count_lines "$W/gate-files")" = 10 ])"
     note "no gate file is in the phase diff, so specs/0001 asks for this listing rather than a self-test run" "$(is [ "$touched" -eq 0 ])"
     
     echo
-    echo "## the scripts this phase touches parse"
-    for s in scripts/check.sh scripts/counting.sh scripts/passthrough-run.sh; do
-      bash -n "$s" 2>/dev/null
-      note "$s parses" "$(is [ $? -eq 0 ])"
-    done
-    # ast.parse, not py_compile: py_compile writes scripts/__pycache__, which is
-    # untracked and not ignored and would break the clean-tree checks.
-    python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' scripts/passthrough-record.py 2>/dev/null
-    note "scripts/passthrough-record.py parses" "$(is [ $? -eq 0 ])"
-    note "parsing the record script left no __pycache__" "$(is [ ! -e scripts/__pycache__ ])"
+    echo "## this phase touches no script under scripts/"
+    # The first P3 gate.log parsed four scripts this phase does not touch
+    # (independent check 1, 2(g)). What matters is whether it touches any.
+    nscripts=$(count_matches -E '^scripts/' "$W/difffiles")
+    echo "  files under scripts/ in the phase diff: $nscripts"
+    ctl "a planted script path is counted" 1 count_matches -E '^scripts/' "$W/difffiles-planted-script"
+    note "no file under scripts/ is in the phase diff" "$(is [ "$nscripts" = 0 ])"
     
     echo
     echo "## the changed sources scored against the gate they must pass, with controls"
@@ -193,6 +214,11 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
         [ "$(f_live "$1")" = 0 ] && [ "$(f_pre "$1")" = 0 ] && [ "$(f_office "$1")" = 0 ]
     }
     while IFS=$'\t' read -r status M; do
+      case $M in
+        records/*)
+          echo "$M: a record, not a source; scan.log scans it"
+          continue ;;
+      esac
       if [ "$status" = A ]; then
         echo "$M (added in this phase):"
         for form in f_nonascii f_ctrl f_live f_pre f_office; do
@@ -462,8 +488,8 @@ DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low mem
 
 ## the phase base, resolved from git and checked for ambiguity
 command: git log --format='%H' --grep='^M1 part 1 P3: commit planning doc update'
-  commits matching the pattern: 2
-  the doc commit pattern matches exactly two commits: as-expected
+  commits matching the pattern: 3
+  the doc commit pattern matches exactly three commits: as-expected
   the oldest matching doc commit is 6f3d5c5500b8f08fe07170531d7aba962ec978e4
   its parent, the phase base, is 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b
   the base resolved from git, not typed: as-expected
@@ -474,8 +500,11 @@ command: git log --reverse --format='%H %s' <base>..HEAD
     98cac7d400bb61eaff205133fd886becf8252256 M1 part 1 P3: commit planning doc update (the two P2 repairs, the size probes)
     adb0cc8ef6098735beaef275cc88900daac71727 M1 part 1 P3: repair P2's end-record count and P1's quadratic duplicate check
     5a8b491ca402e9248cd4130890e7c353ec212a82 M1 part 1 P3: the error catalogue, its tests, and the two size probes
-  commits in the range: 4
-  four commits: two doc, the repairs, the features: as-expected
+    b28d8394a292e2243bf771ec0b87a5d1ec5c5e12 M1 part 1 P3 record: the five logs, the check answer, the size record
+    3d1f8ee269de548e3b91c80c6391b4a05601be75 M1 part 1 P3: commit planning doc update (first verification, the repair round)
+    740648e76196587a85a6d100216f6819acf21e5f M1 part 1 P3 repairs: the catalogue's untested messages, the fifth probe
+  commits in the range: 7
+  seven commits: three doc, the repairs, the features, the first record, the repair round: as-expected
 
 ## the changed files at the phase commit
 command: git diff --name-status --diff-filter=d <base> HEAD
@@ -483,23 +512,42 @@ command: git diff --name-status --diff-filter=d <base> HEAD
     M	ROADMAP.md
     M	crates/emend/src/archive.rs
     M	crates/emend/src/archive/tests.rs
+    A	records/logs/m1p1-p3/gate.log
+    A	records/logs/m1p1-p3/independent-check-1.md
+    A	records/logs/m1p1-p3/negative.log
+    A	records/logs/m1p1-p3/scan.log
+    A	records/logs/m1p1-p3/size.log
+    A	records/logs/m1p1-p3/test.log
+    A	records/size-m1p1-2026-09-17-5a8b491.md
     M	specs/0001-bootstrap.md
     M	specs/0008-zip-layer.md
     M	tools/size-probe/Cargo.toml
     A	tools/size-probe/src/bin/probe-emend-copy.rs
+    A	tools/size-probe/src/bin/probe-emend-edit-xml.rs
     A	tools/size-probe/src/bin/probe-emend-edit.rs
 Cargo.lock: sha256 43479e6827a87d54d2c7669fd9b85c500d96c9d5326eeec26a2c32ddeb4aa059, bytes 2862, mode 100644
-ROADMAP.md: sha256 afe6c72489e29e86280c5f07f1914f9e94fa1a6d929d2b11293566f89a2cd64c, bytes 19405, mode 100644
-crates/emend/src/archive.rs: sha256 b61a128b1292fd6662f361f4a7dbbc15278d67d43b7b1445f804e91b6ac25d4d, bytes 78922, mode 100644
-crates/emend/src/archive/tests.rs: sha256 5a1fa6951216418e84779adf4bf8b042d1a0205007f26571c1e7218832661ba1, bytes 90425, mode 100644
-specs/0001-bootstrap.md: sha256 39fb6173bbffa5ff7908ea8c8abe52d25a1b15f58abc9aa18cafe60505ac8ac1, bytes 64598, mode 100644
-specs/0008-zip-layer.md: sha256 1c6ec7f05c3ef59e1a26e4b8047552e0c04579de5bcd9cf550e33f9ba24d2386, bytes 39589, mode 100644
-tools/size-probe/Cargo.toml: sha256 abae79154c242cdb33f05da077e423b7e86db1da0c09d383c7c109c1c3303eaf, bytes 1097, mode 100644
+ROADMAP.md: sha256 5e1722af6780ddcead90e8226e0014d8c83812085e64548619ebf879b2d01145, bytes 19611, mode 100644
+crates/emend/src/archive.rs: sha256 752667828bd5f030b0eb8534739f9c11ae852468d51f9f271888d3b401fe7837, bytes 80023, mode 100644
+crates/emend/src/archive/tests.rs: sha256 99ce77e6f369f35ba36d9f21248ef7b5570f6d4f95c8099cddd2fb73587dd2b9, bytes 97693, mode 100644
+records/logs/m1p1-p3/gate.log: sha256 07c400167ccdd2bc815ccee9199ffe87cd3c3b2b98f3f05de6e83209ad2ddb61, bytes 37637, mode 100644
+records/logs/m1p1-p3/independent-check-1.md: sha256 02d31ba3082ec1bec04fd6457a2fb82f4f56372495fe7c50f610efe1a44c832e, bytes 25481, mode 100644
+records/logs/m1p1-p3/negative.log: sha256 6a361c739d434b791ecda8c53f87fcf38b7dae662c273f129bcff41bcdfc8ecd, bytes 44148, mode 100644
+records/logs/m1p1-p3/scan.log: sha256 943e2e060757e1ef091428beeadf5308da6630ec26cbd1458347584b84fc08f2, bytes 41695, mode 100644
+records/logs/m1p1-p3/size.log: sha256 670d0c9b896348b55f76c76c741f0aa5b839964c9ab5725b960623c273389a32, bytes 57148, mode 100644
+records/logs/m1p1-p3/test.log: sha256 80183c5ad863db29ec994f1909dbd160e3af5a09fbb992a3c5f25935a87d5b5a, bytes 64760, mode 100644
+records/size-m1p1-2026-09-17-5a8b491.md: sha256 bdaabc4c6443fa3b3048162a5e5d9651d098d99c533925455864435e5a532bbb, bytes 4005, mode 100644
+specs/0001-bootstrap.md: sha256 24bd2d5d6c28b83e208ce10268851f61e5e358f17da94ade35e65d07b06bc998, bytes 64678, mode 100644
+specs/0008-zip-layer.md: sha256 c9bce7444bbb7d36fe518fdd1fa24fa1ada3269e04cf280c3a776f6174eeaf1c, bytes 45157, mode 100644
+tools/size-probe/Cargo.toml: sha256 95bbba2d3496ca5be2146276776947f2dd70333647b8760f7e060881f2b85884, bytes 1277, mode 100644
 tools/size-probe/src/bin/probe-emend-copy.rs: sha256 7a0fe93b27e5fb4259b1e3cc6583de24f5c711e626174b3d8641888ef356e0f1, bytes 1779, mode 100644
-tools/size-probe/src/bin/probe-emend-edit.rs: sha256 85b0ac1f3a0edb60e7445249f457b5cb4d9a5b4f6b090b4d610106a13f43f71c, bytes 3135, mode 100644
-  files in the diff: 9
+tools/size-probe/src/bin/probe-emend-edit-xml.rs: sha256 76832f99653ddc36f86616a4fc28d1d0079db4af7a85c12ff2199fe014a8690c, bytes 3877, mode 100644
+tools/size-probe/src/bin/probe-emend-edit.rs: sha256 f7232a6cff1c3f2a275a5caaf6434b3d50bff583b47df1fcc43ab6156530dbbc, bytes 3275, mode 100644
+  files in the diff: 17
 
 ## the gate files, each checked against the phase diff
+  control a planted gate file is counted count=1 expected=1: as-expected
+  control a name that only contains a gate file is not count=0 expected=0: as-expected
+  control an unreadable diff list reads as error count=error expected=error: as-expected
   gate file scripts/check.sh: not in the phase diff
   gate file scripts/privacy.sh: not in the phase diff
   gate file scripts/privacy-patterns.txt: not in the phase diff
@@ -514,12 +562,10 @@ tools/size-probe/src/bin/probe-emend-edit.rs: sha256 85b0ac1f3a0edb60e7445249f45
   ten gate files are listed: as-expected
   no gate file is in the phase diff, so specs/0001 asks for this listing rather than a self-test run: as-expected
 
-## the scripts this phase touches parse
-  scripts/check.sh parses: as-expected
-  scripts/counting.sh parses: as-expected
-  scripts/passthrough-run.sh parses: as-expected
-  scripts/passthrough-record.py parses: as-expected
-  parsing the record script left no __pycache__: as-expected
+## this phase touches no script under scripts/
+  files under scripts/ in the phase diff: 0
+  control a planted script path is counted count=1 expected=1: as-expected
+  no file under scripts/ is in the phase diff: as-expected
 
 ## the changed sources scored against the gate they must pass, with controls
   OFFICE_RE was read from check.sh and is non-empty: as-expected
@@ -560,7 +606,7 @@ ROADMAP.md (modified in this phase):
   f_office: at the base 0, in the added lines 0, at HEAD 0
   ROADMAP.md: f_office introduces nothing new in this phase: as-expected
 crates/emend/src/archive.rs (modified in this phase):
-  added lines: 221
+  added lines: 237
   f_nonascii: at the base 0, in the added lines 0, at HEAD 0
   crates/emend/src/archive.rs: f_nonascii introduces nothing new in this phase: as-expected
   f_ctrl: at the base 0, in the added lines 0, at HEAD 0
@@ -572,7 +618,7 @@ crates/emend/src/archive.rs (modified in this phase):
   f_office: at the base 0, in the added lines 0, at HEAD 0
   crates/emend/src/archive.rs: f_office introduces nothing new in this phase: as-expected
 crates/emend/src/archive/tests.rs (modified in this phase):
-  added lines: 480
+  added lines: 664
   f_nonascii: at the base 0, in the added lines 0, at HEAD 0
   crates/emend/src/archive/tests.rs: f_nonascii introduces nothing new in this phase: as-expected
   f_ctrl: at the base 0, in the added lines 0, at HEAD 0
@@ -583,8 +629,15 @@ crates/emend/src/archive/tests.rs (modified in this phase):
   crates/emend/src/archive/tests.rs: f_pre introduces nothing new in this phase: as-expected
   f_office: at the base 0, in the added lines 0, at HEAD 0
   crates/emend/src/archive/tests.rs: f_office introduces nothing new in this phase: as-expected
+records/logs/m1p1-p3/gate.log: a record, not a source; scan.log scans it
+records/logs/m1p1-p3/independent-check-1.md: a record, not a source; scan.log scans it
+records/logs/m1p1-p3/negative.log: a record, not a source; scan.log scans it
+records/logs/m1p1-p3/scan.log: a record, not a source; scan.log scans it
+records/logs/m1p1-p3/size.log: a record, not a source; scan.log scans it
+records/logs/m1p1-p3/test.log: a record, not a source; scan.log scans it
+records/size-m1p1-2026-09-17-5a8b491.md: a record, not a source; scan.log scans it
 specs/0001-bootstrap.md (modified in this phase):
-  added lines: 6
+  added lines: 10
   f_nonascii: at the base 0, in the added lines 0, at HEAD 0
   specs/0001-bootstrap.md: f_nonascii introduces nothing new in this phase: as-expected
   f_ctrl: at the base 0, in the added lines 0, at HEAD 0
@@ -596,7 +649,7 @@ specs/0001-bootstrap.md (modified in this phase):
   f_office: at the base 4, in the added lines 0, at HEAD 4
   specs/0001-bootstrap.md: f_office introduces nothing new in this phase: as-expected
 specs/0008-zip-layer.md (modified in this phase):
-  added lines: 205
+  added lines: 302
   f_nonascii: at the base 0, in the added lines 0, at HEAD 0
   specs/0008-zip-layer.md: f_nonascii introduces nothing new in this phase: as-expected
   f_ctrl: at the base 0, in the added lines 0, at HEAD 0
@@ -608,7 +661,7 @@ specs/0008-zip-layer.md (modified in this phase):
   f_office: at the base 0, in the added lines 0, at HEAD 0
   specs/0008-zip-layer.md: f_office introduces nothing new in this phase: as-expected
 tools/size-probe/Cargo.toml (modified in this phase):
-  added lines: 16
+  added lines: 24
   f_nonascii: at the base 0, in the added lines 0, at HEAD 0
   tools/size-probe/Cargo.toml: f_nonascii introduces nothing new in this phase: as-expected
   f_ctrl: at the base 0, in the added lines 0, at HEAD 0
@@ -626,6 +679,13 @@ tools/size-probe/src/bin/probe-emend-copy.rs (added in this phase):
   f_pre: 0
   f_office: 0
   tools/size-probe/src/bin/probe-emend-copy.rs is clean on all five forms: as-expected
+tools/size-probe/src/bin/probe-emend-edit-xml.rs (added in this phase):
+  f_nonascii: 0
+  f_ctrl: 0
+  f_live: 0
+  f_pre: 0
+  f_office: 0
+  tools/size-probe/src/bin/probe-emend-edit-xml.rs is clean on all five forms: as-expected
 tools/size-probe/src/bin/probe-emend-edit.rs (added in this phase):
   f_nonascii: 0
   f_ctrl: 0
@@ -636,7 +696,7 @@ tools/size-probe/src/bin/probe-emend-edit.rs (added in this phase):
 
 ## full run on a cold cache, started from / by absolute path
 command: cargo clean
-         Removed 6721 files, 1.2GiB total
+         Removed 8390 files, 1.5GiB total
 command: (cd / && <repo>/scripts/check.sh)
     PASS host
     PASS i686
@@ -652,14 +712,14 @@ exit: 0; stderr bytes: 0
   stderr is empty: as-expected
 
 ## the binaries the gate built, both targets
-  target/debug/emend-copy: sha256 d305211c4f265d8b6d9b36b9ebe25298f74b0585fed39fd7a71f3f7610c13bac, bytes 12218232
+  target/debug/emend-copy: sha256 b100d084f85fe1000a81f0dc92fab76b3b432fa3c963083b35ad0acd6d6aee16, bytes 12218240
   target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
-  target/i686-unknown-linux-musl/debug/emend-copy: sha256 449dbe5c49fba31481a3b1bf4cba8aaab08e8b64c23b5439204a8c539adbf98a, bytes 10892460
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 43500297b78b5165aeedd3316397968a156a08b0563c36bc6ca259c00c59e57a, bytes 10892448
   target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db, bytes 9524216
   the gate left all four binaries, both targets, executable: as-expected
 
 ## status after the run
 status lines: 0; untracked under the log directory: 0; tracked and modified under it: 0; the phase's size record: 0
   every change in the working tree is one of this phase's logs or its size record: as-expected
-run ended at 2026-09-17T14:02:57Z
+run ended at 2026-09-17T14:41:48Z
 gate log checks all as expected: yes

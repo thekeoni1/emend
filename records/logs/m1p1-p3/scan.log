@@ -1,13 +1,13 @@
 command: git rev-parse HEAD
-about: M1 part 1 P3 phase diff 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b..5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
+about: M1 part 1 P3 phase diff 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b..6cec4161000c0c20bf55a797bf1fb972f0794960; HEAD at run: 6cec4161000c0c20bf55a797bf1fb972f0794960
 command: git log --format='%H' --grep='^M1 part 1 P3: commit planning doc update'
-  commits matching the pattern: 2
-  the OLDER matching doc commit is 6f3d5c5500b8f08fe07170531d7aba962ec978e4; its parent is the base, 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b
-phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) scan.log; run at 2026-09-17T14:23:00Z
-rerun: this replaces the scan.log of the pass run for the independent checker before any check answer existed, sha256 6a299dbb72543e6bf98aed51e81cea4120db5c066d650e2f6042f1bb29cc4ee9, which ran at 2026-09-17T14:13:11Z at this same commit 5a8b491ca402e9248cd4130890e7c353ec212a82 and reported PASS with 0 answers. specs/0001-bootstrap.md item 2 makes the scan the LAST log written, after the check answers are saved, so that it covers them and hashes every committed sibling at its committed bytes. What changed in the script since that pass: the header comment says 'the size record' in place of 'the record pair', and, on independent check 1's finding 2(e), this pass asserts the number of check answers it was told to expect (EXPECT_ANSWERS=1: one check was run, not two) and that exactly one size record was scanned, where the earlier pass only printed the answer count. The siblings are unchanged since that pass.
+  commits matching the pattern: 4
+  the OLDEST matching doc commit is 6f3d5c5500b8f08fe07170531d7aba962ec978e4; its parent is the base, 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) scan.log; run at 2026-09-17T15:10:00Z
+rerun: this is the final pass of the repair round. It replaces the scan.log committed in the first P3 record, b28d8394a292e2243bf771ec0b87a5d1ec5c5e12, sha256 943e2e060757e1ef091428beeadf5308da6630ec26cbd1458347584b84fc08f2, run at 2026-09-17T14:23:01Z at 5a8b491ca402e9248cd4130890e7c353ec212a82, PASS; and this round's pass for the second independent check, sha256 2adb7f2c9b577d9d09dfdea4c773186b68c021d63caa6f8631b42f0701d6b5dc, run at 2026-09-17T14:57:14Z at this same commit, PASS with one answer. specs/0001-bootstrap.md item 2 makes the scan the LAST log written, after the check answers are saved, hashing every committed sibling at its committed bytes; size.log and negative.log were rerun after that pass, on the second check's findings, and are hashed here as rerun. Changed in the script since that pass, on the same check: the pre-P6d forms read the phase diff's files at the commit, not in the working tree, so the first record's logs are checked at their committed bytes, and the coverage check counts those reads; a comment that described the compound shape in its own form now describes it in words; and when EXPECT_ANSWERS is unset the answer count is said not to be asserted. This pass sets EXPECT_ANSWERS=2. Changed since the committed pass: four doc commits expected; each sibling's printed script grepped for the compound shape, with controls (specs/0008, 'Planning rulings during the P3 repair round', item 2); both size records required.
 SERIALIZED: produced with no other run in flight
 temporary files live in <scratch> and are deleted on exit
-the doc commit pattern matches exactly two commits: yes
+the doc commit pattern matches exactly four commits: yes
 
 ## script
     #!/usr/bin/env bash
@@ -30,18 +30,26 @@ the doc commit pattern matches exactly two commits: yes
     #
     # The base is resolved from git by the doc commit's subject, never typed
     # (specs/0001, after a padded id reached a gate script in T3 P4). This phase has
-    # TWO doc commits sharing the subject prefix below: the P2 verification and P3
-    # scope, and the two P2 repairs with the size probes. `git log -n 1` returns the
-    # NEWER, whose parent is the first doc commit, so a base taken that way would
-    # lose the first doc commit's files from the diff. The base is the parent of the
-    # OLDER match, and the count is asserted so a third could not pass unnoticed.
+    # FOUR doc commits sharing the subject prefix below: the P2 verification and
+    # P3 scope, the two P2 repairs with the size probes, the first verification
+    # with the repair round, and the repair round's rulings. `git log -n 1` returns the NEWEST, so a base taken that
+    # way would lose the earlier doc commits' files from the diff. The base is the
+    # parent of the OLDEST match, and the count is asserted so a fifth could not
+    # pass unnoticed.
+    #
+    # REPAIR ROUND: the phase range now holds the first record commit, so its
+    # files are in the diff and scanned there at their committed bytes; the
+    # siblings below are this round's reruns in the working tree. The final pass
+    # asserts two check answers (EXPECT_ANSWERS=2, item 7) and, always, both size
+    # records, the first as history and the round's.
     #
     # The committed pass must hash EVERY committed sibling at its committed bytes:
     # a log or an answer rerun after a scan pass makes a new final pass necessary
     # (specs/0001-bootstrap.md, "How this task runs", item 2, the Milestone 1
     # part 1 P2 ruling of 2026-09-17). P2's first committed pass hashed a
     # negative.log that had since been rerun; this phase's siblings were rerun too
-    # (size.log and negative.log), so this script is run last of all.
+    # (size.log and negative.log, then all four in the repair round), so this
+    # script is run last of all.
     set -uo pipefail
     cd "$(git rev-parse --show-toplevel)" || exit 2
     . scripts/counting.sh
@@ -125,12 +133,12 @@ the doc commit pattern matches exactly two commits: yes
     echo "about: M1 part 1 P3 phase diff $BASE..$C; HEAD at run: $C"
     echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
     echo "  commits matching the pattern: $NDOC"
-    echo "  the OLDER matching doc commit is $DOC; its parent is the base, $BASE"
+    echo "  the OLDEST matching doc commit is $DOC; its parent is the base, $BASE"
     echo "phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
     echo "SERIALIZED: produced with no other run in flight"
     echo "temporary files live in <scratch> and are deleted on exit"
-    structural "the doc commit pattern matches exactly two commits" "$(yn [ "$NDOC" = 2 ])"
+    structural "the doc commit pattern matches exactly four commits" "$(yn [ "$NDOC" = 4 ])"
     echo
     echo "## script"
     sed 's/^/    /' "$0"
@@ -253,6 +261,37 @@ the doc commit pattern matches exactly two commits: yes
       for form in $FORMS; do run "$form" "$f"; done
     done
     structural "sibling logs scanned: $nl (expected 4; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 4 ])"
+    
+    # The compound shape (specs/0001-bootstrap.md, and specs/0008, "Planning
+    # rulings during the P3 repair round", item 2): a check whose yn or is
+    # substitution holds a second condition after an and-list or or-list operator
+    # reports only its first condition. (Described in words here: this script is
+    # printed in scan.log, and a later scan reads printed scripts.) Each
+    # sibling's printed script is read, the lines between its script heading and
+    # the next heading, and any line of that shape is a structural failure. Only
+    # the script is read, so a rerun header that describes the shape in prose is
+    # not a hit.
+    script_of() {
+      awk '/^## script/ { on = 1; next } /^## / { on = 0 } on' "$1"
+    }
+    SHAPE_RE='[$][(](yn|is) .*(&&|[|][|])'
+    printf '## script\n    check "x" "%s(yn [ a ] %s [ b ])"\n## next\n' '$' '&&' >"$T/shape-hit"
+    printf '## script\n    check "x" "%s(yn both)"\n## next\n    check "x" "%s(yn [ a ] %s [ b ])"\n' '$' '$' '&&' >"$T/shape-clean"
+    script_of "$T/shape-hit" >"$T/shape-hit.script"
+    script_of "$T/shape-clean" >"$T/shape-clean.script"
+    n=$(count_matches -E "$SHAPE_RE" "$T/shape-hit.script")
+    structural "control: the shape inside a printed script is found: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    n=$(count_matches -E "$SHAPE_RE" "$T/shape-clean.script")
+    structural "control: a whole-evaluated check, and the shape outside the script, are not: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    for f in records/logs/m1p1-p3/gate.log records/logs/m1p1-p3/test.log \
+             records/logs/m1p1-p3/size.log records/logs/m1p1-p3/negative.log; do
+      script_of "$f" >"$T/sib.script"
+      nlines=$(count_lines "$T/sib.script")
+      n=$(count_matches -E "$SHAPE_RE" "$T/sib.script")
+      echo "compound shape in the printed script of $f: $n (script lines read: $nlines)"
+      shape_free() { [ "$n" = 0 ] && [ "$nlines" != error ] && [ "$nlines" -gt 100 ]; }
+      structural "the printed script of $f has no compound check and was read" "$(yn shape_free)"
+    done
     for f in records/logs/m1p1-p3/independent-check-*.md; do
       [ -f "$f" ] || continue
       nans=$((nans + 1))
@@ -261,11 +300,13 @@ the doc commit pattern matches exactly two commits: yes
     done
     echo "check answers scanned: $nans"
     # The final pass asserts the answer count it was told to expect (independent
-    # check 1 of this phase, 2(e)): a pass that silently found fewer answers than
-    # were saved must not print PASS. The checkers' pass sets nothing and prints
-    # the count only.
+    # check 1 of this phase, 2(e), and the repair round's item 7): a pass that
+    # silently found fewer answers than were saved must not print PASS. The
+    # checkers' pass sets nothing and prints the count only.
     if [ -n "${EXPECT_ANSWERS:-}" ]; then
       structural "check answers scanned: $nans (expected $EXPECT_ANSWERS)" "$(yn [ "$nans" -eq "$EXPECT_ANSWERS" ])"
+    else
+      echo "check answers: count NOT asserted; EXPECT_ANSWERS is unset, so this is not the final pass"
     fi
     nrec=0
     for f in records/size-m1p1-*.md; do
@@ -274,7 +315,7 @@ the doc commit pattern matches exactly two commits: yes
       echo "scanned $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
       for form in $FORMS; do run "$form" "$f"; done
     done
-    structural "size records scanned: $nrec (expected 1)" "$(yn [ "$nrec" -eq 1 ])"
+    structural "size records scanned: $nrec (expected 2: the first as history, and the round's)" "$(yn [ "$nrec" -eq 2 ])"
     
     echo
     echo "## the pre-P6d bare-shape control over this phase's files"
@@ -284,9 +325,21 @@ the doc commit pattern matches exactly two commits: yes
     # EVERY file in the phase diff, not a hand-listed subset: in P1 an earlier
     # version named four sources and the runner, so three files the phase added were
     # seen only by the narrowed live patterns, and both independent checks found it.
-    pre_hits=0; pre_err=0; pre_files=0
+    pre_hits=0; pre_err=0; pre_files=0; pre_diff=0
+    # The files of the phase diff are read AT THE COMMIT, as the forms above read
+    # them, so a file this round rewrote in the working tree (the first record's
+    # logs) is checked at its committed bytes (independent check 2 of the repair
+    # round). The working-tree siblings, answers and records follow.
+    while IFS= read -r f; do
+      if ! git show "$C:$f" >"$T/pre-f" 2>/dev/null; then
+        echo "  pre-P6d forms in $f at $C: READ ERROR"; pre_err=1; continue
+      fi
+      pre_diff=$((pre_diff + 1))
+      n=$(f_pre "$T/pre-f")
+      echo "  pre-P6d forms in $f at $C: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done <"$T/difffiles"
     : >"$T/pre-targets"
-    cat "$T/difffiles" >>"$T/pre-targets"
     for extra in records/logs/m1p1-p3/gate.log records/logs/m1p1-p3/test.log \
                  records/logs/m1p1-p3/size.log records/logs/m1p1-p3/negative.log \
                  records/logs/m1p1-p3/independent-check-1.md \
@@ -301,9 +354,9 @@ the doc commit pattern matches exactly two commits: yes
       echo "  pre-P6d forms in $f: count=$n"
       if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
     done <"$T/pre-targets"
-    echo "  files run through the pre-P6d forms: $pre_files"
+    echo "  diff files run through the pre-P6d forms at the commit: $pre_diff; working-tree files: $pre_files"
     ndiff=$(count_lines "$T/difffiles")
-    pre_covers_diff() { [ "$ndiff" != error ] && [ "$pre_files" -ge "$ndiff" ]; }
+    pre_covers_diff() { [ "$ndiff" != error ] && [ "$pre_diff" -eq "$ndiff" ]; }
     structural "every file in the phase diff went through the bare-shape control (diff files: $ndiff)" \
       "$(yn pre_covers_diff)"
     pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
@@ -519,7 +572,7 @@ EMEND_PRIVATE_DENYLIST set: no (unset by this script)
 private denylist: present, mode 600
 denylist entries: 7 (never printed)
 the denylist is readable and not empty: yes
-this script's patterns equal scripts/privacy-patterns.txt at 5a8b491ca402e9248cd4130890e7c353ec212a82: yes
+this script's patterns equal scripts/privacy-patterns.txt at 6cec4161000c0c20bf55a797bf1fb972f0794960: yes
 command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
   the narrowing commit resolves to 721e86323e41fe6090b95ce3e26876e81e27b464; the pre-P6d patterns are read from its parent
 the three pre-P6d forms were read from git, not typed (lines read: 3): yes
@@ -556,22 +609,34 @@ the three pre-P6d forms were read from git, not typed (lines read: 3): yes
 controls: all as expected
 
 ## commits in the phase range
-command: git log --reverse --format='%H %s' 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b..5a8b491ca402e9248cd4130890e7c353ec212a82
+command: git log --reverse --format='%H %s' 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b..6cec4161000c0c20bf55a797bf1fb972f0794960
     6f3d5c5500b8f08fe07170531d7aba962ec978e4 M1 part 1 P3: commit planning doc updates (P2 verification, P3 scope)
     98cac7d400bb61eaff205133fd886becf8252256 M1 part 1 P3: commit planning doc update (the two P2 repairs, the size probes)
     adb0cc8ef6098735beaef275cc88900daac71727 M1 part 1 P3: repair P2's end-record count and P1's quadratic duplicate check
     5a8b491ca402e9248cd4130890e7c353ec212a82 M1 part 1 P3: the error catalogue, its tests, and the two size probes
+    b28d8394a292e2243bf771ec0b87a5d1ec5c5e12 M1 part 1 P3 record: the five logs, the check answer, the size record
+    3d1f8ee269de548e3b91c80c6391b4a05601be75 M1 part 1 P3: commit planning doc update (first verification, the repair round)
+    740648e76196587a85a6d100216f6819acf21e5f M1 part 1 P3 repairs: the catalogue's untested messages, the fifth probe
+    6cec4161000c0c20bf55a797bf1fb972f0794960 M1 part 1 P3: commit planning doc update (the repair round's rulings)
 
-## files changed in the phase diff (contents at 5a8b491ca402e9248cd4130890e7c353ec212a82)
-command: git diff --name-status 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b 5a8b491ca402e9248cd4130890e7c353ec212a82
+## files changed in the phase diff (contents at 6cec4161000c0c20bf55a797bf1fb972f0794960)
+command: git diff --name-status 9b7ef68e37fedeeb8052b6494ca7953c7ba2834b 6cec4161000c0c20bf55a797bf1fb972f0794960
     M	Cargo.lock
     M	ROADMAP.md
     M	crates/emend/src/archive.rs
     M	crates/emend/src/archive/tests.rs
+    A	records/logs/m1p1-p3/gate.log
+    A	records/logs/m1p1-p3/independent-check-1.md
+    A	records/logs/m1p1-p3/negative.log
+    A	records/logs/m1p1-p3/scan.log
+    A	records/logs/m1p1-p3/size.log
+    A	records/logs/m1p1-p3/test.log
+    A	records/size-m1p1-2026-09-17-5a8b491.md
     M	specs/0001-bootstrap.md
     M	specs/0008-zip-layer.md
     M	tools/size-probe/Cargo.toml
     A	tools/size-probe/src/bin/probe-emend-copy.rs
+    A	tools/size-probe/src/bin/probe-emend-edit-xml.rs
     A	tools/size-probe/src/bin/probe-emend-edit.rs
 file Cargo.lock (sha256 43479e6827a87d54d2c7669fd9b85c500d96c9d5326eeec26a2c32ddeb4aa059)
   form=f_nonascii count=0
@@ -582,7 +647,7 @@ file Cargo.lock (sha256 43479e6827a87d54d2c7669fd9b85c500d96c9d5326eeec26a2c32dd
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file ROADMAP.md (sha256 afe6c72489e29e86280c5f07f1914f9e94fa1a6d929d2b11293566f89a2cd64c)
+file ROADMAP.md (sha256 5e1722af6780ddcead90e8226e0014d8c83812085e64548619ebf879b2d01145)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -591,7 +656,7 @@ file ROADMAP.md (sha256 afe6c72489e29e86280c5f07f1914f9e94fa1a6d929d2b11293566f8
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file crates/emend/src/archive.rs (sha256 b61a128b1292fd6662f361f4a7dbbc15278d67d43b7b1445f804e91b6ac25d4d)
+file crates/emend/src/archive.rs (sha256 752667828bd5f030b0eb8534739f9c11ae852468d51f9f271888d3b401fe7837)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -600,7 +665,7 @@ file crates/emend/src/archive.rs (sha256 b61a128b1292fd6662f361f4a7dbbc15278d67d
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file crates/emend/src/archive/tests.rs (sha256 5a1fa6951216418e84779adf4bf8b042d1a0205007f26571c1e7218832661ba1)
+file crates/emend/src/archive/tests.rs (sha256 99ce77e6f369f35ba36d9f21248ef7b5570f6d4f95c8099cddd2fb73587dd2b9)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -609,7 +674,7 @@ file crates/emend/src/archive/tests.rs (sha256 5a1fa6951216418e84779adf4bf8b042d
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file specs/0001-bootstrap.md (sha256 39fb6173bbffa5ff7908ea8c8abe52d25a1b15f58abc9aa18cafe60505ac8ac1)
+file records/logs/m1p1-p3/gate.log (sha256 07c400167ccdd2bc815ccee9199ffe87cd3c3b2b98f3f05de6e83209ad2ddb61)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -618,7 +683,7 @@ file specs/0001-bootstrap.md (sha256 39fb6173bbffa5ff7908ea8c8abe52d25a1b15f58ab
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file specs/0008-zip-layer.md (sha256 1c6ec7f05c3ef59e1a26e4b8047552e0c04579de5bcd9cf550e33f9ba24d2386)
+file records/logs/m1p1-p3/independent-check-1.md (sha256 02d31ba3082ec1bec04fd6457a2fb82f4f56372495fe7c50f610efe1a44c832e)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -627,7 +692,70 @@ file specs/0008-zip-layer.md (sha256 1c6ec7f05c3ef59e1a26e4b8047552e0c04579de5bc
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file tools/size-probe/Cargo.toml (sha256 abae79154c242cdb33f05da077e423b7e86db1da0c09d383c7c109c1c3303eaf)
+file records/logs/m1p1-p3/negative.log (sha256 6a361c739d434b791ecda8c53f87fcf38b7dae662c273f129bcff41bcdfc8ecd)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m1p1-p3/scan.log (sha256 943e2e060757e1ef091428beeadf5308da6630ec26cbd1458347584b84fc08f2)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m1p1-p3/size.log (sha256 670d0c9b896348b55f76c76c741f0aa5b839964c9ab5725b960623c273389a32)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m1p1-p3/test.log (sha256 80183c5ad863db29ec994f1909dbd160e3af5a09fbb992a3c5f25935a87d5b5a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/size-m1p1-2026-09-17-5a8b491.md (sha256 bdaabc4c6443fa3b3048162a5e5d9651d098d99c533925455864435e5a532bbb)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0001-bootstrap.md (sha256 6042f196b19c13f812b50052a9cb861f1cf3e0e0e010d756913c06f2d66f5499)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0008-zip-layer.md (sha256 02ad0e09f9f7a152f12da73df7a4a67063c856882e997f37dce4844eb2d56470)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/size-probe/Cargo.toml (sha256 95bbba2d3496ca5be2146276776947f2dd70333647b8760f7e060881f2b85884)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -645,7 +773,7 @@ file tools/size-probe/src/bin/probe-emend-copy.rs (sha256 7a0fe93b27e5fb4259b1e3
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-file tools/size-probe/src/bin/probe-emend-edit.rs (sha256 85b0ac1f3a0edb60e7445249f457b5cb4d9a5b4f6b090b4d610106a13f43f71c)
+file tools/size-probe/src/bin/probe-emend-edit-xml.rs (sha256 76832f99653ddc36f86616a4fc28d1d0079db4af7a85c12ff2199fe014a8690c)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -654,9 +782,58 @@ file tools/size-probe/src/bin/probe-emend-edit.rs (sha256 85b0ac1f3a0edb60e74452
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-files in the diff: 9; scanned: 9; read: 9: yes
+file tools/size-probe/src/bin/probe-emend-edit.rs (sha256 f7232a6cff1c3f2a275a5caaf6434b3d50bff583b47df1fcc43ab6156530dbbc)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+files in the diff: 17; scanned: 17; read: 17: yes
 
 ## commit messages in the phase range
+message 6cec4161000c0c20bf55a797bf1fb972f0794960
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 740648e76196587a85a6d100216f6819acf21e5f
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 3d1f8ee269de548e3b91c80c6391b4a05601be75
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message b28d8394a292e2243bf771ec0b87a5d1ec5c5e12
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
 message 5a8b491ca402e9248cd4130890e7c353ec212a82
   last non-empty line is the Co-Authored-By line: yes
   form=f_nonascii count=0
@@ -697,14 +874,14 @@ message 6f3d5c5500b8f08fe07170531d7aba962ec978e4
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-messages scanned: 4; commits in range: 4: yes
+messages scanned: 8; commits in range: 8: yes
 
 ## the sibling logs, the check answers and the size record (a log cannot scan itself)
 The four sibling logs are gate, test, size and negative; P3 makes no corpus
 run, so there is no run.log. The check answers are present only in the
 FINAL run of this scan, which specs/0001 requires to be the last log written;
 the count below says which run this is.
-scanned records/logs/m1p1-p3/gate.log (sha256 07c400167ccdd2bc815ccee9199ffe87cd3c3b2b98f3f05de6e83209ad2ddb61)
+scanned records/logs/m1p1-p3/gate.log (sha256 1e26fc170b5586a3658f35071676971dbd911af21276a07b2dae797826a4acae)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -713,7 +890,7 @@ scanned records/logs/m1p1-p3/gate.log (sha256 07c400167ccdd2bc815ccee9199ffe87cd
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-scanned records/logs/m1p1-p3/test.log (sha256 80183c5ad863db29ec994f1909dbd160e3af5a09fbb992a3c5f25935a87d5b5a)
+scanned records/logs/m1p1-p3/test.log (sha256 11415741992f49d728595cf1013afbe37af95871101c691038bb838de18cabdf)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -722,7 +899,7 @@ scanned records/logs/m1p1-p3/test.log (sha256 80183c5ad863db29ec994f1909dbd160e3
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-scanned records/logs/m1p1-p3/size.log (sha256 670d0c9b896348b55f76c76c741f0aa5b839964c9ab5725b960623c273389a32)
+scanned records/logs/m1p1-p3/size.log (sha256 efecd99be91e611d1953563d31022022d0567fbee00d00495c9bf6ce947e2781)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -731,7 +908,7 @@ scanned records/logs/m1p1-p3/size.log (sha256 670d0c9b896348b55f76c76c741f0aa5b8
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-scanned records/logs/m1p1-p3/negative.log (sha256 6a361c739d434b791ecda8c53f87fcf38b7dae662c273f129bcff41bcdfc8ecd)
+scanned records/logs/m1p1-p3/negative.log (sha256 b423ca3189b8b7cc08e8afe43517712e9a1820117b20e1aa2a938219bdf0510c)
   form=f_nonascii count=0
   form=f_ctrl count=0
   form=f_emdash count=0
@@ -741,6 +918,16 @@ scanned records/logs/m1p1-p3/negative.log (sha256 6a361c739d434b791ecda8c53f87fc
   form=f_deny count=0
   form=f_email count=0
 sibling logs scanned: 4 (expected 4; scan.log cannot scan itself): yes
+control: the shape inside a printed script is found: 1 (expect 1): yes
+control: a whole-evaluated check, and the shape outside the script, are not: 0 (expect 0): yes
+compound shape in the printed script of records/logs/m1p1-p3/gate.log: 0 (script lines read: 289)
+the printed script of records/logs/m1p1-p3/gate.log has no compound check and was read: yes
+compound shape in the printed script of records/logs/m1p1-p3/test.log: 0 (script lines read: 308)
+the printed script of records/logs/m1p1-p3/test.log has no compound check and was read: yes
+compound shape in the printed script of records/logs/m1p1-p3/size.log: 0 (script lines read: 677)
+the printed script of records/logs/m1p1-p3/size.log has no compound check and was read: yes
+compound shape in the printed script of records/logs/m1p1-p3/negative.log: 0 (script lines read: 469)
+the printed script of records/logs/m1p1-p3/negative.log has no compound check and was read: yes
 scanned records/logs/m1p1-p3/independent-check-1.md (sha256 02d31ba3082ec1bec04fd6457a2fb82f4f56372495fe7c50f610efe1a44c832e)
   form=f_nonascii count=0
   form=f_ctrl count=0
@@ -750,8 +937,17 @@ scanned records/logs/m1p1-p3/independent-check-1.md (sha256 02d31ba3082ec1bec04f
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-check answers scanned: 1
-check answers scanned: 1 (expected 1): yes
+scanned records/logs/m1p1-p3/independent-check-2.md (sha256 cd7b9310909682c33b2b5fed4e559281115a9ba460d47bab2fa842eb6c1e5c88)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+check answers scanned: 2
+check answers scanned: 2 (expected 2): yes
 scanned records/size-m1p1-2026-09-17-5a8b491.md (sha256 bdaabc4c6443fa3b3048162a5e5d9651d098d99c533925455864435e5a532bbb)
   form=f_nonascii count=0
   form=f_ctrl count=0
@@ -761,33 +957,52 @@ scanned records/size-m1p1-2026-09-17-5a8b491.md (sha256 bdaabc4c6443fa3b3048162a
   form=f_host count=0
   form=f_deny count=0
   form=f_email count=0
-size records scanned: 1 (expected 1): yes
+scanned records/size-m1p1-2026-09-17-6cec416.md (sha256 6012c5e25b957a58a2794ff0f7f9c6d7a20a67087ce22c7b52486b35bd14d785)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+size records scanned: 2 (expected 2: the first as history, and the round's): yes
 
 ## the pre-P6d bare-shape control over this phase's files
 The narrowed patterns are blind to a bare shape by design, so this scan's
 own zero hits cannot establish that no bare shape was committed. The three
 pre-P6d forms are run here for that, with the controls above.
-  pre-P6d forms in Cargo.lock: count=0
-  pre-P6d forms in ROADMAP.md: count=0
-  pre-P6d forms in crates/emend/src/archive.rs: count=0
-  pre-P6d forms in crates/emend/src/archive/tests.rs: count=0
-  pre-P6d forms in specs/0001-bootstrap.md: count=0
-  pre-P6d forms in specs/0008-zip-layer.md: count=0
-  pre-P6d forms in tools/size-probe/Cargo.toml: count=0
-  pre-P6d forms in tools/size-probe/src/bin/probe-emend-copy.rs: count=0
-  pre-P6d forms in tools/size-probe/src/bin/probe-emend-edit.rs: count=0
+  pre-P6d forms in Cargo.lock at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in ROADMAP.md at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in crates/emend/src/archive.rs at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in crates/emend/src/archive/tests.rs at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/gate.log at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/independent-check-1.md at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/negative.log at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/scan.log at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/size.log at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/logs/m1p1-p3/test.log at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in records/size-m1p1-2026-09-17-5a8b491.md at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in specs/0001-bootstrap.md at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in specs/0008-zip-layer.md at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in tools/size-probe/Cargo.toml at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in tools/size-probe/src/bin/probe-emend-copy.rs at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in tools/size-probe/src/bin/probe-emend-edit-xml.rs at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
+  pre-P6d forms in tools/size-probe/src/bin/probe-emend-edit.rs at 6cec4161000c0c20bf55a797bf1fb972f0794960: count=0
   pre-P6d forms in records/logs/m1p1-p3/gate.log: count=0
   pre-P6d forms in records/logs/m1p1-p3/test.log: count=0
   pre-P6d forms in records/logs/m1p1-p3/size.log: count=0
   pre-P6d forms in records/logs/m1p1-p3/negative.log: count=0
   pre-P6d forms in records/logs/m1p1-p3/independent-check-1.md: count=0
+  pre-P6d forms in records/logs/m1p1-p3/independent-check-2.md: count=0
   pre-P6d forms in records/size-m1p1-2026-09-17-5a8b491.md: count=0
-  files run through the pre-P6d forms: 15
-every file in the phase diff went through the bare-shape control (diff files: 9): yes
+  pre-P6d forms in records/size-m1p1-2026-09-17-6cec416.md: count=0
+  diff files run through the pre-P6d forms at the commit: 17; working-tree files: 8
+every file in the phase diff went through the bare-shape control (diff files: 17): yes
 bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
 
 total hits: 0
 read or counting errors: 0
 structural checks failed: 0
-run ended at 2026-09-17T14:23:01Z
+run ended at 2026-09-17T15:10:02Z
 RESULT: PASS

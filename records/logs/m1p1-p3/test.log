@@ -1,6 +1,7 @@
 command: git rev-parse HEAD
-about: M1 part 1 P3 phase commit 5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
-phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) test.log; run at 2026-09-17T14:03:11Z
+about: M1 part 1 P3 phase commit 740648e76196587a85a6d100216f6819acf21e5f; HEAD at run: 740648e76196587a85a6d100216f6819acf21e5f
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) test.log; run at 2026-09-17T14:42:03Z
+rerun: this replaces the test.log committed in the first P3 record, b28d8394a292e2243bf771ec0b87a5d1ec5c5e12, sha256 80183c5ad863db29ec994f1909dbd160e3af5a09fbb992a3c5f25935a87d5b5a, which ran at 2026-09-17T14:03:11Z at 5a8b491ca402e9248cd4130890e7c353ec212a82 and passed. It is rerun at the repair round's code commit, which adds seven layer tests and probe-emend-edit-xml. What changed in the script: it prints the sha256 of every test executable it runs; it counts fixtures left behind through a form that reads a failed find as error, with a planted-file control; it requires 78 layer tests and the round's new and tightened tests by name, and the two catalogue tests the first run left unnamed; and its size-probe section notes the fourth probe. The 4 GiB case is rerun although the round changes no size or offset code.
 SERIALIZED: produced with no other run in flight
 FOREGROUND: run in one call and waited for, not detached.
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4; rustc 1.98.1 (48a229cea 2026-09-01)
@@ -28,6 +29,16 @@ at entry: status lines 1, all of them this phase's logs or its size record
     #    the build and clippy section covers `xml`, `emend` and both together on
     #    each target. The workspace runs above do not build those probes, because
     #    their required features are off there.
+    #
+    # REPAIR ROUND (specs/0008, "Planning rulings on P3 (2026-09-17, first
+    # verification)"). The round's code commit adds tests and the probe
+    # probe-emend-edit-xml, and touches no size or offset code, so the 4 GiB case
+    # is not required again by "32-bit and streaming"; it is rerun anyway, because
+    # this log replaces the one that recorded it. Item 7 adds: the sha256 of every
+    # test executable this log runs, so negative.log can compare its copies with
+    # them; a positive control for the count of fixtures left behind, which is
+    # now read through a form that says "error" when find fails; and the round's
+    # new tests, required by name.
     #
     # Usage: m1p1-p3-test.sh <phase commit> > <scratch file>; the caller moves the
     # output to records/logs/m1p1-p3/test.log. EMEND_BIG_TMPDIR must name a
@@ -98,6 +109,20 @@ at entry: status lines 1, all of them this phase's logs or its size record
       check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
       echo "Running lines, test lines and summary lines:"
       LC_ALL=C "$G" -E '^ *Running |^ *Doc-tests |^test .* \.\.\. |^test result: ' "$T/$target.out" | sed 's/^ */    /'
+      # Every test executable this run ran, with its sha256 (item 7).
+      sed -n 's/^ *Running .* (\(target\/[^)]*\))$/\1/p' "$T/$target.out" >"$T/$target.exes"
+      nexe=0
+      while IFS= read -r exe; do
+        if [ -x "$exe" ]; then
+          echo "  test executable $exe: sha256 $(sha256sum <"$exe" | cut -d' ' -f1)"
+          nexe=$((nexe + 1))
+        else
+          echo "  test executable $exe: MISSING"; fail=1
+        fi
+      done <"$T/$target.exes"
+      nexes=$(count_lines "$T/$target.exes")
+      all_hashed() { [ "$nexe" -gt 0 ] && [ "$nexe" = "$nexes" ]; }
+      check "$target: every test executable it ran was hashed ($nexe of $nexes)" "$(yn all_hashed)"
       LC_ALL=C "$G" -E '^test .* \.\.\. ok$' "$T/$target.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | sort >"$T/$target.names"
       passed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
       failed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^failed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
@@ -118,7 +143,7 @@ at entry: status lines 1, all of them this phase's logs or its size record
     LC_ALL=C "$G" -E '^archive::tests::' "$T/host.names" | sed 's/^/    /'
     nlayer=$(count_matches -E '^archive::tests::' "$T/host.names")
     echo "  zip layer tests that ran on the host: $nlayer"
-    check "the zip layer has more than sixty tests of its own" "$(yn [ "$nlayer" -gt 60 ])"
+    check "the zip layer ran 78 tests of its own: 71 before the repair round and 7 it adds" "$(yn [ "$nlayer" = 78 ])"
     # The tests P3's text names, each required by name.
     for t in adding_past_65535_entries_synthesises_the_zip64_end_records \
              removing_from_65535_entries_writes_a_plain_count \
@@ -133,7 +158,20 @@ at entry: status lines 1, all of them this phase's logs or its size record
              a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive \
              a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message \
              an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows \
-             an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding; do
+             an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding \
+             the_crate_path_reports_the_index_asked_for \
+             bytes_after_the_end_record_are_refused_with_their_own_message \
+             the_replacement_temporary_is_created_with_mode_0600 \
+             an_added_name_longer_than_a_header_can_record_is_refused \
+             a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes \
+             a_zip64_locator_without_its_record_is_refused \
+             a_locator_and_a_directory_disagreeing_on_the_base_are_refused \
+             reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused \
+             the_crate_refusals_carry_their_catalogued_messages \
+             a_multi_disk_record_is_refused \
+             reading_an_encrypted_entry_is_refused \
+             replacing_an_encrypted_entry_is_refused \
+             two_changes_for_one_entry_are_refused; do
       check "host ran and passed archive::tests::$t" \
         "$(yn [ "$(count_matches -E "^archive::tests::$t\$" "$T/host.names")" = 1 ])"
     done
@@ -158,7 +196,8 @@ at entry: status lines 1, all of them this phase's logs or its size record
     echo
     echo "## size-probe with each of its features"
     # `xml` enables probe-zip-xml, `emend` enables probe-emend-copy and
-    # probe-emend-edit; the workspace runs above build none of the three.
+    # probe-emend-edit, and both together enable probe-emend-edit-xml; the
+    # workspace runs above build none of the four.
     for target in host i686-unknown-linux-musl; do
       if [ "$target" = host ]; then tflag=(); else tflag=(--target "$target"); fi
       for feat in xml emend xml,emend; do
@@ -185,6 +224,22 @@ at entry: status lines 1, all of them this phase's logs or its size record
     
     echo
     echo "## the layer's 4 GiB case, run explicitly on both targets"
+    # The count of fixtures left behind, read so that a failing find is "error",
+    # never 0, with its controls: a planted file is counted, then removed and not
+    # counted, and a directory that does not exist reads as error.
+    count_named() {
+      local out
+      out=$(find "$1" -maxdepth 1 -name "$2" -print 2>/dev/null) || { echo error; return; }
+      if [ -z "$out" ]; then echo 0; else printf '%s\n' "$out" | wc -l; fi
+    }
+    : >"$BIG/emend-4gib-control-plant"
+    n=$(count_named "$BIG" 'emend-4gib-*')
+    check "control: a planted fixture is counted: $n (expect 1)" "$(yn [ "$n" = 1 ])"
+    rm -f "$BIG/emend-4gib-control-plant"
+    n=$(count_named "$BIG" 'emend-4gib-*')
+    check "control: removed, it is not: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    n=$(count_named "$BIG/no-such-directory" 'emend-4gib-*')
+    check "control: a directory that does not exist reads as error: $n" "$(yn [ "$n" = error ])"
     echo "command: df --output=fstype <scratch>"
     BIG_FS=$(df --output=fstype "$BIG" | tail -1 | tr -d ' ')
     BIG_FREE=$(df -h --output=avail "$BIG" | tail -1 | tr -d ' ')
@@ -209,6 +264,7 @@ at entry: status lines 1, all of them this phase's logs or its size record
       echo "exit: $rc"
       BIN=$(sed -n 's/^ *Executable unittests src\/lib\.rs (\(.*\))$/\1/p' "$T/norun-$target.out" | tail -1)
       echo "test executable: $BIN"
+      [ -x "$BIN" ] && echo "  test executable $BIN: sha256 $(sha256sum <"$BIN" | cut -d' ' -f1)"
       built_ok() { [ "$rc" -eq 0 ] && [ -n "$BIN" ] && [ -x "$BIN" ]; }
       check "$target: build exit 0 and an executable named" "$(yn built_ok)"
       if [ -x "$XD" ]; then
@@ -238,9 +294,9 @@ at entry: status lines 1, all of them this phase's logs or its size record
       check "$target: maximum resident set size $rss kB is under 65536 kB (64 MiB)" "$(yn rss_ok)"
       n=$(count_bytes "$CTRL_CLASS" "$T/big-$target.out")
       check "$target: control bytes in the 4 GiB output: $n (expect 0)" "$(yn [ "$n" = 0 ])"
-      left=$(find "$BIG" -maxdepth 1 -name 'emend-4gib-*' | wc -l)
+      left=$(count_named "$BIG" 'emend-4gib-*')
       echo "  fixtures left in <scratch> after the run: $left"
-      check "$target: the test removed its files" "$(yn [ "$left" -eq 0 ])"
+      check "$target: the test removed its files" "$(yn [ "$left" = 0 ])"
     done
     
     echo
@@ -458,107 +514,114 @@ Running lines, test lines and summary lines:
     Running unittests src/lib.rs (target/debug/deps/emend-23afe3b113568f31)
     test archive::tests::a_directory_entry_round_trips ... ok
     test archive::tests::a_file_too_short_for_a_record_is_refused ... ok
+    test archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused ... ok
     test archive::tests::a_local_offset_beyond_the_file_is_refused ... ok
-    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
     test archive::tests::a_marker_with_no_zip64_extra_field_is_refused_on_rewrite ... ok
+    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
     test archive::tests::a_multi_disk_record_is_refused ... ok
     test archive::tests::a_non_ascii_name_round_trips ... ok
+    test archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes ... ok
     test archive::tests::a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
-    test archive::tests::a_deflated_entry_is_replaced_and_the_others_are_untouched ... ok
     test archive::tests::a_plain_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
     test archive::tests::a_prefix_round_trips ... ok
-    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
+    test archive::tests::a_deflated_entry_is_replaced_and_the_others_are_untouched ... ok
     test archive::tests::a_replacement_for_an_entry_of_another_method_is_refused_when_planned ... ok
-    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
     test archive::tests::a_temporary_archive_of_two_entries_is_refused ... ok
+    test archive::tests::a_stored_entry_is_replaced_stored ... ok
+    test archive::tests::a_removed_entry_leaves_the_others_intact ... ok
     test archive::tests::a_value_past_32_bits_in_a_plain_field_is_refused ... ok
     test archive::tests::a_write_after_a_read_still_round_trips ... ok
     test archive::tests::a_zip64_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
     test archive::tests::a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
-    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
     test archive::tests::a_zip64_archive_has_no_prefix ... ok
-    test archive::tests::a_removed_entry_leaves_the_others_intact ... ok
     test archive::tests::a_zip64_archive_with_a_prefix_round_trips ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_zip64_locator_without_its_record_is_refused ... ok
     test archive::tests::adding_a_name_the_archive_already_has_is_refused ... ok
     test archive::tests::a_replace_behind_a_stub_with_absolute_offsets ... ok
     test archive::tests::an_absent_index_is_refused ... ok
     test archive::tests::a_replace_behind_a_stub_with_relative_offsets ... ok
     test archive::tests::a_replaced_entry_keeps_its_descriptor_with_a_signature ... ok
+    test archive::tests::a_replaced_entry_keeps_its_descriptor_without_a_signature ... ok
     test archive::tests::an_archive_comment_on_an_empty_archive_round_trips ... ok
     test archive::tests::an_edit_to_an_absent_index_is_refused ... ok
-    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
     test archive::tests::an_empty_archive_behind_a_stub_round_trips_in_both_conventions ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
     test archive::tests::an_empty_archive_round_trips ... ok
-    test archive::tests::a_replaced_entry_keeps_its_descriptor_without_a_signature ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows ... ok
     test archive::tests::bytes_after_the_end_record_are_refused_with_their_own_message ... ok
-    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
     test archive::tests::comments_round_trip ... ok
-    test archive::tests::a_replacement_too_large_for_a_plain_local_header_is_refused ... ok
     test archive::tests::deflated_entries_round_trip ... ok
     test archive::tests::descriptor_with_signature_round_trips ... ok
     test archive::tests::descriptor_without_signature_round_trips ... ok
-    test archive::tests::a_replaced_zip64_entry_keeps_its_markers ... ok
     test archive::tests::duplicate_names_are_refused ... ok
     test archive::tests::file_order_differing_from_central_order_round_trips ... ok
+    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
     test archive::tests::not_a_zip_is_refused ... ok
     test archive::tests::padding_between_entries_round_trips ... ok
     test archive::tests::reading_an_encrypted_entry_is_refused ... ok
-    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
+    test archive::tests::a_replacement_may_come_from_a_reader ... ok
     test archive::tests::reading_an_entry_gives_its_bytes_back ... ok
+    test archive::tests::a_replacement_too_large_for_a_plain_local_header_is_refused ... ok
+    test archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused ... ok
     test archive::tests::replacing_an_encrypted_entry_is_refused ... ok
-    test archive::tests::a_stored_entry_is_replaced_stored ... ok
     test archive::tests::stored_entries_round_trip ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
     test archive::tests::the_crate_path_reports_the_index_asked_for ... ok
+    test archive::tests::the_crate_refusals_carry_their_catalogued_messages ... ok
     test archive::tests::the_index_reports_what_the_records_say ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
     test archive::tests::two_changes_for_one_entry_are_refused ... ok
     test archive::tests::unknown_extra_fields_round_trip ... ok
-    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
     test archive::tests::zip64_markers_round_trip ... ok
-    test archive::tests::a_replacement_may_come_from_a_reader ... ok
-    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
-    test archive::tests::the_catalogue_names_every_refusal ... ok
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
     test archive::tests::a_zip64_replace_behind_a_stub_with_relative_offsets ... ok
     test archive::tests::an_added_entry_is_appended ... ok
-    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
-    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows ... ok
+    test archive::tests::the_catalogue_names_every_refusal ... ok
+    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test archive::tests::an_added_name_longer_than_a_header_can_record_is_refused ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
+    test archive::tests::a_replaced_zip64_entry_keeps_its_markers ... ok
     test archive::tests::compressing_with_another_method_is_refused_before_a_file_exists ... ok
     test archive::tests::order_is_preserved_around_a_removed_and_an_added_entry ... ok
     test archive::tests::padding_after_a_replaced_entry_is_kept ... ok
-    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test archive::tests::the_replacement_temporary_is_created_with_mode_0600 ... ok
     test archive::tests::a_65535_entry_archive_round_trips_byte_for_byte ... ok
-    test archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records ... ok
     test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
-    test result: ok. 71 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.36s
+    test archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records ... ok
+    test result: ok. 78 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.28s
     Running unittests src/main.rs (target/debug/deps/emend_copy-7944d97b2af2b350)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running unittests src/main.rs (target/debug/deps/passthrough-e8c6c8b4c0c0c76f)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/copies.rs (target/debug/deps/copies-4727fe09e25d80de)
     test duplicate_names_keep_only_the_last_entry ... ok
-    test data_descriptor_is_folded_into_the_local_header ... ok
-    test archive_comment_is_kept ... ok
-    test stored_entries_are_copied_byte_identical ... ok
-    test leading_junk_bytes_are_dropped ... ok
     test empty_archive_is_copied_byte_identical ... ok
-    test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
+    test data_descriptor_is_folded_into_the_local_header ... ok
     test ms_dos_made_by_and_version_needed_are_rewritten ... ok
-    test directory_entry_loses_its_directory_mode ... ok
-    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
+    test leading_junk_bytes_are_dropped ... ok
     test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
+    test stored_entries_are_copied_byte_identical ... ok
     test deflated_entries_are_copied_byte_identical ... ok
+    test archive_comment_is_kept ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
     test two_hundred_entries_are_copied_byte_identical ... ok
-    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
     Running tests/faults.rs (target/debug/deps/faults-3b9aaf22a475dd47)
-    test existing_output_is_replaced ... ok
-    test abort_fault ... ok
-    test exit3_fault ... ok
-    test output_path_without_a_file_name ... ok
-    test input_that_is_not_a_zip_archive ... ok
     test missing_input ... ok
-    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
     test output_directory_missing ... ok
-    test failed_rename_removes_the_temporary_file ... ok
+    test input_that_is_not_a_zip_archive ... ok
+    test exit3_fault ... ok
+    test abort_fault ... ok
+    test output_path_without_a_file_name ... ok
+    test existing_output_is_replaced ... ok
     test panic_fault ... ok
+    test failed_rename_removes_the_temporary_file ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
     test unknown_fault_value ... ok
     test usage_errors ... ok
     test fault_variable_is_refused_without_the_allow_variable ... ok
@@ -573,25 +636,25 @@ Running lines, test lines and summary lines:
     Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
-    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
-    test added_entry ... ok
     test missing_file_is_an_error ... ok
+    test added_entry ... ok
     test dropped_entry ... ok
+    test non_zip_file_is_an_error ... ok
     test binary_usage_error ... ok
     test names_are_escaped ... ok
-    test stored_entry_beside_deflated_entry ... ok
-    test binary_exit_status_follows_the_comparison ... ok
-    test stored_entry_across_several_buffers_is_identical ... ok
     test equal_archives_are_identical ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test binary_exit_status_follows_the_comparison ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
     Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
-    test short_raw_stream_is_an_error ... ok
     test unsupported_method_is_an_error ... ok
-    test encrypted_entry_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
     test recompressed_entry_with_equal_metadata ... ok
-    test changed_entry_with_different_lengths ... ok
+    test encrypted_entry_is_an_error ... ok
     test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
     test wrong_crc_is_an_error ... ok
     test entry_of_exactly_two_buffers ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
@@ -599,23 +662,23 @@ Running lines, test lines and summary lines:
     test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
     Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
     test data_descriptor_on_one_side ... ok
-    test changed_archive_comment ... ok
-    test leading_junk_bytes ... ok
     test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test changed_archive_comment ... ok
     test output_side_rows_take_the_output_values ... ok
+    test leading_junk_bytes ... ok
     test each_flag_alone ... ok
-    test every_archive_row_in_order ... ok
     test reordered_entries ... ok
+    test every_archive_row_in_order ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
     Running tests/p4.rs (target/debug/deps/p4-f12276f4a3797377)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
     test local_header_running_past_the_end_is_an_error ... ok
     test local_header_fields_each_alone ... ok
     test files_identical_no_from_one_byte_inside_a_prefix ... ok
     test no_sentinel_in_any_output ... ok
-    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s
     Running tests/p5.rs (target/debug/deps/p5-7a247ac2ff766c41)
     test descriptors_that_differ_only_in_the_signature ... ok
     test narrowed_and_extended_flags_each_alone ... ok
@@ -625,12 +688,27 @@ Running lines, test lines and summary lines:
     test declared_size_running_over_the_next_header_alike_on_both_sides ... ok
     test zip64_placeholder_against_plain_sizes ... ok
     test local_entries_permuted_with_the_central_order_kept ... ok
-    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Doc-tests emend
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-host: passed 141; failed 0; ignored 2; test lines ending ok: 141
+  test executable target/debug/deps/emend-23afe3b113568f31: sha256 112ac9063300a4f1f2abad6ae34d0ea4ae0518a3b449176a6428adeea8fca000
+  test executable target/debug/deps/emend_copy-7944d97b2af2b350: sha256 b79074030c5b36fa7916290fb813762e7904f2cf0675a51cd0c14349040aba4f
+  test executable target/debug/deps/passthrough-e8c6c8b4c0c0c76f: sha256 5e6b1aa1c3e619eed13aa85f8d0e2c143a753d8c43ded7a4424e73356da71af2
+  test executable target/debug/deps/copies-4727fe09e25d80de: sha256 70cdfa702b2bc923f9bc038a6a50eb36a58eab2ddd778fe7f98b068108f0026e
+  test executable target/debug/deps/faults-3b9aaf22a475dd47: sha256 2b8115131bccf5970044c731db7fb9d59e3131264e537492b3d6a26984722b69
+  test executable target/debug/deps/probe_zip-8a3f301c93e030e5: sha256 0f2762d61026443ecb38388dc26d90975b8c5221071f7541e3e932e00c70a762
+  test executable target/debug/deps/xlsx_diff-e695ed04bc917c73: sha256 abb6a6de91aa5b60419bf798c46cb4cebd790cbcf5dc4e00d645e4866251372c
+  test executable target/debug/deps/xlsx_diff-92888706652b4de7: sha256 9a3561562684a0dbf53b4201d84586a81e5756606ea8ca89c1de0c222f16f21f
+  test executable target/debug/deps/p1-6540cc403f402999: sha256 7e72ba8c7d224362a49ff58e98a4f90d714e78f71511a15e73d68823404e128f
+  test executable target/debug/deps/p2-27358ec6d8c12945: sha256 46708bd7fd4e88c47b97431d1952e70849998ed72203b281183cbc3a937eb3fd
+  test executable target/debug/deps/p3-101dd50939d3a113: sha256 e212985d0d6553e95cf4ba29843c8e95a4e6d369044dd655524c75d70d6d6156
+  test executable target/debug/deps/p4-f12276f4a3797377: sha256 06da6aef6271e5ac7d7ae0a63fce59c571873873498f3512065c95f4ef13b312
+  test executable target/debug/deps/p5-7a247ac2ff766c41: sha256 81e123cdf05da068a7ea3fc22511826c27cf05db1dbeccdc82efe422828c3c47
+  test executable target/debug/deps/p6-da5f6aa779e913e3: sha256 dff0871d7d0a11368f61db2f68543dad57c5057bd9240ab6e97a3b124459dd67
+host: every test executable it ran was hashed (14 of 14): yes
+host: passed 148; failed 0; ignored 2; test lines ending ok: 148
 host: failed is 0: yes
 host: passed is more than 0 and equals the ok test lines: yes
 host: control bytes in the cargo output: 0 (expect 0): yes
@@ -645,106 +723,113 @@ Running lines, test lines and summary lines:
     test archive::tests::a_local_offset_beyond_the_file_is_refused ... ok
     test archive::tests::a_directory_entry_round_trips ... ok
     test archive::tests::a_marker_with_no_zip64_extra_field_is_refused_on_rewrite ... ok
+    test archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused ... ok
     test archive::tests::a_multi_disk_record_is_refused ... ok
     test archive::tests::a_non_ascii_name_round_trips ... ok
+    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
+    test archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes ... ok
     test archive::tests::a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
     test archive::tests::a_prefix_round_trips ... ok
     test archive::tests::a_plain_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
-    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
     test archive::tests::a_deflated_entry_is_replaced_and_the_others_are_untouched ... ok
     test archive::tests::a_replacement_for_an_entry_of_another_method_is_refused_when_planned ... ok
-    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
-    test archive::tests::a_temporary_archive_of_two_entries_is_refused ... ok
-    test archive::tests::a_value_past_32_bits_in_a_plain_field_is_refused ... ok
-    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
     test archive::tests::a_removed_entry_leaves_the_others_intact ... ok
+    test archive::tests::a_value_past_32_bits_in_a_plain_field_is_refused ... ok
+    test archive::tests::a_temporary_archive_of_two_entries_is_refused ... ok
     test archive::tests::a_write_after_a_read_still_round_trips ... ok
     test archive::tests::a_zip64_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
     test archive::tests::a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
     test archive::tests::a_zip64_archive_has_no_prefix ... ok
-    test archive::tests::a_replace_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_zip64_locator_without_its_record_is_refused ... ok
     test archive::tests::a_zip64_archive_with_a_prefix_round_trips ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
     test archive::tests::adding_a_name_the_archive_already_has_is_refused ... ok
-    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
+    test archive::tests::a_replace_behind_a_stub_with_absolute_offsets ... ok
     test archive::tests::an_absent_index_is_refused ... ok
     test archive::tests::a_replace_behind_a_stub_with_relative_offsets ... ok
-    test archive::tests::an_archive_comment_on_an_empty_archive_round_trips ... ok
     test archive::tests::a_replaced_entry_keeps_its_descriptor_with_a_signature ... ok
+    test archive::tests::an_archive_comment_on_an_empty_archive_round_trips ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
     test archive::tests::an_edit_to_an_absent_index_is_refused ... ok
     test archive::tests::an_empty_archive_behind_a_stub_round_trips_in_both_conventions ... ok
     test archive::tests::an_empty_archive_round_trips ... ok
     test archive::tests::a_replaced_entry_keeps_its_descriptor_without_a_signature ... ok
-    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
     test archive::tests::bytes_after_the_end_record_are_refused_with_their_own_message ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
     test archive::tests::comments_round_trip ... ok
     test archive::tests::a_replaced_zip64_entry_keeps_its_markers ... ok
     test archive::tests::deflated_entries_round_trip ... ok
-    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
-    test archive::tests::descriptor_with_signature_round_trips ... ok
-    test archive::tests::duplicate_names_are_refused ... ok
     test archive::tests::descriptor_without_signature_round_trips ... ok
+    test archive::tests::duplicate_names_are_refused ... ok
+    test archive::tests::descriptor_with_signature_round_trips ... ok
     test archive::tests::not_a_zip_is_refused ... ok
-    test archive::tests::file_order_differing_from_central_order_round_trips ... ok
-    test archive::tests::padding_between_entries_round_trips ... ok
-    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
-    test archive::tests::reading_an_encrypted_entry_is_refused ... ok
-    test archive::tests::reading_an_entry_gives_its_bytes_back ... ok
     test archive::tests::a_replacement_may_come_from_a_reader ... ok
-    test archive::tests::replacing_an_encrypted_entry_is_refused ... ok
+    test archive::tests::file_order_differing_from_central_order_round_trips ... ok
     test archive::tests::a_replacement_too_large_for_a_plain_local_header_is_refused ... ok
+    test archive::tests::a_stored_entry_is_replaced_stored ... ok
+    test archive::tests::reading_an_encrypted_entry_is_refused ... ok
+    test archive::tests::padding_between_entries_round_trips ... ok
+    test archive::tests::reading_an_entry_gives_its_bytes_back ... ok
+    test archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused ... ok
+    test archive::tests::replacing_an_encrypted_entry_is_refused ... ok
     test archive::tests::the_crate_path_reports_the_index_asked_for ... ok
     test archive::tests::stored_entries_round_trip ... ok
-    test archive::tests::a_stored_entry_is_replaced_stored ... ok
+    test archive::tests::the_crate_refusals_carry_their_catalogued_messages ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
     test archive::tests::the_index_reports_what_the_records_say ... ok
     test archive::tests::two_changes_for_one_entry_are_refused ... ok
-    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
     test archive::tests::unknown_extra_fields_round_trip ... ok
-    test archive::tests::zip64_markers_round_trip ... ok
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
     test archive::tests::the_catalogue_names_every_refusal ... ok
-    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
-    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test archive::tests::zip64_markers_round_trip ... ok
     test archive::tests::a_zip64_replace_behind_a_stub_with_relative_offsets ... ok
     test archive::tests::an_added_entry_is_appended ... ok
-    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
+    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test archive::tests::an_added_name_longer_than_a_header_can_record_is_refused ... ok
     test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows ... ok
+    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
     test archive::tests::compressing_with_another_method_is_refused_before_a_file_exists ... ok
     test archive::tests::order_is_preserved_around_a_removed_and_an_added_entry ... ok
     test archive::tests::padding_after_a_replaced_entry_is_kept ... ok
-    test archive::tests::a_65535_entry_archive_round_trips_byte_for_byte ... ok
-    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
+    test archive::tests::the_replacement_temporary_is_created_with_mode_0600 ... ok
     test archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records ... ok
-    test result: ok. 71 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.73s
+    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
+    test archive::tests::a_65535_entry_archive_round_trips_byte_for_byte ... ok
+    test result: ok. 78 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.58s
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/emend_copy-dede067b48a2fd0c)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/passthrough-cda17d434f7bb250)
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/copies.rs (target/i686-unknown-linux-musl/debug/deps/copies-abfbb1bae38c85f8)
-    test duplicate_names_keep_only_the_last_entry ... ok
-    test empty_archive_is_copied_byte_identical ... ok
-    test data_descriptor_is_folded_into_the_local_header ... ok
     test archive_comment_is_kept ... ok
-    test directory_entry_loses_its_directory_mode ... ok
+    test data_descriptor_is_folded_into_the_local_header ... ok
     test ms_dos_made_by_and_version_needed_are_rewritten ... ok
-    test leading_junk_bytes_are_dropped ... ok
-    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test empty_archive_is_copied_byte_identical ... ok
+    test duplicate_names_keep_only_the_last_entry ... ok
     test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
+    test leading_junk_bytes_are_dropped ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test deflated_entries_are_copied_byte_identical ... ok
     test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
     test stored_entries_are_copied_byte_identical ... ok
-    test deflated_entries_are_copied_byte_identical ... ok
     test two_hundred_entries_are_copied_byte_identical ... ok
     test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
     Running tests/faults.rs (target/i686-unknown-linux-musl/debug/deps/faults-ab8cf4f35e4e77b1)
     test abort_fault ... ok
     test input_that_is_not_a_zip_archive ... ok
-    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
+    test missing_input ... ok
     test failed_rename_removes_the_temporary_file ... ok
     test exit3_fault ... ok
     test output_directory_missing ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
+    test output_path_without_a_file_name ... ok
     test existing_output_is_replaced ... ok
     test unknown_fault_value ... ok
-    test output_path_without_a_file_name ... ok
     test panic_fault ... ok
-    test missing_input ... ok
     test usage_errors ... ok
     test fault_variable_is_refused_without_the_allow_variable ... ok
     test alloc_fault_without_a_limit_then_copies ... ok
@@ -759,15 +844,15 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
     test missing_file_is_an_error ... ok
-    test non_zip_file_is_an_error ... ok
     test binary_usage_error ... ok
+    test non_zip_file_is_an_error ... ok
     test duplicate_name_is_an_error ... ok
-    test stored_entry_beside_deflated_entry ... ok
     test added_entry ... ok
     test dropped_entry ... ok
+    test stored_entry_beside_deflated_entry ... ok
     test binary_exit_status_follows_the_comparison ... ok
-    test names_are_escaped ... ok
     test equal_archives_are_identical ... ok
+    test names_are_escaped ... ok
     test stored_entry_across_several_buffers_is_identical ... ok
     test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
     Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
@@ -775,25 +860,25 @@ Running lines, test lines and summary lines:
     test short_raw_stream_is_an_error ... ok
     test encrypted_entry_is_an_error ... ok
     test recompressed_entry_with_equal_metadata ... ok
-    test changed_entry_with_different_lengths ... ok
     test changed_entry_with_equal_length ... ok
+    test changed_entry_with_different_lengths ... ok
     test wrong_crc_is_an_error ... ok
-    test entry_of_exactly_two_buffers ... ok
     test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test entry_of_exactly_two_buffers ... ok
     test recompressed_entry ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
     Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
-    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test data_descriptor_on_one_side ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
     test leading_junk_bytes ... ok
-    test output_side_rows_take_the_output_values ... ok
     test changed_archive_comment ... ok
+    test output_side_rows_take_the_output_values ... ok
     test every_archive_row_in_order ... ok
     test reordered_entries ... ok
     test each_flag_alone ... ok
     test different_lengths_across_several_buffers ... ok
     test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
-    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
     Running tests/p4.rs (target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667)
     test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
     test local_header_running_past_the_end_is_an_error ... ok
@@ -815,7 +900,22 @@ Running lines, test lines and summary lines:
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
     Doc-tests xlsx_diff
     test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-i686-unknown-linux-musl: passed 141; failed 0; ignored 2; test lines ending ok: 141
+  test executable target/i686-unknown-linux-musl/debug/deps/emend-963f624c2b3e5a51: sha256 bf6f013a342e05d4615584e422d8459e676506f2bb9b139bbaa5dd501427e898
+  test executable target/i686-unknown-linux-musl/debug/deps/emend_copy-dede067b48a2fd0c: sha256 721ad3a25f729d2a3fa7f4350805efdf089652ec6778337f9ba938017253f24b
+  test executable target/i686-unknown-linux-musl/debug/deps/passthrough-cda17d434f7bb250: sha256 8503691fc73dda1d465c378d0b362211373b071125e85323ab7d4fc9ccbd6058
+  test executable target/i686-unknown-linux-musl/debug/deps/copies-abfbb1bae38c85f8: sha256 038b36c43b703491397d4d7f00e5c02eae9b38ec8f4204be3c780dcb56f84bac
+  test executable target/i686-unknown-linux-musl/debug/deps/faults-ab8cf4f35e4e77b1: sha256 766522d50c0326bb41abc4ddb1fde7c6e78e35d6f5ca44c4698e219f6b4ac8f2
+  test executable target/i686-unknown-linux-musl/debug/deps/probe_zip-2dfc0a7801b1f701: sha256 55ec694e407a38e46a95effe4f03c62690a17b0a86840facc322bef378249060
+  test executable target/i686-unknown-linux-musl/debug/deps/xlsx_diff-272b4e4343c36511: sha256 85a94a5b877ba9ca1efd37f1028a71df621bfa6d2e17a39c8330f8d6196377e2
+  test executable target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750: sha256 d0ceb211b16e6ebbeebbe0404815f3c63348b0143fe0ca34b438dc420bdc5740
+  test executable target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c: sha256 2ecd426aa5a9f182964af3fc5451121f5a579093b979eee26a1a3af209db275f
+  test executable target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1: sha256 3941c224a3f38dba2efa3c50a396f20ab93fec5e683fdc24b34acaf0c78191c1
+  test executable target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923: sha256 05c1ea33edfe7985cec9fde749c80ffae20c075bde575891786a02f8267cc389
+  test executable target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667: sha256 6c79dca3d9b8b532430a03116a669ecd656bc9c8b0b1f79740bba82269029b20
+  test executable target/i686-unknown-linux-musl/debug/deps/p5-2f1ee927e7bd76b8: sha256 2cab5b87f683f6150c1fc8f4de9bbc3690734496cd5710c82019060556159f28
+  test executable target/i686-unknown-linux-musl/debug/deps/p6-d8b3d3c6413751a3: sha256 3a07035d02abf3eca34fae3ba0771c08be9012b29edabcf1bf49ab525a39f301
+i686-unknown-linux-musl: every test executable it ran was hashed (14 of 14): yes
+i686-unknown-linux-musl: passed 148; failed 0; ignored 2; test lines ending ok: 148
 i686-unknown-linux-musl: failed is 0: yes
 i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
 i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
@@ -827,9 +927,11 @@ i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
     archive::tests::a_failed_write_leaves_a_usable_archive
     archive::tests::a_file_too_short_for_a_record_is_refused
     archive::tests::a_local_offset_beyond_the_file_is_refused
+    archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused
     archive::tests::a_marker_with_no_zip64_extra_field_is_refused_on_rewrite
     archive::tests::a_multi_disk_record_is_refused
     archive::tests::a_non_ascii_name_round_trips
+    archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes
     archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive
     archive::tests::a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips
     archive::tests::a_plain_archive_behind_a_stub_with_relative_offsets_round_trips
@@ -856,6 +958,7 @@ i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
     archive::tests::a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips
     archive::tests::a_zip64_archive_has_no_prefix
     archive::tests::a_zip64_archive_with_a_prefix_round_trips
+    archive::tests::a_zip64_locator_without_its_record_is_refused
     archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets
     archive::tests::a_zip64_replace_behind_a_stub_with_relative_offsets
     archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message
@@ -863,6 +966,7 @@ i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
     archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records
     archive::tests::an_absent_index_is_refused
     archive::tests::an_added_entry_is_appended
+    archive::tests::an_added_name_longer_than_a_header_can_record_is_refused
     archive::tests::an_archive_comment_on_an_empty_archive_round_trips
     archive::tests::an_edit_to_an_absent_index_is_refused
     archive::tests::an_empty_archive_behind_a_stub_round_trips_in_both_conventions
@@ -883,17 +987,20 @@ i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
     archive::tests::padding_between_entries_round_trips
     archive::tests::reading_an_encrypted_entry_is_refused
     archive::tests::reading_an_entry_gives_its_bytes_back
+    archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused
     archive::tests::removing_from_65535_entries_writes_a_plain_count
     archive::tests::replacing_an_encrypted_entry_is_refused
     archive::tests::stored_entries_round_trip
     archive::tests::the_catalogue_names_every_refusal
     archive::tests::the_crate_path_reports_the_index_asked_for
+    archive::tests::the_crate_refusals_carry_their_catalogued_messages
     archive::tests::the_index_reports_what_the_records_say
+    archive::tests::the_replacement_temporary_is_created_with_mode_0600
     archive::tests::two_changes_for_one_entry_are_refused
     archive::tests::unknown_extra_fields_round_trip
     archive::tests::zip64_markers_round_trip
-  zip layer tests that ran on the host: 71
-the zip layer has more than sixty tests of its own: yes
+  zip layer tests that ran on the host: 78
+the zip layer ran 78 tests of its own: 71 before the repair round and 7 it adds: yes
 host ran and passed archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records: yes
 host ran and passed archive::tests::removing_from_65535_entries_writes_a_plain_count: yes
 host ran and passed archive::tests::a_65535_entry_archive_round_trips_byte_for_byte: yes
@@ -908,6 +1015,19 @@ host ran and passed archive::tests::a_panicking_replacement_leaves_no_temporary_
 host ran and passed archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message: yes
 host ran and passed archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows: yes
 host ran and passed archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding: yes
+host ran and passed archive::tests::the_crate_path_reports_the_index_asked_for: yes
+host ran and passed archive::tests::bytes_after_the_end_record_are_refused_with_their_own_message: yes
+host ran and passed archive::tests::the_replacement_temporary_is_created_with_mode_0600: yes
+host ran and passed archive::tests::an_added_name_longer_than_a_header_can_record_is_refused: yes
+host ran and passed archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes: yes
+host ran and passed archive::tests::a_zip64_locator_without_its_record_is_refused: yes
+host ran and passed archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused: yes
+host ran and passed archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused: yes
+host ran and passed archive::tests::the_crate_refusals_carry_their_catalogued_messages: yes
+host ran and passed archive::tests::a_multi_disk_record_is_refused: yes
+host ran and passed archive::tests::reading_an_encrypted_entry_is_refused: yes
+host ran and passed archive::tests::replacing_an_encrypted_entry_is_refused: yes
+host ran and passed archive::tests::two_changes_for_one_entry_are_refused: yes
 
 ## the ignored tests, named
     test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
@@ -961,11 +1081,14 @@ i686-unknown-linux-musl: clippy with --features xml,emend passes: yes
 i686-unknown-linux-musl: control bytes in the clippy output: 0 (expect 0): yes
 
 ## the two runs
-host executed 141 tests; i686-unknown-linux-musl executed 141 tests
+host executed 148 tests; i686-unknown-linux-musl executed 148 tests
 the i686 run executed the same test names as the host run: yes
 the two counts are equal: yes
 
 ## the layer's 4 GiB case, run explicitly on both targets
+control: a planted fixture is counted: 1 (expect 1): yes
+control: removed, it is not: 0 (expect 0): yes
+control: a directory that does not exist reads as error: error: yes
 command: df --output=fstype <scratch>
   TMPDIR for these runs: <scratch>; file system type ext4; available 639G
 TMPDIR for the 4 GiB runs is not a RAM-backed tmpfs: yes
@@ -976,6 +1099,7 @@ command: df --output=fstype /tmp
 command: cargo test -p emend --no-run 
 exit: 0
 test executable: target/debug/deps/emend-23afe3b113568f31
+  test executable target/debug/deps/emend-23afe3b113568f31: sha256 112ac9063300a4f1f2abad6ae34d0ea4ae0518a3b449176a6428adeea8fca000
 host: build exit 0 and an executable named: yes
 EMEND_XLSX_DIFF: target/debug/xlsx-diff, sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
 host: the harness binary of this target is executable: yes
@@ -986,15 +1110,15 @@ output:
     running 1 test
     test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ok
     
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 20.40s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 20.18s
     
 /usr/bin/time -v, selected lines:
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.40
-    Maximum resident set size (kbytes): 5032
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.18
+    Maximum resident set size (kbytes): 5056
     Exit status: 0
 host: exit 0, 1 passed and 0 failed: yes
 host: the 4 GiB test ran and was not filtered out: yes
-host: maximum resident set size 5032 kB is under 65536 kB (64 MiB): yes
+host: maximum resident set size 5056 kB is under 65536 kB (64 MiB): yes
 host: control bytes in the 4 GiB output: 0 (expect 0): yes
   fixtures left in <scratch> after the run: 0
 host: the test removed its files: yes
@@ -1003,6 +1127,7 @@ host: the test removed its files: yes
 command: cargo test -p emend --no-run --target i686-unknown-linux-musl
 exit: 0
 test executable: target/i686-unknown-linux-musl/debug/deps/emend-963f624c2b3e5a51
+  test executable target/i686-unknown-linux-musl/debug/deps/emend-963f624c2b3e5a51: sha256 bf6f013a342e05d4615584e422d8459e676506f2bb9b139bbaa5dd501427e898
 i686-unknown-linux-musl: build exit 0 and an executable named: yes
 EMEND_XLSX_DIFF: target/i686-unknown-linux-musl/debug/xlsx-diff, sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
 i686-unknown-linux-musl: the harness binary of this target is executable: yes
@@ -1013,21 +1138,21 @@ output:
     running 1 test
     test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ok
     
-    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 27.49s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 28.34s
     
 /usr/bin/time -v, selected lines:
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:27.49
-    Maximum resident set size (kbytes): 2532
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:28.34
+    Maximum resident set size (kbytes): 2544
     Exit status: 0
 i686-unknown-linux-musl: exit 0, 1 passed and 0 failed: yes
 i686-unknown-linux-musl: the 4 GiB test ran and was not filtered out: yes
-i686-unknown-linux-musl: maximum resident set size 2532 kB is under 65536 kB (64 MiB): yes
+i686-unknown-linux-musl: maximum resident set size 2544 kB is under 65536 kB (64 MiB): yes
 i686-unknown-linux-musl: control bytes in the 4 GiB output: 0 (expect 0): yes
   fixtures left in <scratch> after the run: 0
 i686-unknown-linux-musl: the test removed its files: yes
 
 ## status after the runs
-status lines: 1; untracked under the log directory: 1; tracked and modified under it: 0; the phase's size record: 0
+status lines: 1; untracked under the log directory: 0; tracked and modified under it: 1; the phase's size record: 0
 every change in the working tree is one of this phase's logs or its size record: yes
-run ended at 2026-09-17T14:04:20Z
+run ended at 2026-09-17T14:43:15Z
 test log checks all as expected: yes

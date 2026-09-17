@@ -1,38 +1,53 @@
 command: git rev-parse HEAD
-about: M1 part 1 P3 phase commit 5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
-phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) size.log; run at 2026-09-17T14:07:30Z
-rerun: this replaces the size.log of the first run, sha256 a34657724d1d9e8ac49554456a545650f3abda9a0371aab8d3513cbb5c18418e, which ran at 2026-09-17T14:04:32Z at this same commit and FAILED on four checks of one kind: it asserted that each probe's file size is a whole number of 4096-byte pages, and none is. All four leave the same remainder, 2596 bytes, modulo 4096, so it is the DIFFERENCES between them that come in whole pages. The implementing session had also told planning, in its report during P3, that every figure was a multiple of 4096; that sentence was false and this log is the correction. The check now asserts the true property. Second, the first run's record said the editing probe's excess over the no-edit probe is what link-time optimisation removes from a consumer that never edits. The measured excess was 65140 section bytes, far more than the 2500 an earlier scratch probe that edited without reading had shown, so that sentence was an explanation nobody had measured. This run builds a third probe that edits but reads no entry, and the record states the two parts as measured. Every other figure was already as the first run printed it.
+about: M1 part 1 P3 phase commit 6cec4161000c0c20bf55a797bf1fb972f0794960; HEAD at run: 6cec4161000c0c20bf55a797bf1fb972f0794960
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) size.log; run at 2026-09-17T15:07:23Z
+rerun: this replaces three earlier size logs. (1) The one committed in the first P3 record, b28d8394a292e2243bf771ec0b87a5d1ec5c5e12, sha256 670d0c9b896348b55f76c76c741f0aa5b839964c9ab5725b960623c273389a32, run at 2026-09-17T14:07:30Z at 5a8b491ca402e9248cd4130890e7c353ec212a82, passed. (2) An uncommitted attempt of this round, sha256 a83d5455d343e9b6ec030b5d291cefad812601906c300a41c1d4ead76cc273d9, run at 2026-09-17T14:43:32Z at 740648e76196587a85a6d100216f6819acf21e5f, FAILED two checks: probe-emend-copy and probe-emend-edit were not byte-identical to the first log's builds, as the first verification's ruling had expected; the implementing session found why (the round's doc lines move archive.rs's code by 16 lines, and panic locations carry line numbers) and planning ruled how this log compares them (specs/0008, 'Planning rulings during the P3 repair round', item 1) in doc commit 6cec416. (3) The pass given to the second independent check, sha256 2e26642bfda1b8a8acb3a3d3bd728ca075e55a7d6fc33bbfae299fee85c0c0e0, run at 2026-09-17T14:52:39Z at this same commit, passed; that check found two of its controls weak, and its compound checks written inline rather than as the named functions specs/0001 asks for. Changed since (3): every compound check is a named function; the one-byte control also asserts the unexplained byte lies in .text; the wrong-shift control prints its output and requires a printed count above 0, so a crash cannot pass it; a comment about the candidates no longer calls probe-emend-edit the probe the budget is judged on. Changed since (1): a fifth probe, probe-emend-edit-xml, on which the budget is judged over probe-zip-xml; the four earlier probes compared with the first log as that ruling says; the dependency tree checked with both features; a new record with five rows, the first standing as history; the header without the retracted link-time sentence; and eleven checks that reported only their first condition, now evaluated whole.
 SERIALIZED: produced with no other run in flight
 RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
-at entry: status lines 1, all of them this phase's logs
+at entry: status lines 6, all of them this phase's logs
 
 ## script
     #!/usr/bin/env bash
     # Milestone 1 part 1 P3 size.log (specs/0008-zip-layer.md, "Size" and "P3"):
-    # the four size probes built in the size profile for i686-unknown-linux-musl as
+    # the five size probes built in the size profile for i686-unknown-linux-musl as
     # the baseline built its two (records/logs/t3-p2/size.log), the figures the
     # size record carries, and the record itself.
     #
+    # REPAIR ROUND (specs/0008, "Planning rulings on P3 (2026-09-17, first
+    # verification)", and "Planning rulings during the P3 repair round"): rerun
+    # after the round's code commit. The four probes the first record measured are
+    # compared with that log as the repair-round rulings' item 1 says, below. The fifth
+    # probe, probe-emend-edit-xml, is measured, and the budget
+    # is judged on it over probe-zip-xml. A new record is written; the first
+    # stands as history.
+    #
     # What "Size" asks this log to print, all of it measured here:
-    #  - for probe-emend-copy (no edits) and probe-emend-edit (edits from argv):
-    #    the file size, the section total and .text from `size -A`, and the deltas
-    #    of file size and section total over probe-zip and over probe-zip-xml;
+    #  - for probe-emend-copy (no edits), probe-emend-edit (edits from argv) and
+    #    probe-emend-edit-xml (the same plus the quick-xml count): the file size,
+    #    the section total and .text from `size -A`, and the deltas of file size
+    #    and section total over probe-zip and over probe-zip-xml;
     #  - the two baseline probes RE-MEASURED at this commit, beside the figures
     #    the committed baseline record gives, which are read from that record and
     #    not typed here;
-    #  - the difference between the editing and the no-edit probe, which is what
-    #    link-time optimisation removes from a consumer that never edits;
+    #  - the differences between the three emend probes, the part of the editing
+    #    probe's cost that is reading an entry measured by a third build;
     #  - the section cost of each duplicate-name candidate built for the P3
     #    repair (P3 ruling 2), each built from a clone of this commit that differs
     #    only in that function: the quadratic check P2 shipped, the stable
     #    sort_by, and the unstable sort_unstable_by the commit carries.
-    # File sizes on this target move in 4096-byte pages; the section figures
-    # resolve to the byte. Both are printed, and the record says why.
+    # File sizes on this target move in 4096-byte steps (the differences between
+    # probes are whole pages, the sizes are not); the section figures resolve to
+    # the byte. Both are printed, and the record says why.
     #
     # Usage: m1p1-p3-size.sh <phase commit> <record output file> > <scratch file>;
     # the caller moves the output to records/logs/m1p1-p3/size.log and the record
     # to records/size-m1p1-<utc-date>-<shortsha>.md.
     set -uo pipefail
+    # Every check with more than one condition is a named function, all_of_<n>,
+    # defined on the line before it and called through yn or is
+    # (specs/0001-bootstrap.md, "Rules for every phase"). An earlier form of these
+    # scripts wrote the conditions inline, which evaluated them whole but was not
+    # the form that rule gives (independent check 2 of this round).
     cd "$(git rev-parse --show-toplevel)" || exit 2
     MAIN=$(pwd)
     . scripts/counting.sh
@@ -124,7 +139,7 @@ at entry: status lines 1, all of them this phase's logs
       [ "$rc" -eq 0 ] || { printf 'error'; return; }
       printf '%s\n' "$out" | awk -v c="$2" '$1 == c { n++ } END { print n + 0 }'
     }
-    for feat in "" xml emend; do
+    for feat in "" xml emend emend,xml; do
       label=${feat:-none}
       echo "command: cargo tree -p size-probe ${feat:+--features $feat} -e normal --prefix none --target $I686 --offline"
       if [ -n "$feat" ]; then
@@ -134,15 +149,21 @@ at entry: status lines 1, all of them this phase's logs
       fi
       echo "  features $label: quick-xml lines $(tree_count "$feat" quick-xml); emend lines $(tree_count "$feat" emend)"
     done
+    all_of_1() { [ "$(tree_count "" quick-xml)" = 0 ] && [ "$(tree_count "" emend)" = 0 ]; }
     check "with no feature, neither quick-xml nor emend is in the tree (probe-zip is built as the baseline was)" \
-      "$(yn [ "$(tree_count "" quick-xml)" = 0 ] && [ "$(tree_count "" emend)" = 0 ])"
+      "$(yn all_of_1)"
+    all_of_2() { [ "$(tree_count xml quick-xml)" -ge 1 ] && [ "$(tree_count xml emend)" = 0 ]; }
     check "with xml alone, quick-xml is in and emend is not (probe-zip-xml is built as the baseline was)" \
-      "$(yn [ "$(tree_count xml quick-xml)" -ge 1 ] && [ "$(tree_count xml emend)" = 0 ])"
+      "$(yn all_of_2)"
+    all_of_3() { [ "$(tree_count emend emend)" -ge 1 ] && [ "$(tree_count emend quick-xml)" = 0 ]; }
     check "with emend alone, emend is in and quick-xml is not" \
-      "$(yn [ "$(tree_count emend emend)" -ge 1 ] && [ "$(tree_count emend quick-xml)" = 0 ])"
+      "$(yn all_of_3)"
+    all_of_4() { [ "$(tree_count emend,xml emend)" -ge 1 ] && [ "$(tree_count emend,xml quick-xml)" -ge 1 ]; }
+    check "with emend and xml, both are in (probe-emend-edit-xml)" \
+      "$(yn all_of_4)"
     
     echo
-    echo "## the four size builds for $I686"
+    echo "## the five size builds for $I686"
     echo "command: cargo clean -p size-probe --profile size --target $I686"
     cargo clean -p size-probe --profile size --target "$I686" 2>&1 | sed 's/^/    /'
     build() {
@@ -162,18 +183,22 @@ at entry: status lines 1, all of them this phase's logs
     build probe-zip-xml xml || brc=1
     build probe-emend-copy emend || brc=1
     build probe-emend-edit emend || brc=1
-    check "all four size builds exit 0" "$(yn [ "$brc" -eq 0 ])"
+    build probe-emend-edit-xml emend,xml || brc=1
+    check "all five size builds exit 0" "$(yn [ "$brc" -eq 0 ])"
     
     D=target/$I686/size
-    declare -A FILE SECT TEXT
-    for b in probe-zip probe-zip-xml probe-emend-copy probe-emend-edit; do
+    PROBES="probe-zip probe-zip-xml probe-emend-copy probe-emend-edit probe-emend-edit-xml"
+    declare -A FILE SECT TEXT SHA
+    for b in $PROBES; do
       FILE[$b]=$(stat -c %s "$D/$b")
       SECT[$b]=$(section "$D/$b" Total)
       TEXT[$b]=$(section "$D/$b" .text)
-      echo "$D/$b: file ${FILE[$b]} bytes; sections ${SECT[$b]}; .text ${TEXT[$b]}; sha256 $(sha256sum <"$D/$b" | cut -d' ' -f1)"
+      SHA[$b]=$(sha256sum <"$D/$b" | cut -d' ' -f1)
+      echo "$D/$b: file ${FILE[$b]} bytes; sections ${SECT[$b]}; .text ${TEXT[$b]}; sha256 ${SHA[$b]}"
       echo "    $(file -b "$D/$b" | sed 's/, BuildID\[[^]]*\]=[0-9a-f]*//')"
       check "$b is a stripped static i386 ELF" "$(yn static_i686_stripped "$D/$b")"
-      check "$b's section figures were read" "$(yn [ "${SECT[$b]}" != error ] && [ "${TEXT[$b]}" != error ])"
+      all_of_5() { [ "${SECT[$b]}" != error ] && [ "${TEXT[$b]}" != error ]; }
+      check "$b's section figures were read" "$(yn all_of_5)"
     done
     
     # File sizes on this target change in whole 4096-byte steps, but they are NOT
@@ -182,17 +207,161 @@ at entry: status lines 1, all of them this phase's logs
     # that each size was a whole number of pages, which is false, and failed on it;
     # the claim had also been made to planning in those words.
     REM=$((FILE[probe-zip] % 4096))
-    for b in probe-zip probe-zip-xml probe-emend-copy probe-emend-edit; do
+    for b in $PROBES; do
       echo "  $b: ${FILE[$b]} = $((FILE[$b] / 4096)) pages of 4096 bytes + $((FILE[$b] % 4096))"
     done
     same_remainder() {
       local b
-      for b in probe-zip probe-zip-xml probe-emend-copy probe-emend-edit; do
+      for b in $PROBES; do
         [ $((FILE[$b] % 4096)) -eq "$REM" ] || return 1
       done
     }
-    check "all four file sizes leave the same remainder modulo 4096, $REM bytes, so every difference between them is whole pages" \
+    check "all five file sizes leave the same remainder modulo 4096, $REM bytes, so every difference between them is whole pages" \
       "$(yn same_remainder)"
+    
+    echo
+    echo "## the four earlier probes, against the size.log of the first P3 record"
+    # specs/0008, "Planning rulings during the P3 repair round", item 1. The round
+    # added doc lines above archive.rs's code, and panic locations carry line
+    # numbers, so the two emend probes are not byte-identical to the first round's
+    # builds. What is asserted instead: (a) all four keep their file size, section
+    # total and .text; (b) a rebuild of the two emend probes at the first log's
+    # commit, in a scratch clone, reproduces that log's sha256s; (c) every byte
+    # that differs between that rebuild and this build lies in .note.gnu.build-id
+    # or in a four-byte slot in .data.rel.ro whose value rose by exactly the line
+    # shift, computed from git; (d) the counts are printed; (e) probe-zip and
+    # probe-zip-xml keep plain sha256 equality.
+    FIRST_REC=$(git log --format='%H' --grep='^M1 part 1 P3 record:' -n 1)
+    echo "command: git log --format='%H' --grep='^M1 part 1 P3 record:' -n 1"
+    echo "  the first P3 record commit resolves to $FIRST_REC"
+    check "the first record commit resolved from git" "$(yn [ -n "$FIRST_REC" ])"
+    git show "$FIRST_REC:records/logs/m1p1-p3/size.log" >"$T/first-size.log" 2>/dev/null
+    echo "  its size.log: sha256 $(sha256sum <"$T/first-size.log" | cut -d' ' -f1)"
+    FIRST_AT=$(sed -n 's/^about: M1 part 1 P3 phase commit \([0-9a-f]*\);.*/\1/p' "$T/first-size.log")
+    echo "  that log was measured at $FIRST_AT"
+    check "the commit that log was measured at was read" "$(yn [ -n "$FIRST_AT" ])"
+    declare -A WAS_SHA
+    for b in probe-zip probe-zip-xml probe-emend-copy probe-emend-edit; do
+      line=$(LC_ALL=C "$G" -E "^target/$I686/size/$b: file " "$T/first-size.log")
+      was_file=$(printf '%s\n' "$line" | sed -n 's/^.*: file \([0-9]*\) bytes; sections \([0-9]*\); \.text \([0-9]*\); sha256 \([0-9a-f]\{64\}\)$/\1/p')
+      was_sect=$(printf '%s\n' "$line" | sed -n 's/^.*: file \([0-9]*\) bytes; sections \([0-9]*\); \.text \([0-9]*\); sha256 \([0-9a-f]\{64\}\)$/\2/p')
+      was_text=$(printf '%s\n' "$line" | sed -n 's/^.*: file \([0-9]*\) bytes; sections \([0-9]*\); \.text \([0-9]*\); sha256 \([0-9a-f]\{64\}\)$/\3/p')
+      WAS_SHA[$b]=$(printf '%s\n' "$line" | sed -n 's/^.*: file \([0-9]*\) bytes; sections \([0-9]*\); \.text \([0-9]*\); sha256 \([0-9a-f]\{64\}\)$/\4/p')
+      echo "  $b: then file $was_file, sections $was_sect, .text $was_text, sha256 ${WAS_SHA[$b]}"
+      echo "  $b: now  file ${FILE[$b]}, sections ${SECT[$b]}, .text ${TEXT[$b]}, sha256 ${SHA[$b]}"
+      read_all() { [ -n "$was_file" ] && [ -n "$was_sect" ] && [ -n "$was_text" ] && [ -n "${WAS_SHA[$b]}" ]; }
+      same_figures() { [ "$was_file" = "${FILE[$b]}" ] && [ "$was_sect" = "${SECT[$b]}" ] && [ "$was_text" = "${TEXT[$b]}" ]; }
+      check "$b: the first log's four figures were read" "$(yn read_all)"
+      check "(a) $b keeps its file size, section total and .text" "$(yn same_figures)"
+    done
+    check "(e) probe-zip is byte-identical to the first log's build" "$(yn [ "${WAS_SHA[probe-zip]}" = "${SHA[probe-zip]}" ])"
+    check "(e) probe-zip-xml is byte-identical to the first log's build" "$(yn [ "${WAS_SHA[probe-zip-xml]}" = "${SHA[probe-zip-xml]}" ])"
+    
+    echo "  the line shift, from git: the first line of archive.rs that is neither blank nor a comment, at each commit"
+    git show "$FIRST_AT:crates/emend/src/archive.rs" >"$T/archive-then.rs"
+    git show "$C:crates/emend/src/archive.rs" >"$T/archive-now.rs"
+    python3 - "$T/archive-then.rs" "$T/archive-now.rs" >"$T/shift.out" <<'SHIFT_PY'
+    import sys
+    
+    def first(lines):
+        for i, l in enumerate(lines):
+            if l.strip() and not l.startswith("//"):
+                return i
+        raise SystemExit("no code line")
+    
+    a = open(sys.argv[1]).read().split("\n")
+    b = open(sys.argv[2]).read().split("\n")
+    fa, fb = first(a), first(b)
+    print("then line %d, now line %d" % (fa + 1, fb + 1))
+    print("the file from that line on is identical: %s" % ("yes" if a[fa:] == b[fb:] else "no"))
+    print("shift %d" % (fb - fa))
+    SHIFT_PY
+    sed 's/^/    /' "$T/shift.out"
+    SHIFT=$(sed -n 's/^shift \(-\{0,1\}[0-9]*\)$/\1/p' "$T/shift.out")
+    check "the code below the first code line is unchanged, so the shift is the only move" \
+      "$(yn [ "$(count_matches -F 'the file from that line on is identical: yes' "$T/shift.out")" = 1 ])"
+    check "the line shift was computed" "$(yn [ -n "$SHIFT" ])"
+    
+    O=$T/then
+    git clone --quiet --shared "$MAIN" "$O" 2>/dev/null
+    git -C "$O" checkout --quiet "$FIRST_AT"
+    echo "command: in a scratch clone at $FIRST_AT, cargo build -p size-probe --bin <probe> --features emend --profile size --target $I686 --offline"
+    cat >"$T/bytes.py" <<'BYTES_PY'
+    import struct, sys
+    
+    old, new, shift = open(sys.argv[1], "rb").read(), open(sys.argv[2], "rb").read(), int(sys.argv[3])
+    
+    def sections(data):
+        shoff, = struct.unpack_from("<I", data, 32)
+        shentsize, shnum, shstrndx = struct.unpack_from("<HHH", data, 46)
+        heads = [struct.unpack_from("<IIIIII", data, shoff + i * shentsize) for i in range(shnum)]
+        names_off = heads[shstrndx][4]
+        out = {}
+        for h in heads:
+            end = data.index(b"\0", names_off + h[0])
+            out[data[names_off + h[0]:end].decode()] = (h[4], h[5])
+        return out
+    
+    so, sn = sections(old), sections(new)
+    print("same length: %s" % ("yes" if len(old) == len(new) else "no"))
+    print("same section layout: %s" % ("yes" if so == sn else "no"))
+    bid, rel = sn[".note.gnu.build-id"], sn[".data.rel.ro"]
+    diffs = [i for i in range(min(len(old), len(new))) if old[i] != new[i]]
+    in_bid = [i for i in diffs if bid[0] <= i < bid[0] + bid[1]]
+    rest = [i for i in diffs if not (bid[0] <= i < bid[0] + bid[1])]
+    slots = sorted({i - (i - rel[0]) % 4 for i in rest})
+    shifted = [s for s in slots if rel[0] <= s and s + 4 <= rel[0] + rel[1]
+               and struct.unpack_from("<I", new, s)[0] - struct.unpack_from("<I", old, s)[0] == shift]
+    covered = set()
+    for s in shifted:
+        covered.update(range(s, s + 4))
+    unexplained = [i for i in rest if i not in covered]
+    print("differing bytes: %d" % len(diffs))
+    print("in .note.gnu.build-id: %d" % len(in_bid))
+    print(".data.rel.ro slots risen by exactly %d: %d" % (shift, len(shifted)))
+    print("differing bytes explained by neither: %d" % len(unexplained))
+    def where(i):
+        for name, (off, size) in sn.items():
+            if name and off <= i < off + size:
+                return name
+        return "no section"
+    print("sections holding the unexplained bytes: %s" % (" ".join(sorted({where(i) for i in unexplained})) or "none"))
+    BYTES_PY
+    # The control: the comparison applied to a pair that differs in one byte
+    # outside both regions must report that byte as unexplained.
+    cp "$D/probe-zip" "$T/ctl-a"
+    cp "$D/probe-zip" "$T/ctl-b"
+    printf '\001' | dd of="$T/ctl-b" bs=1 seek=4200 conv=notrunc 2>/dev/null
+    python3 "$T/bytes.py" "$T/ctl-a" "$T/ctl-b" "$SHIFT" >"$T/ctl-bytes.out" 2>&1
+    sed 's/^/    control: /' "$T/ctl-bytes.out"
+    all_of_ctl_text() {
+      [ "$(count_matches -F 'differing bytes explained by neither: 1' "$T/ctl-bytes.out")" = 1 ] &&
+        [ "$(count_matches -Fx 'sections holding the unexplained bytes: .text' "$T/ctl-bytes.out")" = 1 ]
+    }
+    check "control: one byte changed in .text is reported unexplained, and in .text" "$(yn all_of_ctl_text)"
+    for b in probe-emend-copy probe-emend-edit; do
+      ( cd "$O" && CARGO_TARGET_DIR="$O/target" cargo build -p size-probe --bin "$b" --features emend \
+          --profile size --target "$I686" --offline ) >"$T/then-$b.out" 2>&1 </dev/null
+      rc=$?
+      then_bin=$O/target/$I686/size/$b
+      then_sha=$(sha256sum <"$then_bin" 2>/dev/null | cut -d' ' -f1)
+      echo "  $b rebuilt at $FIRST_AT: build exit $rc; sha256 $then_sha"
+      check "(b) $b rebuilt at the first log's commit reproduces its sha256" "$(yn [ "$then_sha" = "${WAS_SHA[$b]}" ])"
+      python3 "$T/bytes.py" "$then_bin" "$D/$b" "$SHIFT" >"$T/bytes-$b.out" 2>&1
+      sed "s/^/    $b: /" "$T/bytes-$b.out"
+      explained() {
+        [ "$(count_matches -F 'same length: yes' "$T/bytes-$b.out")" = 1 ] &&
+          [ "$(count_matches -F 'same section layout: yes' "$T/bytes-$b.out")" = 1 ] &&
+          [ "$(count_matches -F 'differing bytes explained by neither: 0' "$T/bytes-$b.out")" = 1 ]
+      }
+      check "(c) $b: every differing byte is the build id or a line number risen by $SHIFT" "$(yn explained)"
+      python3 "$T/bytes.py" "$then_bin" "$D/$b" "$((SHIFT + 1))" >"$T/bytes-wrong-$b.out" 2>&1
+      sed "s/^/    control, shift $((SHIFT + 1)), $b: /" "$T/bytes-wrong-$b.out"
+      # A number of unexplained bytes above 0 must be PRINTED; a crash prints none.
+      wrong_left=$(sed -n 's/^differing bytes explained by neither: \([0-9]*\)$/\1/p' "$T/bytes-wrong-$b.out")
+      wrong_shift_caught() { [ -n "$wrong_left" ] && [ "$wrong_left" -gt 0 ]; }
+      check "control: $b compared with a shift of $((SHIFT + 1)) leaves bytes unexplained ($wrong_left)" "$(yn wrong_shift_caught)"
+    done
     
     echo
     echo "## the baseline probes, re-measured against the committed baseline"
@@ -202,13 +371,14 @@ at entry: status lines 1, all of them this phase's logs
     BX=$(awk -F'|' '$2 ~ /`probe-zip-xml`/ { gsub(/ /, "", $4); print $4 }' "$BASEREC")
     echo "  committed baseline: probe-zip $BZ, probe-zip-xml $BX"
     echo "  re-measured here:   probe-zip ${FILE[probe-zip]}, probe-zip-xml ${FILE[probe-zip-xml]}"
-    check "the committed baseline figures were read" "$(yn [ -n "$BZ" ] && [ -n "$BX" ])"
+    all_of_6() { [ -n "$BZ" ] && [ -n "$BX" ]; }
+    check "the committed baseline figures were read" "$(yn all_of_6)"
     check "probe-zip re-measures to the committed figure" "$(yn [ "${FILE[probe-zip]}" = "$BZ" ])"
     check "probe-zip-xml re-measures to the committed figure" "$(yn [ "${FILE[probe-zip-xml]}" = "$BX" ])"
     
     echo
     echo "## the deltas"
-    for p in probe-emend-copy probe-emend-edit; do
+    for p in probe-emend-copy probe-emend-edit probe-emend-edit-xml; do
       echo "  $p over probe-zip:     file $((FILE[$p] - FILE[probe-zip])), sections $((SECT[$p] - SECT[probe-zip])), .text $((TEXT[$p] - TEXT[probe-zip]))"
       echo "  $p over probe-zip-xml: file $((FILE[$p] - FILE[probe-zip-xml])), sections $((SECT[$p] - SECT[probe-zip-xml])), .text $((TEXT[$p] - TEXT[probe-zip-xml]))"
     done
@@ -216,13 +386,21 @@ at entry: status lines 1, all of them this phase's logs
     EDIT_MINUS_COPY_SECT=$((SECT[probe-emend-edit] - SECT[probe-emend-copy]))
     EDIT_MINUS_COPY_TEXT=$((TEXT[probe-emend-edit] - TEXT[probe-emend-copy]))
     echo "  probe-emend-edit over probe-emend-copy: file $EDIT_MINUS_COPY_FILE, sections $EDIT_MINUS_COPY_SECT, .text $EDIT_MINUS_COPY_TEXT"
+    XML_FILE=$((FILE[probe-emend-edit-xml] - FILE[probe-emend-edit]))
+    XML_SECT=$((SECT[probe-emend-edit-xml] - SECT[probe-emend-edit]))
+    XML_TEXT=$((TEXT[probe-emend-edit-xml] - TEXT[probe-emend-edit]))
+    echo "  probe-emend-edit-xml over probe-emend-edit (the quick-xml count): file $XML_FILE, sections $XML_SECT, .text $XML_TEXT"
     BUDGET=$((250 * 1024))
-    JUDGED_FILE=$((FILE[probe-emend-edit] - FILE[probe-zip-xml]))
-    JUDGED_SECT=$((SECT[probe-emend-edit] - SECT[probe-zip-xml]))
+    JUDGED_FILE=$((FILE[probe-emend-edit-xml] - FILE[probe-zip-xml]))
+    JUDGED_SECT=$((SECT[probe-emend-edit-xml] - SECT[probe-zip-xml]))
+    JUDGED_TEXT=$((TEXT[probe-emend-edit-xml] - TEXT[probe-zip-xml]))
     echo "  the provisional budget, 250 KiB above probe-zip-xml: $BUDGET bytes"
-    echo "  judged on probe-emend-edit: file delta $JUDGED_FILE, section delta $JUDGED_SECT"
+    echo "  judged on probe-emend-edit-xml: file delta $JUDGED_FILE, section delta $JUDGED_SECT, .text delta $JUDGED_TEXT"
     echo "  headroom under the provisional budget: file $((BUDGET - JUDGED_FILE)), sections $((BUDGET - JUDGED_SECT))"
     check "the editing probe is not smaller than the no-edit one, by sections" "$(yn [ "$EDIT_MINUS_COPY_SECT" -ge 0 ])"
+    check "the xml probe is larger than the editing probe, by sections" "$(yn [ "$XML_SECT" -gt 0 ])"
+    all_of_7() { [ "$JUDGED_FILE" -lt "$BUDGET" ] && [ "$JUDGED_SECT" -lt "$BUDGET" ]; }
+    check "the budget's figures are under the provisional budget" "$(yn all_of_7)"
     
     echo
     echo "## what the editing probe adds, split by measurement"
@@ -230,8 +408,8 @@ at entry: status lines 1, all of them this phase's logs
     # difference above needs explaining and an explanation is not a measurement.
     # probe-emend-edit differs from probe-emend-copy in two ways: it READS an entry
     # through the layer (`Archive::read`, which goes through the zip crate), and it
-    # EDITS, which keeps the replacement, removal and addition paths that link-time
-    # optimisation can drop from a consumer that never edits. A third build, from a
+    # EDITS, which keeps the replacement, removal and addition paths that a
+    # consumer that never edits does not link. A third build, from a
     # clone of this commit whose probe-emend-edit takes the replacement's bytes
     # from its command line and reads nothing, separates the two.
     A=$T/attrib
@@ -259,8 +437,9 @@ at entry: status lines 1, all of them this phase's logs
     NOREAD_SECT=$(section "$NOREAD" Total)
     NOREAD_TEXT=$(section "$NOREAD" .text)
     echo "  the editing probe that reads no entry: build exit $arc; file $NOREAD_FILE; sections $NOREAD_SECT; .text $NOREAD_TEXT"
+    all_of_8() { [ "$arc" -eq 0 ] && [ "$NOREAD_SECT" != error ] && [ "$NOREAD_TEXT" != error ]; }
     check "the editing probe that reads no entry built and was measured" \
-      "$(yn [ "$arc" -eq 0 ] && [ "$NOREAD_SECT" != error ] && [ "$NOREAD_TEXT" != error ])"
+      "$(yn all_of_8)"
     EDITS_SECT=$((NOREAD_SECT - SECT[probe-emend-copy]))
     EDITS_TEXT=$((NOREAD_TEXT - TEXT[probe-emend-copy]))
     EDITS_FILE=$((NOREAD_FILE - FILE[probe-emend-copy]))
@@ -282,8 +461,9 @@ at entry: status lines 1, all of them this phase's logs
     # form, built in its own target directory; nothing is edited in <repo>. The
     # quadratic form is P2's, read from git at the code commit P2 shipped, not
     # typed. probe-emend-copy is the probe the candidates were first measured
-    # with, and probe-emend-edit is the one the budget is judged on; both are
-    # built for each.
+    # with, and probe-emend-edit the editing probe the first record judged the
+    # budget on; both are built for each. (The budget is now judged on
+    # probe-emend-edit-xml, whose code this function reaches the same way.)
     P2_CODE=$(git log --format='%H' --grep='^M1 part 1 P2: replace, remove and add' -n 1)
     echo "command: git log --format='%H' --grep='^M1 part 1 P2: replace, remove and add' -n 1"
     echo "  P2's code commit resolves to $P2_CODE"
@@ -335,7 +515,8 @@ at entry: status lines 1, all of them this phase's logs
         CAND_SECT[$form-$p]=$(section "$bin" Total)
         CAND_TEXT[$form-$p]=$(section "$bin" .text)
         echo "  $form $p: build exit $rc; file ${CAND_FILE[$form-$p]}; sections ${CAND_SECT[$form-$p]}; .text ${CAND_TEXT[$form-$p]}"
-        check "$form $p built and measured" "$(yn [ "$rc" -eq 0 ] && [ "${CAND_SECT[$form-$p]}" != error ])"
+        all_of_9() { [ "$rc" -eq 0 ] && [ "${CAND_SECT[$form-$p]}" != error ]; }
+        check "$form $p built and measured" "$(yn all_of_9)"
       done
     done
     for p in probe-emend-copy probe-emend-edit; do
@@ -361,29 +542,44 @@ at entry: status lines 1, all of them this phase's logs
     "$D/probe-zip-xml" "$T/probe.zip" xl/workbook.xml >"$T/o2" 2>&1; R2=$?
     "$D/probe-emend-copy" "$T/probe.zip" "$T/copy.zip" >"$T/o3" 2>&1; R3=$?
     "$D/probe-emend-edit" "$T/probe.zip" "$T/edit.zip" '[Content_Types].xml' docProps/app.xml added.xml >"$T/o4" 2>&1; R4=$?
-    for n in 1 2 3 4; do echo "  run $n:"; hide <"$T/o$n" | sed 's/^/    /'; done
-    check "probe-zip prints the entry count" "$(yn [ "$R1" -eq 0 ] && [ "$(cat "$T/o1")" = "entries 3" ])"
-    check "probe-zip-xml prints the entry and element counts" "$(yn [ "$R2" -eq 0 ] && [ "$(cat "$T/o2")" = "$(printf 'entries 3\nelements 4')" ])"
-    check "probe-emend-copy exits 0 and its copy is byte-identical" "$(yn [ "$R3" -eq 0 ] && cmp -s "$T/probe.zip" "$T/copy.zip")"
+    "$D/probe-emend-edit-xml" "$T/probe.zip" "$T/editx.zip" '[Content_Types].xml' docProps/app.xml added.xml >"$T/o6" 2>&1; R6=$?
+    for n in 1 2 3 4 6; do echo "  run $n:"; hide <"$T/o$n" | sed 's/^/    /'; done
+    all_of_10() { [ "$R1" -eq 0 ] && [ "$(cat "$T/o1")" = "entries 3" ]; }
+    check "probe-zip prints the entry count" "$(yn all_of_10)"
+    all_of_11() { [ "$R2" -eq 0 ] && [ "$(cat "$T/o2")" = "$(printf 'entries 3\nelements 4')" ]; }
+    check "probe-zip-xml prints the entry and element counts" "$(yn all_of_11)"
+    all_of_12() { [ "$R3" -eq 0 ] && cmp -s "$T/probe.zip" "$T/copy.zip"; }
+    check "probe-emend-copy exits 0 and its copy is byte-identical" "$(yn all_of_12)"
     python3 - "$T/edit.zip" >"$T/o5" 2>&1 <<'PY'
     import sys, zipfile
     names = sorted(zipfile.ZipFile(sys.argv[1]).namelist())
     print(" ".join(names))
     PY
     echo "  names in the edited archive, read by python's zipfile: $(cat "$T/o5")"
+    all_of_13() { [ "$R4" -eq 0 ] && [ "$(cat "$T/o5")" = "[Content_Types].xml added.xml xl/workbook.xml" ]; }
     check "probe-emend-edit exits 0; the replaced entry stays, the removed one goes, the added one appears" \
-      "$(yn [ "$R4" -eq 0 ] && [ "$(cat "$T/o5")" = "[Content_Types].xml added.xml xl/workbook.xml" ])"
+      "$(yn all_of_13)"
+    all_of_14() { [ "$R6" -eq 0 ] && [ "$(cat "$T/o6")" = "$(printf 'entries 3\nelements 3')" ]; }
+    check "probe-emend-edit-xml prints the entry count and the replaced entry's three elements" \
+      "$(yn all_of_14)"
+    check "probe-emend-edit-xml writes the same archive as probe-emend-edit" "$(yn cmp -s "$T/edit.zip" "$T/editx.zip")"
     
     SHORT=$(git rev-parse --short "$C")
     DATE=$(date -u +%Y-%m-%d)
     cat >"$RECORD_OUT" <<EOF
     # Size, Milestone 1 part 1: $DATE-$SHORT
     
-    The stripped \`i686-unknown-linux-musl\` sizes of the four size probes,
-    measured by \`records/logs/m1p1-p3/size.log\` as the baseline's two were
-    measured by \`records/logs/t3-p2/size.log\` (\`specs/0008-zip-layer.md\`,
-    "Size"). The budget is judged on \`probe-emend-edit\`, the consumer that edits;
-    \`probe-emend-copy\`, which never edits, is given beside it.
+    The stripped \`i686-unknown-linux-musl\` sizes of the five size probes,
+    measured by \`records/logs/m1p1-p3/size.log\` at P3's repair round as the
+    baseline's two were measured by \`records/logs/t3-p2/size.log\`
+    (\`specs/0008-zip-layer.md\`, "Size"). The budget is judged on
+    \`probe-emend-edit-xml\` over \`probe-zip-xml\`, with the other two emend probes
+    beside it. This record follows \`records/size-m1p1-2026-09-17-5a8b491.md\`,
+    which stands as history. The four probes it measured keep their figures here;
+    \`probe-zip\` and \`probe-zip-xml\` are byte-identical, and the two emend probes
+    differ only in their build id and in panic-location line numbers, which the
+    round's doc lines above \`archive.rs\`'s code moved by $SHIFT (the size log
+    compares them byte by byte against a rebuild at the first record's commit).
     
     - Commit: $C
     - Date: $DATE (UTC)
@@ -401,9 +597,10 @@ at entry: status lines 1, all of them this phase's logs
     | Binary | What it does | File bytes | Section bytes | .text bytes |
     | --- | --- | --- | --- | --- |
     | \`probe-zip\` | opens an archive with \`zip\`, prints the entry count | ${FILE[probe-zip]} | ${SECT[probe-zip]} | ${TEXT[probe-zip]} |
-    | \`probe-zip-xml\` | the same, then parses one entry with \`quick-xml\` | ${FILE[probe-zip-xml]} | ${SECT[probe-zip-xml]} | ${TEXT[probe-zip-xml]} |
+    | \`probe-zip-xml\` | the same, then reads one entry through \`zip\` and counts its elements with \`quick-xml\` | ${FILE[probe-zip-xml]} | ${SECT[probe-zip-xml]} | ${TEXT[probe-zip-xml]} |
     | \`probe-emend-copy\` | opens an archive with emend and writes it back with no edits | ${FILE[probe-emend-copy]} | ${SECT[probe-emend-copy]} | ${TEXT[probe-emend-copy]} |
-    | \`probe-emend-edit\` | the same, with a replace, a removal and an addition from its command line | ${FILE[probe-emend-edit]} | ${SECT[probe-emend-edit]} | ${TEXT[probe-emend-edit]} |
+    | \`probe-emend-edit\` | opens with emend, reads the entry to replace, and writes a replace, a removal and an addition from its command line | ${FILE[probe-emend-edit]} | ${SECT[probe-emend-edit]} | ${TEXT[probe-emend-edit]} |
+    | \`probe-emend-edit-xml\` | \`probe-emend-edit\`, plus the \`quick-xml\` element count over the replaced entry's bytes | ${FILE[probe-emend-edit-xml]} | ${SECT[probe-emend-edit-xml]} | ${TEXT[probe-emend-edit-xml]} |
     
     \`probe-zip\` and \`probe-zip-xml\` re-measure to the figures of
     \`records/size-baseline-2026-09-15-6a7533e.md\` ($BZ and $BX).
@@ -414,38 +611,41 @@ at entry: status lines 1, all of them this phase's logs
     | --- | --- | --- | --- | --- |
     | \`probe-emend-copy\` | $((FILE[probe-emend-copy] - FILE[probe-zip])) | $((SECT[probe-emend-copy] - SECT[probe-zip])) | $((FILE[probe-emend-copy] - FILE[probe-zip-xml])) | $((SECT[probe-emend-copy] - SECT[probe-zip-xml])) |
     | \`probe-emend-edit\` | $((FILE[probe-emend-edit] - FILE[probe-zip])) | $((SECT[probe-emend-edit] - SECT[probe-zip])) | $((FILE[probe-emend-edit] - FILE[probe-zip-xml])) | $((SECT[probe-emend-edit] - SECT[probe-zip-xml])) |
+    | \`probe-emend-edit-xml\` | $((FILE[probe-emend-edit-xml] - FILE[probe-zip])) | $((SECT[probe-emend-edit-xml] - SECT[probe-zip])) | $((FILE[probe-emend-edit-xml] - FILE[probe-zip-xml])) | $((SECT[probe-emend-edit-xml] - SECT[probe-zip-xml])) |
     
-    Over \`probe-zip\` is what the zip layer costs. Over \`probe-zip-xml\` is the
-    figure the budget is measured against once \`quick-xml\` is linked; neither
-    emend probe links \`quick-xml\` yet.
+    Only \`probe-emend-edit-xml\` links \`quick-xml\`, as \`probe-zip-xml\` does, so
+    its delta over \`probe-zip-xml\` is what emend adds to a consumer that already
+    carries both crates and reads entries. The other two emend probes' deltas
+    over \`probe-zip-xml\` subtract \`quick-xml\` and are not that figure.
     
-    The editing probe is larger than the no-edit one by $EDIT_MINUS_COPY_SECT
-    section bytes ($EDIT_MINUS_COPY_TEXT of \`.text\`) and by $EDIT_MINUS_COPY_FILE
-    file bytes, for two reasons, separated by a third build that edits but reads
-    no entry:
+    Between the emend probes:
     
-    | Part | Section bytes | .text bytes | File bytes |
+    | Difference | Section bytes | .text bytes | File bytes |
     | --- | --- | --- | --- |
-    | the edit paths, which a consumer that never edits lets the linker drop | $EDITS_SECT | $EDITS_TEXT | $EDITS_FILE |
-    | reading an entry through the layer (\`Archive::read\` goes through \`zip\`) | $READ_SECT | $READ_TEXT | $READ_FILE |
+    | \`probe-emend-edit\` over \`probe-emend-copy\` | $EDIT_MINUS_COPY_SECT | $EDIT_MINUS_COPY_TEXT | $EDIT_MINUS_COPY_FILE |
+    | of which the edit paths, which a consumer that never edits does not link | $EDITS_SECT | $EDITS_TEXT | $EDITS_FILE |
+    | of which reading an entry through the layer (\`Archive::read\` goes through \`zip\`) | $READ_SECT | $READ_TEXT | $READ_FILE |
+    | \`probe-emend-edit-xml\` over \`probe-emend-edit\`, the \`quick-xml\` count | $XML_SECT | $XML_TEXT | $XML_FILE |
     
-    Reading is most of the difference. A consumer that reads entries links it
-    whether or not it edits.
+    The two parts of the first difference were separated by a third build that
+    edits but reads no entry. Reading is most of that difference.
     
     ## The budget
     
     The provisional budget is 250 KiB, $BUDGET bytes, above \`probe-zip-xml\`.
-    Judged on \`probe-emend-edit\`: $JUDGED_FILE file bytes and $JUDGED_SECT section
-    bytes, leaving $((BUDGET - JUDGED_FILE)) and $((BUDGET - JUDGED_SECT)). The
-    maintainer re-rules the budget with these figures in hand.
+    Judged on \`probe-emend-edit-xml\`: $JUDGED_FILE file bytes and $JUDGED_SECT
+    section bytes ($JUDGED_TEXT of \`.text\`), leaving $((BUDGET - JUDGED_FILE)) and
+    $((BUDGET - JUDGED_SECT)). The maintainer re-rules the budget with these
+    figures in hand.
     
     ## Reading these figures
     
     File sizes on this target change in whole 4096-byte steps. They are not
-    themselves whole pages: all four probes leave the same remainder, $REM bytes,
+    themselves whole pages: all five probes leave the same remainder, $REM bytes,
     modulo 4096, so it is every DIFFERENCE between them that is a whole number of
     pages. A change under a page is therefore invisible in the file size, and a
-    change of a few bytes can cost a page: the committed duplicate check costs
+    change of a few thousand section bytes can cost more than one page: the
+    committed duplicate check costs
     $((CAND_SECT[unstable-probe-emend-edit] - CAND_SECT[quadratic-probe-emend-edit])) section bytes and $((CAND_FILE[unstable-probe-emend-edit] - CAND_FILE[quadratic-probe-emend-edit])) file bytes in \`probe-emend-edit\`. The section
     totals, from \`size -A\`, resolve to the byte, which is why both are given.
     
@@ -683,7 +883,7 @@ installed targets for the pinned toolchain:
 command: size --version
     GNU size (GNU Binutils for Ubuntu) 2.46
 
-## manifests at 5a8b491ca402e9248cd4130890e7c353ec212a82
+## manifests at 6cec4161000c0c20bf55a797bf1fb972f0794960
 Cargo.toml (sha256 bdf980cea8fe4bf52cc4ffa5d136b90c67f43ce2c46f591362b2147b6c31a9bb):
     [workspace]
     resolver = "3"
@@ -709,7 +909,7 @@ Cargo.toml (sha256 bdf980cea8fe4bf52cc4ffa5d136b90c67f43ce2c46f591362b2147b6c31a
     panic = "abort"
     strip = true
     debug = false
-tools/size-probe/Cargo.toml (sha256 abae79154c242cdb33f05da077e423b7e86db1da0c09d383c7c109c1c3303eaf):
+tools/size-probe/Cargo.toml (sha256 95bbba2d3496ca5be2146276776947f2dd70333647b8760f7e060881f2b85884):
     [package]
     name = "size-probe"
     version = "0.1.0"
@@ -720,15 +920,17 @@ tools/size-probe/Cargo.toml (sha256 abae79154c242cdb33f05da077e423b7e86db1da0c09
     [dependencies]
     zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
     quick-xml = { version = "=0.42.0", default-features = false, optional = true }
-    # emend's core, for probe-emend-copy only (specs/0008-zip-layer.md, "Size").
+    # emend's core, for the three emend probes (specs/0008-zip-layer.md, "Size").
     # Optional, so probe-zip and probe-zip-xml are built exactly as the baseline
     # built them, with nothing of emend compiled in.
     emend = { path = "../../crates/emend", optional = true }
     
     [features]
-    # Enables quick-xml, for probe-zip-xml only; probe-zip is built without it.
+    # Enables quick-xml, for probe-zip-xml and probe-emend-edit-xml; probe-zip is
+    # built without it.
     xml = ["dep:quick-xml"]
-    # Enables emend, for probe-emend-copy only.
+    # Enables emend, for probe-emend-copy, probe-emend-edit and
+    # probe-emend-edit-xml.
     emend = ["dep:emend"]
     
     [[bin]]
@@ -749,6 +951,11 @@ tools/size-probe/Cargo.toml (sha256 abae79154c242cdb33f05da077e423b7e86db1da0c09
     name = "probe-emend-edit"
     path = "src/bin/probe-emend-edit.rs"
     required-features = ["emend"]
+    
+    [[bin]]
+    name = "probe-emend-edit-xml"
+    path = "src/bin/probe-emend-edit-xml.rs"
+    required-features = ["emend", "xml"]
 crates/emend/Cargo.toml (sha256 36d5b3601b7c714b5eded12f31a3679db0e6a94716fd39ee26cd60be0d6ea76f):
     [package]
     name = "emend"
@@ -814,13 +1021,31 @@ command: cargo tree -p size-probe --features emend -e normal --prefix none --tar
     typed-path v0.12.3
     zip v8.6.0 (*)
   features emend: quick-xml lines 0; emend lines 1
+command: cargo tree -p size-probe --features emend,xml -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    emend v0.1.0 (<repo>/crates/emend)
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0 (*)
+  features emend,xml: quick-xml lines 1; emend lines 1
 with no feature, neither quick-xml nor emend is in the tree (probe-zip is built as the baseline was): yes
 with xml alone, quick-xml is in and emend is not (probe-zip-xml is built as the baseline was): yes
 with emend alone, emend is in and quick-xml is not: yes
+with emend and xml, both are in (probe-emend-edit-xml): yes
 
-## the four size builds for i686-unknown-linux-musl
+## the five size builds for i686-unknown-linux-musl
 command: cargo clean -p size-probe --profile size --target i686-unknown-linux-musl
-         Removed 32 files, 4.3MiB total
+         Removed 40 files, 5.6MiB total
 command: cargo build -p size-probe --bin probe-zip --profile size --target i686-unknown-linux-musl --offline
 exit: 0
 command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target i686-unknown-linux-musl --offline
@@ -829,7 +1054,9 @@ command: cargo build -p size-probe --bin probe-emend-copy --features emend --pro
 exit: 0
 command: cargo build -p size-probe --bin probe-emend-edit --features emend --profile size --target i686-unknown-linux-musl --offline
 exit: 0
-all four size builds exit 0: yes
+command: cargo build -p size-probe --bin probe-emend-edit-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+all five size builds exit 0: yes
 target/i686-unknown-linux-musl/size/probe-zip: file 473636 bytes; sections 464320; .text 364751; sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
     ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
 probe-zip is a stripped static i386 ELF: yes
@@ -838,19 +1065,101 @@ target/i686-unknown-linux-musl/size/probe-zip-xml: file 539172 bytes; sections 5
     ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
 probe-zip-xml is a stripped static i386 ELF: yes
 probe-zip-xml's section figures were read: yes
-target/i686-unknown-linux-musl/size/probe-emend-copy: file 592420 bytes; sections 584164; .text 446931; sha256 c737458b3f61ec2bb83c4170ac738c76d7b7ac104ba1c378f96e9a906ae0226a
+target/i686-unknown-linux-musl/size/probe-emend-copy: file 592420 bytes; sections 584164; .text 446931; sha256 d5a4a6174e774ae60bce5c0e658f4cb52838032a85aeb7c5fa767d87f51b7271
     ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
 probe-emend-copy is a stripped static i386 ELF: yes
 probe-emend-copy's section figures were read: yes
-target/i686-unknown-linux-musl/size/probe-emend-edit: file 657956 bytes; sections 649304; .text 497603; sha256 9d5c661573756bd1d1699060a51d95de06f7b0cd44b64f65fcf683353fdcf899
+target/i686-unknown-linux-musl/size/probe-emend-edit: file 657956 bytes; sections 649304; .text 497603; sha256 c3ae08975db3f59e4cb7edde3f160d6450912171d1d7d430558096ec27d7bb1c
     ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
 probe-emend-edit is a stripped static i386 ELF: yes
 probe-emend-edit's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-edit-xml: file 670244 bytes; sections 665948; .text 510883; sha256 4d7300b2d360e408c7c33570b802b5e5b1404f859e5aa98aa5da34f15adc4e09
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-edit-xml is a stripped static i386 ELF: yes
+probe-emend-edit-xml's section figures were read: yes
   probe-zip: 473636 = 115 pages of 4096 bytes + 2596
   probe-zip-xml: 539172 = 131 pages of 4096 bytes + 2596
   probe-emend-copy: 592420 = 144 pages of 4096 bytes + 2596
   probe-emend-edit: 657956 = 160 pages of 4096 bytes + 2596
-all four file sizes leave the same remainder modulo 4096, 2596 bytes, so every difference between them is whole pages: yes
+  probe-emend-edit-xml: 670244 = 163 pages of 4096 bytes + 2596
+all five file sizes leave the same remainder modulo 4096, 2596 bytes, so every difference between them is whole pages: yes
+
+## the four earlier probes, against the size.log of the first P3 record
+command: git log --format='%H' --grep='^M1 part 1 P3 record:' -n 1
+  the first P3 record commit resolves to b28d8394a292e2243bf771ec0b87a5d1ec5c5e12
+the first record commit resolved from git: yes
+  its size.log: sha256 670d0c9b896348b55f76c76c741f0aa5b839964c9ab5725b960623c273389a32
+  that log was measured at 5a8b491ca402e9248cd4130890e7c353ec212a82
+the commit that log was measured at was read: yes
+  probe-zip: then file 473636, sections 464320, .text 364751, sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+  probe-zip: now  file 473636, sections 464320, .text 364751, sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+probe-zip: the first log's four figures were read: yes
+(a) probe-zip keeps its file size, section total and .text: yes
+  probe-zip-xml: then file 539172, sections 533216, .text 411155, sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+  probe-zip-xml: now  file 539172, sections 533216, .text 411155, sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+probe-zip-xml: the first log's four figures were read: yes
+(a) probe-zip-xml keeps its file size, section total and .text: yes
+  probe-emend-copy: then file 592420, sections 584164, .text 446931, sha256 c737458b3f61ec2bb83c4170ac738c76d7b7ac104ba1c378f96e9a906ae0226a
+  probe-emend-copy: now  file 592420, sections 584164, .text 446931, sha256 d5a4a6174e774ae60bce5c0e658f4cb52838032a85aeb7c5fa767d87f51b7271
+probe-emend-copy: the first log's four figures were read: yes
+(a) probe-emend-copy keeps its file size, section total and .text: yes
+  probe-emend-edit: then file 657956, sections 649304, .text 497603, sha256 9d5c661573756bd1d1699060a51d95de06f7b0cd44b64f65fcf683353fdcf899
+  probe-emend-edit: now  file 657956, sections 649304, .text 497603, sha256 c3ae08975db3f59e4cb7edde3f160d6450912171d1d7d430558096ec27d7bb1c
+probe-emend-edit: the first log's four figures were read: yes
+(a) probe-emend-edit keeps its file size, section total and .text: yes
+(e) probe-zip is byte-identical to the first log's build: yes
+(e) probe-zip-xml is byte-identical to the first log's build: yes
+  the line shift, from git: the first line of archive.rs that is neither blank nor a comment, at each commit
+    then line 132, now line 148
+    the file from that line on is identical: yes
+    shift 16
+the code below the first code line is unchanged, so the shift is the only move: yes
+the line shift was computed: yes
+command: in a scratch clone at 5a8b491ca402e9248cd4130890e7c353ec212a82, cargo build -p size-probe --bin <probe> --features emend --profile size --target i686-unknown-linux-musl --offline
+    control: same length: yes
+    control: same section layout: yes
+    control: differing bytes: 1
+    control: in .note.gnu.build-id: 0
+    control: .data.rel.ro slots risen by exactly 16: 0
+    control: differing bytes explained by neither: 1
+    control: sections holding the unexplained bytes: .text
+control: one byte changed in .text is reported unexplained, and in .text: yes
+  probe-emend-copy rebuilt at 5a8b491ca402e9248cd4130890e7c353ec212a82: build exit 0; sha256 c737458b3f61ec2bb83c4170ac738c76d7b7ac104ba1c378f96e9a906ae0226a
+(b) probe-emend-copy rebuilt at the first log's commit reproduces its sha256: yes
+    probe-emend-copy: same length: yes
+    probe-emend-copy: same section layout: yes
+    probe-emend-copy: differing bytes: 134
+    probe-emend-copy: in .note.gnu.build-id: 20
+    probe-emend-copy: .data.rel.ro slots risen by exactly 16: 110
+    probe-emend-copy: differing bytes explained by neither: 0
+    probe-emend-copy: sections holding the unexplained bytes: none
+(c) probe-emend-copy: every differing byte is the build id or a line number risen by 16: yes
+    control, shift 17, probe-emend-copy: same length: yes
+    control, shift 17, probe-emend-copy: same section layout: yes
+    control, shift 17, probe-emend-copy: differing bytes: 134
+    control, shift 17, probe-emend-copy: in .note.gnu.build-id: 20
+    control, shift 17, probe-emend-copy: .data.rel.ro slots risen by exactly 17: 0
+    control, shift 17, probe-emend-copy: differing bytes explained by neither: 114
+    control, shift 17, probe-emend-copy: sections holding the unexplained bytes: .data.rel.ro
+control: probe-emend-copy compared with a shift of 17 leaves bytes unexplained (114): yes
+  probe-emend-edit rebuilt at 5a8b491ca402e9248cd4130890e7c353ec212a82: build exit 0; sha256 9d5c661573756bd1d1699060a51d95de06f7b0cd44b64f65fcf683353fdcf899
+(b) probe-emend-edit rebuilt at the first log's commit reproduces its sha256: yes
+    probe-emend-edit: same length: yes
+    probe-emend-edit: same section layout: yes
+    probe-emend-edit: differing bytes: 141
+    probe-emend-edit: in .note.gnu.build-id: 20
+    probe-emend-edit: .data.rel.ro slots risen by exactly 16: 117
+    probe-emend-edit: differing bytes explained by neither: 0
+    probe-emend-edit: sections holding the unexplained bytes: none
+(c) probe-emend-edit: every differing byte is the build id or a line number risen by 16: yes
+    control, shift 17, probe-emend-edit: same length: yes
+    control, shift 17, probe-emend-edit: same section layout: yes
+    control, shift 17, probe-emend-edit: differing bytes: 141
+    control, shift 17, probe-emend-edit: in .note.gnu.build-id: 20
+    control, shift 17, probe-emend-edit: .data.rel.ro slots risen by exactly 17: 0
+    control, shift 17, probe-emend-edit: differing bytes explained by neither: 121
+    control, shift 17, probe-emend-edit: sections holding the unexplained bytes: .data.rel.ro
+control: probe-emend-edit compared with a shift of 17 leaves bytes unexplained (121): yes
 
 ## the baseline probes, re-measured against the committed baseline
 command: read the byte figures from records/size-baseline-2026-09-15-6a7533e.md (sha256 0e0dd78edcec34ef0efbcb3b116158c751c69949c44834916796fa7f976aeea9)
@@ -865,11 +1174,16 @@ probe-zip-xml re-measures to the committed figure: yes
   probe-emend-copy over probe-zip-xml: file 53248, sections 50948, .text 35776
   probe-emend-edit over probe-zip:     file 184320, sections 184984, .text 132852
   probe-emend-edit over probe-zip-xml: file 118784, sections 116088, .text 86448
+  probe-emend-edit-xml over probe-zip:     file 196608, sections 201628, .text 146132
+  probe-emend-edit-xml over probe-zip-xml: file 131072, sections 132732, .text 99728
   probe-emend-edit over probe-emend-copy: file 65536, sections 65140, .text 50672
+  probe-emend-edit-xml over probe-emend-edit (the quick-xml count): file 12288, sections 16644, .text 13280
   the provisional budget, 250 KiB above probe-zip-xml: 256000 bytes
-  judged on probe-emend-edit: file delta 118784, section delta 116088
-  headroom under the provisional budget: file 137216, sections 139912
+  judged on probe-emend-edit-xml: file delta 131072, section delta 132732, .text delta 99728
+  headroom under the provisional budget: file 124928, sections 123268
 the editing probe is not smaller than the no-edit one, by sections: yes
+the xml probe is larger than the editing probe, by sections: yes
+the budget's figures are under the provisional budget: yes
 
 ## what the editing probe adds, split by measurement
   scratch: probe-emend-edit takes the replacement's bytes from its command line and reads no entry
@@ -919,22 +1233,33 @@ probe-emend-edit: the unstable candidate measures the same as the committed buil
     entries 3
   run 4:
     entries 3
+  run 6:
+    entries 3
+    elements 3
 probe-zip prints the entry count: yes
 probe-zip-xml prints the entry and element counts: yes
 probe-emend-copy exits 0 and its copy is byte-identical: yes
   names in the edited archive, read by python's zipfile: [Content_Types].xml added.xml xl/workbook.xml
 probe-emend-edit exits 0; the replaced entry stays, the removed one goes, the added one appears: yes
+probe-emend-edit-xml prints the entry count and the replaced entry's three elements: yes
+probe-emend-edit-xml writes the same archive as probe-emend-edit: yes
 
 ## the size record, written to <scratch>
-    # Size, Milestone 1 part 1: 2026-09-17-5a8b491
+    # Size, Milestone 1 part 1: 2026-09-17-6cec416
     
-    The stripped `i686-unknown-linux-musl` sizes of the four size probes,
-    measured by `records/logs/m1p1-p3/size.log` as the baseline's two were
-    measured by `records/logs/t3-p2/size.log` (`specs/0008-zip-layer.md`,
-    "Size"). The budget is judged on `probe-emend-edit`, the consumer that edits;
-    `probe-emend-copy`, which never edits, is given beside it.
+    The stripped `i686-unknown-linux-musl` sizes of the five size probes,
+    measured by `records/logs/m1p1-p3/size.log` at P3's repair round as the
+    baseline's two were measured by `records/logs/t3-p2/size.log`
+    (`specs/0008-zip-layer.md`, "Size"). The budget is judged on
+    `probe-emend-edit-xml` over `probe-zip-xml`, with the other two emend probes
+    beside it. This record follows `records/size-m1p1-2026-09-17-5a8b491.md`,
+    which stands as history. The four probes it measured keep their figures here;
+    `probe-zip` and `probe-zip-xml` are byte-identical, and the two emend probes
+    differ only in their build id and in panic-location line numbers, which the
+    round's doc lines above `archive.rs`'s code moved by 16 (the size log
+    compares them byte by byte against a rebuild at the first record's commit).
     
-    - Commit: 5a8b491ca402e9248cd4130890e7c353ec212a82
+    - Commit: 6cec4161000c0c20bf55a797bf1fb972f0794960
     - Date: 2026-09-17 (UTC)
     - Toolchain: rustc 1.98.1 (48a229cea 2026-09-01); cargo 1.98.1 (797e8a9bc 2026-08-05)
     - Target: i686-unknown-linux-musl
@@ -950,9 +1275,10 @@ probe-emend-edit exits 0; the replaced entry stays, the removed one goes, the ad
     | Binary | What it does | File bytes | Section bytes | .text bytes |
     | --- | --- | --- | --- | --- |
     | `probe-zip` | opens an archive with `zip`, prints the entry count | 473636 | 464320 | 364751 |
-    | `probe-zip-xml` | the same, then parses one entry with `quick-xml` | 539172 | 533216 | 411155 |
+    | `probe-zip-xml` | the same, then reads one entry through `zip` and counts its elements with `quick-xml` | 539172 | 533216 | 411155 |
     | `probe-emend-copy` | opens an archive with emend and writes it back with no edits | 592420 | 584164 | 446931 |
-    | `probe-emend-edit` | the same, with a replace, a removal and an addition from its command line | 657956 | 649304 | 497603 |
+    | `probe-emend-edit` | opens with emend, reads the entry to replace, and writes a replace, a removal and an addition from its command line | 657956 | 649304 | 497603 |
+    | `probe-emend-edit-xml` | `probe-emend-edit`, plus the `quick-xml` element count over the replaced entry's bytes | 670244 | 665948 | 510883 |
     
     `probe-zip` and `probe-zip-xml` re-measure to the figures of
     `records/size-baseline-2026-09-15-6a7533e.md` (473636 and 539172).
@@ -963,38 +1289,41 @@ probe-emend-edit exits 0; the replaced entry stays, the removed one goes, the ad
     | --- | --- | --- | --- | --- |
     | `probe-emend-copy` | 118784 | 119844 | 53248 | 50948 |
     | `probe-emend-edit` | 184320 | 184984 | 118784 | 116088 |
+    | `probe-emend-edit-xml` | 196608 | 201628 | 131072 | 132732 |
     
-    Over `probe-zip` is what the zip layer costs. Over `probe-zip-xml` is the
-    figure the budget is measured against once `quick-xml` is linked; neither
-    emend probe links `quick-xml` yet.
+    Only `probe-emend-edit-xml` links `quick-xml`, as `probe-zip-xml` does, so
+    its delta over `probe-zip-xml` is what emend adds to a consumer that already
+    carries both crates and reads entries. The other two emend probes' deltas
+    over `probe-zip-xml` subtract `quick-xml` and are not that figure.
     
-    The editing probe is larger than the no-edit one by 65140
-    section bytes (50672 of `.text`) and by 65536
-    file bytes, for two reasons, separated by a third build that edits but reads
-    no entry:
+    Between the emend probes:
     
-    | Part | Section bytes | .text bytes | File bytes |
+    | Difference | Section bytes | .text bytes | File bytes |
     | --- | --- | --- | --- |
-    | the edit paths, which a consumer that never edits lets the linker drop | 2600 | 1936 | 0 |
-    | reading an entry through the layer (`Archive::read` goes through `zip`) | 62540 | 48736 | 65536 |
+    | `probe-emend-edit` over `probe-emend-copy` | 65140 | 50672 | 65536 |
+    | of which the edit paths, which a consumer that never edits does not link | 2600 | 1936 | 0 |
+    | of which reading an entry through the layer (`Archive::read` goes through `zip`) | 62540 | 48736 | 65536 |
+    | `probe-emend-edit-xml` over `probe-emend-edit`, the `quick-xml` count | 16644 | 13280 | 12288 |
     
-    Reading is most of the difference. A consumer that reads entries links it
-    whether or not it edits.
+    The two parts of the first difference were separated by a third build that
+    edits but reads no entry. Reading is most of that difference.
     
     ## The budget
     
     The provisional budget is 250 KiB, 256000 bytes, above `probe-zip-xml`.
-    Judged on `probe-emend-edit`: 118784 file bytes and 116088 section
-    bytes, leaving 137216 and 139912. The
-    maintainer re-rules the budget with these figures in hand.
+    Judged on `probe-emend-edit-xml`: 131072 file bytes and 132732
+    section bytes (99728 of `.text`), leaving 124928 and
+    123268. The maintainer re-rules the budget with these
+    figures in hand.
     
     ## Reading these figures
     
     File sizes on this target change in whole 4096-byte steps. They are not
-    themselves whole pages: all four probes leave the same remainder, 2596 bytes,
+    themselves whole pages: all five probes leave the same remainder, 2596 bytes,
     modulo 4096, so it is every DIFFERENCE between them that is a whole number of
     pages. A change under a page is therefore invisible in the file size, and a
-    change of a few bytes can cost a page: the committed duplicate check costs
+    change of a few thousand section bytes can cost more than one page: the
+    committed duplicate check costs
     5016 section bytes and 8192 file bytes in `probe-emend-edit`. The section
     totals, from `size -A`, resolve to the byte, which is why both are given.
     
@@ -1018,7 +1347,7 @@ the record names no home, mount or corpus path: yes
 the record carries no unfilled figure: yes
 
 ## status after the run
-status lines: 1; of them this phase's logs or its size record: 1
+status lines: 6; of them this phase's logs or its size record: 6
 every change in the working tree is one of this phase's logs or its size record: yes
-run ended at 2026-09-17T14:08:34Z
+run ended at 2026-09-17T15:08:46Z
 size log checks all as expected: yes
