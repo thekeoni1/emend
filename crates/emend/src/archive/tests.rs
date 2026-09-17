@@ -77,6 +77,10 @@ struct Spec {
     zip64: bool,
     /// Extra general purpose bits, for the encrypted case.
     gp_extra: u16,
+    /// A CRC-32 to record in place of the data's own. The layer never checks
+    /// a CRC on the paths these tests reach, so this is how a fixture puts a
+    /// chosen value where a reader will look at it.
+    recorded_crc: Option<u32>,
 }
 
 impl Spec {
@@ -92,7 +96,13 @@ impl Spec {
             padding: 0,
             zip64: false,
             gp_extra: 0,
+            recorded_crc: None,
         }
+    }
+
+    /// The CRC-32 the fixture records: the override, or the data's own.
+    fn crc(&self) -> u32 {
+        self.recorded_crc.unwrap_or_else(|| crc32(&self.data))
     }
 
     fn deflated(mut self) -> Self {
@@ -176,7 +186,7 @@ impl Build {
         for (index, spec) in self.specs.iter().enumerate() {
             offsets[index] = out.len() as u64 - base;
             let payload = spec.payload();
-            let crc = crc32(&spec.data);
+            let crc = spec.crc();
             let sizes_in_header = spec.descriptor.is_none();
 
             out.extend_from_slice(&LOCAL_SIG.to_le_bytes());
@@ -237,7 +247,7 @@ impl Build {
         for &index in &order {
             let spec = &self.specs[index];
             let payload = spec.payload();
-            let crc = crc32(&spec.data);
+            let crc = spec.crc();
 
             let mut extra = spec.central_extra.clone();
             let (csize, usize_field, offset_field) = if spec.zip64 {
@@ -2051,4 +2061,320 @@ fn a_65535_entry_archive_round_trips_byte_for_byte() {
     let input = many_entries(MAX_16);
     let output = apply(&input, Edits::new());
     assert_identical(&input, &output);
+}
+
+// ------------------------------------------------------- the error catalogue
+
+/// The refusal an `Unsupported` carries, or a panic naming what came instead.
+fn unsupported_message(err: Error) -> &'static str {
+    match err {
+        Error::Unsupported(message) => message,
+        other => panic!("expected Unsupported, got {other:?}"),
+    }
+}
+
+#[test]
+fn the_catalogue_names_every_refusal() {
+    // `specs/0008-zip-layer.md`, "P3": the error catalogue lives in the
+    // crate's documentation. This reads the module's own source, collects
+    // every message an `Unsupported` is built with, and fails if the module
+    // header does not list it, so the catalogue cannot silently fall behind.
+    let source = include_str!("../archive.rs");
+    let doc = source
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("//!"))
+        .map(str::trim)
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let opener = "Error::Unsupported(";
+    let mut messages = Vec::new();
+    let mut rest = source;
+    while let Some(at) = rest.find(opener) {
+        rest = &rest[at + opener.len()..];
+        if let Some(body) = rest.trim_start().strip_prefix('"') {
+            let end = body.find('"').expect("a closing quote");
+            messages.push(&body[..end]);
+        }
+    }
+    messages.sort_unstable();
+    messages.dedup();
+    // The scan's own control: a broken scan would find nothing and pass.
+    assert!(
+        messages.len() >= 15,
+        "the scan found only {} distinct messages",
+        messages.len()
+    );
+    let missing: Vec<&str> = messages
+        .iter()
+        .copied()
+        .filter(|message| !doc.contains(message))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "refusals missing from the catalogue: {missing:?}"
+    );
+}
+
+#[test]
+fn a_replacement_for_an_entry_of_another_method_is_refused_when_planned() {
+    let mut spec = Spec::new(b"bzip.txt", b"not really bzip2");
+    spec.method = 12;
+    let build = Build::new(vec![spec]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"new"));
+    let mut out = Vec::new();
+    let err = archive.write_to(&mut out, edits).expect_err("must refuse");
+    assert_eq!(
+        unsupported_message(err),
+        "replacing an entry whose method is neither stored nor deflate"
+    );
+    assert!(out.is_empty(), "refused after writing");
+}
+
+#[test]
+fn compressing_with_another_method_is_refused_before_a_file_exists() {
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    let err = match compress_replacement(bytes_replacement(b"new"), 12) {
+        Ok(_) => panic!("method 12 was compressed"),
+        Err(err) => err,
+    };
+    assert_eq!(
+        unsupported_message(err),
+        "writing an entry whose method is neither stored nor deflate"
+    );
+    assert_eq!(replacement_temporaries(), before, "a temporary was created");
+}
+
+#[test]
+fn a_temporary_archive_of_two_entries_is_refused() {
+    // `compress_replacement` cannot reach this: a Replacement gets a
+    // `&mut dyn Write` and cannot start a second entry. So the check is
+    // exercised on the helper it lives in.
+    let build = Build::new(vec![Spec::new(b"a", b"1"), Spec::new(b"b", b"2")]);
+    let archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let err = sole_entry_fields(&archive).expect_err("two entries must be refused");
+    assert_eq!(
+        unsupported_message(err),
+        "the zip crate wrote something other than one entry"
+    );
+    // And the control: one entry is accepted.
+    let one = Build::new(vec![Spec::new(b"a", b"1")]);
+    let one = Archive::open(Cursor::new(one.bytes())).expect("open");
+    assert!(sole_entry_fields(&one).is_ok());
+}
+
+#[test]
+fn a_value_past_32_bits_in_a_plain_field_is_refused() {
+    let build = Build::new(vec![Spec::new(b"a", b"1")]);
+    let archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let record = archive.entries()[0].central.clone();
+    let err = rewrite_central_record(&record, u64::from(u32::MAX) + 1, None)
+        .expect_err("an offset past 32 bits in a plain field");
+    assert_eq!(
+        unsupported_message(err),
+        "a value that would need a zip64 field the input does not carry"
+    );
+    // The control: the largest value the field holds plainly is written.
+    assert!(rewrite_central_record(&record, u64::from(u32::MAX) - 1, None).is_ok());
+}
+
+#[test]
+fn a_marker_with_no_zip64_extra_field_is_refused_on_rewrite() {
+    // `open` refuses such a record first, so the rewrite is exercised on the
+    // function itself, with a record whose offset field alone carries the
+    // marker and which has no extra field at all.
+    let build = Build::new(vec![Spec::new(b"a", b"1")]);
+    let archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut record = archive.entries()[0].central.clone();
+    record[42..46].copy_from_slice(&U32_MAX_MARKER.to_le_bytes());
+    let err = rewrite_central_record(&record, 5, None).expect_err("no extra field");
+    assert_eq!(
+        unsupported_message(err),
+        "a zip64 marker with no zip64 extra field"
+    );
+}
+
+#[test]
+fn a_replacement_too_large_for_a_plain_local_header_is_refused() {
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let build = Build::new(vec![Spec::new(b"a", b"1")]);
+    let archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let entry = archive.entries()[0].clone();
+    assert!(!entry.has_descriptor(), "precondition: sizes in the header");
+
+    // A replacement whose compressed size needs 33 bits, standing in for the
+    // real thing: the refusal depends on the sizes alone.
+    let temp = TempFile::new().expect("a temporary name");
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(&temp.0)
+        .expect("a temporary file");
+    let made = Made {
+        file,
+        data_start: 0,
+        crc32: 0,
+        compressed_size: u64::from(u32::MAX) + 1,
+        uncompressed_size: 1,
+        _temp: temp,
+    };
+    let err = rewrite_local_header(&entry.local_header, &entry, &made)
+        .expect_err("a 33-bit size with no local zip64 field");
+    assert_eq!(
+        unsupported_message(err),
+        "a replacement too large for a local header with no zip64 extra field"
+    );
+}
+
+#[test]
+fn a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive() {
+    // `specs/0008-zip-layer.md`, "P3", and the P2 verification rulings, item
+    // 8: the temporary is removed on unwinding too, and after the panic every
+    // call on the archive returns an error rather than panicking again.
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload").deflated()]);
+    let before = replacement_temporaries();
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        Box::new(|out: &mut dyn Write| -> io::Result<()> {
+            out.write_all(b"half written")?;
+            panic!("a replacement panicked, deliberately, in a test");
+        }),
+    );
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut out = Vec::new();
+        let _ = archive.write_to(&mut out, edits);
+    }));
+    assert!(outcome.is_err(), "the panic did not propagate");
+    assert_eq!(
+        replacement_temporaries(),
+        before,
+        "the replacement's temporary survived the unwinding"
+    );
+
+    let read = archive.read(0).err().expect("read must refuse");
+    assert_eq!(
+        unsupported_message(read),
+        "the archive's reader is checked out"
+    );
+    let write = archive
+        .write_to(Vec::new(), Edits::new())
+        .expect_err("write must refuse");
+    assert_eq!(
+        unsupported_message(write),
+        "the archive's reader is checked out"
+    );
+}
+
+#[test]
+fn the_crate_path_reports_the_index_asked_for() {
+    // It rendered usize::MAX until P3, a different number on each target.
+    let err = zip_read_error(zip::result::ZipError::FileNotFound, 7);
+    assert!(matches!(err, Error::NoSuchEntry(7)), "got {err:?}");
+    assert_eq!(err.to_string(), "no entry with index 7");
+}
+
+#[test]
+fn bytes_after_the_end_record_are_refused_with_their_own_message() {
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
+    let mut bytes = build.bytes();
+    bytes.extend_from_slice(b"trailing");
+    assert_eq!(
+        unsupported_message(open_err(bytes)),
+        "bytes after the end-of-central-directory record"
+    );
+    // The control: a file with no end record at all is still not a zip.
+    assert!(matches!(open_err(vec![7u8; 64]), Error::NotZip));
+}
+
+/// A zip64 archive whose end record carries an extensible data sector of
+/// `sector` bytes, inserted after the record's fixed part.
+fn zip64_with_sector(sector: usize) -> Vec<u8> {
+    let mut first = Spec::new(b"one.txt", b"zip64 fixture");
+    first.zip64 = true;
+    let mut build = Build::new(vec![first]);
+    build.zip64_end = true;
+    let mut bytes = build.bytes();
+    let record = bytes
+        .windows(4)
+        .rposition(|w| w == 0x0606_4b50u32.to_le_bytes())
+        .expect("a zip64 end record");
+    // Everything the record's size field counts grows by the sector; the
+    // locator records where the record STARTS, which does not move.
+    let size = u64::from_le_bytes(bytes[record + 4..record + 12].try_into().unwrap());
+    bytes[record + 4..record + 12].copy_from_slice(&(size + sector as u64).to_le_bytes());
+    let at = record + 56;
+    bytes.splice(at..at, std::iter::repeat_n(0u8, sector));
+    bytes
+}
+
+#[test]
+fn a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message() {
+    let over = zip64_with_sector(0x1_0000);
+    assert_eq!(
+        unsupported_message(open_err(over)),
+        "a zip64 end record not found within 65535 bytes of extensible data before its locator"
+    );
+    // The control, at the window's edge: 65535 bytes of sector is found, and
+    // the sector is carried through a round trip.
+    let edge = zip64_with_sector(0xFFFF);
+    let output = round_trip(&edge);
+    assert_identical(&edge, &output);
+}
+
+/// A stored entry with an UNSIGNED descriptor recording the signature value
+/// as its CRC-32, then `padding` bytes, then a second entry.
+fn crc_is_the_signature(padding: usize) -> Vec<u8> {
+    let mut first = Spec::new(b"u.txt", b"payload").with_descriptor(false);
+    first.recorded_crc = Some(0x0807_4b50);
+    first.padding = padding;
+    Build::new(vec![first, Spec::new(b"next.txt", b"after")]).bytes()
+}
+
+#[test]
+fn an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows() {
+    // The documented limit, first form: read as signed, the descriptor looks
+    // four bytes longer than the span holds.
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut archive = Archive::open(Cursor::new(crc_is_the_signature(0))).expect("open");
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"new payload"));
+    let err = archive
+        .write_to(Vec::new(), edits)
+        .expect_err("the misread descriptor overruns the span");
+    assert!(matches!(err, Error::Truncated), "got {err:?}");
+}
+
+#[test]
+fn an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding() {
+    // The documented limit, second form, and the silent one: with padding
+    // after it, the descriptor is rewritten WITH a signature, and the span
+    // keeps its length by carrying four bytes less padding.
+    let input = crc_is_the_signature(7);
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"new payload"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    let data_end = data_start_of(&output, &after, 0) + after.entries[0].compressed_size as usize;
+    let next = (after.base + after.entries[1].local_offset) as usize;
+    assert_eq!(
+        at_u32(&output, data_end),
+        DESCRIPTOR_SIG,
+        "the descriptor was written with a signature"
+    );
+    // Unsigned descriptor 12 + padding 7 = 19 in the input; signed 16 + 3 now.
+    assert_eq!(next - data_end, 19, "the span changed length");
+    assert_eq!(
+        &output[data_end + 16..next],
+        &[0xAAu8; 3],
+        "four bytes less padding"
+    );
 }

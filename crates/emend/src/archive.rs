@@ -37,6 +37,95 @@
 //! set, because a [`Replacement`] streams and cannot say its size in advance,
 //! and `ZipWriter::write` fails once an entry passes 4 GiB without it.
 //!
+//! # Errors
+//!
+//! Every error the layer returns, by variant, with what produces it.
+//! `specs/0008-zip-layer.md`, "Errors", fixes the variants; this list fixes
+//! each one's wording and class (the P1 rulings of 2026-09-17, item 4). A
+//! message never carries entry content; it may carry an entry index, which is
+//! not content. A test reads this file and fails if any refusal's message is
+//! missing from the list.
+//!
+//! - `Io`: the reader, the writer or a temporary file failed. Rendered as
+//!   "input or output failed: " and the error's kind, never its text.
+//! - `NotZip`: the file is shorter than an end record, or no end record is
+//!   found in its last 65557 bytes; or the `zip` crate refused an archive this
+//!   layer had opened, at the first `read`.
+//! - `Truncated`: a recorded offset, size or length lies beyond the file or
+//!   beyond the structure holding it; a local header lacks its signature; the
+//!   central directory holds a different number of records than the end
+//!   record counts; a replaced entry's data or descriptor runs past its span.
+//! - `DuplicateName(index)`: two central records carry the same raw name. The
+//!   index is the first record, in central directory order, whose name an
+//!   earlier record already carries.
+//! - `NoSuchEntry(index)`: no entry has the index asked for, whether this
+//!   layer or the `zip` crate found that out; the index is the one asked for.
+//! - `Unsupported(message)`, where the message is exactly one of these:
+//!   - "a multi-disk archive": a disk number other than 0 in either end record
+//!     or in a central record.
+//!   - "the zip64 locator and the central directory disagree on the offset base":
+//!     the two recorded offsets put the archive at different places in the file.
+//!   - "a zip64 locator without its record": a locator with no zip64 end record
+//!     ending where it begins, when the whole space before it was searched.
+//!   - "a zip64 end record not found within 65535 bytes of extensible data before its locator":
+//!     the same, when the search stopped at the scan window (see Limits).
+//!   - "bytes after the end-of-central-directory record": an end record exists
+//!     but does not end the file; the layer could not write those bytes back.
+//!   - "a zip64 marker with no zip64 extra field": a central record field holds
+//!     the marker and the record has no zip64 extra field to resolve it.
+//!   - "a value that would need a zip64 field the input does not carry": see
+//!     Limits.
+//!   - "a structure larger than this target's address space": an end record, a
+//!     central directory or a local header that cannot be held in memory on a
+//!     32-bit target.
+//!   - "reading an encrypted entry", "replacing an encrypted entry": this layer
+//!     does not decrypt.
+//!   - "replacing an entry whose method is neither stored nor deflate", checked
+//!     when the edits are planned, and "writing an entry whose method is neither stored nor deflate",
+//!     checked again where the bytes are compressed.
+//!   - "two changes for one entry": one index named by more than one of
+//!     replace and remove.
+//!   - "the archive's reader is checked out": a previous call panicked between
+//!     taking the reader and returning it (see Limits).
+//!   - "a zip feature the zip crate refused",
+//!     "an entry the zip crate could not decompress",
+//!     "a replacement the zip crate could not compress": the `zip` crate
+//!     refused, and its own text is not carried.
+//!   - "the zip crate wrote something other than one entry": a replacement's
+//!     temporary archive did not hold exactly one entry.
+//!   - "a replacement too large for a local header with no zip64 extra field":
+//!     see Limits.
+//!   - "an entry name longer than a header can record": an added name of more
+//!     than 65535 bytes.
+//!
+//! # Limits
+//!
+//! Each of these is deliberate and each is pinned by a test.
+//!
+//! - The zip64 end record is looked for within 65535 bytes of extensible data
+//!   sector before its locator (`MAX_ZIP64_SCAN`). A record with a larger
+//!   sector may be valid, and is refused with its own message.
+//! - A header or record is never grown by a zip64 extra field the input did
+//!   not carry. A new size or offset past 32 bits in a field the input wrote
+//!   plainly is therefore refused ("a value that would need..." in a central
+//!   record, "a replacement too large..." in a local header).
+//! - A data descriptor WITHOUT its optional signature whose CRC-32 happens to
+//!   equal the signature value, 0x08074b50, is read as a descriptor with one.
+//!   Replacing such an entry is refused as `Truncated` when nothing follows
+//!   the descriptor; when four or more bytes of padding follow it, the
+//!   replacement writes a signed descriptor and four bytes less padding, the
+//!   span keeping its length. One unsigned descriptor in 2^32 is affected.
+//! - With no zip64 end records a count of exactly 65535 stands in its 16-bit
+//!   field as 0xFFFF, which a reader may also take for the marker. The layer
+//!   writes zip64 end records only when a value EXCEEDS its field, so a
+//!   no-edit copy of such an archive stays byte-identical.
+//! - A panic inside a [`Replacement`] unwinds through [`Archive::write_to`].
+//!   The replacement's temporary is removed on the way, but the reader is not
+//!   returned: every later call on that `Archive` returns "the archive's
+//!   reader is checked out" rather than panicking again.
+//! - The replacement temporary is created with mode 0600 on Unix only;
+//!   elsewhere it takes the process's default permissions.
+//!
 //! Every offset, size and count here is `u64`. `usize` is 32 bits on
 //! `i686-unknown-linux-musl`.
 
@@ -552,7 +641,9 @@ impl<R: Read + Seek> Archive<R> {
             .inner
             .as_mut()
             .ok_or(Error::Unsupported("the archive's reader is checked out"))?;
-        inner.by_index(index).map_err(zip_read_error)
+        inner
+            .by_index(index)
+            .map_err(|err| zip_read_error(err, index))
     }
 
     /// Writes the archive to `out`.
@@ -875,18 +966,38 @@ fn find_eocd<R: Read + Seek>(reader: &mut R, file_len: u64) -> Result<(u64, Vec<
     let fixed = usize_of(EOCD_FIXED)?;
     // The last candidate wins: a record whose own comment contains the
     // signature would otherwise shadow the real one.
+    //
+    // A candidate whose record ends BEFORE the end of the file is remembered.
+    // If no candidate ends exactly at the end, the file carries bytes after
+    // its end record. The layer still refuses such a file, because it could
+    // not write those bytes back, but it says so rather than calling the
+    // file "not a zip" (`specs/0008-zip-layer.md`, the P1 rulings of
+    // 2026-09-17, item 4).
     let mut found = None;
+    let mut ends_early = false;
     for offset in (0..=buffer.len().saturating_sub(fixed)).rev() {
         if read_u32(&buffer[offset..])? != EOCD_SIG {
             continue;
         }
         let comment_len = usize::from(read_u16(&buffer[offset + 20..])?);
-        if offset + fixed + comment_len == buffer.len() {
+        let record_end = offset + fixed + comment_len;
+        if record_end == buffer.len() {
             found = Some(offset);
             break;
         }
+        if record_end < buffer.len() {
+            ends_early = true;
+        }
     }
-    let offset = found.ok_or(Error::NotZip)?;
+    let offset = match found {
+        Some(offset) => offset,
+        None if ends_early => {
+            return Err(Error::Unsupported(
+                "bytes after the end-of-central-directory record",
+            ));
+        }
+        None => return Err(Error::NotZip),
+    };
     Ok((start + offset as u64, buffer[offset..].to_vec()))
 }
 
@@ -1006,7 +1117,20 @@ fn read_zip64<R: Read + Seek>(
             break;
         }
     }
-    let (at, total) = found.ok_or(Error::Unsupported("a zip64 locator without its record"))?;
+    let (at, total) = match found {
+        Some(found) => found,
+        // The window reaches 65535 bytes of extensible data sector back from
+        // the locator and no further. When it was cut short at that bound the
+        // record may well exist beyond it, so the refusal says what was not
+        // searched rather than claiming the record is missing
+        // (`specs/0008-zip-layer.md`, the P1 verification residue).
+        None if locator_pos > ZIP64_EOCD_FIXED + MAX_ZIP64_SCAN => {
+            return Err(Error::Unsupported(
+                "a zip64 end record not found within 65535 bytes of extensible data before its locator",
+            ));
+        }
+        None => return Err(Error::Unsupported("a zip64 locator without its record")),
+    };
     let raw = buffer[at..at + total].to_vec();
     let record_position = window_start + at as u64;
 
@@ -1428,11 +1552,17 @@ fn zip_open_error(err: zip::result::ZipError) -> Error {
     }
 }
 
-/// Maps a `zip` crate error from reading an entry, carrying no crate text.
-fn zip_read_error(err: zip::result::ZipError) -> Error {
+/// Maps a `zip` crate error from reading entry `index`, carrying no crate
+/// text.
+///
+/// `FileNotFound` reports the index that was asked for. It rendered
+/// `usize::MAX` until Milestone 1 part 1 P3, which printed as a 20-digit
+/// number on the host and a 10-digit one on i686 for the same mistake
+/// (`specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 4).
+fn zip_read_error(err: zip::result::ZipError, index: usize) -> Error {
     match err {
         zip::result::ZipError::Io(e) => Error::Io(e),
-        zip::result::ZipError::FileNotFound => Error::NoSuchEntry(usize::MAX),
+        zip::result::ZipError::FileNotFound => Error::NoSuchEntry(index),
         _ => Error::Unsupported("an entry the zip crate could not decompress"),
     }
 }
@@ -1547,6 +1677,20 @@ impl Made {
 /// entry name is a placeholder and never the real one, which also keeps a name
 /// that is not valid UTF-8 out of a crate API that takes `ToString`.
 fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, Error> {
+    // Named rather than converted from the number: `CompressionMethod::from_u16`
+    // is deprecated, and this is also where "stored or deflate, nothing else"
+    // is enforced at the point of use. Checked BEFORE the temporary exists, so
+    // a refusal creates no file at all.
+    let compression = match method {
+        METHOD_STORE => zip::CompressionMethod::Stored,
+        METHOD_DEFLATE => zip::CompressionMethod::Deflated,
+        _ => {
+            return Err(Error::Unsupported(
+                "writing an entry whose method is neither stored nor deflate",
+            ));
+        }
+    };
+
     let temp = TempFile::new()?;
     let mut options = OpenOptions::new();
     options.read(true).write(true).create_new(true);
@@ -1559,19 +1703,6 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
         options.mode(0o600);
     }
     let file = options.open(&temp.0)?;
-
-    // Named rather than converted from the number: `CompressionMethod::from_u16`
-    // is deprecated, and this is also where "stored or deflate, nothing else"
-    // is enforced at the point of use.
-    let compression = match method {
-        METHOD_STORE => zip::CompressionMethod::Stored,
-        METHOD_DEFLATE => zip::CompressionMethod::Deflated,
-        _ => {
-            return Err(Error::Unsupported(
-                "writing an entry whose method is neither stored nor deflate",
-            ));
-        }
-    };
     let file_options = zip::write::SimpleFileOptions::default()
         .compression_method(compression)
         .large_file(true)
@@ -1586,20 +1717,7 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
     // Read back with THIS layer's parser: the central record is authoritative
     // for the CRC-32 and the sizes, whatever the local header holds.
     let mut inner = Archive::open(file)?;
-    if inner.entries().len() != 1 {
-        return Err(Error::Unsupported(
-            "the zip crate wrote something other than one entry",
-        ));
-    }
-    let (data_start, crc32, compressed_size, uncompressed_size) = {
-        let entry = &inner.entries()[0];
-        (
-            entry.span_start + entry.local_header.len() as u64,
-            entry.crc32,
-            entry.compressed_size,
-            entry.uncompressed_size,
-        )
-    };
+    let (data_start, crc32, compressed_size, uncompressed_size) = sole_entry_fields(&inner)?;
     // The same handle, taken back rather than the file opened a second time.
     let file = inner.take_reader()?;
     Ok(Made {
@@ -1610,6 +1728,26 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
         uncompressed_size,
         _temp: temp,
     })
+}
+
+/// Where the one entry of a replacement's temporary archive keeps its data,
+/// and its CRC-32 and two sizes.
+///
+/// A separate function so that its refusal can be tested: a [`Replacement`]
+/// is handed a `&mut dyn Write` and cannot start a second entry, so nothing
+/// that reaches this through [`compress_replacement`] can produce one.
+fn sole_entry_fields<R: Read + Seek>(archive: &Archive<R>) -> Result<(u64, u32, u64, u64), Error> {
+    let [entry] = archive.entries() else {
+        return Err(Error::Unsupported(
+            "the zip crate wrote something other than one entry",
+        ));
+    };
+    Ok((
+        entry.span_start + entry.local_header.len() as u64,
+        entry.crc32,
+        entry.compressed_size,
+        entry.uncompressed_size,
+    ))
 }
 
 /// Copies a replaced entry's local header with its CRC-32 and sizes rewritten.

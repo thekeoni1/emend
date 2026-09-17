@@ -89,6 +89,7 @@ dependencies = [
 name = "size-probe"
 version = "0.1.0"
 dependencies = [
+ "emend",
  "quick-xml",
  "zip",
 ]

@@ -8,10 +8,16 @@ publish = false
 [dependencies]
 zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 quick-xml = { version = "=0.42.0", default-features = false, optional = true }
+# emend's core, for probe-emend-copy only (specs/0008-zip-layer.md, "Size").
+# Optional, so probe-zip and probe-zip-xml are built exactly as the baseline
+# built them, with nothing of emend compiled in.
+emend = { path = "../../crates/emend", optional = true }
 
 [features]
 # Enables quick-xml, for probe-zip-xml only; probe-zip is built without it.
 xml = ["dep:quick-xml"]
+# Enables emend, for probe-emend-copy only.
+emend = ["dep:emend"]
 
 [[bin]]
 name = "probe-zip"
@@ -21,3 +27,13 @@ path = "src/bin/probe-zip.rs"
 name = "probe-zip-xml"
 path = "src/bin/probe-zip-xml.rs"
 required-features = ["xml"]
+
+[[bin]]
+name = "probe-emend-copy"
+path = "src/bin/probe-emend-copy.rs"
+required-features = ["emend"]
+
+[[bin]]
+name = "probe-emend-edit"
+path = "src/bin/probe-emend-edit.rs"
+required-features = ["emend"]
