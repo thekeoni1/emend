@@ -1,0 +1,793 @@
+command: git rev-parse HEAD
+about: M1 part 1 P2 phase diff ff92a11fd54c5ccebec5d216bc8bfa8bbaa54243..ac1bd12a8004740b66665f248f99d534dbd4d273; HEAD at run: ac1bd12a8004740b66665f248f99d534dbd4d273
+command: git log --format='%H' --grep='^M1 part 1 P2: commit planning doc update'
+  commits matching the pattern: 3
+  the OLDEST matching doc commit is 608e6a46585dbc267a3dba9d3756a09afefe1f65; its parent is the base, ff92a11fd54c5ccebec5d216bc8bfa8bbaa54243
+phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) scan.log; run at 2026-09-17T13:29:06Z
+rerun: this replaces the scan.log of the pass that ran before any check answer existed, sha256 29260dc2ed573f9319c55f454b2412fb55eed22839e22d831e17c96cea1e29fe, which ran at 2026-09-17T12:54:37Z at this same commit ac1bd12a8004740b66665f248f99d534dbd4d273. specs/0001-bootstrap.md item 2 makes the scan the LAST log written, after the check answers are saved, so that it covers them and lists each with its sha256; that pass reported check answers scanned: 0, because none existed yet. It also hashed a negative.log that is no longer the committed one: it recorded 7b1dbf2759ba32fc173ac725eeff9ee9c2f26d9b9f83f581382402b793c50a84, the first round's, while the committed file is 72a792d09d1ac88d297a558b9bed4f91ac836b2648e39ebc35d7c3c7f66f71be, the log re-run in response to independent check 1. Independent check 2 found that, and it is why this pass matters beyond the answers: the re-run negative.log had been through no committed privacy, non-ASCII, control-byte, U+2014, host-path or denylist scan, and the pre-P6d bare-shape control had covered the superseded bytes. This pass scans every file as it now stands.
+SERIALIZED: produced with no other run in flight
+temporary files live in <scratch> and are deleted on exit
+the doc commit pattern matches exactly three commits: yes
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 1 P2 scan.log (specs/0008-zip-layer.md, "Phases"): the phase
+    # diff, each commit's files and message, the sibling logs, the check answers,
+    # the record pair, and the pre-P6d bare-shape control.
+    #
+    # Usage: m1p1-p2-scan.sh > <scratch file>; the caller moves the output to
+    # records/logs/m1p1-p2/scan.log, so nothing is written in the tree during the
+    # run. Never prints matched text, an email address, a denylist entry or a
+    # pattern.
+    #
+    # RUN TWICE, deliberately. specs/0001 makes the scan the LAST log written, after
+    # the check answers are saved, so it covers them; CLAUDE.md gives the
+    # independent checker "the gate and scan logs". Those cannot both hold for one
+    # run, so T6 P1's arrangement is followed: a scan runs for the checkers, and the
+    # final scan runs after their answers are saved and names the superseded one
+    # with the hash it recorded. The count of answers found is reported either way,
+    # so a reader can tell which run this is.
+    #
+    # The base is resolved from git by the doc commit's subject, never typed
+    # (specs/0001, after a padded id reached a gate script in T3 P4). This phase has
+    # THREE doc commits, all sharing the subject prefix below: the P1 verification
+    # and P2 amendments with the tool-arg ruling, the 4 GiB test's read-back, and
+    # the descriptor flag on a replaced entry. `git log -n 1` returns the NEWEST of
+    # them, whose parent is the second doc commit, so a base taken that way would
+    # lose the first two commits' files from the diff. The base is the parent of the
+    # OLDEST match, and the count is asserted so a fourth could not pass unnoticed.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    . scripts/counting.sh
+    
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    DOC_PATTERN='^M1 part 1 P2: commit planning doc update'
+    git log --format='%H' --grep="$DOC_PATTERN" >"$T/doc-matches"
+    NDOC=$(count_lines "$T/doc-matches")
+    DOC=$(tail -n 1 "$T/doc-matches")
+    [ -n "$DOC" ] || { echo "the phase's doc commit was not found" >&2; exit 2; }
+    BASE=$(git rev-parse --verify "$DOC^") || { echo "cannot resolve the base" >&2; exit 2; }
+    C=$(git rev-parse HEAD)
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    
+    P6=()
+    while IFS= read -r line; do P6+=("$line"); done < scripts/privacy-patterns.txt
+    printf '%s\n' "${P6[@]}" >"$T/p6-patterns"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    [ -n "$PRE_COMMIT" ] || { echo "cannot find the P6d narrowing commit" >&2; exit 2; }
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$T/pre-all" ||
+      { echo "cannot read the pre-P6d patterns" >&2; exit 2; }
+    sed -n '8p'  "$T/pre-all" >"$T/pre1"
+    sed -n '10p' "$T/pre-all" >"$T/pre2"
+    sed -n '11p' "$T/pre-all" >"$T/pre3"
+    cat "$T/pre1" "$T/pre2" "$T/pre3" >"$T/pre-patterns"
+    printf '%s\n%s\n' "$HOST" "$FQDN" | sort -u >"$T/host-patterns"
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_emdash()   { count_matches -F "$EMDASH" "$1"; }
+    f_session()  { count_matches -E '^Claude-Session:' "$1"; }
+    f_p6()       { count_from_file -E "$T/p6-patterns" "$1"; }
+    f_pre()      { count_from_file -E "$T/pre-patterns" "$1"; }
+    f_pre1()     { count_from_file -E "$T/pre1" "$1"; }
+    f_pre2()     { count_from_file -E "$T/pre2" "$1"; }
+    f_pre3()     { count_from_file -E "$T/pre3" "$1"; }
+    f_host()     { count_from_file -F "$T/host-patterns" "$1"; }
+    f_deny()     { count_from_file -F "$T/deny" "$1"; }
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      if [ "$rc" -eq 1 ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0 }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_host f_deny f_email"
+    
+    run() {
+      local n
+      n=$("$1" "$2")
+      echo "  form=$1 count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    }
+    check_ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 1 P2 phase diff $BASE..$C; HEAD at run: $C"
+    echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
+    echo "  commits matching the pattern: $NDOC"
+    echo "  the OLDEST matching doc commit is $DOC; its parent is the base, $BASE"
+    echo "phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "temporary files live in <scratch> and are deleted on exit"
+    structural "the doc commit pattern matches exactly three commits" "$(yn [ "$NDOC" = 3 ])"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    
+    echo
+    echo "## counting controls"
+    counting_controls
+    structural "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE")"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >"$T/deny"
+    NDENY=$(count_lines "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    denylist_usable() { [ "$NDENY" != error ] && [ "$NDENY" -gt 0 ]; }
+    structural "the denylist is readable and not empty" "$(yn denylist_usable)"
+    git show "$C:scripts/privacy-patterns.txt" >"$T/patterns-at-c" 2>/dev/null &&
+      structural "this script's patterns equal scripts/privacy-patterns.txt at $C" "$(yn cmp -s "$T/p6-patterns" "$T/patterns-at-c")"
+    echo "command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1"
+    echo "  the narrowing commit resolves to $PRE_COMMIT; the pre-P6d patterns are read from its parent"
+    structural "the three pre-P6d forms were read from git, not typed (lines read: $(count_lines "$T/pre-patterns"))" \
+      "$(yn [ "$(count_lines "$T/pre-patterns")" = 3 ])"
+    
+    echo
+    echo "## controls (the same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' >"$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$T/c-ctrl"
+    printf 'plain\ttab\r\n' >"$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" >"$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' >"$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$T/c-p6"
+    printf 'x %s%s%s%s y\n' '/mnt/' 'c/' 'Users/' 'bob' >"$T/c-p6-path"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$T/c-bare"
+    printf 'x %s y\n' "$HOST" >"$T/c-host"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' >"$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" >"$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' >"$T/c-clean"
+    sed -n 1p "$T/deny" | awk '{ print "x " $0 " y" }' >"$T/c-deny"
+    check_ctl "f_nonascii on a two-byte character" 2 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl on tab and CR only" 0 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash on U+2014" 1 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash on another non-ASCII byte" 0 f_emdash "$T/c-nonascii"
+    check_ctl "f_session on the trailer" 1 f_session "$T/c-session"
+    check_ctl "f_p6 on a token shape" 1 f_p6 "$T/c-p6"
+    check_ctl "f_p6 on a real path of the narrowed form" 1 f_p6 "$T/c-p6-path"
+    check_ctl "f_p6 on a bare shape (P6d: must not match)" 0 f_p6 "$T/c-bare"
+    check_ctl "f_pre on the same bare shape (the pre-P6d form does match)" 1 f_pre "$T/c-bare"
+    printf 'x C%s%sUsers%s y\n' ':' '\' '\' >"$T/c-bare2"
+    printf 'x %s%s y\n' '.claude' '/projects/' >"$T/c-bare3"
+    check_ctl "f_pre1 on the bare /mnt form" 1 f_pre1 "$T/c-bare"
+    check_ctl "f_pre2 on the bare drive-letter form" 1 f_pre2 "$T/c-bare2"
+    check_ctl "f_pre3 on the bare projects form" 1 f_pre3 "$T/c-bare3"
+    check_ctl "f_p6 on the bare drive-letter form (P6d: must not match)" 0 f_p6 "$T/c-bare2"
+    check_ctl "f_p6 on the bare projects form (P6d: must not match)" 0 f_p6 "$T/c-bare3"
+    check_ctl "f_host on a file naming this host" 1 f_host "$T/c-host"
+    check_ctl "f_deny on one denylist entry (not printed)" 1 f_deny "$T/c-deny"
+    check_ctl "f_email on an address outside the allowlist" 1 f_email "$T/c-email-bad"
+    check_ctl "f_email on only allowed addresses" 0 f_email "$T/c-email-ok"
+    for f in $FORMS; do check_ctl "$f on a clean file" 0 "$f" "$T/c-clean"; done
+    check_ctl "f_pre on a clean file" 0 f_pre "$T/c-clean"
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the phase range"
+    echo "command: git log --reverse --format='%H %s' $BASE..$C"
+    git log --reverse --format='    %H %s' "$BASE..$C"
+    
+    echo
+    echo "## files changed in the phase diff (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf + 1))
+      if git show "$C:$f" >"$T/f" 2>/dev/null; then nread=$((nread + 1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum <"$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    git diff --name-only --diff-filter=d "$BASE" "$C" >"$T/difffiles"
+    want=$(count_lines "$T/difffiles")
+    files_complete() { [ "$want" != error ] && [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in the diff: $want; scanned: $nf; read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the phase range"
+    nm=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm + 1))
+      if ! git cat-file commit "$c" >"$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" >"$T/m"
+      last=$(awk 'NF { l = $0 } END { print l }' "$T/m")
+      echo "message $c"
+      structural "  last non-empty line is the Co-Authored-By line" "$(yn [ "$last" = "$COAUTHOR" ])"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    
+    echo
+    echo "## the sibling logs, the check answers and the record pair (a log cannot scan itself)"
+    echo "The four sibling logs are always present. The check answers are present"
+    echo "only in the FINAL run of this scan, which specs/0001 requires to be the"
+    echo "last log written; the count below says which run this is."
+    nl=0; nans=0
+    for f in records/logs/m1p1-p2/gate.log records/logs/m1p1-p2/test.log \
+             records/logs/m1p1-p2/negative.log records/logs/m1p1-p2/run.log; do
+      if [ ! -f "$f" ]; then echo "file $f: MISSING"; bad=1; continue; fi
+      nl=$((nl + 1))
+      echo "scanned $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    structural "sibling logs scanned: $nl (expected 4; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 4 ])"
+    for f in records/logs/m1p1-p2/independent-check-*.md; do
+      [ -f "$f" ] || continue
+      nans=$((nans + 1))
+      echo "scanned $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    echo "check answers scanned: $nans"
+    for f in records/m1p1-p2-*.md records/m1p1-p2-*.txt; do
+      [ -f "$f" ] || continue
+      echo "scanned $f (sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    
+    echo
+    echo "## the pre-P6d bare-shape control over this phase's files"
+    echo "The narrowed patterns are blind to a bare shape by design, so this scan's"
+    echo "own zero hits cannot establish that no bare shape was committed. The three"
+    echo "pre-P6d forms are run here for that, with the controls above."
+    # EVERY file in the phase diff, not a hand-listed subset: in P1 an earlier
+    # version named four sources and the runner, so three files the phase added were
+    # seen only by the narrowed live patterns, and both independent checks found it.
+    pre_hits=0; pre_err=0; pre_files=0
+    : >"$T/pre-targets"
+    cat "$T/difffiles" >>"$T/pre-targets"
+    for extra in records/logs/m1p1-p2/gate.log records/logs/m1p1-p2/test.log \
+                 records/logs/m1p1-p2/negative.log records/logs/m1p1-p2/run.log \
+                 records/logs/m1p1-p2/independent-check-1.md \
+                 records/logs/m1p1-p2/independent-check-2.md \
+                 records/m1p1-p2-*.md records/m1p1-p2-*.txt; do
+      [ -f "$extra" ] && printf '%s\n' "$extra" >>"$T/pre-targets"
+    done
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      pre_files=$((pre_files + 1))
+      n=$(f_pre "$f")
+      echo "  pre-P6d forms in $f: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done <"$T/pre-targets"
+    echo "  files run through the pre-P6d forms: $pre_files"
+    ndiff=$(count_lines "$T/difffiles")
+    pre_covers_diff() { [ "$ndiff" != error ] && [ "$pre_files" -ge "$ndiff" ]; }
+    structural "every file in the phase diff went through the bare-shape control (diff files: $ndiff)" \
+      "$(yn pre_covers_diff)"
+    pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
+    structural "bare shapes found by the pre-P6d forms: $pre_hits (expect 0); errors: $pre_err" "$(yn pre_clean)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "read or counting errors: $err"
+    echo "structural checks failed: $bad"
+    scan_passed() { [ "$ctl_fail" -eq 0 ] && [ "$err" -eq 0 ] && [ "$hits" -eq 0 ] && [ "$bad" -eq 0 ]; }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+the denylist is readable and not empty: yes
+this script's patterns equal scripts/privacy-patterns.txt at ac1bd12a8004740b66665f248f99d534dbd4d273: yes
+command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
+  the narrowing commit resolves to 721e86323e41fe6090b95ce3e26876e81e27b464; the pre-P6d patterns are read from its parent
+the three pre-P6d forms were read from git, not typed (lines read: 3): yes
+
+## controls (the same command forms as the scans)
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_ctrl on tab and CR only count=0 expected=0: as-expected
+  control f_emdash on U+2014 count=1 expected=1: as-expected
+  control f_emdash on another non-ASCII byte count=0 expected=0: as-expected
+  control f_session on the trailer count=1 expected=1: as-expected
+  control f_p6 on a token shape count=1 expected=1: as-expected
+  control f_p6 on a real path of the narrowed form count=1 expected=1: as-expected
+  control f_p6 on a bare shape (P6d: must not match) count=0 expected=0: as-expected
+  control f_pre on the same bare shape (the pre-P6d form does match) count=1 expected=1: as-expected
+  control f_pre1 on the bare /mnt form count=1 expected=1: as-expected
+  control f_pre2 on the bare drive-letter form count=1 expected=1: as-expected
+  control f_pre3 on the bare projects form count=1 expected=1: as-expected
+  control f_p6 on the bare drive-letter form (P6d: must not match) count=0 expected=0: as-expected
+  control f_p6 on the bare projects form (P6d: must not match) count=0 expected=0: as-expected
+  control f_host on a file naming this host count=1 expected=1: as-expected
+  control f_deny on one denylist entry (not printed) count=1 expected=1: as-expected
+  control f_email on an address outside the allowlist count=1 expected=1: as-expected
+  control f_email on only allowed addresses count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_emdash on a clean file count=0 expected=0: as-expected
+  control f_session on a clean file count=0 expected=0: as-expected
+  control f_p6 on a clean file count=0 expected=0: as-expected
+  control f_host on a clean file count=0 expected=0: as-expected
+  control f_deny on a clean file count=0 expected=0: as-expected
+  control f_email on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+controls: all as expected
+
+## commits in the phase range
+command: git log --reverse --format='%H %s' ff92a11fd54c5ccebec5d216bc8bfa8bbaa54243..ac1bd12a8004740b66665f248f99d534dbd4d273
+    608e6a46585dbc267a3dba9d3756a09afefe1f65 M1 part 1 P2: commit planning doc updates (P1 verification, P2 amendments, tool-arg ruling)
+    9a1cd86dc3095cefb62e0626056760ab18b3139a M1 part 1 P2: commit planning doc update (the 4 GiB test's read-back)
+    e1c3b07046ce5daf84d16fd662d2f1ad3ac45cab M1 part 1 P2: commit planning doc update (the descriptor flag on a replaced entry)
+    ac1bd12a8004740b66665f248f99d534dbd4d273 M1 part 1 P2: replace, remove and add, --tool-arg, and the record's tool_args
+
+## files changed in the phase diff (contents at ac1bd12a8004740b66665f248f99d534dbd4d273)
+command: git diff --name-status ff92a11fd54c5ccebec5d216bc8bfa8bbaa54243 ac1bd12a8004740b66665f248f99d534dbd4d273
+    M	ROADMAP.md
+    M	crates/emend/src/archive.rs
+    M	crates/emend/src/archive/tests.rs
+    M	crates/emend/src/lib.rs
+    M	scripts/passthrough-record.py
+    M	scripts/passthrough-run.sh
+    M	specs/0006-passthrough.md
+    M	specs/0008-zip-layer.md
+    M	tools/emend-copy/src/main.rs
+file ROADMAP.md (sha256 a37039262dffca4ada5ce729f30aad2df487d9409b1a8110560a6607c357b232)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/archive.rs (sha256 d40480226445dbffa55b1601d54acdb139ebf6f718f5df3cd0f0a6a80b02c02f)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/archive/tests.rs (sha256 e3fbd067c595d8c59a0f338a573726868920751f28da75d87e7be0b4fc76d647)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/lib.rs (sha256 b5280f8d4c635bf7a9656dba0ca274e2b17dc35c5f37fe45cea2a95cc9d4e411)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/passthrough-record.py (sha256 47c69678c708126b0416fbc1a07a2bbd801b053ab0791de33dbce7a085d8d6a3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file scripts/passthrough-run.sh (sha256 b191acac6b7f0d264ee901619578a445783ad17a2d58ebfdf81240bdba6ce540)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0006-passthrough.md (sha256 721fe7d96c075976779936e3a83053073dd4f918ab96364609dd4045e10ebf5b)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0008-zip-layer.md (sha256 95a04f3b8717882da3ad9f814d406bc224c808767a7743b382f3198601916514)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/src/main.rs (sha256 7cca128b3bf5a1d4ee79c281a3af458dbbdb0fc029e90b259a029b76fb3c77d7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+files in the diff: 9; scanned: 9; read: 9: yes
+
+## commit messages in the phase range
+message ac1bd12a8004740b66665f248f99d534dbd4d273
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message e1c3b07046ce5daf84d16fd662d2f1ad3ac45cab
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 9a1cd86dc3095cefb62e0626056760ab18b3139a
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 608e6a46585dbc267a3dba9d3756a09afefe1f65
+  last non-empty line is the Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+messages scanned: 4; commits in range: 4: yes
+
+## the sibling logs, the check answers and the record pair (a log cannot scan itself)
+The four sibling logs are always present. The check answers are present
+only in the FINAL run of this scan, which specs/0001 requires to be the
+last log written; the count below says which run this is.
+scanned records/logs/m1p1-p2/gate.log (sha256 e9e5aa3c6a375e5b29f07c4bf25494c8f8e5d1a5994e87768199386951b14c10)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m1p1-p2/test.log (sha256 8a9283a9185b948e15affd211f11f0fd6fc2cfc440b2242fbdfec6ef1a6441b0)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m1p1-p2/negative.log (sha256 72a792d09d1ac88d297a558b9bed4f91ac836b2648e39ebc35d7c3c7f66f71be)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m1p1-p2/run.log (sha256 ec91ed884f412a681608be1c9b91fa3a1751048a204a5fcbfdb090cd3f9b610f)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+sibling logs scanned: 4 (expected 4; scan.log cannot scan itself): yes
+scanned records/logs/m1p1-p2/independent-check-1.md (sha256 1eddf8b1465a5ec260538a67089727257d7ca2d16c89598eedf55138ab2f0abb)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m1p1-p2/independent-check-2.md (sha256 a60135a6a7243751ff40650ba35977a27afbf2e0383d5a2b3f708cf1f0b2c6d6)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+check answers scanned: 2
+scanned records/m1p1-p2-2026-09-17-ac1bd12.md (sha256 fd41ebba5aebd82c8215dc04701cf04140e5200cf172fd5dcb107d1e629c4e0e)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/m1p1-p2-2026-09-17-ac1bd12.txt (sha256 4bfb5564ff04affdf5ad7d710612845dbd8958e2ed183bdc404dbee239021504)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+
+## the pre-P6d bare-shape control over this phase's files
+The narrowed patterns are blind to a bare shape by design, so this scan's
+own zero hits cannot establish that no bare shape was committed. The three
+pre-P6d forms are run here for that, with the controls above.
+  pre-P6d forms in ROADMAP.md: count=0
+  pre-P6d forms in crates/emend/src/archive.rs: count=0
+  pre-P6d forms in crates/emend/src/archive/tests.rs: count=0
+  pre-P6d forms in crates/emend/src/lib.rs: count=0
+  pre-P6d forms in scripts/passthrough-record.py: count=0
+  pre-P6d forms in scripts/passthrough-run.sh: count=0
+  pre-P6d forms in specs/0006-passthrough.md: count=0
+  pre-P6d forms in specs/0008-zip-layer.md: count=0
+  pre-P6d forms in tools/emend-copy/src/main.rs: count=0
+  pre-P6d forms in records/logs/m1p1-p2/gate.log: count=0
+  pre-P6d forms in records/logs/m1p1-p2/test.log: count=0
+  pre-P6d forms in records/logs/m1p1-p2/negative.log: count=0
+  pre-P6d forms in records/logs/m1p1-p2/run.log: count=0
+  pre-P6d forms in records/logs/m1p1-p2/independent-check-1.md: count=0
+  pre-P6d forms in records/logs/m1p1-p2/independent-check-2.md: count=0
+  pre-P6d forms in records/m1p1-p2-2026-09-17-ac1bd12.md: count=0
+  pre-P6d forms in records/m1p1-p2-2026-09-17-ac1bd12.txt: count=0
+  files run through the pre-P6d forms: 17
+every file in the phase diff went through the bare-shape control (diff files: 9): yes
+bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
+
+total hits: 0
+read or counting errors: 0
+structural checks failed: 0
+run ended at 2026-09-17T13:29:07Z
+RESULT: PASS

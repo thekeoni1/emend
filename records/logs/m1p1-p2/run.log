@@ -1,0 +1,851 @@
+command: git rev-parse HEAD
+about: M1 part 1 P2 phase commit ac1bd12a8004740b66665f248f99d534dbd4d273; HEAD at run: ac1bd12a8004740b66665f248f99d534dbd4d273
+phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) run.log; run at 2026-09-17T12:48:41Z
+SERIALIZED: produced with no other run in flight
+BACKGROUND: started by the session's own command tool, which keeps the
+  process running across turns, with stdout and stderr to a scratch file
+  polled from later calls. P1's equivalent run took about four and a
+  half minutes, close enough to the ten-minute cap on a foreground call
+  to risk a half-written log, and this run recompresses one entry per
+  workbook on top of that.
+TERMS: both target builds were finished by the gate before this run
+  started, so no cargo runs during it; foreground order host then i686;
+  nothing else running; no mid-run tuning, and a conversion that timed
+  out or was killed would be recorded and listed apart, never rerun with
+  a larger value.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path. Its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 1 P2 run.log (specs/0008-zip-layer.md, "P2"): the corpus run
+    # on both targets, replacing [Content_Types].xml in every workbook, with the
+    # LibreOffice open check, and the record pair.
+    #
+    # P2's acceptance, in the spec's words after the amendment of 2026-09-17: the
+    # replaced entry is "recompressed (or identical), with descriptor alone where
+    # the entry used a data descriptor and its compressed size changed and no flag
+    # otherwise (ruling 7 below), every other entry identical unflagged, lo and
+    # lo_in ok". Those clauses live in the ENTRY rows, not in the summary, so this
+    # log asserts them there. T3 P4 is why: with the zip crate's own raw copy every
+    # one of the 870 entries stayed identical and every one was flagged, and a
+    # summary-only check would have called that a pass.
+    #
+    # Ruling 7(b) also asks this log to show, for one corpus pair per descriptor
+    # form present, the bytes after the entry's data in input and output as hex, so
+    # that "only the CRC-32 and the size fields change" is a measurement here and
+    # not only a unit test's claim.
+    #
+    # Workbooks appear as ids only. No original name, note, producer_version or
+    # app, and no corpus path: the corpus directory is written <corpus>
+    # (specs/0005-corpus.md, planning ruling 5 of 2026-09-16). Its NAME appears in
+    # the printed script below, in the line that takes the default CLAUDE.md gives.
+    #
+    # Usage: m1p1-p2-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p1-p2/run.log. Expected to take several minutes, so
+    # the caller starts it in the background and polls.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    OUT=$CORPUS/runs/$DATE-$SHORT
+    STEM=m1p1-p2-$DATE-$SHORT
+    TARGET_ENTRY='[Content_Types].xml'
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    [ -d "$CORPUS" ] || { echo "no corpus directory" >&2; exit 2; }
+    mkdir -p "$CORPUS/runs" || { echo "cannot create the runs directory" >&2; exit 2; }
+    
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    sum_col() {
+      awk -F'\t' -v c="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k { n += $k } END { print n + 0 }' "$1"
+    }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 1 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "BACKGROUND: started by the session's own command tool, which keeps the"
+    echo "  process running across turns, with stdout and stderr to a scratch file"
+    echo "  polled from later calls. P1's equivalent run took about four and a"
+    echo "  half minutes, close enough to the ten-minute cap on a foreground call"
+    echo "  to risk a half-written log, and this run recompresses one entry per"
+    echo "  workbook on top of that."
+    echo "TERMS: both target builds were finished by the gate before this run"
+    echo "  started, so no cargo runs during it; foreground order host then i686;"
+    echo "  nothing else running; no mid-run tuning, and a conversion that timed"
+    echo "  out or was killed would be recorded and listed apart, never rerun with"
+    echo "  a larger value."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path. Its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## settings"
+    echo "  the edit: --tool-arg --replace --tool-arg '$TARGET_ENTRY', so the runner"
+    echo "  passes emend-copy the flag after the output path (specs/0006-passthrough.md,"
+    echo "  the P2 tool-arg ruling). Without it the runner passes exactly two"
+    echo "  arguments and no edit could be made at all."
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); --memory 2048 MiB; image $LO_IMAGE"
+    echo "  out directory: <corpus>/runs/$DATE-$SHORT"
+    echo "  record stem: $STEM"
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        echo "  $b: sha256 $(sha256sum <"$b" | cut -d' ' -f1)"
+      else
+        echo "  $b: MISSING"; fail=1
+      fi
+    done
+    echo "  (gate.log prints these same four hashes; nothing is rebuilt here)"
+    
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then
+        PT=target/debug/emend-copy
+        XD=target/debug/xlsx-diff
+      else
+        PT=target/i686-unknown-linux-musl/debug/emend-copy
+        XD=target/i686-unknown-linux-musl/debug/xlsx-diff
+      fi
+      echo
+      echo "## $label run"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$DATE-$SHORT --libreoffice $LO_IMAGE --lo-timeout 600 --tool-arg --replace --tool-arg '$TARGET_ENTRY'"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 \
+        --tool-arg --replace --tool-arg "$TARGET_ENTRY" \
+        >"$OUT-$label.stdout" 2>"$OUT-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$OUT-$label.stderr")"
+      hide <"$OUT-$label.stdout" | sed 's/^/    /'
+      if [ -s "$OUT-$label.stderr" ]; then hide <"$OUT-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label stderr is empty" "$(is [ "$(wc -c <"$OUT-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ] || [ ! -f "$ENT" ]; then
+        echo "  the run wrote no summary or entries file"; fail=1; continue
+      fi
+    
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      noleft=$(count_where "$SUM" leftover no)
+      order=$(count_where "$SUM" order_preserved yes)
+      comment=$(count_where "$SUM" comment_equal yes)
+      dropped=$(sum_col "$SUM" dropped)
+      added=$(sum_col "$SUM" added)
+      echo "  summary rows: $rows (manifest rows $manifest_rows)"
+      echo "  outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in; leftover no: $noleft"
+      echo "  order_preserved yes: $order; comment_equal yes: $comment"
+      echo "  entry totals: dropped $dropped, added $added"
+      note "$label every manifest workbook produced a summary row" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      note "$label no tool left a temporary behind" "$(is [ "$noleft" = "$rows" ])"
+      note "$label order is preserved in every file" "$(is [ "$order" = "$rows" ])"
+      note "$label every archive comment is equal" "$(is [ "$comment" = "$rows" ])"
+      note "$label no entry was dropped or added" "$(is [ "$((dropped + added))" -eq 0 ])"
+    
+      # The acceptance clauses that live in the entry rows, split by whether the
+      # row is the entry this run replaced.
+      echo "  the REPLACED entry, $TARGET_ENTRY, one row per workbook:"
+      awk -F'\t' -v t="$TARGET_ENTRY" '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        $idx["name"] == t {
+          n++
+          s[$idx["status"]]++
+          f = $idx["flags"]
+          if (f == "") empty++
+          else if (f == "descriptor") desc++
+          else { other++; printf "    OTHER FLAG: %s %s [%s]\n", $idx["id"], $idx["status"], f }
+        }
+        END {
+          printf "    rows: %d\n", n + 0
+          printf "    status recompressed: %d; identical: %d; changed: %d\n", s["recompressed"] + 0, s["identical"] + 0, s["changed"] + 0
+          printf "    flags empty: %d; flags exactly descriptor: %d; any other flag: %d\n", empty + 0, desc + 0, other + 0
+        }' "$ENT" >"$OUT-$label.target.txt"
+      cat "$OUT-$label.target.txt"
+      t_rows=$(awk '/^    rows: /{print $2}' "$OUT-$label.target.txt")
+      t_recomp=$(awk -F'[:;]' '/status recompressed/{print $2+0}' "$OUT-$label.target.txt")
+      t_ident=$(awk -F'[:;]' '/status recompressed/{print $4+0}' "$OUT-$label.target.txt")
+      t_changed=$(awk -F'[:;]' '/status recompressed/{print $6+0}' "$OUT-$label.target.txt")
+      t_other=$(awk -F'[:;]' '/flags empty/{print $6+0}' "$OUT-$label.target.txt")
+      note "$label every workbook has a $TARGET_ENTRY row" "$(is [ "$t_rows" = "$rows" ])"
+      note "$label none of them is changed, so the bytes came back equal" "$(is [ "$t_changed" -eq 0 ])"
+      note "$label none carries a flag other than descriptor" "$(is [ "$t_other" -eq 0 ])"
+      # All 27 identical on a label WOULD be a finding: it would say the
+      # replacement path did not run at all (ruling 5).
+      note "$label not every replaced entry came back identical, so the replacement path ran" \
+        "$(is [ "$t_ident" -lt "$t_rows" ])"
+    
+      echo "  every OTHER entry:"
+      awk -F'\t' -v t="$TARGET_ENTRY" '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        $idx["name"] != t {
+          n++
+          if ($idx["status"] != "identical") { bad++; printf "    NOT IDENTICAL: %s %s %s\n", $idx["id"], $idx["name"], $idx["status"] }
+          if ($idx["flags"] != "") { fl++; printf "    FLAGGED: %s %s [%s]\n", $idx["id"], $idx["name"], $idx["flags"] }
+        }
+        END { printf "    rows: %d; not identical: %d; carrying a flag: %d\n", n + 0, bad + 0, fl + 0 }' "$ENT" >"$OUT-$label.other.txt"
+      cat "$OUT-$label.other.txt"
+      o_bad=$(awk -F'[:;]' '/^    rows: /{print $4+0}' "$OUT-$label.other.txt")
+      o_fl=$(awk -F'[:;]' '/^    rows: /{print $6+0}' "$OUT-$label.other.txt")
+      note "$label every other entry is identical" "$(is [ "$o_bad" -eq 0 ])"
+      note "$label no other entry carries a flag" "$(is [ "$o_fl" -eq 0 ])"
+    
+      # The file-level columns follow from the entry rows: a workbook whose
+      # replaced entry is recompressed cannot be byte-identical, and its diff exits
+      # 1 (specs/0004, "Exit status"); one whose entry came back identical
+      # throughout exits 0 and is byte-identical (ruling 5).
+      echo "  per workbook, id and the acceptance columns:"
+      awk -F'\t' -v l="$label" '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { printf "    %s %s outcome=%s diff_exit=%s files_identical=%s recompressed=%s flagged=%s leftover=%s lo=%s lo_in=%s\n",
+            $idx["id"], l, $idx["outcome"], $idx["diff_exit"], $idx["files_identical"],
+            $idx["recompressed"], $idx["flagged"], $idx["leftover"], $idx["lo"], $idx["lo_in"] }' "$SUM"
+      mismatch=$(awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        {
+          r = $idx["recompressed"] + 0
+          want_exit = (r > 0) ? 1 : 0
+          want_ident = (r > 0) ? "no" : "yes"
+          if ($idx["diff_exit"] + 0 != want_exit || $idx["files_identical"] != want_ident) n++
+        }
+        END { print n + 0 }' "$SUM")
+      echo "  workbooks whose diff exit and files_identical do not follow from the recompressed count: $mismatch"
+      note "$label the file columns follow from the entry rows in every workbook" "$(is [ "$mismatch" -eq 0 ])"
+    done
+    
+    echo
+    echo "## ruling 7(b): the bytes after the data, input against output, as hex"
+    # specs/0008-zip-layer.md, the P2 rulings of 2026-09-17, item 7(b): one corpus
+    # pair per descriptor form present, printing a signature, a CRC-32 and two
+    # sizes, and no content. The forms present are measured here rather than
+    # assumed, and one pair is shown for each. The reader is a python script that
+    # uses neither the layer nor the harness, so what it prints is independent of
+    # both.
+    cat >"$OUT-descriptor.py" <<'DESC_PY'
+    import glob, os, struct, sys
+    
+    corpus, out_dir, target = sys.argv[1], sys.argv[2], sys.argv[3].encode()
+    SIG = b"PK\x07\x08"
+    
+    
+    def u16(b, a):
+        return struct.unpack_from("<H", b, a)[0]
+    
+    
+    def u32(b, a):
+        return struct.unpack_from("<I", b, a)[0]
+    
+    
+    def look(path):
+        """The target entry's flags and the bytes from its data end to the next
+        local header. Structure only: no entry content is read or printed."""
+        b = open(path, "rb").read()
+        end = b.rfind(b"PK\x05\x06")
+        total, csize, coff = u16(b, end + 10), u32(b, end + 12), u32(b, end + 16)
+        start = end - csize
+        base = start - coff
+        at, rows = start, []
+        for _ in range(total):
+            nl, el, cl = u16(b, at + 28), u16(b, at + 30), u16(b, at + 32)
+            rows.append((b[at + 46:at + 46 + nl], u16(b, at + 8), u32(b, at + 20), u32(b, at + 42),
+                         u32(b, at + 20) == 0xffffffff or u32(b, at + 24) == 0xffffffff))
+            at += 46 + nl + el + cl
+        offs = sorted(r[3] for r in rows)
+        me = [r for r in rows if r[0] == target]
+        if not me:
+            return None
+        name, flags, csz, off, z64 = me[0]
+        lh = base + off
+        data_end = lh + 30 + u16(b, lh + 26) + u16(b, lh + 28) + csz
+        nxt = next((o for o in offs if o > off), None)
+        gap_end = (base + nxt) if nxt is not None else start
+        gap = b[data_end:gap_end]
+        return {"flags": flags, "descriptor": bool(flags & 8), "csize": csz,
+                "zip64": z64, "sig": gap[:4] == SIG, "gap": gap}
+    
+    
+    seen = {}
+    for path in sorted(glob.glob(os.path.join(corpus, "corpus", "*"))):
+        ident = os.path.basename(path).split(".")[0]
+        copy = os.path.join(out_dir, ident, "out.host." + os.path.basename(path).split(".", 1)[1])
+        if not os.path.exists(copy):
+            continue
+        a = look(path)
+        if a is None or not a["descriptor"]:
+            continue
+        form = ("signature" if a["sig"] else "no signature",
+                "8-byte sizes" if a["zip64"] else "4-byte sizes")
+        if form in seen:
+            continue
+        b = look(copy)
+        seen[form] = True
+        print("form: %s, %s" % form)
+        print("  workbook %s, entry %s" % (ident, target.decode()))
+        print("  central general purpose flags: 0x%04x (bit 3 set: %s)" % (a["flags"], a["descriptor"]))
+        print("  compressed size, input %d, output %d" % (a["csize"], b["csize"]))
+        print("  bytes after the data, input:  %s" % a["gap"].hex())
+        print("  bytes after the data, output: %s" % b["gap"].hex())
+        same_len = len(a["gap"]) == len(b["gap"])
+        # Which fields differ, by name, computed rather than asserted.
+        off = 4 if a["sig"] else 0
+        width = 8 if a["zip64"] else 4
+        def field(g, at, n):
+            return g[at:at + n]
+        crc_same = field(a["gap"], off, 4) == field(b["gap"], off, 4)
+        csz_same = field(a["gap"], off + 4, width) == field(b["gap"], off + 4, width)
+        usz_same = field(a["gap"], off + 4 + width, width) == field(b["gap"], off + 4 + width, width)
+        head_same = a["gap"][:off] == b["gap"][:off]
+        print("  same length: %s; signature bytes equal: %s" % (same_len, head_same))
+        print("  CRC-32 equal: %s; compressed size equal: %s; uncompressed size equal: %s"
+              % (crc_same, csz_same, usz_same))
+        print("  differs in the size field alone: %s" % (same_len and head_same and crc_same and not csz_same and usz_same))
+    print("forms shown: %d" % len(seen))
+    DESC_PY
+    echo "command: python3 <corpus>/runs/$DATE-$SHORT-descriptor.py <corpus> <corpus>/runs/$DATE-$SHORT '$TARGET_ENTRY'"
+    python3 "$OUT-descriptor.py" "$CORPUS" "$OUT" "$TARGET_ENTRY" >"$OUT-descriptor.out" 2>&1
+    drc=$?
+    hide <"$OUT-descriptor.out" | sed 's/^/    /'
+    rm -rf "$CORPUS/runs/__pycache__"
+    nforms=$(awk '/^forms shown: /{print $3}' "$OUT-descriptor.out")
+    note "the descriptor inspection exits 0" "$(is [ "$drc" -eq 0 ])"
+    note "at least one descriptor form was shown" "$(is [ -n "$nforms" ] && [ "$nforms" -ge 1 ])"
+    note "every pair shown differs in the compressed size field alone" \
+      "$(is [ "$(count_matches -F 'differs in the size field alone: True' "$OUT-descriptor.out")" = "$nforms" ])"
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        echo "  run.$label.tsv tool_args: [$(awk -F'\t' 'NR==1{for(i=1;i<=NF;i++) if($i=="tool_args") k=i; next} k && NR==2 {print $k}' "$R")]"
+      else
+        echo "  run.$label.tsv: MISSING"; fail=1
+      fi
+    done
+    note "both run rows record the tool arguments this run was made with" \
+      "$(is [ "$(awk -F'\t' 'NR==1{for(i=1;i<=NF;i++) if($i=="tool_args") k=i; next} k && NR==2 {print $k}' "$OUT/run.host.tsv")" = "--replace $TARGET_ENTRY" ])"
+    
+    echo
+    echo "## the record pair"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$DATE-$SHORT --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --stem "$STEM" >"$OUT-record.out" 2>&1
+    rrc=$?
+    hide <"$OUT-record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  $f: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  $f: MISSING"; fail=1
+      fi
+    done
+    note "both halves of the record pair were written" \
+      "$(is [ -f "records/$STEM.md" ] && [ -f "records/$STEM.txt" ])"
+    echo "  the record's Tool arguments line: [$(LC_ALL=C "$G" -m 1 '^- Tool arguments: ' "records/$STEM.md")]"
+    note "the record names the tool arguments" \
+      "$(is [ "$(count_matches -F "- Tool arguments: --replace $TARGET_ENTRY" "records/$STEM.md")" = 1 ])"
+    echo "  the record's content-types family row, per label (ruling 7: the count lives here):"
+    LC_ALL=C "$G" -n '^| content-types ' "records/$STEM.md" | sed 's/^/    /'
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$f")
+      echo "  $f: lines naming a home, mount or corpus path: $n"
+      note "$f carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    
+    echo
+    echo "## status after the runs"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E 'records/logs/m1p1-p2|records/'"$STEM" git status --porcelain)
+    echo "status lines: $st_all; of them under the phase log directory or the record pair: $st_log"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "every change in the working tree is a log or the record pair" "$(is status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## settings
+  the edit: --tool-arg --replace --tool-arg '[Content_Types].xml', so the runner
+  passes emend-copy the flag after the output path (specs/0006-passthrough.md,
+  the P2 tool-arg ruling). Without it the runner passes exactly two
+  arguments and no edit could be made at all.
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); --memory 2048 MiB; image localhost/emend-lo:25.2.3-2-deb13u6
+  out directory: <corpus>/runs/2026-09-17-ac1bd12
+  record stem: m1p1-p2-2026-09-17-ac1bd12
+  target/debug/emend-copy: sha256 77ee4df59d4fcf1e0418b8806c21bed6e0760681b3642cef182e03b0ba8bb925
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 a46515c858c5d60b983ef2f556910fe3052d2c7d2ad7ad49d5aca1f09c3aa7d7
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  (gate.log prints these same four hashes; nothing is rebuilt here)
+  corpus manifest rows: 27
+
+## host run
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-17-ac1bd12 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --tool-arg --replace --tool-arg '[Content_Types].xml'
+  started 2026-09-17T12:48:42Z; ended 2026-09-17T12:51:02Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 1 0.10 7836
+    f56906d42e0a host ok 1 0.10 7732
+    0fbf4e5e3be9 host ok 1 0.10 7632
+    bdfe649d5b97 host ok 1 0.10 7676
+    ae7e17525a35 host ok 1 0.10 7772
+    63e820d98612 host ok 1 0.10 7772
+    054df34b1472 host ok 1 0.10 7888
+    9132ce5303d8 host ok 1 0.10 7868
+    ed2fbd304d51 host ok 1 0.10 7708
+    80adab651c77 host ok 1 0.10 7616
+    9ada43d71c80 host ok 1 0.10 7892
+    885819a9642e host ok 1 0.10 7684
+    f2ba081da509 host ok 1 0.10 7752
+    16c3be622455 host ok 1 0.10 7844
+    a72460f992a8 host ok 1 0.10 7820
+    f8459281d739 host ok 1 0.10 7580
+    ab0e6a529465 host ok 1 0.10 7840
+    f9efcac9808f host ok 1 0.10 7804
+    8aaebea134fb host ok 1 0.10 7692
+    6778a242d1f9 host ok 1 0.10 7760
+    75387404b8af host ok 1 0.10 7772
+    40d747fb5d9e host ok 1 0.10 7492
+    3084c0591814 host ok 1 0.10 7728
+    f3a462783621 host ok 1 0.10 7676
+    ed4c55f07c69 host ok 1 0.10 7792
+    7935c5119065 host ok 1 0.10 7620
+    18d1e8ba72b5 host ok 1 0.10 7692
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the run exits 0: as-expected
+  host stderr is empty: as-expected
+  summary rows: 27 (manifest rows 27)
+  outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27
+  entry totals: dropped 0, added 0
+  host every manifest workbook produced a summary row: as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host no tool left a temporary behind: as-expected
+  host order is preserved in every file: as-expected
+  host every archive comment is equal: as-expected
+  host no entry was dropped or added: as-expected
+  the REPLACED entry, [Content_Types].xml, one row per workbook:
+    rows: 27
+    status recompressed: 27; identical: 0; changed: 0
+    flags empty: 11; flags exactly descriptor: 16; any other flag: 0
+  host every workbook has a [Content_Types].xml row: as-expected
+  host none of them is changed, so the bytes came back equal: as-expected
+  host none carries a flag other than descriptor: as-expected
+  host not every replaced entry came back identical, so the replacement path ran: as-expected
+  every OTHER entry:
+    rows: 843; not identical: 0; carrying a flag: 0
+  host every other entry is identical: as-expected
+  host no other entry carries a flag: as-expected
+  per workbook, id and the acceptance columns:
+    d8245b84086f host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f56906d42e0a host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    0fbf4e5e3be9 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    bdfe649d5b97 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ae7e17525a35 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    63e820d98612 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    054df34b1472 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    9132ce5303d8 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ed2fbd304d51 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    80adab651c77 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    9ada43d71c80 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    885819a9642e host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f2ba081da509 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    16c3be622455 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    a72460f992a8 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f8459281d739 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ab0e6a529465 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f9efcac9808f host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    8aaebea134fb host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    6778a242d1f9 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    75387404b8af host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    40d747fb5d9e host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    3084c0591814 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    f3a462783621 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    ed4c55f07c69 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    7935c5119065 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    18d1e8ba72b5 host outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+  workbooks whose diff exit and files_identical do not follow from the recompressed count: 0
+  host the file columns follow from the entry rows in every workbook: as-expected
+
+## i686 run
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-17-ac1bd12 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --tool-arg --replace --tool-arg '[Content_Types].xml'
+  started 2026-09-17T12:51:02Z; ended 2026-09-17T12:53:24Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 1 0.10 7820
+    f56906d42e0a i686 ok 1 0.10 7780
+    0fbf4e5e3be9 i686 ok 1 0.10 7740
+    bdfe649d5b97 i686 ok 1 0.10 7828
+    ae7e17525a35 i686 ok 1 0.10 7616
+    63e820d98612 i686 ok 1 0.10 7804
+    054df34b1472 i686 ok 1 0.10 7696
+    9132ce5303d8 i686 ok 1 0.10 7648
+    ed2fbd304d51 i686 ok 1 0.10 7888
+    80adab651c77 i686 ok 1 0.10 8032
+    9ada43d71c80 i686 ok 1 0.10 7488
+    885819a9642e i686 ok 1 0.10 7544
+    f2ba081da509 i686 ok 1 0.10 7636
+    16c3be622455 i686 ok 1 0.10 7648
+    a72460f992a8 i686 ok 1 0.10 7692
+    f8459281d739 i686 ok 1 0.10 7780
+    ab0e6a529465 i686 ok 1 0.10 7676
+    f9efcac9808f i686 ok 1 0.10 7744
+    8aaebea134fb i686 ok 1 0.10 7780
+    6778a242d1f9 i686 ok 1 0.10 7780
+    75387404b8af i686 ok 1 0.10 7884
+    40d747fb5d9e i686 ok 1 0.10 7616
+    3084c0591814 i686 ok 1 0.10 7676
+    f3a462783621 i686 ok 1 0.10 7684
+    ed4c55f07c69 i686 ok 1 0.10 7912
+    7935c5119065 i686 ok 1 0.10 7676
+    18d1e8ba72b5 i686 ok 1 0.10 7792
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the run exits 0: as-expected
+  i686 stderr is empty: as-expected
+  summary rows: 27 (manifest rows 27)
+  outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27
+  entry totals: dropped 0, added 0
+  i686 every manifest workbook produced a summary row: as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 no tool left a temporary behind: as-expected
+  i686 order is preserved in every file: as-expected
+  i686 every archive comment is equal: as-expected
+  i686 no entry was dropped or added: as-expected
+  the REPLACED entry, [Content_Types].xml, one row per workbook:
+    rows: 27
+    status recompressed: 27; identical: 0; changed: 0
+    flags empty: 11; flags exactly descriptor: 16; any other flag: 0
+  i686 every workbook has a [Content_Types].xml row: as-expected
+  i686 none of them is changed, so the bytes came back equal: as-expected
+  i686 none carries a flag other than descriptor: as-expected
+  i686 not every replaced entry came back identical, so the replacement path ran: as-expected
+  every OTHER entry:
+    rows: 843; not identical: 0; carrying a flag: 0
+  i686 every other entry is identical: as-expected
+  i686 no other entry carries a flag: as-expected
+  per workbook, id and the acceptance columns:
+    d8245b84086f i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f56906d42e0a i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    0fbf4e5e3be9 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    bdfe649d5b97 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ae7e17525a35 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    63e820d98612 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    054df34b1472 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    9132ce5303d8 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ed2fbd304d51 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    80adab651c77 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    9ada43d71c80 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    885819a9642e i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f2ba081da509 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    16c3be622455 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    a72460f992a8 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f8459281d739 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    ab0e6a529465 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=1 leftover=no lo=ok lo_in=ok
+    f9efcac9808f i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    8aaebea134fb i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    6778a242d1f9 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    75387404b8af i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    40d747fb5d9e i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    3084c0591814 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    f3a462783621 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    ed4c55f07c69 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    7935c5119065 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+    18d1e8ba72b5 i686 outcome=ok diff_exit=1 files_identical=no recompressed=1 flagged=0 leftover=no lo=ok lo_in=ok
+  workbooks whose diff exit and files_identical do not follow from the recompressed count: 0
+  i686 the file columns follow from the entry rows in every workbook: as-expected
+
+## ruling 7(b): the bytes after the data, input against output, as hex
+command: python3 <corpus>/runs/2026-09-17-ac1bd12-descriptor.py <corpus> <corpus>/runs/2026-09-17-ac1bd12 '[Content_Types].xml'
+    form: signature, 4-byte sizes
+      workbook 054df34b1472, entry [Content_Types].xml
+      central general purpose flags: 0x0808 (bit 3 set: True)
+      compressed size, input 496, output 497
+      bytes after the data, input:  504b0708c4548615f0010000120d0000
+      bytes after the data, output: 504b0708c4548615f1010000120d0000
+      same length: True; signature bytes equal: True
+      CRC-32 equal: True; compressed size equal: False; uncompressed size equal: True
+      differs in the size field alone: True
+    forms shown: 1
+  the descriptor inspection exits 0: as-expected
+  at least one descriptor form was shown: as-expected
+  every pair shown differs in the compressed size field alone: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: ac1bd12a8004740b66665f248f99d534dbd4d273	2026-09-17T12:48:42Z	2026-09-17T12:51:02Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	77ee4df59d4fcf1e0418b8806c21bed6e0760681b3642cef182e03b0ba8bb925	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27	--replace [Content_Types].xml
+  run.host.tsv tool_args: [--replace [Content_Types].xml]
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: ac1bd12a8004740b66665f248f99d534dbd4d273	2026-09-17T12:51:02Z	2026-09-17T12:53:24Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	a46515c858c5d60b983ef2f556910fe3052d2c7d2ad7ad49d5aca1f09c3aa7d7	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27	--replace [Content_Types].xml
+  run.i686.tsv tool_args: [--replace [Content_Types].xml]
+  both run rows record the tool arguments this run was made with: as-expected
+
+## the record pair
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-17-ac1bd12 --stem m1p1-p2-2026-09-17-ac1bd12
+    wrote m1p1-p2-2026-09-17-ac1bd12.txt and m1p1-p2-2026-09-17-ac1bd12.md: labels host,i686; files 27,27; entry rows 870,870
+  the record script exits 0: as-expected
+  records/m1p1-p2-2026-09-17-ac1bd12.md: 15231 bytes, sha256 fd41ebba5aebd82c8215dc04701cf04140e5200cf172fd5dcb107d1e629c4e0e
+  records/m1p1-p2-2026-09-17-ac1bd12.txt: 198706 bytes, sha256 4bfb5564ff04affdf5ad7d710612845dbd8958e2ed183bdc404dbee239021504
+  both halves of the record pair were written: as-expected
+  the record's Tool arguments line: [- Tool arguments: --replace [Content_Types].xml]
+  the record names the tool arguments: as-expected
+  the record's content-types family row, per label (ruling 7: the count lives here):
+    24:| content-types | 27 | 0 | 27 | 0 | 0 | 0 | 16 | 0 | 0 | 0 | 16 | 0 | 0 | 0 |
+    53:| content-types | 27 | 0 | 27 | 0 | 0 | 0 | 16 | 0 | 0 | 0 | 16 | 0 | 0 | 0 |
+
+## the record pair holds no corpus path and no absolute path
+  records/m1p1-p2-2026-09-17-ac1bd12.md: lines naming a home, mount or corpus path: 0
+  records/m1p1-p2-2026-09-17-ac1bd12.md carries no such path: as-expected
+  records/m1p1-p2-2026-09-17-ac1bd12.txt: lines naming a home, mount or corpus path: 0
+  records/m1p1-p2-2026-09-17-ac1bd12.txt carries no such path: as-expected
+
+## status after the runs
+status lines: 3; of them under the phase log directory or the record pair: 3
+  every change in the working tree is a log or the record pair: as-expected
+run ended at 2026-09-17T12:53:24Z
+run log checks all as expected: yes

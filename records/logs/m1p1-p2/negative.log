@@ -1,0 +1,1052 @@
+command: git rev-parse HEAD
+about: M1 part 1 P2 phase commit ac1bd12a8004740b66665f248f99d534dbd4d273; HEAD at run: ac1bd12a8004740b66665f248f99d534dbd4d273
+phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) negative.log; run at 2026-09-17T13:12:36Z
+rerun: this replaces the negative.log of the first round, sha256 7b1dbf2759ba32fc173ac725eeff9ee9c2f26d9b9f83f581382402b793c50a84, which ran at 2026-09-17T12:48:01Z at this same commit ac1bd12a8004740b66665f248f99d534dbd4d273 and passed every check it made. It is superseded because independent check 1 of this phase found three things it did not do. First, case X1 learned the test binary's path by running cargo test -p emend --no-run in the MAIN working tree, and specs/0001-bootstrap.md, How this task runs, keeps negative tests out of that tree with the gate's binaries copied in rather than rebuilt; the binary is now located by glob and copied in, and no cargo command runs in this log at all. Second, the bytes behind this phase's second finding were quoted in the draft report from a probe that no log recorded, which specs/0001 forbids in as many words, nothing is called measured unless the log prints the measurement; case X2 now generates the two archives and prints the local extra field of each side, so the finding is a measurement here. Third, emend-copy's refusal of an entry whose method is neither stored nor deflate had no case, so E9 and its control E9c are new.
+SERIALIZED: produced with no other run in flight
+every fixture is generated; no corpus file is copied or read
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 1 P2 negative.log (specs/0008-zip-layer.md, "P2"; the
+    # tool-arg ruling in specs/0006-passthrough.md): the runner's --tool-arg
+    # departure working, the 4 GiB test refusing to run without its harness, and
+    # emend-copy's --replace exit codes and refusals.
+    #
+    # Three families of case:
+    #
+    #  R1 to R5, specs/0006-passthrough.md, "Planning ruling for Milestone 1
+    #  part 1 P2 (2026-09-17): tool-arg", which names them and what each must
+    #  show. The runner passed the tool exactly two arguments, so --replace could
+    #  not reach emend-copy at all; --tool-arg carries it, and the run row's new
+    #  tool_args column records what a run was made with.
+    #
+    #  X1, specs/0008-zip-layer.md, the P2 rulings of 2026-09-17, item 3: the
+    #  layer's 4 GiB test with EMEND_XLSX_DIFF unset must fail BEFORE it writes a
+    #  file, never skip silently. Its control is the run in test.log, which passed
+    #  with the variable set; this log cites that rather than spending another two
+    #  4 GiB passes to repeat it.
+    #
+    #  E1 to E8, emend-copy's own exit codes and refusals, on GENERATED archives
+    #  only. No corpus file is copied or read: every fixture here is built by the
+    #  inline generator below (planning's ruling of 2026-09-16, carried from T3 P4).
+    #
+    # Every case runs in a scratch clone under <scratch>, never in the main working
+    # tree, with the binaries the gate built copied in; gate.log prints the same
+    # four hashes.
+    #
+    # Usage: m1p1-p2-negative.sh <phase commit> > <scratch file>; the caller moves
+    # the output to records/logs/m1p1-p2/negative.log. No absolute path, no host
+    # name and no corpus name is printed: scratch locations are written <scratch>.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    B=$(mktemp -d)
+    trap 'rm -rf "$B"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    hide() { sed "s#$B#<scratch>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 1 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 1 P2 (specs/0008-zip-layer.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "every fixture is generated; no corpus file is copied or read"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the scratch clone and the gate's binaries"
+    echo "command: git clone --quiet --shared <repo> <scratch>/clone"
+    git clone --quiet --shared "$MAIN" "$B/clone" 2>&1 | hide | sed 's/^/    /'
+    CLONE=$B/clone
+    clone_head=$(git -C "$CLONE" rev-parse HEAD)
+    echo "  clone HEAD: $clone_head"
+    note "the clone is at the phase commit" "$(is [ "$clone_head" = "$C" ])"
+    mkdir -p "$CLONE/target/debug" "$CLONE/target/i686-unknown-linux-musl/debug"
+    bins_ok=yes
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if cp "$MAIN/$b" "$CLONE/$b" 2>/dev/null; then
+        echo "  copied $b: sha256 $(sha256sum <"$CLONE/$b" | cut -d' ' -f1), bytes $(wc -c <"$CLONE/$b")"
+      else
+        echo "  copied $b: FAILED"
+        bins_ok=no
+      fi
+    done
+    note "all four binaries were copied in and are executable" \
+      "$(is [ "$bins_ok" = yes ] && [ -x "$CLONE/target/debug/emend-copy" ] && [ -x "$CLONE/target/debug/xlsx-diff" ])"
+    echo "  (gate.log prints these same four hashes; nothing is rebuilt here)"
+    echo "  every command below runs in <scratch>/clone"
+    
+    XD=$CLONE/target/debug/xlsx-diff
+    EC=$CLONE/target/debug/emend-copy
+    
+    echo
+    echo "## the generated corpus"
+    cat >"$B/gen.py" <<'GEN_PY'
+    import hashlib, os, struct, sys, zipfile
+    
+    base, corpus = sys.argv[1:3]
+    os.makedirs(os.path.join(corpus, "corpus"), mode=0o700, exist_ok=True)
+    
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="xml" ContentType="application/xml"/></Types>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+          '<sheets><sheet name="S" sheetId="1"/></sheets></workbook>')
+    
+    
+    def sound(path):
+        """A small, valid archive: one stored entry and one deflated."""
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", CT, zipfile.ZIP_STORED)
+            z.writestr("xl/workbook.xml", WB, zipfile.ZIP_DEFLATED)
+    
+    
+    def ident(path):
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    
+    
+    made = []
+    # ONE workbook the runner sees: one entry keeps the summary to a single data
+    # row, so reading a column cannot quietly report on one row while ignoring
+    # another.
+    path = os.path.join(corpus, "corpus", "PLACE.xlsx")
+    sound(path)
+    entry_id = ident(path)[:12]
+    final = os.path.join(corpus, "corpus", entry_id + ".xlsx")
+    os.replace(path, final)
+    made.append((entry_id, final))
+    
+    header = ["id", "sha256", "bytes", "ext", "producer", "producer_version",
+              "app", "source", "tags", "added", "original_name", "note"]
+    rows = ["\t".join(header)]
+    for entry_id, path in made:
+        rows.append("\t".join([
+            entry_id, ident(path), str(os.path.getsize(path)), "xlsx",
+            "generated", "0", "none", "generated", "generated", "2026-09-17",
+            "generated", "built by this log's generator"]))
+    with open(os.path.join(corpus, "manifest.tsv"), "w", newline="\n") as handle:
+        handle.write("\n".join(rows) + "\n")
+    
+    # Fixtures for emend-copy's refusals, outside the manifest.
+    sound(os.path.join(base, "sound.xlsx"))
+    with open(os.path.join(base, "notzip.xlsx"), "wb") as handle:
+        handle.write(b"this is not a zip archive\n" * 8)
+    
+    # An entry whose method is neither stored nor deflate: the method field of
+    # BOTH its headers is set to 12 (bzip2). emend-copy must refuse to replace it
+    # and leave no output file, while a no-edit copy of the same archive is still
+    # byte-identical, because the verbatim-span design copies what it will not
+    # decode.
+    raw = bytearray(open(os.path.join(base, "sound.xlsx"), "rb").read())
+    at = 0
+    while True:
+        at = raw.find(b"PK\x03\x04", at)
+        if at < 0:
+            break
+        nl = struct.unpack_from("<H", raw, at + 26)[0]
+        if raw[at + 30:at + 30 + nl] == b"[Content_Types].xml":
+            struct.pack_into("<H", raw, at + 8, 12)
+        at += 4
+    at = 0
+    while True:
+        at = raw.find(b"PK\x01\x02", at)
+        if at < 0:
+            break
+        nl = struct.unpack_from("<H", raw, at + 28)[0]
+        if raw[at + 46:at + 46 + nl] == b"[Content_Types].xml":
+            struct.pack_into("<H", raw, at + 10, 12)
+        at += 4
+    with open(os.path.join(base, "badmethod.xlsx"), "wb") as handle:
+        handle.write(bytes(raw))
+    
+    for label, path in (("sound", "sound.xlsx"), ("notzip", "notzip.xlsx"),
+                        ("badmethod", "badmethod.xlsx")):
+        full = os.path.join(base, path)
+        print("%s: %d bytes" % (label, os.path.getsize(full)))
+    for entry_id, path in made:
+        print("corpus entry %s: %d bytes" % (entry_id, os.path.getsize(path)))
+    GEN_PY
+    echo "command: python3 <scratch>/gen.py <scratch> <scratch>/corpus"
+    python3 "$B/gen.py" "$B" "$B/corpus" >"$B/gen.out" 2>&1
+    grc=$?
+    hide <"$B/gen.out" | sed 's/^/    /'
+    note "the generator exits 0" "$(is [ "$grc" -eq 0 ])"
+    rm -rf "$B/__pycache__" "$B/corpus/__pycache__"
+    ID=$(awk -F'\t' 'NR == 2 { print $1 }' "$B/corpus/manifest.tsv")
+    
+    echo
+    echo "## the stand-in tool that reports its arguments"
+    # specs/0006's R2: it copies its first argument to its second and prints the
+    # COUNT of its arguments and then every argument after the second, one per
+    # line. It never prints its first two, so no corpus path can reach this log
+    # through the runner's captured stdout.
+    cat >"$B/stand-in-args" <<'STANDIN'
+    #!/usr/bin/env bash
+    set -u
+    cp -- "$1" "$2" || exit 2
+    printf '%s\n' "$#"
+    shift 2
+    for a in "$@"; do printf '%s\n' "$a"; done
+    exit 0
+    STANDIN
+    chmod 755 "$B/stand-in-args"
+    note "the stand-in is executable" "$(is [ -x "$B/stand-in-args" ])"
+    
+    # run_tool <label> <out dir> <extra args...>: the runner over the generated
+    # corpus, with whatever --tool-arg values the case needs.
+    run_tool() {
+      local label=$1 out=$2
+      shift 2
+      ( cd "$CLONE" && scripts/passthrough-run.sh --label host --passthrough "$B/stand-in-args" \
+          --xlsx-diff "$XD" --corpus "$B/corpus" --out "$out" --timeout 60 "$@" ) \
+        >"$B/$label.out" 2>"$B/$label.err"
+      echo $?
+    }
+    # col_of <tsv> <column>: the named column of the first data row, found from the
+    # header rather than a counted index.
+    col_of() {
+      awk -F'\t' -v c="$2" 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+                            k && NR == 2 { print $k }' "$1"
+    }
+    
+    echo
+    echo "## R1: --tool-arg as the last word is refused"
+    ( cd "$CLONE" && scripts/passthrough-run.sh --label host --passthrough "$B/stand-in-args" \
+        --xlsx-diff "$XD" --corpus "$B/corpus" --out "$B/run-R1" --timeout 60 --tool-arg ) \
+      >"$B/R1.out" 2>"$B/R1.err"
+    r1rc=$?
+    echo "command: scripts/passthrough-run.sh ... --out <scratch>/run-R1 --tool-arg"
+    echo "  exit: $r1rc"
+    hide <"$B/R1.err" | sed 's/^/    /'
+    r1_usage=$(count_matches -E '^error: --tool-arg needs a value; usage: ' "$B/R1.err")
+    echo "  stderr lines matching the usage refusal: $r1_usage"
+    note "R1 exits 2" "$(is [ "$r1rc" -eq 2 ])"
+    note "R1 refuses with the usage line" "$(is [ "$r1_usage" = 1 ])"
+    note "R1 wrote no run row" "$(is [ ! -e "$B/run-R1/run.host.tsv" ])"
+    
+    echo
+    echo "## R2: the values reach the tool, after the output path, in order"
+    R2RC=$(run_tool R2 "$B/run-R2" --tool-arg --replace --tool-arg '[Content_Types].xml')
+    echo "command: scripts/passthrough-run.sh ... --out <scratch>/run-R2 --tool-arg --replace --tool-arg '[Content_Types].xml'"
+    echo "  exit: $R2RC"
+    echo "  the stand-in's captured stdout, which is its argument count and then every argument after the second:"
+    hide <"$B/run-R2/$ID/stdout.host.txt" | sed 's/^/    /'
+    r2_first=$(sed -n 1p "$B/run-R2/$ID/stdout.host.txt")
+    r2_second=$(sed -n 2p "$B/run-R2/$ID/stdout.host.txt")
+    r2_third=$(sed -n 3p "$B/run-R2/$ID/stdout.host.txt")
+    r2_lines=$(count_lines "$B/run-R2/$ID/stdout.host.txt")
+    note "R2 the run exits 0" "$(is [ "$R2RC" -eq 0 ])"
+    note "R2 the tool received four arguments" "$(is [ "$r2_first" = 4 ])"
+    note "R2 the third argument is --replace" "$(is [ "$r2_second" = '--replace' ])"
+    note "R2 the fourth is the entry name" "$(is [ "$r2_third" = '[Content_Types].xml' ])"
+    note "R2 the tool printed nothing else" "$(is [ "$r2_lines" = 3 ])"
+    
+    echo
+    echo "## R2 control: no --tool-arg, so the tool receives two arguments and nothing more"
+    R2CRC=$(run_tool R2c "$B/run-R2c")
+    echo "  exit: $R2CRC"
+    hide <"$B/run-R2c/$ID/stdout.host.txt" | sed 's/^/    /'
+    r2c_first=$(sed -n 1p "$B/run-R2c/$ID/stdout.host.txt")
+    r2c_lines=$(count_lines "$B/run-R2c/$ID/stdout.host.txt")
+    note "R2c the run exits 0" "$(is [ "$R2CRC" -eq 0 ])"
+    note "R2c the tool received two arguments" "$(is [ "$r2c_first" = 2 ])"
+    note "R2c the tool printed one line, so no argument followed" "$(is [ "$r2c_lines" = 1 ])"
+    
+    echo
+    echo "## R3: a value holding a tab or a newline is refused"
+    # Built with printf escapes so this script and this log stay free of the bytes
+    # themselves. Each goes into a run row, which is tab separated with one row per
+    # line, so neither can be written.
+    TABV=$(printf 'a\tb')
+    NLV=$(printf 'a\nb')
+    for case_label in tab newline; do
+      if [ "$case_label" = tab ]; then V=$TABV; else V=$NLV; fi
+      ( cd "$CLONE" && scripts/passthrough-run.sh --label host --passthrough "$B/stand-in-args" \
+          --xlsx-diff "$XD" --corpus "$B/corpus" --out "$B/run-R3-$case_label" --timeout 60 \
+          --tool-arg "$V" ) >"$B/R3-$case_label.out" 2>"$B/R3-$case_label.err"
+      rc=$?
+      n=$(count_matches -E '^error: a --tool-arg value must hold no tab or newline; ' "$B/R3-$case_label.err")
+      echo "  R3 $case_label: exit $rc; stderr lines matching the refusal: $n"
+      note "R3 $case_label exits 2 with the refusal" "$(is [ "$rc" -eq 2 ] && [ "$n" = 1 ])"
+      note "R3 $case_label wrote no run row" "$(is [ ! -e "$B/run-R3-$case_label/run.host.tsv" ])"
+    done
+    
+    echo
+    echo "## R4: the tool_args column of R2's run row and of its control's"
+    # Quoted from the passthrough_sha256 column on, so the commit, the times and
+    # the tool versions are not repeated here.
+    for pair in "R2:$B/run-R2" "R2c:$B/run-R2c"; do
+      label=${pair%%:*}; dir=${pair#*:}
+      R=$dir/run.host.tsv
+      if [ ! -f "$R" ]; then echo "  $label run.host.tsv: MISSING"; fail=1; continue; fi
+      echo "  $label run.host.tsv header, from passthrough_sha256 on: $(head -1 "$R" | cut -f9-)"
+      echo "  $label run.host.tsv row, from passthrough_sha256 on:    $(sed -n 2p "$R" | cut -f9- | hide)"
+      echo "  $label tool_args column: [$(col_of "$R" tool_args)]"
+    done
+    note "R4 the header's last column is tool_args" \
+      "$(is [ "$(head -1 "$B/run-R2/run.host.tsv" | awk -F'\t' '{print $NF}')" = tool_args ])"
+    note "R4 R2's tool_args holds the two values joined by one space" \
+      "$(is [ "$(col_of "$B/run-R2/run.host.tsv" tool_args)" = '--replace [Content_Types].xml' ])"
+    note "R4 the control's tool_args is empty" \
+      "$(is [ -z "$(col_of "$B/run-R2c/run.host.tsv" tool_args)" ])"
+    
+    echo
+    echo "## R5: the record script on those run directories"
+    # The runner made one label here, so --allow-single is given: a single-label
+    # run directory is refused otherwise, which is a different refusal from the
+    # three this case is about.
+    echo "command: scripts/passthrough-record.py --run <scratch>/run-R2 --out <scratch> --stem r5 --allow-single"
+    ( cd "$CLONE" && scripts/passthrough-record.py --run "$B/run-R2" --out "$B" --stem r5 --allow-single ) \
+      >"$B/R5.out" 2>"$B/R5.err"
+    r5rc=$?
+    hide <"$B/R5.out" | sed 's/^/    /'
+    hide <"$B/R5.err" | sed 's/^/    /'
+    echo "  the Tool arguments line the record carries: [$(LC_ALL=C "$G" -m 1 '^- Tool arguments: ' "$B/r5.md")]"
+    note "R5 the record script exits 0" "$(is [ "$r5rc" -eq 0 ])"
+    note "R5 the record names the tool arguments" \
+      "$(is [ "$(count_matches -F '- Tool arguments: --replace [Content_Types].xml' "$B/r5.md")" = 1 ])"
+    
+    echo "R5b: a run directory whose run.<label>.tsv carries the OLD header"
+    cp -r "$B/run-R2" "$B/run-R5b"
+    # The column and its value removed, which is exactly what a run directory
+    # written before Milestone 1 part 1 P2 looks like.
+    sed -i '1s/\ttool_args$//' "$B/run-R5b/run.host.tsv"
+    sed -i '2s/\t--replace \[Content_Types\].xml$//' "$B/run-R5b/run.host.tsv"
+    ( cd "$CLONE" && scripts/passthrough-record.py --run "$B/run-R5b" --out "$B" --stem r5b --allow-single ) \
+      >"$B/R5b.out" 2>"$B/R5b.err"
+    r5brc=$?
+    hide <"$B/R5b.err" | sed 's/^/    /'
+    note "R5b exits 2" "$(is [ "$r5brc" -eq 2 ])"
+    note "R5b says the header is not the expected one" \
+      "$(is [ "$(count_matches -E '^error: run\.host\.tsv does not start with the expected header$' "$B/R5b.err")" = 1 ])"
+    note "R5b wrote no record" "$(is [ ! -e "$B/r5b.md" ])"
+    
+    echo "R5c: two run rows that disagree on the tool arguments"
+    cp -r "$B/run-R2" "$B/run-R5c"
+    # A second row, identical but for the tool arguments: two runs made with
+    # different arguments are not one run, so their results must not go into one
+    # record.
+    sed -n 2p "$B/run-R2/run.host.tsv" | sed 's/--replace \[Content_Types\].xml$/--replace other.xml/' \
+      >>"$B/run-R5c/run.host.tsv"
+    ( cd "$CLONE" && scripts/passthrough-record.py --run "$B/run-R5c" --out "$B" --stem r5c --allow-single ) \
+      >"$B/R5c.out" 2>"$B/R5c.err"
+    r5crc=$?
+    hide <"$B/R5c.err" | sed 's/^/    /'
+    note "R5c exits 2" "$(is [ "$r5crc" -eq 2 ])"
+    note "R5c says the run rows disagree" \
+      "$(is [ "$(count_matches -E '^error: the run rows disagree on the tool arguments$' "$B/R5c.err")" = 1 ])"
+    note "R5c wrote no record" "$(is [ ! -e "$B/r5c.md" ])"
+    
+    echo
+    echo "## X1: the 4 GiB test with EMEND_XLSX_DIFF unset fails before it writes a file"
+    # specs/0008-zip-layer.md, the P2 rulings of 2026-09-17, item 3: the variable is
+    # read FIRST, before anything is built, and an unset one is a panic, never a
+    # silent skip. Its control is the run in test.log, which passed with the
+    # variable set; repeating that here would cost two more 4 GiB passes.
+    # specs/0001 "How this task runs": every negative test runs in a scratch copy
+    # "with the gate's built binaries copied in rather than rebuilt". An earlier
+    # version of this case ran `cargo test -p emend --no-run` in the MAIN working
+    # tree to learn the test binary's path. That is a build command in the very
+    # tree the rule keeps negative tests out of, and independent check 1 of this
+    # phase found it. The binary is located by glob instead and copied in; no
+    # cargo command runs here, in the main tree or anywhere else.
+    echo "command: for f in <repo>/target/debug/deps/emend-*; executable candidates only"
+    : >"$B/testbins"
+    for f in "$MAIN"/target/debug/deps/emend-*; do
+      [ -f "$f" ] && [ -x "$f" ] && printf '%s\n' "$f" >>"$B/testbins"
+    done
+    nbin=$(count_lines "$B/testbins")
+    echo "  executable candidates under target/debug/deps: $nbin"
+    # The gate ran `cargo clean` before building, so exactly one hash exists. More
+    # than one would make "the newest" a guess rather than an answer.
+    note "exactly one test binary candidate, so no choice is being made here" "$(is [ "$nbin" -eq 1 ])"
+    TESTBIN=$(head -n 1 "$B/testbins")
+    cp "$TESTBIN" "$B/clone-testbin" 2>/dev/null && chmod 755 "$B/clone-testbin"
+    if [ -x "$B/clone-testbin" ]; then
+      echo "  copied test binary: sha256 $(sha256sum <"$B/clone-testbin" | cut -d' ' -f1), bytes $(wc -c <"$B/clone-testbin")"
+    fi
+    note "the test binary was copied into <scratch>, not rebuilt" "$(is [ -x "$B/clone-testbin" ])"
+    mkdir -p "$B/x1tmp"
+    echo "command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <test binary> --ignored zip64 --test-threads=1"
+    ( cd "$B" && env -u EMEND_XLSX_DIFF TMPDIR="$B/x1tmp" "$B/clone-testbin" \
+        --ignored zip64 --test-threads=1 ) >"$B/X1.out" 2>"$B/X1.err"
+    x1rc=$?
+    echo "  exit: $x1rc"
+    hide <"$B/X1.out" | sed 's/^/    /'
+    hide <"$B/X1.err" | sed 's/^/    /'
+    x1_named=$(count_matches -F 'EMEND_XLSX_DIFF is unset' "$B/X1.out" "$B/X1.err")
+    x1_files=$(find "$B/x1tmp" -maxdepth 1 -name 'emend-4gib-*' | wc -l)
+    echo "  lines naming the unset variable: $x1_named; 4 GiB fixtures written: $x1_files"
+    note "X1 the run fails" "$(is [ "$x1rc" -ne 0 ])"
+    note "X1 it says which variable is unset" "$(is [ "$x1_named" -ge 1 ])"
+    note "X1 it wrote no fixture, so it failed before building one" "$(is [ "$x1_files" -eq 0 ])"
+    note "X1 the test was not reported as passing" \
+      "$(is [ "$(count_matches -E '^test result: ok\.' "$B/X1.out")" = 0 ])"
+    
+    echo
+    echo "## X2: a local zip64 extra field makes a replaced entry carry extra"
+    # THE MEASUREMENT BEHIND THIS PHASE'S SECOND FINDING. specs/0001 says nothing
+    # is called measured unless the log prints the measurement, and an earlier
+    # draft of the report quoted these bytes from a probe that no log recorded.
+    # Independent check 1 named that, correctly, so the probe runs here.
+    #
+    # Both archives are GENERATED, as everything in this log is. One has the
+    # target entry's LOCAL header carrying a zip64 extended information extra
+    # field (python's force_zip64); the control has none. Replacing the entry
+    # changes its compressed size. When that size is recorded INSIDE the local
+    # extra field, the harness's `extra` flag fires, because
+    # specs/0004-xlsx-diff.md compares that field raw; when it stands in the
+    # fixed local field, the change is reported by the status and by no flag.
+    # This is the same shape as the `descriptor` finding of specs/0008 ruling 7,
+    # reached through a different field, and it is why the 4 GiB fixture does not
+    # set large_file on its small entry.
+    cat >"$B/z64local.py" <<'Z64_PY'
+    import os, sys, zipfile
+    
+    w = sys.argv[1]
+    CT = b'<?xml version="1.0"?><Types xmlns="x"><Default Extension="xml" ContentType="a"/></Types>' * 4
+    WB = b'<?xml version="1.0"?><workbook><sheets><sheet name="S1" sheetId="1"/></sheets></workbook>'
+    
+    # force_zip64 puts a zip64 extended information extra field in the LOCAL
+    # header, which is the shape under test.
+    p = os.path.join(w, "withz64.xlsx")
+    with zipfile.ZipFile(p, "w", zipfile.ZIP_DEFLATED) as z:
+        with z.open("[Content_Types].xml", "w", force_zip64=True) as h:
+            h.write(CT)
+        z.writestr("xl/workbook.xml", WB, zipfile.ZIP_DEFLATED)
+    
+    p = os.path.join(w, "plain-local.xlsx")
+    with zipfile.ZipFile(p, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", CT, zipfile.ZIP_DEFLATED)
+        z.writestr("xl/workbook.xml", WB, zipfile.ZIP_DEFLATED)
+    
+    for name in ("withz64.xlsx", "plain-local.xlsx"):
+        print("%s: %d bytes" % (name, os.path.getsize(os.path.join(w, name))))
+    Z64_PY
+    echo "command: python3 <scratch>/z64local.py <scratch>"
+    python3 "$B/z64local.py" "$B" >"$B/z64local.out" 2>&1
+    zrc=$?
+    hide <"$B/z64local.out" | sed 's/^/    /'
+    note "the generator exits 0" "$(is [ "$zrc" -eq 0 ])"
+    rm -rf "$B/__pycache__"
+    
+    for f in withz64 plain-local; do
+      "$EC" "$B/$f.xlsx" "$B/$f.out.xlsx" --replace '[Content_Types].xml' >/dev/null 2>"$B/$f.ecerr"
+      erc=$?
+      "$XD" "$B/$f.xlsx" "$B/$f.out.xlsx" >"$B/$f.tsv" 2>"$B/$f.xderr"
+      drc=$?
+      st=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $3 }' "$B/$f.tsv")
+      fl=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $17 }' "$B/$f.tsv")
+      ar=$(awk -F'\t' '$1 == "archive" && $2 == "flagged" { print $3 }' "$B/$f.tsv")
+      echo "  $f: emend-copy exit $erc; xlsx-diff exit $drc; status [$st]; flags [$fl]; archive flagged $ar"
+      note "$f the copy succeeds" "$(is [ "$erc" -eq 0 ])"
+    done
+    x2_with_flags=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $17 }' "$B/withz64.tsv")
+    x2_plain_flags=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $17 }' "$B/plain-local.tsv")
+    note "X2 the entry with a local zip64 extra field carries exactly extra" "$(is [ "$x2_with_flags" = extra ])"
+    note "X2 the control, with no such field, carries no flag" "$(is [ -z "$x2_plain_flags" ])"
+    
+    # The bytes themselves, so the finding is a measurement in a log and not a
+    # recollection. A reader that uses neither the layer nor the harness.
+    cat >"$B/localextra.py" <<'LX_PY'
+    import os, struct, sys
+    
+    w = sys.argv[1]
+    TARGET = b"[Content_Types].xml"
+    
+    
+    def u16(b, a):
+        return struct.unpack_from("<H", b, a)[0]
+    
+    
+    def u32(b, a):
+        return struct.unpack_from("<I", b, a)[0]
+    
+    
+    def local_extra(path):
+        """The target entry's local extra field and its fixed size fields."""
+        b = open(path, "rb").read()
+        end = b.rfind(b"PK\x05\x06")
+        total, csize, coff = u16(b, end + 10), u32(b, end + 12), u32(b, end + 16)
+        at = end - csize
+        base = at - coff
+        for _ in range(total):
+            nl, el, cl = u16(b, at + 28), u16(b, at + 30), u16(b, at + 32)
+            if b[at + 46:at + 46 + nl] == TARGET:
+                lh = base + u32(b, at + 42)
+                lnl, lel = u16(b, lh + 26), u16(b, lh + 28)
+                return b[lh + 30 + lnl:lh + 30 + lnl + lel], u32(b, lh + 18), u32(b, lh + 22)
+            at += 46 + nl + el + cl
+        raise SystemExit("the target entry is not in %s" % os.path.basename(path))
+    
+    
+    for name in ("withz64", "plain-local"):
+        a = local_extra(os.path.join(w, name + ".xlsx"))
+        c = local_extra(os.path.join(w, name + ".out.xlsx"))
+        print("%s:" % name)
+        print("  input  local extra (%d bytes): %s" % (len(a[0]), a[0].hex() or "(none)"))
+        print("  output local extra (%d bytes): %s" % (len(c[0]), c[0].hex() or "(none)"))
+        print("  local fixed compressed-size field: input %d, output %d" % (a[1], c[1]))
+        print("  local extra field bytes equal: %s" % (a[0] == c[0]))
+    LX_PY
+    echo "command: python3 <scratch>/localextra.py <scratch>"
+    python3 "$B/localextra.py" "$B" >"$B/localextra.out" 2>&1
+    lrc=$?
+    hide <"$B/localextra.out" | sed 's/^/    /'
+    rm -rf "$B/__pycache__"
+    note "the local extra field reader exits 0" "$(is [ "$lrc" -eq 0 ])"
+    note "X2 the zip64 case's local extra field bytes CHANGED" \
+      "$(is [ "$(count_matches -F 'local extra field bytes equal: False' "$B/localextra.out")" = 1 ])"
+    note "X2 the control's local extra field bytes did not, there being none" \
+      "$(is [ "$(count_matches -F 'local extra field bytes equal: True' "$B/localextra.out")" = 1 ])"
+    
+    echo
+    echo "## emend-copy: --replace exit codes and refusals on generated archives"
+    # ec_case <label> <expected exit> <expected stderr, empty for none> <args...>
+    # The whole stderr line is compared, not its "error: " prefix.
+    ec_case() {
+      local label=$1 expect_rc=$2 expect_err=$3
+      shift 3
+      "$EC" "$@" >"$B/$label.out" 2>"$B/$label.err"
+      local rc=$?
+      local errlines got
+      errlines=$(count_lines "$B/$label.err")
+      got=$(cat "$B/$label.err")
+      echo "  $label: exit $rc; stderr lines $errlines"
+      hide <"$B/$label.err" | sed 's/^/      /'
+      ec_ok() {
+        [ "$rc" -eq "$expect_rc" ] || return 1
+        [ "$got" = "$expect_err" ] || return 1
+        if [ -z "$expect_err" ]; then [ "$errlines" = 0 ]; else [ "$errlines" = 1 ]; fi
+      }
+      local said
+      if [ -z "$expect_err" ]; then
+        said="and says nothing on stderr"
+      else
+        said="and stderr is exactly the expected line"
+      fi
+      note "$label exits $expect_rc $said" "$(is ec_ok)"
+    }
+    
+    # The usage text is READ from the committed source at run time, never typed
+    # here, so this log cannot keep passing against a string the tool no longer
+    # prints.
+    USAGE=$(sed -n 's/^const USAGE: &str = "\(.*\)";$/\1/p' "$MAIN/tools/emend-copy/src/main.rs")
+    echo "command: sed -n 's/^const USAGE...//p' tools/emend-copy/src/main.rs"
+    echo "  usage text read from the source: [$USAGE]"
+    note "the usage text was read from the tool's source and names --replace" \
+      "$(is [ -n "$USAGE" ] && [ "$(printf '%s' "$USAGE" | LC_ALL=C "$G" -c -F -e '--replace')" = 1 ])"
+    
+    echo "E1: a replace of an entry that is present"
+    ec_case E1 0 "" "$B/sound.xlsx" "$B/out-E1.xlsx" --replace '[Content_Types].xml'
+    e1_diff=0
+    if [ -f "$B/out-E1.xlsx" ]; then
+      "$XD" "$B/sound.xlsx" "$B/out-E1.xlsx" >"$B/E1.tsv" 2>"$B/E1.differr"; e1_diff=$?
+    fi
+    echo "  E1 xlsx-diff exit: $e1_diff"
+    e1_status=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $3 }' "$B/E1.tsv")
+    e1_flags=$(awk -F'\t' '$1 == "entry" && $2 == "[Content_Types].xml" { print $17 }' "$B/E1.tsv")
+    e1_other=$(awk -F'\t' '$1 == "entry" && $2 != "[Content_Types].xml" && $3 != "identical" { n++ } END { print n + 0 }' "$B/E1.tsv")
+    e1_otherflag=$(awk -F'\t' '$1 == "entry" && $2 != "[Content_Types].xml" && $17 != "" { n++ } END { print n + 0 }' "$B/E1.tsv")
+    echo "  E1 the replaced entry: status [$e1_status], flags [$e1_flags]"
+    echo "  E1 other entries not identical: $e1_other; other entries carrying a flag: $e1_otherflag"
+    # The generated fixture stores this entry, so a replacement re-stores it and
+    # the bytes come back the same: identical, which the P2 text allows. What must
+    # hold in every case is that the entry is not `changed` and carries no flag,
+    # and that no other entry moved.
+    e1_ok() {
+      { [ "$e1_status" = identical ] || [ "$e1_status" = recompressed ]; } &&
+        [ -z "$e1_flags" ] && [ "$e1_other" -eq 0 ] && [ "$e1_otherflag" -eq 0 ]
+    }
+    note "E1 the replaced entry is identical or recompressed and unflagged, and no other entry changed" "$(is e1_ok)"
+    
+    echo "E2: --replace naming an entry the archive does not hold"
+    ec_case E2 2 'error: the archive has no entry with that name' "$B/sound.xlsx" "$B/out-E2.xlsx" --replace 'absent.xml'
+    note "E2 no output file was left" "$(is [ ! -e "$B/out-E2.xlsx" ])"
+    
+    echo "E3: --replace with no value"
+    ec_case E3 2 "error: $USAGE" "$B/sound.xlsx" "$B/out-E3.xlsx" --replace
+    
+    echo "E4: an unknown flag in the fourth position"
+    ec_case E4 2 "error: $USAGE" "$B/sound.xlsx" "$B/out-E4.xlsx" --remove '[Content_Types].xml'
+    
+    echo "E5: a file that is not a zip archive, with --replace"
+    ec_case E5 2 'error: no end-of-central-directory record: not a zip archive' "$B/notzip.xlsx" "$B/out-E5.xlsx" --replace '[Content_Types].xml'
+    note "E5 no output file was left" "$(is [ ! -e "$B/out-E5.xlsx" ])"
+    
+    echo "E6: five arguments"
+    ec_case E6 2 "error: $USAGE" "$B/sound.xlsx" "$B/out-E6.xlsx" --replace a b
+    
+    echo "E7: an output directory that does not exist, with --replace"
+    ec_case E7 2 'error: cannot create the output file: entity not found' "$B/sound.xlsx" "$B/no-such-directory/out.xlsx" --replace '[Content_Types].xml'
+    
+    echo "E8: a no-edit copy still round-trips byte for byte"
+    ec_case E8 0 "" "$B/sound.xlsx" "$B/out-E8.xlsx"
+    e8_same=$(cmp -s "$B/sound.xlsx" "$B/out-E8.xlsx" && echo yes || echo no)
+    echo "  E8 the output is byte-identical to the input: $e8_same"
+    note "E8 a no-edit copy is byte-identical" "$(is [ "$e8_same" = yes ])"
+    
+    echo "E9: --replace on an entry whose method is neither stored nor deflate"
+    # WHERE THE REFUSAL COMES FROM, because it matters to what this case proves.
+    # emend-copy extracts the entry's bytes BEFORE it creates the output
+    # temporary, so the zip crate's refusal to decompress method 12 arrives
+    # first, and the writer's own refusal of such an entry (the layer's `plan`)
+    # is not what is exercised here. The output file therefore never exists in
+    # this case rather than being created and removed. specs/0008's P2 list asks
+    # for "a replacement error leaves no output file"; every replacement failure
+    # emend-copy can reach lands before the output file is created, which is a
+    # property of that ordering and not something this log contrives.
+    ec_case E9 2 'error: unsupported zip feature: an entry the zip crate could not decompress' \
+      "$B/badmethod.xlsx" "$B/out-E9.xlsx" --replace '[Content_Types].xml'
+    note "E9 no output file was left" "$(is [ ! -e "$B/out-E9.xlsx" ])"
+    
+    echo "E9c: the control, the same archive copied with no edit"
+    ec_case E9c 0 "" "$B/badmethod.xlsx" "$B/out-E9c.xlsx"
+    e9_same=$(cmp -s "$B/badmethod.xlsx" "$B/out-E9c.xlsx" && echo yes || echo no)
+    echo "  E9c the no-edit copy is byte-identical: $e9_same"
+    note "E9c an entry the layer will not decode still copies verbatim" "$(is [ "$e9_same" = yes ])"
+    
+    echo
+    echo "## no temporary of either kind survived any refusal"
+    # emend-copy's own, beside the output, and the layer's, under the temporary
+    # directory (the P2 rulings of 2026-09-17, item 4).
+    ectmp=$(find "$B" -maxdepth 2 -name '.*.emend-copy*.tmp' | wc -l)
+    laytmp=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'emend-replace-*.tmp' -newer "$B/gen.py" 2>/dev/null | wc -l)
+    echo "  emend-copy temporaries left in <scratch>: $ectmp"
+    echo "  layer replacement temporaries newer than this run's start: $laytmp"
+    note "no emend-copy temporary survived" "$(is [ "$ectmp" -eq 0 ])"
+    note "no layer replacement temporary survived" "$(is [ "$laytmp" -eq 0 ])"
+    
+    echo
+    echo "## the main working tree was never used"
+    st_all=$(run_lines git -C "$MAIN" status --porcelain)
+    st_log=$(run_matches -E 'records/logs/m1p1-p2|records/m1p1-p2-' git -C "$MAIN" status --porcelain)
+    echo "status lines in the main tree: $st_all; of them under the phase log directory or the record pair: $st_log"
+    main_untouched() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "every change in the main tree is under the phase's log directory" "$(is main_untouched)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the scratch clone and the gate's binaries
+command: git clone --quiet --shared <repo> <scratch>/clone
+  clone HEAD: ac1bd12a8004740b66665f248f99d534dbd4d273
+  the clone is at the phase commit: as-expected
+  copied target/debug/emend-copy: sha256 77ee4df59d4fcf1e0418b8806c21bed6e0760681b3642cef182e03b0ba8bb925, bytes 12077504
+  copied target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
+  copied target/i686-unknown-linux-musl/debug/emend-copy: sha256 a46515c858c5d60b983ef2f556910fe3052d2c7d2ad7ad49d5aca1f09c3aa7d7, bytes 10764480
+  copied target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db, bytes 9524216
+  all four binaries were copied in and are executable: as-expected
+  (gate.log prints these same four hashes; nothing is rebuilt here)
+  every command below runs in <scratch>/clone
+
+## the generated corpus
+command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
+    sound: 586 bytes
+    notzip: 208 bytes
+    badmethod: 586 bytes
+    corpus entry a5a6d645c82b: 586 bytes
+  the generator exits 0: as-expected
+
+## the stand-in tool that reports its arguments
+  the stand-in is executable: as-expected
+
+## R1: --tool-arg as the last word is refused
+command: scripts/passthrough-run.sh ... --out <scratch>/run-R1 --tool-arg
+  exit: 2
+    error: --tool-arg needs a value; usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>] [--tool-arg <arg>]...
+  stderr lines matching the usage refusal: 1
+  R1 exits 2: as-expected
+  R1 refuses with the usage line: as-expected
+  R1 wrote no run row: as-expected
+
+## R2: the values reach the tool, after the output path, in order
+command: scripts/passthrough-run.sh ... --out <scratch>/run-R2 --tool-arg --replace --tool-arg '[Content_Types].xml'
+  exit: 0
+  the stand-in's captured stdout, which is its argument count and then every argument after the second:
+    4
+    --replace
+    [Content_Types].xml
+  R2 the run exits 0: as-expected
+  R2 the tool received four arguments: as-expected
+  R2 the third argument is --replace: as-expected
+  R2 the fourth is the entry name: as-expected
+  R2 the tool printed nothing else: as-expected
+
+## R2 control: no --tool-arg, so the tool receives two arguments and nothing more
+  exit: 0
+    2
+  R2c the run exits 0: as-expected
+  R2c the tool received two arguments: as-expected
+  R2c the tool printed one line, so no argument followed: as-expected
+
+## R3: a value holding a tab or a newline is refused
+  R3 tab: exit 2; stderr lines matching the refusal: 1
+  R3 tab exits 2 with the refusal: as-expected
+  R3 tab wrote no run row: as-expected
+  R3 newline: exit 2; stderr lines matching the refusal: 1
+  R3 newline exits 2 with the refusal: as-expected
+  R3 newline wrote no run row: as-expected
+
+## R4: the tool_args column of R2's run row and of its control's
+  R2 run.host.tsv header, from passthrough_sha256 on: passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  R2 run.host.tsv row, from passthrough_sha256 on:    891462f7d71b22e7fea93e53ce3523cae8abc1dbbbd82c6250f6964178f3ca1d	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1	--replace [Content_Types].xml
+  R2 tool_args column: [--replace [Content_Types].xml]
+  R2c run.host.tsv header, from passthrough_sha256 on: passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  R2c run.host.tsv row, from passthrough_sha256 on:    891462f7d71b22e7fea93e53ce3523cae8abc1dbbbd82c6250f6964178f3ca1d	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	1	
+  R2c tool_args column: []
+  R4 the header's last column is tool_args: as-expected
+  R4 R2's tool_args holds the two values joined by one space: as-expected
+  R4 the control's tool_args is empty: as-expected
+
+## R5: the record script on those run directories
+command: scripts/passthrough-record.py --run <scratch>/run-R2 --out <scratch> --stem r5 --allow-single
+    wrote r5.txt and r5.md: labels host; files 1; entry rows 2
+  the Tool arguments line the record carries: [- Tool arguments: --replace [Content_Types].xml]
+  R5 the record script exits 0: as-expected
+  R5 the record names the tool arguments: as-expected
+R5b: a run directory whose run.<label>.tsv carries the OLD header
+    error: run.host.tsv does not start with the expected header
+  R5b exits 2: as-expected
+  R5b says the header is not the expected one: as-expected
+  R5b wrote no record: as-expected
+R5c: two run rows that disagree on the tool arguments
+    error: the run rows disagree on the tool arguments
+  R5c exits 2: as-expected
+  R5c says the run rows disagree: as-expected
+  R5c wrote no record: as-expected
+
+## X1: the 4 GiB test with EMEND_XLSX_DIFF unset fails before it writes a file
+command: for f in <repo>/target/debug/deps/emend-*; executable candidates only
+  executable candidates under target/debug/deps: 1
+  exactly one test binary candidate, so no choice is being made here: as-expected
+  copied test binary: sha256 57c91aae9e8601bde0c120e5ef9a4b701af0076f82dfbdd4ae39568582d0ba6c, bytes 15899344
+  the test binary was copied into <scratch>, not rebuilt: as-expected
+command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <test binary> --ignored zip64 --test-threads=1
+  exit: 101
+    
+    running 1 test
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... FAILED
+    
+    failures:
+    
+    ---- archive::tests::zip64_replace_in_an_archive_over_4_gib stdout ----
+    
+    thread 'archive::tests::zip64_replace_in_an_archive_over_4_gib' (1929517) panicked at crates/emend/src/archive/tests.rs:1786:9:
+    EMEND_XLSX_DIFF is unset; it must name the xlsx-diff binary of this target
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+    
+    
+    failures:
+        archive::tests::zip64_replace_in_an_archive_over_4_gib
+    
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 55 filtered out; finished in 0.00s
+    
+  lines naming the unset variable: 1; 4 GiB fixtures written: 0
+  X1 the run fails: as-expected
+  X1 it says which variable is unset: as-expected
+  X1 it wrote no fixture, so it failed before building one: as-expected
+  X1 the test was not reported as passing: as-expected
+
+## X2: a local zip64 extra field makes a replaced entry carry extra
+command: python3 <scratch>/z64local.py <scratch>
+    withz64.xlsx: 413 bytes
+    plain-local.xlsx: 393 bytes
+  the generator exits 0: as-expected
+  withz64: emend-copy exit 0; xlsx-diff exit 1; status [recompressed]; flags [extra]; archive flagged 1
+  withz64 the copy succeeds: as-expected
+  plain-local: emend-copy exit 0; xlsx-diff exit 1; status [recompressed]; flags []; archive flagged 0
+  plain-local the copy succeeds: as-expected
+  X2 the entry with a local zip64 extra field carries exactly extra: as-expected
+  X2 the control, with no such field, carries no flag: as-expected
+command: python3 <scratch>/localextra.py <scratch>
+    withz64:
+      input  local extra (20 bytes): 0100100060010000000000005300000000000000
+      output local extra (20 bytes): 0100100060010000000000005700000000000000
+      local fixed compressed-size field: input 4294967295, output 4294967295
+      local extra field bytes equal: False
+    plain-local:
+      input  local extra (0 bytes): (none)
+      output local extra (0 bytes): (none)
+      local fixed compressed-size field: input 83, output 87
+      local extra field bytes equal: True
+  the local extra field reader exits 0: as-expected
+  X2 the zip64 case's local extra field bytes CHANGED: as-expected
+  X2 the control's local extra field bytes did not, there being none: as-expected
+
+## emend-copy: --replace exit codes and refusals on generated archives
+command: sed -n 's/^const USAGE...//p' tools/emend-copy/src/main.rs
+  usage text read from the source: [usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name>]]
+  the usage text was read from the tool's source and names --replace: as-expected
+E1: a replace of an entry that is present
+  E1: exit 0; stderr lines 0
+  E1 exits 0 and says nothing on stderr: as-expected
+  E1 xlsx-diff exit: 0
+  E1 the replaced entry: status [identical], flags []
+  E1 other entries not identical: 0; other entries carrying a flag: 0
+  E1 the replaced entry is identical or recompressed and unflagged, and no other entry changed: as-expected
+E2: --replace naming an entry the archive does not hold
+  E2: exit 2; stderr lines 1
+      error: the archive has no entry with that name
+  E2 exits 2 and stderr is exactly the expected line: as-expected
+  E2 no output file was left: as-expected
+E3: --replace with no value
+  E3: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name>]
+  E3 exits 2 and stderr is exactly the expected line: as-expected
+E4: an unknown flag in the fourth position
+  E4: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name>]
+  E4 exits 2 and stderr is exactly the expected line: as-expected
+E5: a file that is not a zip archive, with --replace
+  E5: exit 2; stderr lines 1
+      error: no end-of-central-directory record: not a zip archive
+  E5 exits 2 and stderr is exactly the expected line: as-expected
+  E5 no output file was left: as-expected
+E6: five arguments
+  E6: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name>]
+  E6 exits 2 and stderr is exactly the expected line: as-expected
+E7: an output directory that does not exist, with --replace
+  E7: exit 2; stderr lines 1
+      error: cannot create the output file: entity not found
+  E7 exits 2 and stderr is exactly the expected line: as-expected
+E8: a no-edit copy still round-trips byte for byte
+  E8: exit 0; stderr lines 0
+  E8 exits 0 and says nothing on stderr: as-expected
+  E8 the output is byte-identical to the input: yes
+  E8 a no-edit copy is byte-identical: as-expected
+E9: --replace on an entry whose method is neither stored nor deflate
+  E9: exit 2; stderr lines 1
+      error: unsupported zip feature: an entry the zip crate could not decompress
+  E9 exits 2 and stderr is exactly the expected line: as-expected
+  E9 no output file was left: as-expected
+E9c: the control, the same archive copied with no edit
+  E9c: exit 0; stderr lines 0
+  E9c exits 0 and says nothing on stderr: as-expected
+  E9c the no-edit copy is byte-identical: yes
+  E9c an entry the layer will not decode still copies verbatim: as-expected
+
+## no temporary of either kind survived any refusal
+  emend-copy temporaries left in <scratch>: 0
+  layer replacement temporaries newer than this run's start: 0
+  no emend-copy temporary survived: as-expected
+  no layer replacement temporary survived: as-expected
+
+## the main working tree was never used
+status lines in the main tree: 3; of them under the phase log directory or the record pair: 3
+  every change in the main tree is under the phase's log directory: as-expected
+run ended at 2026-09-17T13:12:38Z
+negative log checks all as expected: yes
