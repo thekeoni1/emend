@@ -1,7 +1,9 @@
 # 0008: Milestone 1 part 1, the zip layer
 
-Status: P1 READY (planning draft 2026-09-16; approved by the maintainer
-the same day; entered the repository with T6 P1's verification).
+Status: P1 DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code
+e14dbee, cb2b4da; record ff92a11); P2 READY. Planning draft
+2026-09-16; approved by the maintainer the same day; entered the
+repository with T6 P1's verification.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `records/decision-architecture.md`, `ROADMAP.md` ("Milestone 1"),
 `specs/0004-xlsx-diff.md` (the harness's rows, flags and exit status),
@@ -171,9 +173,13 @@ only the passthrough tool's temporary name until the P1 ruling in
 one change the corpus runs use it with `tools/emend-copy`
 (`emend-copy <in> <out> [--replace <name>]`, exit 0 or 2, errors on
 stderr as `error: ...`; its temporary is
-`.<name>.emend-copy-<pid>.tmp`). The record script
-writes the records with `--stem`. Raw outputs stay under the corpus
-directory's `runs/`.
+`.<name>.emend-copy-<pid>.tmp`). `--replace <name>` reaches the tool
+through the runner's `--tool-arg <arg>` (repeatable, appended after
+the output path; the Milestone 1 part 1 P2 ruling in
+`specs/0006-passthrough.md`), and the run row's `tool_args` column and
+the record's `Tool arguments:` line say which arguments a run was made
+with. The record script writes the records with `--stem`. Raw outputs
+stay under the corpus directory's `runs/`.
 
 ## Phases
 
@@ -293,18 +299,139 @@ record"). Python's zipfile reads all four fixtures.
    item is not claimed closed in full: the runner's `|| die` half
    stays open.
 
+### Planning rulings on P1 (2026-09-17, verification)
+
+Verified from primaries at ff92a11: the six commits and their messages
+(ASCII, Co-Authored-By last); all nine record files at the hashes the
+report gave; the repair diff cb2b4da against rulings 1, 2 and 4 (the
+offset base separated from the prefix length, the zip64 end record
+found by its signature and its base required to agree, the heap
+buffer, the crate's archive built on the first `read`, the reader
+returned plain by `write_to`); the four rerun headers naming the log
+each replaces by sha256 and the state it ran at; `scan.log` last,
+hashing the four sibling logs, both answers and the record pair at
+their committed bytes, 22 files through the bare-shape control; the
+runs serialized (gate 01:23Z, test 01:24Z, negative 01:25Z, run
+01:25 to 01:30Z, scan 01:32Z). `negative.log` P1 to P4 measure the
+defect and the fix with the binary from e14dbee and the repaired one
+(129 to 113 and 205 to 189 bytes before, the relative zip64 form
+refused; all four identical after). Both check answers' bodies hash
+to the answers as first written (89ed8f91..., 8990b660...).
+
+Planning's own runs at ff92a11: the full gate (eight PASS, exit 0,
+empty stderr); `scripts/privacy.sh --range 6f4764d..HEAD` (6 commits,
+264 blobs, 0 findings); the crate's 33 tests on the host; the four
+fixtures planning built for the defect ruling, through a fresh build
+of the tool (sha256 c03d6058..., the hash `gate.log` records): all
+four byte-identical, 129 and 217 bytes; a recount of the record's
+`.txt` by section and label: 27 files per label, every outcome `ok`,
+`files_identical` `yes`, `leftover` `no`, `lo` and `lo_in` `ok`, diff
+exit 0; 870 entry rows per label, every status `identical`, no
+non-empty flags column. Against the T3 P4 baseline (870 flagged per
+label, no file identical) this is the result the verbatim-span design
+exists for. P1's acceptance holds on both targets.
+
+Residues, accepted as recorded:
+
+- The check answers' committed layout departs from
+  `specs/0001-bootstrap.md` item 3: a NOTE block written at commit
+  time, no `---` separator, and the input table with its sha256s
+  written by the checker inside the answer rather than by the
+  implementing session in the header. The bodies are verbatim and
+  hash to the originals. From P2 the prescribed layout is used: the
+  implementing session's header (checked commit, HEAD, each input
+  with its sha256), a `---` line, then the answer.
+- The zip64 end record is searched for within 64 KiB before the
+  locator (`MAX_ZIP64_SCAN`), so an extensible data sector larger than
+  that is refused as "a zip64 locator without its record". A
+  documented limit, into P3's error catalogue with its own wording.
+- The design line "a reader is wrapped with `io::copy`" (Replacement)
+  is not delivered in P1, which consumes no Replacement; it is P2 work
+  and P2's list below names it (check 1 gap 12).
+- The runner's `|| die` guards still have no negative case; the
+  stale-temporary half of that backlog item is closed by `negative.log`
+  L4, and `ROADMAP.md` says so.
+
+P1 is DONE.
+
 ### P2: replace, remove, add
 
-`Edits` in full; `--replace <name>` in `emend-copy` replaces the named
+`Edits` in full, with the `io::copy` wrapper that turns a reader into
+a `Replacement`; `--replace <name>` in `emend-copy` replaces the named
 entry with its own decompressed bytes. Tests: the descriptor form kept;
 zip64 sizes on a replaced entry; a stored original; a deflated
 original; remove; add; order preserved around a removed and an added
 entry; a replacement error leaves no output file; the ignored 4 GiB
-case on both targets. The corpus run replaces `[Content_Types].xml` in
-every file: expected `recompressed` (or `identical`) with an empty
-flags column for that entry, every other entry `identical` unflagged,
-`lo` and `lo_in` `ok`, recorded as `records/m1p1-p2-<utc-date>-
-<shortsha>.md` and `.txt`.
+case on both targets; and, because P1's defect was a convention the
+corpus never exercises, every edit test that moves an entry runs on a
+fixture built in BOTH offset conventions from an explicit parameter,
+with the output's offsets checked to keep the input's convention and
+the output read back by an independent reader (the harness, or a
+generated-fixture parser in the test that shares no code with the
+layer). The corpus run replaces `[Content_Types].xml` in every file:
+expected `recompressed` (or `identical`) with an empty flags column
+for that entry, every other entry `identical` unflagged, `lo` and
+`lo_in` `ok`, recorded as `records/m1p1-p2-<utc-date>-<shortsha>.md`
+and `.txt`. The check answers use the layout `specs/0001-bootstrap.md`
+prescribes.
+
+### Planning rulings before P2 (2026-09-17)
+
+Given on the implementing session's questions before any P2 run.
+
+1. The runner cannot pass `--replace` to the tool. The departure,
+   `--tool-arg <arg>` with a `tool_args` run-row column and a
+   `Tool arguments:` record line, is ruled in
+   `specs/0006-passthrough.md` ("Planning ruling for Milestone 1
+   part 1 P2"), with its negative cases R1 to R5. P2's corpus run is
+   the runner with `--tool-arg --replace --tool-arg
+   '[Content_Types].xml'`; the runner and record-script hunks go into
+   P2's code commit and the report names them.
+2. The doc commit is one commit of three files, `ROADMAP.md`,
+   `specs/0006-passthrough.md` and `specs/0008-zip-layer.md`, made
+   before the code commit. (P1 had two because its second ruling came
+   after the first was committed.)
+3. The ignored 4 GiB case is the layer's own test in `crates/emend`,
+   not a rerun of the harness's, which belongs to `tools/xlsx-diff`
+   and reruns on the harness's size code. Its shape: an archive over
+   4 GiB on disk holding a stored entry of 4 GiB + 1 zero bytes and
+   then a small deflated entry, so that the second entry's offset and
+   the central directory's need the zip64 forms at real size; built
+   as the harness's was (the crate's writer with `large_file(true)`)
+   or byte by byte. The small entry is replaced and the large one is
+   copied verbatim. The test asserts the output's zip64 fields and
+   the second entry's offset over 4 GiB, and the output is read back
+   by `xlsx-diff` (the large entry `identical`, the small one
+   `recompressed` or `changed`, both unflagged). Run explicitly on
+   both targets with the test binary under `/usr/bin/time -v`, as
+   T1 P4 ran the harness's, with the output, wall time and peak RSS
+   in `test.log`, peak RSS under 64 MiB. The files go where
+   `std::env::temp_dir()` points, and the run sets `TMPDIR` to a
+   directory on a disk-backed file system, named in the log only as
+   `<scratch>` with its type from `df --output=fstype`: two archives
+   over 4 GiB would take 8 GiB of the 11 GiB RAM-backed tmpfs at
+   `/tmp`. The test removes its files.
+4. The layer's replacement temporary is a file under
+   `std::env::temp_dir()`, so `TMPDIR` is honoured: opened with
+   `create_new` and mode 0600 under a name holding the process id and
+   a counter, removed on every exit path, error and unwinding
+   included. The "a replacement error leaves no output file" test
+   also asserts that no temporary of that name form remains. No crate
+   is added for this. `emend-copy`'s own temporary beside the output
+   is a different file and stays as P1 made it.
+5. `[Content_Types].xml` coming back `identical` from the corpus run
+   is not a failure and not a finding: a re-deflation can reproduce
+   the original bytes, which is why the P2 text says "(or
+   identical)". The report counts `recompressed` and `identical` for
+   that entry per label. All 27 `identical` on a label WOULD be a
+   finding, since it would say the replacement path did not run. The
+   expected diff exit for a file with a `recompressed` entry is 1 and
+   its `files_identical` is `no` (`specs/0004-xlsx-diff.md`, "Exit
+   status"); `identical` throughout gives 0 and `yes`.
+6. The record pair is `records/m1p1-p2-<utc-date>-<shortsha>.md` and
+   `.txt` through `--stem`, the logs under `records/logs/m1p1-p2/`,
+   the check answers in the `specs/0001-bootstrap.md` item 3 layout,
+   as the P2 text says.
 
 ### P3: size and the budget
 

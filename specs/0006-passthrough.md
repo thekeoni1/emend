@@ -75,11 +75,15 @@ pipefail`, `/usr/bin/grep` explicitly. Arguments: `--label <host|i686>`,
 `EMEND_CORPUS_DIR`, then `$HOME/emend-testing`), `--out <dir>`
 (default `<corpus>/runs/<utc-date>-<shortsha>`), `--timeout <secs>`
 (default 300), `--memory <MiB>` (default 2048, as a `ulimit -v` on the
-child), `--ids <file>` (optional; one id per line, for a subset).
+child), `--ids <file>` (optional; one id per line, for a subset). From
+Milestone 1 part 1 P2, `--tool-arg <arg>` (repeatable; each value is
+passed to the tool after the output path, in the order given, and the
+next word is always the value; a value holding a tab or a newline is
+refused, since it goes into a run row).
 
 For every manifest row (or every listed id), in manifest order:
 1. `mkdir -p <out>/<id>`; the input is `<corpus>/corpus/<id>.<ext>`.
-2. Runs `timeout --signal=KILL <secs> /usr/bin/time -v -o <out>/<id>/time.<label>.txt <passthrough> <input> <out>/<id>/out.<label>.<ext>` with
+2. Runs `timeout --signal=KILL <secs> /usr/bin/time -v -o <out>/<id>/time.<label>.txt <passthrough> <input> <out>/<id>/out.<label>.<ext> [<tool args>]` with
    the memory limit, stdin closed, stdout and stderr captured to files.
 3. Classifies the outcome from GNU time's report, with `time` outside
    `timeout` so the timeout's kill reaches the tool (P1 departure 4):
@@ -105,6 +109,13 @@ For every manifest row (or every listed id), in manifest order:
 `diff_exit`, then the `archive` row values `identical`, `recompressed`,
 `changed`, `dropped`, `added`, `flagged`, `order_preserved`,
 `comment_equal`, `files_identical`. Empty where not applicable.
+
+Each invocation also appends one row to `<out>/run.<label>.tsv`:
+`commit`, `started`, `ended`, `rustc`, `zip`, `timeout_s`,
+`lo_timeout_s`, `memory_mib`, `passthrough_sha256`, `xlsx_diff_sha256`,
+`files` and, from Milestone 1 part 1 P2, `tool_args`, the tool
+arguments joined by single spaces, empty when there are none. The
+record script reads that row for the record's header.
 
 The runner prints one line per file to stdout, `id label outcome
 diff_exit wall_s peak_rss_kb`, and a final `files N ok N error N timeout
@@ -134,7 +145,11 @@ writes:
   archive row values that differ from the expectation.
 
 The record cites a workbook only by id, producer and tags. Entry names
-appear as the harness prints them.
+appear as the harness prints them. From Milestone 1 part 1 P2 the `.md`
+header carries a `Tool arguments:` line, `none` when the run rows'
+`tool_args` are empty, and the script refuses a run directory whose
+run rows disagree on the tool arguments, since their results would not
+be one run's.
 
 ### Size baseline
 
@@ -591,6 +606,69 @@ Ruling, given before any run:
   closes the "stale-temporary-file removal has no negative case" item
   of the passthrough backlog on `ROADMAP.md`. No fault hook is added
   to `emend-copy` for this; the stand-in exercises the runner.
+
+### Planning ruling for Milestone 1 part 1 P2 (2026-09-17): tool-arg
+
+The implementing session found, before any P2 run, that the runner
+passes the tool exactly two arguments (line 312, `"$PT" "$input"
+"$output"`), while `specs/0008-zip-layer.md` fixes the tool's CLI as
+`emend-copy <in> <out> [--replace <name>]` and P2's corpus run needs
+the flag. Neither spec said how the flag reaches the tool. Planning
+verified the line and the absence.
+
+Ruling, given before any run:
+
+- Departure approved: `--tool-arg <arg>`, repeatable, each value
+  appended to the child's command line after the output path in the
+  order given, the next word always taken as the value (so
+  `--tool-arg --replace` passes `--replace`). A value holding a tab or
+  a newline is refused as an argument error, because it goes into a
+  run row. No other change to how the child is run. A wrapper script
+  given through `--passthrough` was refused because
+  `passthrough_sha256` would then hash the wrapper, not the tool under
+  test; an environment variable read by the tool was refused because
+  a stray value would change a corpus run silently.
+- The run row gains a last column, `tool_args`, the values joined by
+  single spaces, empty when there are none; the record's `.md` header
+  gains a `Tool arguments:` line from it (`none` when empty); the
+  record script refuses a run directory whose run rows disagree on
+  the tool arguments. Records written before the column (step zero,
+  Milestone 1 part 1 P1) stand as written; the record script no
+  longer reads a run directory with the old header.
+- Neither script is a gate file: no self-test run; `gate.log` lists
+  the gate files checked. Both hunks go into P2's code commit and the
+  report names them. This spec, `specs/0008` and `ROADMAP.md` carry
+  the ruling in P2's one doc commit, made before the code commit.
+- P2's `negative.log` shows the departure working, in a scratch clone
+  with the built binaries copied in and a generated corpus, as P1's
+  L1 to L4 did, each case with its control:
+  - R1: `--tool-arg` as the last word is refused with the usage line
+    (exit 2, no run row).
+  - R2: a stand-in tool given through `--passthrough` copies its first
+    argument to its second and prints to stdout the count of its
+    arguments and then every argument after the second, one per line;
+    run with `--tool-arg --replace --tool-arg '[Content_Types].xml'`,
+    the captured stdout reads `4`, `--replace`, `[Content_Types].xml`;
+    run with no `--tool-arg` it reads `2` alone (the control). The
+    stand-in never prints its first two arguments, so no corpus path
+    reaches the log.
+  - R3: a value holding a tab and one holding a newline are each
+    refused (exit 2, no run row).
+  - R4: the `tool_args` column of R2's run row and of its control's,
+    quoted from the `passthrough_sha256` column on.
+  - R5: the record script on R2's run directory writes the `Tool
+    arguments:` line (quoted); on a run directory whose
+    `run.<label>.tsv` carries the old header it is refused; on one
+    whose two run rows disagree it is refused; each with its message.
+  The corpus run itself is the proof that the flag reaches
+  `emend-copy`: `[Content_Types].xml` `recompressed` in the files.
+- Planning's own fault, repaired in P2's doc commit: the doc commit
+  791d0d7 that added the leftover-glob ruling above replaced this
+  spec's `## Out of scope` heading with the ruling's text, so the
+  three bullets below stood under the ruling. The heading is
+  restored.
+
+## Out of scope
 
 - Any edit to a workbook. T3 copies only.
 - Excel checks (maintainer ruling 3).

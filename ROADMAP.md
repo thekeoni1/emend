@@ -174,8 +174,8 @@ the part; the close-out push follows P3.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `Archive`, `Entry`, `Edits`, `Error`; open, index, verbatim write with empty edits; byte-built unit tests on both targets; `tools/emend-copy`; the corpus run on both targets recorded as `records/m1p1-p1-<date>-<sha>.md` and `.txt`, every entry `identical` and unflagged, `files_identical` `yes` | READY |
-| P2 | replace, remove, add; `--replace <name>`; the corpus run replacing `[Content_Types].xml` | PLANNED |
+| P1 | `Archive`, `Entry`, `Edits`, `Error`; open, index, verbatim write with empty edits; byte-built unit tests on both targets; `tools/emend-copy`; the corpus run on both targets recorded as `records/m1p1-p1-<date>-<sha>.md` and `.txt`, every entry `identical` and unflagged, `files_identical` `yes` | DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code e14dbee, cb2b4da; record ff92a11) |
+| P2 | replace, remove, add; the `io::copy` Replacement wrapper; `--replace <name>`; the runner's `--tool-arg` and the record's `Tool arguments:` line; edit tests in both offset conventions; the ignored 4 GiB case; the corpus run replacing `[Content_Types].xml` | READY |
 | P3 | `probe-emend-copy` and the size record with both deltas; the maintainer re-rules the budget | PLANNED |
 | Close | close-out push after P3, as T2's | PLANNED |
 
@@ -202,8 +202,9 @@ approval.
   - The single-field zip64 placeholder fixtures use a field layout the
     zip specification does not describe (T1 P6 gap 4).
   - A tautological precondition in `tests/p6.rs` (T1 P6 gap 5).
-- Passthrough backlog (T3 P2 gaps): the runner's `|| die` guards and the
-  stale-temporary-file removal have no negative case; case 12 of the P2
+- Passthrough backlog (T3 P2 gaps): the runner's `|| die` guards have
+  no negative case (the stale-temporary-file removal's was added by
+  Milestone 1 part 1 P1, `negative.log` L4); case 12 of the P2
   negative log counts no fixture strings; some guards sit outside the
   reviewed diff hunks; a fixed 1 s wait in `faults.rs`; the size
   record's feature text is literal in the size script.
