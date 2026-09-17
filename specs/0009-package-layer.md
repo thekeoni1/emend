@@ -413,7 +413,11 @@ a part that is not well-formed (a tag with no `>`, a mismatched end
 tag, a `<` in text with no later `>`, a dangling `&`; the readings of
 P1 ruling 2) as `Error::Xml` with the entry's index; a part with a
 byte that is not UTF-8 inside otherwise well-formed text as
-`Error::Xml`; a binary part as `Error::Xml`; the tool's operation
+`Error::Xml`; a binary part, meaning bytes that are not valid UTF-8
+(a PNG header, a high-byte blob, a lone surrogate, an overlong NUL),
+as `Error::Xml`; a part of valid UTF-8 holding characters XML forbids
+(NUL and one other C0 control, in text) accepted and reconstructed,
+pinning the fourth Limits entry (P1 ruling 4); the tool's operation
 applied to a byte-built archive of three XML parts and one binary
 part, the XML parts' decompressed bytes identical and the binary entry
 untouched, asserted by the independent
@@ -482,6 +486,27 @@ and read the mechanisms in the crate's source.
    code commit; the code commit(s) then carry everything P1 names,
    the dependency line, the residue and the tool's argument parsing
    included. Nothing is held back once the ruling is in.
+
+4. A fourth accepted class, found by the implementing session's own
+   test after doc commit 9b87536 and reproduced by planning: the
+   crate checks UTF-8 validity and never the XML character range. It
+   refuses a PNG header, a high-byte blob, a lone surrogate (`ed a0
+   80`) and an overlong NUL (`c0 80`); it accepts, as valid UTF-8, 64
+   NUL bytes alone (one text token), NUL in text, in an attribute
+   value and inside a tag name, the C0 controls 0x01 to 0x08, 0x0b,
+   0x0c, 0x0e and 0x1f, ESC, DEL, `&#0;` and U+FFFE. "A binary part is
+   refused" therefore holds for every realistic binary part, whose
+   bytes are not valid UTF-8, and not for a contrived part of valid
+   UTF-8; the stream's own contract is unaffected, since such a part
+   reconstructs byte for byte. Ruling: the class joins the `xml`
+   module's Limits as its fourth entry (a character XML forbids that
+   is valid UTF-8 is accepted and reproduced; the parser checks the
+   encoding, not the character range, so nothing in this layer
+   refuses what a spreadsheet application would call corrupt); one
+   test pins it with NUL and one other C0 control in text, accepted
+   and reconstructed, as the test list now says; the binary-part test
+   names its four refused shapes and the UTF-8 reason. The test list
+   is amended above.
 
 ### P2: content types, relationships, the workbook
 
