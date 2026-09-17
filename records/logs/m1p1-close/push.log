@@ -1,0 +1,574 @@
+command: git rev-parse HEAD
+about: M1 part 1 close-out push of main at 7e9846a69f6b690e0a8009a0d42454847626dc2a; HEAD at run: 7e9846a69f6b690e0a8009a0d42454847626dc2a
+phase: Milestone 1 part 1 close-out (specs/0008-zip-layer.md "Close-out push (after P3)") push.log part 1, step 2; run at 2026-09-17T15:15:50Z
+ANTHROPIC_API_KEY set in this shell: no
+THIS PART DOES NOT PUSH. The push waits for the maintainer to type
+authorisation in the implementing session (specs/0003-ci.md:209-213);
+planning's word alone is not enough.
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 1 part 1 close-out push.log (specs/0008-zip-layer.md "Close-out
+    # push (after P3)", which follows specs/0005-corpus.md "Close-out push (after
+    # P7)"), in two parts. It is the T2 close-out's script, read from
+    # records/logs/t2-close/push.log, with these changes: the names and the base's
+    # subject; the working-tree status and the range's file list read through
+    # run_lines, so a failed git command is "error" and never a clean tree or an
+    # empty list (the T6 P1 finding the counting library records); and part 1 also
+    # reads the remote's main with ls-remote, so the base is the remote's and not
+    # only the local tracking ref's.
+    #
+    # Usage: M1CLOSE_LIB=<lib> m1p1close-push.sh pre > <scratch file>
+    #          step 2: the environment, hook and core.hooksPath checks and the full
+    #          gate; records the base (origin/main) and the count of commits to
+    #          push. NO PUSH, and this mode can never push.
+    #        M1CLOSE_LIB=<lib> m1p1close-push.sh push <base> >> <scratch file>
+    #          steps 3 and 4: refuses unless origin/main still equals <base>,
+    #          pushes, and checks the hook's range, the count and git's report
+    #          against <base> as recorded in part 1, never against origin/main read
+    #          after the push. That is the T0b close-out's departure 1 and its
+    #          ruling: "a push script records the base before the push and compares
+    #          against that".
+    #
+    # THE MAINTAINER'S AUTHORISATION. specs/0003-ci.md:209-213 requires three
+    # preconditions for the push: the phase DONE, planning's word, and the
+    # maintainer typing authorisation in the implementing session. Part 2 is only
+    # ever run after that sentence has been typed. Planning's word does not stand
+    # in for it, and neither does this script.
+    #
+    # Every commit id this log reports is read from git at run time by a command
+    # the log prints; none is typed. The T3 close-out script hardcoded its expected
+    # base and count, which specs/0001-bootstrap.md now forbids.
+    # Every count goes through the shared counting library, which reads exit
+    # statuses and reports "error" rather than a number when it cannot read; its
+    # controls run before any of them is used.
+    # The caller moves the file into records/logs/m1p1-close/ afterwards.
+    # Authentication uses the existing git credential helper; no authentication
+    # output is captured.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    MODE=${1:?pre or push}
+    LIB=${M1CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    REPO=thekeoni1/emend
+    URL=https://github.com/thekeoni1/emend.git
+    export GIT_TERMINAL_PROMPT=0 RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    
+    show() { echo "$1:"; sed 's/^/    /' "$2"; }
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # exit_and_bytes <exit> <bytes> <want exit> <want bytes>: both match, in one
+    # function so neither condition is dropped.
+    exit_and_bytes() { [ "$1" -eq "$3" ] && [ "$2" = "$4" ]; }
+    # same_nonempty <a> <b>: both set and equal.
+    same_nonempty() { [ -n "$1" ] && [ "$1" = "$2" ]; }
+    # holds_once <file> <line>: the file holds that whole line exactly once.
+    holds_once() { [ "$(count_matches -F "$2" "$1")" = 1 ]; }
+    # tree_clean: git status ran and printed nothing.
+    tree_clean() { [ "$(run_lines git status --porcelain)" = 0 ]; }
+    # files_listed <n>: the range's file list was read and is not empty.
+    files_listed() { [ "$1" != error ] && [ "$1" -gt 0 ]; }
+    # hook_scanned <file> <commits>: the hook's summary names that many commits and
+    # zero findings.
+    hook_scanned() {
+      [ "$(count_matches -E "^privacy: $2 commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]$" "$1")" = 1 ]
+    }
+    
+    case "$MODE" in
+      pre)
+        echo "command: git rev-parse HEAD"
+        echo "about: M1 part 1 close-out push of main at $(git rev-parse main); HEAD at run: $(git rev-parse HEAD)"
+        echo "phase: Milestone 1 part 1 close-out (specs/0008-zip-layer.md \"Close-out push (after P3)\") push.log part 1, step 2; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+        echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+        echo "THIS PART DOES NOT PUSH. The push waits for the maintainer to type"
+        echo "authorisation in the implementing session (specs/0003-ci.md:209-213);"
+        echo "planning's word alone is not enough."
+        echo
+        echo "## script that wrote this log"
+        sed 's/^/    /' "$0"
+        echo
+        echo "## the shared counting library this log sources"
+        sed 's/^/    /' "$LIB"
+        echo
+        echo "## counting controls (every form, before any of them is used)"
+        counting_controls
+        check "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+        echo
+    
+        echo "command: git status --porcelain -> $(run_lines git status --porcelain) line(s)"
+        check "working tree clean before the run" "$(yn tree_clean)"
+        MAIN=$(git rev-parse main)
+        echo "command: git rev-parse main -> $MAIN"
+        echo "command: git symbolic-ref --short HEAD -> $(git symbolic-ref --short HEAD)"
+        echo "command: git rev-list --count main -> $(git rev-list --count main)"
+        check "HEAD is main" "$(yn [ "$(git rev-parse HEAD)" = "$MAIN" ])"
+        RURL=$(git remote get-url origin)
+        echo "command: git remote get-url origin -> $RURL"
+        check "origin is $URL" "$(yn [ "$RURL" = "$URL" ])"
+    
+        echo
+        echo "## the base, read from git and not typed"
+        BASE=$(git rev-parse origin/main)
+        echo "command: git rev-parse origin/main -> $BASE"
+        echo "command: git log --format='%H' --grep='^T2 close-out: commit planning doc updates' -n 1"
+        EXPECT=$(git rev-parse "$(git log --format='%H' --grep='^T2 close-out: commit planning doc updates' -n 1)" 2>/dev/null)
+        echo "  the T2 close-out doc commit, the last one pushed, resolves to: $EXPECT"
+        check "origin/main is the T2 close-out doc commit, resolved from git by its subject" "$(yn same_nonempty "$BASE" "$EXPECT")"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/ls0" 2> "$T/ls0err" </dev/null
+        rc=$?
+        show stdout "$T/ls0"
+        show stderr "$T/ls0err"
+        echo "exit: $rc"
+        check "ls-remote exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "the remote's main is the base (the tracking ref is not stale)" "$(yn same_nonempty "$(cut -f1 "$T/ls0")" "$BASE")"
+        COUNT=$(git rev-list --count "$BASE..$MAIN")
+        echo "command: git rev-list --count $BASE..$MAIN -> $COUNT"
+        check "there is something to push: $COUNT commit(s)" "$(yn [ "$COUNT" -gt 0 ])"
+        echo "base recorded before the push: $BASE"
+        echo "commits to push (oldest first):"
+        git log --reverse --format='    %H %s' "$BASE..$MAIN"
+        NFILES=$(run_lines git diff --name-only "$BASE..$MAIN")
+        echo "command: git diff --name-only $BASE..$MAIN -> $NFILES file(s)"
+        check "the range's file list was read and is not empty" "$(yn files_listed "$NFILES")"
+    
+        echo
+        echo "## step 2: pre-push state and full gate"
+        DSET=$([ -n "${EMEND_PRIVATE_DENYLIST+set}" ] && echo yes || echo no)
+        check "EMEND_PRIVATE_DENYLIST is unset (set: $DSET)" "$(yn [ "$DSET" = no ])"
+        echo "command: git config --get core.hooksPath"
+        git config --get core.hooksPath > "$T/out" 2>&1
+        rc=$?
+        show output "$T/out"
+        n=$(count_bytes '\000-\377' "$T/out")
+        check "exit $rc and output bytes $n (expect exit 1 and 0 bytes)" "$(yn exit_and_bytes "$rc" "$n" 1 0)"
+        echo "command: ls -l .git/hooks/pre-push"
+        ls -l .git/hooks/pre-push | sed 's/^/    /'
+        check "hook is executable" "$(yn [ -x .git/hooks/pre-push ])"
+        awk '/^cat >"\$hook" <<.HOOK.$/ { p = 1; next } /^HOOK$/ { p = 0 } p' scripts/install-hooks.sh > "$T/heredoc"
+        n=$(count_lines "$T/heredoc")
+        # Both conditions in one named function: the label says "more than 0", so
+        # the check must test that and not merely that the count did not error.
+        # Printing one claim while asserting a weaker one is the shape both
+        # independent checks found in earlier phases.
+        heredoc_nonempty() { [ "$1" != error ] && [ "$1" -gt 0 ]; }
+        check "installer heredoc lines: $n (expect more than 0)" "$(yn heredoc_nonempty "$n")"
+        echo "hook sha256 $(sha256sum < .git/hooks/pre-push | cut -d' ' -f1); installer heredoc sha256 $(sha256sum < "$T/heredoc" | cut -d' ' -f1)"
+        check "hook equals what scripts/install-hooks.sh writes" "$(yn cmp -s .git/hooks/pre-push "$T/heredoc")"
+        echo "command: scripts/check.sh"
+        scripts/check.sh > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        show stderr "$T/err"
+        echo "exit: $rc; stderr bytes: $(count_bytes '\000-\377' "$T/err")"
+        check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "stderr is empty" "$(yn [ "$(count_bytes '\000-\377' "$T/err")" = 0 ])"
+        printf 'PASS host\nPASS i686\nPASS fmt\nPASS clippy\nPASS native (allowlisted -sys: none)\nPASS licences\nPASS hygiene\nPASS privacy\n' > "$T/want"
+        check "stdout is exactly the eight PASS lines in order" "$(yn cmp -s "$T/out" "$T/want")"
+        for s in out err; do
+          n=$(count_bytes "$CTRL_CLASS" "$T/$s")
+          check "check.sh std$s control bytes: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+        done
+        echo "command: git status --porcelain -> $(run_lines git status --porcelain) line(s)"
+        check "working tree clean after the gate" "$(yn tree_clean)"
+        echo
+        echo "part 1 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        echo "STOP. The push does not happen until the maintainer types authorisation"
+        echo "in the implementing session. The base recorded above is what part 2"
+        echo "compares against."
+        ;;
+    
+      push)
+        BASE=${2:?the base recorded in part 1 is required}
+        echo
+        echo "# push.log part 2, steps 3 and 4; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "command: git rev-parse HEAD -> $(git rev-parse HEAD)"
+        if [ -n "${EMEND_PRIVATE_DENYLIST+set}" ]; then echo "refusing: EMEND_PRIVATE_DENYLIST is set"; exit 1; fi
+        if [ -n "$(git config --get core.hooksPath)" ]; then echo "refusing: core.hooksPath is set"; exit 1; fi
+        if [ "$(git rev-parse origin/main)" != "$BASE" ]; then echo "refusing: origin/main is no longer the base recorded in part 1"; exit 1; fi
+        echo "EMEND_PRIVATE_DENYLIST unset, core.hooksPath empty, and origin/main still the recorded base (the script refuses otherwise)"
+        MAIN=$(git rev-parse main)
+        COUNT=$(git rev-list --count "$BASE..$MAIN")
+        echo "main is $MAIN; base (recorded in part 1) is $BASE; commits in base..main: $COUNT"
+        echo
+        echo "## step 3: push"
+        echo "command: git push origin main"
+        git push origin main > "$T/out" 2> "$T/err" </dev/null
+        rc=$?
+        show stdout "$T/out"
+        show stderr "$T/err"
+        echo "exit: $rc"
+        check "push exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        cat "$T/out" "$T/err" > "$T/both"
+        check "the hook printed PASS privacy" "$(yn holds_once "$T/both" 'PASS privacy')"
+        check "the hook's range is $BASE..$MAIN (the base recorded in part 1)" \
+          "$(yn holds_once "$T/both" "pre-push: scripts/privacy.sh --range $BASE..$MAIN (refs/heads/main)")"
+        check "the hook scanned $COUNT commits with 0 findings" "$(yn hook_scanned "$T/both" "$COUNT")"
+        check "git reported ${BASE:0:7}..${MAIN:0:7} for main" \
+          "$(yn holds_once "$T/both" "   ${BASE:0:7}..${MAIN:0:7}  main -> main")"
+        n=$(count_bytes "$CTRL_CLASS" "$T/both")
+        check "push output control bytes: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+        echo
+        echo "## step 4: remote main equals local main, repository still private"
+        echo "command: git ls-remote origin refs/heads/main"
+        git ls-remote origin refs/heads/main > "$T/ls" 2> "$T/lserr" </dev/null
+        rc=$?
+        show stdout "$T/ls"
+        show stderr "$T/lserr"
+        echo "exit: $rc"
+        check "ls-remote exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        REMOTE=$(cut -f1 "$T/ls")
+        echo "command: git rev-parse main -> $MAIN"
+        check "remote main equals local main" "$(yn same_nonempty "$REMOTE" "$MAIN")"
+        echo "command: gh repo view $REPO --json visibility"
+        gh repo view "$REPO" --json visibility > "$T/vis" 2> "$T/viserr" </dev/null
+        rc=$?
+        show stdout "$T/vis"
+        show stderr "$T/viserr"
+        echo "exit: $rc"
+        check "gh exit is 0" "$(yn [ "$rc" -eq 0 ])"
+        check "still PRIVATE" "$(yn holds_once "$T/vis" '{"visibility":"PRIVATE"}')"
+        echo "command: git status --porcelain -> $(run_lines git status --porcelain) line(s)"
+        check "working tree clean" "$(yn tree_clean)"
+        echo "part 2 checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+        ;;
+      *)
+        echo "unknown mode" >&2
+        exit 2
+        ;;
+    esac
+    exit "$fail"
+    
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+command: git status --porcelain -> 0 line(s)
+working tree clean before the run: yes
+command: git rev-parse main -> 7e9846a69f6b690e0a8009a0d42454847626dc2a
+command: git symbolic-ref --short HEAD -> main
+command: git rev-list --count main -> 217
+HEAD is main: yes
+command: git remote get-url origin -> https://github.com/thekeoni1/emend.git
+origin is https://github.com/thekeoni1/emend.git: yes
+
+## the base, read from git and not typed
+command: git rev-parse origin/main -> d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+command: git log --format='%H' --grep='^T2 close-out: commit planning doc updates' -n 1
+  the T2 close-out doc commit, the last one pushed, resolves to: d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+origin/main is the T2 close-out doc commit, resolved from git by its subject: yes
+command: git ls-remote origin refs/heads/main
+stdout:
+    d1868a71d3f2a461182871a5ed4e8f791bbe93e1	refs/heads/main
+stderr:
+exit: 0
+ls-remote exit is 0: yes
+the remote's main is the base (the tracking ref is not stale): yes
+command: git rev-list --count d1868a71d3f2a461182871a5ed4e8f791bbe93e1..7e9846a69f6b690e0a8009a0d42454847626dc2a -> 27
+there is something to push: 27 commit(s): yes
+base recorded before the push: d1868a71d3f2a461182871a5ed4e8f791bbe93e1
+commits to push (oldest first):
+    731d6ff0a458d161cf7cdad6ba51286d704daff9 T2 close-out record: push, CI run and scan logs
+    39b22495cc82f4d84db35c1feb1fb5a05bee69fc T6 P1: commit planning doc updates (two commit rules, the T6 spec)
+    0a337fb79ad03aff9d78756c387cc7fa96571cf4 T6 P1: check.sh --only, scripts/counting.sh, the gate self-test
+    4d2ece28cf179db160c3633aca928e971bf838b2 T6 P1 record: the four logs and both independent check answers
+    f7d9dc7e12b11680e744ef1d4d89cc14c7e9fe28 T6 P1 repairs: the self-test never reads the private denylist
+    6f4764deb60fd9b3a4159e0107023cacdd62691f T6 P1 record: the repaired logs and the repaired check answer
+    acc36fb70aeba5c23cec45c0ab3d8235963bc1e1 M1 part 1 P1: commit planning doc updates (T6 P1 rulings, the zip-layer spec)
+    791d0d7d180babefbe1193af429a9f27decc0796 M1 part 1 P1: commit planning doc update (the runner's leftover glob ruling)
+    e14dbee5f4d535719ad08263dd53ee1faa6dcd81 M1 part 1 P1: the zip layer, emend-copy, and the runner's leftover glob
+    c302ec3a9d4788ca25b3557aff9127201e985e61 M1 part 1 P1: commit planning doc update (P1 rulings, the gate-file rule)
+    cb2b4da2012415b001b3184d475ef22f107bc7b9 M1 part 1 P1 repairs: the prefix is the bytes before the first local header
+    ff92a11fd54c5ccebec5d216bc8bfa8bbaa54243 M1 part 1 P1 record: the five reruns, both check answers, the corpus record
+    608e6a46585dbc267a3dba9d3756a09afefe1f65 M1 part 1 P2: commit planning doc updates (P1 verification, P2 amendments, tool-arg ruling)
+    9a1cd86dc3095cefb62e0626056760ab18b3139a M1 part 1 P2: commit planning doc update (the 4 GiB test's read-back)
+    e1c3b07046ce5daf84d16fd662d2f1ad3ac45cab M1 part 1 P2: commit planning doc update (the descriptor flag on a replaced entry)
+    ac1bd12a8004740b66665f248f99d534dbd4d273 M1 part 1 P2: replace, remove and add, --tool-arg, and the record's tool_args
+    9b7ef68e37fedeeb8052b6494ca7953c7ba2834b M1 part 1 P2 record: the five logs, both check answers, the corpus record
+    6f3d5c5500b8f08fe07170531d7aba962ec978e4 M1 part 1 P3: commit planning doc updates (P2 verification, P3 scope)
+    98cac7d400bb61eaff205133fd886becf8252256 M1 part 1 P3: commit planning doc update (the two P2 repairs, the size probes)
+    adb0cc8ef6098735beaef275cc88900daac71727 M1 part 1 P3: repair P2's end-record count and P1's quadratic duplicate check
+    5a8b491ca402e9248cd4130890e7c353ec212a82 M1 part 1 P3: the error catalogue, its tests, and the two size probes
+    b28d8394a292e2243bf771ec0b87a5d1ec5c5e12 M1 part 1 P3 record: the five logs, the check answer, the size record
+    3d1f8ee269de548e3b91c80c6391b4a05601be75 M1 part 1 P3: commit planning doc update (first verification, the repair round)
+    740648e76196587a85a6d100216f6819acf21e5f M1 part 1 P3 repairs: the catalogue's untested messages, the fifth probe
+    6cec4161000c0c20bf55a797bf1fb972f0794960 M1 part 1 P3: commit planning doc update (the repair round's rulings)
+    17ac5d47dec49e860d375aeec2d89235793c317e M1 part 1 P3 record: the repair round's logs, check 2, the five-probe size record
+    7e9846a69f6b690e0a8009a0d42454847626dc2a M1 part 1 close-out: commit planning doc updates (P3 verification, close-out)
+command: git diff --name-only d1868a71d3f2a461182871a5ed4e8f791bbe93e1..7e9846a69f6b690e0a8009a0d42454847626dc2a -> 60 file(s)
+the range's file list was read and is not empty: yes
+
+## step 2: pre-push state and full gate
+EMEND_PRIVATE_DENYLIST is unset (set: no): yes
+command: git config --get core.hooksPath
+output:
+exit 1 and output bytes 0 (expect exit 1 and 0 bytes): yes
+command: ls -l .git/hooks/pre-push
+    -rwxr-xr-x 1 dev dev 1349 Sep 15 05:23 .git/hooks/pre-push
+hook is executable: yes
+installer heredoc lines: 39 (expect more than 0): yes
+hook sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84; installer heredoc sha256 3c5d2d79a8f942e3ef2b9b2aa447be3840345a623f8f2a8fb45c5729702c5f84
+hook equals what scripts/install-hooks.sh writes: yes
+command: scripts/check.sh
+stdout:
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+stderr:
+exit: 0; stderr bytes: 0
+exit is 0: yes
+stderr is empty: yes
+stdout is exactly the eight PASS lines in order: yes
+check.sh stdout control bytes: 0 (expect 0): yes
+check.sh stderr control bytes: 0 (expect 0): yes
+command: git status --porcelain -> 0 line(s)
+working tree clean after the gate: yes
+
+part 1 checks all as expected: yes
+STOP. The push does not happen until the maintainer types authorisation
+in the implementing session. The base recorded above is what part 2
+compares against.
+
+caller (not the script), before part 2: the maintainer's authorisation, as typed in the implementing session:
+    "I authorise the Milestone 1 part 1 close-out push of main to origin."
+caller: planning's word was given in its message ruling P3 DONE (specs/0008, "Planning rulings on P3 (2026-09-17, second verification)").
+
+# push.log part 2, steps 3 and 4; run at 2026-09-17T15:31:05Z
+command: git rev-parse HEAD -> 7e9846a69f6b690e0a8009a0d42454847626dc2a
+EMEND_PRIVATE_DENYLIST unset, core.hooksPath empty, and origin/main still the recorded base (the script refuses otherwise)
+main is 7e9846a69f6b690e0a8009a0d42454847626dc2a; base (recorded in part 1) is d1868a71d3f2a461182871a5ed4e8f791bbe93e1; commits in base..main: 27
+
+## step 3: push
+command: git push origin main
+stdout:
+    pre-push: scripts/privacy.sh --range d1868a71d3f2a461182871a5ed4e8f791bbe93e1..7e9846a69f6b690e0a8009a0d42454847626dc2a (refs/heads/main)
+    PASS privacy
+stderr:
+    privacy: 27 commit(s), 339 blob(s) scanned, 0 finding(s)
+    To https://github.com/thekeoni1/emend.git
+       d1868a7..7e9846a  main -> main
+exit: 0
+push exit is 0: yes
+the hook printed PASS privacy: yes
+the hook's range is d1868a71d3f2a461182871a5ed4e8f791bbe93e1..7e9846a69f6b690e0a8009a0d42454847626dc2a (the base recorded in part 1): yes
+the hook scanned 27 commits with 0 findings: yes
+git reported d1868a7..7e9846a for main: yes
+push output control bytes: 0 (expect 0): yes
+
+## step 4: remote main equals local main, repository still private
+command: git ls-remote origin refs/heads/main
+stdout:
+    7e9846a69f6b690e0a8009a0d42454847626dc2a	refs/heads/main
+stderr:
+exit: 0
+ls-remote exit is 0: yes
+command: git rev-parse main -> 7e9846a69f6b690e0a8009a0d42454847626dc2a
+remote main equals local main: yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+exit: 0
+gh exit is 0: yes
+still PRIVATE: yes
+command: git status --porcelain -> 0 line(s)
+working tree clean: yes
+part 2 checks all as expected: yes
