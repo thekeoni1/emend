@@ -53,9 +53,13 @@ ENTRIES_HEADER = [
     "compressed_in", "compressed_out", "crc_in", "crc_out",
     "first_difference", "differing_bytes", "last_difference", "flags",
 ]
+# "tool_args" is last, from Milestone 1 part 1 P2 (specs/0006-passthrough.md,
+# "Planning ruling for Milestone 1 part 1 P2: tool-arg"). Checking the header
+# here is also what refuses a run directory written before the column: records
+# made before it stand as written, but they are not re-read.
 RUN_HEADER = [
     "commit", "started", "ended", "rustc", "zip", "timeout_s", "lo_timeout_s",
-    "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files",
+    "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files", "tool_args",
 ]
 
 # The part families of specs/0000-step-zero-plan.md, in its order, and the
@@ -176,6 +180,11 @@ def load(run_dir):
             if row["label"] != label or row["id"] not in seen:
                 raise Failure("entries.%s.tsv holds a row without a summary row" % label)
         data[label] = (summary, entries, runs)
+    # Runs made with different tool arguments are different runs, so their
+    # results are not one run's and must not go into one record
+    # (specs/0006-passthrough.md, the P2 tool-arg ruling).
+    if len(distinct(row["tool_args"] for label in labels for row in data[label][2])) > 1:
+        raise Failure("the run rows disagree on the tool arguments")
     return labels, data
 
 
@@ -228,6 +237,10 @@ def write_md(path, run_name, stem, labels, data):
     """The record's prose table. `stem` names the companion .txt, which is not
     always "step0-" + run_name: --stem overrides it."""
     runs = [row for label in labels for row in data[label][2]]
+    # load() has already refused rows that disagree, so there is at most one
+    # value here.
+    arguments = distinct(r["tool_args"] for r in runs)
+    arguments = arguments[0] if arguments and arguments[0] else "none"
     out = [
         "# step0 passthrough run %s" % run_name,
         "",
@@ -249,6 +262,7 @@ def write_md(path, run_name, stem, labels, data):
             ", ".join(distinct(r["timeout_s"] for r in runs)),
             ", ".join(distinct(r["lo_timeout_s"] for r in runs)),
             ", ".join(distinct(r["memory_mib"] for r in runs))),
+        "- Tool arguments: %s" % arguments,
         "",
         "## Files by outcome",
         "",

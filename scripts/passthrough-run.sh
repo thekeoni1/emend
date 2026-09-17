@@ -18,12 +18,12 @@
 set -uo pipefail
 umask 077
 
-readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>]"
+readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>] [--tool-arg <arg>]..."
 readonly G=/usr/bin/grep
 readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
 readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in'
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
-readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tlo_timeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles'
+readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tlo_timeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles\ttool_args'
 # The image has no Java by design, so every conversion writes this one line to
 # stderr. Planning ruled on 2026-09-15 that it is the only allowed line holding
 # Error or Warning, matched whole (records/libreoffice-2026-09-15.md).
@@ -36,9 +36,14 @@ die() {
 }
 
 LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS="" LO_IMAGE="" LO_TIMEOUT=600
+# Arguments passed to the tool after the output path, in the order given
+# (specs/0006-passthrough.md, "Planning ruling for Milestone 1 part 1 P2:
+# tool-arg"). The word after --tool-arg is ALWAYS the value, so
+# "--tool-arg --replace" passes --replace rather than reading it as an option.
+TOOL_ARGS=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice | --lo-timeout)
+    --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice | --lo-timeout | --tool-arg)
       [ "$#" -ge 2 ] || die "$1 needs a value; $USAGE"
       case "$1" in
         --label) LABEL=$2 ;;
@@ -51,12 +56,30 @@ while [ "$#" -gt 0 ]; do
         --ids) IDS=$2 ;;
         --libreoffice) LO_IMAGE=$2 ;;
         --lo-timeout) LO_TIMEOUT=$2 ;;
+        --tool-arg) TOOL_ARGS+=("$2") ;;
       esac
       shift 2
       ;;
     *) die "unknown argument; $USAGE" ;;
   esac
 done
+
+# A tool argument goes into a run row, which is tab separated with one row per
+# line, so a tab or a newline in a value is refused rather than written.
+if [ "${#TOOL_ARGS[@]}" -gt 0 ]; then
+  for arg in "${TOOL_ARGS[@]}"; do
+    case "$arg" in
+      *$'\t'* | *$'\n'*) die "a --tool-arg value must hold no tab or newline; $USAGE" ;;
+    esac
+  done
+fi
+# The values joined by single spaces for the run row, empty when there are
+# none. IFS is still its default here, so [*] joins with one space.
+TOOL_ARGS_JOINED=""
+if [ "${#TOOL_ARGS[@]}" -gt 0 ]; then
+  TOOL_ARGS_JOINED="${TOOL_ARGS[*]}"
+fi
+readonly TOOL_ARGS_JOINED
 
 case "$LABEL" in
   host | i686) ;;
@@ -309,7 +332,7 @@ while IFS=$'\t' read -r id ext producer tags; do
 
   (
     ulimit -v $((MEMORY * 1024)) || exit 125
-    exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output"
+    exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output" ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}
   ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt" 3>&-
   rc=$?
 
@@ -402,7 +425,8 @@ while IFS=$'\t' read -r id ext producer tags; do
   esac
 done <"$WORK/selected"
 
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$LO_TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" >>"$RUNS" ||
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$LO_TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" \
+  "$TOOL_ARGS_JOINED" >>"$RUNS" ||
   die "cannot append to run.$LABEL.tsv"
 echo "files $n_files ok $n_ok error $n_error timeout $n_timeout panic $n_panic crash $n_crash"

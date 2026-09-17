@@ -213,8 +213,17 @@ impl Build {
                     out.extend_from_slice(&0x0807_4b50u32.to_le_bytes());
                 }
                 out.extend_from_slice(&crc.to_le_bytes());
-                out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-                out.extend_from_slice(&(spec.data.len() as u32).to_le_bytes());
+                // A zip64 entry's descriptor carries 8-byte sizes. Writing 4
+                // regardless would build a fixture no reader agrees with, and
+                // the layer reads the form from the central record's markers,
+                // so the two would disagree on where the descriptor ends.
+                if spec.zip64 {
+                    out.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+                    out.extend_from_slice(&(spec.data.len() as u64).to_le_bytes());
+                } else {
+                    out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+                    out.extend_from_slice(&(spec.data.len() as u32).to_le_bytes());
+                }
             }
             out.extend(std::iter::repeat_n(0xAAu8, spec.padding));
         }
@@ -792,14 +801,1102 @@ fn a_failed_write_leaves_a_usable_archive() {
     assert_identical(&input, &out);
 }
 
+// ------------------------------------------------- an independent reader
+
+/// One entry as the independent reader sees it.
+#[derive(Debug, Clone)]
+struct OutEntry {
+    name: Vec<u8>,
+    method: u16,
+    crc32: u32,
+    compressed_size: u64,
+    uncompressed_size: u64,
+    local_offset: u64,
+    gp_flags: u16,
+}
+
+/// What the independent reader makes of an archive.
+#[derive(Debug)]
+struct Parsed {
+    /// What a recorded offset is added to in order to get a file position.
+    base: u64,
+    /// Where the central directory actually starts.
+    central_position: u64,
+    entries: Vec<OutEntry>,
+}
+
+/// Parses an archive without using the layer.
+///
+/// `specs/0008-zip-layer.md`, "P2: replace, remove, add": an edit test's
+/// output is read back by "an independent reader ... that shares no code with
+/// the layer". This shares no code AND no method: rather than deriving the
+/// central directory's position from the end records, as `archive.rs` does, it
+/// SEARCHES for a position at which exactly `total` records parse and consume
+/// exactly `central_size` bytes. A mistake in the layer's end-record handling
+/// therefore cannot be the same mistake here, and the offset base falls out of
+/// the found position rather than being assumed.
+fn parse_independently(bytes: &[u8]) -> Parsed {
+    let eocd = (0..=bytes.len().saturating_sub(22))
+        .rev()
+        .find(|&at| {
+            bytes[at..at + 4] == EOCD_SIG.to_le_bytes()
+                && at + 22 + u16::from_le_bytes([bytes[at + 20], bytes[at + 21]]) as usize
+                    == bytes.len()
+        })
+        .expect("an end-of-central-directory record");
+    let u16at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+    let u32at = |at: usize| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+    let u64at = |at: usize| u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap());
+
+    // Zip64 values win where the 32-bit field carries the marker. The zip64
+    // record is found by searching too, not by the locator's offset.
+    let mut total = u64::from(u16at(eocd + 10));
+    let mut central_size = u64::from(u32at(eocd + 12));
+    let mut recorded_offset = u64::from(u32at(eocd + 16));
+    if let Some(at) = (0..eocd)
+        .rev()
+        .find(|&at| bytes[at..at + 4] == ZIP64_EOCD_SIG.to_le_bytes())
+    {
+        total = u64at(at + 32);
+        central_size = u64at(at + 40);
+        recorded_offset = u64at(at + 48);
+    }
+
+    // The position at which exactly `total` records parse and end after
+    // exactly `central_size` bytes.
+    let central_position = (0..bytes.len())
+        .find(|&start| {
+            let mut at = start;
+            for _ in 0..total {
+                if at + CENTRAL_FIXED > bytes.len()
+                    || bytes[at..at + 4] != CENTRAL_SIG.to_le_bytes()
+                {
+                    return false;
+                }
+                at += CENTRAL_FIXED
+                    + usize::from(u16at(at + 28))
+                    + usize::from(u16at(at + 30))
+                    + usize::from(u16at(at + 32));
+            }
+            at == start + central_size as usize
+        })
+        .expect("a central directory of the recorded size");
+
+    let mut entries = Vec::new();
+    let mut at = central_position;
+    for _ in 0..total {
+        let name_len = usize::from(u16at(at + 28));
+        let extra_len = usize::from(u16at(at + 30));
+        let comment_len = usize::from(u16at(at + 32));
+        let name = bytes[at + CENTRAL_FIXED..at + CENTRAL_FIXED + name_len].to_vec();
+        let (raw_compressed, raw_uncompressed, raw_offset) =
+            (u32at(at + 20), u32at(at + 24), u32at(at + 42));
+
+        // The zip64 extra field supplies whichever fields carry the marker, in
+        // this order and only those.
+        let extra_start = at + CENTRAL_FIXED + name_len;
+        let mut zip64 = Vec::new();
+        let mut scan = extra_start;
+        while scan + 4 <= extra_start + extra_len {
+            let id = u16at(scan);
+            let size = usize::from(u16at(scan + 2));
+            if id == ZIP64_EXTRA_ID {
+                let mut cursor = scan + 4;
+                while cursor + 8 <= scan + 4 + size {
+                    zip64.push(u64at(cursor));
+                    cursor += 8;
+                }
+                break;
+            }
+            scan += 4 + size;
+        }
+        let mut next = zip64.into_iter();
+        let uncompressed_size = if raw_uncompressed == U32_MAX_MARKER {
+            next.next().expect("a zip64 uncompressed size")
+        } else {
+            u64::from(raw_uncompressed)
+        };
+        let compressed_size = if raw_compressed == U32_MAX_MARKER {
+            next.next().expect("a zip64 compressed size")
+        } else {
+            u64::from(raw_compressed)
+        };
+        let local_offset = if raw_offset == U32_MAX_MARKER {
+            next.next().expect("a zip64 local header offset")
+        } else {
+            u64::from(raw_offset)
+        };
+
+        entries.push(OutEntry {
+            name,
+            method: u16at(at + 10),
+            crc32: u32at(at + 16),
+            compressed_size,
+            uncompressed_size,
+            local_offset,
+            gp_flags: u16at(at + 8),
+        });
+        at += CENTRAL_FIXED + name_len + extra_len + comment_len;
+    }
+
+    let base = central_position as u64 - recorded_offset;
+    // Every recorded local offset must land on a local header once the base is
+    // applied: that is what proves the output kept the input's convention.
+    for entry in &entries {
+        let at = (base + entry.local_offset) as usize;
+        assert_eq!(
+            bytes[at..at + 4],
+            LOCAL_SIG.to_le_bytes(),
+            "no local header at the recorded offset for {:?}",
+            String::from_utf8_lossy(&entry.name)
+        );
+    }
+    Parsed {
+        base,
+        central_position: central_position as u64,
+        entries,
+    }
+}
+
+/// The entry names an archive holds, in central directory order.
+fn names(parsed: &Parsed) -> Vec<Vec<u8>> {
+    parsed.entries.iter().map(|e| e.name.clone()).collect()
+}
+
+/// A replacement that writes these bytes.
+fn bytes_replacement(data: &[u8]) -> Replacement {
+    let data = data.to_vec();
+    Box::new(move |out: &mut dyn Write| out.write_all(&data))
+}
+
+/// Serializes every test that makes a replacement temporary.
+///
+/// `cargo test` runs these in threads of ONE process, so they share both the
+/// temporary directory and the process id in the temporary's name. Without
+/// this, the snapshot in `a_replacement_error_leaves_no_temporary_behind`
+/// catches another test's file in flight and the test fails on a race rather
+/// than on the layer. Every replacement in these tests goes through `apply`
+/// or holds this lock itself; the refusal tests make no temporary, because
+/// `plan` rejects them before any compression starts.
+static REPLACEMENT_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Opens the input, applies the edits, and returns the output bytes.
+fn apply(input: &[u8], edits: Edits) -> Vec<u8> {
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut archive = Archive::open(Cursor::new(input.to_vec())).expect("open");
+    let mut out = Vec::new();
+    archive.write_to(&mut out, edits).expect("write_to");
+    out
+}
+
+// ------------------------------------------------------ replace, remove, add
+
 #[test]
-fn a_non_empty_edits_is_refused_in_p1() {
+fn a_deflated_entry_is_replaced_and_the_others_are_untouched() {
+    let build = Build::new(vec![
+        Spec::new(b"one.txt", b"first entry").deflated(),
+        Spec::new(b"two.txt", b"second entry").deflated(),
+    ]);
+    let input = build.bytes();
+    let before = parse_independently(&input);
+
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        bytes_replacement(b"a much longer first entry than before"),
+    );
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(names(&after), names(&before));
+    // The replaced entry: new CRC-32 and sizes, the original's method.
+    assert_eq!(after.entries[0].method, METHOD_DEFLATE);
+    assert_eq!(
+        after.entries[0].crc32,
+        crc32(b"a much longer first entry than before")
+    );
+    assert_eq!(
+        after.entries[0].uncompressed_size,
+        b"a much longer first entry than before".len() as u64
+    );
+    // The untouched entry: every recorded value the same, and its bytes moved
+    // only by the change in the first entry's length.
+    assert_eq!(after.entries[1].crc32, before.entries[1].crc32);
+    assert_eq!(
+        after.entries[1].compressed_size,
+        before.entries[1].compressed_size
+    );
+    assert_eq!(after.base, before.base, "the offset convention changed");
+}
+
+#[test]
+fn a_stored_entry_is_replaced_stored() {
+    let build = Build::new(vec![
+        Spec::new(b"stored.txt", b"stored bytes"),
+        Spec::new(b"after.txt", b"unchanged"),
+    ]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"different stored bytes"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(after.entries[0].method, METHOD_STORE);
+    assert_eq!(after.entries[0].crc32, crc32(b"different stored bytes"));
+    // Stored: the compressed size IS the uncompressed size.
+    assert_eq!(
+        after.entries[0].compressed_size,
+        b"different stored bytes".len() as u64
+    );
+    assert_eq!(
+        after.entries[0].uncompressed_size,
+        b"different stored bytes".len() as u64
+    );
+}
+
+#[test]
+fn a_replacement_may_come_from_a_reader() {
+    // The `io::copy` wrapper of `specs/0008-zip-layer.md`, "Module `archive`".
+    let build = Build::new(vec![Spec::new(b"one.txt", b"first").deflated()]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        replacement_from_reader(Cursor::new(b"from a reader".to_vec())),
+    );
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(after.entries[0].crc32, crc32(b"from a reader"));
+    assert_eq!(
+        after.entries[0].uncompressed_size,
+        b"from a reader".len() as u64
+    );
+}
+
+#[test]
+fn a_removed_entry_leaves_the_others_intact() {
+    let build = Build::new(vec![
+        Spec::new(b"one.txt", b"first"),
+        Spec::new(b"two.txt", b"second"),
+        Spec::new(b"three.txt", b"third"),
+    ]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.remove(1);
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(
+        names(&after),
+        vec![b"one.txt".to_vec(), b"three.txt".to_vec()]
+    );
+    assert_eq!(after.entries[1].crc32, crc32(b"third"));
+    // The survivor's span is shorter by exactly the removed entry's span.
+    assert!(output.len() < input.len());
+}
+
+#[test]
+fn an_added_entry_is_appended() {
+    let build = Build::new(vec![Spec::new(b"one.txt", b"first")]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.add(b"added.txt".to_vec(), bytes_replacement(b"brand new bytes"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(
+        names(&after),
+        vec![b"one.txt".to_vec(), b"added.txt".to_vec()]
+    );
+    let added = &after.entries[1];
+    assert_eq!(added.method, METHOD_DEFLATE);
+    assert_eq!(added.crc32, crc32(b"brand new bytes"));
+    assert_eq!(added.uncompressed_size, b"brand new bytes".len() as u64);
+    // Flags 0: no data descriptor, so the sizes stand in the header.
+    assert_eq!(added.gp_flags, 0);
+    // Appended after the last entry in file order.
+    assert!(added.local_offset > after.entries[0].local_offset);
+}
+
+#[test]
+fn order_is_preserved_around_a_removed_and_an_added_entry() {
+    let build = Build::new(vec![
+        Spec::new(b"one.txt", b"first"),
+        Spec::new(b"two.txt", b"second"),
+        Spec::new(b"three.txt", b"third"),
+    ]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.remove(1);
+    edits.add(b"added.txt".to_vec(), bytes_replacement(b"new"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(
+        names(&after),
+        vec![
+            b"one.txt".to_vec(),
+            b"three.txt".to_vec(),
+            b"added.txt".to_vec()
+        ]
+    );
+    // Central directory order and file order agree, which is what
+    // `order_preserved` reports.
+    let offsets: Vec<u64> = after.entries.iter().map(|e| e.local_offset).collect();
+    let mut sorted = offsets.clone();
+    sorted.sort_unstable();
+    assert_eq!(offsets, sorted);
+}
+
+// ---------------------------------------------------------- edit refusals
+
+#[test]
+fn two_changes_for_one_entry_are_refused() {
     let build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
     let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
     let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"new"));
     edits.remove(0);
-    assert!(!edits.is_empty());
     let mut out = Vec::new();
     let err = archive.write_to(&mut out, edits).expect_err("must refuse");
     assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+    // Refused BEFORE anything was written.
+    assert!(out.is_empty(), "the output was written to anyway");
+}
+
+#[test]
+fn an_edit_to_an_absent_index_is_refused() {
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.remove(7);
+    let mut out = Vec::new();
+    let err = archive.write_to(&mut out, edits).expect_err("must refuse");
+    assert!(matches!(err, Error::NoSuchEntry(7)), "got {err:?}");
+    assert!(out.is_empty());
+}
+
+#[test]
+fn adding_a_name_the_archive_already_has_is_refused() {
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.add(b"one.txt".to_vec(), bytes_replacement(b"new"));
+    let mut out = Vec::new();
+    let err = archive.write_to(&mut out, edits).expect_err("must refuse");
+    assert!(matches!(err, Error::DuplicateName(_)), "got {err:?}");
+}
+
+#[test]
+fn replacing_an_encrypted_entry_is_refused() {
+    let mut spec = Spec::new(b"secret.txt", b"not really encrypted");
+    spec.gp_extra = GP_ENCRYPTED;
+    let build = Build::new(vec![spec]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"new"));
+    let mut out = Vec::new();
+    let err = archive.write_to(&mut out, edits).expect_err("must refuse");
+    assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+}
+
+#[test]
+fn a_replacement_error_leaves_no_temporary_behind() {
+    // `specs/0008-zip-layer.md`, "P2": "a replacement error leaves no output
+    // file"; the P2 rulings of 2026-09-17, item 4: the test "also asserts that
+    // no temporary of that name form remains". The layer writes to a `Write`,
+    // not to a path, so what it owns is the temporary; `emend-copy` owns the
+    // output file and negative.log covers that.
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload").deflated()]);
+    let before = replacement_temporaries();
+
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        Box::new(|_: &mut dyn Write| Err(io::Error::other("the replacement failed"))),
+    );
+    let mut out = Vec::new();
+    let err = archive
+        .write_to(&mut out, edits)
+        .expect_err("the write must fail");
+    assert!(matches!(err, Error::Io(_)), "got {err:?}");
+
+    assert_eq!(
+        replacement_temporaries(),
+        before,
+        "a replacement temporary was left in the temporary directory"
+    );
+}
+
+/// The layer's replacement temporaries belonging to this process, by name.
+fn replacement_temporaries() -> Vec<std::ffi::OsString> {
+    let prefix = format!("emend-replace-{}-", std::process::id());
+    let mut found: Vec<std::ffi::OsString> = std::fs::read_dir(env::temp_dir())
+        .expect("read the temporary directory")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name())
+        .filter(|name| name.to_string_lossy().starts_with(&prefix))
+        .collect();
+    found.sort();
+    found
+}
+
+// ------------------------------------------------ the replaced entry's form
+
+fn at_u16(bytes: &[u8], at: usize) -> u16 {
+    u16::from_le_bytes(bytes[at..at + 2].try_into().unwrap())
+}
+
+fn at_u32(bytes: &[u8], at: usize) -> u32 {
+    u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap())
+}
+
+/// Where an entry's compressed data starts in the output.
+fn data_start_of(bytes: &[u8], parsed: &Parsed, index: usize) -> usize {
+    let at = (parsed.base + parsed.entries[index].local_offset) as usize;
+    at + usize_of(LOCAL_FIXED).unwrap()
+        + usize::from(at_u16(bytes, at + 26))
+        + usize::from(at_u16(bytes, at + 28))
+}
+
+/// Replacing an entry that uses a data descriptor keeps the descriptor in the
+/// form the original used, with ONLY the CRC-32 and the two size fields
+/// rewritten.
+///
+/// `specs/0008-zip-layer.md`, the P2 rulings of 2026-09-17, item 7(a): this is
+/// the evidence that only those fields change, "for both signature forms and
+/// both size widths". The width is 8 bytes when the entry's central record
+/// states its sizes as zip64 markers, and 4 otherwise. Item 7 is why the
+/// harness flags such an entry `descriptor` and why that one flag is the
+/// design's requirement rather than a finding.
+fn check_descriptor_kept(signature: bool, zip64: bool) {
+    let old_data: &[u8] = b"descriptor payload";
+    let new_data: &[u8] = b"a different descriptor payload, longer than before";
+    let mut first = Spec::new(b"d.txt", old_data).with_descriptor(signature);
+    first.zip64 = zip64;
+    let mut build = Build::new(vec![first, Spec::new(b"plain.txt", b"no descriptor")]);
+    build.zip64_end = zip64;
+
+    let input = build.bytes();
+    let before = parse_independently(&input);
+
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(new_data));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    // The flag is the original's, so the descriptor is still declared.
+    assert_eq!(after.entries[0].gp_flags & GP_DESCRIPTOR, GP_DESCRIPTOR);
+    assert_eq!(after.entries[0].crc32, crc32(new_data));
+    assert_eq!(after.entries[0].uncompressed_size, new_data.len() as u64);
+
+    // The local header still carries zeros for the CRC-32 and both sizes:
+    // with a descriptor those fields hold no value to update.
+    let at = (after.base + after.entries[0].local_offset) as usize;
+    assert_eq!(
+        &output[at + 14..at + 26],
+        &[0u8; 12],
+        "local header not zeroed"
+    );
+
+    // Both descriptors as bytes, at the width the original used.
+    let width = if zip64 { 8 } else { 4 };
+    let fields = if signature { 4 } else { 0 };
+    let length = fields + 4 + 2 * width;
+    let old_at = data_start_of(&input, &before, 0) + before.entries[0].compressed_size as usize;
+    let new_at = data_start_of(&output, &after, 0) + after.entries[0].compressed_size as usize;
+    let old = &input[old_at..old_at + length];
+    let new = &output[new_at..new_at + length];
+
+    // The form is the original's: the signature is kept when it was there and
+    // is not invented when it was not.
+    if signature {
+        assert_eq!(at_u32(new, 0), DESCRIPTOR_SIG, "the signature was not kept");
+    } else {
+        assert_ne!(
+            at_u32(new, 0),
+            DESCRIPTOR_SIG,
+            "a signature was added that the original did not have"
+        );
+    }
+    // Everything outside the CRC-32 and the two sizes is byte-identical, which
+    // for a descriptor is the signature when there is one.
+    assert_eq!(
+        &old[..fields],
+        &new[..fields],
+        "a byte outside the rewritten fields changed"
+    );
+    assert_eq!(old.len(), new.len(), "the descriptor changed width");
+
+    let value = |bytes: &[u8], at: usize| -> u64 {
+        if zip64 {
+            u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
+        } else {
+            u64::from(at_u32(bytes, at))
+        }
+    };
+
+    // The output's fields carry the NEW values.
+    assert_eq!(at_u32(new, fields), crc32(new_data), "descriptor CRC-32");
+    assert_eq!(
+        value(new, fields + 4),
+        after.entries[0].compressed_size,
+        "descriptor compressed size"
+    );
+    assert_eq!(
+        value(new, fields + 4 + width),
+        new_data.len() as u64,
+        "descriptor uncompressed size"
+    );
+    // And the input's held the OLD ones in the same places, so what is shown
+    // above is a rewrite of those fields and not a descriptor of another shape.
+    assert_eq!(at_u32(old, fields), crc32(old_data), "the input's CRC-32");
+    assert_eq!(
+        value(old, fields + 4),
+        before.entries[0].compressed_size,
+        "the input's compressed size"
+    );
+    assert_eq!(
+        value(old, fields + 4 + width),
+        old_data.len() as u64,
+        "the input's uncompressed size"
+    );
+}
+
+#[test]
+fn a_replaced_entry_keeps_its_descriptor_with_a_signature() {
+    check_descriptor_kept(true, false);
+}
+
+#[test]
+fn a_replaced_entry_keeps_its_descriptor_without_a_signature() {
+    check_descriptor_kept(false, false);
+}
+
+#[test]
+fn a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature() {
+    check_descriptor_kept(true, true);
+}
+
+#[test]
+fn a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature() {
+    check_descriptor_kept(false, true);
+}
+
+#[test]
+fn a_replaced_zip64_entry_keeps_its_markers() {
+    let mut spec = Spec::new(b"big.txt", b"not actually big");
+    spec.zip64 = true;
+    let mut build = Build::new(vec![spec, Spec::new(b"small.txt", b"plain")]);
+    build.zip64_end = true;
+    let input = build.bytes();
+    let new_data: &[u8] = b"a replacement for the zip64 entry";
+
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(new_data));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    // The record's SHAPE is the input's: the fixed fields keep the marker even
+    // though the new sizes would fit in 32 bits, so the harness's `attrs`
+    // flag, which compares the raw bytes, stays clear. The real values are
+    // read from the zip64 extra field by the independent reader above.
+    let record = after.central_position as usize;
+    assert_eq!(at_u32(&output, record + 20), U32_MAX_MARKER, "compressed");
+    assert_eq!(at_u32(&output, record + 24), U32_MAX_MARKER, "uncompressed");
+    assert_eq!(after.entries[0].crc32, crc32(new_data));
+    assert_eq!(after.entries[0].uncompressed_size, new_data.len() as u64);
+}
+
+#[test]
+fn padding_after_a_replaced_entry_is_kept() {
+    // The span runs to the next local header, so the padding is part of it.
+    // Dropping it would set the harness's `descriptor` flag on a replaced
+    // entry, which P2's acceptance forbids.
+    let mut first = Spec::new(b"one.txt", b"padded after").deflated();
+    first.padding = 7;
+    let build = Build::new(vec![first, Spec::new(b"two.txt", b"plain")]);
+    let input = build.bytes();
+
+    let mut edits = Edits::new();
+    edits.replace(0, bytes_replacement(b"a longer payload than before"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    let end = data_start_of(&output, &after, 0) + after.entries[0].compressed_size as usize;
+    assert_eq!(
+        &output[end..end + 7],
+        &[0xAAu8; 7],
+        "the padding was dropped"
+    );
+    // And the next entry starts right after it.
+    assert_eq!(
+        (after.base + after.entries[1].local_offset) as usize,
+        end + 7
+    );
+}
+
+// ------------------------------------- edits in both offset conventions
+
+/// An edit that MOVES an entry, on a fixture built in the named convention.
+///
+/// `specs/0008-zip-layer.md`, "P2": every edit test that moves an entry runs
+/// on a fixture built in BOTH conventions from an explicit parameter, the
+/// output's offsets checked to keep the input's convention, and the output
+/// read back by an independent reader. P1's defect was exactly a convention
+/// the corpus never exercises.
+fn check_edit_behind_a_stub(zip64: bool, absolute: bool) {
+    let mut first = Spec::new(b"one.txt", b"behind a stub").deflated();
+    first.zip64 = zip64;
+    let mut build = Build::new(vec![first, Spec::new(b"two.txt", b"plain")]);
+    build.zip64_end = zip64;
+    build.prefix = b"MZ stub bytes before the archive".to_vec();
+    build.absolute_offsets = absolute;
+
+    let input = build.bytes();
+    let before = parse_independently(&input);
+    assert_eq!(
+        before.base,
+        if absolute {
+            0
+        } else {
+            build.prefix.len() as u64
+        },
+        "the fixture was not built in the convention asked for"
+    );
+
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        bytes_replacement(b"a replacement long enough to move the second entry along"),
+    );
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    // The output keeps the INPUT's convention, because the prefix is verbatim
+    // and every recorded offset is a position minus the same base.
+    assert_eq!(after.base, before.base, "the offset convention changed");
+    assert_eq!(
+        &output[..build.prefix.len()],
+        &build.prefix[..],
+        "the prefix"
+    );
+    assert_eq!(names(&after), names(&before));
+    // The edit really did move the second entry, so the offsets were rewritten
+    // rather than happening to match.
+    assert_ne!(
+        after.entries[1].local_offset, before.entries[1].local_offset,
+        "the second entry did not move, so this proves nothing"
+    );
+    assert_eq!(after.entries[1].crc32, before.entries[1].crc32);
+}
+
+#[test]
+fn a_replace_behind_a_stub_with_relative_offsets() {
+    check_edit_behind_a_stub(false, false);
+}
+
+#[test]
+fn a_replace_behind_a_stub_with_absolute_offsets() {
+    check_edit_behind_a_stub(false, true);
+}
+
+#[test]
+fn a_zip64_replace_behind_a_stub_with_relative_offsets() {
+    check_edit_behind_a_stub(true, false);
+}
+
+#[test]
+fn a_zip64_replace_behind_a_stub_with_absolute_offsets() {
+    check_edit_behind_a_stub(true, true);
+}
+
+/// A removal and an addition, which move every later entry, in one convention.
+fn check_remove_and_add_behind_a_stub(absolute: bool) {
+    let mut build = Build::new(vec![
+        Spec::new(b"one.txt", b"first"),
+        Spec::new(b"two.txt", b"second"),
+        Spec::new(b"three.txt", b"third"),
+    ]);
+    build.prefix = b"MZ stub bytes before the archive".to_vec();
+    build.absolute_offsets = absolute;
+
+    let input = build.bytes();
+    let before = parse_independently(&input);
+
+    let mut edits = Edits::new();
+    edits.remove(0);
+    edits.add(b"added.txt".to_vec(), bytes_replacement(b"appended bytes"));
+    let output = apply(&input, edits);
+    let after = parse_independently(&output);
+
+    assert_eq!(after.base, before.base, "the offset convention changed");
+    assert_eq!(
+        &output[..build.prefix.len()],
+        &build.prefix[..],
+        "the prefix"
+    );
+    assert_eq!(
+        names(&after),
+        vec![
+            b"two.txt".to_vec(),
+            b"three.txt".to_vec(),
+            b"added.txt".to_vec()
+        ]
+    );
+    // Removing the first entry moved the survivors towards the prefix.
+    assert!(after.entries[0].local_offset < before.entries[1].local_offset);
+    assert_eq!(after.entries[0].crc32, crc32(b"second"));
+    assert_eq!(after.entries[2].crc32, crc32(b"appended bytes"));
+}
+
+#[test]
+fn a_remove_and_add_behind_a_stub_with_relative_offsets() {
+    check_remove_and_add_behind_a_stub(false);
+}
+
+#[test]
+fn a_remove_and_add_behind_a_stub_with_absolute_offsets() {
+    check_remove_and_add_behind_a_stub(true);
+}
+
+// --------------------------------------------- the ignored 4 GiB case
+
+/// The large entry: 4 GiB and one byte, STORED, so the archive is over 4 GiB
+/// on disk and the second entry's offset and the central directory's need the
+/// zip64 forms at real size (`specs/0008-zip-layer.md`, the P2 rulings of
+/// 2026-09-17, item 3).
+const LARGE_SIZE: u64 = 4 * 1024 * 1024 * 1024 + 1;
+const LARGE_NAME: &str = "big.bin";
+const SMALL_NAME: &str = "small.xml";
+const SMALL_DATA: &[u8] = b"<small>the entry the test replaces</small>";
+/// DIFFERENT bytes, so the harness's verdict on the small entry is `changed`
+/// and not `recompressed`.
+const SMALL_REPLACEMENT: &[u8] = b"<small>different bytes, so this entry is changed</small>";
+
+/// One entry as the central directory records it.
+struct FileEntry {
+    name: Vec<u8>,
+    crc32: u32,
+    compressed_size: u64,
+    uncompressed_size: u64,
+    local_offset: u64,
+}
+
+/// What an archive's end records and central directory say.
+struct Tail {
+    zip64: bool,
+    entries: Vec<FileEntry>,
+}
+
+/// Reads an archive's end records and central directory BY SEEKING.
+///
+/// `parse_independently` above takes the whole archive as a slice, which would
+/// pull 4 GiB into memory and break this test's own RSS ceiling. This touches
+/// only the tail and the central directory, both small.
+fn read_tail(path: &std::path::Path) -> Tail {
+    let mut file = File::open(path).expect("open the archive");
+    let len = file.seek(SeekFrom::End(0)).expect("seek to the end");
+    let window = len.min(66_560);
+    let mut tail = vec![0u8; window as usize];
+    file.seek(SeekFrom::Start(len - window)).expect("seek");
+    file.read_exact(&mut tail).expect("read the tail");
+
+    let u16at = |b: &[u8], at: usize| u16::from_le_bytes(b[at..at + 2].try_into().unwrap());
+    let u32at = |b: &[u8], at: usize| u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+    let u64at = |b: &[u8], at: usize| u64::from_le_bytes(b[at..at + 8].try_into().unwrap());
+
+    let eocd = (0..=tail.len() - 22)
+        .rev()
+        .find(|&at| {
+            tail[at..at + 4] == EOCD_SIG.to_le_bytes()
+                && at + 22 + usize::from(u16at(&tail, at + 20)) == tail.len()
+        })
+        .expect("an end-of-central-directory record");
+    let eocd_position = len - window + eocd as u64;
+
+    // The zip64 record, when the input carried one, ends where the locator
+    // begins; its position is what the central directory ends at.
+    let zip64 = eocd >= usize_of(ZIP64_LOCATOR_LEN).unwrap()
+        && tail[eocd - usize_of(ZIP64_LOCATOR_LEN).unwrap()..][..4]
+            == ZIP64_LOCATOR_SIG.to_le_bytes();
+    let (total, central_size, recorded_offset, central_end) = if zip64 {
+        let at = (0..eocd)
+            .rev()
+            .find(|&at| tail[at..at + 4] == ZIP64_EOCD_SIG.to_le_bytes())
+            .expect("a zip64 end-of-central-directory record");
+        (
+            u64at(&tail, at + 32),
+            u64at(&tail, at + 40),
+            u64at(&tail, at + 48),
+            len - window + at as u64,
+        )
+    } else {
+        (
+            u64::from(u16at(&tail, eocd + 10)),
+            u64::from(u32at(&tail, eocd + 12)),
+            u64::from(u32at(&tail, eocd + 16)),
+            eocd_position,
+        )
+    };
+
+    let central_start = central_end - central_size;
+    // These fixtures have no prefix, so a recorded offset IS a file position.
+    assert_eq!(
+        central_start - recorded_offset,
+        0,
+        "the fixture grew a prefix, which this reader does not expect"
+    );
+    let mut central = vec![0u8; central_size as usize];
+    file.seek(SeekFrom::Start(central_start)).expect("seek");
+    file.read_exact(&mut central).expect("read the directory");
+
+    let mut entries = Vec::new();
+    let mut at = 0usize;
+    for _ in 0..total {
+        let name_len = usize::from(u16at(&central, at + 28));
+        let extra_len = usize::from(u16at(&central, at + 30));
+        let comment_len = usize::from(u16at(&central, at + 32));
+        let (raw_compressed, raw_uncompressed, raw_offset) = (
+            u32at(&central, at + 20),
+            u32at(&central, at + 24),
+            u32at(&central, at + 42),
+        );
+        // The zip64 extra field carries whichever fields hold the marker, in
+        // this order and only those.
+        let mut values = Vec::new();
+        let extra_start = at + CENTRAL_FIXED + name_len;
+        let mut scan = extra_start;
+        while scan + 4 <= extra_start + extra_len {
+            let size = usize::from(u16at(&central, scan + 2));
+            if u16at(&central, scan) == ZIP64_EXTRA_ID {
+                let mut cursor = scan + 4;
+                while cursor + 8 <= scan + 4 + size {
+                    values.push(u64at(&central, cursor));
+                    cursor += 8;
+                }
+                break;
+            }
+            scan += 4 + size;
+        }
+        let mut next = values.into_iter();
+        let uncompressed_size = if raw_uncompressed == U32_MAX_MARKER {
+            next.next().expect("a zip64 uncompressed size")
+        } else {
+            u64::from(raw_uncompressed)
+        };
+        let compressed_size = if raw_compressed == U32_MAX_MARKER {
+            next.next().expect("a zip64 compressed size")
+        } else {
+            u64::from(raw_compressed)
+        };
+        let local_offset = if raw_offset == U32_MAX_MARKER {
+            next.next().expect("a zip64 local header offset")
+        } else {
+            u64::from(raw_offset)
+        };
+        entries.push(FileEntry {
+            name: central[at + CENTRAL_FIXED..at + CENTRAL_FIXED + name_len].to_vec(),
+            crc32: u32at(&central, at + 16),
+            compressed_size,
+            uncompressed_size,
+            local_offset,
+        });
+        at += CENTRAL_FIXED + name_len + extra_len + comment_len;
+    }
+    Tail { zip64, entries }
+}
+
+/// Writes the input archive: the large stored entry, then the small deflated
+/// one. Neither entry is ever held in memory whole.
+fn write_large_archive(path: &std::path::Path) {
+    let file = File::create(path).expect("create the archive");
+    let mut writer = zip::ZipWriter::new(file);
+    let large = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored)
+        .large_file(true)
+        .last_modified_time(zip::DateTime::default());
+    writer
+        .start_file(LARGE_NAME, large)
+        .expect("start the large entry");
+    let chunk = vec![0u8; 1024 * 1024];
+    let mut written = 0u64;
+    while written < LARGE_SIZE {
+        // The minimum is taken in u64 BEFORE the cast: on a 32-bit target the
+        // remaining count does not fit in a usize until near the end.
+        let take = (LARGE_SIZE - written).min(chunk.len() as u64) as usize;
+        writer.write_all(&chunk[..take]).expect("write a chunk");
+        written += take as u64;
+    }
+    // NO large_file here, deliberately, and it is not an oversight.
+    //
+    // `large_file(true)` makes the crate prepend a zip64 extended information
+    // extra field to the entry's LOCAL header, and that field records the
+    // entry's two sizes. Replacing the entry changes its compressed size, so
+    // those bytes change, and the harness's `extra` flag compares the local
+    // extra field raw (`specs/0004-xlsx-diff.md`): the replaced entry came
+    // back flagged `extra`, which item 3 forbids. It is the same shape as the
+    // `descriptor` finding of ruling 7, reached through a different field.
+    //
+    // The flag is also unnecessary here. Item 3 asks that "the second entry's
+    // offset and the central directory's need the zip64 forms at real size",
+    // which is about this entry's OFFSET, not its sizes: the offset lives in
+    // the CENTRAL record, the crate writes it as a zip64 field because it is
+    // over 4 GiB, and it is the same in input and output because the large
+    // entry before it is copied verbatim. So the central extra field does not
+    // change, and without a local zip64 extra field the sizes go in the fixed
+    // fields, where a change is reported by the status and not by a flag.
+    let small = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .last_modified_time(zip::DateTime::default());
+    writer
+        .start_file(SMALL_NAME, small)
+        .expect("start the small entry");
+    writer.write_all(SMALL_DATA).expect("write the small entry");
+    writer.finish().expect("finish the archive");
+}
+
+/// The two archives, removed when the test ends however it ends.
+struct Scratch(std::path::PathBuf, std::path::PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+        let _ = fs::remove_file(&self.1);
+    }
+}
+
+/// The harness binary named by `EMEND_XLSX_DIFF`.
+///
+/// Read FIRST, before anything is built, and a panic when it is unset or names
+/// nothing executable: the crate has no dev-dependencies and the harness links
+/// no layer code, so the test cannot call the harness as a library, and it must
+/// never skip the read-back silently (the P2 rulings of 2026-09-17, item 3).
+/// No path is printed, so a failure cannot put one in a log.
+fn harness_binary() -> std::path::PathBuf {
+    let raw = env::var_os("EMEND_XLSX_DIFF").unwrap_or_else(|| {
+        panic!("EMEND_XLSX_DIFF is unset; it must name the xlsx-diff binary of this target")
+    });
+    let path = std::path::PathBuf::from(raw);
+    let meta = fs::metadata(&path).expect("EMEND_XLSX_DIFF names nothing that can be read");
+    assert!(meta.is_file(), "EMEND_XLSX_DIFF does not name a file");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert!(
+            meta.permissions().mode() & 0o111 != 0,
+            "EMEND_XLSX_DIFF names nothing executable"
+        );
+    }
+    path
+}
+
+#[test]
+#[ignore = "writes and rewrites an archive over 4 GiB; run with --ignored zip64"]
+fn zip64_replace_in_an_archive_over_4_gib() {
+    // First, before anything is built.
+    let harness = harness_binary();
+
+    let directory = env::temp_dir();
+    let input = directory.join(format!("emend-4gib-in-{}.zip", std::process::id()));
+    let output = directory.join(format!("emend-4gib-out-{}.zip", std::process::id()));
+    let _scratch = Scratch(input.clone(), output.clone());
+
+    write_large_archive(&input);
+    let input_len = fs::metadata(&input).expect("stat the input").len();
+    assert!(
+        input_len > u64::from(U32_MAX_MARKER),
+        "the fixture is not over 4 GiB, so it proves nothing about zip64"
+    );
+    let before = read_tail(&input);
+    assert!(before.zip64, "the fixture carries no zip64 end records");
+
+    // Replace the SMALL entry; the large one is copied verbatim.
+    let mut archive = Archive::open(File::open(&input).expect("open")).expect("open the archive");
+    let index = archive
+        .index_of(SMALL_NAME.as_bytes())
+        .expect("the small entry");
+    let mut edits = Edits::new();
+    edits.replace(index, bytes_replacement(SMALL_REPLACEMENT));
+    let handle = File::create(&output).expect("create the output");
+    archive
+        .write_to(std::io::BufWriter::new(handle), edits)
+        .expect("write_to");
+
+    // The output's own zip64 fields and offsets.
+    let after = read_tail(&output);
+    assert!(after.zip64, "the output carries no zip64 end records");
+    assert_eq!(after.entries.len(), 2);
+    assert_eq!(after.entries[0].name, LARGE_NAME.as_bytes());
+    assert_eq!(after.entries[1].name, SMALL_NAME.as_bytes());
+
+    // The large entry is untouched, and still 4 GiB + 1 stored.
+    assert_eq!(after.entries[0].crc32, before.entries[0].crc32);
+    assert_eq!(after.entries[0].uncompressed_size, LARGE_SIZE);
+    assert_eq!(after.entries[0].compressed_size, LARGE_SIZE);
+
+    // The second entry's offset is over 4 GiB, which is the whole point: it
+    // cannot be recorded in the 32-bit field.
+    assert!(
+        after.entries[1].local_offset > u64::from(U32_MAX_MARKER),
+        "the second entry's offset is not over 4 GiB"
+    );
+    assert_eq!(after.entries[1].crc32, crc32(SMALL_REPLACEMENT));
+    assert_eq!(
+        after.entries[1].uncompressed_size,
+        SMALL_REPLACEMENT.len() as u64
+    );
+
+    // The harness's verdict, from the binary of this target.
+    let run = std::process::Command::new(&harness)
+        .arg(&input)
+        .arg(&output)
+        .output()
+        .expect("run the harness");
+    assert_eq!(
+        String::from_utf8_lossy(&run.stderr),
+        "",
+        "the harness wrote to stderr"
+    );
+    assert_eq!(run.status.code(), Some(1), "the harness's exit status");
+
+    let stdout = String::from_utf8(run.stdout).expect("the harness prints UTF-8");
+    let mut seen = Vec::new();
+    let mut flagged = None;
+    for line in stdout.lines() {
+        let cells: Vec<&str> = line.split('\t').collect();
+        match cells.first() {
+            Some(&"entry") => {
+                // Column 17 is the flags, empty when there are none.
+                seen.push((
+                    cells[1].to_string(),
+                    cells[2].to_string(),
+                    cells[16].to_string(),
+                ));
+            }
+            Some(&"archive") if cells[1] == "flagged" => flagged = Some(cells[2].to_string()),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        seen,
+        vec![
+            (
+                LARGE_NAME.to_string(),
+                "identical".to_string(),
+                String::new()
+            ),
+            (SMALL_NAME.to_string(), "changed".to_string(), String::new()),
+        ],
+        "the harness's entry rows"
+    );
+    assert_eq!(flagged.as_deref(), Some("0"), "the harness's flagged count");
 }

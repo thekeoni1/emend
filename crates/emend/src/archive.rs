@@ -26,11 +26,26 @@
 //! crate's own raw copy all 870 corpus entries stayed `identical` and every
 //! one of them was flagged, and no file was byte-identical.
 //!
+//! # How a replaced entry is produced
+//!
+//! P2 adds replace, remove and add. A replacement's bytes are compressed by
+//! the `zip` crate's `ZipWriter` into a temporary file and copied from there,
+//! so an entry larger than this target's address space never lands in memory.
+//! Only that file's compressed bytes and its central record's CRC-32 and sizes
+//! are used: its own headers are discarded, so the temporary archive's entry
+//! name is a placeholder and never the real one. `large_file(true)` is always
+//! set, because a [`Replacement`] streams and cannot say its size in advance,
+//! and `ZipWriter::write` fails once an entry passes 4 GiB without it.
+//!
 //! Every offset, size and count here is `u64`. `usize` is 32 bits on
 //! `i686-unknown-linux-musl`.
 
+use std::env;
 use std::fmt;
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(test)]
 mod tests;
@@ -75,6 +90,18 @@ const ZIP64_EXTRA_ID: u16 = 0x0001;
 const GP_ENCRYPTED: u16 = 1 << 0;
 /// General purpose bit 3: sizes and CRC-32 follow the data in a descriptor.
 const GP_DESCRIPTOR: u16 = 1 << 3;
+
+/// Data descriptor signature, optional before the descriptor's fields.
+const DESCRIPTOR_SIG: u32 = 0x0807_4b50;
+
+/// The two methods this layer will write. A replacement for an entry of any
+/// other method is refused (`specs/0008-zip-layer.md`, "Touched entries").
+const METHOD_STORE: u16 = 0;
+const METHOD_DEFLATE: u16 = 8;
+
+/// Version needed to extract for an added entry, and the zip64 form of it.
+const VERSION_NEEDED: u16 = 20;
+const VERSION_NEEDED_ZIP64: u16 = 45;
 
 /// Copies go through a buffer of this size, so a 63.7 MB entry never lands in
 /// memory whole.
@@ -212,6 +239,13 @@ impl Entry {
     fn span_len(&self) -> u64 {
         self.span_end - self.span_start
     }
+
+    /// Whether the central record states either size as a zip64 marker, which
+    /// is also what decides an 8-byte data descriptor.
+    fn has_zip64_sizes(&self) -> bool {
+        let marker = |at: usize| read_u32(&self.central[at..]).is_ok_and(|v| v == U32_MAX_MARKER);
+        marker(20) || marker(24)
+    }
 }
 
 /// How an entry's new bytes are produced. A part 2 concern: a rewritten
@@ -219,10 +253,24 @@ impl Entry {
 /// memory first.
 pub type Replacement = Box<dyn FnOnce(&mut dyn Write) -> io::Result<()>>;
 
+/// Wraps a reader as a [`Replacement`], for a caller that already has the new
+/// bytes behind a `Read` rather than a closure.
+///
+/// `specs/0008-zip-layer.md`, "Module `archive`": "a reader is wrapped with
+/// `io::copy`". The copy streams, so the reader's bytes are never collected
+/// into memory first.
+pub fn replacement_from_reader<R: Read + 'static>(mut reader: R) -> Replacement {
+    Box::new(move |out: &mut dyn Write| io::copy(&mut reader, out).map(|_| ()))
+}
+
 /// A set of changes to apply while writing an archive back.
 ///
-/// Part 1 implements the empty case only; [`Archive::write_to`] refuses a
-/// non-empty `Edits`.
+/// An empty `Edits` makes [`Archive::write_to`] a verbatim round trip. With
+/// changes, every entry the changes do not name is still copied verbatim from
+/// its local header to the next one, so only what was asked for moves.
+///
+/// An index may carry at most one change, and an added name must not already
+/// be in the archive; [`Archive::write_to`] refuses either.
 #[derive(Default)]
 pub struct Edits {
     replacements: Vec<(usize, Replacement)>,
@@ -512,18 +560,17 @@ impl<R: Read + Seek> Archive<R> {
     /// The output is a plain [`Write`]: offsets are computed as bytes go out,
     /// so it can be a pipe.
     ///
-    /// Part 1 implements the empty-`edits` case, which is a verbatim round
-    /// trip: the output is byte-identical to the input, prefix and comment
-    /// included. A non-empty `edits` is refused until part 2.
+    /// With an empty `edits` the output is byte-identical to the input, prefix
+    /// and comment included. With changes, every entry the changes do not name
+    /// is still copied verbatim, so only what was asked for moves.
+    ///
+    /// The edits are validated in full BEFORE anything is written, so a
+    /// rejected set leaves the output untouched rather than half-written.
     pub fn write_to(&mut self, mut out: impl Write, edits: Edits) -> Result<(), Error> {
-        if !edits.is_empty() {
-            return Err(Error::Unsupported(
-                "replace, remove and add arrive in Milestone 1 part 1 P2",
-            ));
-        }
+        let (actions, additions) = self.plan(edits)?;
 
         let mut reader = self.take_reader()?;
-        let result = self.write_all_parts(&mut reader, &mut out);
+        let result = self.write_all_parts(&mut reader, &mut out, actions, additions);
         // The reader goes back plain, whatever happened, so a failed write
         // leaves a usable Archive rather than one that has lost it. Nothing
         // is rebuilt here, so no recovery failure can mask the write's own
@@ -548,64 +595,262 @@ impl<R: Read + Seek> Archive<R> {
         Err(Error::Unsupported("the archive's reader is checked out"))
     }
 
+    /// Validates `edits` against the index and turns them into one action per
+    /// entry, plus the additions in the order they were given.
+    ///
+    /// Everything is checked HERE, before a byte is written: a rejected set
+    /// must leave the output untouched rather than half-written.
+    fn plan(&self, edits: Edits) -> Result<Planned, Error> {
+        let count = self.entries.len();
+        let mut actions: Vec<Action> = (0..count).map(|_| Action::Keep).collect();
+        let mut claimed = vec![false; count];
+
+        for (index, replacement) in edits.replacements {
+            let entry = self.entries.get(index).ok_or(Error::NoSuchEntry(index))?;
+            if claimed[index] {
+                return Err(Error::Unsupported("two changes for one entry"));
+            }
+            if entry.is_encrypted() {
+                return Err(Error::Unsupported("replacing an encrypted entry"));
+            }
+            if entry.method != METHOD_STORE && entry.method != METHOD_DEFLATE {
+                return Err(Error::Unsupported(
+                    "replacing an entry whose method is neither stored nor deflate",
+                ));
+            }
+            claimed[index] = true;
+            actions[index] = Action::Replace(replacement);
+        }
+
+        for index in edits.removals {
+            if index >= count {
+                return Err(Error::NoSuchEntry(index));
+            }
+            if claimed[index] {
+                return Err(Error::Unsupported("two changes for one entry"));
+            }
+            claimed[index] = true;
+            actions[index] = Action::Remove;
+        }
+
+        // An added name that a surviving entry already carries, or one added
+        // twice, would make a later edit by name ambiguous, exactly as a
+        // duplicate in the input does. The index reported is the addition's
+        // position counted after the input's entries.
+        let surviving: Vec<&[u8]> = self
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !matches!(actions[*index], Action::Remove))
+            .map(|(_, entry)| entry.name.as_slice())
+            .collect();
+        let mut additions: Vec<Addition> = Vec::new();
+        for (position, (name, replacement)) in edits.additions.into_iter().enumerate() {
+            if surviving.contains(&name.as_slice())
+                || additions.iter().any(|(seen, _)| *seen == name)
+            {
+                return Err(Error::DuplicateName(count + position));
+            }
+            additions.push((name, replacement));
+        }
+
+        Ok((actions, additions))
+    }
+
+    /// Where a replaced entry's trailing bytes are, and in what form.
+    ///
+    /// The span runs past the data to the next local header, so it may hold a
+    /// data descriptor and then padding or orphaned bytes. The descriptor is
+    /// re-emitted with the new values in the ORIGINAL's form; the padding is
+    /// copied verbatim.
+    fn gap_of(&self, reader: &mut R, entry: &Entry) -> Result<Gap, Error> {
+        let data_end = entry
+            .span_start
+            .checked_add(entry.local_header.len() as u64)
+            .and_then(|at| at.checked_add(entry.compressed_size))
+            .ok_or(Error::Truncated)?;
+        if data_end > entry.span_end {
+            return Err(Error::Truncated);
+        }
+
+        let mut gap = Gap {
+            with_signature: false,
+            zip64: entry.has_zip64_sizes(),
+            padding_start: data_end,
+            padding_len: entry.span_end - data_end,
+        };
+        if !entry.has_descriptor() {
+            return Ok(gap);
+        }
+
+        // The signature is optional, so the form is read from the bytes rather
+        // than assumed, and re-emitted as it was found.
+        if entry.span_end - data_end >= 4 {
+            let mut signature = [0u8; 4];
+            reader.seek(SeekFrom::Start(data_end))?;
+            reader.read_exact(&mut signature)?;
+            gap.with_signature = u32::from_le_bytes(signature) == DESCRIPTOR_SIG;
+        }
+        let length = descriptor_len(&gap);
+        let end = data_end.checked_add(length).ok_or(Error::Truncated)?;
+        if end > entry.span_end {
+            return Err(Error::Truncated);
+        }
+        gap.padding_start = end;
+        gap.padding_len = entry.span_end - end;
+        Ok(gap)
+    }
+
     /// The write itself, with the reader in hand.
-    fn write_all_parts(&self, reader: &mut R, out: &mut impl Write) -> Result<(), Error> {
+    fn write_all_parts(
+        &self,
+        reader: &mut R,
+        out: &mut impl Write,
+        actions: Vec<Action>,
+        additions: Vec<Addition>,
+    ) -> Result<(), Error> {
         // 1. The prefix, verbatim.
         reader.seek(SeekFrom::Start(0))?;
         copy_exact(reader, out, self.prefix_len)?;
 
-        // 2. Every entry's span, in file order, verbatim. With no edits the
-        //    new offsets equal the old ones, which is why the round trip is
-        //    byte-identical; they are still computed rather than assumed, so
-        //    part 2 inherits a writer that already tracks them.
+        // 2. Every surviving entry's span, in file order. An untouched entry
+        //    is copied verbatim, header to next header. With no edits the new
+        //    offsets equal the old ones, which is why the round trip is
+        //    byte-identical; they are still computed rather than assumed.
         //    Every recorded offset is a file position MINUS THE OFFSET BASE,
         //    never minus the prefix length: that is what keeps the output in
         //    the input's own convention, and conflating the two is what
         //    dropped the prefix (the P1 rulings of 2026-09-17, item 1).
         let mut written = self.prefix_len;
         let mut new_offsets = vec![0u64; self.entries.len()];
+        let mut survives = vec![false; self.entries.len()];
+        let mut rewritten: Vec<Option<Made>> = (0..self.entries.len()).map(|_| None).collect();
+        let mut actions = actions;
+
         for &index in &self.file_order {
             let entry = &self.entries[index];
-            new_offsets[index] = written
-                .checked_sub(self.offset_base)
-                .ok_or(Error::Truncated)?;
-            reader.seek(SeekFrom::Start(entry.span_start))?;
-            copy_exact(reader, out, entry.span_len())?;
-            written += entry.span_len();
+            // `file_order` visits each index exactly once, so taking the
+            // action out here is what gives the replacement's `FnOnce` to its
+            // one caller.
+            match std::mem::replace(&mut actions[index], Action::Remove) {
+                Action::Remove => continue,
+                Action::Keep => {
+                    new_offsets[index] = self.recorded(written)?;
+                    survives[index] = true;
+                    reader.seek(SeekFrom::Start(entry.span_start))?;
+                    copy_exact(reader, out, entry.span_len())?;
+                    written += entry.span_len();
+                }
+                Action::Replace(replacement) => {
+                    // The gap is read from the INPUT before anything is
+                    // written, so the descriptor's form and the padding are
+                    // the original's.
+                    let gap = self.gap_of(reader, entry)?;
+                    let mut made = compress_replacement(replacement, entry.method)?;
+
+                    new_offsets[index] = self.recorded(written)?;
+                    survives[index] = true;
+
+                    let header = rewrite_local_header(&entry.local_header, entry, &made)?;
+                    out.write_all(&header)?;
+                    written += header.len() as u64;
+
+                    made.copy_data(out)?;
+                    written += made.compressed_size;
+
+                    if entry.has_descriptor() {
+                        let descriptor = descriptor_bytes(&gap, &made);
+                        out.write_all(&descriptor)?;
+                        written += descriptor.len() as u64;
+                    }
+                    // Padding and orphaned bytes belong to the span. Dropping
+                    // them would set the harness's `descriptor` flag on a
+                    // replaced entry, which P2's acceptance forbids.
+                    reader.seek(SeekFrom::Start(gap.padding_start))?;
+                    copy_exact(reader, out, gap.padding_len)?;
+                    written += gap.padding_len;
+
+                    rewritten[index] = Some(made);
+                }
+            }
         }
 
-        // 3. The central directory, in the original order, each record
-        //    verbatim but for its local header offset.
-        let central_offset = written
-            .checked_sub(self.offset_base)
-            .ok_or(Error::Truncated)?;
+        // 3. Added entries, after the last entry in file order.
+        let mut added: Vec<(Vec<u8>, Made, u64)> = Vec::new();
+        for (name, replacement) in additions {
+            let mut made = compress_replacement(replacement, METHOD_DEFLATE)?;
+            let offset = self.recorded(written)?;
+            let header = added_local_header(&name, &made, offset)?;
+            out.write_all(&header)?;
+            written += header.len() as u64;
+            made.copy_data(out)?;
+            written += made.compressed_size;
+            added.push((name, made, offset));
+        }
+
+        // 4. The central directory, in the original order, each surviving
+        //    record verbatim but for its local header offset and, where the
+        //    entry was replaced, its CRC-32 and sizes. Added records follow.
+        let central_offset = self.recorded(written)?;
         let mut central_size = 0u64;
+        let mut total = 0u64;
         for (index, entry) in self.entries.iter().enumerate() {
-            let record = rewrite_central_offset(&entry.central, new_offsets[index])?;
+            if !survives[index] {
+                continue;
+            }
+            let record = rewrite_central_record(
+                &entry.central,
+                new_offsets[index],
+                rewritten[index].as_ref(),
+            )?;
             out.write_all(&record)?;
             central_size += record.len() as u64;
             written += record.len() as u64;
+            total += 1;
+        }
+        for (name, made, offset) in &added {
+            let record = added_central_record(name, made, *offset)?;
+            out.write_all(&record)?;
+            central_size += record.len() as u64;
+            written += record.len() as u64;
+            total += 1;
         }
 
-        // 4. The end records, as the input carried them, with the counts,
+        // 5. The end records, as the input carried them, with the counts,
         //    sizes and offsets rewritten and nothing else. `written` is now a
         //    real position, the zip64 record's own, rather than a sum
         //    recomputed from the prefix.
-        let total = self.entries.len() as u64;
-        if let (Some(z64), Some(locator)) = (&self.zip64_eocd_raw, &self.zip64_locator_raw) {
-            let z64_position = written;
-            let record = rewrite_zip64_eocd(z64, total, central_size, central_offset)?;
-            out.write_all(&record)?;
-            let recorded = z64_position
-                .checked_sub(self.offset_base)
-                .ok_or(Error::Truncated)?;
-            let locator = rewrite_zip64_locator(locator, recorded)?;
-            out.write_all(&locator)?;
+        let zip64_position = written;
+        match (&self.zip64_eocd_raw, &self.zip64_locator_raw) {
+            (Some(z64), Some(locator)) => {
+                let record = rewrite_zip64_eocd(z64, total, central_size, central_offset)?;
+                out.write_all(&record)?;
+                let locator = rewrite_zip64_locator(locator, self.recorded(zip64_position)?)?;
+                out.write_all(&locator)?;
+            }
+            _ => {
+                // The input carried none. An edit can still push a count, a
+                // size or an offset past what the 32-bit fields hold, and the
+                // end-of-central-directory record would then carry a marker
+                // with no record behind it, so the pair is synthesised.
+                if needs_zip64(total, central_size, central_offset) {
+                    out.write_all(&new_zip64_eocd(total, central_size, central_offset))?;
+                    out.write_all(&new_zip64_locator(self.recorded(zip64_position)?))?;
+                }
+            }
         }
         let eocd = rewrite_eocd(&self.eocd_raw, total, central_size, central_offset)?;
         out.write_all(&eocd)?;
         out.flush()?;
         Ok(())
+    }
+
+    /// A file position as a recorded offset: the position minus the offset
+    /// base, which is what keeps the output in the input's own convention.
+    fn recorded(&self, position: u64) -> Result<u64, Error> {
+        position
+            .checked_sub(self.offset_base)
+            .ok_or(Error::Truncated)
     }
 }
 
@@ -931,26 +1176,23 @@ fn read_local_header<R: Read + Seek>(reader: &mut R, start: u64) -> Result<Vec<u
     Ok(fixed)
 }
 
-/// Copies one central record with its local header offset rewritten, in the
-/// fixed field or in the zip64 extra field when the record carries the marker.
-fn rewrite_central_offset(record: &[u8], new_offset: u64) -> Result<Vec<u8>, Error> {
+/// Copies one central record with its local header offset rewritten and, when
+/// the entry was replaced, its CRC-32 and both sizes.
+///
+/// Each value goes into the fixed field, or into the zip64 extra field when
+/// that fixed field carries the marker. A field that carried the marker KEEPS
+/// it even when the new value would fit in 32 bits: the record's shape is the
+/// input's, so the harness's `attrs` flag, which fires when raw bytes differ
+/// while the decoded values agree, stays clear.
+fn rewrite_central_record(
+    record: &[u8],
+    new_offset: u64,
+    made: Option<&Made>,
+) -> Result<Vec<u8>, Error> {
     let mut out = record.to_vec();
-    let recorded = read_u32(&out[42..])?;
-    if recorded != U32_MAX_MARKER {
-        if new_offset > u64::from(U32_MAX_MARKER) {
-            return Err(Error::Unsupported(
-                "an offset that would need a zip64 field the input does not carry",
-            ));
-        }
-        let bytes = (new_offset as u32).to_le_bytes();
-        out[42..46].copy_from_slice(&bytes);
-        return Ok(out);
+    if out.len() < CENTRAL_FIXED {
+        return Err(Error::Truncated);
     }
-
-    // The marker is set, so the real offset lives in the zip64 extra field,
-    // after whichever of the two sizes also carry the marker.
-    let uncompressed = read_u32(&out[24..])?;
-    let compressed = read_u32(&out[20..])?;
     let name_len = usize::from(read_u16(&out[28..])?);
     let extra_len = usize::from(read_u16(&out[30..])?);
     let extra_start = CENTRAL_FIXED + name_len;
@@ -959,6 +1201,8 @@ fn rewrite_central_offset(record: &[u8], new_offset: u64) -> Result<Vec<u8>, Err
         return Err(Error::Truncated);
     }
 
+    // The zip64 extra field's body, when the record carries one.
+    let mut body: Option<(usize, usize)> = None;
     let mut at = extra_start;
     while at + 4 <= extra_end {
         let id = read_u16(&out[at..])?;
@@ -967,25 +1211,73 @@ fn rewrite_central_offset(record: &[u8], new_offset: u64) -> Result<Vec<u8>, Err
             return Err(Error::Truncated);
         }
         if id == ZIP64_EXTRA_ID {
-            let body = at + 4;
-            let mut cursor = 0usize;
-            if uncompressed == U32_MAX_MARKER {
-                cursor += 8;
-            }
-            if compressed == U32_MAX_MARKER {
-                cursor += 8;
-            }
-            if cursor + 8 > size {
-                return Err(Error::Truncated);
-            }
-            out[body + cursor..body + cursor + 8].copy_from_slice(&new_offset.to_le_bytes());
-            return Ok(out);
+            body = Some((at + 4, size));
+            break;
         }
         at += 4 + size;
     }
-    Err(Error::Unsupported(
-        "a zip64 offset marker with no zip64 extra field",
-    ))
+
+    // The body holds only the fields whose fixed counterpart carries the
+    // marker, in this order.
+    let mut cursor = 0usize;
+    let mut slot = |marked: bool| {
+        if marked {
+            let at = cursor;
+            cursor += 8;
+            Some(at)
+        } else {
+            None
+        }
+    };
+    let uncompressed_slot = slot(read_u32(&out[24..])? == U32_MAX_MARKER);
+    let compressed_slot = slot(read_u32(&out[20..])? == U32_MAX_MARKER);
+    let offset_slot = slot(read_u32(&out[42..])? == U32_MAX_MARKER);
+
+    if let Some(made) = made {
+        out[16..20].copy_from_slice(&made.crc32.to_le_bytes());
+        put_value(&mut out, 20, compressed_slot, body, made.compressed_size)?;
+        put_value(
+            &mut out,
+            24,
+            uncompressed_slot,
+            body,
+            made.uncompressed_size,
+        )?;
+    }
+    put_value(&mut out, 42, offset_slot, body, new_offset)?;
+    Ok(out)
+}
+
+/// Writes one value into a record: into the zip64 extra field at `slot` when
+/// the fixed field carries the marker, otherwise into the 4 bytes at `at`.
+fn put_value(
+    out: &mut [u8],
+    at: usize,
+    slot: Option<usize>,
+    body: Option<(usize, usize)>,
+    value: u64,
+) -> Result<(), Error> {
+    match slot {
+        None => {
+            if value > u64::from(U32_MAX_MARKER) {
+                return Err(Error::Unsupported(
+                    "a value that would need a zip64 field the input does not carry",
+                ));
+            }
+            out[at..at + 4].copy_from_slice(&(value as u32).to_le_bytes());
+            Ok(())
+        }
+        Some(slot) => {
+            let (body, size) = body.ok_or(Error::Unsupported(
+                "a zip64 marker with no zip64 extra field",
+            ))?;
+            if slot + 8 > size {
+                return Err(Error::Truncated);
+            }
+            out[body + slot..body + slot + 8].copy_from_slice(&value.to_le_bytes());
+            Ok(())
+        }
+    }
 }
 
 /// Copies the end-of-central-directory record with its counts, size and
@@ -1109,4 +1401,367 @@ fn zip_read_error(err: zip::result::ZipError) -> Error {
         zip::result::ZipError::FileNotFound => Error::NoSuchEntry(usize::MAX),
         _ => Error::Unsupported("an entry the zip crate could not decompress"),
     }
+}
+
+/// Maps a `zip` crate error from compressing a replacement, carrying no crate
+/// text.
+fn zip_write_error(err: zip::result::ZipError) -> Error {
+    match err {
+        zip::result::ZipError::Io(e) => Error::Io(e),
+        _ => Error::Unsupported("a replacement the zip crate could not compress"),
+    }
+}
+
+/// A new entry waiting to be appended: its raw name and its bytes.
+type Addition = (Vec<u8>, Replacement);
+
+/// One action per entry, plus the additions in the order they were given.
+type Planned = (Vec<Action>, Vec<Addition>);
+
+/// What happens to one indexed entry when the archive is written back.
+enum Action {
+    /// Copied verbatim, header to next header.
+    Keep,
+    /// Rebuilt from the original's header bytes with new data.
+    Replace(Replacement),
+    /// Left out of the output, span and record both.
+    Remove,
+}
+
+/// A replaced entry's trailing bytes: the data descriptor's form, and the
+/// padding or orphaned bytes after it.
+struct Gap {
+    /// Whether the descriptor carries its optional signature.
+    with_signature: bool,
+    /// Whether its sizes are 8 bytes rather than 4.
+    zip64: bool,
+    padding_start: u64,
+    padding_len: u64,
+}
+
+/// How long a data descriptor in this form is.
+fn descriptor_len(gap: &Gap) -> u64 {
+    let signature = if gap.with_signature { 4 } else { 0 };
+    let sizes = if gap.zip64 { 16 } else { 8 };
+    signature + 4 + sizes
+}
+
+/// A data descriptor carrying the new values, in the original's form.
+fn descriptor_bytes(gap: &Gap, made: &Made) -> Vec<u8> {
+    let mut out = Vec::new();
+    if gap.with_signature {
+        out.extend_from_slice(&DESCRIPTOR_SIG.to_le_bytes());
+    }
+    out.extend_from_slice(&made.crc32.to_le_bytes());
+    if gap.zip64 {
+        out.extend_from_slice(&made.compressed_size.to_le_bytes());
+        out.extend_from_slice(&made.uncompressed_size.to_le_bytes());
+    } else {
+        out.extend_from_slice(&(made.compressed_size as u32).to_le_bytes());
+        out.extend_from_slice(&(made.uncompressed_size as u32).to_le_bytes());
+    }
+    out
+}
+
+/// A file in the temporary directory, removed when it goes out of scope.
+///
+/// The core may add no dependency, and [`Archive::write_to`] takes a plain
+/// `Write` with no path, so the layer cannot place this beside the caller's
+/// output. It honours `TMPDIR` through [`env::temp_dir`].
+struct TempFile(PathBuf);
+
+impl TempFile {
+    fn new() -> Result<Self, Error> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let name = format!("emend-replace-{}-{n}.tmp", std::process::id());
+        Ok(TempFile(env::temp_dir().join(name)))
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
+/// A replacement's compressed bytes, waiting in a temporary file.
+struct Made {
+    file: File,
+    /// Where the compressed bytes start in that file.
+    data_start: u64,
+    crc32: u32,
+    compressed_size: u64,
+    uncompressed_size: u64,
+    /// Removed when this is dropped; held for that alone.
+    _temp: TempFile,
+}
+
+impl Made {
+    /// Copies the compressed bytes to the output, through a fixed buffer.
+    fn copy_data(&mut self, out: &mut impl Write) -> Result<(), Error> {
+        self.file.seek(SeekFrom::Start(self.data_start))?;
+        copy_exact(&mut self.file, out, self.compressed_size)
+    }
+}
+
+/// Compresses a replacement with the given method, into a temporary file.
+///
+/// `large_file(true)` is always set: a [`Replacement`] streams and cannot say
+/// its size in advance, and `ZipWriter::write` fails once an entry passes
+/// 4 GiB without it. The temporary archive's own headers are discarded, so its
+/// entry name is a placeholder and never the real one, which also keeps a name
+/// that is not valid UTF-8 out of a crate API that takes `ToString`.
+fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, Error> {
+    let temp = TempFile::new()?;
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create_new(true);
+    // Mode 0600: the bytes are the caller's, and the temporary directory is
+    // shared (`specs/0008-zip-layer.md`, the P2 rulings of 2026-09-17,
+    // item 4).
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(&temp.0)?;
+
+    // Named rather than converted from the number: `CompressionMethod::from_u16`
+    // is deprecated, and this is also where "stored or deflate, nothing else"
+    // is enforced at the point of use.
+    let compression = match method {
+        METHOD_STORE => zip::CompressionMethod::Stored,
+        METHOD_DEFLATE => zip::CompressionMethod::Deflated,
+        _ => {
+            return Err(Error::Unsupported(
+                "writing an entry whose method is neither stored nor deflate",
+            ));
+        }
+    };
+    let file_options = zip::write::SimpleFileOptions::default()
+        .compression_method(compression)
+        .large_file(true)
+        .last_modified_time(zip::DateTime::default());
+    let mut writer = zip::ZipWriter::new(file);
+    writer
+        .start_file("d", file_options)
+        .map_err(zip_write_error)?;
+    replacement(&mut writer)?;
+    let file = writer.finish().map_err(zip_write_error)?;
+
+    // Read back with THIS layer's parser: the central record is authoritative
+    // for the CRC-32 and the sizes, whatever the local header holds.
+    let mut inner = Archive::open(file)?;
+    if inner.entries().len() != 1 {
+        return Err(Error::Unsupported(
+            "the zip crate wrote something other than one entry",
+        ));
+    }
+    let (data_start, crc32, compressed_size, uncompressed_size) = {
+        let entry = &inner.entries()[0];
+        (
+            entry.span_start + entry.local_header.len() as u64,
+            entry.crc32,
+            entry.compressed_size,
+            entry.uncompressed_size,
+        )
+    };
+    // The same handle, taken back rather than the file opened a second time.
+    let file = inner.take_reader()?;
+    Ok(Made {
+        file,
+        data_start,
+        crc32,
+        compressed_size,
+        uncompressed_size,
+        _temp: temp,
+    })
+}
+
+/// Copies a replaced entry's local header with its CRC-32 and sizes rewritten.
+///
+/// Version needed, flags, method, DOS time and date, the name and the extra
+/// field are the original's. When the original used a data descriptor the
+/// header's CRC-32 and sizes carry no value to update, so the bytes are the
+/// original's untouched and the new values go in the descriptor instead.
+fn rewrite_local_header(header: &[u8], entry: &Entry, made: &Made) -> Result<Vec<u8>, Error> {
+    let mut out = header.to_vec();
+    if out.len() < usize_of(LOCAL_FIXED)? {
+        return Err(Error::Truncated);
+    }
+    if entry.has_descriptor() {
+        return Ok(out);
+    }
+
+    let name_len = usize::from(read_u16(&out[26..])?);
+    let extra_len = usize::from(read_u16(&out[28..])?);
+    let extra_start = usize_of(LOCAL_FIXED)? + name_len;
+    let extra_end = extra_start + extra_len;
+    if extra_end > out.len() {
+        return Err(Error::Truncated);
+    }
+
+    // A local zip64 extra field, when present, holds BOTH sizes, in this
+    // order, and the fixed fields keep their markers.
+    let mut body = None;
+    let mut at = extra_start;
+    while at + 4 <= extra_end {
+        let id = read_u16(&out[at..])?;
+        let size = usize::from(read_u16(&out[at + 2..])?);
+        if at + 4 + size > extra_end {
+            return Err(Error::Truncated);
+        }
+        if id == ZIP64_EXTRA_ID {
+            if size < 16 {
+                return Err(Error::Truncated);
+            }
+            body = Some(at + 4);
+            break;
+        }
+        at += 4 + size;
+    }
+
+    out[14..18].copy_from_slice(&made.crc32.to_le_bytes());
+    match body {
+        Some(body) => {
+            out[body..body + 8].copy_from_slice(&made.uncompressed_size.to_le_bytes());
+            out[body + 8..body + 16].copy_from_slice(&made.compressed_size.to_le_bytes());
+        }
+        None => {
+            if made.compressed_size > u64::from(U32_MAX_MARKER)
+                || made.uncompressed_size > u64::from(U32_MAX_MARKER)
+            {
+                return Err(Error::Unsupported(
+                    "a replacement too large for a local header with no zip64 extra field",
+                ));
+            }
+            out[18..22].copy_from_slice(&(made.compressed_size as u32).to_le_bytes());
+            out[22..26].copy_from_slice(&(made.uncompressed_size as u32).to_le_bytes());
+        }
+    }
+    Ok(out)
+}
+
+/// Whether an added entry needs zip64 fields for its sizes or its offset.
+fn addition_is_large(made: &Made, offset: u64) -> bool {
+    let max = u64::from(U32_MAX_MARKER);
+    made.compressed_size > max || made.uncompressed_size > max || offset > max
+}
+
+/// A local file header for an added entry: version needed 20 (45 with zip64),
+/// flags 0 (no descriptor), deflate, DOS time and date zero, so the output is
+/// deterministic, and no extra field unless zip64 needs one.
+fn added_local_header(name: &[u8], made: &Made, offset: u64) -> Result<Vec<u8>, Error> {
+    let large = addition_is_large(made, offset);
+    let name_len = u16::try_from(name.len())
+        .map_err(|_| Error::Unsupported("an entry name longer than a header can record"))?;
+
+    let mut extra = Vec::new();
+    if large {
+        extra.extend_from_slice(&ZIP64_EXTRA_ID.to_le_bytes());
+        extra.extend_from_slice(&16u16.to_le_bytes());
+        extra.extend_from_slice(&made.uncompressed_size.to_le_bytes());
+        extra.extend_from_slice(&made.compressed_size.to_le_bytes());
+    }
+
+    let mut out = Vec::with_capacity(usize_of(LOCAL_FIXED)? + name.len() + extra.len());
+    out.extend_from_slice(&LOCAL_SIG.to_le_bytes());
+    out.extend_from_slice(&version_needed(large).to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes()); // flags: no descriptor
+    out.extend_from_slice(&METHOD_DEFLATE.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes()); // DOS time
+    out.extend_from_slice(&0u16.to_le_bytes()); // DOS date
+    out.extend_from_slice(&made.crc32.to_le_bytes());
+    out.extend_from_slice(&sized(made.compressed_size, large).to_le_bytes());
+    out.extend_from_slice(&sized(made.uncompressed_size, large).to_le_bytes());
+    out.extend_from_slice(&name_len.to_le_bytes());
+    out.extend_from_slice(&(extra.len() as u16).to_le_bytes());
+    out.extend_from_slice(name);
+    out.extend_from_slice(&extra);
+    Ok(out)
+}
+
+/// A central directory record for an added entry, matching its local header.
+fn added_central_record(name: &[u8], made: &Made, offset: u64) -> Result<Vec<u8>, Error> {
+    let large = addition_is_large(made, offset);
+    let name_len = u16::try_from(name.len())
+        .map_err(|_| Error::Unsupported("an entry name longer than a header can record"))?;
+
+    let mut extra = Vec::new();
+    if large {
+        extra.extend_from_slice(&ZIP64_EXTRA_ID.to_le_bytes());
+        extra.extend_from_slice(&24u16.to_le_bytes());
+        extra.extend_from_slice(&made.uncompressed_size.to_le_bytes());
+        extra.extend_from_slice(&made.compressed_size.to_le_bytes());
+        extra.extend_from_slice(&offset.to_le_bytes());
+    }
+
+    let mut out = Vec::with_capacity(CENTRAL_FIXED + name.len() + extra.len());
+    out.extend_from_slice(&CENTRAL_SIG.to_le_bytes());
+    out.extend_from_slice(&version_needed(large).to_le_bytes()); // version made by
+    out.extend_from_slice(&version_needed(large).to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes()); // flags: no descriptor
+    out.extend_from_slice(&METHOD_DEFLATE.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes()); // DOS time
+    out.extend_from_slice(&0u16.to_le_bytes()); // DOS date
+    out.extend_from_slice(&made.crc32.to_le_bytes());
+    out.extend_from_slice(&sized(made.compressed_size, large).to_le_bytes());
+    out.extend_from_slice(&sized(made.uncompressed_size, large).to_le_bytes());
+    out.extend_from_slice(&name_len.to_le_bytes());
+    out.extend_from_slice(&(extra.len() as u16).to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes()); // comment length
+    out.extend_from_slice(&0u16.to_le_bytes()); // disk start
+    out.extend_from_slice(&0u16.to_le_bytes()); // internal attributes
+    out.extend_from_slice(&0u32.to_le_bytes()); // external attributes
+    out.extend_from_slice(&sized(offset, large).to_le_bytes());
+    out.extend_from_slice(name);
+    out.extend_from_slice(&extra);
+    Ok(out)
+}
+
+fn version_needed(large: bool) -> u16 {
+    if large {
+        VERSION_NEEDED_ZIP64
+    } else {
+        VERSION_NEEDED
+    }
+}
+
+/// The 32-bit field for a value: the marker when the real value lives in a
+/// zip64 extra field.
+fn sized(value: u64, large: bool) -> u32 {
+    if large { U32_MAX_MARKER } else { value as u32 }
+}
+
+/// Whether the end of the output needs zip64 records the input did not carry.
+fn needs_zip64(total: u64, central_size: u64, central_offset: u64) -> bool {
+    total > u64::from(U16_MAX_MARKER)
+        || central_size > u64::from(U32_MAX_MARKER)
+        || central_offset > u64::from(U32_MAX_MARKER)
+}
+
+/// A zip64 end-of-central-directory record, with no extensible data sector.
+fn new_zip64_eocd(total: u64, central_size: u64, central_offset: u64) -> Vec<u8> {
+    let mut out = Vec::with_capacity(ZIP64_EOCD_FIXED as usize);
+    out.extend_from_slice(&ZIP64_EOCD_SIG.to_le_bytes());
+    out.extend_from_slice(&(ZIP64_EOCD_FIXED - 12).to_le_bytes());
+    out.extend_from_slice(&VERSION_NEEDED_ZIP64.to_le_bytes()); // version made by
+    out.extend_from_slice(&VERSION_NEEDED_ZIP64.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes()); // this disk
+    out.extend_from_slice(&0u32.to_le_bytes()); // the central directory's disk
+    out.extend_from_slice(&total.to_le_bytes());
+    out.extend_from_slice(&total.to_le_bytes());
+    out.extend_from_slice(&central_size.to_le_bytes());
+    out.extend_from_slice(&central_offset.to_le_bytes());
+    out
+}
+
+/// A zip64 end-of-central-directory locator for a record at that offset.
+fn new_zip64_locator(record_offset: u64) -> Vec<u8> {
+    let mut out = Vec::with_capacity(ZIP64_LOCATOR_LEN as usize);
+    out.extend_from_slice(&ZIP64_LOCATOR_SIG.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes()); // the record's disk
+    out.extend_from_slice(&record_offset.to_le_bytes());
+    out.extend_from_slice(&1u32.to_le_bytes()); // total disks
+    out
 }

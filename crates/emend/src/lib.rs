@@ -21,4 +21,4 @@
 
 pub mod archive;
 
-pub use archive::{Archive, Edits, Entry, Error};
+pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
