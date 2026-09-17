@@ -398,11 +398,24 @@ Given on the implementing session's questions before any P2 run.
    then a small deflated entry, so that the second entry's offset and
    the central directory's need the zip64 forms at real size; built
    as the harness's was (the crate's writer with `large_file(true)`)
-   or byte by byte. The small entry is replaced and the large one is
-   copied verbatim. The test asserts the output's zip64 fields and
-   the second entry's offset over 4 GiB, and the output is read back
-   by `xlsx-diff` (the large entry `identical`, the small one
-   `recompressed` or `changed`, both unflagged). Run explicitly on
+   or byte by byte. The small entry is replaced with DIFFERENT bytes
+   and the large one is copied verbatim. The test asserts the
+   output's zip64 fields, the second entry's offset over 4 GiB and
+   the replaced entry's CRC-32 and sizes, then has the output read
+   back by the harness BINARY of the same target: the test runs it
+   with `std::process::Command` at the path in `EMEND_XLSX_DIFF`,
+   read first, before anything is built, and panics when the variable
+   is unset or names nothing executable, never skipping silently. The
+   crate stays without dev-dependencies and the harness links no
+   layer code, which is why the test cannot call the harness as a
+   library (ruled 2026-09-17 on the implementing session's question;
+   the ordinary tests never read the variable). Expected from the
+   harness: exit 1, the large entry `identical`, the small one
+   `changed`, `flagged` 0. `test.log` sets the variable to the binary
+   the gate built and prints that binary's sha256, the one `gate.log`
+   lists; `negative.log` shows the test with the variable unset
+   failing before it writes a file, with the run in `test.log` as its
+   control. Run explicitly on
    both targets with the test binary under `/usr/bin/time -v`, as
    T1 P4 ran the harness's, with the output, wall time and peak RSS
    in `test.log`, peak RSS under 64 MiB. The files go where
