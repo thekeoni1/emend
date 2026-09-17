@@ -171,11 +171,23 @@ layer's size or offset code changes, as T1 P5 ruled for the harness.
 
 ### Size
 
-`tools/size-probe` gains `probe-emend-copy`: opens a file with the
-layer and writes it back with no edits. Built in the `size` profile on
-i686 musl, its size minus `probe-zip` (473636) is the zip layer's cost;
-its size minus `probe-zip-xml` (539172) is the number the budget is
-measured against once `quick-xml` is linked. Both go in the record.
+`tools/size-probe` gains two probes, built in the `size` profile on
+i686 musl as the baseline was. `probe-emend-copy` opens a file with
+the layer and writes it back with no edits, as first specified;
+`probe-emend-edit` takes its edits from the command line (a replace of
+a named entry with its own bytes, a removal and an addition), so the
+compiler cannot prove any edit path dead and drop it, which the
+no-edit probe lets it do (P3 ruling 3: about 2.5 KB of sections
+invisible in the file size). For each probe the record gives the file
+size, the section total and `.text` from `size -A`, and the deltas of
+file size and section total over `probe-zip` (473636) and over
+`probe-zip-xml` (539172), the latter being the number the budget is
+measured against once `quick-xml` is linked. The budget is judged on
+`probe-emend-edit`, the consumer that edits, with the no-edit probe
+beside it and the difference stated. File sizes on this target move
+in 4096-byte pages, so a change under a page is invisible there and a
+change of a few bytes can cost a page; section totals resolve to the
+byte, which is why both are recorded.
 
 ### Harness runs
 
@@ -582,27 +594,93 @@ P2 is DONE.
 
 ### P3: size, the catalogue and the budget
 
-First, the test P2 left: an archive of 65535 entries with no zip64 end
-records, plus one added, so that the output's count crosses the 16-bit
-threshold and the writer synthesises the zip64 end record and locator.
-The test asserts the synthesised record and locator byte by byte
-against the layout the zip specification gives (built in the test
-field by field, not by the layer's functions), the plain end record's
-markers, and the output read back by the independent parser. Then
-`probe-emend-copy`, built and measured as the baseline was, recorded
-as `records/size-m1p1-<utc-date>-<shortsha>.md` with both deltas; the
-error catalogue in the crate's documentation, with a test for each
-branch P2 left untested: `plan`'s method refusal,
-`compress_replacement`'s method refusal and its "something other than
-one entry", `put_value`'s two messages, `rewrite_local_header`'s "a
-replacement too large for a local header with no zip64 extra field",
-and a Replacement that panics, after which no layer temporary remains;
-and the documented limits: the 64 KiB zip64 scan window
-(`MAX_ZIP64_SCAN`), a value that would need a zip64 field the input
-does not carry, and the unsigned-descriptor ambiguity. `gate.log`
-prints the ten gate-file names in its checks section. The report asks
-the maintainer to re-rule the size budget with the measured number in
-hand.
+First, the tests P2 left, on a fixture of 65535 entries with no zip64
+end records: (a) one entry added, so the count crosses the 16-bit
+threshold and the writer synthesises the zip64 end record and locator,
+asserted byte by byte against the layout the zip specification gives
+(built in the test field by field, not by the layer's functions), with
+the plain end record's markers; (b) one entry removed, so the count
+becomes 65534 and the end record must say so, which pins the
+`rewrite_eocd` repair below; (c) a no-edit round trip, byte-identical,
+the control. Each output is read back by the independent parser.
+
+The two P2 repairs, in one code commit of their own before P3's
+feature commit (P3 rulings 1 and 2): `rewrite_eocd` keeps a marker
+only when the input carried zip64 end records, since only then is
+0xFFFF or 0xFFFFFFFF a marker rather than a value, and otherwise
+writes every field clamped, which is the marker exactly when the value
+does not fit; and `refuse_duplicate_names` is no longer quadratic, the
+duplicate reported being the first record in directory order whose
+name appeared earlier, as before.
+
+Then `probe-emend-copy` and `probe-emend-edit`, measured as "Size"
+says, recorded as `records/size-m1p1-<utc-date>-<shortsha>.md`, with
+`size.log` printing every figure the record carries, the two baseline
+probes re-measured, and the section cost of each duplicate-name
+candidate the implementing session built; the error catalogue in the
+crate's documentation, with a test for each branch P2 left untested:
+`plan`'s method refusal, `compress_replacement`'s method refusal and
+its "something other than one entry" (moved into a helper that takes
+an opened archive so a test can reach it), `put_value`'s two messages,
+`rewrite_local_header`'s "a replacement too large for a local header
+with no zip64 extra field", and a Replacement that panics, after which
+no layer temporary remains; and the documented limits: the 64 KiB
+zip64 scan window (`MAX_ZIP64_SCAN`), a value that would need a zip64
+field the input does not carry, and the unsigned-descriptor ambiguity.
+`gate.log` prints the ten gate-file names in its checks section. The
+report asks the maintainer to re-rule the size budget with the
+measured numbers in hand.
+
+### Planning rulings during P3 (2026-09-17)
+
+Given on the implementing session's report before P3's code commit;
+doc commit 6f3d5c5 was in, nothing else.
+
+1. A defect in P2's writer, found by test (b) above and measured: on a
+   65535-entry archive with no zip64 end records the count field
+   holds 0xFFFF as a VALUE, `rewrite_eocd` kept it as if it were a
+   marker, and removing one entry produced an end record claiming
+   65535 entries over 65534 records, with no zip64 record to resolve
+   it, at exit 0 (the test's assertion: entries on this disk, left
+   65535, right 65534). Planning confirmed the kept-marker branch in
+   the committed source. The P2 verification's ruling 1, "P2's
+   delivered behaviour needs no change", was wrong in this corner;
+   the test P3 was told to write first is what found it, before the
+   push. Ruling: the repair as described under P3, in the repairs
+   commit, with tests (b) and (c) written into P3's list so a test
+   cites the spec. No tool-level negative case exists, because
+   `emend-copy` cannot remove or add; the tests are the pins, and the
+   report quotes the failing assertion from the pre-repair run.
+2. A quadratic in P1's open: `refuse_duplicate_names` compared each
+   name with every earlier one (about 2 x 10^9 comparisons at 65535
+   entries; the three tests took 90 s on the host in debug). Ruling:
+   the check is made linear-logarithmic, not the tests ignored; the
+   implementing session measured `sort_unstable_by` at +5056 section
+   bytes (+4304 `.text`), crossing a page, and built one more
+   candidate, the stable `sort_by`, in the same scratch way from a
+   tree differing only in the sort: 584164 against 584348 section
+   bytes at the same file size, so the unstable sort is kept, and
+   `size.log` prints both figures at the final commit; a `HashSet`
+   candidate is optional. (Planning first wrote the two sorts the
+   other way round; corrected before the doc commit on the
+   implementing session's reading.) The layer is a zip layer, and an
+   open whose time grows with the square of the entry count is a
+   defect at any size.
+3. Reading the size: file sizes on i686 musl are page-aligned, and
+   the no-edit probe lets link-time optimisation drop part of the
+   replacement path (the implementing session measured a scratch
+   probe with edits from argv at the same file size and +2500 section
+   bytes, +2016 `.text`). Ruling: as "Size" now says, two probes, both
+   figures, the budget judged on the editing probe. The measured
+   figures before the repairs, i686 musl in the `size` profile:
+   `probe-zip` 473636 (sections 464320), `probe-zip-xml` 539172
+   (sections 533216), both equal to the committed baseline, and the
+   no-edit probe at P2's code 588324 (sections 578892), that is
+   +49152 in file size over `probe-zip-xml` against the provisional
+   250 KiB.
+4. The helper for "something other than one entry" is approved: a
+   Replacement receives a `&mut dyn Write` and cannot start a second
+   file, so the check is testable only on an opened archive.
 
 ### Close-out push (after P3)
 
