@@ -1,12 +1,21 @@
 //! emend-copy: opens a zip archive with the emend layer and writes it back.
 //!
-//! `specs/0008-zip-layer.md`, "Harness runs". Without `--replace` there are no
-//! edits, so the output must be byte-identical to the input and the harness
-//! must report every entry `identical` with an empty flags column. With
-//! `--replace <name>` the named entry is replaced by its OWN decompressed
-//! bytes, so the harness must report that entry `recompressed` (or
-//! `identical`) with an empty flags column and every other entry `identical`
-//! and unflagged.
+//! `specs/0008-zip-layer.md`, "Harness runs", and `specs/0009-package-
+//! layer.md`, "Harness runs". At most ONE operation per invocation, given
+//! after the two paths:
+//!
+//! - none: no edits, so the output must be byte-identical to the input and the
+//!   harness must report every entry `identical` with an empty flags column.
+//! - `--replace <name>`: the named entry is replaced by its OWN decompressed
+//!   bytes, so the harness must report that entry `recompressed` (or
+//!   `identical`) and every other entry `identical` and unflagged.
+//! - `--xml-null-rewrite`: every entry whose name ends in `.xml` or `.rels`,
+//!   ASCII case-insensitively, is replaced by its own bytes passed through
+//!   `emend::xml::Stream`, the mark when present followed by every token's raw
+//!   bytes. Each such entry must come back `recompressed` or `identical` and
+//!   never `changed`, and every other entry `identical` and unflagged: the
+//!   rewrite is the identity, so this is what proves the token stream loses
+//!   nothing across the corpus.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -27,8 +36,22 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
+use emend::xml::{BYTE_ORDER_MARK, Stream};
 
-const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name>]";
+const USAGE: &str =
+    "usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite]";
+
+/// The one operation an invocation may carry, chosen by the arguments after
+/// the two paths. At most one: the parser refuses two at once, an unknown
+/// flag, and a flag before the paths, each with the usage line.
+enum Operation {
+    /// No edits: a verbatim round trip.
+    None,
+    /// Replace one named entry with its own bytes.
+    Replace(Vec<u8>),
+    /// Replace every XML-named entry with its own bytes through the stream.
+    XmlNullRewrite,
+}
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
 const EXIT_ERROR: u8 = 2;
@@ -44,6 +67,7 @@ enum Error {
     Rename(io::ErrorKind),
     NoSuchName,
     Extract(io::ErrorKind),
+    Rewrite(io::ErrorKind),
 }
 
 impl fmt::Display for Error {
@@ -60,6 +84,7 @@ impl fmt::Display for Error {
             // rule for this tool is that a message names at most an index.
             Error::NoSuchName => f.write_str("the archive has no entry with that name"),
             Error::Extract(kind) => write!(f, "cannot extract the entry to replace: {kind}"),
+            Error::Rewrite(kind) => write!(f, "cannot write the rewritten part: {kind}"),
         }
     }
 }
@@ -72,11 +97,21 @@ impl From<LayerError> for Error {
 
 fn main() -> ExitCode {
     let args: Vec<_> = env::args_os().skip(1).collect();
+    // The operation comes after the two paths, and there is at most one. Any
+    // other shape is the usage error: two operations at once and an operation
+    // before the paths both leave a flag where a path or nothing belongs.
     let result = match args.as_slice() {
-        [input, output] => run(Path::new(input), Path::new(output), None),
-        [input, output, flag, name] if flag == "--replace" => {
-            run(Path::new(input), Path::new(output), Some(name.as_bytes()))
-        }
+        [input, output] => run(Path::new(input), Path::new(output), Operation::None),
+        [input, output, flag] if flag == "--xml-null-rewrite" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::XmlNullRewrite,
+        ),
+        [input, output, flag, name] if flag == "--replace" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::Replace(name.as_bytes().to_vec()),
+        ),
         _ => Err(Error::Usage),
     };
     match result {
@@ -88,31 +123,45 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(input: &Path, output: &Path, replace: Option<&[u8]>) -> Result<(), Error> {
+fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut archive = Archive::open(BufReader::new(file))?;
 
-    // The entry's own bytes, extracted to a temporary file first: the layer
-    // takes a reader, and holding one that borrows the archive would conflict
-    // with the write that follows.
+    // Every replacement's bytes go to a temporary file first: the layer takes
+    // a reader for the whole write, and holding one that borrows the archive
+    // would conflict with it.
     let mut edits = Edits::new();
-    let extracted = match replace {
-        None => None,
-        Some(name) => {
-            let index = archive.index_of(name).ok_or(Error::NoSuchName)?;
-            let path = temporary_path(output, "-entry")?;
-            let mut file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create_new(true)
-                .open(&path)
-                .map_err(|e| Error::Create(e.kind()))?;
-            let guard = Removed(path);
+    let extracted = match operation {
+        Operation::None => Vec::new(),
+        Operation::Replace(name) => {
+            let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
+            let (mut file, guard) = temporary(output, "-entry")?;
             io::copy(&mut archive.read(index)?, &mut file).map_err(|e| Error::Extract(e.kind()))?;
             file.seek(SeekFrom::Start(0))
                 .map_err(|e| Error::Extract(e.kind()))?;
             edits.replace(index, replacement_from_reader(file));
-            Some(guard)
+            vec![guard]
+        }
+        Operation::XmlNullRewrite => {
+            let indices: Vec<usize> = archive
+                .entries()
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| is_xml_name(entry.name()))
+                .map(|(index, _)| index)
+                .collect();
+            let mut guards = Vec::with_capacity(indices.len());
+            for index in indices {
+                // A separate temporary per entry: they are all handed to the
+                // layer and read during the one write.
+                let (mut file, guard) = temporary(output, &format!("-xml{index}"))?;
+                guards.push(guard);
+                rewrite_part(&mut archive, index, &mut file)?;
+                file.seek(SeekFrom::Start(0))
+                    .map_err(|e| Error::Rewrite(e.kind()))?;
+                edits.replace(index, replacement_from_reader(file));
+            }
+            guards
         }
     };
 
@@ -132,6 +181,54 @@ fn run(input: &Path, output: &Path, replace: Option<&[u8]>) -> Result<(), Error>
     }
     drop(extracted);
     result
+}
+
+/// Whether an entry name is one the null rewrite touches: `.xml` or `.rels`,
+/// ASCII case-insensitively (`specs/0009-package-layer.md`, "Harness runs").
+///
+/// A directory entry's name ends in `/`, so none matches.
+fn is_xml_name(name: &[u8]) -> bool {
+    ends_with_ascii_ci(name, b".xml") || ends_with_ascii_ci(name, b".rels")
+}
+
+fn ends_with_ascii_ci(name: &[u8], suffix: &[u8]) -> bool {
+    name.len() >= suffix.len() && name[name.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+}
+
+/// Passes one entry's bytes through the token stream and writes them out.
+///
+/// This is the null rewrite: the mark when present, then every token's raw
+/// bytes in order, which is the input byte for byte. It streams, so a 63.7 MB
+/// part never lands in memory.
+fn rewrite_part<R: io::Read + io::Seek>(
+    archive: &mut Archive<R>,
+    index: usize,
+    file: &mut File,
+) -> Result<(), Error> {
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)
+            .map_err(|e| Error::Rewrite(e.kind()))?;
+    }
+    while let Some(token) = stream.next()? {
+        out.write_all(token.raw)
+            .map_err(|e| Error::Rewrite(e.kind()))?;
+    }
+    out.flush().map_err(|e| Error::Rewrite(e.kind()))?;
+    Ok(())
+}
+
+/// Creates one of this run's temporary files, and the guard that removes it.
+fn temporary(output: &Path, kind: &str) -> Result<(File, Removed), Error> {
+    let path = temporary_path(output, kind)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|e| Error::Create(e.kind()))?;
+    Ok((file, Removed(path)))
 }
 
 /// Writes the archive back, and reports a buffering failure rather than losing
