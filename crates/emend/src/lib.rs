@@ -3,7 +3,12 @@
 //! Milestone 1 part 1 is the zip layer alone (`specs/0008-zip-layer.md`):
 //! open an archive, index every entry with `u64` offsets, and write the
 //! archive back with every untouched entry byte for byte in its original
-//! place. Nothing here parses XML; that arrives in part 2.
+//! place.
+//!
+//! Part 2 P1 adds the second layer's first module (`specs/0009-package-
+//! layer.md`): [`xml`] streams a part's tokens, each with the exact input
+//! bytes it covers, so a rewrite copies what it does not change. Still
+//! nothing here reads a cell.
 //!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the
@@ -20,5 +25,7 @@
 #![deny(missing_docs)]
 
 pub mod archive;
+pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
+pub use xml::{BYTE_ORDER_MARK, Stream, Token};

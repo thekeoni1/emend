@@ -4,8 +4,11 @@
 //! path, and prints its entry count.
 //!
 //! Built as the baseline's probes are, its size minus `probe-zip` is what the
-//! zip layer costs, and its size minus `probe-zip-xml` is the number the
-//! budget is measured against once `quick-xml` is linked.
+//! zip layer's no-edit path costs. Its delta over `probe-zip-xml` is NOT the
+//! budget's figure: the budget is judged on `probe-emend-edit-xml`, which
+//! keeps the edit paths alive and links both crates (`specs/0008-zip-
+//! layer.md`, "Size", and the maintainer's ruling of 2026-09-17 recorded
+//! there). This probe stands beside it as the no-edit comparison.
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Write};

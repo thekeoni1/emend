@@ -60,6 +60,11 @@
 //!   earlier record already carries.
 //! - `NoSuchEntry(index)`: no entry has the index asked for, whether this
 //!   layer or the `zip` crate found that out; the index is the one asked for.
+//! - `Xml(index)`: the entry's bytes are not well-formed XML, or are not UTF-8
+//!   in markup or in text. Rendered as "not well-formed XML or not UTF-8
+//!   (entry N)". Produced by [`crate::xml`] and catalogued in full in that
+//!   module's header, which lists what its parser refuses and the three
+//!   not-well-formed classes it accepts; nothing in this module returns it.
 //! - `Unsupported(message)`, where the message is exactly one of these:
 //!   - "a multi-disk archive": a disk number other than 0 in either end record
 //!     or in a central record.
@@ -236,6 +241,12 @@ pub enum Error {
     DuplicateName(usize),
     /// No entry has that index.
     NoSuchEntry(usize),
+    /// An entry's bytes cannot be read as XML, by index.
+    ///
+    /// Produced by [`crate::xml`], whose header says what the parser refuses
+    /// and what it accepts. Neither a position nor any bytes are carried: the
+    /// bytes either side of a parse error are content.
+    Xml(usize),
 }
 
 impl fmt::Display for Error {
@@ -249,6 +260,9 @@ impl fmt::Display for Error {
                 write!(f, "two central records share a raw name (entry {index})")
             }
             Error::NoSuchEntry(index) => write!(f, "no entry with index {index}"),
+            Error::Xml(index) => {
+                write!(f, "not well-formed XML or not UTF-8 (entry {index})")
+            }
         }
     }
 }
