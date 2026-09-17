@@ -1,0 +1,741 @@
+command: git rev-parse HEAD
+about: M1 part 1 P3 phase commit 5a8b491ca402e9248cd4130890e7c353ec212a82; HEAD at run: 5a8b491ca402e9248cd4130890e7c353ec212a82
+phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) negative.log; run at 2026-09-17T14:10:57Z
+rerun: this replaces the negative.log of the first run, sha256 4a4918c8a6a1d2a93ef23f86a7bb658f8ea5c256e90ae850a83de0863d809a8d, which ran at 2026-09-17T14:08:56Z at this same commit and reported every check as expected, one of them for the wrong reason. D1 timed the removal test with GNU time and read the whole of its output file as the figure. When the command fails, GNU time writes a line 'Command exited with non-zero status N' BEFORE the figure, so the pre-repair run's value was that line and the number together; the log printed 'wall seconds: Command exited with non-zero status 101' with the figure on the next line. The ten-times check then handed that value to gawk, which, the value not being numeric, compared it as a STRING against 10 times the other figure: 'Command exited...' against '7.5', true because C sorts after 7, so the check would have passed whatever the timings were. Measured before this run on a failing and a passing command. The figure is now read from the last line and must look like a number, the comparison is made on numbers, and the two forms have controls, one of them the failure shape of the first run. The real figures happened to satisfy the check, 30.45 s against 0.75 s; this run is what establishes it. Every other case is as the first run printed it.
+SERIALIZED: produced with no other run in flight
+every fixture is generated; no corpus file is copied or read; nothing is built
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 1 P3 negative.log (specs/0008-zip-layer.md, "P3" and
+    # "Planning rulings during P3"): the P2 defect and its repair measured
+    # before and after, the 4 GiB test refusing to run without its harness, the
+    # reworded refusals seen through emend-copy, and the size probes' refusals.
+    #
+    # Four families of case:
+    #
+    #  D1, P3 ruling 1: "the report quotes the failing assertion from the
+    #  pre-repair run". The removal test is run against a test binary built from
+    #  P2's archive.rs with P3's tests, and against the one the gate built at this
+    #  commit. The pre-repair binary is a DECLARED INPUT, supplied through
+    #  PREREPAIR_TESTBIN as P1's pre-repair emend-copy was through OLD_BIN: this
+    #  log builds nothing. Its provenance is stated in PREREPAIR_NOTE, and the two
+    #  source files it names are hashed here from git so a reader can compare. Both
+    #  runs are timed, because the pre-repair binary also carries the quadratic
+    #  duplicate check that P3 ruling 2 removes.
+    #
+    #  X1, specs/0008 P2 rulings item 3: the layer's 4 GiB test with
+    #  EMEND_XLSX_DIFF unset fails before it writes a file. test.log reruns that
+    #  test in this phase, and its passing run there is this case's control.
+    #
+    #  T1 and T2, the error catalogue: two refusals that P3 gave their own wording,
+    #  seen through the tool rather than only in a unit test. Each has a control.
+    #
+    #  P1 to P7, the two new size probes' exit codes and refusals.
+    #
+    # Every case runs in a scratch clone under <scratch>, never in the main working
+    # tree, with the gate's binaries and size.log's probes copied in rather than
+    # rebuilt; gate.log and size.log print the same hashes. Every fixture is
+    # generated; no corpus file is read.
+    #
+    # Usage: PREREPAIR_TESTBIN=<file> PREREPAIR_NOTE=<text> m1p1-p3-negative.sh
+    # <phase commit> > <scratch file>; the caller moves the output to
+    # records/logs/m1p1-p3/negative.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    B=$(mktemp -d)
+    trap 'rm -rf "$B"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    hide() { sed "s#$B#<scratch>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 1 P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 1 P3 (specs/0008-zip-layer.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "every fixture is generated; no corpus file is copied or read; nothing is built"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the scratch clone and the binaries copied in"
+    echo "command: git clone --quiet --shared <repo> <scratch>/clone"
+    git clone --quiet --shared "$MAIN" "$B/clone" 2>&1 | hide | sed 's/^/    /'
+    CLONE=$B/clone
+    clone_head=$(git -C "$CLONE" rev-parse HEAD)
+    echo "  clone HEAD: $clone_head"
+    note "the clone is at the phase commit" "$(is [ "$clone_head" = "$C" ])"
+    mkdir -p "$B/bin"
+    copy_in() {
+      # copy_in <repo-relative path> <name in <scratch>/bin>
+      if cp "$MAIN/$1" "$B/bin/$2" 2>/dev/null && chmod 755 "$B/bin/$2"; then
+        echo "  copied $1: sha256 $(sha256sum <"$B/bin/$2" | cut -d' ' -f1), bytes $(wc -c <"$B/bin/$2")"
+      else
+        echo "  copied $1: FAILED"
+        fail=1
+      fi
+    }
+    echo "  the gate's binaries (gate.log prints these hashes):"
+    copy_in target/debug/emend-copy emend-copy
+    copy_in target/debug/xlsx-diff xlsx-diff
+    echo "  size.log's probes (size.log prints these hashes):"
+    copy_in target/i686-unknown-linux-musl/size/probe-emend-copy probe-emend-copy
+    copy_in target/i686-unknown-linux-musl/size/probe-emend-edit probe-emend-edit
+    echo "  every command below runs in <scratch>/clone or <scratch>"
+    EC=$B/bin/emend-copy
+    
+    # The gate-built test binary, found by glob and copied in; no cargo command
+    # runs in this log (specs/0001, "How this task runs").
+    : >"$B/testbins"
+    for f in "$MAIN"/target/debug/deps/emend-*; do
+      [ -f "$f" ] && [ -x "$f" ] && printf '%s\n' "$f" >>"$B/testbins"
+    done
+    nbin=$(count_lines "$B/testbins")
+    echo "command: for f in <repo>/target/debug/deps/emend-*; executable candidates only"
+    echo "  executable candidates: $nbin"
+    note "exactly one test binary candidate, so no choice is being made" "$(is [ "$nbin" -eq 1 ])"
+    cp "$(head -n 1 "$B/testbins")" "$B/bin/testbin" 2>/dev/null && chmod 755 "$B/bin/testbin"
+    [ -x "$B/bin/testbin" ] && echo "  the gate's test binary: sha256 $(sha256sum <"$B/bin/testbin" | cut -d' ' -f1), bytes $(wc -c <"$B/bin/testbin")"
+    note "the gate's test binary was copied in" "$(is [ -x "$B/bin/testbin" ])"
+    
+    echo
+    echo "## D1: the removal test before and after the repair"
+    echo "The pre-repair binary is a declared input. Its provenance, as supplied:"
+    echo "  ${PREREPAIR_NOTE:-(none supplied)}"
+    REPAIR=$(git log --format='%H' --grep="^M1 part 1 P3: repair P2's end-record count" -n 1)
+    P2_CODE=$(git log --format='%H' --grep='^M1 part 1 P2: replace, remove and add' -n 1)
+    echo "command: git log --format='%H' --grep=<the repairs commit's subject> -n 1; the same for P2's code commit"
+    echo "  the repairs commit resolves to $REPAIR; P2's code commit to $P2_CODE"
+    note "both commits resolved from git" "$(is [ -n "$REPAIR" ] && [ -n "$P2_CODE" ])"
+    echo "  the two sources it names, hashed here from git for comparison:"
+    echo "    P2's crates/emend/src/archive.rs:           $(git show "$P2_CODE:crates/emend/src/archive.rs" | sha256sum | cut -d' ' -f1)"
+    echo "    the repairs commit's archive/tests.rs:     $(git show "$REPAIR:crates/emend/src/archive/tests.rs" | sha256sum | cut -d' ' -f1)"
+    OLD=""
+    if [ -n "${PREREPAIR_TESTBIN:-}" ] && [ -r "${PREREPAIR_TESTBIN:-/nonexistent}" ]; then
+      cp "$PREREPAIR_TESTBIN" "$B/bin/prerepair" && chmod 755 "$B/bin/prerepair" && OLD=$B/bin/prerepair
+    fi
+    if [ -n "$OLD" ]; then
+      echo "  the pre-repair binary: sha256 $(sha256sum <"$OLD" | cut -d' ' -f1), bytes $(wc -c <"$OLD")"
+    fi
+    note "the pre-repair binary was supplied" "$(is [ -n "$OLD" ])"
+    NAME=archive::tests::removing_from_65535_entries_writes_a_plain_count
+    run_removal() {
+      # run_removal <binary> <label>
+      ( cd "$B" && /usr/bin/time -f '%e' -o "$B/$2.time" "$1" --exact "$NAME" --test-threads=1 ) \
+        >"$B/$2.out" 2>&1 </dev/null
+      echo $?
+    }
+    # elapsed_of <time file>: the wall seconds GNU time recorded, or "error".
+    # When the command FAILS, GNU time writes "Command exited with non-zero status
+    # N" on a line of its own BEFORE the figure, so the figure is the LAST line,
+    # and it must look like a number. The first run of this log read the whole
+    # file; gawk then held a value that is not numeric and compared it as a
+    # STRING, "Command exited..." against "7.5", which is true because C sorts
+    # after 7, so the ten-times check below passed whatever the timings were.
+    elapsed_of() {
+      local v
+      v=$(tail -n 1 "$1" 2>/dev/null)
+      if [[ "$v" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then printf '%s' "$v"; else printf 'error'; fi
+    }
+    # ten_times <a> <b>: a and b are both numbers and a is more than ten times b,
+    # compared as NUMBERS.
+    ten_times() {
+      [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ "$2" =~ ^[0-9]+(\.[0-9]+)?$ ]] &&
+        awk -v a="$1" -v b="$2" 'BEGIN { exit !((a + 0) > 10 * (b + 0)) }'
+    }
+    echo "  controls for the two timing forms, run before they are used:"
+    printf 'Command exited with non-zero status 101\n30.45\n' >"$B/ctl-fail.time"
+    printf '0.75\n' >"$B/ctl-ok.time"
+    printf 'garbage\n' >"$B/ctl-bad.time"
+    note "control: a failing command's figure is read from its last line" "$(is [ "$(elapsed_of "$B/ctl-fail.time")" = 30.45 ])"
+    note "control: a passing command's figure is read" "$(is [ "$(elapsed_of "$B/ctl-ok.time")" = 0.75 ])"
+    note "control: a file with no figure reads as error" "$(is [ "$(elapsed_of "$B/ctl-bad.time")" = error ])"
+    note "control: 30.45 is more than ten times 0.75" "$(is ten_times 30.45 0.75)"
+    nottentimes() { ! ten_times "$1" "$2"; }
+    note "control: 5 is NOT more than ten times 0.75" "$(is nottentimes 5 0.75)"
+    note "control: the failure shape of the first run is refused, not compared as a string" \
+      "$(is nottentimes "$(cat "$B/ctl-fail.time")" 0.75)"
+    if [ -n "$OLD" ]; then
+      listed=$(count_matches -F "$NAME: test" <("$OLD" --list 2>/dev/null))
+      note "the pre-repair binary contains the removal test" "$(is [ "$listed" = 1 ])"
+      RC_OLD=$(run_removal "$OLD" before)
+      echo "command: <pre-repair binary> --exact $NAME --test-threads=1"
+      echo "  exit: $RC_OLD; wall seconds: $(elapsed_of "$B/before.time")"
+      hide <"$B/before.out" | LC_ALL=C "$G" -E 'test |panicked|assertion|left:|right:|test result' | sed 's/^/    /'
+      note "before the repair the removal test FAILS" "$(is [ "$RC_OLD" -ne 0 ])"
+      note "it fails on the entry count" \
+        "$(is [ "$(count_matches -F 'assertion `left == right` failed: entries on this disk' "$B/before.out")" = 1 ])"
+      note "the end record says 65535" "$(is [ "$(count_matches -E '^ +left: 65535$' "$B/before.out")" = 1 ])"
+      note "over an archive of 65534" "$(is [ "$(count_matches -E '^ +right: 65534$' "$B/before.out")" = 1 ])"
+    fi
+    RC_NEW=$(run_removal "$B/bin/testbin" after)
+    echo "command: <the gate's test binary> --exact $NAME --test-threads=1"
+    echo "  exit: $RC_NEW; wall seconds: $(elapsed_of "$B/after.time")"
+    hide <"$B/after.out" | LC_ALL=C "$G" -E 'test |test result' | sed 's/^/    /'
+    note "after the repair the removal test passes" "$(is [ "$RC_NEW" -eq 0 ])"
+    note "and it ran, rather than being filtered out" \
+      "$(is [ "$(count_matches -E "^test $NAME \.\.\. ok$" "$B/after.out")" = 1 ])"
+    if [ -n "$OLD" ]; then
+      T_OLD=$(elapsed_of "$B/before.time")
+      T_NEW=$(elapsed_of "$B/after.time")
+      echo "  the quadratic duplicate check is in the pre-repair binary only: $T_OLD s against $T_NEW s for the same test"
+      note "both timings were read as numbers" "$(is [ "$T_OLD" != error ] && [ "$T_NEW" != error ])"
+      note "the pre-repair run takes more than ten times as long, compared as numbers" "$(is ten_times "$T_OLD" "$T_NEW")"
+    fi
+    
+    echo
+    echo "## X1: the 4 GiB test with EMEND_XLSX_DIFF unset fails before it writes a file"
+    mkdir -p "$B/x1tmp"
+    echo "command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <the gate's test binary> --ignored zip64 --test-threads=1"
+    ( cd "$B" && env -u EMEND_XLSX_DIFF TMPDIR="$B/x1tmp" "$B/bin/testbin" --ignored zip64 --test-threads=1 ) \
+      >"$B/X1.out" 2>"$B/X1.err" </dev/null
+    x1rc=$?
+    echo "  exit: $x1rc"
+    hide <"$B/X1.out" | sed 's/^/    /'
+    hide <"$B/X1.err" | sed 's/^/    /'
+    x1_named=$(count_matches -F 'EMEND_XLSX_DIFF is unset' "$B/X1.out" "$B/X1.err")
+    x1_files=$(find "$B/x1tmp" -maxdepth 1 -name 'emend-4gib-*' | wc -l)
+    echo "  lines naming the unset variable: $x1_named; 4 GiB fixtures written: $x1_files"
+    note "X1 the run fails" "$(is [ "$x1rc" -ne 0 ])"
+    note "X1 it says which variable is unset" "$(is [ "$x1_named" -ge 1 ])"
+    note "X1 it wrote no fixture" "$(is [ "$x1_files" -eq 0 ])"
+    
+    echo
+    echo "## the generated fixtures"
+    cat >"$B/gen.py" <<'GEN_PY'
+    import os, struct, sys, zipfile
+    
+    w = sys.argv[1]
+    CT = b'<?xml version="1.0"?><Types xmlns="x"><Default Extension="xml" ContentType="a"/></Types>'
+    WB = b'<?xml version="1.0"?><workbook><sheets><sheet name="S1" sheetId="1"/></sheets></workbook>'
+    APP = b'<?xml version="1.0"?><Properties/>'
+    
+    
+    def must(cond, msg):
+        if not cond:
+            raise SystemExit("generator: " + msg)
+    
+    
+    def sound(path):
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("[Content_Types].xml", CT)
+            z.writestr("xl/workbook.xml", WB)
+            z.writestr("docProps/app.xml", APP)
+    
+    
+    sound(os.path.join(w, "sound.xlsx"))
+    data = open(os.path.join(w, "sound.xlsx"), "rb").read()
+    open(os.path.join(w, "trailing.xlsx"), "wb").write(data + b"trailing")
+    open(os.path.join(w, "notzip.xlsx"), "wb").write(b"this is not a zip archive\n" * 8)
+    
+    
+    def zip64(sector):
+        """A real zip64 archive with an extensible data sector of `sector` bytes in
+        its zip64 end record. The end record and locator are built here, field by
+        field, and every signature is asserted."""
+        p = os.path.join(w, "base-z64.zip")
+        with zipfile.ZipFile(p, "w") as z:
+            z.writestr("a.txt", "hello", zipfile.ZIP_STORED)
+        raw = open(p, "rb").read()
+        eo = raw.rfind(b"PK\x05\x06")
+        must(eo > 0, "no end record")
+        cd_size = struct.unpack_from("<I", raw, eo + 12)[0]
+        cd_off = struct.unpack_from("<I", raw, eo + 16)[0]
+        entries = struct.unpack_from("<H", raw, eo + 10)[0]
+        body = bytearray(raw[:eo])
+        z64_at = len(body)
+        rec = bytearray()
+        rec += struct.pack("<I", 0x06064b50) + struct.pack("<Q", 44 + sector)
+        rec += struct.pack("<HHII", 45, 45, 0, 0)
+        rec += struct.pack("<QQQQ", entries, entries, cd_size, cd_off)
+        must(len(rec) == 56, "zip64 end record is not 56 bytes")
+        body += rec + bytes(sector)
+        body += struct.pack("<IIQI", 0x07064b50, 0, z64_at, 1)
+        tail = bytearray(raw[eo:])
+        struct.pack_into("<I", tail, 12, 0xFFFFFFFF)
+        struct.pack_into("<I", tail, 16, 0xFFFFFFFF)
+        body += tail
+        return bytes(body)
+    
+    
+    open(os.path.join(w, "sector-over.zip"), "wb").write(zip64(0x10000))
+    open(os.path.join(w, "sector-edge.zip"), "wb").write(zip64(0xFFFF))
+    for name in ("sound.xlsx", "trailing.xlsx", "notzip.xlsx", "sector-over.zip", "sector-edge.zip"):
+        print("%s: %d bytes" % (name, os.path.getsize(os.path.join(w, name))))
+    GEN_PY
+    echo "command: python3 <scratch>/gen.py <scratch>"
+    python3 "$B/gen.py" "$B" >"$B/gen.out" 2>&1
+    grc=$?
+    hide <"$B/gen.out" | sed 's/^/    /'
+    rm -rf "$B/__pycache__"
+    note "the generator exits 0" "$(is [ "$grc" -eq 0 ])"
+    
+    # run_case <label> <expected exit> <expected stderr, empty for none> <binary> <args...>
+    # The whole stderr is compared, not a prefix of it.
+    run_case() {
+      local label=$1 expect_rc=$2 expect_err=$3 bin=$4
+      shift 4
+      ( cd "$B" && "$bin" "$@" ) >"$B/$label.out" 2>"$B/$label.err" </dev/null
+      local rc=$?
+      local got lines
+      got=$(cat "$B/$label.err")
+      lines=$(count_lines "$B/$label.err")
+      echo "  $label: exit $rc; stderr lines $lines"
+      hide <"$B/$label.err" | sed 's/^/      /'
+      case_ok() {
+        [ "$rc" -eq "$expect_rc" ] || return 1
+        [ "$got" = "$expect_err" ] || return 1
+        if [ -z "$expect_err" ]; then [ "$lines" = 0 ]; else [ "$lines" = 1 ]; fi
+      }
+      local said="and stderr is exactly the expected line"
+      [ -z "$expect_err" ] && said="and says nothing on stderr"
+      note "$label exits $expect_rc $said" "$(is case_ok)"
+    }
+    
+    echo
+    echo "## T1 and T2: the reworded refusals, through emend-copy"
+    echo "T1: a sound archive with eight bytes after its end record"
+    run_case T1 2 'error: unsupported zip feature: bytes after the end-of-central-directory record' \
+      "$EC" "$B/trailing.xlsx" "$B/out-T1.xlsx"
+    note "T1 no output file was left" "$(is [ ! -e "$B/out-T1.xlsx" ])"
+    echo "T1c: the control, the same archive without those bytes"
+    run_case T1c 0 "" "$EC" "$B/sound.xlsx" "$B/out-T1c.xlsx"
+    note "T1c the copy is byte-identical" "$(is cmp -s "$B/sound.xlsx" "$B/out-T1c.xlsx")"
+    echo "T1n: a file with no end record at all is still not a zip"
+    run_case T1n 2 'error: no end-of-central-directory record: not a zip archive' \
+      "$EC" "$B/notzip.xlsx" "$B/out-T1n.xlsx"
+    echo "T2: a zip64 end record whose extensible data sector is 65536 bytes"
+    run_case T2 2 'error: unsupported zip feature: a zip64 end record not found within 65535 bytes of extensible data before its locator' \
+      "$EC" "$B/sector-over.zip" "$B/out-T2.zip"
+    note "T2 no output file was left" "$(is [ ! -e "$B/out-T2.zip" ])"
+    echo "T2c: the control, a sector of 65535 bytes, at the window's edge"
+    run_case T2c 0 "" "$EC" "$B/sector-edge.zip" "$B/out-T2c.zip"
+    note "T2c the copy is byte-identical, sector included" "$(is cmp -s "$B/sector-edge.zip" "$B/out-T2c.zip")"
+    
+    echo
+    echo "## P1 to P7: the size probes' exit codes and refusals"
+    PC=$B/bin/probe-emend-copy
+    PE=$B/bin/probe-emend-edit
+    echo "P1: probe-emend-copy with one argument"
+    run_case P1 2 'error: usage: probe-emend-copy <archive> <output>' "$PC" "$B/sound.xlsx"
+    echo "P2: probe-emend-copy on a file that is not a zip archive"
+    run_case P2 2 'error: no end-of-central-directory record: not a zip archive' "$PC" "$B/notzip.xlsx" "$B/out-P2.zip"
+    echo "P3: probe-emend-edit with four arguments"
+    run_case P3 2 'error: usage: probe-emend-edit <archive> <output> <entry to replace> <entry to remove> <entry to add>' \
+      "$PE" "$B/sound.xlsx" "$B/out-P3.zip" a b
+    echo "P4: probe-emend-edit naming an entry to replace that is absent"
+    run_case P4 2 'error: no entry to replace by that name' \
+      "$PE" "$B/sound.xlsx" "$B/out-P4.zip" absent.xml docProps/app.xml added.xml
+    echo "P5: probe-emend-edit naming an entry to remove that is absent"
+    run_case P5 2 'error: no entry to remove by that name' \
+      "$PE" "$B/sound.xlsx" "$B/out-P5.zip" '[Content_Types].xml' absent.xml added.xml
+    echo "P6: probe-emend-edit replacing and removing the same entry"
+    run_case P6 2 'error: unsupported zip feature: two changes for one entry' \
+      "$PE" "$B/sound.xlsx" "$B/out-P6.zip" xl/workbook.xml xl/workbook.xml added.xml
+    echo "P7: probe-emend-edit adding a name a surviving entry carries"
+    run_case P7 2 'error: two central records share a raw name (entry 3)' \
+      "$PE" "$B/sound.xlsx" "$B/out-P7.zip" '[Content_Types].xml' docProps/app.xml xl/workbook.xml
+    echo "P7c: the control, the same edits with a new name"
+    run_case P7c 0 "" "$PE" "$B/sound.xlsx" "$B/out-P7c.zip" '[Content_Types].xml' docProps/app.xml added.xml
+    ( cd "$B" && "$B/bin/xlsx-diff" "$B/sound.xlsx" "$B/out-P7c.zip" ) >"$B/P7c.tsv" 2>/dev/null
+    awk -F'\t' '$1 == "entry" { printf "      %s %s flags=[%s]\n", $2, $3, $17 }' "$B/P7c.tsv"
+    p7c_ok() {
+      [ "$(awk -F'\t' '$1 == "entry" && $2 == "docProps/app.xml" { print $3 }' "$B/P7c.tsv")" = dropped ] &&
+        [ "$(awk -F'\t' '$1 == "entry" && $2 == "added.xml" { print $3 }' "$B/P7c.tsv")" = added ] &&
+        [ "$(awk -F'\t' '$1 == "entry" && $17 != "" { n++ } END { print n + 0 }' "$B/P7c.tsv")" = 0 ]
+    }
+    note "P7c the harness sees one entry dropped, one added, nothing flagged" "$(is p7c_ok)"
+    
+    echo
+    echo "## no temporary of any kind survived"
+    ectmp=$(find "$B" -maxdepth 2 -name '.*.emend-copy*.tmp' | wc -l)
+    laytmp=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'emend-replace-*.tmp' -newer "$B/gen.py" 2>/dev/null | wc -l)
+    echo "  emend-copy temporaries left in <scratch>: $ectmp"
+    echo "  layer replacement temporaries newer than this run's fixtures: $laytmp"
+    note "no emend-copy temporary survived" "$(is [ "$ectmp" -eq 0 ])"
+    note "no layer replacement temporary survived" "$(is [ "$laytmp" -eq 0 ])"
+    
+    echo
+    echo "## the main working tree was never used"
+    st_all=$(run_lines git -C "$MAIN" status --porcelain)
+    st_log=$(run_matches -E 'records/logs/m1p1-p3|records/size-m1p1-' git -C "$MAIN" status --porcelain)
+    echo "status lines in the main tree: $st_all; of them this phase's logs or its size record: $st_log"
+    main_untouched() { [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]; }
+    note "every change in the main tree is this phase's logs or its size record" "$(is main_untouched)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the scratch clone and the binaries copied in
+command: git clone --quiet --shared <repo> <scratch>/clone
+  clone HEAD: 5a8b491ca402e9248cd4130890e7c353ec212a82
+  the clone is at the phase commit: as-expected
+  the gate's binaries (gate.log prints these hashes):
+  copied target/debug/emend-copy: sha256 d305211c4f265d8b6d9b36b9ebe25298f74b0585fed39fd7a71f3f7610c13bac, bytes 12218232
+  copied target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
+  size.log's probes (size.log prints these hashes):
+  copied target/i686-unknown-linux-musl/size/probe-emend-copy: sha256 c737458b3f61ec2bb83c4170ac738c76d7b7ac104ba1c378f96e9a906ae0226a, bytes 592420
+  copied target/i686-unknown-linux-musl/size/probe-emend-edit: sha256 9d5c661573756bd1d1699060a51d95de06f7b0cd44b64f65fcf683353fdcf899, bytes 657956
+  every command below runs in <scratch>/clone or <scratch>
+command: for f in <repo>/target/debug/deps/emend-*; executable candidates only
+  executable candidates: 1
+  exactly one test binary candidate, so no choice is being made: as-expected
+  the gate's test binary: sha256 832230ba1d32279ae1d537b8510f8afea80aa5c95e4e4c6c467ab8c04112165c, bytes 16783576
+  the gate's test binary was copied in: as-expected
+
+## D1: the removal test before and after the repair
+The pre-repair binary is a declared input. Its provenance, as supplied:
+  built by the implementing session before this log ran, in a scratch clone checked out at the repairs commit adb0cc8ef6098735beaef275cc88900daac71727 with crates/emend/src/archive.rs replaced by P2's from ac1bd12a8004740b66665f248f99d534dbd4d273, by cargo test -p emend --no-run; at build time its archive.rs hashed d40480226445dbffa55b1601d54acdb139ebf6f718f5df3cd0f0a6a80b02c02f and its tests.rs b2afc0b8eeae2670d54f4ec847d500290680640586f5dee8302c4e1898f7491d, and the binary c391f5b05990e65d63c536ee97c3a13642ec7eaa43913545de0131d627c961f4
+command: git log --format='%H' --grep=<the repairs commit's subject> -n 1; the same for P2's code commit
+  the repairs commit resolves to adb0cc8ef6098735beaef275cc88900daac71727; P2's code commit to ac1bd12a8004740b66665f248f99d534dbd4d273
+  both commits resolved from git: as-expected
+  the two sources it names, hashed here from git for comparison:
+    P2's crates/emend/src/archive.rs:           d40480226445dbffa55b1601d54acdb139ebf6f718f5df3cd0f0a6a80b02c02f
+    the repairs commit's archive/tests.rs:     b2afc0b8eeae2670d54f4ec847d500290680640586f5dee8302c4e1898f7491d
+  the pre-repair binary: sha256 c391f5b05990e65d63c536ee97c3a13642ec7eaa43913545de0131d627c961f4, bytes 15960000
+  the pre-repair binary was supplied: as-expected
+  controls for the two timing forms, run before they are used:
+  control: a failing command's figure is read from its last line: as-expected
+  control: a passing command's figure is read: as-expected
+  control: a file with no figure reads as error: as-expected
+  control: 30.45 is more than ten times 0.75: as-expected
+  control: 5 is NOT more than ten times 0.75: as-expected
+  control: the failure shape of the first run is refused, not compared as a string: as-expected
+  the pre-repair binary contains the removal test: as-expected
+command: <pre-repair binary> --exact archive::tests::removing_from_65535_entries_writes_a_plain_count --test-threads=1
+  exit: 101; wall seconds: 30.53
+    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... FAILED
+    thread 'archive::tests::removing_from_65535_entries_writes_a_plain_count' (2036276) panicked at crates/emend/src/archive/tests.rs:2034:5:
+    assertion `left == right` failed: entries on this disk
+      left: 65535
+     right: 65534
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 58 filtered out; finished in 30.53s
+  before the repair the removal test FAILS: as-expected
+  it fails on the entry count: as-expected
+  the end record says 65535: as-expected
+  over an archive of 65534: as-expected
+command: <the gate's test binary> --exact archive::tests::removing_from_65535_entries_writes_a_plain_count --test-threads=1
+  exit: 0; wall seconds: 0.73
+    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.74s
+  after the repair the removal test passes: as-expected
+  and it ran, rather than being filtered out: as-expected
+  the quadratic duplicate check is in the pre-repair binary only: 30.53 s against 0.73 s for the same test
+  both timings were read as numbers: as-expected
+  the pre-repair run takes more than ten times as long, compared as numbers: as-expected
+
+## X1: the 4 GiB test with EMEND_XLSX_DIFF unset fails before it writes a file
+command: env -u EMEND_XLSX_DIFF TMPDIR=<scratch>/x1tmp <the gate's test binary> --ignored zip64 --test-threads=1
+  exit: 101
+    
+    running 1 test
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... FAILED
+    
+    failures:
+    
+    ---- archive::tests::zip64_replace_in_an_archive_over_4_gib stdout ----
+    
+    thread 'archive::tests::zip64_replace_in_an_archive_over_4_gib' (2036370) panicked at crates/emend/src/archive/tests.rs:1796:9:
+    EMEND_XLSX_DIFF is unset; it must name the xlsx-diff binary of this target
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+    
+    
+    failures:
+        archive::tests::zip64_replace_in_an_archive_over_4_gib
+    
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.00s
+    
+  lines naming the unset variable: 1; 4 GiB fixtures written: 0
+  X1 the run fails: as-expected
+  X1 it says which variable is unset: as-expected
+  X1 it wrote no fixture: as-expected
+
+## the generated fixtures
+command: python3 <scratch>/gen.py <scratch>
+    sound.xlsx: 531 bytes
+    trailing.xlsx: 539 bytes
+    notzip.xlsx: 208 bytes
+    sector-over.zip: 65725 bytes
+    sector-edge.zip: 65724 bytes
+  the generator exits 0: as-expected
+
+## T1 and T2: the reworded refusals, through emend-copy
+T1: a sound archive with eight bytes after its end record
+  T1: exit 2; stderr lines 1
+      error: unsupported zip feature: bytes after the end-of-central-directory record
+  T1 exits 2 and stderr is exactly the expected line: as-expected
+  T1 no output file was left: as-expected
+T1c: the control, the same archive without those bytes
+  T1c: exit 0; stderr lines 0
+  T1c exits 0 and says nothing on stderr: as-expected
+  T1c the copy is byte-identical: as-expected
+T1n: a file with no end record at all is still not a zip
+  T1n: exit 2; stderr lines 1
+      error: no end-of-central-directory record: not a zip archive
+  T1n exits 2 and stderr is exactly the expected line: as-expected
+T2: a zip64 end record whose extensible data sector is 65536 bytes
+  T2: exit 2; stderr lines 1
+      error: unsupported zip feature: a zip64 end record not found within 65535 bytes of extensible data before its locator
+  T2 exits 2 and stderr is exactly the expected line: as-expected
+  T2 no output file was left: as-expected
+T2c: the control, a sector of 65535 bytes, at the window's edge
+  T2c: exit 0; stderr lines 0
+  T2c exits 0 and says nothing on stderr: as-expected
+  T2c the copy is byte-identical, sector included: as-expected
+
+## P1 to P7: the size probes' exit codes and refusals
+P1: probe-emend-copy with one argument
+  P1: exit 2; stderr lines 1
+      error: usage: probe-emend-copy <archive> <output>
+  P1 exits 2 and stderr is exactly the expected line: as-expected
+P2: probe-emend-copy on a file that is not a zip archive
+  P2: exit 2; stderr lines 1
+      error: no end-of-central-directory record: not a zip archive
+  P2 exits 2 and stderr is exactly the expected line: as-expected
+P3: probe-emend-edit with four arguments
+  P3: exit 2; stderr lines 1
+      error: usage: probe-emend-edit <archive> <output> <entry to replace> <entry to remove> <entry to add>
+  P3 exits 2 and stderr is exactly the expected line: as-expected
+P4: probe-emend-edit naming an entry to replace that is absent
+  P4: exit 2; stderr lines 1
+      error: no entry to replace by that name
+  P4 exits 2 and stderr is exactly the expected line: as-expected
+P5: probe-emend-edit naming an entry to remove that is absent
+  P5: exit 2; stderr lines 1
+      error: no entry to remove by that name
+  P5 exits 2 and stderr is exactly the expected line: as-expected
+P6: probe-emend-edit replacing and removing the same entry
+  P6: exit 2; stderr lines 1
+      error: unsupported zip feature: two changes for one entry
+  P6 exits 2 and stderr is exactly the expected line: as-expected
+P7: probe-emend-edit adding a name a surviving entry carries
+  P7: exit 2; stderr lines 1
+      error: two central records share a raw name (entry 3)
+  P7 exits 2 and stderr is exactly the expected line: as-expected
+P7c: the control, the same edits with a new name
+  P7c: exit 0; stderr lines 0
+  P7c exits 0 and says nothing on stderr: as-expected
+      [Content_Types].xml recompressed flags=[]
+      xl/workbook.xml identical flags=[]
+      docProps/app.xml dropped flags=[]
+      added.xml added flags=[]
+  P7c the harness sees one entry dropped, one added, nothing flagged: as-expected
+
+## no temporary of any kind survived
+  emend-copy temporaries left in <scratch>: 0
+  layer replacement temporaries newer than this run's fixtures: 0
+  no emend-copy temporary survived: as-expected
+  no layer replacement temporary survived: as-expected
+
+## the main working tree was never used
+status lines in the main tree: 1; of them this phase's logs or its size record: 1
+  every change in the main tree is this phase's logs or its size record: as-expected
+run ended at 2026-09-17T14:11:29Z
+negative log checks all as expected: yes
