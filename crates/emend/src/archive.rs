@@ -69,8 +69,13 @@
 //!     ending where it begins, when the whole space before it was searched.
 //!   - "a zip64 end record not found within 65535 bytes of extensible data before its locator":
 //!     the same, when the search stopped at the scan window (see Limits).
-//!   - "bytes after the end-of-central-directory record": an end record exists
-//!     but does not end the file; the layer could not write those bytes back.
+//!   - "bytes after the end-of-central-directory record": in the file's last
+//!     65557 bytes an end-record signature was found whose record, by its
+//!     comment length, ends before the file does, and no candidate ends
+//!     exactly at the end. That is what a zip with bytes after its end record
+//!     looks like, and the layer could not write those bytes back; a file that
+//!     is not a zip but carries the four signature bytes there is refused with
+//!     this message too, rather than as `NotZip`.
 //!   - "a zip64 marker with no zip64 extra field": a central record field holds
 //!     the marker and the record has no zip64 extra field to resolve it.
 //!   - "a value that would need a zip64 field the input does not carry": see
@@ -98,9 +103,20 @@
 //!   - "an entry name longer than a header can record": an added name of more
 //!     than 65535 bytes.
 //!
+//! Every message in the list above is asserted word for word by a test,
+//! except "a structure larger than this target's address space": it needs a
+//! structure past 32 bits on a 32-bit target, which no test can build there,
+//! and no test asserts it. Two more are reached by no archive in the tests,
+//! because each needs the `zip` crate to fail where this layer has already
+//! accepted the input and no fixture makes it do so: "a zip feature the zip
+//! crate refused" and "a replacement the zip crate could not compress". Those
+//! two are asserted at the functions that map the crate's errors. Every other
+//! message is asserted by a test that runs the code producing it.
+//!
 //! # Limits
 //!
-//! Each of these is deliberate and each is pinned by a test.
+//! Each of these is deliberate, and each is pinned by a test (the mode of the
+//! temporary since P3's repair round).
 //!
 //! - The zip64 end record is looked for within 65535 bytes of extensible data
 //!   sector before its locator (`MAX_ZIP64_SCAN`). A record with a larger

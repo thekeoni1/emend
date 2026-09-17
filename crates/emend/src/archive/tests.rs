@@ -723,7 +723,7 @@ fn a_multi_disk_record_is_refused() {
     let mut build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
     build.disk = 1;
     let err = open_err(build.bytes());
-    assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+    assert_eq!(unsupported_message(err), "a multi-disk archive");
 }
 
 #[test]
@@ -734,7 +734,7 @@ fn reading_an_encrypted_entry_is_refused() {
     let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
     assert!(archive.entries()[0].is_encrypted());
     let err = archive.read(0).err().expect("must refuse");
-    assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+    assert_eq!(unsupported_message(err), "reading an encrypted entry");
 }
 
 #[test]
@@ -1175,7 +1175,7 @@ fn two_changes_for_one_entry_are_refused() {
     edits.remove(0);
     let mut out = Vec::new();
     let err = archive.write_to(&mut out, edits).expect_err("must refuse");
-    assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+    assert_eq!(unsupported_message(err), "two changes for one entry");
     // Refused BEFORE anything was written.
     assert!(out.is_empty(), "the output was written to anyway");
 }
@@ -1213,7 +1213,7 @@ fn replacing_an_encrypted_entry_is_refused() {
     edits.replace(0, bytes_replacement(b"new"));
     let mut out = Vec::new();
     let err = archive.write_to(&mut out, edits).expect_err("must refuse");
-    assert!(matches!(err, Error::Unsupported(_)), "got {err:?}");
+    assert_eq!(unsupported_message(err), "replacing an encrypted entry");
 }
 
 #[test]
@@ -2377,4 +2377,184 @@ fn an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_paddi
         &[0xAAu8; 3],
         "four bytes less padding"
     );
+}
+
+// ------------------------------------------ the repair round's catalogue tests
+
+#[cfg(unix)]
+#[test]
+fn the_replacement_temporary_is_created_with_mode_0600() {
+    // `specs/0008-zip-layer.md`, the P3 first-verification rulings, item 1:
+    // the documented limit "mode 0600 on Unix" is pinned here. The
+    // replacement runs while its temporary exists, so it looks the file up
+    // by this process's name form and reads its mode.
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::{Arc, Mutex};
+
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    let seen: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
+    let seen_inside = Arc::clone(&seen);
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload").deflated()]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.replace(
+        0,
+        Box::new(move |out: &mut dyn Write| {
+            let mut modes = seen_inside.lock().unwrap();
+            for name in replacement_temporaries() {
+                if before.contains(&name) {
+                    continue;
+                }
+                let meta = std::fs::metadata(env::temp_dir().join(&name))?;
+                modes.push(meta.permissions().mode() & 0o777);
+            }
+            out.write_all(b"new payload")
+        }),
+    );
+    let mut out = Vec::new();
+    archive.write_to(&mut out, edits).expect("write_to");
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![0o600],
+        "exactly one temporary, with mode 0600, while the replacement ran"
+    );
+}
+
+#[test]
+fn an_added_name_longer_than_a_header_can_record_is_refused() {
+    let _guard = REPLACEMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let build = Build::new(vec![Spec::new(b"one.txt", b"payload")]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.add(vec![b'n'; 0x1_0000], bytes_replacement(b"new"));
+    let mut out = Vec::new();
+    let err = archive.write_to(&mut out, edits).expect_err("must refuse");
+    assert_eq!(
+        unsupported_message(err),
+        "an entry name longer than a header can record"
+    );
+
+    // The control: a name of 65535 bytes, the most a header can record, is
+    // written and read back.
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let mut edits = Edits::new();
+    edits.add(vec![b'n'; 0xFFFF], bytes_replacement(b"new"));
+    let mut out = Vec::new();
+    archive.write_to(&mut out, edits).expect("write_to");
+    let parsed = parse_independently(&out);
+    assert_eq!(parsed.entries.len(), 2);
+    assert_eq!(parsed.entries[1].name.len(), 0xFFFF);
+}
+
+#[test]
+fn a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes() {
+    // The first verification rulings, item 3: the refusal fires on what the
+    // code checks, a signature whose record would end before the file does,
+    // with no record ending at the end, whether or not the file is a zip.
+    let mut bytes = vec![7u8; 512];
+    bytes[100..104].copy_from_slice(&0x0605_4b50u32.to_le_bytes());
+    bytes[120..122].copy_from_slice(&0u16.to_le_bytes());
+    assert_eq!(
+        unsupported_message(open_err(bytes.clone())),
+        "bytes after the end-of-central-directory record"
+    );
+    // The control: the same file without the signature is not a zip.
+    bytes[100..104].copy_from_slice(&[7u8; 4]);
+    assert!(matches!(open_err(bytes), Error::NotZip));
+}
+
+/// A zip64 archive of two entries, for the locator refusals.
+fn zip64_fixture() -> Vec<u8> {
+    let mut spec = Spec::new(b"big.txt", b"not actually big");
+    spec.zip64 = true;
+    let mut build = Build::new(vec![spec, Spec::new(b"small.txt", b"plain")]);
+    build.zip64_end = true;
+    build.bytes()
+}
+
+#[test]
+fn a_zip64_locator_without_its_record_is_refused() {
+    let mut bytes = zip64_fixture();
+    // The control: the fixture opens as it is.
+    Archive::open(Cursor::new(bytes.clone())).expect("the fixture opens");
+    let record = bytes
+        .windows(4)
+        .rposition(|w| w == 0x0606_4b50u32.to_le_bytes())
+        .expect("a zip64 end record");
+    bytes[record] ^= 0xFF;
+    assert_eq!(
+        unsupported_message(open_err(bytes)),
+        "a zip64 locator without its record"
+    );
+}
+
+#[test]
+fn a_locator_and_a_directory_disagreeing_on_the_base_are_refused() {
+    let mut bytes = zip64_fixture();
+    let locator = bytes
+        .windows(4)
+        .rposition(|w| w == 0x0706_4b50u32.to_le_bytes())
+        .expect("a zip64 locator");
+    // The locator's record offset, one byte short: its base becomes 1 while
+    // the central directory's stays 0.
+    let at = locator + 8;
+    let offset = u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap());
+    assert!(offset > 0);
+    bytes[at..at + 8].copy_from_slice(&(offset - 1).to_le_bytes());
+    assert_eq!(
+        unsupported_message(open_err(bytes)),
+        "the zip64 locator and the central directory disagree on the offset base"
+    );
+}
+
+#[test]
+fn reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused() {
+    // The layer accepts any method at open; the `zip` crate refuses method 12
+    // when the entry is read, and the refusal reaches the caller as the
+    // catalogued message (P2's negative.log E9 reached it through
+    // emend-copy).
+    let mut spec = Spec::new(b"bzip.txt", b"not really bzip2");
+    spec.method = 12;
+    let build = Build::new(vec![spec, Spec::new(b"plain.txt", b"plain")]);
+    let mut archive = Archive::open(Cursor::new(build.bytes())).expect("open");
+    let err = archive.read(0).err().expect("must refuse");
+    assert_eq!(
+        unsupported_message(err),
+        "an entry the zip crate could not decompress"
+    );
+    // The control: a stored entry in the same archive reads.
+    let mut plain = Vec::new();
+    archive
+        .read(1)
+        .expect("read")
+        .read_to_end(&mut plain)
+        .expect("read_to_end");
+    assert_eq!(plain, b"plain");
+}
+
+#[test]
+fn the_crate_refusals_carry_their_catalogued_messages() {
+    // No fixture makes the `zip` crate refuse at open, or while compressing,
+    // where this layer has already accepted the input, so those two messages
+    // are pinned here, at the mapping functions (the catalogue says so). The
+    // read mapping is asserted here too; an archive reaches it above.
+    let open = zip_open_error(zip::result::ZipError::UnsupportedArchive("x"));
+    assert_eq!(
+        unsupported_message(open),
+        "a zip feature the zip crate refused"
+    );
+    let read = zip_read_error(zip::result::ZipError::InvalidArchive("x".into()), 0);
+    assert_eq!(
+        unsupported_message(read),
+        "an entry the zip crate could not decompress"
+    );
+    let write = zip_write_error(zip::result::ZipError::InvalidArchive("x".into()));
+    assert_eq!(
+        unsupported_message(write),
+        "a replacement the zip crate could not compress"
+    );
+    // The controls: the crate's I/O errors stay I/O errors.
+    let io = zip_write_error(zip::result::ZipError::Io(io::Error::other("x")));
+    assert!(matches!(io, Error::Io(_)), "got {io:?}");
 }

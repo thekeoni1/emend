@@ -6,7 +6,9 @@
 //!
 //! Every edit comes from the command line, so the compiler cannot prove any
 //! edit path dead and drop it, as it can for `probe-emend-copy`, which never
-//! edits. The size budget is judged on this probe.
+//! edits. The size budget was judged on this probe until P3's repair round,
+//! and is now judged on `probe-emend-edit-xml`, which adds the `quick-xml`
+//! count the budget's consumer makes.
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
