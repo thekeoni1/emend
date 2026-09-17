@@ -40,9 +40,10 @@ phase ends with:
    planning compares each hash with the file (Milestone 1 part 1 P2
    ruling, 2026-09-17). A record commit cannot be scanned by its own
    phase; planning's verification scan covers it.
-   Each record commit's message says what it adds. The first line of
-   every log names the commit the log is about and the HEAD at the
-   time it ran.
+   Each record commit's message says what it adds. The first lines of
+   every log (the command that read it, then its result, as every
+   phase has written them) name the commit the log is about and the
+   HEAD at the time it ran.
 3. The independent check from CLAUDE.md, run by a fresh subagent (not a
    fork). Its inputs:
    - this spec;

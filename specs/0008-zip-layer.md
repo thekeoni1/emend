@@ -2,7 +2,8 @@
 
 Status: P1 DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code
 e14dbee, cb2b4da; record ff92a11); P2 DONE 2026-09-17 (doc 608e6a4,
-9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 READY. Planning
+9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 IN ITS REPAIR
+ROUND (see the first verification below). Planning
 draft 2026-09-16; approved by the maintainer the same day; entered the
 repository with T6 P1's verification.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
@@ -171,23 +172,28 @@ layer's size or offset code changes, as T1 P5 ruled for the harness.
 
 ### Size
 
-`tools/size-probe` gains two probes, built in the `size` profile on
+`tools/size-probe` gains three probes, built in the `size` profile on
 i686 musl as the baseline was. `probe-emend-copy` opens a file with
 the layer and writes it back with no edits, as first specified;
 `probe-emend-edit` takes its edits from the command line (a replace of
 a named entry with its own bytes, a removal and an addition), so the
 compiler cannot prove any edit path dead and drop it, which the
-no-edit probe lets it do (P3 ruling 3: about 2.5 KB of sections
-invisible in the file size). For each probe the record gives the file
-size, the section total and `.text` from `size -A`, and the deltas of
-file size and section total over `probe-zip` (473636) and over
-`probe-zip-xml` (539172), the latter being the number the budget is
-measured against once `quick-xml` is linked. The budget is judged on
-`probe-emend-edit`, the consumer that edits, with the no-edit probe
-beside it and the difference stated. File sizes on this target move
-in 4096-byte pages, so a change under a page is invisible there and a
-change of a few bytes can cost a page; section totals resolve to the
-byte, which is why both are recorded.
+no-edit probe lets it do (P3 ruling 3); `probe-emend-edit-xml`, from
+P3's repair round, is `probe-emend-edit` followed by the streaming
+`quick-xml` count `probe-zip-xml` makes over the replaced entry's
+bytes, built with both features, so that it is the consumer the
+budget describes: one that already carries `zip` and `quick-xml` and
+reads entries. For each probe the record gives the file size, the
+section total and `.text` from `size -A`, and the deltas of file size
+and section total over `probe-zip` (473636) and over `probe-zip-xml`
+(539172). The budget is judged on `probe-emend-edit-xml` over
+`probe-zip-xml`, with the other two probes beside it and the
+differences stated. File sizes on this target move in 4096-byte
+steps (the probes are not themselves whole pages: all leave the same
+remainder modulo 4096, so every DIFFERENCE is whole pages), so a
+change under a page is invisible there and a change of a few bytes
+can cost a page; section totals resolve to the byte, which is why
+both are recorded.
 
 ### Harness runs
 
@@ -681,6 +687,97 @@ doc commit 6f3d5c5 was in, nothing else.
 4. The helper for "something other than one entry" is approved: a
    Replacement receives a `&mut dyn Write` and cannot start a second
    file, so the check is testable only on an opened archive.
+
+### Planning rulings on P3 (2026-09-17, first verification)
+
+Verified from primaries at b28d839: the five commits and the files
+each holds, by path (the two repairs alone in adb0cc8); the messages;
+the phase diff's hash and size; the seven record files at the
+reported hashes; `scan.log` last (14:23Z), hashing all six committed
+siblings at their committed bytes (each compared by planning),
+asserting one answer and one record, PASS; the two rerun headers; the
+time order; `gate.log`'s eight PASS on a cold cache and the ten gate
+files listed in its checks section; `test.log`'s 71 passed and 1
+ignored per target, 141 and 2 for the workspace, and the 4 GiB case
+on both targets; `negative.log`'s D1 with the pre-repair binary
+failing on the count and the gate's binary passing, X1, T1 and T2,
+P1 to P7; the size log's builds, deltas, split and candidates; the
+size record equal to the copy the log prints; the check answer in the
+prescribed layout. Planning's own runs: `privacy.sh --range
+9b7ef68..HEAD` PASS over five commits; the 5671 added lines at zero
+non-ASCII, U+2014, denylist words and bare shapes, controls firing;
+the full gate at HEAD, eight PASS; `cargo test -p emend` 71 and 1 on
+both targets; and the four probes rebuilt by planning to the SAME
+bytes (file sizes, section totals, `.text` and sha256s equal to
+`size.log`'s), so the size measurement is reproducible.
+
+The diff does what P3 asks. The repairs are as ruled. The probes,
+the catalogue, the tests per branch and the limits are delivered. One
+check ran, and the implementing session stopped for a ruling rather
+than run the second on findings that would change the code; that was
+right.
+
+Corrections to the rulings above, from the phase's own logs: ruling
+3's "file sizes on i686 musl are page-aligned" was false; the four
+probes leave 2596 bytes modulo 4096 and only their differences are
+whole pages, which "Size" now says. Ruling 3's +2500 and +2016 for the
+edit paths were measured at P2's code; at 5a8b491 they are +2600 and
++1936, with reading an entry through the layer at +62540 section
+bytes, measured by a third build that edits but reads nothing.
+
+On the reading cost: `probe-zip-xml` reads an entry through `zip`
+too, so the crate's entry-reading path is in the baseline the budget
+is measured against, while neither emend probe links `quick-xml`; the
+delta "over `probe-zip-xml`" therefore adds emend and subtracts
+`quick-xml` and is not the budget's own definition, a consumer that
+already carries both crates. Hence the fifth probe below.
+
+Ruling: ONE repair round, then the second check, the final scan and a
+second record commit. The code commit (message "M1 part 1 P3 repairs:
+...") holds:
+
+1. A test that the replacement temporary is created with mode 0600
+   (Unix): a Replacement that finds this process's `emend-replace-`
+   file under the temporary directory and reads its mode.
+2. A test for "an entry name longer than a header can record".
+3. A test that a non-zip file with a stray end-record signature in
+   its tail is refused with "bytes after the end-of-central-directory
+   record", and the catalogue line for that message reworded to what
+   the code checks: a signature was found whose record does not end
+   the file, and no record does.
+4. The Limits preamble "each is pinned by a test" replaced by the
+   truth: which messages no test reaches and why ("a structure larger
+   than this target's address space" needs a structure past 32 bits on
+   a 32-bit target; "a zip feature the zip crate refused" and "a
+   replacement the zip crate could not compress" need the crate to
+   fail where no fixture makes it), the rest pinned.
+5. The two stale comments in `tools/size-probe/Cargo.toml`.
+6. `probe-emend-edit-xml` as "Size" describes, features `emend,xml`.
+7. Log scripts (none a gate file): a positive control for every
+   `find`-based count (a planted file counted, then removed); the
+   gate-file membership read through `counting.sh` forms so a read
+   error is never absence; `test.log` printing the sha256 of each test
+   executable it runs, and `negative.log` comparing its copies to
+   them; the size script's header without the retracted link-time
+   sentence; the final scan asserting two answers and the record
+   count.
+
+`size.log` is rerun at the repair commit: it asserts the four earlier
+probes' sha256s equal those `size.log` printed at 5a8b491 (the
+repairs touch no library code, so the bytes are expected identical;
+a difference is a finding), measures the fifth, and writes a new
+record `records/size-m1p1-<utc-date>-<shortsha>.md` with five rows
+and the judged figure; the 5a8b491 record stands as history. The
+second check reads the whole phase diff from 9b7ef68, the rerun logs,
+check 1's answer and the corrected report.
+
+Accepted without repair: test (c) asserting byte identity alone (an
+output identical to a builder-made input needs no second reading);
+`compress_replacement` refusing a method before its temporary exists
+(declared, and a test depends on it); a rerun header quoting the
+superseded run's figures, marked as the superseded run's; the log
+header form of every phase so far, the command on line 1 and the
+commit on line 2, now written into `specs/0001-bootstrap.md`.
 
 ### Close-out push (after P3)
 
