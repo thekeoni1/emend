@@ -98,10 +98,14 @@ The move is P2's first code commit and changes no test.
 ### Module `xml`
 
 - `Stream<R: Read>`: `new(reader, index) -> Result<Self, Error>`
-  reads the first three bytes; a UTF-8 byte order mark is kept aside
-  (`bom() -> bool`) and the rest is fed to `quick-xml` through a
-  64 KiB `BufReader` over a tee that keeps a copy of every byte the
-  parser consumes until the caller has seen it. `index` is the entry's
+  reads the first three bytes and reports a UTF-8 byte order mark as
+  `bom() -> bool`; the WHOLE input, mark included, is fed to
+  `quick-xml` through a 64 KiB `BufReader` over a tee that keeps a
+  copy of every byte the parser consumes until the caller has seen it.
+  The crate drops a leading mark without counting it, so a parser
+  position `p` is the input position `origin + p`, `origin` being 3
+  when `bom()` is true and 0 otherwise (P1 ruling 1 below, which
+  replaced the draft's own strip of the mark). `index` is the entry's
   index, carried into errors. `next(&mut self) -> Result<Option<Token
   <'_>>, Error>` gives the next token, or `None` at the end of the
   input. `Token { event: Event<'_>, raw: &[u8] }`: the event as the
@@ -257,11 +261,12 @@ The move is P2's first code commit and changes no test.
 ### Errors
 
 `Error` gains `Xml(usize)`, an entry whose bytes the layer cannot read
-as XML (not well-formed, not UTF-8 where a value is interpreted, an
-unknown reference), carrying the entry's index and never a position or
-content; and `Package(&'static str)` with the messages above. Every
-message goes into the module catalogue in the docs with its test, or
-marked untested with the reason, as part 1 P3 did.
+as XML (not well-formed; not UTF-8 anywhere, since the crate's reader
+decodes text and markup as `str` (P1 ruling 2); an unknown reference
+in a value the layer interprets), carrying the entry's index and never
+a position or content; and `Package(&'static str)` with the messages
+above. Every message goes into the module catalogue in the docs with
+its test, or marked untested with the reason, as part 1 P3 did.
 
 ### 32-bit and streaming
 
@@ -401,13 +406,17 @@ kinds holding references; `<a/>` and `<a />`; nested elements; a text
 run and an attribute value each longer than 64 KiB; CRLF line ends;
 non-ASCII UTF-8 text), each with and without a byte order mark, with
 and without a declaration, with and without whitespace after the root;
-an empty part (no tokens, empty output); each token's `raw` beginning
-where the previous ended, checked by position; a part that is not
-well-formed (an unclosed tag, a mismatched end tag, a bare `<`, a
-dangling `&`) as `Error::Xml` with the entry's index; a binary part as
-`Error::Xml`; the tool's operation applied to a byte-built archive of
-three XML parts and one binary part, the XML parts' decompressed bytes
-identical and the binary entry untouched, asserted by the independent
+a part starting with two marks, the second coming back inside a text
+token (P1 ruling 1); an empty part (no tokens, empty output); each
+token's `raw` beginning where the previous ended, checked by position;
+a part that is not well-formed (a tag with no `>`, a mismatched end
+tag, a `<` in text with no later `>`, a dangling `&`; the readings of
+P1 ruling 2) as `Error::Xml` with the entry's index; a part with a
+byte that is not UTF-8 inside otherwise well-formed text as
+`Error::Xml`; a binary part as `Error::Xml`; the tool's operation
+applied to a byte-built archive of three XML parts and one binary
+part, the XML parts' decompressed bytes identical and the binary entry
+untouched, asserted by the independent
 parser. Tests on both targets. The corpus run on both targets with the
 LibreOffice check, recorded as `records/m1p2-p1-<utc-date>-
 <shortsha>.md` and `.txt`; acceptance as "Harness runs". The gate's
@@ -415,6 +424,64 @@ licences step with `quick-xml` in the core's tree. `negative.log`: the
 tool's refusals (two operations at once, an unknown operation, an
 operation before the paths) and the runner's refusal of a tool
 argument holding a tab.
+
+### Planning rulings during P1 (2026-09-17)
+
+Both questions the implementing session raised after the doc commit
+0e6c60d came with measurements; planning reproduced every figure in a
+scratch crate on `quick-xml` =0.42.0 with no features before ruling,
+and read the mechanisms in the crate's source.
+
+1. The byte order mark. The crate strips a leading mark in its `Init`
+   state only, once, by consuming from the `BufRead` directly, so the
+   three bytes never reach `buffer_position()`
+   (`reader/buffered_reader.rs`, the `XmlSource` impl for `R:
+   BufRead`; `reader/mod.rs`, `ParseState::Init`). The draft had the
+   stream strip the mark itself and feed the rest, which loses three
+   bytes on a part that starts with TWO marks: the crate strips the
+   second one uncounted, and no token's `raw` holds it. Measured, as
+   (bytes fed, final parser position, bytes consumed uncounted): one
+   mark stripped by the stream 4/4/0; two marks with one stripped by
+   the stream 7/4/3; one mark fed whole 7/4/3; two marks fed whole
+   10/7/3, the second mark coming back as a text event. No corpus part
+   starts with two marks (158 start with one, 0 with two, both
+   sessions' counts); a byte-built test would. Ruling: the stream
+   feeds the whole input and maps the crate's positions with an origin
+   of 3 when a mark was read and 0 otherwise; the contract is
+   unchanged (`bom()` true, the mark in no token's `raw`, the mark
+   followed by every `raw` the input byte for byte), and a second mark
+   survives inside a text token. The Design sentence is amended above
+   and the two-mark part joins P1's test list. The tee's front cursor
+   being amortised rather than drained per token is internal and
+   changes no bound.
+
+2. What "not well-formed" means for this crate. With its defaults the
+   reader refuses a tag with no `>` (`<a`, `<a b="1"`), a mismatched
+   end tag (`<a></b>`), an end tag with no start (`</a>`), a `<` in
+   text with no later `>` (`a < b`), a dangling `&` (`<a>&</a>`,
+   `<a>&`), and any byte that is not UTF-8, in markup or in text
+   (`<a>\xc3</a>` and a binary part), since 0.42 decodes text as
+   `str` (`ReadTextResult::UpToMarkup(&str)`). It accepts an element
+   left open at the end of the input (`<a>`, `<a>hi`), a `<` in text
+   followed by a later `>` (`<a>x < y</a>`, read as a tag), an
+   unknown entity in text (`<a>&foo;</a>`, a general reference event),
+   more than one root (`<a/><b/>`), an empty input and whitespace
+   alone. Ruling: P1's four malformed cases are read as the refused
+   forms above, now written into the test list; the non-UTF-8 case is
+   added to the test list and the Errors section widened, since the
+   refusal is not limited to values the layer interprets; the three
+   accepted classes that XML calls not well-formed (an element left
+   open at the end of input, an unknown entity in text, more than one
+   root) go into the `xml` module's Limits, and whether a package part
+   with an unclosed root is refused is P2's parsers' question, decided
+   in P2's spec text if a test needs it, not in P1. A corpus part the
+   crate refuses for any of the refused forms would be a P1 finding;
+   none is expected.
+
+3. Order of commits. This ruling is its own doc commit, before any
+   code commit; the code commit(s) then carry everything P1 names,
+   the dependency line, the residue and the tool's argument parsing
+   included. Nothing is held back once the ruling is in.
 
 ### P2: content types, relationships, the workbook
 
