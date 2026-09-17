@@ -1900,3 +1900,155 @@ fn zip64_replace_in_an_archive_over_4_gib() {
     );
     assert_eq!(flagged.as_deref(), Some("0"), "the harness's flagged count");
 }
+
+// ---------------------------------------- the zip64 end-record synthesis
+
+/// The largest count the end-of-central-directory record's 16-bit fields
+/// hold. It is also the marker value, which is why the fixture below is
+/// interesting.
+const MAX_16: usize = 0xFFFF;
+
+/// An archive of `count` empty stored entries, carrying no zip64 end records.
+fn many_entries(count: usize) -> Vec<u8> {
+    let specs = (0..count)
+        .map(|i| Spec::new(format!("e{i:05}").as_bytes(), b""))
+        .collect();
+    Build::new(specs).bytes()
+}
+
+/// Whether the four bytes just before an end record without a comment are a
+/// zip64 locator's signature, read by position rather than by the layer.
+/// The signature is written as a literal, not the layer's constant.
+fn locator_precedes_end(bytes: &[u8]) -> bool {
+    let end = bytes.len() - 22;
+    bytes[end - 20..end - 16] == 0x0706_4b50u32.to_le_bytes()
+}
+
+#[test]
+fn adding_past_65535_entries_synthesises_the_zip64_end_records() {
+    // `specs/0008-zip-layer.md`, "P3", first item: P2 wrote this path and no
+    // test reached it (the P2 verification rulings, item 1).
+    let input = many_entries(MAX_16);
+    assert!(
+        !locator_precedes_end(&input),
+        "the fixture already carries zip64 end records"
+    );
+    let input_end = input.len() - 22;
+    assert_eq!(
+        at_u16(&input, input_end + 10),
+        0xFFFF,
+        "the fixture's count sits at the 16-bit limit"
+    );
+
+    let mut edits = Edits::new();
+    edits.add(b"added.xml".to_vec(), bytes_replacement(b"<added/>"));
+    let output = apply(&input, edits);
+
+    // From the end: the end record (22 bytes, no comment), the locator (20),
+    // the zip64 end record (56, no extensible data sector).
+    let end = output.len() - 22;
+    let locator = end - 20;
+    let record = locator - 56;
+
+    // The central directory as the independent reader finds it.
+    let parsed = parse_independently(&output);
+    assert_eq!(parsed.entries.len(), MAX_16 + 1);
+    assert_eq!(parsed.entries.last().expect("an entry").name, b"added.xml");
+    let central_start = parsed.central_position;
+    let central_size = record as u64 - central_start;
+    let central_offset = central_start - parsed.base;
+    let total = (MAX_16 + 1) as u64;
+
+    // The zip64 end-of-central-directory record, field by field as the zip
+    // specification lays it out (APPNOTE 4.3.14), with literal values rather
+    // than the layer's constants or functions.
+    let mut want_record = Vec::new();
+    want_record.extend_from_slice(&0x0606_4b50u32.to_le_bytes()); // signature
+    want_record.extend_from_slice(&44u64.to_le_bytes()); // size of the rest
+    want_record.extend_from_slice(&45u16.to_le_bytes()); // version made by
+    want_record.extend_from_slice(&45u16.to_le_bytes()); // version needed
+    want_record.extend_from_slice(&0u32.to_le_bytes()); // this disk
+    want_record.extend_from_slice(&0u32.to_le_bytes()); // the directory's disk
+    want_record.extend_from_slice(&total.to_le_bytes()); // entries on this disk
+    want_record.extend_from_slice(&total.to_le_bytes()); // entries in total
+    want_record.extend_from_slice(&central_size.to_le_bytes());
+    want_record.extend_from_slice(&central_offset.to_le_bytes());
+    assert_eq!(want_record.len(), 56);
+    assert_eq!(
+        &output[record..locator],
+        &want_record[..],
+        "the zip64 end record"
+    );
+
+    // The zip64 end-of-central-directory locator (APPNOTE 4.3.15).
+    let mut want_locator = Vec::new();
+    want_locator.extend_from_slice(&0x0706_4b50u32.to_le_bytes()); // signature
+    want_locator.extend_from_slice(&0u32.to_le_bytes()); // the record's disk
+    want_locator.extend_from_slice(&(record as u64 - parsed.base).to_le_bytes());
+    want_locator.extend_from_slice(&1u32.to_le_bytes()); // total disks
+    assert_eq!(want_locator.len(), 20);
+    assert_eq!(
+        &output[locator..end],
+        &want_locator[..],
+        "the zip64 locator"
+    );
+
+    // The plain end record: both counts carry the marker because 65536 does
+    // not fit in 16 bits; the size and the offset fit and stay plain.
+    assert_eq!(
+        at_u32(&output, end),
+        0x0605_4b50,
+        "the end record's signature"
+    );
+    assert_eq!(at_u16(&output, end + 8), 0xFFFF, "entries on this disk");
+    assert_eq!(at_u16(&output, end + 10), 0xFFFF, "entries in total");
+    assert_eq!(
+        u64::from(at_u32(&output, end + 12)),
+        central_size,
+        "the central directory's size"
+    );
+    assert_eq!(
+        u64::from(at_u32(&output, end + 16)),
+        central_offset,
+        "the central directory's offset"
+    );
+}
+
+#[test]
+fn removing_from_65535_entries_writes_a_plain_count() {
+    // The companion the spec's fixture invites. With no zip64 end records, a
+    // count of exactly 65535 sits in the 16-bit field as 0xFFFF, which is
+    // also the marker value. A writer that keeps "a field already carrying
+    // the marker" would keep it here too, and a removal would then leave
+    // 0xFFFF over a count of 65534 with no zip64 record to resolve it.
+    let input = many_entries(MAX_16);
+    let mut edits = Edits::new();
+    edits.remove(0);
+    let output = apply(&input, edits);
+
+    let end = output.len() - 22;
+    assert!(
+        !locator_precedes_end(&output),
+        "a zip64 locator was written for a count that fits in 16 bits"
+    );
+    assert_eq!(
+        usize::from(at_u16(&output, end + 8)),
+        MAX_16 - 1,
+        "entries on this disk"
+    );
+    assert_eq!(
+        usize::from(at_u16(&output, end + 10)),
+        MAX_16 - 1,
+        "entries in total"
+    );
+    assert_eq!(parse_independently(&output).entries.len(), MAX_16 - 1);
+}
+
+#[test]
+fn a_65535_entry_archive_round_trips_byte_for_byte() {
+    // The control for the two tests above: with no edit the count is
+    // unchanged, and the output must be the input exactly, 0xFFFF included.
+    let input = many_entries(MAX_16);
+    let output = apply(&input, Edits::new());
+    assert_identical(&input, &output);
+}

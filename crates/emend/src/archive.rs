@@ -839,7 +839,13 @@ impl<R: Read + Seek> Archive<R> {
                 }
             }
         }
-        let eocd = rewrite_eocd(&self.eocd_raw, total, central_size, central_offset)?;
+        let eocd = rewrite_eocd(
+            &self.eocd_raw,
+            total,
+            central_size,
+            central_offset,
+            self.zip64_eocd_raw.is_some(),
+        )?;
         out.write_all(&eocd)?;
         out.flush()?;
         Ok(())
@@ -1149,15 +1155,26 @@ fn take_u64(body: &[u8], cursor: &mut usize) -> Result<u64, Error> {
 
 /// Refuses two central records with the same raw name, since an edit by name
 /// would be ambiguous.
+///
+/// The index reported is the first record, in central directory order, whose
+/// name an earlier record already carries. The check sorts indices by name
+/// and compares neighbours, O(n log n): an earlier version compared each name
+/// with every earlier one, which for the 65535 entries of Milestone 1 part 1
+/// P3's zip64 fixture was about two billion comparisons per open.
 fn refuse_duplicate_names(entries: &[Entry]) -> Result<(), Error> {
-    let mut seen: Vec<&[u8]> = Vec::with_capacity(entries.len());
-    for (index, entry) in entries.iter().enumerate() {
-        if seen.contains(&entry.name.as_slice()) {
-            return Err(Error::DuplicateName(index));
-        }
-        seen.push(&entry.name);
+    let mut order: Vec<usize> = (0..entries.len()).collect();
+    // By name, then by index, so within a run of equal names the first is
+    // the earliest record and every later one is a duplicate of it.
+    order.sort_unstable_by(|&a, &b| entries[a].name.cmp(&entries[b].name).then(a.cmp(&b)));
+    let first_duplicate = order
+        .windows(2)
+        .filter(|pair| entries[pair[0]].name == entries[pair[1]].name)
+        .map(|pair| pair[1])
+        .min();
+    match first_duplicate {
+        Some(index) => Err(Error::DuplicateName(index)),
+        None => Ok(()),
     }
-    Ok(())
 }
 
 /// Reads one local file header: the fixed part, the name and the extra field.
@@ -1281,20 +1298,37 @@ fn put_value(
 }
 
 /// Copies the end-of-central-directory record with its counts, size and
-/// offset rewritten, and nothing else. A field already carrying the zip64
-/// marker keeps it.
-fn rewrite_eocd(raw: &[u8], total: u64, size: u64, offset: u64) -> Result<Vec<u8>, Error> {
+/// offset rewritten, and nothing else.
+///
+/// A field already holding the marker keeps it ONLY when the input carried
+/// zip64 end records, because only then is that value a marker. Without
+/// them, 0xFFFF in a count field is a plain count of 65535, and keeping it
+/// after an edit changed the count would leave the record claiming 65535
+/// entries over an archive that holds a different number, with no zip64
+/// record to resolve it. That is what this function did until Milestone 1
+/// part 1 P3's removal test caught it. Without zip64 records every field is
+/// written as its clamped value, which is the marker exactly when the value
+/// does not fit, and the writer synthesises the zip64 records in that case.
+fn rewrite_eocd(
+    raw: &[u8],
+    total: u64,
+    size: u64,
+    offset: u64,
+    input_had_zip64: bool,
+) -> Result<Vec<u8>, Error> {
     let mut out = raw.to_vec();
-    if read_u16(&out[8..])? != U16_MAX_MARKER {
+    let keep16 = |value: u16| input_had_zip64 && value == U16_MAX_MARKER;
+    let keep32 = |value: u32| input_had_zip64 && value == U32_MAX_MARKER;
+    if !keep16(read_u16(&out[8..])?) {
         out[8..10].copy_from_slice(&clamp_u16(total).to_le_bytes());
     }
-    if read_u16(&out[10..])? != U16_MAX_MARKER {
+    if !keep16(read_u16(&out[10..])?) {
         out[10..12].copy_from_slice(&clamp_u16(total).to_le_bytes());
     }
-    if read_u32(&out[12..])? != U32_MAX_MARKER {
+    if !keep32(read_u32(&out[12..])?) {
         out[12..16].copy_from_slice(&clamp_u32(size).to_le_bytes());
     }
-    if read_u32(&out[16..])? != U32_MAX_MARKER {
+    if !keep32(read_u32(&out[16..])?) {
         out[16..20].copy_from_slice(&clamp_u32(offset).to_le_bytes());
     }
     Ok(out)
