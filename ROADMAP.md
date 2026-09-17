@@ -125,17 +125,19 @@ run against scratch clones; run whenever a gate file changes.
   milestone, the maintainer opens outputs listed by sha256 in desktop
   Excel, and pass or fail per hash is recorded. Excel for the web is not
   a substitute.
-- Size budget: provisional 250 KiB, stripped, i686 musl, measured as
-  emend's increase over a consumer that already links `zip` and
-  `quick-xml`. The baseline is recorded (T3 P2, 2026-09-15): 539172
-  bytes for that consumer, 473636 for `zip` alone. Re-ruled by the
-  maintainer when Milestone 1 starts.
+- Size budget: RULED by the maintainer 2026-09-17 at 256000 section
+  bytes over `probe-zip-xml` for the whole core at the close of
+  Milestone 1, judged on `probe-emend-edit-xml`, i686 musl, the `size`
+  profile (`specs/0008-zip-layer.md`, "Size"). Part 1 spent 132732;
+  123268 remain. Checkpoint after part 2's size record: more than about
+  40 KB for part 2 alone means a higher ceiling or features off by
+  default.
 - Licence: MIT OR Apache-2.0, copyright holder "emend contributors".
 - GitHub: `thekeoni1/emend`, private. Every push passes the privacy gate
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (part 1 READY; parts 2 to 8 PROPOSED)
+## Milestone 1: greenfield core (part 1 DONE 2026-09-17; part 2 APPROVED 2026-09-17; parts 3 to 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -177,7 +179,27 @@ the part; the close-out push follows P3.
 | P1 | `Archive`, `Entry`, `Edits`, `Error`; open, index, verbatim write with empty edits; byte-built unit tests on both targets; `tools/emend-copy`; the corpus run on both targets recorded as `records/m1p1-p1-<date>-<sha>.md` and `.txt`, every entry `identical` and unflagged, `files_identical` `yes` | DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code e14dbee, cb2b4da; record ff92a11) |
 | P2 | replace, remove, add; the `io::copy` Replacement wrapper; `--replace <name>`; the runner's `--tool-arg` and the record's `Tool arguments:` line; edit tests in both offset conventions; the ignored 4 GiB case; the corpus run replacing `[Content_Types].xml` | DONE 2026-09-17 (doc 608e6a4, 9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68) |
 | P3 | the three 65535-entry tests and the two P2 repairs they forced (the end record's count kept as a marker; the quadratic duplicate-name check); `probe-emend-copy` and `probe-emend-edit` with the size record giving file and section deltas; the error catalogue with a test per untested branch and the documented limits; the maintainer re-rules the budget | DONE 2026-09-17 (doc 6f3d5c5, 98cac7d, 3d1f8ee, 6cec416; code adb0cc8, 5a8b491, 740648e; records b28d839, 17ac5d4; the repair round added `probe-emend-edit-xml`, seven tests and four tightened, the catalogue's truth about untested messages, and log-script controls) |
-| Close | close-out push after P3, as T2's | READY (needs the maintainer's authorisation in the implementing session) |
+| Close | close-out push after P3, as T2's | DONE 2026-09-17 (doc 7e9846a pushed, origin/main at 7e9846a; record c414445 with the next push) |
+
+### Part 2: the package layer (`specs/0009-package-layer.md`)
+
+Approved by the maintainer 2026-09-17. `quick-xml` joins the core; the
+`xml` module gives every token with the input bytes it covers, so a
+rewrite copies what it does not change; the `package` module reads
+content types, relationships and the workbook's sheet map and edits
+content types and relationships. Each phase has a corpus run; the
+size record after P3 is the maintainer's checkpoint (more than about
+40 KB of sections for part 2 alone means a higher ceiling or features
+off by default). Part 6 will apply P3's removal recipe under the
+formula-change rule. No push during the part; the close-out push
+follows P3 and carries the local record c414445.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `quick-xml` 0.42.0 pinned; `xml::Stream` with raw tokens and the byte order mark kept; `emend-copy --xml-null-rewrite`; the two part 1 residues; the corpus run: every `.xml` and `.rels` entry `recompressed` or `identical`, never `changed` | READY |
+| P2 | the test builder moved to `testing.rs`; `package`: content types, relationships with target resolution, the workbook's sheets by relationship, the prefix stack; `emend-copy --survey`; the corpus run with the survey aggregated: nothing untyped, unresolved or case-only | READY |
+| P3 | the edits (relationships, overrides, parts) applied through a temporary-file rewrite; `--drop-calc-chain`; `probe-zip-xml-write` and `probe-emend-package-xml`; the size record with the checkpoint figure and the stored-replacement note; the catalogue and limits; the corpus run: nine workbooks change in exactly three entries, eighteen are byte-identical | READY |
+| Close | close-out push after P3, as part 1's, with record c414445 | PLANNED |
 
 ## Unscoped
 

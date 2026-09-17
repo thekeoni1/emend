@@ -4,7 +4,8 @@ Status: P1 DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code
 e14dbee, cb2b4da; record ff92a11); P2 DONE 2026-09-17 (doc 608e6a4,
 9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 DONE 2026-09-17
 (doc 6f3d5c5, 98cac7d, 3d1f8ee, 6cec416; code adb0cc8, 5a8b491,
-740648e; records b28d839, 17ac5d4); close-out push READY. Planning
+740648e; records b28d839, 17ac5d4); close-out push DONE 2026-09-17
+(doc 7e9846a pushed; record c414445 local). PART 1 DONE. Planning
 draft 2026-09-16; approved by the maintainer the same day; entered the
 repository with T6 P1's verification.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
@@ -195,6 +196,20 @@ remainder modulo 4096, so every DIFFERENCE is whole pages), so a
 change under a page is invisible there and a change of a few bytes
 can cost a page; section totals resolve to the byte, which is why
 both are recorded.
+
+Maintainer ruling (2026-09-17), on `records/size-m1p1-2026-09-17-
+6cec416.md`: the budget for the whole core at the close of Milestone 1
+is 256000 section bytes over `probe-zip-xml`, judged on
+`probe-emend-edit-xml`, with the file delta reported beside it. Part 1
+spent 132732, leaving 123268 for parts 2 to 8. Checkpoint: after part
+2's size record, if part 2 alone costs more than about 40 KB of
+sections, the maintainer chooses between a higher ceiling (384 KiB
+was named) and putting styles, dates and the like behind Cargo
+features off by default. Part 2's size log adds two measurements: a
+baseline probe that also writes through the `zip` crate's writer, so
+the compressor's cost is separated from the layer's own code; and a
+note on a stored-replacement mode that would let a consumer accepting
+larger files skip the compressor.
 
 ### Harness runs
 
@@ -918,6 +933,37 @@ session.
 ### Close-out push (after P3)
 
 As `specs/0005-corpus.md`, "Close-out push (after P7)".
+
+Planning ruling (2026-09-17): the close-out push is verified and DONE.
+- The maintainer typed the authorisation in the implementing session
+  after the pre-push checks had passed and the session had stopped;
+  `push.log` quotes it in a line marked as written by the caller.
+- Doc commit 7e9846a holds exactly planning's two doc files, unedited
+  (72 insertions, 4 deletions). Record commit c414445 touches only
+  `records/logs/m1p1-close/`; it is local and goes with the next push.
+- `push.log` recorded the base before the push (d1868a7, read from git
+  and from `ls-remote`, 27 commits), the eight PASS lines, the hook
+  equal to the installer's, `core.hooksPath` empty, the denylist
+  variable unset, and the hook's scan of d1868a7..7e9846a: 27 commits,
+  339 blobs, 0 findings. Planning ran `scripts/privacy.sh` over the
+  same range itself: 27 commits, 339 blobs, 0 findings.
+- From GitHub itself, by planning: `thekeoni1/emend` is PRIVATE, one
+  branch `main` at 7e9846a equal to local main, no tags, every author
+  and committer of the 27 pushed commits the noreply address, the
+  Actions settings unchanged (selected actions, GitHub-owned only, no
+  patterns). Run 35240792493 on 7e9846a concluded `success` on
+  `ubuntu-24.04`, one job, every step success or skipped.
+- The three logs hold one `no`, the API key check, as intended;
+  `scan.log` was written last, covers both siblings and the 60 files
+  and 27 messages of the range, and finds no compound shape in either
+  printed script; planning's own scans of the three logs are clean.
+- Noted: the close-out scripts are T2's, with the failed-command reads
+  hardened and an `ls-remote` check on the base added.
+
+Milestone 1 part 1 is DONE. Residues for part 2's first code commit:
+the stale doc sentence in `probe-emend-copy.rs` and the candidates
+comment in the size script. The size budget awaits the maintainer's
+ruling on `records/size-m1p1-2026-09-17-6cec416.md`.
 
 ## Out of scope
 
