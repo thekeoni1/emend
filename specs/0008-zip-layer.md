@@ -2,8 +2,9 @@
 
 Status: P1 DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code
 e14dbee, cb2b4da; record ff92a11); P2 DONE 2026-09-17 (doc 608e6a4,
-9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 IN ITS REPAIR
-ROUND (see the first verification below). Planning
+9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 DONE 2026-09-17
+(doc 6f3d5c5, 98cac7d, 3d1f8ee, 6cec416; code adb0cc8, 5a8b491,
+740648e; records b28d839, 17ac5d4); close-out push READY. Planning
 draft 2026-09-16; approved by the maintainer the same day; entered the
 repository with T6 P1's verification.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
@@ -846,6 +847,73 @@ scan logs ran.
    stand: a doc commit changes no code, and the scan covers the range.
    `size.log`, `negative.log`, the second check, the final scan and
    the record commit follow it.
+
+### Planning rulings on P3 (2026-09-17, second verification)
+
+Verified from primaries at 17ac5d4: the four commits of the round and
+the files each holds, by path; the messages; the phase diff
+9b7ef68..6cec416 at the reported hash and size; the nine record files
+at the reported hashes; `scan.log` last (15:10Z), hashing all eight
+committed siblings at their committed bytes (each compared by
+planning), asserting two answers, two records and four doc commits,
+reading the bare-shape files at the commit, finding no compound shape
+in any sibling's printed script (planning's own grep agrees, and the
+scan's own script no longer matches its regex), PASS; the rerun
+headers naming every superseded run; `gate.log` at 740648e with eight
+PASS; `test.log` at 740648e with 78 passed and 1 ignored per target,
+148 and 2 for the workspace, every test executable hashed; `size.log`
+at 6cec416 with rulings (a) to (e) all yes, the controls printing
+their counts, the five probes' hashes; `negative.log` with every
+copied binary equal to the hash its own log prints (the test binary
+to `test.log`'s), D1 at 30.37 s against 0.75 s, P8, P9 and P9c; both
+check answers in the prescribed layout. Planning's own runs:
+`privacy.sh --range origin/main..HEAD`, PASS over all 26 unpushed
+commits; the round's 2199 and the range's 31887 added lines at zero
+non-ASCII, U+2014, denylist words, e-mail forms and bare shapes, the
+controls firing; the full gate at HEAD, eight PASS; `cargo test -p
+emend` 78 and 1 on both targets; the five probes rebuilt to the
+record's figures AND to `size.log`'s five sha256s. Check 2's caveat
+that the mode test could be flaky was examined: every test that
+replaces either holds `REPLACEMENT_LOCK`, goes through `apply`, which
+holds it, or is refused in `plan` before a temporary exists, so no
+second temporary can appear while the mode test runs.
+
+Rulings on the report's open items and check 2's residues:
+
+1. The Limits preamble kept, now true, with the untested-messages
+   paragraph under "Errors": accepted; the placement reads better than
+   the one item 4 asked for.
+2. `probe-emend-copy.rs`'s module doc still says the budget is measured
+   against its delta: a stale comment, fixed in Milestone 1 part 2's
+   first code commit, not by a further round. The same for the
+   candidates comment in the size script.
+3. `ROADMAP.md`'s "four tests" was planning's count; corrected to
+   seven new and four tightened.
+4. The `find` patterns: planning read the name forms in P2's diff,
+   `emend-replace-<pid>-<n>.tmp` for the layer's temporary and
+   `emend-4gib-in-<pid>.zip` and `-out-` for the 4 GiB fixtures, both
+   in the temporary directory itself; the patterns match them.
+5. The +16 slots being panic-location line numbers is an inference;
+   the measurement is that every differing byte outside the build id
+   is a four-byte `.data.rel.ro` slot risen by exactly the line shift,
+   with a wrong shift leaving bytes unexplained. Accepted as stated.
+6. The size script's candidate-form line printed but not asserted, and
+   the compound checks as named functions rather than one function
+   each: accepted; the candidates' figures differ from one another and
+   from the committed build's, which is the guard.
+7. Two messages asserted by calling `rewrite_central_record` directly
+   rather than through an archive: accepted, the producing code runs.
+
+Residues carried: items 2 and 6 above; the size budget itself, which
+the maintainer re-rules on the record at 6cec416 (probe-emend-edit-xml
+over probe-zip-xml: 131072 file bytes, 132732 section bytes, against
+the provisional 256000; reading an entry through the layer is 62540
+section bytes of the editing probe's cost, most of it the crate's
+entry-reading path, which the baseline also links).
+
+P3 is DONE. Part 1's close-out push follows, as the section below
+says, once the maintainer types the authorisation in the implementing
+session.
 
 ### Close-out push (after P3)
 
