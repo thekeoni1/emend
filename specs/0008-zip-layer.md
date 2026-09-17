@@ -1,8 +1,9 @@
 # 0008: Milestone 1 part 1, the zip layer
 
 Status: P1 DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code
-e14dbee, cb2b4da; record ff92a11); P2 READY. Planning draft
-2026-09-16; approved by the maintainer the same day; entered the
+e14dbee, cb2b4da; record ff92a11); P2 DONE 2026-09-17 (doc 608e6a4,
+9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68); P3 READY. Planning
+draft 2026-09-16; approved by the maintainer the same day; entered the
 repository with T6 P1's verification.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `records/decision-architecture.md`, `ROADMAP.md` ("Milestone 1"),
@@ -126,9 +127,15 @@ No dev-dependencies: tests build archives byte by byte, as T1 did.
 - Remove: the span and the record are omitted.
 - Add: a new local header and record, version needed 20 (45 with
   zip64), flags 0 (no descriptor), deflate, DOS time and date zero
-  (1980-01-01, so the output is deterministic), no extra field, no
-  comment; appended after the last entry in file order and in the
-  central directory.
+  (1980-01-01, so the output is deterministic), no comment; version
+  made by equal to version needed, with a zero host byte; internal
+  attributes, external attributes and disk start 0; no extra field
+  unless a size or the offset exceeds 32 bits, in which case the three
+  fixed fields carry the marker and a zip64 extra field holds both
+  sizes in the local header and both sizes and the offset in the
+  record (the four fields and the clause fixed at P2's verification
+  from what P2 wrote); appended after the last entry in file order and
+  in the central directory.
 - Harness expectation for a replaced entry: status `changed` or
   `recompressed`, and no flag except `descriptor` on an entry that
   used a data descriptor and whose compressed size changed: the
@@ -486,12 +493,115 @@ Given on the implementing session's questions before any P2 run.
    compare the descriptor's form and its consistency with the entry's
    own values goes to the xlsx-diff backlog on `ROADMAP.md`.
 
-### P3: size and the budget
+### Planning rulings on P2 (2026-09-17, verification)
 
+Verified from primaries at 9b7ef68: the five commits and the files
+each holds, by path; the messages ASCII with the Co-Authored-By line
+last; the phase diff's hash; the nine record files' sizes and sha256s;
+`scan.log` written last (13:29Z), hashing every committed sibling at
+its committed bytes (all seven compared by planning), listing both
+answers with their sha256s, PASS; the three rerun headers naming the
+superseded log by sha256 and the reason; the time order the report
+gives; the record recount (870 entry rows per label, the replaced
+entry `recompressed` in all 27 with `descriptor` alone on 16 and no
+flag on 11, the 843 other rows `identical` and unflagged, every
+workbook `ok`, diff exit 1, `files_identical` `no`, `lo` and `lo_in`
+`ok`, `leftover` `no`, on both labels); the `content-types` family
+rows and the `Tool arguments:` line; `gate.log`'s eight PASS and four
+binary hashes; `test.log`'s 55 passed and 1 ignored per target, 125
+and 2 for the workspace, and the 4 GiB run on both targets (19.61 s
+and 4788 kB; 27.48 s and 2324 kB; ext4; files removed);
+`negative.log`'s R1 to R5, X1, X2 and E1 to E9c, all as expected;
+`run.log`'s ruling 7(b) block; both check answers in the
+`specs/0001-bootstrap.md` layout, each body at the size and hash its
+header states.
+
+Planning's own runs: `scripts/privacy.sh --range ff92a11..HEAD`, PASS
+over five commits; the phase's 9290 added lines scanned for non-ASCII,
+U+2014, denylist words, absolute paths and the three bare shapes, all
+zero with the controls firing (the four path-like hits are scan
+controls inside printed scripts); the full gate at HEAD, eight PASS,
+its binaries at the hashes `gate.log` lists; `cargo test -p emend`
+with 55 passed and 1 ignored on both targets; and six fixtures of
+planning's own through `emend-copy --replace`: a level-0 deflated entry
+replaced with itself so that the entry after it moves, in the relative
+and the absolute convention, with and without zip64 end records, and a
+descriptor entry with and without the signature. Every output kept
+its input's offset base and prefix, moved the later entry and kept its
+bytes, was read by an independent reader and by python's `zipfile`,
+and drew from the harness `recompressed` and `identical` unflagged
+for the four, and `recompressed` with `descriptor` alone for the two,
+whose trailing bytes differ in the compressed-size field alone.
+
+Rulings on the report's eleven gaps:
+
+1. The synthesised zip64 end records are untested. Carried to P3 as
+   its first item, with the fixture below: P2's delivered behaviour
+   needs no change, the path is out of reach of the corpus and of
+   `emend-copy`, and a repair round would rerun five logs for one
+   test. P3 precedes the push.
+2. An added entry's version made by, internal and external attributes
+   and disk start: written into "Touched entries" above.
+3. "A replacement error leaves no output file": satisfied by the
+   tool's ordering, which is now the design: `emend-copy` reads every
+   replacement source before it creates the output temporary, so
+   every replacement failure it can reach precedes the output file
+   (E2, E5, E7 and E9 each assert none was left); the layer writes to
+   a `Write` and owns only its temporary, whose removal on error is
+   tested. No fault hook, as the P1 ruling said.
+4. An added entry's zip64 extra field: written into "Touched entries".
+5. Both offset conventions reach replace and remove-plus-add only:
+   accepted as meeting the sentence's intent, each edit kind on a
+   parameterised fixture with the movement asserted; the other moving
+   tests pin other properties.
+6. `parse_independently` and `read_tail` share the layer's constants:
+   accepted; the harness binary read the 4 GiB output and the 27
+   corpus outputs, and planning's reader shares nothing.
+7. Untested error branches: P3's catalogue enumerates and tests each
+   (listed under P3).
+8. The unwinding path of the temporary's removal and the `cfg(unix)`
+   mode: accepted for this project's targets; P3 adds the panicking
+   Replacement test.
+9. The ten gate-file names only inside the printed script: from P3,
+   `gate.log` prints them in its checks section.
+10. Three doc commits against ruling 2's one: accepted; the rulings
+    arrived one after another, and a ruling that arrives after the
+    phase's doc commit goes in as its own doc commit before the code
+    commit, as P1 did.
+11. The first scan pass hashed the superseded `negative.log`, found by
+    check 2: the final pass covers the committed one (planning compared
+    the hash) and the rule is now in `specs/0001-bootstrap.md`.
+
+Residues: the report is a message, not a primary; both checks and
+planning traced its figures to the logs. The unsigned-descriptor
+ambiguity (a descriptor without a signature whose CRC-32 equals the
+signature value is read as signed) is a documented limit for P3's
+catalogue.
+
+P2 is DONE.
+
+### P3: size, the catalogue and the budget
+
+First, the test P2 left: an archive of 65535 entries with no zip64 end
+records, plus one added, so that the output's count crosses the 16-bit
+threshold and the writer synthesises the zip64 end record and locator.
+The test asserts the synthesised record and locator byte by byte
+against the layout the zip specification gives (built in the test
+field by field, not by the layer's functions), the plain end record's
+markers, and the output read back by the independent parser. Then
 `probe-emend-copy`, built and measured as the baseline was, recorded
 as `records/size-m1p1-<utc-date>-<shortsha>.md` with both deltas; the
-error catalogue in the crate's documentation; the report asks the
-maintainer to re-rule the size budget with the measured number in
+error catalogue in the crate's documentation, with a test for each
+branch P2 left untested: `plan`'s method refusal,
+`compress_replacement`'s method refusal and its "something other than
+one entry", `put_value`'s two messages, `rewrite_local_header`'s "a
+replacement too large for a local header with no zip64 extra field",
+and a Replacement that panics, after which no layer temporary remains;
+and the documented limits: the 64 KiB zip64 scan window
+(`MAX_ZIP64_SCAN`), a value that would need a zip64 field the input
+does not carry, and the unsigned-descriptor ambiguity. `gate.log`
+prints the ten gate-file names in its checks section. The report asks
+the maintainer to re-rule the size budget with the measured number in
 hand.
 
 ### Close-out push (after P3)

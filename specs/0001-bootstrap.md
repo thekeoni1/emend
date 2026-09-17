@@ -34,8 +34,12 @@ phase ends with:
    sha256, so a commit is not needed). The scan log is the LAST log
    written, after the check answers are saved under the log directory,
    so it covers them, and it lists each answer it scanned with its
-   sha256 (T6 P1 ruling, 2026-09-16). A record commit cannot be
-   scanned by its own phase; planning's verification scan covers it.
+   sha256 (T6 P1 ruling, 2026-09-16). The committed scan log hashes
+   every committed sibling at its committed bytes: a log or an answer
+   rerun after a scan pass makes a new final pass necessary, and
+   planning compares each hash with the file (Milestone 1 part 1 P2
+   ruling, 2026-09-17). A record commit cannot be scanned by its own
+   phase; planning's verification scan covers it.
    Each record commit's message says what it adds. The first line of
    every log names the commit the log is about and the HEAD at the
    time it ran.

@@ -175,8 +175,8 @@ the part; the close-out push follows P3.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `Archive`, `Entry`, `Edits`, `Error`; open, index, verbatim write with empty edits; byte-built unit tests on both targets; `tools/emend-copy`; the corpus run on both targets recorded as `records/m1p1-p1-<date>-<sha>.md` and `.txt`, every entry `identical` and unflagged, `files_identical` `yes` | DONE 2026-09-17 (doc acc36fb, 791d0d7, c302ec3; code e14dbee, cb2b4da; record ff92a11) |
-| P2 | replace, remove, add; the `io::copy` Replacement wrapper; `--replace <name>`; the runner's `--tool-arg` and the record's `Tool arguments:` line; edit tests in both offset conventions; the ignored 4 GiB case; the corpus run replacing `[Content_Types].xml` | READY |
-| P3 | `probe-emend-copy` and the size record with both deltas; the maintainer re-rules the budget | PLANNED |
+| P2 | replace, remove, add; the `io::copy` Replacement wrapper; `--replace <name>`; the runner's `--tool-arg` and the record's `Tool arguments:` line; edit tests in both offset conventions; the ignored 4 GiB case; the corpus run replacing `[Content_Types].xml` | DONE 2026-09-17 (doc 608e6a4, 9a1cd86, e1c3b07; code ac1bd12; record 9b7ef68) |
+| P3 | the zip64 end-record synthesis test P2 left; `probe-emend-copy` and the size record with both deltas; the error catalogue with a test per untested branch and the documented limits; the maintainer re-rules the budget | READY |
 | Close | close-out push after P3, as T2's | PLANNED |
 
 ## Unscoped
