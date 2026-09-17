@@ -125,7 +125,12 @@ from this needs planning's word before the run (T2 P7 ruling).
   check it completed, and the reason given.
 - A check with more than one condition is evaluated inside one function
   that returns yes or no. The form `$(yn [ ... ] && cmd ...)` captures
-  only the first test (T0b P2, T1 P1 check 1).
+  only the first test (T0b P2, T1 P1 check 1). From Milestone 1 part 1
+  P3 the phase's scan log greps every sibling log's printed script for
+  that shape, unanchored (`\$\((yn|is) .*(&&|\|\|)`), and reports a
+  hit as a structural failure: planning found 31 instances in the
+  committed logs of six phases that no check had caught
+  (`specs/0008-zip-layer.md`, the P3 repair-round rulings).
 - A push script records the base (the remote ref before the push) and
   compares against that afterwards; the tracking ref moves with a
   successful push (T0b close-out).

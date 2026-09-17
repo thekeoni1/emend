@@ -779,6 +779,74 @@ superseded run's figures, marked as the superseded run's; the log
 header form of every phase so far, the command on line 1 and the
 commit on line 2, now written into `specs/0001-bootstrap.md`.
 
+### Planning rulings during the P3 repair round (2026-09-17)
+
+Given on the implementing session's findings after the round's doc
+commit 3d1f8ee and code commit 740648e, before its size, negative and
+scan logs ran.
+
+1. The byte-identity premise was planning's and it was wrong. A
+   doc-comment change moves every code line below it, and the panic
+   locations compiled into the binary carry line numbers, in
+   `.data.rel.ro`, even with `panic = "abort"` and stripping; the
+   build id follows from the content. The implementing session
+   measured, at 740648e against 5a8b491: file size, section total and
+   `.text` unchanged for both emend probes; `probe-emend-copy` with
+   134 differing bytes, 20 of them the `.note.gnu.build-id` payload
+   and 110 four-byte slots in `.data.rel.ro` each exactly 16 higher;
+   `probe-emend-edit` the same shape with 117 slots; `archive.rs` 16
+   net lines longer above its first code line; and a rebuild at
+   5a8b491 in a scratch clone reproducing the first `size.log`'s
+   hashes. Ruling: `size.log` asserts (a) the four earlier probes'
+   file size, section total and `.text` equal the first log's; (b)
+   the rebuild at 5a8b491 reproduces the first log's sha256s for the
+   two emend probes; (c) every byte that differs between the 5a8b491
+   and 740648e binaries lies in `.note.gnu.build-id` or in a four-byte
+   slot inside `.data.rel.ro` whose value rose by exactly the line
+   shift, computed from git as the net lines added above the first
+   code line; (d) the counts printed; (e) `probe-zip` and
+   `probe-zip-xml` keep plain sha256 equality. The fifth probe
+   measured 670244 file bytes, 665948 of sections and 510883 of
+   `.text`, so the judged figure over `probe-zip-xml` is 131072 file
+   bytes and 132732 section bytes, which the log prints and the new
+   record carries in its five rows.
+2. The shape `$(yn [ A ] && [ B ])`, forbidden by
+   `specs/0001-bootstrap.md` since T0b P2 because it evaluates A only,
+   was found by the implementing session in the first round's
+   `size.log` (eleven checks) and `negative.log` (two). Planning
+   grepped every committed log: 31 instances across T0b P2, the T0b
+   close-out, T6 P1 and Milestone 1 part 1 P1, P2 and P3, caught by
+   neither planning nor six independent checks. (Planning's first
+   grep found 27; it required a bracket test with no substitution
+   inside, and the implementing session's unanchored form found the
+   other four. An operator inside an awk program or outside the
+   substitution is a false hit of that form; the round's scan uses
+   it over each sibling's printed-script section, and a false hit
+   still goes into a named function.) Planning audited each second
+   condition: 30 are evidenced beside the check, by a printed value
+   (the repository's `PRIVATE` visibility, the hook's `0 finding(s)`
+   line, the CI gate's three lines, the dependency trees' line
+   counts, N7's one FAIL line and N8's one line, the P1 defect's
+   `differs` and `identical` outcomes, R3's refusal count, the usage
+   text, the descriptor forms, every size figure, the resolved
+   commits and the timings) or by the checked thing's later
+   use in the same log (binaries and stand-ins that then ran, record
+   files that were committed, regexes then measured); one, the first
+   `size.log`'s "probe-emend-copy exits 0 and its copy is
+   byte-identical", by nothing in its log. Planning ran that probe at
+   740648e on a generated archive and the copy is byte-identical, and
+   the P1 and P2 records show the no-edit copy byte-identical on 27
+   workbooks. No committed verdict changes. Ruling: the round's
+   scripts evaluate each compound whole (done); from this round the
+   phase's `scan.log`, which reads every sibling, greps each sibling's
+   printed script for the shape and reports a hit as a structural
+   failure, and `specs/0001-bootstrap.md` says so.
+3. This ruling enters as a doc commit after 740648e, since a log may
+   cite only a spec. `gate.log` and `test.log` as run at 740648e
+   stand: a doc commit changes no code, and the scan covers the range.
+   `size.log`, `negative.log`, the second check, the final scan and
+   the record commit follow it.
+
 ### Close-out push (after P3)
 
 As `specs/0005-corpus.md`, "Close-out push (after P7)".
