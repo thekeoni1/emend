@@ -204,6 +204,95 @@ every entry `identical` with an empty flags column, `files_identical`
 targets; the gate eight PASS; `negative.log` covers the tool's exit
 codes and refusals on generated files.
 
+### Planning rulings during P1 (2026-09-17)
+
+Given after the two independent checks of the code commit e14dbee and
+before the repair round. Planning reproduced the defect with its own
+fixtures against its own build of e14dbee: a 129-byte archive with a
+16-byte stub and file-absolute offsets came back 113 bytes, exit 0,
+empty stderr; the archive-relative control round-tripped byte for
+byte; the zip64 forms behaved the same way (217 to 201 bytes,
+silently; the relative form refused as "a zip64 locator without its
+record"). Python's zipfile reads all four fixtures.
+
+1. The defect. `Archive::open` derives one value, `prefix_len`, as
+   `central_start - central_offset` and uses it both as the offset
+   base (what a recorded offset is added to) and as the length of the
+   prefix to copy. Those coincide only when a producer records offsets
+   relative to the archive proper. With file-absolute offsets the base
+   is 0, so the bytes before the first local header are never copied,
+   with exit 0 and no flag. The repair separates them: `offset_base =
+   central_start - central_offset` for every offset conversion (the
+   local offsets read and rewritten, the zip64 record's central
+   offset, the locator's record offset); the prefix copy length is the
+   smallest local header position in file order, or `central_start`
+   for an empty archive. The output keeps the input's convention
+   because the prefix is verbatim, so the base is unchanged.
+   `prefix_len()` reports the bytes before the first local header,
+   which is what the name says.
+2. The zip64 locator, same cause, P1 not P2: the design says a zip64
+   archive behind a prefix is kept and the P1 list names zip64 offsets
+   and a prefix, so refusing the relative form is a spec violation,
+   not a limitation. The zip64 end record is found by its signature
+   scanning back from the locator and checked to end exactly where the
+   locator begins (its size field plus 12); the base is the found
+   position minus the locator's recorded offset, and it must agree
+   with the base the central directory gives, else `Unsupported`
+   naming the disagreement. The rewritten locator offset is the new
+   record position minus the base.
+3. Tests build their fixtures in BOTH conventions from an explicit
+   parameter, never from what the implementation happens to do: the
+   plain and the zip64 archive, each with a stub, each absolute and
+   relative, each round-tripped byte for byte; the empty archive with
+   and without a prefix. `negative.log` reproduces planning's four
+   fixtures with the committed `emend-copy` before and after the
+   repair (129 to 113 and 217 to 201 bytes before, the relative zip64
+   form refused; all four identical after), so the defect and the fix
+   are both measured. The comment that stated the assumption as fact
+   goes.
+4. Check 2's smaller findings: the 64 KiB copy buffer moves to the
+   heap (P1; the 32-bit rule); `zip::ZipArchive` is constructed on
+   the first `read()`, not in `open()`, so what opens is decided by
+   the layer's parser alone, as the module header claims (P1); the
+   five tests that discard `read_to_end` with `.ok()` assert its
+   result (P1); the index rendered by `NoSuchEntry` and the refusal of
+   trailing bytes after the end record go to P3's error catalogue,
+   where every error's wording and class is fixed (the layer keeps
+   refusing trailing bytes; the message must say so, not `NotZip`).
+5. Citations. `gate.log` quoted a self-test rule as this spec's, and a
+   test cited "Planning's pin"; both came from planning's messages,
+   which are not primaries. The gate-file rule is now in
+   `specs/0001-bootstrap.md` ("Rules for every phase") and the two
+   tests of item 6 are in this section, so the reruns cite those. A
+   planning message is an instruction, never a source: what a log or a
+   test cites must be in a spec or a log before the run, and planning
+   puts a new rule into a spec in the same doc commit that starts the
+   phase.
+6. The design note stands: `Option<zip::ZipArchive>`, taken by
+   `write_to` and put back, no signature change. Two tests pin it:
+   after `write_to`, `read()` still works and a second `write_to`
+   gives identical bytes; a `write_to` that fails part-way (a writer
+   that errors after N bytes) leaves an `Archive` on which every later
+   call returns `Err` or works, never panics, and the test says which.
+7. Commit structure. e14dbee stays; the repairs are one new code
+   commit, so the defect and its fix are both in history and the diff
+   the check answers pin stays reproducible. This ruling and the
+   `specs/0001` rule are one doc commit on top of e14dbee, before the
+   repair commit. Then one record commit: the five logs rerun at the
+   repair commit, each header naming the log it replaces by sha256,
+   and both check answers with a header line naming the repair commit
+   and saying they checked e14dbee. Six commits in the phase, each for
+   a reason named here.
+8. The reruns are unchecked by a subagent (two checks were run) and
+   verified by planning from primaries. `run.log`'s header is
+   corrected: the corpus directory's NAME appears in the printed
+   script as the default from `CLAUDE.md`, and its path is written
+   `<corpus>`. The environment finding keeps its substance and either
+   prints its figures or drops them. The draft report's false
+   sentences the checks named are corrected, and the ROADMAP backlog
+   item is not claimed closed in full: the runner's `|| die` half
+   stays open.
+
 ### P2: replace, remove, add
 
 `Edits` in full; `--replace <name>` in `emend-copy` replaces the named

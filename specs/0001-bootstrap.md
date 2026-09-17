@@ -105,6 +105,16 @@ from this needs planning's word before the run (T2 P7 ruling).
 - Pushes: never use `git push --no-verify`, never set `core.hooksPath`,
   and never export `EMEND_PRIVATE_DENYLIST` except inside a negative
   test.
+- A phase that changes a gate file (`scripts/check.sh`,
+  `scripts/privacy.sh`, `scripts/privacy-patterns.txt`,
+  `scripts/privacy-identity.txt`, `scripts/sys-allowlist.txt`,
+  `scripts/install-hooks.sh`, `scripts/counting.sh`,
+  `scripts/gate-self-test.sh`, `.gitignore`, the CI workflow) runs
+  `scripts/gate-self-test.sh` (the default run, detached) and commits
+  its output as `self-test.log` with the other logs; a phase that
+  changes none lists in `gate.log` the gate files it checked against
+  the diff (in force from Milestone 1 part 1 P1, 2026-09-17; T6 P2
+  adds the `--full` clause).
 - A run stopped by the environment (for example for low memory) is noted
   in the header of the log that reruns it: its start time, the last
   check it completed, and the reason given.
