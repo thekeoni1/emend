@@ -113,7 +113,9 @@ The move is P2's first code commit and changes no test.
   previous token to the crate's position after this one, taken from
   the tee and never re-serialised. Consequence, and P1's acceptance:
   the mark when present, followed by every token's `raw` in order, is
-  the input byte for byte.
+  the input byte for byte. `xml::BYTE_ORDER_MARK`, the three bytes, is
+  public and re-exported, since any rewriter must re-emit the mark
+  `bom()` reports (P1 ruling 6).
 - Memory: the tee holds at most the reader's read-ahead plus the
   current token. A token is one tag, one text run, one general
   reference, one comment, one CDATA section, one processing
@@ -419,7 +421,8 @@ as `Error::Xml`; a part of valid UTF-8 holding characters XML forbids
 (NUL and one other C0 control, in text) accepted and reconstructed,
 pinning the fourth Limits entry (P1 ruling 4); the tool's operation
 applied to a byte-built archive of three XML parts and one binary
-part, the XML parts' decompressed bytes identical and the binary entry
+part, each deflated XML part's CRC-32 and uncompressed size equal to
+the input's, a stored XML part's raw bytes equal, and the binary entry
 untouched, asserted by the independent
 parser. Tests on both targets. The corpus run on both targets with the
 LibreOffice check, recorded as `records/m1p2-p1-<utc-date>-
@@ -507,6 +510,49 @@ and read the mechanisms in the crate's source.
    and reconstructed, as the test list now says; the binary-part test
    names its four refused shapes and the UTF-8 reason. The test list
    is amended above.
+
+Rulings on the implementing session's questions after independent
+check 1 (code commits e6559d8 and 7a856ad, to be redone):
+
+5. The tool test's fidelity pin. The test crate has no inflater, and
+   its fixtures are deflate streams of stored blocks while the tool's
+   output is deflated by the `zip` crate, so the test cannot compare
+   decompressed bytes directly. Ruling: for a deflated XML entry the
+   test asserts CRC-32 and uncompressed size equal to the input's, for
+   a stored one the raw bytes; the test list is amended above. The
+   decompressed-bytes proof is the harness's `recompressed` status
+   over the corpus, which reads both sides through its own inflater;
+   no dependency is added to the test crate.
+
+6. `BYTE_ORDER_MARK` stays public and re-exported: the tool needs the
+   three bytes now and P3's `write_to` will, and a private copy in
+   each consumer would be a second definition of one fact. The Design
+   text is amended above.
+
+7. The run log's printed script may carry the unexpanded default
+   `CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}` and the fictional
+   `/home/someone/...` positive control for the record-privacy grep,
+   as part 1's run logs do: the corpus directory's NAME is not private
+   (CLAUDE.md gives it), its PATH is, and neither line is a path on
+   this machine nor appears in output. The rule the check cites is
+   about real paths; a log that printed the expanded value would be
+   the defect.
+
+8. Residue 2, the duplicate-name candidates comment, lives only in
+   the committed log script `records/logs/m1p1-p3/size.log` and in no
+   source file (planning's grep over the tree finds the word only in
+   `archive.rs`'s end-record search, an unrelated use), so P1's code
+   commit had nothing to edit and the residue is discharged by P3's
+   size script not carrying it. Confirmed.
+
+Noted without a ruling: the module header's sentence on `Error::Io`
+being returned unchanged was wrong (the crate holds its I/O error in
+an `Arc`, so the kind is copied out) and is corrected in the redone
+commit; the run log's column-name resolution now prints the entries
+header and asserts the four columns it uses resolve, which is what
+specs/0001 asks of a check that can fail. Both code commits are redone
+and every log rerun at the new commit, each header naming the
+superseded log by sha256 and why; check 1 goes in verbatim.
 
 ### P2: content types, relationships, the workbook
 
