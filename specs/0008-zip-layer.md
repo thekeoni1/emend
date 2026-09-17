@@ -130,9 +130,15 @@ No dev-dependencies: tests build archives byte by byte, as T1 did.
   comment; appended after the last entry in file order and in the
   central directory.
 - Harness expectation for a replaced entry: status `changed` or
-  `recompressed` and an empty flags column, because every header field
-  the change does not require is the original's. A flag on a replaced
-  entry is a finding. Every other entry `identical` and unflagged.
+  `recompressed`, and no flag except `descriptor` on an entry that
+  used a data descriptor and whose compressed size changed: the
+  harness compares the bytes after the data raw (`specs/0004`, P5),
+  and the descriptor this design keeps records the new size, so that
+  flag is what the design requires, not a finding (measured by P2
+  before its corpus run; ruling 7 below). Any other flag on a replaced
+  entry, `descriptor` on a replaced entry that used none, and any
+  flag on any other entry are findings. Every other entry `identical`
+  and unflagged.
 
 ### Errors
 
@@ -369,8 +375,10 @@ with the output's offsets checked to keep the input's convention and
 the output read back by an independent reader (the harness, or a
 generated-fixture parser in the test that shares no code with the
 layer). The corpus run replaces `[Content_Types].xml` in every file:
-expected `recompressed` (or `identical`) with an empty flags column
-for that entry, every other entry `identical` unflagged, `lo` and
+expected `recompressed` (or `identical`), with `descriptor` alone
+where the entry used a data descriptor and its compressed size
+changed and no flag otherwise (ruling 7 below), every other entry
+`identical` unflagged, `lo` and
 `lo_in` `ok`, recorded as `records/m1p1-p2-<utc-date>-<shortsha>.md`
 and `.txt`. The check answers use the layout `specs/0001-bootstrap.md`
 prescribes.
@@ -445,6 +453,38 @@ Given on the implementing session's questions before any P2 run.
    `.txt` through `--stem`, the logs under `records/logs/m1p1-p2/`,
    the check answers in the `specs/0001-bootstrap.md` item 3 layout,
    as the P2 text says.
+7. The `descriptor` flag on a replaced entry, found by the
+   implementing session before the corpus run and measured on one
+   workbook with a reader that used neither the layer nor the
+   harness: the replaced `[Content_Types].xml` came back
+   `recompressed` with `descriptor` as its only flag, every other
+   entry `identical` and unflagged, and the 16 bytes after its data
+   differed from the input's in the compressed-size field alone (397
+   became 399; signature, CRC-32 and uncompressed size equal). That
+   is inherent: the harness's `descriptor` covers the raw bytes after
+   the data (`specs/0004-xlsx-diff.md`, P5), the design keeps the
+   descriptor in the original's form, and a re-deflated stream has a
+   new length. The alternatives were refused: clearing bit 3 and
+   moving the sizes into the local header changes the general purpose
+   flags of an entry whose flags the design says are the original's;
+   contriving a stream of the original length is not a real option.
+   The corpus holds 27 `[Content_Types].xml` entries, 17 with a data
+   descriptor, and 292 descriptor entries in all (the number T3 P4's
+   step-zero record flagged when the crate's writer dropped them).
+   Ruling: the expectation in "Touched entries" and in P2 is amended
+   as above, before the run and with this finding as its reason; the
+   evidence that only the size fields change is (a) the layer's
+   descriptor-form test on byte-built fixtures, asserting the output
+   descriptor equals the input's with only the CRC-32 and size fields
+   rewritten, for both signature forms and both size widths, and (b)
+   a structure-only inspection of one corpus pair per descriptor form
+   present, in `negative.log` or `run.log`, printing the bytes after
+   the data of input and output as hex (a signature, a CRC-32 and two
+   sizes; no content). The count is the record's `content-types`
+   family row (entries, statuses, `flagged`, `descriptor`), which the
+   report cites per label. A refinement of the harness's flag to
+   compare the descriptor's form and its consistency with the entry's
+   own values goes to the xlsx-diff backlog on `ROADMAP.md`.
 
 ### P3: size and the budget
 

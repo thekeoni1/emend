@@ -190,6 +190,11 @@ approval.
   cannot be accepted without it.
 - xlsx-diff backlog: harness findings raised after T1 P6 that do not
   concern a real data flow (a corpus file in T3, or an emend output).
+  - The `descriptor` flag compares the bytes after the data raw, so a
+    re-deflated entry whose kept descriptor records its new length
+    always carries it; comparing the descriptor's form and its
+    consistency with the entry's own values would let the flag mean a
+    form change alone (Milestone 1 part 1 P2, specs/0008 ruling 7).
   - The zip64 test is rerun only when the gap or size code changes, not
     per phase (T1 P5 gap 3).
   - No test tells the two size branches of `raw_only` apart, since every
