@@ -40,6 +40,15 @@
 # "step 7", a control that calls HEAD a code commit). A run that does not set
 # it says so in the header rather than naming the wrong phase.
 #
+# LAUNCH_NOTE names the LAUNCH FORM: whether the run was detached and what
+# else the session was doing while it ran (M1 part 2 P3 ruling 7, from part 3
+# on). The command alone, which is what the invocation line held before, does
+# not carry that: the same command run in the foreground of a session that is
+# also building would produce a log indistinguishable from this one, and the
+# property the log is relied on for is that NO BUILD OF THE SESSION ran during
+# it. A run that does not set it says so on the line rather than leaving a
+# reader to assume the form.
+#
 # Output: one line per case, then a count line. Exit 0 only when there are no
 # unexpected results, no errors, and every counting control was as expected.
 set -uo pipefail
@@ -235,7 +244,7 @@ echo "command: git rev-parse HEAD"
 echo "about: gate self-test at commit $(git rev-parse HEAD); HEAD at run: $(git rev-parse HEAD)"
 echo "phase: ${PHASE_NOTE:-not named by this run; set PHASE_NOTE} (specs/0007-gate-self-test.md) self-test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
-echo "invocation: $INVOCATION"
+echo "invocation: $INVOCATION; launch form: ${LAUNCH_NOTE:-not named by this run; set LAUNCH_NOTE}"
 echo "mode: $([ "$FAST" -eq 1 ] && echo 'fast (iteration only, not the sources invocation)' || echo 'default')$([ "$FULL" -eq 1 ] && echo ', full' || echo '')"
 echo "privacy invocation: $([ "$FAST" -eq 1 ] && echo 'range <base>..HEAD, base read before the case commits; NOT what the sources ran' || echo 'full history, the invocation every source log used')"
 echo "identity set in every clone from scripts/privacy-identity.txt"
