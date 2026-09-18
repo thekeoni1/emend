@@ -2,8 +2,10 @@
 
 Status: approved by the maintainer 2026-09-17 (planning draft the
 same day). P1 DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c,
-248fdd8; code a9f2cad, 4725795; record d6fa91d); P2 and P3 READY; the
-close-out push PLANNED.
+248fdd8; code a9f2cad, 4725795; record d6fa91d); P2 DONE 2026-09-18
+(doc bbde39e, 77504d0, 59f6668, 69bb8db, 759e827, c8b8fec; code
+82d4e77, 5fc1b3d, 1334830; record eacffa2); P3 READY; the close-out
+push PLANNED.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `ROADMAP.md` ("Milestone 1"), `specs/0008-zip-layer.md` (the zip
 layer's API, the harness expectation for a replaced entry, "Size" with
@@ -143,14 +145,19 @@ commit.
   prefix its document does not bind")`, which is why the result is a
   `Result` (P2 ruling 2). The null rewrite never resolves a name.
 - Escaping: attribute values the package layer writes are escaped with
-  the crate's `escape` (`&`, `<`, `>`, `"` and `'`); values it reads
-  come through its `normalized_value(XmlVersion::Implicit1_0)`, which
+  the crate's `escape` (`&`, `<`, `>`, `"` and `'`); values it
+  interprets (a namespace declaration's value, a sheet name) come
+  through its `normalized_value(XmlVersion::Implicit1_0)`, which
   unescapes and applies the attribute-value normalization XML requires
   (a tab, CR, LF or CRLF in a value becomes one space), so a sheet name
   written with a tab is reported with a space (P2 ruling 2; the draft
-  named the deprecated `unescape_value`). Both need `str`, so a value
-  the layer must interpret that is not UTF-8, or that holds a
-  reference the crate does not know, is `Error::Xml(index)`.
+  named the deprecated `unescape_value`). Values it returns or
+  compares as bytes (ids, types, targets, part names, extensions,
+  states) are as written, so a target holding a character reference
+  resolves to no entry and the survey counts it `unresolved` (P2
+  verification ruling 5). Both need `str`, so a value the layer must
+  interpret that is not UTF-8, or that holds a reference the crate
+  does not know, is `Error::Xml(index)`.
 
 ### Module `package`
 
@@ -803,13 +810,99 @@ The `scan.log` script's inherited "P1" about-line and its misattributed
 comment are the implementing session's to fix in the final scan pass,
 as it proposed.
 
+### Planning rulings on P2 (2026-09-18, verification)
+
+Verified from primaries at eacffa2: the ten commits and their
+messages (ASCII, Co-Authored-By last; six doc, three code, the
+record; the rulings that arrived mid-phase each committed before the
+code that cites them); the six doc commits hold planning's files
+unedited (the working tree at c8b8fec differs from planning's copies
+by nothing, and each touches only `specs/` and `ROADMAP.md`); the
+code diff d6fa91d..1334830 is nine files and every one is P2's (the
+move into `testing.rs`, `package.rs` and its tests, `Scope` in
+`xml.rs`, `Error::Package` and its catalogue lines, the tool's
+`--survey` and its two tests, `lib.rs`); `package.rs` and `Scope`
+read in full against "Module `xml`", "Module `package`" and rulings
+1 to 6 (names as bytes; the Override-then-Default lookup with the
+extension folded; `target_part` resolving dot segments in both forms
+and refusing `..` above the root; the officeDocument forms counted
+together; the first of a kind for the four options; an unprefixed
+attribute having no namespace; a namespace declaration's value and a
+sheet name normalized, every other value as written; the
+incomplete-element message of ruling 4); the 37 package tests and 9
+tool tests read against P2's list, every case present, the chartsheet
+and dialogsheet kinds covered in `sheet_states` and
+`several_sheets_in_order`; the count 217 as 178 plus 37 plus 2;
+`scan.log` last, hashing the six sibling files at their committed
+bytes, 0 compound shapes and 0 `!` shapes in every printed script, 0
+control bytes and 0 non-ASCII bytes in the seven files; the seven
+hashes the report names equal to the committed files; both check
+headers pinning 1334830; the `isnot true` control present in
+`gate.log` and `negative.log`, and the superseded rounds named in each
+by byte count and sha256, the failed third gate attempt included.
+
+Planning's own runs at eacffa2: the full gate (eight PASS, exit 0);
+`scripts/privacy.sh --range d6fa91d..HEAD` (10 commits, 318 blobs, 0
+findings); `cargo test --workspace` on the host and on i686 (217
+passed, 0 failed, 2 ignored on each); `--survey` over all 27 corpus
+workbooks with release binaries of both targets: every run exit 0,
+every output byte-identical to its input, nothing on stderr, and the
+totals equal to the run log's on both targets (entries 870, typed
+843, untyped 0, defaults 110, overrides 614, rels_parts 216,
+relationships 878, external 234, resolved 644, unresolved 0,
+case_only 0, sheets 95, sheets_resolved 95, shared_strings 27, styles
+27, calc_chain 9, theme 27); the record pair's tables recounted (54
+file rows, every one ok with diff exit 0, unflagged, files_identical
+yes and lo ok; 1740 entry rows, every one identical).
+
+Rulings:
+
+1. P2's acceptance is met and measured: the package layer reads the
+   content types, every relationships part and the workbook of every
+   corpus file on both targets, every internal target and every sheet
+   resolves to an entry by exact bytes, and the survey edits nothing.
+   The five departures are accepted as recorded.
+2. Departure 2: the absolute target with dot segments is pinned by a
+   fixture, not by the argument alone. `target_absolute` gains one
+   relationship whose target is absolute and carries a `.` and a `..`
+   segment, resolving to the same entry as its plain absolute
+   neighbour, in P3's first code commit. No P2 rerun: the argument
+   that both forms share one loop reads as true in the code, and the
+   corpus has no such target to disagree.
+3. A fifth inaccurate doc comment: `Scope`'s header says the ruling
+   names `Version10`, which was true of doc commit 59f6668 and false
+   since 69bb8db. It says the ruling names `Implicit1_0` and the
+   sentence about the correction goes. Fixed in P3's first code commit
+   with ruling 8's four; P3's diff is expected to carry exactly these
+   five and the one-line fixture of ruling 2.
+4. Departure 5: a control asserts a property, never a position that a
+   later commit can change; the committed gate's form (the first doc
+   commit, by hash, is a doc commit) is the rule from P3, and the
+   failed attempt stands recorded as the log names it.
+5. Design, "Escaping", is amended above to say which values are
+   normalized: those the layer interprets (a namespace declaration's
+   value, a sheet name) and no other. Ids, types, targets, part names,
+   extensions and states are bytes as written, so a target holding a
+   character reference resolves to no entry and the survey counts it
+   `unresolved`, which is 0 on the corpus. The code does this already;
+   nothing changes.
+6. Departure 3's "twelve cases" against check 1's eleven: the sentence
+   describes an uncommitted round, and the committed script's N1 to
+   N11 are the count that stands. Nothing to do.
+
+P2 is DONE. P3 starts with the doc commit carrying this ruling and the
+ROADMAP row, then the first code commit as "P3" says.
+
 ### P3: the edits, the first real edit, the size record
 
-P3's first code commit carries the four doc-comment fixes P2 ruling 8
-names, the `overrides_unresolved` survey key of ruling 11 with its
-unit test, and the `columns_resolve` form of ruling 10 in the run
-script; the survey then runs on both targets in P3's run log beside
-the edit runs, expecting `overrides_unresolved` 0 in every file.
+P3's first code commit carries the five doc-comment fixes P2 ruling 8
+and P2 verification ruling 3 name, the absolute-target fixture of
+verification ruling 2, the `overrides_unresolved` survey key of
+ruling 11 with its unit test, and the `columns_resolve` form of
+ruling 10 in the run script; the survey then runs on both targets in
+P3's run log beside the edit runs, expecting `overrides_unresolved` 0
+in every file. P3's gate controls assert properties, never a position
+(verification ruling 4).
 
 The edit methods and `write_to`; `TempFile` shared; `--drop-calc-
 chain`; the two probes; the catalogue and Limits in the module docs
