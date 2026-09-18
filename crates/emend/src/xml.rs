@@ -21,7 +21,8 @@
 //! no token's `raw` holds it. Planning measured both mechanisms and ruled
 //! (`specs/0009-package-layer.md`, "Planning rulings during P1", item 1) that
 //! the stream feeds the WHOLE input, mark included, and maps the parser's
-//! positions through [`Stream::origin`]: 3 when a mark was read, 0 otherwise.
+//! positions through the stream's own `origin`: 3 when a mark was read, 0
+//! otherwise.
 //! A second mark then comes back inside a text token, like any other content.
 //!
 //! # Errors

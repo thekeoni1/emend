@@ -3,15 +3,15 @@
 # step and exits non-zero at the first failure. Runs from any directory.
 # --quick skips the i686 and clippy steps, for local iteration only; logs
 # handed to planning come from a full run.
-# --ci runs steps 1 to 7 and skips step 8, the privacy gate, because the
+# --ci runs steps 1 to 8 and skips step 9, the privacy gate, because the
 # private denylist never leaves the maintainer's machine. It is for the CI
 # workflow; every local push procedure still runs the full gate
 # (specs/0003-ci.md). --quick and --ci cannot be combined.
 set -euo pipefail
 
 readonly USAGE="usage: scripts/check.sh [--quick | --ci | --only <step>]"
-# The eight step names, in the order the gate runs them. --only names one.
-readonly STEPS="host i686 fmt clippy native licences hygiene privacy"
+# The nine step names, in the order the gate runs them. --only names one.
+readonly STEPS="host i686 fmt clippy doc native licences hygiene privacy"
 QUICK=0
 CI=0
 ONLY=""
@@ -144,8 +144,22 @@ else
 fi
 fi
 
+if wanted doc; then
+# Step 5: the doc comments build with no rustdoc warning, so a broken
+# intra-doc link or a public item linking a private one fails the gate rather
+# than waiting for a reader (specs/0009-package-layer.md, P3 ruling 4: no
+# step of the gate read a doc comment, and the tree carried one such warning
+# from P1 until that ruling). --quick keeps the step: it is cheap once the
+# build is warm.
+# The flag goes through `env` rather than as a prefix on the `quiet` call: an
+# assignment before a shell FUNCTION persists in the shell afterwards, and
+# this way the FAIL line names the flag it ran with.
+quiet doc "$OUT/doc" env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps
+echo "PASS doc"
+fi
+
 if wanted native; then
-# Step 5: no C build tooling in the dependency tree, and no -sys or _sys
+# Step 6: no C build tooling in the dependency tree, and no -sys or _sys
 # crate outside the allowlist. Adding to the allowlist needs a planning
 # ruling. --all-features shows crates behind features nothing enables.
 [ -f "$SYS_ALLOWLIST" ] || fail native "$SYS_ALLOWLIST is missing"
@@ -175,7 +189,7 @@ echo "PASS native (allowlisted -sys: ${allowlisted:-none})"
 fi
 
 if wanted licences; then
-# Step 6: every package's licence expression, workspace members included,
+# Step 7: every package's licence expression, workspace members included,
 # passes against the allowed identifiers. Do not widen the list without a
 # planning ruling.
 cargo metadata --format-version 1 --all-features >"$OUT/metadata.json" 2>"$OUT/metadata-err" ||
@@ -278,7 +292,7 @@ echo "PASS licences"
 fi
 
 if wanted hygiene; then
-# Step 7: repository hygiene. It reads what would be committed (the index),
+# Step 8: repository hygiene. It reads what would be committed (the index),
 # never follows a symlink, and runs a positive control for every grep form
 # before using it. Exit 2 or more from any grep is an error, never zero hits.
 # ANTHROPIC_API_KEY is checked before step 1.
@@ -440,7 +454,7 @@ echo "PASS hygiene"
 fi
 
 if wanted privacy; then
-# Step 8: the privacy gate over every commit reachable from HEAD. The denylist
+# Step 9: the privacy gate over every commit reachable from HEAD. The denylist
 # override is for negative tests only, so the gate refuses to run with it.
 # In CI mode the step is skipped: the private denylist never leaves the
 # maintainer's machine, and the local pre-push hook is the privacy guard.

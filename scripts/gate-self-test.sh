@@ -32,6 +32,14 @@
 #           asks for, and that the default differed from every source.
 #   --case  run only the named case ids.
 #
+# PHASE_NOTE names the phase whose records the run's log is committed with, and
+# RERUN_NOTE, if set, names the log this one supersedes. PHASE_NOTE exists
+# because the phase was written into this script's own text in T6 P1, so a run
+# in any later phase printed a header naming T6 P1: a label that drifts, which
+# is the defect M1 part 2 P3's rulings named twice over (a control that says
+# "step 7", a control that calls HEAD a code commit). A run that does not set
+# it says so in the header rather than naming the wrong phase.
+#
 # Output: one line per case, then a count line. Exit 0 only when there are no
 # unexpected results, no errors, and every counting control was as expected.
 set -uo pipefail
@@ -225,7 +233,7 @@ secs() { awk -v a="$1" -v b="$(date +%s.%N)" 'BEGIN { printf "%.0fs", b - a }'; 
 RUN_START=$(date +%s.%N)
 echo "command: git rev-parse HEAD"
 echo "about: gate self-test at commit $(git rev-parse HEAD); HEAD at run: $(git rev-parse HEAD)"
-echo "phase: T6 P1 (specs/0007-gate-self-test.md) self-test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "phase: ${PHASE_NOTE:-not named by this run; set PHASE_NOTE} (specs/0007-gate-self-test.md) self-test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
 echo "invocation: $INVOCATION"
 echo "mode: $([ "$FAST" -eq 1 ] && echo 'fast (iteration only, not the sources invocation)' || echo 'default')$([ "$FULL" -eq 1 ] && echo ', full' || echo '')"
@@ -283,7 +291,7 @@ fi
 # H2 plants ONE fixture per sub-case, so each count is the count its source
 # recorded, and all THREE forms specs/0007:112 names reach the hygiene step.
 # Reducing H2 to the tilde form alone fixed check 1's gap 14 but dropped the
-# lock and .bak forms from step 7 entirely, leaving them covered only through
+# lock and .bak forms from the hygiene step entirely, leaving them covered only through
 # privacy.sh as V17a and V17c (independent check 2, T6 P1, gap 7). The count-only
 # wording and the count 1 come from t0-p6c i L843; the three forms come from
 # t0-p6c a1, a2 and a3, which planted them one at a time in their own clones.
@@ -307,7 +315,7 @@ if want H2a || want H2b || want H2c; then
 fi
 # H3's source is this phase's own negative log. specs/0007 names T0 P6c b, but
 # that case recorded a privacy "FAIL paths" line, not a hygiene line, and no
-# log anywhere records a csv or a tsv at step 7; its only other authority would
+# log anywhere records a csv or a tsv at the hygiene step; its only other authority would
 # be OFFICE_RE itself, the thing under test. Planning's ruling (2026-09-16) was
 # to establish the expectation in negative.log first and source this case to
 # that log by case name. N7 planted the same two fixtures, staged 2 paths, and
