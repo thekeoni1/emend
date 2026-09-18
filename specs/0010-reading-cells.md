@@ -146,7 +146,8 @@ runs' `<t>` included and `<rPh>` subtrees skipped, unescaped, not
 trimmed. `count` and `uniqueCount` are ignored: the items are what is
 there. A workbook with no shared strings relationship gives an empty
 `SharedStrings`, so a cell of kind `SharedString` in such a workbook
-is out of range rather than a special case.
+is out of range rather than a special case; a relationship whose
+target names no entry is refused with "no such part" (P1 ruling 5).
 
 `Cells<'p, R>`: a streaming reader over one worksheet part, an
 `Iterator<Item = Result<Cell, Error>>` built on `xml::Stream` and
@@ -198,10 +199,12 @@ modules.
 
 Cells stream: the bound is one token, as `xml` says, plus one `Cell`.
 A shared strings table is held whole, one `String` per item plus the
-`Vec`; the corpus's largest is 2748976 bytes of XML and 110582 items,
-and a consumer on this target that meets a table larger than its
-address space cannot read that workbook, which the Limits section of
-the module header says. No count is `usize` in the API.
+`Vec`; the corpus's largest part is 2748976 bytes of XML, its largest
+table 54472 items, and its 27 tables hold 110582 items between them
+(P1 ruling 10 unwelded this sentence); a consumer on this target that
+meets a table larger than its address space cannot read that workbook,
+which the Limits section of the module header says. No count is
+`usize` in the API.
 
 ### Size
 
@@ -379,6 +382,108 @@ header naming part 2's recorded finding as the one it runs again
 after. The push carries 9bd9102, 7702f6e and part 3's commits, on
 planning's word and the maintainer's authorisation typed in the
 implementing session.
+
+## Planning verification and rulings on P1 (2026-09-18)
+
+Verified from primaries at d1ebf1c, seven local commits over 7702f6e.
+The doc commit 7175092 carries the five planning files at the sha256
+planning recorded before sending them. The code commits are five
+where this spec said two: 04113ac (the carried items), 8f2364d (the
+table), 001fe24 (the self-test log's launch form, this spec's own P1
+item landing late), 5233bf4 and 71ab06e (corrections the independent
+checks forced). Accepted as they stand: `specs/0001` permits an amend
+of an unpushed commit and does not require one, and a correction that
+names what it corrects is the form this project prefers. Every commit
+message is ASCII and ends with the Co-Authored-By line. The record
+commit d1ebf1c carries six logs, three check answers and the record
+pair; `scan.log`'s sibling table equals `sha256sum` over the committed
+files; two superseded attempts were re-hashed from the kept files and
+match their cited hashes and byte counts; the one attempt that was
+not kept is named as having no hash, as the rule asks. Planning's own
+runs at d1ebf1c: the nine-step gate, every step PASS; `cargo test -p
+emend` 198 passed and 1 ignored on the host and on i686 musl; an
+independent Python reader over the corpus, sharing no code with the
+crate or with the run script's counter: 27 tables, `items` 110582 and
+the largest table 54472, both equal to `run.log`; `bytes` 1497091
+against `run.log`'s 1497107, finding P1-F1 below. Privacy over every
+file of the phase diff: 0 bare shapes, 0 live pattern hits, 0
+non-ASCII bytes, 0 U+2014; the one home-directory string in
+`scan.log` is a positive control built by concatenation. P1 is DONE.
+
+Finding P1-F1 (planning's, 2026-09-18). The 16-byte difference is
+sixteen carriage returns inside `<t>` text, in 11 items over 10
+workbooks: planning counted 26 CR LF pairs in the corpus's shared
+strings parts, 16 of them inside `<t>`, 0 lone CR, 0 CDATA sections
+and 0 `_x000D_` escapes (counts only; no item was printed). XML 1.0
+section 2.11 requires a processor to normalise CR LF and lone CR to
+LF before parsing, so expat-based readers (Python's ElementTree, lxml
+and therefore openpyxl), Excel and LibreOffice all see LF; `quick-xml`
+0.42 does not normalise, and the reader appends text chunks as they
+arrive. Not a P1 defect: this spec expected `items` alone, and the P1
+record stands as measured. It is a reading defect to fix before any
+other text goes through the same path.
+
+Rulings:
+
+1. Line ends. Text this crate reads, shared strings now and in P2
+   inline strings, `<v>` and `<f>`, follows XML 1.0 section 2.11: CR
+   LF and lone CR become LF, in text and in CDATA alike; a CR reached
+   through a character reference (`&#13;`) is kept, as 2.11 says.
+   Tests: CR LF, lone CR, LF alone, and the reference, each compared
+   with the string the test wrote. P2's `--shared-strings` run expects
+   `items` 110582 and `bytes` 1497091, both asserted by name.
+2. CDATA (question 8). A CDATA section inside a text element is that
+   element's text, verbatim after line-end normalisation, read from
+   `Event::CData` (`quick-xml` 0.42 `events/mod.rs`, grepped). Tests:
+   a whole item in CDATA, and text on both sides of one. The corpus
+   holds none, so the doc comment says the tests alone prove it.
+3. Nested elements (question 9). A `Start` or `Empty` event inside
+   `<t>`, `<v>` or `<f>` is refused with the new catalogued message
+   "a text element holds an element": each is simple content in the
+   schema, and a value with a hole in it is not the value. Test with
+   an element inside `<t>`; the `text` flag goes.
+4. One text-assembly function serves all four elements, reading
+   `Text`, `CData` and `GeneralRef` until the matching end tag, so
+   rulings 1 to 3 hold once. It lands in P2's first code commit with
+   rulings 5, 8 and 9 and nothing of P2's feature, as P1's first
+   commit carried part 2's items.
+5. A missing target (question 6). A `sharedStrings` relationship whose
+   target names no entry is refused with the existing "no such part":
+   a relationship is a claim the package makes about itself, and a
+   reader asked to follow it and finding nothing says so, as
+   `Package::cells` will. The survey counts unresolved targets; the
+   readers do not paper over them. The test becomes
+   `a_relationship_naming_no_entry_is_refused` and the method's doc
+   comment says this; the "Module `package`" text above is amended by
+   this ruling.
+6. The message wording (question 1). "a cell holds a reference this
+   layer cannot expand" stands; P2 raises it from a cell as well, and
+   the catalogue then lists both tests beside it.
+7. A main-namespace `<t>` inside an `extLst` under `<si>` (question
+   2) is the item's text, as the rule says; recorded as a known
+   reading with no corpus witness and no change.
+8. Integration tests (question 3). P2's first code commit adds one
+   for `--shared-strings` through the built binary on a generated
+   fixture of two items, asserting `items` and `bytes`; P2's feature
+   commit adds one for `--cells`.
+9. The test name (question 5). `the_table_is_read_afresh_on_every_call`
+   asserts equality of two calls and nothing about caching; renamed
+   `a_second_call_gives_an_equal_table`, its comment saying what it
+   pins. In P2's first code commit.
+10. Question 7: the welded sentence under "32-bit and streaming" is
+    corrected in this doc commit, by planning.
+11. The four process items are rules in `specs/0001` "Rules for every
+    phase" from P2 on: a claim that a test bites is a printed
+    measurement or is not made; the shape greps gain the assignment-
+    prefix form with a control; a log's phase commit is given to the
+    script and compared with HEAD, with a control, rather than read
+    from HEAD and printed twice; and the self-test's place in the
+    phase is a rule rather than each gate script's own condition.
+    Check 2's finding 9 (an amend was available) asks for nothing.
+12. P2's first code commit, in full: rulings 1 to 5 with their tests
+    and the catalogue entry, ruling 8's `--shared-strings` test, and
+    ruling 9's rename. P2's run expects the `bytes` figure of ruling
+    1; every other expectation in "Harness runs" is unchanged.
 
 ## Out of scope
 

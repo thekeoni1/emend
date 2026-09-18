@@ -187,6 +187,30 @@ from this needs planning's word before the run (T2 P7 ruling).
   - A committed log is never edited or regenerated: a correction is a
     new log whose header names the superseded lines and the commit
     they were committed at (T3 P4, `record.log`).
+  - A claim that a test bites, that it would fail under a named
+    change to the code, is a measurement: `test.log` prints the
+    planted change, the run and the failing assertion's output, or
+    the claim is not made anywhere, comments and commit messages
+    included (M1 part 3 P1 ruling 11, 2026-09-18: a counterfactual
+    stood in a comment, a commit message and a report, and was
+    false).
+  - The forbidden-form greps a scan runs over its printed scripts
+    cover the assignment prefix as well as the leading bang: a helper
+    called as `is NAME=... cmd` or `isnot NAME=... cmd` seeks a
+    command named by the assignment and fails as the bang does. A
+    fixture per form, with a control (M1 part 3 P1 ruling 11).
+  - A log's phase commit is given to the script, by argument or
+    environment, and compared with `git rev-parse HEAD` before the
+    run, with a control that refuses a fabricated commit; the header
+    prints both values and the comparison. A header that reads the
+    commit from HEAD and prints it twice asserts nothing (M1 part 3
+    P1 ruling 11; `run.sh` had the guard first).
+  - When a phase changes a gate file, the self-test runs at or after
+    the last commit of the phase that changes one, inside the phase's
+    range, and `gate.log` asserts three things: the self-test log
+    names a commit in the range, records `RESULT: PASS`, and no gate
+    file changes after that commit (M1 part 3 P1 ruling 11; the
+    conditions were `gate.log`'s own before they were a rule).
   - Nothing is called measured unless the log prints the measurement;
     a figure in a script's prose or comments is not one (T3 P4
     check 1).
