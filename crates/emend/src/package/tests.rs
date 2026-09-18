@@ -1091,7 +1091,7 @@ fn opened(parts: Parts) -> (Parts, Package<Cursor<Vec<u8>>>) {
 /// a write here that ran beside the zip layer's snapshot tests would fail
 /// them on a race rather than on either layer.
 #[track_caller]
-fn written(package: &mut Package<Cursor<Vec<u8>>>) -> Vec<u8> {
+fn written(package: Package<Cursor<Vec<u8>>>) -> Vec<u8> {
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = Vec::new();
     package.write_to(&mut out).expect("write_to");
@@ -1189,7 +1189,7 @@ fn styles_rel() -> String {
 fn removing_a_relationship_drops_its_element_alone() {
     let (parts, mut package) = opened(smallest());
     package.remove_relationship(b"xl/workbook.xml", b"rId2");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     assert_untouched(&output, &parts, &[b"xl/_rels/workbook.xml.rels"]);
@@ -1214,7 +1214,7 @@ fn removing_an_element_keeps_the_whitespace_around_it() {
     );
     let (parts, mut package) = opened(parts);
     package.remove_relationship(b"xl/workbook.xml", b"rId2");
-    let output = written(&mut package);
+    let output = written(package);
 
     // The element's own bytes go; the newline and two spaces that preceded it
     // and the newline that followed it are other tokens' raw and stay.
@@ -1246,7 +1246,7 @@ fn removing_an_element_written_as_a_pair() {
     );
     let (parts, mut package) = opened(parts);
     package.remove_relationship(b"xl/workbook.xml", b"rId2");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_part(
         &output,
@@ -1268,7 +1268,7 @@ fn adding_a_relationship_goes_before_the_end_tag() {
         )
         .expect("the id");
     assert_eq!(id, b"rId3", "one more than the largest");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     assert_part(
@@ -1295,7 +1295,7 @@ fn an_external_relationship_writes_its_target_mode() {
             true,
         )
         .expect("the id");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_part(
         &output,
@@ -1313,7 +1313,7 @@ fn an_external_relationship_writes_its_target_mode() {
 fn removing_an_override_drops_its_element_alone() {
     let (parts, mut package) = opened(smallest());
     package.remove_override(b"/xl/worksheets/sheet1.xml");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     assert_part(
@@ -1333,7 +1333,7 @@ fn removing_an_override_drops_its_element_alone() {
 fn adding_an_override_goes_before_the_end_tag() {
     let (parts, mut package) = opened(smallest());
     package.add_override(b"/xl/calcChain.xml", b"application/xml");
-    let output = written(&mut package);
+    let output = written(package);
 
     let (name, data) = parts
         .iter()
@@ -1352,7 +1352,7 @@ fn adding_an_override_goes_before_the_end_tag() {
 fn removing_a_part_drops_the_entry_alone() {
     let (parts, mut package) = opened(smallest());
     package.remove_part(b"xl/styles.xml");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(
         &output,
@@ -1376,7 +1376,7 @@ fn replacing_a_part_changes_only_its_bytes() {
         b"xl/styles.xml",
         replacement_from_reader(Cursor::new(b"<styleSheet><fonts/></styleSheet>".to_vec())),
     );
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     assert_part(
@@ -1394,7 +1394,7 @@ fn adding_a_part_adds_the_entry_alone() {
         b"xl/calcChain.xml",
         replacement_from_reader(Cursor::new(b"<calcChain/>".to_vec())),
     );
-    let output = written(&mut package);
+    let output = written(package);
 
     let mut expected = part_names(&parts);
     expected.push(b"xl/calcChain.xml");
@@ -1417,7 +1417,7 @@ fn an_addition_escapes_its_values() {
         )
         .expect("the id");
     package.add_override(b"/xl/a&b.xml", b"text/plain;x=\"1\"");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_part(
         &output,
@@ -1464,7 +1464,7 @@ fn an_empty_root_in_a_rels_part_gains_an_end_tag() {
         )
         .expect("the id");
     assert_eq!(id, b"rId1", "an empty set starts at rId1");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     assert_part(
@@ -1489,7 +1489,7 @@ fn an_empty_root_in_content_types_gains_an_end_tag() {
     );
     let (parts, mut package) = opened(parts);
     package.add_override(b"/xl/workbook.xml", WORKBOOK_TYPE.as_bytes());
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(&output, &part_names(&parts));
     // The space before the slash is the input's own byte and stays: only the
@@ -1538,7 +1538,7 @@ fn a_created_rels_part_takes_the_packages_own_form() {
     // is the form 68 of the corpus's 216 rels parts write.
     let (parts, mut package) = opened(smallest());
     add_to_the_worksheet(&mut package);
-    let output = written(&mut package);
+    let output = written(package);
 
     let mut expected = part_names(&parts);
     expected.push(SHEET_RELS);
@@ -1567,7 +1567,7 @@ fn a_created_rels_part_takes_a_mark_and_no_separator_when_the_package_does() {
     set(&mut parts, b"_rels/.rels", their_form);
     let (parts, mut package) = opened(parts);
     add_to_the_worksheet(&mut package);
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_added_part(
         &output,
@@ -1588,7 +1588,7 @@ fn a_created_rels_part_falls_back_when_the_package_has_no_rels_part() {
     drop_part(&mut parts, b"_rels/.rels");
     let (parts, mut package) = opened(parts);
     add_to_the_worksheet(&mut package);
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_added_part(
         &output,
@@ -1690,7 +1690,7 @@ fn several_edits_to_one_part_apply_together() {
             false,
         )
         .expect("the id");
-    let output = written(&mut package);
+    let output = written(package);
 
     // Both removals and both additions, in one rewrite of the one part: the
     // additions in the order they were recorded, before the end tag.
@@ -1717,7 +1717,7 @@ fn several_edits_to_one_part_apply_together() {
 /// all reached the output: "every edit is validated first, so a refused set
 /// writes nothing".
 #[track_caller]
-fn refused(package: &mut Package<Cursor<Vec<u8>>>) -> Error {
+fn refused(package: Package<Cursor<Vec<u8>>>) -> Error {
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = Vec::new();
     let error = package.write_to(&mut out).expect_err("refused");
@@ -1733,24 +1733,21 @@ fn refused(package: &mut Package<Cursor<Vec<u8>>>) -> Error {
 fn removing_an_absent_relationship() {
     let (_, mut package) = opened(smallest());
     package.remove_relationship(b"xl/workbook.xml", b"rId9");
-    assert_package(refused(&mut package), "no such relationship");
+    assert_package(refused(package), "no such relationship");
 }
 
 #[test]
 fn removing_an_absent_override() {
     let (_, mut package) = opened(smallest());
     package.remove_override(b"/xl/styles.xml");
-    assert_package(refused(&mut package), "no such override");
+    assert_package(refused(package), "no such override");
 }
 
 #[test]
 fn adding_an_override_that_exists() {
     let (_, mut package) = opened(smallest());
     package.add_override(b"/xl/workbook.xml", b"application/xml");
-    assert_package(
-        refused(&mut package),
-        "an override for that part already exists",
-    );
+    assert_package(refused(package), "an override for that part already exists");
 }
 
 #[test]
@@ -1762,7 +1759,7 @@ fn an_override_removed_and_added_again_is_not_a_duplicate() {
     let (parts, mut package) = opened(smallest());
     package.remove_override(b"/xl/worksheets/sheet1.xml");
     package.add_override(b"/xl/worksheets/sheet1.xml", b"application/xml");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_part(
         &output,
@@ -1786,7 +1783,7 @@ fn editing_a_removed_part() {
         b"xl/styles.xml",
         replacement_from_reader(Cursor::new(b"<styleSheet/>".to_vec())),
     );
-    assert_package(refused(&mut package), "an edit to a removed part");
+    assert_package(refused(package), "an edit to a removed part");
 }
 
 #[test]
@@ -1797,7 +1794,7 @@ fn editing_a_removed_rels_part() {
     let (_, mut package) = opened(smallest());
     package.remove_part(b"xl/_rels/workbook.xml.rels");
     package.remove_relationship(b"xl/workbook.xml", b"rId2");
-    assert_package(refused(&mut package), "an edit to a removed part");
+    assert_package(refused(package), "an edit to a removed part");
 }
 
 #[test]
@@ -1805,14 +1802,14 @@ fn editing_removed_content_types() {
     let (_, mut package) = opened(smallest());
     package.remove_part(b"[Content_Types].xml");
     package.remove_override(b"/xl/workbook.xml");
-    assert_package(refused(&mut package), "an edit to a removed part");
+    assert_package(refused(package), "an edit to a removed part");
 }
 
 #[test]
 fn removing_an_absent_part() {
     let (_, mut package) = opened(smallest());
     package.remove_part(b"xl/calcChain.xml");
-    assert_package(refused(&mut package), "no such part");
+    assert_package(refused(package), "no such part");
 }
 
 #[test]
@@ -1822,7 +1819,7 @@ fn replacing_an_absent_part() {
         b"xl/calcChain.xml",
         replacement_from_reader(Cursor::new(b"<calcChain/>".to_vec())),
     );
-    assert_package(refused(&mut package), "no such part");
+    assert_package(refused(package), "no such part");
 }
 
 #[test]
@@ -1842,7 +1839,7 @@ fn no_default_for_rels() {
     );
     let (_, mut package) = opened(parts);
     add_to_the_worksheet(&mut package);
-    assert_package(refused(&mut package), "no Default covers rels");
+    assert_package(refused(package), "no Default covers rels");
 }
 
 // ---------------------------------------------- the temporaries, and the
@@ -1919,7 +1916,7 @@ fn the_recipe_drops_the_chain_and_nothing_else() {
     package.remove_relationship(b"xl/workbook.xml", b"rId3");
     package.remove_override(b"/xl/calcChain.xml");
     package.remove_part(b"xl/calcChain.xml");
-    let output = written(&mut package);
+    let output = written(package);
 
     assert_names(
         &output,
@@ -1979,6 +1976,71 @@ fn a_package_with_no_chain_comes_back_byte_for_byte() {
             .is_none(),
         "the fixture has no calcChain relationship"
     );
-    let output = written(&mut package);
+    let output = written(package);
     assert_eq!(output, input, "an empty set of edits changed the bytes");
+}
+
+/// Asserts that `error` is [`Error::Xml`] naming exactly that entry.
+#[track_caller]
+fn assert_xml_index(error: Error, index: usize) {
+    match error {
+        Error::Xml(at) => assert_eq!(at, index, "the entry the error names"),
+        other => panic!("expected an xml error, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_relationship_on_a_part_that_is_not_there() {
+    // P3 ruling 13a: a rels part is never created for a part the package does
+    // not hold, so the edit is refused rather than inventing xl/_rels/
+    // nowhere.xml.rels for a part that does not exist.
+    let (_, mut package) = opened(smallest());
+    package
+        .add_relationship(b"xl/nowhere.xml", b"kind", b"a.xml", false)
+        .expect("the id");
+    assert_package(refused(package), "no such part");
+}
+
+#[test]
+fn a_relationship_removal_on_a_part_that_is_not_there() {
+    let (_, mut package) = opened(smallest());
+    package.remove_relationship(b"xl/nowhere.xml", b"rId1");
+    assert_package(refused(package), "no such part");
+}
+
+#[test]
+fn an_unwritable_value_names_the_source_when_the_rels_part_is_new() {
+    // P3 ruling 13b: the rels part does not exist yet, so it has no index to
+    // name; the error names the SOURCE part rather than entry 0, which is
+    // some unrelated entry. xl/styles.xml is the fixture's sixth entry and
+    // has no rels part.
+    let (_, mut package) = opened(smallest());
+    let index = package.part(b"xl/styles.xml").expect("the fixture has it");
+    assert_eq!(index, 5, "the fixture's own order");
+    package
+        .add_relationship(b"xl/styles.xml", b"kind", b"\xff", false)
+        .expect("the id");
+    assert_xml_index(refused(package), index);
+}
+
+#[test]
+fn an_unwritable_value_names_content_types_for_the_packages_own_rels() {
+    // The one case left: the source is the package itself, the empty name,
+    // which has no entry of its own, and its rels part is absent too. The
+    // error names [Content_Types].xml, the one part every package has. The
+    // fixture puts that part SECOND, so an index of 0 would be the fallback
+    // rather than the answer, and the two cannot be confused.
+    let mut parts = smallest();
+    drop_part(&mut parts, b"_rels/.rels");
+    let types = parts.remove(0);
+    parts.insert(1, types);
+    let (_, mut package) = opened(parts);
+    let index = package
+        .part(b"[Content_Types].xml")
+        .expect("the fixture has it");
+    assert_eq!(index, 1, "the content types part is not entry 0 here");
+    package
+        .add_relationship(b"", b"kind", b"\xff", false)
+        .expect("the id");
+    assert_xml_index(refused(package), index);
 }

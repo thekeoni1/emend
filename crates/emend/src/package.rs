@@ -61,8 +61,9 @@
 //!   (`adding_an_override_that_exists`).
 //! - "an edit to a removed part" (`editing_a_removed_part`,
 //!   `editing_a_removed_rels_part`, `editing_removed_content_types`).
-//! - "no such part" (`removing_an_absent_part`,
-//!   `replacing_an_absent_part`).
+//! - "no such part" (`removing_an_absent_part`, `replacing_an_absent_part`,
+//!   `a_relationship_on_a_part_that_is_not_there`,
+//!   `a_relationship_removal_on_a_part_that_is_not_there`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! # Limits
@@ -741,10 +742,11 @@ impl<R: Read + Seek> Package<R> {
     /// replacements, [`Archive::write_to`] runs with the assembled
     /// [`Edits`], and the temporaries are removed however the write ends.
     ///
-    /// The part replacements and additions recorded are consumed: a
-    /// [`Replacement`] is a reader, which cannot be read twice or cloned, so
-    /// a second call writes the package without them. The relationship and
-    /// override edits are not, since those are bytes.
+    /// Takes the package by value (P3 ruling 12): a package is written at
+    /// most once, because a recorded [`Replacement`] is a reader that cannot
+    /// be read twice or cloned, and a refused or failed write spends it too.
+    /// A caller that wants to write again opens the input again, which the
+    /// type enforces rather than a refusal at run time.
     ///
     /// # Errors
     ///
@@ -756,7 +758,7 @@ impl<R: Read + Seek> Package<R> {
     /// written into.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
     /// [`Archive::write_to`] refuses for the assembled edits.
-    pub fn write_to(&mut self, out: impl Write) -> Result<(), Error> {
+    pub fn write_to(mut self, out: impl Write) -> Result<(), Error> {
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -785,6 +787,19 @@ impl<R: Read + Seek> Package<R> {
 
         for source in self.edits.rel_sources() {
             let name = rels_part_name(&source);
+            let existing = self.archive.index_of(&name);
+            if existing.is_none() {
+                // A part with no rels part gets one, and its content type is
+                // not written anywhere: the package's Default for the rels
+                // extension covers it, so this call is the check that there
+                // is one and its value is deliberately unused. It runs BEFORE
+                // the elements are built, which is what makes the index in an
+                // Error::Xml for one of them well defined: the call reads
+                // [Content_Types].xml, so that part exists by the time
+                // relationship_elements falls back to its index
+                // (P3 ruling 13).
+                self.rels_default()?;
+            }
             let additions = self.relationship_elements(&source)?;
             let removals: Vec<Vec<u8>> = self
                 .edits
@@ -793,7 +808,7 @@ impl<R: Read + Seek> Package<R> {
                 .filter(|(at, _)| *at == source)
                 .map(|(_, id)| id.clone())
                 .collect();
-            match self.archive.index_of(&name) {
+            match existing {
                 Some(index) => {
                     let (temp, replacement) = rewrite_part(
                         &mut self.archive,
@@ -809,12 +824,7 @@ impl<R: Read + Seek> Package<R> {
                     edits.replace(index, replacement);
                 }
                 None => {
-                    // A part with no rels part gets one, in the form the
-                    // package's own rels parts use. Its content type is not
-                    // written anywhere: the package's Default for the rels
-                    // extension covers it, so this call is the check that
-                    // there is one, and its value is deliberately unused.
-                    self.rels_default()?;
+                    // The Default was checked above, before the elements.
                     let (temp, replacement) = new_rels_part(&mut self.archive, &additions)?;
                     temporaries.push(temp);
                     edits.add(name, replacement);
@@ -867,6 +877,18 @@ impl<R: Read + Seek> Package<R> {
             && is_removed(CONTENT_TYPES_PART)
         {
             return Err(REMOVED_PART_EDITED);
+        }
+
+        // A relationship edit's source is the package itself, written as the
+        // empty name, or a part the package holds: a rels part is never
+        // created for a part that does not exist (P3 ruling 13a).
+        for source in self.edits.rel_sources() {
+            if source.is_empty() {
+                continue;
+            }
+            if self.archive.index_of(&source).is_none() {
+                return Err(NO_SUCH_PART);
+            }
         }
 
         // Every removal names something that is there, and no addition
@@ -951,8 +973,27 @@ impl<R: Read + Seek> Package<R> {
     }
 
     /// The `<Relationship/>` elements to add to `source`'s rels part.
+    ///
+    /// The index an unwritable value is reported against is the rels part's
+    /// when the package has one. When it does not, the part is about to be
+    /// created and has no index, so the error names the SOURCE part instead
+    /// of entry 0, which is some unrelated entry (P3 ruling 13b); for the
+    /// package's own relationships, whose source is the empty name and has no
+    /// entry either, it names `[Content_Types].xml`, the one part every
+    /// package has. [`Package::validate`] has already refused a source that
+    /// is neither, so no case is left over.
     fn relationship_elements(&self, source: &[u8]) -> Result<Vec<Vec<u8>>, Error> {
-        let index = self.archive.index_of(&rels_part_name(source)).unwrap_or(0);
+        let index = self
+            .archive
+            .index_of(&rels_part_name(source))
+            .or_else(|| self.archive.index_of(source))
+            .or_else(|| self.archive.index_of(CONTENT_TYPES_PART))
+            // Unreachable: a source is the package or an entry, and a package
+            // whose content types part is missing is refused before this by
+            // the Default check that a created rels part needs. Entry 0
+            // rather than a panic, because a wrong index in a message is not
+            // worth a crash in a library.
+            .unwrap_or(0);
         self.edits
             .rel_additions
             .iter()

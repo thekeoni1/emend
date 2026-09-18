@@ -352,7 +352,7 @@ fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
         .map_err(|e| Error::Create(e.kind()))?;
     // From here the temporary is this run's own, as in `run`: a failure
     // removes it rather than leaving a partial output for the harness.
-    let result = write_package(&mut package, file)
+    let result = write_package(package, file)
         .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
@@ -362,10 +362,7 @@ fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
 
 /// Writes the package back, reporting a buffering failure rather than losing
 /// it in a drop, as [`write()`] does for the archive.
-fn write_package<R: io::Read + io::Seek>(
-    package: &mut Package<R>,
-    file: File,
-) -> Result<(), Error> {
+fn write_package<R: io::Read + io::Seek>(package: Package<R>, file: File) -> Result<(), Error> {
     let mut out = BufWriter::new(file);
     package.write_to(&mut out)?;
     out.into_inner()
