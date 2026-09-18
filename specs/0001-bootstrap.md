@@ -162,6 +162,12 @@ from this needs planning's word before the run (T2 P7 ruling).
   - Logs and check answers write the repository as `<repo>`, scratch
     locations as `<scratch>` and the home directory as `<home>`; an
     absolute machine path in a log is a defect (T0 P6d ruling).
+  - A check answer is committed verbatim, with one exception: an
+    absolute machine path the checker quoted is written as its
+    placeholder, and the replacement is declared in a bracketed note
+    at the place it was made, naming what changed and why. Verbatim
+    quotation does not override the rule above; nothing else in an
+    answer is altered (M1 part 2 P3 verification ruling, 2026-09-18).
   - Every commit id in a log or check answer is read from git at run
     time by a command the log prints, never typed or padded (T3 P4).
   - A committed log is never edited or regenerated: a correction is a

@@ -4,8 +4,10 @@ Status: approved by the maintainer 2026-09-17 (planning draft the
 same day). P1 DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c,
 248fdd8; code a9f2cad, 4725795; record d6fa91d); P2 DONE 2026-09-18
 (doc bbde39e, 77504d0, 59f6668, 69bb8db, 759e827, c8b8fec; code
-82d4e77, 5fc1b3d, 1334830; record eacffa2); P3 READY; the close-out
-push PLANNED.
+82d4e77, 5fc1b3d, 1334830; record eacffa2); P3 DONE 2026-09-18 (doc
+0a884ee, f45a3e3, 6adccce, c9c25c3, d6fcc5f; code 11de26e, 5fdf65a,
+5dba448, e04db06, 14c2e14; record 711fc8b); the close-out push READY
+pending the maintainer's authorisation.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `ROADMAP.md` ("Milestone 1"), `specs/0008-zip-layer.md` (the zip
 layer's API, the harness expectation for a replaced entry, "Size" with
@@ -947,7 +949,11 @@ package, the output read by the independent parser and the edited
 part's bytes compared with bytes the test builds by hand (the removed
 element gone, its surrounding whitespace kept, the addition before the
 end tag); removal in both `Default` forms, since the raw copy keeps
-whichever the input has; a relationship added to a part with no rels
+whichever the input has (the two spellings of "Facts", with and
+without a space before the slash: P3 delivered the empty-element and
+start-tag forms instead, and the spelling case is carried into part
+3's first code commit, P3 verification ruling 4); a relationship
+added to a part with no rels
 part; the id rule (`rId1` on an empty set, one more than the largest,
 an id of another form ignored); several edits to one part; the recipe
 on a package with a chain and on one without (byte-identical); the
@@ -976,7 +982,9 @@ code commit 11de26e (planning read the diff, ran `cargo doc` at
    `content_types`'s doc). Accepted as done: "exactly these five"
    names five defects, and a file that states one string two ways is
    one defect in two places. P3's checks expect the five in seven
-   places; nothing is reverted.
+   places; nothing is reverted. The diff, read by planning, is the
+   evidence for that; no log line is asked for (verification ruling
+   4).
 3. `overrides_unresolved` sits directly after `overrides` in the
    survey line, as committed and as the tool tests pin it; the Design
    list of keys is amended above. The order the tests pin is the order
@@ -996,8 +1004,11 @@ code commit 11de26e (planning read the diff, ran `cargo doc` at
    The `Stream::origin` link is fixed in the same commit, which would
    otherwise fail its own gate. P3's negative log adds one case: a
    throwaway worktree in which a public doc comment links a private
-   item fails the gate at `FAIL doc` with a non-zero exit, through the
-   `isnot` helper with its control. `specs/0003-ci.md`'s `--ci`
+   item fails the gate at `FAIL doc` with a non-zero exit, as a named
+   function asserting the exit, the FAIL line and no PASS line (the
+   `isnot` helper is for a negated condition, and this is a positive
+   one; wording amended in the verification ruling).
+   `specs/0003-ci.md`'s `--ci`
    description is amended to the new numbers; every earlier "eight
    PASS" is the record of the gate as it was and stands. From this
    commit a phase's `gate.log` is a full run of nine steps. The
@@ -1101,6 +1112,121 @@ tool's 12):
 
 The corpus run waits for the code commit that carries 12 and 13, and
 runs at that commit.
+
+### Planning rulings on P3 (2026-09-18, verification)
+
+Verified from primaries at 711fc8b: the eleven commits and their
+messages (ASCII, Co-Authored-By last; five doc, five code, the record,
+none mixed); the five doc commits hold planning's files unedited (the
+working tree at 711fc8b differs from planning's copies by nothing);
+the code diffs read in full as each landed (11de26e, 5fdf65a,
+5dba448, e04db06 earlier in this section; 14c2e14 now: `write_to` by
+value with 33 call sites passing the package rather than a borrow, the
+"no such part" refusal for a source that is no entry, the error index
+falling back to the source part then the content types part, and the
+four tests); the nine committed files' byte counts and sha256s equal
+to the report's; `scan.log` last, hashing the eight siblings and the
+three records at their committed bytes, 0 compound shapes and 0 `!`
+shapes in every printed script, 0 control bytes and 0 non-ASCII bytes
+in the nine files; the `isnot true` control in `gate.log` and
+`negative.log`; every log's about line naming 14c2e14, `self-test.log`
+naming 5fdf65a with `gate.log` asserting no gate file changed after
+it; both check answers read in full and every finding either acted on
+(the absolute path in `negative.log`, rerun and named; the `f_home`
+scan form with its exemption and seven controls; the report's prose
+corrections) or ruled on below.
+
+Planning's own runs at 711fc8b: the full gate (nine PASS, exit 0);
+`scripts/privacy.sh --range eacffa2..HEAD` (11 commits, 343 blobs, 0
+findings); `cargo test --workspace` on the host and on i686 (257
+passed, 0 failed, 2 ignored on each); `--drop-calc-chain` over all 27
+corpus workbooks with release binaries of both targets, every entry
+classified by an independent zip reader (Python's `zipfile`, not the
+harness): 27 runs exit 0 with nothing on stderr on each target, 18
+outputs byte-identical to their inputs and 9 differing, in those 9
+one entry dropped (`calcChain.xml` under `xl/` in every one) and two
+changed (`[Content_Types].xml` and the workbook's rels part in every
+one), 843 identical, 0 added, order kept in all 27, on both targets;
+the record pair recounted (54 file rows all ok, 36 with diff exit 0
+and 18 with 1, 36 files_identical yes and 18 no, lo and lo_in ok on
+all 54; entry rows 843 identical, 18 changed, 9 dropped per label, no
+flag on any row); the size record's three figures recomputed from its
+seven probe rows.
+
+Rulings:
+
+1. P3's acceptance is met and measured on both targets: the first
+   real edit drops exactly the three things the recipe names and
+   nothing else, the eighteen workbooks without a chain come back byte
+   for byte, and every output opens in LibreOffice. The budget figure
+   is 183980 section bytes over `probe-zip-xml`, under 256000 by
+   72020. Part 2's own cost is 51136 section bytes, above the
+   checkpoint's 40960: the choice `specs/0008` "Size" gives the
+   maintainer is open and is put to the maintainer by planning; no
+   session decides it.
+2. The stale count in `xml.rs` ("the fourteen other package
+   messages", 21 in the catalogue at the phase head) is not fixed in
+   P3: an eleventh commit would invalidate every log and both answers,
+   and the defect is a number in prose. Part 3's first code commit
+   fixes it by removing the count (the sentence says "the other
+   package messages") and adds a unit test in `package/tests.rs` that
+   reads `package.rs` and `xml.rs` with `include_str!`, collects every
+   `Error::Package("...")` literal and every catalogue entry (the
+   `\[` escapes unescaped), and asserts the two sets are equal, so
+   the catalogue can no longer fall behind the source. Check 1's
+   observation that nothing pins the equality is what this closes.
+3. The two checks that could not have failed stand as recorded, with
+   the weakness named here, and are not rerun: `size.log`'s per-probe
+   causes accounting is vacuous whenever the lock file moved (it
+   prints 1, 1, 8, 8, 8), and `run.log`'s faulty fixture drives five
+   of twelve counters. The acceptance they guard is witnessed by
+   planning's own independent classification above, which measures
+   the same dropped, changed, identical and added counts by another
+   reader. Part 3's size script excludes the workspace manifest and
+   lock file from a probe's own cause paths, and its run script's
+   faulty fixture drives every counter, each asserted by name.
+4. The three spec readings: "removal in both `Default` forms" names
+   the two spellings of "Facts", with and without a space before the
+   slash, and P3 delivered the empty-element and start-tag forms
+   instead; the spelling case (a content types part whose `Default`
+   elements carry the space, one `Override` removed, every `Default`
+   back byte for byte) is one test in part 3's first code commit, and
+   no bug is behind the gap, since a removal drops the whole token.
+   Ruling 2's "seven places" asks for no log line; the diff read by
+   planning is the evidence. Ruling 4's "through the `isnot` helper"
+   was planning's wording error: `is g1_ok`, a named function
+   asserting a non-zero exit, a FAIL line and no PASS line, is the
+   form the rule requires for a positive multi-condition check, and
+   the ruling is amended. All three sentences are amended above.
+5. The redaction in check 1's answer is right: an absolute machine
+   path a checker quoted is written as its placeholder with the
+   replacement declared in place, and verbatim quotation does not
+   override the T0 P6d rule. The rule is added to `specs/0001`,
+   "Rules for every phase". The superseded `negative.log` that printed
+   the path was never committed, and planning's privacy scan over the
+   eleven commits finds nothing.
+6. D5: a tool operation that edits a package validates it is a
+   package before deciding the edit is empty. `--drop-calc-chain`
+   reads the content types part first, as `--survey` does, so a
+   package with no `[Content_Types].xml` is refused by both; the
+   library's own rule stands (a `Package` with no edits recorded
+   writes a copy, since the edit touched nothing). Part 3's first code
+   commit, with D5 becoming a refusal in that phase's negative log.
+7. The smaller notes: the self-test log's invocation line names the
+   launch form from part 3 (the property is that no build of the
+   session ran during it, which the log's header states); the corpus
+   run using binaries left by the superseded first gate attempt is
+   fine, since the post-clean rebuild reproduces the same four hashes;
+   the two overlong comment lines in `scripts/gate-self-test.sh` are
+   rewrapped in part 3's first code commit; the ROADMAP P2 row riding
+   in P3's first doc commit is planning's housekeeping and breaks no
+   rule. The report itself is not committed, as in every phase: the
+   logs, the answers and the records are the record.
+
+P3 is DONE, and with it part 2's three phases. The close-out push has
+planning's word; it runs when the maintainer authorises it in the
+implementing session, and the maintainer's checkpoint answer is
+recorded in `specs/0008` "Size" and in part 3's spec when given.
 
 ### Close-out push (after P3)
 
