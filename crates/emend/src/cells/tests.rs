@@ -976,9 +976,10 @@ fn the_other_main_namespace_spelling_is_read_too() {
     // The STRICT spelling, written out. An earlier version reached it as
     // `MAIN[1]`, a position in the constant: reorder `MAIN` and this test
     // would silently exercise the transitional spelling and still pass,
-    // leaving the spec's strict-namespace clause untested. The literal is
-    // asserted to be one of the crate's own two spellings, so the test
-    // cannot drift from the constant either.
+    // leaving the spec's strict-namespace clause untested. That is check 1's
+    // C12 and P2 ruling 8, which asks for the spelling by its bytes. The
+    // literal is also asserted to be one of the crate's own two spellings,
+    // so the test cannot drift from the constant either.
     const STRICT: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
     assert!(
         MAIN.iter().any(|spelling| *spelling == STRICT.as_bytes()),
@@ -1305,8 +1306,8 @@ fn two_cells_past_the_last_column_share_the_last_reference() {
     // Saturation is the only alternative to wrapping or refusing, and the
     // format's own last column is XFD (16384), so no producer can reach
     // this. A caller keying cells by reference would nevertheless collapse
-    // the two, which is why it is written down here and raised to planning
-    // as finding P2-F3 rather than left as a silent property.
+    // the two, which is why it is written down here rather than left as a
+    // silent property. Raised as finding P2-F3 and kept by P2 ruling 3.
     let cells = read_cells(&one_row(
         "<c r=\"MWLQKWU1\"><v>1</v></c><c><v>2</v></c><c><v>3</v></c>",
     ));
@@ -1318,24 +1319,132 @@ fn two_cells_past_the_last_column_share_the_last_reference() {
 }
 
 #[test]
-fn a_row_number_this_layer_accepts_is_not_always_one_a1_form_parses() {
-    // Two spellings `u32::from_str` accepts and `CellRef::parse` does not,
-    // pinned here because both are reachable and neither is refused:
+fn a_row_number_of_zero_is_refused() {
+    // Finding P2-F2, ruled: a row is numbered from 1, so `r="0"` is refused
+    // rather than read. It used to be accepted, which gave a cell whose
+    // `a1()` was `A0`, a spelling `CellRef::parse` refuses for its leading
+    // zero, so the reader could emit a reference its own parser would not
+    // take back. The message is the one an unreadable row number already
+    // had (P2 ruling 2).
+    assert_package(
+        refused_sheet(one_row_in_row("0", "<c><v>1</v></c>").as_bytes()),
+        "a row number is not a number",
+    );
+}
+
+#[test]
+fn every_reference_the_reader_emits_parses_back() {
+    // The round trip P2-F2 broke, now asserted as a property over every
+    // reference a sheet yields rather than over a list of spellings: each
+    // cell's `a1()` goes back through `CellRef::parse` and must give the
+    // same `CellRef`.
     //
-    //  - `r="0"`, which gives a cell whose `a1()` is `A0`, and `A0` is a
-    //    spelling `CellRef::parse` refuses for its leading zero. So the
-    //    round trip `parse(a1(x)) == Some(x)` holds for every reference a
-    //    package NAMES and not for every reference this reader can EMIT.
-    //  - `r="+3"`, a leading plus, where the format says a decimal number.
+    // The sheet holds the cases that could break it: an explicit `r`, a cell
+    // with no `r` after one, a row with no `r`, the largest row and column
+    // the format itself writes, and the saturated column two cells share.
+    // The saturated pair round trips too: ruling 3 keeps saturation, and
+    // what it costs is that two cells carry one reference, not that the
+    // reference is unwritable.
+    let cells = read_cells(&worksheet(
+        "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c><v>2</v></c></row>\
+         <row><c><v>3</v></c></row>\
+         <row r=\"1048576\"><c r=\"XFD1048576\"><v>4</v></c></row>\
+         <row r=\"4294967295\"><c r=\"MWLQKWU4294967295\"><v>5</v></c>\
+         <c><v>6</v></c></row>",
+    ));
+    assert_eq!(cells.len(), 6);
+    for cell in &cells {
+        let written = cell.reference.a1();
+        assert_eq!(
+            CellRef::parse(written.as_bytes()),
+            Some(cell.reference),
+            "{written}"
+        );
+    }
+    assert_eq!(cells[4].reference.col, u32::MAX);
+    assert_eq!(cells[5].reference, cells[4].reference);
+}
+
+#[test]
+fn a_number_this_layer_reads_is_digits_alone() {
+    // Ruling 2: one helper reads every number this layer takes out of an
+    // attribute, so one spelling is a number everywhere or nowhere. The four
+    // attributes are a row's `r`, a cell's `s`, a formula's `si` and the
+    // shared string index, and each has its own message; the spellings are
+    // what `u32::from_str` would have taken and the format does not write.
     //
-    // Refusing either is a change to what the layer accepts, which planning
-    // rules and this phase does not: raised as finding P2-F2. The test states
-    // today's answer so a later ruling changes a test that exists.
-    let zero = read_cells(&one_row_in_row("0", "<c><v>1</v></c>"));
-    assert_eq!(zero[0].reference.row, 0);
-    assert_eq!(zero[0].reference.a1(), "A0");
-    assert_eq!(CellRef::parse(b"A0"), None);
-    let plus = read_cells(&one_row_in_row("+3", "<c><v>1</v></c>"));
-    assert_eq!(plus[0].reference.row, 3);
-    assert_eq!(plus[0].reference.a1(), "A3");
+    // `si` is the one that is not refused by message: an unreadable index is
+    // the same case as an absent one (ruling 4), so the refusal is "a shared
+    // formula has no index".
+    for spelling in ["+1", "007", "0x1", " 1", "1 ", "1.0", "-1", ""] {
+        assert_package(
+            refused_sheet(one_row_in_row(spelling, "<c/>").as_bytes()),
+            "a row number is not a number",
+        );
+        assert_package(
+            refused_sheet(
+                one_row(&format!("<c r=\"A1\" s=\"{spelling}\"><v>1</v></c>")).as_bytes(),
+            ),
+            "a cell's style index is not a number",
+        );
+        assert_package(
+            refused_sheet(
+                one_row(&format!(
+                    "<c r=\"A1\"><f t=\"shared\" si=\"{spelling}\">1</f></c>"
+                ))
+                .as_bytes(),
+            ),
+            "a shared formula has no index",
+        );
+        let cells = read_cells(&one_row(&format!(
+            "<c r=\"A1\" t=\"s\"><v>{spelling}</v></c>"
+        )));
+        assert_package(
+            SharedStrings::default()
+                .resolve(&cells[0])
+                .expect_err("a refusal, not an item"),
+            "a shared string index is not a number",
+        );
+    }
+}
+
+#[test]
+fn zero_is_a_number_where_zero_is_a_legal_index() {
+    // The other half of ruling 2: the helper refuses a LEADING zero, not the
+    // number 0, because a style index and a shared string index both count
+    // from 0. Only `row_number` refuses zero, and it does so itself.
+    let cells = read_cells(&one_row("<c r=\"A1\" s=\"0\" t=\"s\"><v>0</v></c>"));
+    assert_eq!(cells[0].style, Some(0));
+    let table = table(&sst("<si><t>zero</t></si>"));
+    assert_eq!(table.resolve(&cells[0]).expect("resolves"), Some("zero"));
+    let shared = read_cells(&one_row("<c r=\"A1\"><f t=\"shared\" si=\"0\">1</f></c>"));
+    assert_eq!(
+        shared[0].formula.as_ref().map(|formula| formula.kind),
+        Some(FormulaKind::Shared {
+            index: 0,
+            master: false
+        })
+    );
+}
+
+#[test]
+fn an_index_past_u32_is_refused_like_one_that_is_not_a_number() {
+    // Ruling 4: an `si` past `u32::MAX` keeps the message it has, which says
+    // the formula has no index. It has one; this layer cannot carry it, and
+    // the catalogue holds one message for every `si` it cannot read. Pinned
+    // so that a later ruling that splits the two changes a test.
+    assert_package(
+        refused_sheet(
+            one_row("<c r=\"A1\"><f t=\"shared\" si=\"4294967296\">1</f></c>").as_bytes(),
+        ),
+        "a shared formula has no index",
+    );
+    assert_package(
+        refused_sheet(one_row_in_row("4294967296", "<c/>").as_bytes()),
+        "a row number is not a number",
+    );
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\" s=\"4294967296\"><v>1</v></c>").as_bytes()),
+        "a cell's style index is not a number",
+    );
 }

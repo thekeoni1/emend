@@ -236,9 +236,8 @@ impl SharedStrings {
         let Some(value) = cell.value.as_deref() else {
             return Ok(None);
         };
-        let index: u32 = value
-            .parse()
-            .map_err(|_| Error::Package("a shared string index is not a number"))?;
+        let index =
+            decimal(value).ok_or(Error::Package("a shared string index is not a number"))?;
         match self.get(index) {
             Some(item) => Ok(Some(item)),
             None => Err(Error::Package("a shared string index is out of range")),
@@ -252,6 +251,12 @@ impl SharedStrings {
 /// rows by 16384 columns is Excel's limit and not the format's, and a
 /// consumer that needs it checks these two numbers
 /// (`specs/0010-reading-cells.md`, "Module `cells`").
+///
+/// 1-based is a property of every reference the reader hands out, not a
+/// promise the type enforces: `parse` refuses a leading zero, `row_number`
+/// refuses `r="0"`, a row with no `r` counts from 1 and a cell with no `r`
+/// takes the previous column plus 1. A value constructed by hand can hold a
+/// zero, and `a1()` will write it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CellRef {
     /// The row, 1-based.
@@ -783,6 +788,34 @@ enum Slot {
     Inline,
 }
 
+/// A decimal `u32` as this layer reads one: ASCII digits and nothing else.
+///
+/// Every number this layer reads out of an attribute comes through here: a
+/// `<row>`'s `r`, a `<c>`'s `s`, an `<f>`'s `si` and the shared string index
+/// in `SharedStrings::resolve` (P2 ruling 2). One helper, so one spelling is
+/// a number everywhere or nowhere.
+///
+/// `u32::from_str` alone is wider than the format: its grammar admits a
+/// leading `+` or `-`, and it reads any number of leading zeros. This refuses
+/// both, so `s="+1"`, `si="+0"` and `r="007"` are malformed rather than
+/// quietly read as 1, 0 and 7. What is left after those two checks is a
+/// canonical decimal, and `from_str` is then asked only for the value and
+/// the range: out of `u32` is `None`, the same answer as a letter.
+///
+/// `0` itself is a number: a style index and a shared string index count
+/// from 0. Whether zero is a legal value for a particular attribute belongs
+/// to the caller, and `row_number` is the one that refuses it.
+fn decimal(value: &str) -> Option<u32> {
+    let digits = value.as_bytes();
+    if digits.is_empty() || !digits.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    if digits.len() > 1 && digits[0] == b'0' {
+        return None;
+    }
+    value.parse().ok()
+}
+
 /// Reads a `<c>` start tag's attributes.
 ///
 /// `row` and `previous` are the open row's number and the previous cell's
@@ -822,10 +855,8 @@ fn read_opening(
             }
             b"s" => {
                 style = Some(
-                    attribute
-                        .value
-                        .parse()
-                        .map_err(|_| Error::Package("a cell's style index is not a number"))?,
+                    decimal(&attribute.value)
+                        .ok_or(Error::Package("a cell's style index is not a number"))?,
                 );
             }
             b"t" => kind = Kind::parse(attribute.value.as_bytes())?,
@@ -844,6 +875,12 @@ fn read_opening(
 }
 
 /// The `r` attribute of a `<row>`, when it has one.
+///
+/// A row is numbered from 1, so `r="0"` is refused with the same message as
+/// `r="one"`: both are spellings this layer has no row number for, and the
+/// catalogue holds one message for the case (P2 ruling 2). Refusing it is
+/// what keeps every reference the reader emits inside the range
+/// `CellRef::parse` accepts, since a row with no `r` counts from 1.
 fn row_number(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Option<u32>, Error> {
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|_| Error::Xml(index))?;
@@ -852,12 +889,10 @@ fn row_number(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Opt
         }
         let (namespace, local) = scope.resolve_attribute(attribute.key)?;
         if namespace.is_none() && local == b"r" {
-            return Ok(Some(
-                attribute
-                    .value
-                    .parse()
-                    .map_err(|_| Error::Package("a row number is not a number"))?,
-            ));
+            let number = decimal(&attribute.value)
+                .filter(|number| *number > 0)
+                .ok_or(Error::Package("a row number is not a number"))?;
+            return Ok(Some(number));
         }
     }
     Ok(None)
@@ -871,7 +906,9 @@ fn row_number(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Opt
 ///
 /// An `si` that is not a decimal `u32` is refused with the same message as
 /// an `si` that is absent: either way this layer has no index to carry, and
-/// the catalogue holds one message for the case.
+/// the catalogue holds one message for the case. `decimal` decides what a
+/// decimal `u32` is, so a signed, zero-padded or out-of-range `si` is the
+/// same case as `si="x"` (P2 ruling 4).
 fn read_formula(
     start: &BytesStart<'_>,
     scope: &Scope,
@@ -891,7 +928,7 @@ fn read_formula(
         }
         match local {
             b"t" => named = Some(attribute.value.as_ref().to_owned()),
-            b"si" => shared = attribute.value.parse().ok(),
+            b"si" => shared = decimal(&attribute.value),
             // Carried as written: this layer does not read ranges, and part
             // 4's rewrite writes back what it was given.
             b"ref" => reference = Some(attribute.value.as_ref().to_owned()),
