@@ -1,0 +1,430 @@
+command: git rev-parse HEAD
+about: M1 part 2 close-out correction.log; HEAD at run: 9bd91022706c5467edd33509921e0b50c7229af0
+phase: Milestone 1 part 2 close-out (specs/0009-package-layer.md "Planning rulings on the close-out (2026-09-18)", ruling 5) correction.log; run at 2026-09-18T12:10:57Z
+ANTHROPIC_API_KEY set in this shell: no
+commit ids in this log are read from git by the commands printed below,
+never typed. No matched line is printed anywhere in this log: the proof
+prints line numbers only.
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 1 part 2 close-out correction.log, in the T3 P4 record.log form
+    # (records/logs/t3-p4/record.log), as specs/0009-package-layer.md "Planning
+    # rulings on the close-out (2026-09-18)" ruling 5 directs.
+    #
+    # WHY THIS LOG EXISTS. records/logs/m1p2-p3/scan.log was committed at 711fc8b
+    # and pushed at f4f48e8. Two lines of the script it prints into itself write one
+    # of the three bare path shapes literally, in a comment explaining why the
+    # f_home form was added. specs/0001-bootstrap.md "Rules for every phase"
+    # requires that the project's own files write no bare shape, which every scan
+    # script's pre-P6d control proves by expecting 0. The close-out scan's control
+    # found these two and failed, correctly.
+    #
+    # It is not a leak: the line names no account, no machine and no person. It is a
+    # form defect of the class the rule forbids, and the same script builds that
+    # shape by concatenation for its own controls, so the technique was at hand.
+    #
+    # A committed log is never edited, and rerunning the phase scan would forge a
+    # transcript of a run that did not happen (the ruling of 2026-09-16 that T3 P4's
+    # record.log follows). The correction is therefore this new log, which names the
+    # superseded lines and prints what replaces them. Ruling 5 requires the lines be
+    # named by NUMBER and PLACE and proved by a counting command, never quoted: a
+    # correction that quoted them would write the shape a third time and seed part
+    # 3's close-out range with another hit.
+    #
+    # THIS LOG WRITES NO SHAPE. It builds no pattern of its own: the three pre-P6d
+    # patterns are read from git, as the scans read them, and are never printed. The
+    # proof prints line NUMBERS only, through cut, never a matched line.
+    #
+    # Usage: M1CLOSE_LIB=<lib> m1p2close-correction.sh > <scratch file>
+    # The caller moves the output to records/logs/m1p2-close/correction.log, so
+    # nothing is written in the working tree while this runs.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    LIB=${M1CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    fail=0
+    
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # hits_and_lines <count> <lines> <want count> <want lines>: both match, in one
+    # named function so neither condition is dropped.
+    hits_and_lines() { [ "$1" = "$3" ] && [ "$2" = "$4" ]; }
+    # resolved <a> <b>: both set and equal.
+    resolved() { [ -n "$1" ] && [ "$1" = "$2" ]; }
+    
+    TARGET=records/logs/m1p2-p3/scan.log
+    LINE_1=79
+    LINE_2=130
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 2 close-out correction.log; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 2 close-out (specs/0009-package-layer.md \"Planning rulings on the close-out (2026-09-18)\", ruling 5) correction.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)"
+    echo "commit ids in this log are read from git by the commands printed below,"
+    echo "never typed. No matched line is printed anywhere in this log: the proof"
+    echo "prints line numbers only."
+    echo
+    
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    check "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    echo
+    
+    echo "## the record commit the superseded file was committed at"
+    echo "command: git log --format='%H' --grep='^M1 part 2 P3: the phase.s logs, both check answers and the records' -n 1"
+    REC=$(git log --format='%H' --grep='^M1 part 2 P3: the phase.s logs, both check answers and the records' -n 1)
+    echo "  resolves to: $REC"
+    echo "command: git rev-parse 711fc8b"
+    REC_SHORT=$(git rev-parse 711fc8b 2>/dev/null)
+    echo "  resolves to: $REC_SHORT"
+    check "the record commit resolves from git by subject and matches 711fc8b" "$(yn resolved "$REC" "$REC_SHORT")"
+    echo "command: git log --format='%H' --grep='^M1 part 2 close-out: commit planning doc updates' -n 1"
+    PUSHED=$(git log --format='%H' --grep='^M1 part 2 close-out: commit planning doc updates' -n 1)
+    echo "  the close-out doc commit, the tip of the pushed range, resolves to: $PUSHED"
+    check "the superseded file is present at that commit" \
+      "$(yn git cat-file -e "$PUSHED:$TARGET")"
+    echo
+    
+    echo "## what is superseded, named by number and by place"
+    echo "file: $TARGET"
+    echo "  committed at $REC, pushed at $PUSHED"
+    echo "  line $LINE_1: in the printed script's change list, item 4, the paragraph"
+    echo "    explaining why the f_home form was added."
+    echo "  line $LINE_2: in the printed script again, the comment above the f_home"
+    echo "    definition, which repeats the same sentence."
+    echo "Both lines write one of the three bare path shapes literally, in prose"
+    echo "about the patterns. specs/0001-bootstrap.md \"Rules for every phase\" allows"
+    echo "no bare shape in the project's own files; the gate passes the line because"
+    echo "T0 P6d narrowed the gate's patterns, which is a different instrument."
+    echo "The lines are NOT quoted here, by ruling 5: quoting them would write the"
+    echo "shape again."
+    echo
+    
+    echo "## what replaces the wording"
+    echo "From this run on, prose that must refer to one of those shapes names it in"
+    echo "words or builds it by concatenation, as the scans' own controls do. The"
+    echo "sentence becomes:"
+    echo
+    echo "    the P6d patterns are narrowed to a Windows user path and the three"
+    echo "    pre-P6d forms are bare shapes, so a path under this machine's home"
+    echo "    directory matched nothing"
+    echo
+    echo "The close-out scan rerun of ruling 4 carries that wording, and specs/0001"
+    echo "gains the rule that a scan script scans its own source before printing"
+    echo "itself, so the next such comment is caught by the run that writes it."
+    echo
+    
+    echo "## proof, by counting, that this log names what is really there"
+    echo "The three pre-P6d patterns are read from git and never printed."
+    echo "command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    echo "  resolves to: $PRE_COMMIT"
+    check "the P6d narrowing commit resolves from git" "$(yn [ -n "$PRE_COMMIT" ])"
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" > "$T/pre-all" ||
+      { echo "cannot read the pre-P6d patterns" >&2; exit 2; }
+    sed -n '8p;10p;11p' "$T/pre-all" > "$T/pre"
+    echo "command: sed -n '8p;10p;11p' <the pre-P6d privacy-patterns.txt> -> $(count_lines "$T/pre") pattern(s), not printed"
+    check "three pre-P6d patterns were read" "$(yn [ "$(count_lines "$T/pre")" = 3 ])"
+    
+    echo "command: LC_ALL=C /usr/bin/grep -c -E -f <the three patterns> $TARGET"
+    HITS=$(count_from_file -E "$T/pre" "$TARGET")
+    echo "  -> $HITS"
+    echo "command: LC_ALL=C /usr/bin/grep -n -E -f <the three patterns> $TARGET | cut -d: -f1 | tr '\\n' ' '"
+    LINES=$(LC_ALL=C /usr/bin/grep -n -E -f "$T/pre" "$TARGET" | cut -d: -f1 | tr '\n' ' ')
+    LINES=${LINES% }
+    echo "  -> $LINES"
+    check "the file holds exactly 2 pre-P6d hits, at lines $LINE_1 and $LINE_2" \
+      "$(yn hits_and_lines "$HITS" "$LINES" 2 "$LINE_1 $LINE_2")"
+    
+    echo "command: LC_ALL=C /usr/bin/grep -c -E -f <the three patterns> over this log's own source"
+    SELF=$(count_from_file -E "$T/pre" "$0")
+    echo "  -> $SELF"
+    check "this log's own source writes no bare shape" "$(yn [ "$SELF" = 0 ])"
+    
+    echo
+    echo "## control: the counting form used above can report a hit"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' > "$T/c-bare"
+    echo "command: the same grep over a fixture built by concatenation (the shape is"
+    echo "  assembled from three pieces at run time and appears nowhere in this script)"
+    CTL=$(count_from_file -E "$T/pre" "$T/c-bare")
+    echo "  -> $CTL"
+    check "the control fixture scores 1, so a zero above would mean something" "$(yn [ "$CTL" = 1 ])"
+    printf 'x a Windows user path y\n' > "$T/c-words"
+    CTL2=$(count_from_file -E "$T/pre" "$T/c-words")
+    echo "command: the same grep over the replacement wording -> $CTL2"
+    check "the replacement wording scores 0" "$(yn [ "$CTL2" = 0 ])"
+    
+    echo
+    echo "## this log's own output"
+    echo "command: git status --porcelain -> $(run_lines git status --porcelain) line(s)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "correction log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## the record commit the superseded file was committed at
+command: git log --format='%H' --grep='^M1 part 2 P3: the phase.s logs, both check answers and the records' -n 1
+  resolves to: 711fc8bbfe4fe995b0c4b1fee71443ce1fc567a7
+command: git rev-parse 711fc8b
+  resolves to: 711fc8bbfe4fe995b0c4b1fee71443ce1fc567a7
+the record commit resolves from git by subject and matches 711fc8b: yes
+command: git log --format='%H' --grep='^M1 part 2 close-out: commit planning doc updates' -n 1
+  the close-out doc commit, the tip of the pushed range, resolves to: f4f48e8e83045c8e1c4813ac0e9e31fa9f801bd0
+the superseded file is present at that commit: yes
+
+## what is superseded, named by number and by place
+file: records/logs/m1p2-p3/scan.log
+  committed at 711fc8bbfe4fe995b0c4b1fee71443ce1fc567a7, pushed at f4f48e8e83045c8e1c4813ac0e9e31fa9f801bd0
+  line 79: in the printed script's change list, item 4, the paragraph
+    explaining why the f_home form was added.
+  line 130: in the printed script again, the comment above the f_home
+    definition, which repeats the same sentence.
+Both lines write one of the three bare path shapes literally, in prose
+about the patterns. specs/0001-bootstrap.md "Rules for every phase" allows
+no bare shape in the project's own files; the gate passes the line because
+T0 P6d narrowed the gate's patterns, which is a different instrument.
+The lines are NOT quoted here, by ruling 5: quoting them would write the
+shape again.
+
+## what replaces the wording
+From this run on, prose that must refer to one of those shapes names it in
+words or builds it by concatenation, as the scans' own controls do. The
+sentence becomes:
+
+    the P6d patterns are narrowed to a Windows user path and the three
+    pre-P6d forms are bare shapes, so a path under this machine's home
+    directory matched nothing
+
+The close-out scan rerun of ruling 4 carries that wording, and specs/0001
+gains the rule that a scan script scans its own source before printing
+itself, so the next such comment is caught by the run that writes it.
+
+## proof, by counting, that this log names what is really there
+The three pre-P6d patterns are read from git and never printed.
+command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
+  resolves to: 721e86323e41fe6090b95ce3e26876e81e27b464
+the P6d narrowing commit resolves from git: yes
+command: sed -n '8p;10p;11p' <the pre-P6d privacy-patterns.txt> -> 3 pattern(s), not printed
+three pre-P6d patterns were read: yes
+command: LC_ALL=C /usr/bin/grep -c -E -f <the three patterns> records/logs/m1p2-p3/scan.log
+  -> 2
+command: LC_ALL=C /usr/bin/grep -n -E -f <the three patterns> records/logs/m1p2-p3/scan.log | cut -d: -f1 | tr '\n' ' '
+  -> 79 130
+the file holds exactly 2 pre-P6d hits, at lines 79 and 130: yes
+command: LC_ALL=C /usr/bin/grep -c -E -f <the three patterns> over this log's own source
+  -> 0
+this log's own source writes no bare shape: yes
+
+## control: the counting form used above can report a hit
+command: the same grep over a fixture built by concatenation (the shape is
+  assembled from three pieces at run time and appears nowhere in this script)
+  -> 1
+the control fixture scores 1, so a zero above would mean something: yes
+command: the same grep over the replacement wording -> 0
+the replacement wording scores 0: yes
+
+## this log's own output
+command: git status --porcelain -> 1 line(s)
+run ended at 2026-09-18T12:10:57Z
+correction log checks all as expected: yes
