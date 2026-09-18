@@ -25,10 +25,12 @@
 #![deny(missing_docs)]
 
 pub mod archive;
+pub mod cells;
 pub mod package;
 #[cfg(test)]
 mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
+pub use cells::SharedStrings;
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

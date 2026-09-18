@@ -34,6 +34,13 @@
 //!   targets or sheets the layer cannot read is an error (exit 2) and the
 //!   runner records the run as one. The line names no entry and no value from
 //!   the workbook: a count is not content.
+//! - `--shared-strings`: no edit either, so the output must be
+//!   byte-identical again, and one line goes to stdout: the word `strings`
+//!   then tab-separated `key=value`, `items` (the table's length) and
+//!   `bytes` (the sum of the items' UTF-8 lengths). Two counts and nothing
+//!   else: a shared string IS content, so no item, no length of one and no
+//!   fragment of one is printed. A workbook the layer cannot read the table
+//!   of is an error (exit 2), as `--survey` is.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -58,7 +65,8 @@ use emend::package::{CALC_CHAIN, CONTENT_TYPES_PART, Package, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
-[--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain]";
+[--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
+| --shared-strings]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -74,6 +82,8 @@ enum Operation {
     Survey,
     /// Drop the calculation chain, the phase's first real edit.
     DropCalcChain,
+    /// No edits, and count the shared strings table on stdout.
+    SharedStrings,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -109,7 +119,7 @@ impl fmt::Display for Error {
             Error::NoSuchName => f.write_str("the archive has no entry with that name"),
             Error::Extract(kind) => write!(f, "cannot extract the entry to replace: {kind}"),
             Error::Rewrite(kind) => write!(f, "cannot write the rewritten part: {kind}"),
-            Error::Report(kind) => write!(f, "cannot write the survey line: {kind}"),
+            Error::Report(kind) => write!(f, "cannot write the report line: {kind}"),
         }
     }
 }
@@ -135,6 +145,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--survey" => {
             run(Path::new(input), Path::new(output), Operation::Survey)
         }
+        [input, output, flag] if flag == "--shared-strings" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::SharedStrings,
+        ),
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -163,10 +178,12 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         return drop_calc_chain(input, output);
     }
 
-    // The survey reads the whole map first, so a package the layer cannot
-    // read stops the run before any output file exists.
-    let counted = match operation {
-        Operation::Survey => Some(survey(input)?),
+    // Both reading operations run first, so a package the layer cannot read
+    // stops the run before any output file exists. Each yields the one line
+    // it prints, so the reporting below is the same code for either.
+    let reported = match operation {
+        Operation::Survey => Some(survey(input)?.line()),
+        Operation::SharedStrings => Some(shared_strings_line(input)?),
         _ => None,
     };
 
@@ -180,7 +197,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     let extracted = match operation {
         // Handled above, before any output file exists.
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
-        Operation::None | Operation::Survey => Vec::new(),
+        Operation::None | Operation::Survey | Operation::SharedStrings => Vec::new(),
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
             let (mut file, guard) = temporary(output, "-entry")?;
@@ -230,9 +247,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     drop(extracted);
     result?;
 
-    if let Some(counted) = counted {
+    if let Some(line) = reported {
         let mut out = io::stdout().lock();
-        writeln!(out, "{}", counted.line()).map_err(|e| Error::Report(e.kind()))?;
+        writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
         out.flush().map_err(|e| Error::Report(e.kind()))?;
     }
     Ok(())
@@ -400,6 +417,33 @@ fn named(names: &[Vec<u8>], name: &[u8]) -> bool {
 /// of assuming it, so a corpus that needed case folding would say so.
 fn named_case_only(names: &[Vec<u8>], name: &[u8]) -> bool {
     !named(names, name) && names.iter().any(|entry| entry.eq_ignore_ascii_case(name))
+}
+
+/// Reads the shared strings table and counts it.
+///
+/// Two numbers, both derived from the items and neither of them an item:
+/// `items` is the table's length and `bytes` the sum of the items' UTF-8
+/// lengths. The sum is taken over the public accessor rather than a method on
+/// the table, because nothing in the library needs it; the tool wants it to
+/// show the corpus's tables have been read whole and not truncated.
+///
+/// A workbook with no shared strings relationship gives an empty table, so
+/// this prints `items=0 bytes=0` for one rather than refusing it: the absence
+/// is not an error, and the run script knows which corpus files have a table.
+fn shared_strings_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let table = package.shared_strings()?;
+    let items = u64::from(table.len());
+    // `u64` and not `usize`: the sum of a corpus table's items overflows
+    // neither, but `usize` is 32 bits on the target that matters and every
+    // count in this tool is already `u64`.
+    let mut bytes = 0u64;
+    for index in 0..table.len() {
+        let item = table.get(index).unwrap_or_default();
+        bytes += item.len() as u64;
+    }
+    Ok(format!("strings\titems={items}\tbytes={bytes}"))
 }
 
 /// Walks the package layer's whole map and counts it.

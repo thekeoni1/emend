@@ -66,6 +66,17 @@
 //!   `a_relationship_removal_on_a_part_that_is_not_there`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
+//! The `cells` module raises its messages through the same error and they are
+//! catalogued here with the rest, so there is one list for the three modules
+//! (`specs/0010-reading-cells.md`, "Errors"):
+//!
+//! - "the shared strings part's root is not sst"
+//!   (`cells::tests::a_root_of_the_wrong_name_is_refused`,
+//!   `a_root_in_another_namespace_is_refused`,
+//!   `a_part_with_no_root_at_all_is_refused`).
+//! - "a cell holds a reference this layer cannot expand"
+//!   (`cells::tests::an_unknown_entity_is_refused`).
+//!
 //! # Limits
 //!
 //! What this layer does NOT do, each a decision rather than an omission
@@ -109,6 +120,7 @@ use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
+use crate::cells::SharedStrings;
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -515,6 +527,43 @@ impl<R: Read + Seek> Package<R> {
     /// Whatever [`Archive::read`] refuses.
     pub fn read_part(&mut self, index: usize) -> Result<impl Read + '_, Error> {
         self.archive.read(index)
+    }
+
+    /// The workbook's shared strings, parsed on every call and returned OWNED.
+    ///
+    /// `specs/0010-reading-cells.md`, "Module `package`": unlike
+    /// [`Package::content_types`] and [`Package::workbook`], which cache and
+    /// lend, this parses each time and hands the table over. A caller streams
+    /// cells through a mutable borrow of the package, so a lent table could
+    /// not be held across that borrow, and cloning a cached one would cost a
+    /// copy of every string.
+    ///
+    /// A workbook with no `sharedStrings` relationship gives an empty table,
+    /// so a cell naming an index in such a workbook is out of range rather
+    /// than a case of its own. A relationship naming no entry is the same
+    /// empty answer: the relationship is a claim about the package and the
+    /// entries are the package, and part 2's survey already measures
+    /// unresolved targets.
+    ///
+    /// Records no edit: a package read this way and written writes a copy.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "the shared strings part's root is not sst" or "a
+    /// cell holds a reference this layer cannot expand"; [`Error::Xml`] for
+    /// bytes that are not well-formed XML or not UTF-8; whatever
+    /// [`Package::workbook`] refuses, since the relationship is followed
+    /// through it.
+    pub fn shared_strings(&mut self) -> Result<SharedStrings, Error> {
+        let part = match self.workbook()?.shared_strings.clone() {
+            Some(part) => part,
+            None => return Ok(SharedStrings::default()),
+        };
+        let Some(index) = self.archive.index_of(&part) else {
+            return Ok(SharedStrings::default());
+        };
+        let mut stream = Stream::new(self.archive.read(index)?, index)?;
+        SharedStrings::read(&mut stream, index)
     }
 
     /// The package's content types, parsed on the first call and kept.

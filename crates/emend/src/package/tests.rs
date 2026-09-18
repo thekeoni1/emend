@@ -2126,23 +2126,29 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     // cannot go stale: adding a message without cataloguing it fails here.
     const PACKAGE: &str = include_str!("../package.rs");
     const XML: &str = include_str!("../xml.rs");
+    // Part 3 P1 adds the third module, so the catalogue cannot fall behind
+    // it either (`specs/0010-reading-cells.md`, "Errors").
+    const CELLS: &str = include_str!("../cells.rs");
 
     let (package_raised, package_calls, package_literals) = raised(PACKAGE);
     let (xml_raised, xml_calls, xml_literals) = raised(XML);
-    // Every `Error::Package(` in either module takes a literal. If one ever
-    // takes a variable the extractor cannot read it, and this is the line
-    // that says so instead of the comparison quietly passing on a subset.
+    let (cells_raised, cells_calls, cells_literals) = raised(CELLS);
+    // Every `Error::Package(` in any of the three takes a literal. If one
+    // ever takes a variable the extractor cannot read it, and this is the
+    // line that says so instead of the comparison quietly passing on a
+    // subset.
     assert_eq!(
-        (package_calls, xml_calls),
-        (package_literals, xml_literals),
+        (package_calls, xml_calls, cells_calls),
+        (package_literals, xml_literals, cells_literals),
         "an Error::Package is raised with something other than a literal"
     );
 
-    // The catalogue lives in `package.rs`; `xml.rs` says so rather than
-    // keeping a list of its own.
+    // The catalogue lives in `package.rs`; `xml.rs` and `cells.rs` say so
+    // rather than keeping a list of their own.
     let catalogue = catalogued(PACKAGE);
     let mut raised_all = package_raised;
     raised_all.extend(xml_raised);
+    raised_all.extend(cells_raised);
 
     assert!(
         !catalogue.is_empty() && !raised_all.is_empty(),
