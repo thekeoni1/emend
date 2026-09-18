@@ -1,0 +1,1534 @@
+command: git rev-parse HEAD
+about: M1 part 2 P3 phase commit 14c2e14; HEAD at run: 14c2e144c4c90069794886c04ae21ca57b8303c2
+phase: Milestone 1 part 2 P3 (specs/0009-package-layer.md) run.log; run at 2026-09-18T04:16:56Z
+rerun: two attempts at this run, both at this commit, were stopped before any measurement was taken; neither wrote a log under records, so neither is a superseded log in the sense of specs/0001, and nothing from either remains under runs/. Both defects were in this script's own text. First: element_count grepped for the bare string <Relationship, which also matches the root <Relationships>, and the form's own control reported UNEXPECTED; the pattern now requires a space, slash or > after the name, and that control's verdict says the root is not counted as a third element. Second: the DETACHED line, carried from P2, said this run was started with setsid and nohup, which was not how it was started; it now states the property, that no interactive call waits on the run, and names the mechanism truthfully beside it.
+SERIALIZED: produced with no other run in flight
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls. Started as a background
+  task of the calling session, not with setsid, whose fork would lose
+  the run's exit status. This log makes TWO runner passes over the 27
+  workbooks, each with a LibreOffice conversion of the input and of
+  the output, so it takes longer than P2's single pass and a
+  foreground call would risk a half-written log.
+TERMS: both target builds were finished by the gate before this run
+  started, so no cargo runs during it; foreground order host then i686,
+  and within a label the edit pass then the survey pass; nothing else
+  running; no mid-run tuning, and a copy or conversion that timed out or
+  was killed would be recorded and listed apart, never rerun with a
+  larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the
+  figure P1 and P2 measured and used: the largest corpus workbook, whose
+  largest part is 63745347 bytes, took about 28 seconds with the host
+  debug binary and about 30 with the i686 one. The recipe parses less of
+  a package than the survey does, so 300 still leaves an order of
+  magnitude. The figure is not tuned during the run.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 2 P3 run.log (specs/0009-package-layer.md, "P3" and
+    # "Harness runs"): the corpus run on both targets with --tool-arg
+    # --drop-calc-chain, the survey run beside it, the element counts of the two
+    # changed parts for one dropped case per target, and the record pair.
+    #
+    # P3's acceptance, in the spec's words: "in each of the nine workbooks with a
+    # chain, the chain's entry `dropped`, the workbook's rels part and
+    # `[Content_Types].xml` `changed`, each with `descriptor` alone allowed as
+    # above, every other entry `identical` unflagged, `order_preserved` `yes`,
+    # `files_identical` `no`, `lo` `ok`; in each of the eighteen without, every
+    # entry `identical` unflagged, `files_identical` `yes`. The run log also shows,
+    # for one dropped case per target, the element counts of the two changed parts
+    # in input and output (`Override` and `Relationship` elements, each one fewer),
+    # counted on the extracted parts and printed as counts only."
+    #
+    # This is the first phase whose acceptance DIFFERS BY WORKBOOK, so the
+    # classification cannot come from the log's author. It comes from the survey
+    # run's own stdout: a workbook whose survey line says calc_chain=1 must have
+    # the chain dropped, and one that says 0 must come back byte for byte. The two
+    # runs are therefore both primaries, and the count of each class is asserted
+    # against the spec's nine and eighteen before either acceptance is applied.
+    #
+    # DERIVED FROM the M1 part 2 P2 run script as records/logs/m1p2-p2/run.log
+    # printed it, audited against specs/0001 before this run (the rule from
+    # memory/gotchas.md: a script reused from an older phase's printed log carries
+    # that phase's forbidden forms). What changed, and why:
+    #  1. The operation is --drop-calc-chain, and the acceptance is P3's, which
+    #     contradicts P2's on three clauses for nine of the workbooks: P2 wanted
+    #     every file byte-identical, every entry identical and nothing changed or
+    #     dropped; P3 wants exactly one entry dropped and exactly two changed in
+    #     those nine. Carrying P2's clauses here would fail on a correct run.
+    #  2. entry_counts is replaced by chain_counts, which classifies the entry
+    #     rows PER WORKBOOK against that workbook's expected class, because the
+    #     acceptance is no longer one rule for all 27 files. Its control is a
+    #     fixture of both classes whose answers are known before it is used.
+    #  3. columns_resolve gains the END rule P2 ruling 10 asks for: as P2 wrote
+    #     it, the form reported as-expected on an empty file, since its only rule
+    #     was NR == 1. It now fails when no header line was seen, and a control on
+    #     an empty file is run to prove the fix rather than assert it.
+    #  4. survey_counts gains overrides_unresolved (P2 ruling 11's key, added to
+    #     the tool in P3's first code commit), expected 0 in every file, and keeps
+    #     P2's clauses, which the survey run must still satisfy.
+    #  5. The element counts are new. They are counted on parts extracted from the
+    #     input and the output with python3's zipfile, which the repository already
+    #     uses for corpus work (scripts/corpus-add.py, scripts/corpus-coverage.py,
+    #     scripts/passthrough-record.py), and reported as counts alone: no part
+    #     bytes, no attribute value and no workbook name reach this log.
+    #  6. Neither shape specs/0001 forbids appears here: no check chains a second
+    #     condition after a bracket test inside one command substitution, and no
+    #     negation is handed to a helper as a leading bang. Every compound
+    #     condition is a named function. The shapes are described rather than
+    #     written out, so this log's own text does not trip the shape grep the
+    #     phase's scan log runs over every printed script.
+    #
+    # Workbooks appear as ids only. No original name, note, producer_version or
+    # app, and no corpus path: the corpus directory is written <corpus>
+    # (specs/0005-corpus.md, planning ruling 5 of 2026-09-16). Entry NAMES are
+    # quoted, which the corpus rules allow, for a row that violates an expectation
+    # and for the two parts the recipe rewrites.
+    #
+    # Usage: m1p2-p3-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p2-p3/run.log. Two runner passes over 27 workbooks
+    # with a LibreOffice conversion each, so the caller starts it detached and
+    # polls.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    OUT=$CORPUS/runs/$DATE-$SHORT
+    OUT_S=$CORPUS/runs/$DATE-$SHORT-survey
+    STEM=m1p2-p3-$DATE-$SHORT
+    EDIT=--drop-calc-chain
+    SURVEY=--survey
+    fail=0
+    
+    # note <what> <verdict>: one verdict line, and a verdict other than
+    # as-expected fails the log.
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    # is <command...>: as-expected when the command succeeds.
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # isnot <command...>: as-expected when it fails. Written as its own helper so
+    # that no call hands a negation to `is`, which specs/0001 forbids as a shape.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    G=/usr/bin/grep
+    TAB=$(printf '\t')
+    
+    # nrows <tsv>: data rows, header excluded.
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    
+    # columns_resolve <tsv> <names>: every named column is in the file's header.
+    #
+    # P2 ruling 10: as P2's run log wrote this form its only rule was NR == 1, so
+    # an empty or headerless file reported as-expected and the guard was vacuous
+    # there. The END rule below fails when no header line was seen at all, and the
+    # control after the counting controls runs it on an empty file.
+    COLUMNS_USED='id name status flags crc_in crc_out uncompressed_in uncompressed_out'
+    columns_resolve() {
+      awk -F'\t' -v want="$2" '
+        NR == 1 {
+          seen = 1
+          for (i = 1; i <= NF; i++) have[$i] = 1
+          n = split(want, w, " ")
+          for (j = 1; j <= n; j++) if (!(w[j] in have)) miss++
+          exit
+        }
+        END { exit (seen != 1 || miss > 0) }' "$1"
+    }
+    # count_where <tsv> <column> <value>: rows whose named column equals the value.
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    # sum_col <tsv> <column>: the numeric total of a column.
+    sum_col() {
+      awk -F'\t' -v c="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k { n += $k } END { print n + 0 }' "$1"
+    }
+    
+    # chain_counts <entries.tsv> <chain ids>: the entry rows classified per
+    # workbook against the class that workbook belongs to.
+    #
+    # <chain ids> is the space-separated list of ids whose survey line said
+    # calc_chain=1, so the expectation comes from the survey run and not from this
+    # script. Every class is counted in ONE awk program over one pass, so two of
+    # them cannot drift apart between passes.
+    #
+    # For a workbook WITH a chain: exactly one row dropped, exactly two changed,
+    # none added, the two changed rows being [Content_Types].xml and a rels part,
+    # every other row identical, and no flag anywhere but descriptor.
+    # For a workbook WITHOUT one: every row identical and unflagged.
+    chain_counts() {
+      awk -F'\t' -v chain="$2" '
+        BEGIN { n = split(chain, c, " "); for (i = 1; i <= n; i++) has[c[i]] = 1 }
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        {
+          id = $idx["id"]; name = $idx["name"]; status = $idx["status"]
+          flags = $idx["flags"]
+          rows[id]++
+          total++
+          if (flags != "" && flags != "descriptor") bad_flags++
+          if (flags == "descriptor") descriptor++
+          if (status == "dropped") { dropped[id]++; drop_name[id] = name }
+          if (status == "added") added[id]++
+          if (status == "recompressed") recompressed++
+          if (status == "changed") {
+            changed[id]++
+            if (name == "[Content_Types].xml") changed_types[id]++
+            else if (name ~ /\.rels$/) changed_rels[id]++
+            else changed_other++
+          }
+          if (status == "identical") identical++
+          if (status != "identical" && status != "changed" && status != "dropped") other_status++
+          if (id in has) {
+            with_rows++
+          } else {
+            without_rows++
+            if (status != "identical") without_bad_status++
+            if (flags != "") without_bad_flags++
+          }
+        }
+        END {
+          for (id in rows) {
+            files++
+            if (id in has) {
+              with_files++
+              if (dropped[id] != 1) with_wrong_dropped++
+              if (changed[id] != 2) with_wrong_changed++
+              if (changed_types[id] != 1) with_no_types_change++
+              if (changed_rels[id] != 1) with_no_rels_change++
+              if (added[id] != 0) with_added++
+            } else {
+              without_files++
+              if (dropped[id] != 0) without_dropped++
+              if (changed[id] != 0) without_changed++
+              if (added[id] != 0) without_added++
+            }
+          }
+          printf "files=%d with_files=%d without_files=%d", files + 0, with_files + 0, without_files + 0
+          printf " rows=%d with_rows=%d without_rows=%d", total + 0, with_rows + 0, without_rows + 0
+          printf " identical=%d changed=%d dropped=%d recompressed=%d", \
+            identical + 0, changed_total(), dropped_total(), recompressed + 0
+          printf " other_status=%d bad_flags=%d descriptor=%d", \
+            other_status + 0, bad_flags + 0, descriptor + 0
+          printf " with_wrong_dropped=%d with_wrong_changed=%d", \
+            with_wrong_dropped + 0, with_wrong_changed + 0
+          printf " with_no_types_change=%d with_no_rels_change=%d with_added=%d", \
+            with_no_types_change + 0, with_no_rels_change + 0, with_added + 0
+          printf " without_dropped=%d without_changed=%d without_added=%d", \
+            without_dropped + 0, without_changed + 0, without_added + 0
+          printf " without_bad_status=%d without_bad_flags=%d changed_other=%d\n", \
+            without_bad_status + 0, without_bad_flags + 0, changed_other + 0
+        }
+        function changed_total() { t = 0; for (k in changed) t += changed[k]; return t }
+        function dropped_total() { t = 0; for (k in dropped) t += dropped[k]; return t }' "$1"
+    }
+    
+    # survey_counts <file...>: one pass over every survey line the tool printed,
+    # reporting the classes P2's acceptance names and P3's new key. The pairs are
+    # read by NAME, never by position, and the fields are split on tabs, so a line
+    # whose pairs are space separated is not a survey line and is counted as one
+    # that is not.
+    survey_counts() {
+      awk -F'\t' '
+        $1 != "survey" { not_survey++; next }
+        {
+          for (k in v) delete v[k]
+          for (i = 2; i <= NF; i++) { split($i, kv, "="); v[kv[1]] = kv[2] + 0 }
+          lines++
+          untyped += v["untyped"]
+          unresolved += v["unresolved"]
+          case_only += v["case_only"]
+          overrides_unresolved += v["overrides_unresolved"]
+          if (v["sheets_resolved"] != v["sheets"]) sheets_unresolved++
+          if (v["shared_strings"] != 1) without_shared_strings++
+          if (v["styles"] != 1) without_styles++
+          if (v["calc_chain"] == 1) with_calc_chain++
+          entries += v["entries"]
+          typed += v["typed"]
+          defaults += v["defaults"]
+          overrides += v["overrides"]
+          rels_parts += v["rels_parts"]
+          relationships += v["relationships"]
+          external += v["external"]
+          resolved += v["resolved"]
+          sheets += v["sheets"]
+        }
+        END {
+          printf "lines=%d not_survey=%d untyped=%d unresolved=%d case_only=%d", \
+            lines + 0, not_survey + 0, untyped + 0, unresolved + 0, case_only + 0
+          printf " overrides_unresolved=%d sheets_unresolved=%d", \
+            overrides_unresolved + 0, sheets_unresolved + 0
+          printf " without_shared_strings=%d without_styles=%d", \
+            without_shared_strings + 0, without_styles + 0
+          printf " with_calc_chain=%d entries=%d typed=%d defaults=%d overrides=%d", \
+            with_calc_chain + 0, entries + 0, typed + 0, defaults + 0, overrides + 0
+          printf " rels_parts=%d relationships=%d external=%d resolved=%d sheets=%d\n", \
+            rels_parts + 0, relationships + 0, external + 0, resolved + 0, sheets + 0
+        }' "$@"
+    }
+    
+    # element_count <zip> <part> <element>: how many start tags of that element
+    # that part of that archive holds.
+    #
+    # The part is extracted with python3's zipfile and counted with grep -o, so
+    # nothing of the part's bytes reaches this log: the function prints a number.
+    # A part the archive does not hold, or an archive that cannot be read, prints
+    # error, which fails whatever asserts on it rather than passing as 0.
+    #
+    # The element's name must be FOLLOWED by a space, a slash or the closing
+    # angle bracket, because one element name here is a prefix of another: a
+    # pattern of the name alone counts the root <Relationships> as a
+    # <Relationship>. This form's own control caught that, on the first attempt at
+    # this run, with a fixture whose rels part carries the root and two elements.
+    element_count() {
+      local zip=$1 part=$2 element=$3 tmp
+      tmp=$(mktemp) || { echo error; return 1; }
+      if python3 -c 'import sys, zipfile
+    with zipfile.ZipFile(sys.argv[1]) as z:
+        sys.stdout.buffer.write(z.read(sys.argv[2]))' "$zip" "$part" >"$tmp" 2>/dev/null; then
+        LC_ALL=C "$G" -o -a -E "<$element([[:space:]/>]|\$)" "$tmp" | wc -l
+      else
+        echo error
+      fi
+      rm -f "$tmp"
+    }
+    
+    # one_fewer <before> <after>: the after count is the before count minus one,
+    # and neither is an error. One function because it is three conditions, which
+    # specs/0001 forbids chaining inside a command substitution.
+    one_fewer() {
+      [ "$1" != error ] || return 1
+      [ "$2" != error ] || return 1
+      [ "$2" -eq $(($1 - 1)) ]
+    }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 2 P3 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 2 P3 (specs/0009-package-layer.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    # The property this line states is that no interactive call waits on this
+    # run: its stdout and stderr go to a scratch file and it is polled from
+    # later calls. It names the mechanism too, because "detached" alone is not
+    # checkable, but the property is the claim. P2's wording said setsid and
+    # nohup, which is how P2 started, and would have been false here: a setsid
+    # fork loses the run's exit status, which this session had already hit on
+    # the self-test, so this run is started as a background task of the calling
+    # session instead. A line that asserts the mechanism as if it were the
+    # property is the defect class this phase has now met five times.
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls. Started as a background"
+    echo "  task of the calling session, not with setsid, whose fork would lose"
+    echo "  the run's exit status. This log makes TWO runner passes over the 27"
+    echo "  workbooks, each with a LibreOffice conversion of the input and of"
+    echo "  the output, so it takes longer than P2's single pass and a"
+    echo "  foreground call would risk a half-written log."
+    echo "TERMS: both target builds were finished by the gate before this run"
+    echo "  started, so no cargo runs during it; foreground order host then i686,"
+    echo "  and within a label the edit pass then the survey pass; nothing else"
+    echo "  running; no mid-run tuning, and a copy or conversion that timed out or"
+    echo "  was killed would be recorded and listed apart, never rerun with a"
+    echo "  larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the"
+    echo "  figure P1 and P2 measured and used: the largest corpus workbook, whose"
+    echo "  largest part is 63745347 bytes, took about 28 seconds with the host"
+    echo "  debug binary and about 30 with the i686 one. The recipe parses less of"
+    echo "  a package than the survey does, so 300 still leaves an order of"
+    echo "  magnitude. The figure is not tuned during the run."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then
+      echo "  the counting controls did not all hold"
+      fail=1
+    fi
+    
+    echo
+    echo "## the column guard's own controls (P2 ruling 10)"
+    CTL=$(mktemp -d) || exit 2
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/head.tsv"
+    : >"$CTL/empty.tsv"
+    printf 'id\tname\tstatus\n' >"$CTL/short.tsv"
+    note "columns_resolve accepts a header holding every column it indexes" \
+      "$(is columns_resolve "$CTL/head.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses a header missing some of them" \
+      "$(isnot columns_resolve "$CTL/short.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses an EMPTY file, which P2's form accepted" \
+      "$(isnot columns_resolve "$CTL/empty.tsv" "$COLUMNS_USED")"
+    
+    echo
+    echo "## the per-workbook classifying form's own controls"
+    # A fixture of two workbooks, one of each class, with known answers: a in the
+    # chain list with its one dropped row and two changed rows, b out of it with
+    # three identical rows. Then the same fixture with three planted faults, to
+    # show the form reports them rather than counting them as sound.
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/e.tsv"
+    printf 'a\t[Content_Types].xml\tchanged\tdescriptor\t1\t2\t10\t9\n' >>"$CTL/e.tsv"
+    printf 'a\txl/_rels/workbook.xml.rels\tchanged\t\t3\t4\t20\t19\n' >>"$CTL/e.tsv"
+    printf 'a\txl/calcChain.xml\tdropped\t\t5\t\t30\t\n' >>"$CTL/e.tsv"
+    printf 'a\txl/workbook.xml\tidentical\t\t6\t6\t40\t40\n' >>"$CTL/e.tsv"
+    printf 'b\t[Content_Types].xml\tidentical\t\t7\t7\t50\t50\n' >>"$CTL/e.tsv"
+    printf 'b\t_rels/.rels\tidentical\t\t8\t8\t60\t60\n' >>"$CTL/e.tsv"
+    printf 'b\txl/workbook.xml\tidentical\t\t9\t9\t70\t70\n' >>"$CTL/e.tsv"
+    ctl_line=$(chain_counts "$CTL/e.tsv" "a")
+    ctl_expected='files=2 with_files=1 without_files=1 rows=7 with_rows=4 without_rows=3 identical=4 changed=2 dropped=1 recompressed=0 other_status=0 bad_flags=0 descriptor=1 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=0 with_added=0 without_dropped=0 without_changed=0 without_added=0 without_bad_status=0 without_bad_flags=0 changed_other=0'
+    echo "  chain_counts on the sound fixture: $ctl_line"
+    echo "  expected:                         $ctl_expected"
+    note "the classifying form reports a sound fixture of both classes correctly" \
+      "$(is [ "$ctl_line" = "$ctl_expected" ])"
+    # The faults: a's rels change becomes a worksheet change, b gains a dropped
+    # row, and b gains a flag.
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/f.tsv"
+    printf 'a\t[Content_Types].xml\tchanged\t\t1\t2\t10\t9\n' >>"$CTL/f.tsv"
+    printf 'a\txl/worksheets/sheet1.xml\tchanged\t\t3\t4\t20\t19\n' >>"$CTL/f.tsv"
+    printf 'a\txl/calcChain.xml\tdropped\t\t5\t\t30\t\n' >>"$CTL/f.tsv"
+    printf 'b\txl/calcChain.xml\tdropped\t\t6\t\t40\t\n' >>"$CTL/f.tsv"
+    printf 'b\txl/workbook.xml\tidentical\tmtime\t7\t7\t50\t50\n' >>"$CTL/f.tsv"
+    fctl_line=$(chain_counts "$CTL/f.tsv" "a")
+    echo "  chain_counts on the faulty fixture: $fctl_line"
+    faults_reported() {
+      case "$fctl_line" in *' with_no_rels_change=1 '*) ;; *) return 1 ;; esac
+      case "$fctl_line" in *' changed_other=1'*) ;; *) return 1 ;; esac
+      case "$fctl_line" in *' without_dropped=1 '*) ;; *) return 1 ;; esac
+      case "$fctl_line" in *' without_bad_flags=1 '*) ;; *) return 1 ;; esac
+      case "$fctl_line" in *' bad_flags=1 '*) ;; *) return 1 ;; esac
+    }
+    note "the classifying form reports every planted fault" "$(is faults_reported)"
+    
+    echo
+    echo "## the survey form's own controls"
+    printf 'survey%sentries=5%styped=4%suntyped=1%sdefaults=2%soverrides=1%soverrides_unresolved=0%srels_parts=2%srelationships=3%sexternal=1%sresolved=2%sunresolved=0%scase_only=0%ssheets=2%ssheets_resolved=2%sshared_strings=1%sstyles=1%scalc_chain=1%stheme=0\n' \
+      "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" >"$CTL/s.txt"
+    printf 'survey%sentries=7%styped=7%suntyped=0%sdefaults=1%soverrides=3%soverrides_unresolved=2%srels_parts=1%srelationships=4%sexternal=2%sresolved=1%sunresolved=1%scase_only=1%ssheets=3%ssheets_resolved=1%sshared_strings=0%sstyles=0%scalc_chain=0%stheme=1\n' \
+      "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" "$TAB" >>"$CTL/s.txt"
+    printf 'survey entries=1 typed=1\n' >>"$CTL/s.txt"
+    sctl_line=$(survey_counts "$CTL/s.txt")
+    sctl_expected='lines=2 not_survey=1 untyped=1 unresolved=1 case_only=1 overrides_unresolved=2 sheets_unresolved=1 without_shared_strings=1 without_styles=1 with_calc_chain=1 entries=12 typed=11 defaults=3 overrides=4 rels_parts=3 relationships=7 external=3 resolved=3 sheets=5'
+    echo "  survey_counts on the fixture: $sctl_line"
+    echo "  expected:                     $sctl_expected"
+    note "the survey form reports every class correctly, the space separated line included" \
+      "$(is [ "$sctl_line" = "$sctl_expected" ])"
+    
+    echo
+    echo "## the element-counting form's own controls"
+    python3 - "$CTL" <<'PY'
+    import sys, zipfile
+    d = sys.argv[1]
+    before = ('<?xml version="1.0"?><Types><Override PartName="/a.xml"/>'
+              '<Override PartName="/b.xml"/></Types>')
+    after = '<?xml version="1.0"?><Types><Override PartName="/a.xml"/></Types>'
+    rels_before = ('<Relationships><Relationship Id="rId1"/>'
+                   '<Relationship Id="rId2"/></Relationships>')
+    with zipfile.ZipFile(d + '/before.zip', 'w') as z:
+        z.writestr('[Content_Types].xml', before)
+        z.writestr('x/_rels/x.rels', rels_before)
+    with zipfile.ZipFile(d + '/after.zip', 'w') as z:
+        z.writestr('[Content_Types].xml', after)
+    PY
+    ectl_before=$(element_count "$CTL/before.zip" '[Content_Types].xml' Override)
+    ectl_after=$(element_count "$CTL/after.zip" '[Content_Types].xml' Override)
+    ectl_rels=$(element_count "$CTL/before.zip" 'x/_rels/x.rels' Relationship)
+    ectl_absent=$(element_count "$CTL/after.zip" 'x/_rels/x.rels' Relationship)
+    echo "  a fixture pair: two Override elements before, one after; two"
+    echo "  Relationship elements, inside a <Relationships> root whose own name"
+    echo "  begins with the element's, in a rels part only the first archive holds"
+    echo "  counted: before $ectl_before, after $ectl_after, rels $ectl_rels, absent part $ectl_absent"
+    note "the element form counts two Override elements" "$(is [ "$ectl_before" = 2 ])"
+    note "the element form counts one after one is removed" "$(is [ "$ectl_after" = 1 ])"
+    note "one_fewer holds between those two counts" "$(is one_fewer "$ectl_before" "$ectl_after")"
+    note "the element form counts two Relationship elements, not the root as a third" \
+      "$(is [ "$ectl_rels" = 2 ])"
+    note "the element form reports error for a part the archive lacks" \
+      "$(is [ "$ectl_absent" = error ])"
+    note "one_fewer refuses an error count" "$(isnot one_fewer "$ectl_rels" "$ectl_absent")"
+    
+    rm -rf "$CTL"
+    
+    echo
+    echo "## settings"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); --memory 2048 MiB; image $LO_IMAGE"
+    echo "  --tool-arg $EDIT for the recorded run; --tool-arg $SURVEY for the"
+    echo "  survey run beside it"
+    echo "  out directory (edit): <corpus>/runs/$DATE-$SHORT"
+    echo "  out directory (survey): <corpus>/runs/$DATE-$SHORT-survey"
+    echo "  record stem: $STEM (the edit run is the one recorded)"
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        echo "  $b: sha256 $(sha256sum <"$b" | cut -d' ' -f1)"
+      else
+        echo "  $b: MISSING"; fail=1
+      fi
+    done
+    echo "  (gate.log prints these same four hashes; nothing is rebuilt here)"
+    
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows"
+    note "the corpus holds the 27 workbooks specs/0009 counts its facts over" \
+      "$(is [ "$manifest_rows" = 27 ])"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then
+        PT=target/debug/emend-copy
+        XD=target/debug/xlsx-diff
+      else
+        PT=target/i686-unknown-linux-musl/debug/emend-copy
+        XD=target/i686-unknown-linux-musl/debug/xlsx-diff
+      fi
+    
+      # ---------------------------------------------------------------- survey
+      echo
+      echo "## $label survey run (the classification the edit run is judged by)"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$DATE-$SHORT-survey --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $SURVEY"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT_S" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$SURVEY" \
+        >"$OUT_S-$label.stdout" 2>"$OUT_S-$label.stderr"
+      src=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $src; stderr bytes: $(wc -c <"$OUT_S-$label.stderr")"
+      hide <"$OUT_S-$label.stdout" | sed 's/^/    /'
+      if [ -s "$OUT_S-$label.stderr" ]; then hide <"$OUT_S-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the survey run exits 0" "$(is [ "$src" -eq 0 ])"
+      note "$label the survey run's stderr is empty" \
+        "$(is [ "$(wc -c <"$OUT_S-$label.stderr")" -eq 0 ])"
+    
+      SSUM=$OUT_S/summary.$label.tsv
+      if [ ! -f "$SSUM" ]; then
+        echo "  the survey run wrote no summary file"; fail=1; continue
+      fi
+      srows=$(nrows "$SSUM")
+      sfid=$(count_where "$SSUM" files_identical yes)
+      echo "  survey summary rows: $srows; files_identical yes: $sfid"
+      note "$label the survey run still edits nothing" "$(is [ "$sfid" = "$srows" ])"
+    
+      : >"$OUT_S-$label.survey"
+      : >"$OUT_S-$label.chain"
+      nstdout=0
+      echo "  the survey lines, one per workbook:"
+      for d in "$OUT_S"/*/; do
+        sf=$d/stdout.$label.txt
+        [ -f "$sf" ] || continue
+        id=$(basename "$d")
+        nstdout=$((nstdout + 1))
+        printf '    %s %s\n' "$id" "$(cat "$sf")"
+        cat "$sf" >>"$OUT_S-$label.survey"
+        if LC_ALL=C "$G" -q -e "calc_chain=1" "$sf"; then printf '%s\n' "$id" >>"$OUT_S-$label.chain"; fi
+      done
+      echo "  workbook directories holding a stdout file for this label: $nstdout"
+      note "$label every workbook left a survey stdout file" "$(is [ "$nstdout" = "$srows" ])"
+    
+      sline=$(survey_counts "$OUT_S-$label.survey")
+      echo "  survey_counts over all of them: $sline"
+      eval "$(echo "$sline" | tr ' ' '\n' | sed 's/^/s_/')"
+      note "$label one survey line per workbook, and no line of another shape" \
+        "$(is [ "$s_lines" = "$srows" ])"
+      note "$label no line was anything but a survey line" "$(is [ "$s_not_survey" = 0 ])"
+      # P2 ruling 11's key, added to the tool in P3's first code commit: the
+      # spec's fact that every Override part name resolves now has a witness.
+      note "$label overrides_unresolved is 0, so every Override names an entry" \
+        "$(is [ "$s_overrides_unresolved" = 0 ])"
+      note "$label untyped is 0, so every entry has a content type" \
+        "$(is [ "$s_untyped" = 0 ])"
+      note "$label unresolved is 0, so every internal target resolves by exact bytes" \
+        "$(is [ "$s_unresolved" = 0 ])"
+      note "$label case_only is 0, so the exact-bytes rule needed no case folding" \
+        "$(is [ "$s_case_only" = 0 ])"
+      note "$label sheets_resolved equals sheets in every file" \
+        "$(is [ "$s_sheets_unresolved" = 0 ])"
+      note "$label shared_strings is 1 in every file" \
+        "$(is [ "$s_without_shared_strings" = 0 ])"
+      note "$label styles is 1 in every file" "$(is [ "$s_without_styles" = 0 ])"
+      note "$label 878 relationships in total, as specs/0009 counts" \
+        "$(is [ "$s_relationships" = 878 ])"
+      note "$label 234 of them external" "$(is [ "$s_external" = 234 ])"
+      note "$label 644 internal targets resolved" "$(is [ "$s_resolved" = 644 ])"
+      note "$label 95 sheets in total" "$(is [ "$s_sheets" = 95 ])"
+      note "$label 216 rels parts in total" "$(is [ "$s_rels_parts" = 216 ])"
+      note "$label 614 overrides in total" "$(is [ "$s_overrides" = 614 ])"
+    
+      nchain=$(count_lines "$OUT_S-$label.chain")
+      echo "  workbooks whose survey line says calc_chain=1: $nchain"
+      echo "  their ids: $(tr '\n' ' ' <"$OUT_S-$label.chain")"
+      note "$label the nine workbooks with a chain, as specs/0009 counts" \
+        "$(is [ "$nchain" = 9 ])"
+      note "$label with_calc_chain agrees with the ids collected" \
+        "$(is [ "$s_with_calc_chain" = "$nchain" ])"
+    
+      # ------------------------------------------------------------------ edit
+      echo
+      echo "## $label edit run, --tool-arg $EDIT"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$DATE-$SHORT --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $EDIT"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$EDIT" \
+        >"$OUT-$label.stdout" 2>"$OUT-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$OUT-$label.stderr")"
+      hide <"$OUT-$label.stdout" | sed 's/^/    /'
+      if [ -s "$OUT-$label.stderr" ]; then hide <"$OUT-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the edit run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the edit run's stderr is empty" \
+        "$(is [ "$(wc -c <"$OUT-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ] || [ ! -f "$ENT" ]; then
+        echo "  the edit run wrote no summary or entries file"; fail=1; continue
+      fi
+    
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      noleft=$(count_where "$SUM" leftover no)
+      order=$(count_where "$SUM" order_preserved yes)
+      comment=$(count_where "$SUM" comment_equal yes)
+      fid_yes=$(count_where "$SUM" files_identical yes)
+      fid_no=$(count_where "$SUM" files_identical no)
+      changed=$(sum_col "$SUM" changed)
+      dropped=$(sum_col "$SUM" dropped)
+      added=$(sum_col "$SUM" added)
+      recompressed=$(sum_col "$SUM" recompressed)
+      identical=$(sum_col "$SUM" identical)
+      echo "  summary rows: $rows (manifest rows $manifest_rows)"
+      echo "  outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in; leftover no: $noleft"
+      echo "  order_preserved yes: $order; comment_equal yes: $comment"
+      echo "  files_identical yes: $fid_yes; no: $fid_no"
+      echo "  entry totals from the summary: identical $identical, recompressed $recompressed, changed $changed, dropped $dropped, added $added"
+      note "$label every manifest workbook produced a summary row" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      note "$label no tool left a temporary behind" "$(is [ "$noleft" = "$rows" ])"
+      note "$label order is preserved in every file" "$(is [ "$order" = "$rows" ])"
+      note "$label the archive comment is unchanged in every file" "$(is [ "$comment" = "$rows" ])"
+      note "$label the eighteen without a chain are byte-identical" \
+        "$(is [ "$fid_yes" = 18 ])"
+      note "$label the nine with one are not" "$(is [ "$fid_no" = 9 ])"
+      note "$label nine entries dropped in all, one per chain" "$(is [ "$dropped" = 9 ])"
+      note "$label eighteen entries changed in all, two per chain" "$(is [ "$changed" = 18 ])"
+      note "$label nothing was added" "$(is [ "$added" = 0 ])"
+    
+      # files_identical must be no for exactly the ids the survey named, not for
+      # nine ids of some other set.
+      : >"$OUT-$label.notidentical"
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        $idx["files_identical"] == "no" { print $idx["id"] }' "$SUM" | sort >"$OUT-$label.notidentical"
+      sort "$OUT_S-$label.chain" >"$OUT-$label.chainsorted"
+      if cmp -s "$OUT-$label.notidentical" "$OUT-$label.chainsorted"; then
+        echo "  the ids whose bytes changed are exactly the ids with a chain"
+      else
+        echo "  the two id sets differ:"
+        diff "$OUT-$label.chainsorted" "$OUT-$label.notidentical" | head -20 | sed 's/^/    /'
+      fi
+      note "$label the files that changed are exactly the files with a chain" \
+        "$(is cmp -s "$OUT-$label.notidentical" "$OUT-$label.chainsorted")"
+    
+      echo "  the acceptance, from the ENTRY rows, per workbook and per class:"
+      echo "    the entries header, as the runner wrote it:"
+      echo "      $(head -1 "$ENT")"
+      note "$label every column the classifying form indexes is in that header" \
+        "$(is columns_resolve "$ENT" "$COLUMNS_USED")"
+      chain_ids=$(tr '\n' ' ' <"$OUT_S-$label.chain")
+      line=$(chain_counts "$ENT" "$chain_ids")
+      echo "    $line"
+      eval "$(echo "$line" | tr ' ' '\n' | sed 's/^/e_/')"
+      erows=$(nrows "$ENT")
+      echo "    entry rows in all: $erows"
+      note "$label the form saw every entry row" "$(is [ "$e_rows" = "$erows" ])"
+      note "$label it saw all 27 workbooks" "$(is [ "$e_files" = "$rows" ])"
+      note "$label nine of them are the chain class" "$(is [ "$e_with_files" = 9 ])"
+      note "$label eighteen are the other" "$(is [ "$e_without_files" = 18 ])"
+      note "$label each chain workbook dropped exactly one entry" \
+        "$(is [ "$e_with_wrong_dropped" = 0 ])"
+      note "$label each chain workbook changed exactly two" \
+        "$(is [ "$e_with_wrong_changed" = 0 ])"
+      note "$label one of the two is [Content_Types].xml in every chain workbook" \
+        "$(is [ "$e_with_no_types_change" = 0 ])"
+      note "$label the other is a rels part in every chain workbook" \
+        "$(is [ "$e_with_no_rels_change" = 0 ])"
+      note "$label no chain workbook added an entry" "$(is [ "$e_with_added" = 0 ])"
+      note "$label no entry of another name was changed" "$(is [ "$e_changed_other" = 0 ])"
+      note "$label every entry of the eighteen is identical" \
+        "$(is [ "$e_without_bad_status" = 0 ])"
+      note "$label no entry of the eighteen carries a flag" \
+        "$(is [ "$e_without_bad_flags" = 0 ])"
+      note "$label no entry anywhere carries a flag other than descriptor" \
+        "$(is [ "$e_bad_flags" = 0 ])"
+      note "$label no entry was recompressed" "$(is [ "$e_recompressed" = 0 ])"
+      note "$label no entry carries a status outside the three expected" \
+        "$(is [ "$e_other_status" = 0 ])"
+      echo "    entries carrying the descriptor flag, which the acceptance allows: $e_descriptor"
+    
+      # Any row that violated its workbook's expectation is named, so a failure is
+      # actionable rather than a count.
+      bad=$(awk -F'\t' -v chain="$chain_ids" '
+        BEGIN { n = split(chain, c, " "); for (i = 1; i <= n; i++) has[c[i]] = 1 }
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        {
+          id = $idx["id"]; name = $idx["name"]; status = $idx["status"]
+          flags = $idx["flags"]
+          bad = 0
+          if (flags != "" && flags != "descriptor") bad = 1
+          if (id in has) {
+            if (status == "changed") {
+              if (name != "[Content_Types].xml" && name !~ /\.rels$/) bad = 1
+            } else if (status != "identical" && status != "dropped") bad = 1
+          } else {
+            if (status != "identical") bad = 1
+            if (flags != "") bad = 1
+          }
+          if (bad) printf "    %s %s %s [%s]\n", id, name, status, flags
+        }' "$ENT")
+      if [ -n "$bad" ]; then
+        echo "  the rows that violated an expectation:"
+        echo "$bad"
+      else
+        echo "  no row violated an expectation"
+      fi
+    
+      echo "  per workbook, id and the acceptance columns:"
+      awk -F'\t' -v l="$label" '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { printf "    %s %s outcome=%s diff_exit=%s files_identical=%s leftover=%s lo=%s lo_in=%s identical=%s changed=%s dropped=%s flagged=%s\n",
+            $idx["id"], l, $idx["outcome"], $idx["diff_exit"], $idx["files_identical"],
+            $idx["leftover"], $idx["lo"], $idx["lo_in"], $idx["identical"],
+            $idx["changed"], $idx["dropped"], $idx["flagged"] }' "$SUM"
+    
+      echo "  the diff exit codes, by class:"
+      d0=$(count_where "$SUM" diff_exit 0)
+      d1=$(count_where "$SUM" diff_exit 1)
+      echo "    diff_exit 0: $d0; diff_exit 1: $d1"
+      note "$label the eighteen unchanged files diff to exit 0" "$(is [ "$d0" = 18 ])"
+      note "$label the nine changed files diff to exit 1" "$(is [ "$d1" = 9 ])"
+    
+      # ----------------------------------------------- the element counts, once
+      echo "  the element counts for one dropped case, as specs/0009 asks:"
+      case_id=$(sed -n 1p "$OUT_S-$label.chain")
+      echo "    the case: $case_id (the first of this label's nine)"
+      ext=$(awk -F'\t' -v id="$case_id" '$1 == id { print $4 }' "$CORPUS/manifest.tsv")
+      in_file=$CORPUS/corpus/$case_id.$ext
+      out_file=$OUT/$case_id/out.$label.$ext
+      rels_name=$(awk -F'\t' -v id="$case_id" '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        $idx["id"] == id && $idx["status"] == "changed" && $idx["name"] ~ /\.rels$/ { print $idx["name"] }' "$ENT")
+      echo "    the two changed parts: [Content_Types].xml and $rels_name"
+      ov_in=$(element_count "$in_file" '[Content_Types].xml' Override)
+      ov_out=$(element_count "$out_file" '[Content_Types].xml' Override)
+      rel_in=$(element_count "$in_file" "$rels_name" Relationship)
+      rel_out=$(element_count "$out_file" "$rels_name" Relationship)
+      echo "    Override elements in [Content_Types].xml: input $ov_in, output $ov_out"
+      echo "    Relationship elements in that rels part: input $rel_in, output $rel_out"
+      note "$label the output has one Override fewer" "$(is one_fewer "$ov_in" "$ov_out")"
+      note "$label the output has one Relationship fewer" "$(is one_fewer "$rel_in" "$rel_out")"
+    done
+    
+    echo
+    echo "## the two labels agree on every entry's class and status"
+    for label in host i686; do
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { print $idx["id"] "\t" $idx["name"] "\t" $idx["status"] "\t" $idx["flags"] }' \
+        "$OUT/entries.$label.tsv" | sort >"$OUT-$label.classes"
+    done
+    if cmp -s "$OUT-host.classes" "$OUT-i686.classes"; then
+      echo "  the two labels' id, name, status and flags rows are identical"
+    else
+      echo "  the two labels differ; the first differing rows:"
+      diff "$OUT-host.classes" "$OUT-i686.classes" | head -20 | sed 's/^/    /'
+    fi
+    note "both targets classified every entry the same way" \
+      "$(is cmp -s "$OUT-host.classes" "$OUT-i686.classes")"
+    
+    echo
+    echo "## the two labels agree on every survey line"
+    if cmp -s "$OUT_S-host.survey" "$OUT_S-i686.survey"; then
+      echo "  the two labels' survey lines are identical, byte for byte"
+    else
+      echo "  the two labels differ; the first differing lines:"
+      diff "$OUT_S-host.survey" "$OUT_S-i686.survey" | head -20 | sed 's/^/    /'
+    fi
+    note "both targets printed the same survey lines" \
+      "$(is cmp -s "$OUT_S-host.survey" "$OUT_S-i686.survey")"
+    note "both targets found the same nine workbooks with a chain" \
+      "$(is cmp -s "$OUT-host.chainsorted" "$OUT-i686.chainsorted")"
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                           k && NR == 2 { print $k }' "$R")
+        echo "  run.$label.tsv tool_args: [$args]"
+        note "$label the run row records the operation, so this is not a no-edit run" \
+          "$(is [ "$args" = "$EDIT" ])"
+      else
+        echo "  run.$label.tsv: MISSING"; fail=1
+      fi
+    done
+    
+    echo
+    echo "## the record pair"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$DATE-$SHORT --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --stem "$STEM" >"$OUT-record.out" 2>&1
+    rrc=$?
+    hide <"$OUT-record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  $f: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  $f: MISSING"; fail=1
+      fi
+    done
+    both_halves() {
+      [ -f "records/$STEM.md" ] || return 1
+      [ -f "records/$STEM.txt" ] || return 1
+    }
+    note "both halves of the record pair were written" "$(is both_halves)"
+    echo "  the record's Tool arguments line:"
+    LC_ALL=C "$G" -n 'Tool arguments' "records/$STEM.md" | sed 's/^/    /'
+    nargs=$(count_matches -F "$EDIT" "records/$STEM.md")
+    echo "  lines of the record naming the operation: $nargs"
+    note "the record names the operation it was run with" "$(is [ "$nargs" -ge 1 ])"
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$f")
+      echo "  $f: lines naming a home, mount or corpus path: $n"
+      note "$f carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    printf '/home/someone/emend-testing/corpus/x.xlsx\n' >"$OUT-path-control"
+    nctl=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$OUT-path-control")
+    note "control: the path form finds a planted path ($nctl)" "$(is [ "$nctl" = 1 ])"
+    
+    echo
+    echo "## status after the runs"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E 'records/logs/m1p2-p3|records/'"$STEM" git status --porcelain)
+    echo "status lines: $st_all; of them under the phase log directory or the record pair: $st_log"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "every change in the working tree is a log or the record pair" "$(is status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the column guard's own controls (P2 ruling 10)
+  columns_resolve accepts a header holding every column it indexes: as-expected
+  columns_resolve refuses a header missing some of them: as-expected
+  columns_resolve refuses an EMPTY file, which P2's form accepted: as-expected
+
+## the per-workbook classifying form's own controls
+  chain_counts on the sound fixture: files=2 with_files=1 without_files=1 rows=7 with_rows=4 without_rows=3 identical=4 changed=2 dropped=1 recompressed=0 other_status=0 bad_flags=0 descriptor=1 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=0 with_added=0 without_dropped=0 without_changed=0 without_added=0 without_bad_status=0 without_bad_flags=0 changed_other=0
+  expected:                         files=2 with_files=1 without_files=1 rows=7 with_rows=4 without_rows=3 identical=4 changed=2 dropped=1 recompressed=0 other_status=0 bad_flags=0 descriptor=1 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=0 with_added=0 without_dropped=0 without_changed=0 without_added=0 without_bad_status=0 without_bad_flags=0 changed_other=0
+  the classifying form reports a sound fixture of both classes correctly: as-expected
+  chain_counts on the faulty fixture: files=2 with_files=1 without_files=1 rows=5 with_rows=3 without_rows=2 identical=1 changed=2 dropped=2 recompressed=0 other_status=0 bad_flags=1 descriptor=0 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=1 with_added=0 without_dropped=1 without_changed=0 without_added=0 without_bad_status=1 without_bad_flags=1 changed_other=1
+  the classifying form reports every planted fault: as-expected
+
+## the survey form's own controls
+  survey_counts on the fixture: lines=2 not_survey=1 untyped=1 unresolved=1 case_only=1 overrides_unresolved=2 sheets_unresolved=1 without_shared_strings=1 without_styles=1 with_calc_chain=1 entries=12 typed=11 defaults=3 overrides=4 rels_parts=3 relationships=7 external=3 resolved=3 sheets=5
+  expected:                     lines=2 not_survey=1 untyped=1 unresolved=1 case_only=1 overrides_unresolved=2 sheets_unresolved=1 without_shared_strings=1 without_styles=1 with_calc_chain=1 entries=12 typed=11 defaults=3 overrides=4 rels_parts=3 relationships=7 external=3 resolved=3 sheets=5
+  the survey form reports every class correctly, the space separated line included: as-expected
+
+## the element-counting form's own controls
+  a fixture pair: two Override elements before, one after; two
+  Relationship elements, inside a <Relationships> root whose own name
+  begins with the element's, in a rels part only the first archive holds
+  counted: before 2, after 1, rels 2, absent part error
+  the element form counts two Override elements: as-expected
+  the element form counts one after one is removed: as-expected
+  one_fewer holds between those two counts: as-expected
+  the element form counts two Relationship elements, not the root as a third: as-expected
+  the element form reports error for a part the archive lacks: as-expected
+  one_fewer refuses an error count: as-expected
+
+## settings
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); --memory 2048 MiB; image localhost/emend-lo:25.2.3-2-deb13u6
+  --tool-arg --drop-calc-chain for the recorded run; --tool-arg --survey for the
+  survey run beside it
+  out directory (edit): <corpus>/runs/2026-09-18-14c2e14
+  out directory (survey): <corpus>/runs/2026-09-18-14c2e14-survey
+  record stem: m1p2-p3-2026-09-18-14c2e14 (the edit run is the one recorded)
+  target/debug/emend-copy: sha256 1e646b9064d73486c631bc347be441701cb783688539fb82bfe9628ef1db8d64
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 d820c886cde918b19fabdebce193427bfac968448516fdd5c6e621be6a15614d
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  (gate.log prints these same four hashes; nothing is rebuilt here)
+  corpus manifest rows: 27
+  the corpus holds the 27 workbooks specs/0009 counts its facts over: as-expected
+
+## host survey run (the classification the edit run is judged by)
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-18-14c2e14-survey --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --survey
+  started 2026-09-18T04:16:57Z; ended 2026-09-18T04:19:24Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 0 0.10 7636
+    f56906d42e0a host ok 0 0.10 7564
+    0fbf4e5e3be9 host ok 0 0.10 7684
+    bdfe649d5b97 host ok 0 0.10 7652
+    ae7e17525a35 host ok 0 0.10 7812
+    63e820d98612 host ok 0 0.10 7740
+    054df34b1472 host ok 0 0.10 7720
+    9132ce5303d8 host ok 0 0.10 7808
+    ed2fbd304d51 host ok 0 0.10 7724
+    80adab651c77 host ok 0 0.10 7548
+    9ada43d71c80 host ok 0 0.10 7748
+    885819a9642e host ok 0 0.10 7740
+    f2ba081da509 host ok 0 0.10 7464
+    16c3be622455 host ok 0 0.10 7788
+    a72460f992a8 host ok 0 0.10 7820
+    f8459281d739 host ok 0 0.10 7864
+    ab0e6a529465 host ok 0 0.10 7804
+    f9efcac9808f host ok 0 0.10 7512
+    8aaebea134fb host ok 0 0.10 7764
+    6778a242d1f9 host ok 0 0.10 7836
+    75387404b8af host ok 0 0.10 7696
+    40d747fb5d9e host ok 0 0.10 7852
+    3084c0591814 host ok 0 0.10 7512
+    f3a462783621 host ok 0 0.10 7868
+    ed4c55f07c69 host ok 0 0.10 7720
+    7935c5119065 host ok 0 0.10 7628
+    18d1e8ba72b5 host ok 0 0.10 7764
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the survey run exits 0: as-expected
+  host the survey run's stderr is empty: as-expected
+  survey summary rows: 27; files_identical yes: 27
+  host the survey run still edits nothing: as-expected
+  the survey lines, one per workbook:
+    054df34b1472 survey	entries=25	typed=24	untyped=0	defaults=4	overrides=24	overrides_unresolved=0	rels_parts=7	relationships=78	external=61	resolved=17	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    0fbf4e5e3be9 survey	entries=21	typed=20	untyped=0	defaults=4	overrides=20	overrides_unresolved=0	rels_parts=6	relationships=14	external=0	resolved=14	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    16c3be622455 survey	entries=13	typed=12	untyped=0	defaults=4	overrides=12	overrides_unresolved=0	rels_parts=2	relationships=10	external=0	resolved=10	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    18d1e8ba72b5 survey	entries=82	typed=81	untyped=0	defaults=3	overrides=45	overrides_unresolved=0	rels_parts=21	relationships=60	external=0	resolved=60	unresolved=0	case_only=0	sheets=14	sheets_resolved=14	shared_strings=1	styles=1	calc_chain=1	theme=1
+    3084c0591814 survey	entries=48	typed=47	untyped=0	defaults=4	overrides=30	overrides_unresolved=0	rels_parts=12	relationships=35	external=0	resolved=35	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=1	theme=1
+    40d747fb5d9e survey	entries=28	typed=27	untyped=0	defaults=3	overrides=17	overrides_unresolved=0	rels_parts=7	relationships=20	external=0	resolved=20	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=1	theme=1
+    63e820d98612 survey	entries=11	typed=10	untyped=0	defaults=4	overrides=10	overrides_unresolved=0	rels_parts=2	relationships=8	external=0	resolved=8	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    6778a242d1f9 survey	entries=43	typed=42	untyped=0	defaults=4	overrides=26	overrides_unresolved=0	rels_parts=11	relationships=35	external=3	resolved=32	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=1	theme=1
+    75387404b8af survey	entries=59	typed=58	untyped=0	defaults=6	overrides=28	overrides_unresolved=0	rels_parts=14	relationships=45	external=0	resolved=45	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=1	theme=1
+    7935c5119065 survey	entries=51	typed=50	untyped=0	defaults=6	overrides=29	overrides_unresolved=0	rels_parts=13	relationships=39	external=0	resolved=39	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=1	theme=1
+    80adab651c77 survey	entries=16	typed=15	untyped=0	defaults=4	overrides=15	overrides_unresolved=0	rels_parts=3	relationships=12	external=0	resolved=12	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    885819a9642e survey	entries=22	typed=21	untyped=0	defaults=4	overrides=21	overrides_unresolved=0	rels_parts=6	relationships=15	external=0	resolved=15	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    8aaebea134fb survey	entries=98	typed=97	untyped=0	defaults=4	overrides=58	overrides_unresolved=0	rels_parts=29	relationships=106	external=34	resolved=72	unresolved=0	case_only=0	sheets=8	sheets_resolved=8	shared_strings=1	styles=1	calc_chain=1	theme=1
+    9132ce5303d8 survey	entries=10	typed=9	untyped=0	defaults=4	overrides=9	overrides_unresolved=0	rels_parts=2	relationships=7	external=0	resolved=7	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    9ada43d71c80 survey	entries=19	typed=18	untyped=0	defaults=4	overrides=18	overrides_unresolved=0	rels_parts=4	relationships=38	external=24	resolved=14	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    a72460f992a8 survey	entries=12	typed=11	untyped=0	defaults=4	overrides=11	overrides_unresolved=0	rels_parts=2	relationships=9	external=0	resolved=9	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ab0e6a529465 survey	entries=11	typed=10	untyped=0	defaults=4	overrides=10	overrides_unresolved=0	rels_parts=2	relationships=8	external=0	resolved=8	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ae7e17525a35 survey	entries=12	typed=11	untyped=0	defaults=4	overrides=11	overrides_unresolved=0	rels_parts=2	relationships=9	external=0	resolved=9	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    bdfe649d5b97 survey	entries=21	typed=20	untyped=0	defaults=4	overrides=20	overrides_unresolved=0	rels_parts=6	relationships=15	external=0	resolved=15	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    d8245b84086f survey	entries=15	typed=14	untyped=0	defaults=4	overrides=14	overrides_unresolved=0	rels_parts=3	relationships=11	external=0	resolved=11	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ed2fbd304d51 survey	entries=18	typed=17	untyped=0	defaults=4	overrides=17	overrides_unresolved=0	rels_parts=4	relationships=37	external=24	resolved=13	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ed4c55f07c69 survey	entries=24	typed=23	untyped=0	defaults=3	overrides=15	overrides_unresolved=0	rels_parts=6	relationships=20	external=3	resolved=17	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f2ba081da509 survey	entries=22	typed=21	untyped=0	defaults=4	overrides=21	overrides_unresolved=0	rels_parts=6	relationships=16	external=0	resolved=16	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f3a462783621 survey	entries=71	typed=70	untyped=0	defaults=5	overrides=45	overrides_unresolved=0	rels_parts=16	relationships=59	external=0	resolved=59	unresolved=0	case_only=0	sheets=5	sheets_resolved=5	shared_strings=1	styles=1	calc_chain=1	theme=1
+    f56906d42e0a survey	entries=18	typed=17	untyped=0	defaults=4	overrides=17	overrides_unresolved=0	rels_parts=4	relationships=37	external=24	resolved=13	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f8459281d739 survey	entries=26	typed=25	untyped=0	defaults=4	overrides=25	overrides_unresolved=0	rels_parts=7	relationships=79	external=61	resolved=18	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f9efcac9808f survey	entries=74	typed=73	untyped=0	defaults=4	overrides=46	overrides_unresolved=0	rels_parts=19	relationships=56	external=0	resolved=56	unresolved=0	case_only=0	sheets=6	sheets_resolved=6	shared_strings=1	styles=1	calc_chain=1	theme=1
+  workbook directories holding a stdout file for this label: 27
+  host every workbook left a survey stdout file: as-expected
+  survey_counts over all of them: lines=27 not_survey=0 untyped=0 unresolved=0 case_only=0 overrides_unresolved=0 sheets_unresolved=0 without_shared_strings=0 without_styles=0 with_calc_chain=9 entries=870 typed=843 defaults=110 overrides=614 rels_parts=216 relationships=878 external=234 resolved=644 sheets=95
+  host one survey line per workbook, and no line of another shape: as-expected
+  host no line was anything but a survey line: as-expected
+  host overrides_unresolved is 0, so every Override names an entry: as-expected
+  host untyped is 0, so every entry has a content type: as-expected
+  host unresolved is 0, so every internal target resolves by exact bytes: as-expected
+  host case_only is 0, so the exact-bytes rule needed no case folding: as-expected
+  host sheets_resolved equals sheets in every file: as-expected
+  host shared_strings is 1 in every file: as-expected
+  host styles is 1 in every file: as-expected
+  host 878 relationships in total, as specs/0009 counts: as-expected
+  host 234 of them external: as-expected
+  host 644 internal targets resolved: as-expected
+  host 95 sheets in total: as-expected
+  host 216 rels parts in total: as-expected
+  host 614 overrides in total: as-expected
+  workbooks whose survey line says calc_chain=1: 9
+  their ids: 18d1e8ba72b5 3084c0591814 40d747fb5d9e 6778a242d1f9 75387404b8af 7935c5119065 8aaebea134fb f3a462783621 f9efcac9808f 
+  host the nine workbooks with a chain, as specs/0009 counts: as-expected
+  host with_calc_chain agrees with the ids collected: as-expected
+
+## host edit run, --tool-arg --drop-calc-chain
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-18-14c2e14 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --drop-calc-chain
+  started 2026-09-18T04:19:25Z; ended 2026-09-18T04:21:50Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 0 0.10 7956
+    f56906d42e0a host ok 0 0.10 7828
+    0fbf4e5e3be9 host ok 0 0.10 7656
+    bdfe649d5b97 host ok 0 0.10 7708
+    ae7e17525a35 host ok 0 0.10 7796
+    63e820d98612 host ok 0 0.10 7960
+    054df34b1472 host ok 0 0.10 7892
+    9132ce5303d8 host ok 0 0.10 8072
+    ed2fbd304d51 host ok 0 0.10 7892
+    80adab651c77 host ok 0 0.10 7804
+    9ada43d71c80 host ok 0 0.10 7724
+    885819a9642e host ok 0 0.10 7740
+    f2ba081da509 host ok 0 0.10 7664
+    16c3be622455 host ok 0 0.10 7524
+    a72460f992a8 host ok 0 0.10 7804
+    f8459281d739 host ok 0 0.10 7820
+    ab0e6a529465 host ok 0 0.10 7844
+    f9efcac9808f host ok 1 0.10 7708
+    8aaebea134fb host ok 1 0.10 7628
+    6778a242d1f9 host ok 1 0.10 7628
+    75387404b8af host ok 1 0.10 7620
+    40d747fb5d9e host ok 1 0.10 7844
+    3084c0591814 host ok 1 0.10 7844
+    f3a462783621 host ok 1 0.10 7652
+    ed4c55f07c69 host ok 0 0.10 7904
+    7935c5119065 host ok 1 0.10 7860
+    18d1e8ba72b5 host ok 1 0.10 7700
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the edit run exits 0: as-expected
+  host the edit run's stderr is empty: as-expected
+  summary rows: 27 (manifest rows 27)
+  outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27
+  files_identical yes: 18; no: 9
+  entry totals from the summary: identical 843, recompressed 0, changed 18, dropped 9, added 0
+  host every manifest workbook produced a summary row: as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host no tool left a temporary behind: as-expected
+  host order is preserved in every file: as-expected
+  host the archive comment is unchanged in every file: as-expected
+  host the eighteen without a chain are byte-identical: as-expected
+  host the nine with one are not: as-expected
+  host nine entries dropped in all, one per chain: as-expected
+  host eighteen entries changed in all, two per chain: as-expected
+  host nothing was added: as-expected
+  the ids whose bytes changed are exactly the ids with a chain
+  host the files that changed are exactly the files with a chain: as-expected
+  the acceptance, from the ENTRY rows, per workbook and per class:
+    the entries header, as the runner wrote it:
+      id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  host every column the classifying form indexes is in that header: as-expected
+    files=27 with_files=9 without_files=18 rows=870 with_rows=554 without_rows=316 identical=843 changed=18 dropped=9 recompressed=0 other_status=0 bad_flags=0 descriptor=0 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=0 with_added=0 without_dropped=0 without_changed=0 without_added=0 without_bad_status=0 without_bad_flags=0 changed_other=0
+    entry rows in all: 870
+  host the form saw every entry row: as-expected
+  host it saw all 27 workbooks: as-expected
+  host nine of them are the chain class: as-expected
+  host eighteen are the other: as-expected
+  host each chain workbook dropped exactly one entry: as-expected
+  host each chain workbook changed exactly two: as-expected
+  host one of the two is [Content_Types].xml in every chain workbook: as-expected
+  host the other is a rels part in every chain workbook: as-expected
+  host no chain workbook added an entry: as-expected
+  host no entry of another name was changed: as-expected
+  host every entry of the eighteen is identical: as-expected
+  host no entry of the eighteen carries a flag: as-expected
+  host no entry anywhere carries a flag other than descriptor: as-expected
+  host no entry was recompressed: as-expected
+  host no entry carries a status outside the three expected: as-expected
+    entries carrying the descriptor flag, which the acceptance allows: 0
+  no row violated an expectation
+  per workbook, id and the acceptance columns:
+    d8245b84086f host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=15 changed=0 dropped=0 flagged=0
+    f56906d42e0a host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=18 changed=0 dropped=0 flagged=0
+    0fbf4e5e3be9 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=21 changed=0 dropped=0 flagged=0
+    bdfe649d5b97 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=21 changed=0 dropped=0 flagged=0
+    ae7e17525a35 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=12 changed=0 dropped=0 flagged=0
+    63e820d98612 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=11 changed=0 dropped=0 flagged=0
+    054df34b1472 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=25 changed=0 dropped=0 flagged=0
+    9132ce5303d8 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=10 changed=0 dropped=0 flagged=0
+    ed2fbd304d51 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=18 changed=0 dropped=0 flagged=0
+    80adab651c77 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=16 changed=0 dropped=0 flagged=0
+    9ada43d71c80 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=19 changed=0 dropped=0 flagged=0
+    885819a9642e host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=22 changed=0 dropped=0 flagged=0
+    f2ba081da509 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=22 changed=0 dropped=0 flagged=0
+    16c3be622455 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=13 changed=0 dropped=0 flagged=0
+    a72460f992a8 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=12 changed=0 dropped=0 flagged=0
+    f8459281d739 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=26 changed=0 dropped=0 flagged=0
+    ab0e6a529465 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=11 changed=0 dropped=0 flagged=0
+    f9efcac9808f host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=71 changed=2 dropped=1 flagged=0
+    8aaebea134fb host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=95 changed=2 dropped=1 flagged=0
+    6778a242d1f9 host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=40 changed=2 dropped=1 flagged=0
+    75387404b8af host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=56 changed=2 dropped=1 flagged=0
+    40d747fb5d9e host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=25 changed=2 dropped=1 flagged=0
+    3084c0591814 host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=45 changed=2 dropped=1 flagged=0
+    f3a462783621 host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=68 changed=2 dropped=1 flagged=0
+    ed4c55f07c69 host outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=24 changed=0 dropped=0 flagged=0
+    7935c5119065 host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=48 changed=2 dropped=1 flagged=0
+    18d1e8ba72b5 host outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=79 changed=2 dropped=1 flagged=0
+  the diff exit codes, by class:
+    diff_exit 0: 18; diff_exit 1: 9
+  host the eighteen unchanged files diff to exit 0: as-expected
+  host the nine changed files diff to exit 1: as-expected
+  the element counts for one dropped case, as specs/0009 asks:
+    the case: 18d1e8ba72b5 (the first of this label's nine)
+    the two changed parts: [Content_Types].xml and xl/_rels/workbook.xml.rels
+    Override elements in [Content_Types].xml: input 45, output 44
+    Relationship elements in that rels part: input 21, output 20
+  host the output has one Override fewer: as-expected
+  host the output has one Relationship fewer: as-expected
+
+## i686 survey run (the classification the edit run is judged by)
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-18-14c2e14-survey --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --survey
+  started 2026-09-18T04:21:51Z; ended 2026-09-18T04:24:17Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 0 0.10 7688
+    f56906d42e0a i686 ok 0 0.10 7528
+    0fbf4e5e3be9 i686 ok 0 0.10 7808
+    bdfe649d5b97 i686 ok 0 0.10 7884
+    ae7e17525a35 i686 ok 0 0.10 7712
+    63e820d98612 i686 ok 0 0.10 7736
+    054df34b1472 i686 ok 0 0.10 7812
+    9132ce5303d8 i686 ok 0 0.10 7772
+    ed2fbd304d51 i686 ok 0 0.10 7788
+    80adab651c77 i686 ok 0 0.10 7692
+    9ada43d71c80 i686 ok 0 0.10 7664
+    885819a9642e i686 ok 0 0.10 7612
+    f2ba081da509 i686 ok 0 0.10 7780
+    16c3be622455 i686 ok 0 0.10 7796
+    a72460f992a8 i686 ok 0 0.10 7992
+    f8459281d739 i686 ok 0 0.10 7732
+    ab0e6a529465 i686 ok 0 0.10 7768
+    f9efcac9808f i686 ok 0 0.10 7944
+    8aaebea134fb i686 ok 0 0.10 7848
+    6778a242d1f9 i686 ok 0 0.10 7608
+    75387404b8af i686 ok 0 0.10 7788
+    40d747fb5d9e i686 ok 0 0.10 7956
+    3084c0591814 i686 ok 0 0.10 7948
+    f3a462783621 i686 ok 0 0.10 7756
+    ed4c55f07c69 i686 ok 0 0.10 7800
+    7935c5119065 i686 ok 0 0.10 7668
+    18d1e8ba72b5 i686 ok 0 0.10 7796
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the survey run exits 0: as-expected
+  i686 the survey run's stderr is empty: as-expected
+  survey summary rows: 27; files_identical yes: 27
+  i686 the survey run still edits nothing: as-expected
+  the survey lines, one per workbook:
+    054df34b1472 survey	entries=25	typed=24	untyped=0	defaults=4	overrides=24	overrides_unresolved=0	rels_parts=7	relationships=78	external=61	resolved=17	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    0fbf4e5e3be9 survey	entries=21	typed=20	untyped=0	defaults=4	overrides=20	overrides_unresolved=0	rels_parts=6	relationships=14	external=0	resolved=14	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    16c3be622455 survey	entries=13	typed=12	untyped=0	defaults=4	overrides=12	overrides_unresolved=0	rels_parts=2	relationships=10	external=0	resolved=10	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    18d1e8ba72b5 survey	entries=82	typed=81	untyped=0	defaults=3	overrides=45	overrides_unresolved=0	rels_parts=21	relationships=60	external=0	resolved=60	unresolved=0	case_only=0	sheets=14	sheets_resolved=14	shared_strings=1	styles=1	calc_chain=1	theme=1
+    3084c0591814 survey	entries=48	typed=47	untyped=0	defaults=4	overrides=30	overrides_unresolved=0	rels_parts=12	relationships=35	external=0	resolved=35	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=1	theme=1
+    40d747fb5d9e survey	entries=28	typed=27	untyped=0	defaults=3	overrides=17	overrides_unresolved=0	rels_parts=7	relationships=20	external=0	resolved=20	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=1	theme=1
+    63e820d98612 survey	entries=11	typed=10	untyped=0	defaults=4	overrides=10	overrides_unresolved=0	rels_parts=2	relationships=8	external=0	resolved=8	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    6778a242d1f9 survey	entries=43	typed=42	untyped=0	defaults=4	overrides=26	overrides_unresolved=0	rels_parts=11	relationships=35	external=3	resolved=32	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=1	theme=1
+    75387404b8af survey	entries=59	typed=58	untyped=0	defaults=6	overrides=28	overrides_unresolved=0	rels_parts=14	relationships=45	external=0	resolved=45	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=1	theme=1
+    7935c5119065 survey	entries=51	typed=50	untyped=0	defaults=6	overrides=29	overrides_unresolved=0	rels_parts=13	relationships=39	external=0	resolved=39	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=1	theme=1
+    80adab651c77 survey	entries=16	typed=15	untyped=0	defaults=4	overrides=15	overrides_unresolved=0	rels_parts=3	relationships=12	external=0	resolved=12	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    885819a9642e survey	entries=22	typed=21	untyped=0	defaults=4	overrides=21	overrides_unresolved=0	rels_parts=6	relationships=15	external=0	resolved=15	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    8aaebea134fb survey	entries=98	typed=97	untyped=0	defaults=4	overrides=58	overrides_unresolved=0	rels_parts=29	relationships=106	external=34	resolved=72	unresolved=0	case_only=0	sheets=8	sheets_resolved=8	shared_strings=1	styles=1	calc_chain=1	theme=1
+    9132ce5303d8 survey	entries=10	typed=9	untyped=0	defaults=4	overrides=9	overrides_unresolved=0	rels_parts=2	relationships=7	external=0	resolved=7	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    9ada43d71c80 survey	entries=19	typed=18	untyped=0	defaults=4	overrides=18	overrides_unresolved=0	rels_parts=4	relationships=38	external=24	resolved=14	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    a72460f992a8 survey	entries=12	typed=11	untyped=0	defaults=4	overrides=11	overrides_unresolved=0	rels_parts=2	relationships=9	external=0	resolved=9	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ab0e6a529465 survey	entries=11	typed=10	untyped=0	defaults=4	overrides=10	overrides_unresolved=0	rels_parts=2	relationships=8	external=0	resolved=8	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ae7e17525a35 survey	entries=12	typed=11	untyped=0	defaults=4	overrides=11	overrides_unresolved=0	rels_parts=2	relationships=9	external=0	resolved=9	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    bdfe649d5b97 survey	entries=21	typed=20	untyped=0	defaults=4	overrides=20	overrides_unresolved=0	rels_parts=6	relationships=15	external=0	resolved=15	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    d8245b84086f survey	entries=15	typed=14	untyped=0	defaults=4	overrides=14	overrides_unresolved=0	rels_parts=3	relationships=11	external=0	resolved=11	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ed2fbd304d51 survey	entries=18	typed=17	untyped=0	defaults=4	overrides=17	overrides_unresolved=0	rels_parts=4	relationships=37	external=24	resolved=13	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    ed4c55f07c69 survey	entries=24	typed=23	untyped=0	defaults=3	overrides=15	overrides_unresolved=0	rels_parts=6	relationships=20	external=3	resolved=17	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f2ba081da509 survey	entries=22	typed=21	untyped=0	defaults=4	overrides=21	overrides_unresolved=0	rels_parts=6	relationships=16	external=0	resolved=16	unresolved=0	case_only=0	sheets=2	sheets_resolved=2	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f3a462783621 survey	entries=71	typed=70	untyped=0	defaults=5	overrides=45	overrides_unresolved=0	rels_parts=16	relationships=59	external=0	resolved=59	unresolved=0	case_only=0	sheets=5	sheets_resolved=5	shared_strings=1	styles=1	calc_chain=1	theme=1
+    f56906d42e0a survey	entries=18	typed=17	untyped=0	defaults=4	overrides=17	overrides_unresolved=0	rels_parts=4	relationships=37	external=24	resolved=13	unresolved=0	case_only=0	sheets=3	sheets_resolved=3	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f8459281d739 survey	entries=26	typed=25	untyped=0	defaults=4	overrides=25	overrides_unresolved=0	rels_parts=7	relationships=79	external=61	resolved=18	unresolved=0	case_only=0	sheets=4	sheets_resolved=4	shared_strings=1	styles=1	calc_chain=0	theme=1
+    f9efcac9808f survey	entries=74	typed=73	untyped=0	defaults=4	overrides=46	overrides_unresolved=0	rels_parts=19	relationships=56	external=0	resolved=56	unresolved=0	case_only=0	sheets=6	sheets_resolved=6	shared_strings=1	styles=1	calc_chain=1	theme=1
+  workbook directories holding a stdout file for this label: 27
+  i686 every workbook left a survey stdout file: as-expected
+  survey_counts over all of them: lines=27 not_survey=0 untyped=0 unresolved=0 case_only=0 overrides_unresolved=0 sheets_unresolved=0 without_shared_strings=0 without_styles=0 with_calc_chain=9 entries=870 typed=843 defaults=110 overrides=614 rels_parts=216 relationships=878 external=234 resolved=644 sheets=95
+  i686 one survey line per workbook, and no line of another shape: as-expected
+  i686 no line was anything but a survey line: as-expected
+  i686 overrides_unresolved is 0, so every Override names an entry: as-expected
+  i686 untyped is 0, so every entry has a content type: as-expected
+  i686 unresolved is 0, so every internal target resolves by exact bytes: as-expected
+  i686 case_only is 0, so the exact-bytes rule needed no case folding: as-expected
+  i686 sheets_resolved equals sheets in every file: as-expected
+  i686 shared_strings is 1 in every file: as-expected
+  i686 styles is 1 in every file: as-expected
+  i686 878 relationships in total, as specs/0009 counts: as-expected
+  i686 234 of them external: as-expected
+  i686 644 internal targets resolved: as-expected
+  i686 95 sheets in total: as-expected
+  i686 216 rels parts in total: as-expected
+  i686 614 overrides in total: as-expected
+  workbooks whose survey line says calc_chain=1: 9
+  their ids: 18d1e8ba72b5 3084c0591814 40d747fb5d9e 6778a242d1f9 75387404b8af 7935c5119065 8aaebea134fb f3a462783621 f9efcac9808f 
+  i686 the nine workbooks with a chain, as specs/0009 counts: as-expected
+  i686 with_calc_chain agrees with the ids collected: as-expected
+
+## i686 edit run, --tool-arg --drop-calc-chain
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-18-14c2e14 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --drop-calc-chain
+  started 2026-09-18T04:24:18Z; ended 2026-09-18T04:26:45Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 0 0.10 7628
+    f56906d42e0a i686 ok 0 0.10 7808
+    0fbf4e5e3be9 i686 ok 0 0.10 7964
+    bdfe649d5b97 i686 ok 0 0.10 7660
+    ae7e17525a35 i686 ok 0 0.10 7708
+    63e820d98612 i686 ok 0 0.10 7624
+    054df34b1472 i686 ok 0 0.10 8064
+    9132ce5303d8 i686 ok 0 0.10 7784
+    ed2fbd304d51 i686 ok 0 0.10 8004
+    80adab651c77 i686 ok 0 0.10 7912
+    9ada43d71c80 i686 ok 0 0.10 7844
+    885819a9642e i686 ok 0 0.10 7836
+    f2ba081da509 i686 ok 0 0.10 7640
+    16c3be622455 i686 ok 0 0.10 7932
+    a72460f992a8 i686 ok 0 0.10 7788
+    f8459281d739 i686 ok 0 0.10 7792
+    ab0e6a529465 i686 ok 0 0.10 7556
+    f9efcac9808f i686 ok 1 0.10 7788
+    8aaebea134fb i686 ok 1 0.10 7444
+    6778a242d1f9 i686 ok 1 0.10 7620
+    75387404b8af i686 ok 1 0.10 7608
+    40d747fb5d9e i686 ok 1 0.10 7924
+    3084c0591814 i686 ok 1 0.10 7648
+    f3a462783621 i686 ok 1 0.10 7704
+    ed4c55f07c69 i686 ok 0 0.10 7788
+    7935c5119065 i686 ok 1 0.10 7872
+    18d1e8ba72b5 i686 ok 1 0.10 7476
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the edit run exits 0: as-expected
+  i686 the edit run's stderr is empty: as-expected
+  summary rows: 27 (manifest rows 27)
+  outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27
+  files_identical yes: 18; no: 9
+  entry totals from the summary: identical 843, recompressed 0, changed 18, dropped 9, added 0
+  i686 every manifest workbook produced a summary row: as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 no tool left a temporary behind: as-expected
+  i686 order is preserved in every file: as-expected
+  i686 the archive comment is unchanged in every file: as-expected
+  i686 the eighteen without a chain are byte-identical: as-expected
+  i686 the nine with one are not: as-expected
+  i686 nine entries dropped in all, one per chain: as-expected
+  i686 eighteen entries changed in all, two per chain: as-expected
+  i686 nothing was added: as-expected
+  the ids whose bytes changed are exactly the ids with a chain
+  i686 the files that changed are exactly the files with a chain: as-expected
+  the acceptance, from the ENTRY rows, per workbook and per class:
+    the entries header, as the runner wrote it:
+      id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  i686 every column the classifying form indexes is in that header: as-expected
+    files=27 with_files=9 without_files=18 rows=870 with_rows=554 without_rows=316 identical=843 changed=18 dropped=9 recompressed=0 other_status=0 bad_flags=0 descriptor=0 with_wrong_dropped=0 with_wrong_changed=0 with_no_types_change=0 with_no_rels_change=0 with_added=0 without_dropped=0 without_changed=0 without_added=0 without_bad_status=0 without_bad_flags=0 changed_other=0
+    entry rows in all: 870
+  i686 the form saw every entry row: as-expected
+  i686 it saw all 27 workbooks: as-expected
+  i686 nine of them are the chain class: as-expected
+  i686 eighteen are the other: as-expected
+  i686 each chain workbook dropped exactly one entry: as-expected
+  i686 each chain workbook changed exactly two: as-expected
+  i686 one of the two is [Content_Types].xml in every chain workbook: as-expected
+  i686 the other is a rels part in every chain workbook: as-expected
+  i686 no chain workbook added an entry: as-expected
+  i686 no entry of another name was changed: as-expected
+  i686 every entry of the eighteen is identical: as-expected
+  i686 no entry of the eighteen carries a flag: as-expected
+  i686 no entry anywhere carries a flag other than descriptor: as-expected
+  i686 no entry was recompressed: as-expected
+  i686 no entry carries a status outside the three expected: as-expected
+    entries carrying the descriptor flag, which the acceptance allows: 0
+  no row violated an expectation
+  per workbook, id and the acceptance columns:
+    d8245b84086f i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=15 changed=0 dropped=0 flagged=0
+    f56906d42e0a i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=18 changed=0 dropped=0 flagged=0
+    0fbf4e5e3be9 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=21 changed=0 dropped=0 flagged=0
+    bdfe649d5b97 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=21 changed=0 dropped=0 flagged=0
+    ae7e17525a35 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=12 changed=0 dropped=0 flagged=0
+    63e820d98612 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=11 changed=0 dropped=0 flagged=0
+    054df34b1472 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=25 changed=0 dropped=0 flagged=0
+    9132ce5303d8 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=10 changed=0 dropped=0 flagged=0
+    ed2fbd304d51 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=18 changed=0 dropped=0 flagged=0
+    80adab651c77 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=16 changed=0 dropped=0 flagged=0
+    9ada43d71c80 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=19 changed=0 dropped=0 flagged=0
+    885819a9642e i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=22 changed=0 dropped=0 flagged=0
+    f2ba081da509 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=22 changed=0 dropped=0 flagged=0
+    16c3be622455 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=13 changed=0 dropped=0 flagged=0
+    a72460f992a8 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=12 changed=0 dropped=0 flagged=0
+    f8459281d739 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=26 changed=0 dropped=0 flagged=0
+    ab0e6a529465 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=11 changed=0 dropped=0 flagged=0
+    f9efcac9808f i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=71 changed=2 dropped=1 flagged=0
+    8aaebea134fb i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=95 changed=2 dropped=1 flagged=0
+    6778a242d1f9 i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=40 changed=2 dropped=1 flagged=0
+    75387404b8af i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=56 changed=2 dropped=1 flagged=0
+    40d747fb5d9e i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=25 changed=2 dropped=1 flagged=0
+    3084c0591814 i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=45 changed=2 dropped=1 flagged=0
+    f3a462783621 i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=68 changed=2 dropped=1 flagged=0
+    ed4c55f07c69 i686 outcome=ok diff_exit=0 files_identical=yes leftover=no lo=ok lo_in=ok identical=24 changed=0 dropped=0 flagged=0
+    7935c5119065 i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=48 changed=2 dropped=1 flagged=0
+    18d1e8ba72b5 i686 outcome=ok diff_exit=1 files_identical=no leftover=no lo=ok lo_in=ok identical=79 changed=2 dropped=1 flagged=0
+  the diff exit codes, by class:
+    diff_exit 0: 18; diff_exit 1: 9
+  i686 the eighteen unchanged files diff to exit 0: as-expected
+  i686 the nine changed files diff to exit 1: as-expected
+  the element counts for one dropped case, as specs/0009 asks:
+    the case: 18d1e8ba72b5 (the first of this label's nine)
+    the two changed parts: [Content_Types].xml and xl/_rels/workbook.xml.rels
+    Override elements in [Content_Types].xml: input 45, output 44
+    Relationship elements in that rels part: input 21, output 20
+  i686 the output has one Override fewer: as-expected
+  i686 the output has one Relationship fewer: as-expected
+
+## the two labels agree on every entry's class and status
+  the two labels' id, name, status and flags rows are identical
+  both targets classified every entry the same way: as-expected
+
+## the two labels agree on every survey line
+  the two labels' survey lines are identical, byte for byte
+  both targets printed the same survey lines: as-expected
+  both targets found the same nine workbooks with a chain: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: 14c2e144c4c90069794886c04ae21ca57b8303c2	2026-09-18T04:19:25Z	2026-09-18T04:21:50Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	1e646b9064d73486c631bc347be441701cb783688539fb82bfe9628ef1db8d64	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27	--drop-calc-chain
+  run.host.tsv tool_args: [--drop-calc-chain]
+  host the run row records the operation, so this is not a no-edit run: as-expected
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: 14c2e144c4c90069794886c04ae21ca57b8303c2	2026-09-18T04:24:18Z	2026-09-18T04:26:45Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	d820c886cde918b19fabdebce193427bfac968448516fdd5c6e621be6a15614d	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27	--drop-calc-chain
+  run.i686.tsv tool_args: [--drop-calc-chain]
+  i686 the run row records the operation, so this is not a no-edit run: as-expected
+
+## the record pair
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-18-14c2e14 --stem m1p2-p3-2026-09-18-14c2e14
+    wrote m1p2-p3-2026-09-18-14c2e14.txt and m1p2-p3-2026-09-18-14c2e14.md: labels host,i686; files 27,27; entry rows 870,870
+  the record script exits 0: as-expected
+  records/m1p2-p3-2026-09-18-14c2e14.md: 9257 bytes, sha256 48cf689800e0ad0bd518a705baa8b251c6c280313e2750debd1bf342bf25a5a6
+  records/m1p2-p3-2026-09-18-14c2e14.txt: 197958 bytes, sha256 7c136b3e145c96efa7cdd5466c00000fde7532862b16736575942074647e7902
+  both halves of the record pair were written: as-expected
+  the record's Tool arguments line:
+    11:- Tool arguments: --drop-calc-chain
+  lines of the record naming the operation: 1
+  the record names the operation it was run with: as-expected
+
+## the record pair holds no corpus path and no absolute path
+  records/m1p2-p3-2026-09-18-14c2e14.md: lines naming a home, mount or corpus path: 0
+  records/m1p2-p3-2026-09-18-14c2e14.md carries no such path: as-expected
+  records/m1p2-p3-2026-09-18-14c2e14.txt: lines naming a home, mount or corpus path: 0
+  records/m1p2-p3-2026-09-18-14c2e14.txt carries no such path: as-expected
+  control: the path form finds a planted path (1): as-expected
+
+## status after the runs
+status lines: 3; of them under the phase log directory or the record pair: 3
+  every change in the working tree is a log or the record pair: as-expected
+run ended at 2026-09-18T04:26:45Z
+run log checks all as expected: yes
