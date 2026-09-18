@@ -159,6 +159,13 @@ from this needs planning's word before the run (T2 P7 ruling).
     with the pre-P6d forms of those patterns as a bare-shape control
     and expects 0; a documented, reversible replacement (as in T1 P2
     departure 12) is the only allowed exception.
+  - A scan script scans its own source file with the pre-P6d forms
+    before printing itself into the log, as a structural check with a
+    control, because no scan reads the log it writes and a shape in a
+    script comment survived every phase scan of M1 part 2 P3. Prose
+    that must refer to one of those shapes says it in words or builds
+    it by concatenation as the scans' controls do; the shape itself is
+    never written (M1 part 2 close-out ruling, 2026-09-18).
   - Logs and check answers write the repository as `<repo>`, scratch
     locations as `<scratch>` and the home directory as `<home>`; an
     absolute machine path in a log is a defect (T0 P6d ruling).

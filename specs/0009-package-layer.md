@@ -6,8 +6,10 @@ same day). P1 DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c,
 (doc bbde39e, 77504d0, 59f6668, 69bb8db, 759e827, c8b8fec; code
 82d4e77, 5fc1b3d, 1334830; record eacffa2); P3 DONE 2026-09-18 (doc
 0a884ee, f45a3e3, 6adccce, c9c25c3, d6fcc5f; code 11de26e, 5fdf65a,
-5dba448, e04db06, 14c2e14; record 711fc8b); the close-out push READY
-pending the maintainer's authorisation.
+5dba448, e04db06, 14c2e14; record 711fc8b); the close-out PUSHED
+2026-09-18 (doc f4f48e8, 30 commits, CI run 35341839926 success); its
+record commit carries a recorded finding ("Planning rulings on the
+close-out").
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `ROADMAP.md` ("Milestone 1"), `specs/0008-zip-layer.md` (the zip
 layer's API, the harness expectation for a replaced entry, "Size" with
@@ -1232,6 +1234,87 @@ recorded in `specs/0008` "Size" and in part 3's spec when given.
 
 As `specs/0005-corpus.md`, "Close-out push (after P7)", with the
 close-out scripts as part 1 ran them.
+
+Planning rulings on the close-out (2026-09-18):
+
+1. The push is verified from primaries. origin/main equals local main
+   at f4f48e8 (fetched by planning). The doc commit f4f48e8 holds
+   exactly planning's three files (141 insertions, 9 deletions, no
+   code). push.log records the nine-step gate before the push, the
+   hook's range 7e9846a..f4f48e8 with 30 commits, 376 blobs and 0
+   findings, remote main equal to local main and the repository
+   PRIVATE. ci-run.log records run 35341839926 on f4f48e8, completed
+   success, PASS host to hygiene with doc among them, SKIP privacy.
+   Planning counted 0 control or non-ASCII bytes and 0 bare shapes in
+   both logs.
+2. The scan's structural failure is a true finding, not a conflict of
+   rules. T0 P6d narrowed the GATE, so a real check answer that names a
+   pattern's shape is not refused. `specs/0001` "Rules for every phase"
+   kept the requirement that the project's own files write no bare
+   shape, proved by every scan script's pre-P6d control expecting 0,
+   with a documented reversible replacement as the only exception. The
+   two instruments govern different things and both stand; the ROADMAP
+   P6d row now says "passes the gate". Planning reproduced the count:
+   over the 56 files of the pushed range at f4f48e8 the three pre-P6d
+   forms hit 2 lines, both in `records/logs/m1p2-p3/scan.log` (lines
+   79 and 130, the same comment in the printed script's change list
+   and at the f_home definition), and 0 lines elsewhere in the whole
+   tracked tree. Not a leak: the line names no account and no machine.
+   It is a form defect of the committed log, of the class the rule
+   forbids; the same script builds that shape by concatenation for its
+   own controls, so the technique was at hand. The expectation stays
+   at 0.
+3. Why no phase scan saw it: a scan script prints itself into the log
+   it writes, and no scan reads its own log. The gap is closed by a
+   rule, not by another check round: a scan script runs the pre-P6d
+   forms over its own source file before printing itself, as a
+   structural check with a control (`specs/0001`, new bullet).
+4. The scan output as it stands is NOT installed. Its own printed
+   script carries the same comment (planning counted 1 hit, at output
+   line 36), so committing it would seed part 3's close-out range with
+   a third hit. The close-out scan is rerun, its header naming both
+   superseded attempts by sha256, with exactly these changes: (a) the
+   comment names no shape ("a Windows user path", or the concatenated
+   form); (b) the self-scan of ruling 3, a structural check whose
+   control plants one concatenated shape in a copy of the source and
+   counts 1; (c) the range's tip is read from git as the close-out doc
+   commit by subject, the way the base is, never as HEAD, because HEAD
+   is past f4f48e8 once this ruling's doc commit lands; the header
+   still prints HEAD at run; (d) the correction log of ruling 5 is a
+   sibling, hashed and scanned like push.log and ci-run.log. Nothing
+   else changes, and the pre-P6d expectation of 0 is not touched. The
+   rerun ends RESULT: FAIL on the same two hits and is committed as
+   such: a failing run is a finding to record (CLAUDE.md), and this
+   one cannot pass for this range because the file is committed and
+   pushed. The fix is rulings 3 and 5; the run again with the fix
+   named is part 3's close-out scan, whose range does not contain that
+   file and whose header names this finding.
+5. A correction log, `records/logs/m1p2-close/correction.log`, in the
+   T3 P4 `record.log` form: it names the superseded lines by number
+   and by place (the two comment lines of the printed script, lines 79
+   and 130 of `records/logs/m1p2-p3/scan.log`) and the record commit
+   711fc8b they were committed at, resolved from git by subject; it
+   prints the replacement wording; and it proves what it names by a
+   printed command that counts the pre-P6d hits in that file (2) and
+   lists the hit line numbers (79 130), never the matched text. The
+   log writes no shape.
+6. f_home's narrowing in the close scan (attempt 1 superseded, sha256
+   8f6315f8...) is accepted. The three hits were deliberate prose:
+   `specs/0001` recording the maintainer's ruling that `/home/dev`
+   identifies no person, the same file's list of what the scans look
+   for, and a part 2 P1 check answer asserting the form does not
+   occur. Flagging the home directory only where a path continues into
+   it is the P6d principle applied to this form, and its ten controls
+   use the same command form. Part 3's phase scan carries this
+   narrowed f_home, not P3's first form, which passed only because
+   P3's files name no path.
+7. Order: this ruling goes in a doc commit holding planning's three
+   files unedited (ROADMAP.md, specs/0001-bootstrap.md,
+   specs/0009-package-layer.md); then correction.log; then the scan
+   rerun; then ONE record commit holding push.log, ci-run.log,
+   correction.log and scan.log. Both commits go with the next push. No
+   independent check, as the close-out spec says. Report and STOP;
+   part 3's spec follows.
 
 ## Out of scope
 
