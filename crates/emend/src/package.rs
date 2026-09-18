@@ -33,7 +33,7 @@
 //!
 //! [`Error::Package`] carries one of these fixed strings and nothing else:
 //!
-//! - "no `[Content_Types].xml` part" (`open_reads_no_xml`,
+//! - "no \[Content_Types\].xml part" (`open_reads_no_xml`,
 //!   `content_types_part_absent`).
 //! - "a content types part whose root is not Types" (`root_wrong_in_types`).
 //! - "a Default, Override or Relationship element lacks a required attribute"
@@ -425,7 +425,7 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// # Errors
     ///
-    /// [`Error::Package`] "no `[Content_Types].xml` part" or "a content types
+    /// [`Error::Package`] "no \[Content_Types\].xml part" or "a content types
     /// part whose root is not Types"; [`Error::Xml`] for bytes that are not
     /// well-formed XML.
     pub fn content_types(&mut self) -> Result<&ContentTypes, Error> {

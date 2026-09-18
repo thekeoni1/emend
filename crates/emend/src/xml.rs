@@ -26,7 +26,8 @@
 //!
 //! # Errors
 //!
-//! This module produces one variant, catalogued here as `archive`'s are:
+//! This module produces two variants of its own, catalogued here as
+//! `archive`'s are, and [`Scope`] raises a third:
 //!
 //! - [`Error::Xml`], carrying the entry's index: the part's bytes are not
 //!   well-formed XML as `quick-xml` reads it (see Limits for what that
@@ -38,8 +39,16 @@
 //!   never reported as a malformed part. The kind is carried across, not the
 //!   error itself: `quick-xml` holds its I/O error in an `Arc` to stay
 //!   `Clone`, so it cannot be moved out (see `parse_error`).
+//! - [`Error::Package`] "an element or attribute uses a prefix its document
+//!   does not bind", from [`Scope::resolve_element`] and
+//!   [`Scope::resolve_attribute`]. It is catalogued with the fourteen other
+//!   package messages, and with the test that pins it
+//!   (`package::tests::rel_id_prefix_unbound`), in [`crate::package`]'s
+//!   module header rather than here, since the only way to reach it is
+//!   through a package part.
 //!
-//! Both are asserted by a test in this module's `tests`.
+//! The first two are asserted by a test in this module's `tests`; the third
+//! is asserted from `package`, where the only caller that can reach it is.
 //!
 //! # Limits
 //!
@@ -312,12 +321,12 @@ fn parse_error(err: quick_xml::Error, index: usize) -> Error {
 ///   read through `normalized_value` rather than compared as written
 ///   (`specs/0009-package-layer.md`, P2 ruling 2).
 ///
-/// The version passed is `XmlVersion::Implicit1_0`. The ruling names
-/// `Version10`, which 0.42.0 does not have: its variants are `Implicit1_0`,
-/// `Explicit1_0` and `Explicit1_1`, the two 1.0 ones taking the same XML 1.0
-/// path (1.1 would additionally fold U+0085 and U+2028). `Implicit1_0` is
-/// also what the crate's own deprecated `unescape_value` passes, so this call
-/// is the method the spec first named, with the deprecation gone.
+/// The version passed is `XmlVersion::Implicit1_0`, which the ruling names:
+/// 0.42.0's variants are `Implicit1_0`, `Explicit1_0` and `Explicit1_1`, the
+/// two 1.0 ones taking the same XML 1.0 path (1.1 would additionally fold
+/// U+0085 and U+2028). `Implicit1_0` is also what the crate's own deprecated
+/// `unescape_value` passes, so this call is the method the spec first named,
+/// with the deprecation gone.
 pub struct Scope {
     /// Each binding as (depth, prefix, namespace); the prefix is `None` for a
     /// default namespace. Later entries shadow earlier ones with the same

@@ -5,8 +5,11 @@
 //! [`crate::testing`], so nothing that builds a test package shares code with
 //! the layer under test and the crate keeps its two dependencies.
 //!
-//! The smallest package is five parts: `[Content_Types].xml`, `_rels/.rels`,
-//! `xl/workbook.xml`, `xl/_rels/workbook.xml.rels` and one worksheet. Each
+//! The smallest package is six parts: `[Content_Types].xml`, `_rels/.rels`,
+//! `xl/workbook.xml`, `xl/_rels/workbook.xml.rels`, one worksheet and
+//! `xl/styles.xml`, which the workbook's relationships name and
+//! `workbook_options_take_the_first` needs, and which is why
+//! `open_reads_no_xml` asserts six entries. Each
 //! test starts from [`smallest`] and replaces or removes exactly the part it
 //! is about, so what a test changes is what it asserts.
 
@@ -48,7 +51,7 @@ fn relationship(id: &str, kind: &str, target: &str) -> String {
     format!("<Relationship Id=\"{id}\" Type=\"{kind}\" Target=\"{target}\"/>")
 }
 
-/// The five parts of the smallest package, in the order a producer writes
+/// The six parts of the smallest package, in the order a producer writes
 /// them.
 fn smallest() -> Vec<(Vec<u8>, Vec<u8>)> {
     let content_types = types(&format!(
@@ -208,14 +211,27 @@ fn map_resolves() {
 #[test]
 fn target_absolute() {
     let mut parts = smallest();
-    // Ten of the corpus's twenty-seven files write the workbook this way.
+    // Ten of the corpus's twenty-seven files write the workbook this way. The
+    // second relationship is the same part reached by an absolute target that
+    // also carries a `.` and a `..`, which `target_part` resolves in either
+    // form (`specs/0009-package-layer.md`, P2 ruling 5, pinned by a fixture
+    // rather than by argument in the P2 verification ruling 2). No corpus
+    // target combines the two, so only this fixture covers it.
     set(
         &mut parts,
         b"_rels/.rels",
-        rels(&relationship(
-            "rId1",
-            &format!("{ATTR_NS}/officeDocument"),
-            "/xl/workbook.xml",
+        rels(&format!(
+            "{}{}",
+            relationship(
+                "rId1",
+                &format!("{ATTR_NS}/officeDocument"),
+                "/xl/workbook.xml"
+            ),
+            relationship(
+                "rId2",
+                &format!("{ATTR_NS}/theme"),
+                "/xl/./nowhere/../workbook.xml"
+            ),
         )),
     );
     let mut package = package(parts);
@@ -223,6 +239,21 @@ fn target_absolute() {
         package.workbook().expect("workbook").part,
         b"xl/workbook.xml",
         "an absolute target loses its slash"
+    );
+    let package_rels = package.relationships(b"").expect("package rels");
+    let plain = package_rels.by_id(b"rId1").expect("the plain absolute one");
+    let dotted = package_rels
+        .by_id(b"rId2")
+        .expect("the dotted absolute one");
+    assert_eq!(
+        package_rels.target_part(dotted).expect("it resolves"),
+        b"xl/workbook.xml",
+        "`.` and `..` resolve in an absolute target too"
+    );
+    assert_eq!(
+        package_rels.target_part(dotted).expect("it resolves"),
+        package_rels.target_part(plain).expect("it resolves"),
+        "the two forms name the same entry"
     );
 }
 

@@ -613,6 +613,12 @@ const ATTR_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/rel
 /// The smallest package the survey can count, plus one untyped entry and one
 /// external relationship so that every key it prints has something to count.
 fn package_specs() -> Vec<Spec> {
+    package_specs_with("")
+}
+
+/// The same package with `extra` more `Override` elements, so a test can make
+/// an override name a part the archive does not hold.
+fn package_specs_with(extra: &str) -> Vec<Spec> {
     let content_types = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
          <Types xmlns=\"{TYPES_NS}\">\
@@ -620,7 +626,7 @@ fn package_specs() -> Vec<Spec> {
          <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
          <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
          <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
-         </Types>"
+         {extra}</Types>"
     );
     let package_rels = format!(
         "<Relationships xmlns=\"{RELS_NS}\">\
@@ -666,7 +672,8 @@ fn the_survey_counts_the_map_and_edits_nothing() {
     assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
     assert_eq!(
         ran.stdout,
-        "survey\tentries=7\ttyped=5\tuntyped=1\tdefaults=2\toverrides=2\trels_parts=2\
+        "survey\tentries=7\ttyped=5\tuntyped=1\tdefaults=2\toverrides=2\
+         \toverrides_unresolved=0\trels_parts=2\
          \trelationships=4\texternal=1\tresolved=3\tunresolved=0\tcase_only=0\tsheets=1\
          \tsheets_resolved=1\tshared_strings=0\tstyles=1\tcalc_chain=0\ttheme=0\n",
         "the survey line"
@@ -680,6 +687,42 @@ fn the_survey_counts_the_map_and_edits_nothing() {
         dir.names(),
         vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
         "a temporary was left behind"
+    );
+}
+
+#[test]
+fn the_survey_counts_an_override_that_names_no_entry() {
+    // `specs/0009-package-layer.md`, P2 ruling 11: the spec's fact that every
+    // one of the corpus's 614 Override part names resolves exactly was
+    // witnessed by no key, because `case_only` counts only the case-folded
+    // near miss and an Override naming no entry at all was counted nowhere.
+    // Two extra Overrides here: one part the archive does not hold in any
+    // spelling, and one it holds only after ASCII folding. Both are
+    // unresolved by exact bytes, so `overrides_unresolved` is 2, and only the
+    // second is a fold match, so `case_only` stays 1 and keeps its meaning.
+    let dir = TempDir::new("survey-overrides");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&package_specs_with(
+        "<Override PartName=\"/xl/nowhere.xml\" ContentType=\"application/absent\"/>\
+         <Override PartName=\"/xl/STYLES.xml\" ContentType=\"application/folded\"/>",
+    ));
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--survey"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "survey\tentries=7\ttyped=5\tuntyped=1\tdefaults=2\toverrides=4\
+         \toverrides_unresolved=2\trels_parts=2\
+         \trelationships=4\texternal=1\tresolved=3\tunresolved=0\tcase_only=1\tsheets=1\
+         \tsheets_resolved=1\tshared_strings=0\tstyles=1\tcalc_chain=0\ttheme=0\n",
+        "the survey line"
+    );
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "the survey still edits nothing"
     );
 }
 

@@ -67,10 +67,12 @@
 //!   not-well-formed classes it accepts; nothing in this module returns it.
 //! - `Package(message)`: a part is XML but not the package part it has to be.
 //!   Rendered as the message alone. Produced by [`crate::package`] and by
-//!   [`crate::xml::Scope`], each of which catalogues its own messages in its
-//!   module header with the test that pins it; nothing in this module returns
-//!   it. The message is a fixed string and never carries a part name or an
-//!   attribute value, since a package part's text is the workbook's.
+//!   [`crate::xml::Scope`]; [`crate::package`]'s module header catalogues
+//!   every one of these messages with the test that pins it, the one `Scope`
+//!   raises included, because that one is reached through an `r:id` whose
+//!   prefix nothing binds; nothing in this module returns it. The message is
+//!   a fixed string and never carries a part name or an attribute value,
+//!   since a package part's text is the workbook's.
 //! - `Unsupported(message)`, where the message is exactly one of these:
 //!   - "a multi-disk archive": a disk number other than 0 in either end record
 //!     or in a central record.
@@ -255,8 +257,9 @@ pub enum Error {
     Xml(usize),
     /// A part is XML but not the package part it must be.
     ///
-    /// Produced by [`crate::package`] and by [`crate::xml::Scope`], whose
-    /// headers catalogue every message. The message is a fixed string and
+    /// Produced by [`crate::package`] and by [`crate::xml::Scope`], and
+    /// catalogued, with the test that pins each message, in
+    /// [`crate::package`]'s module header. The message is a fixed string and
     /// never carries a part name, an attribute value or any other content:
     /// a package part's text is the workbook's.
     Package(&'static str),

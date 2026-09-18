@@ -224,6 +224,7 @@ struct Survey {
     untyped: u64,
     defaults: u64,
     overrides: u64,
+    overrides_unresolved: u64,
     rels_parts: u64,
     relationships: u64,
     external: u64,
@@ -247,6 +248,7 @@ impl Survey {
             ("untyped", self.untyped),
             ("defaults", self.defaults),
             ("overrides", self.overrides),
+            ("overrides_unresolved", self.overrides_unresolved),
             ("rels_parts", self.rels_parts),
             ("relationships", self.relationships),
             ("external", self.external),
@@ -315,10 +317,18 @@ fn survey(input: &Path) -> Result<Survey, Error> {
                 counted.untyped += 1;
             }
         }
+        // An Override names a part by an absolute name. specs/0009 fixes
+        // that every one of the corpus's resolves exactly, and P2's survey
+        // measured only the case-folded near miss, so an Override naming no
+        // entry at all was counted nowhere (P2 verification, check 2's
+        // observation; ruling 11).
         for over in types.overrides() {
             let part = over.part_name.strip_prefix(b"/").unwrap_or(&over.part_name);
-            if named_case_only(&names, part) {
-                counted.case_only += 1;
+            if !named(&names, part) {
+                counted.overrides_unresolved += 1;
+                if named_case_only(&names, part) {
+                    counted.case_only += 1;
+                }
             }
         }
     }
