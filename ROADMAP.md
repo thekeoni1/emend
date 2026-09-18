@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (part 1 DONE 2026-09-17; part 2 APPROVED 2026-09-17; parts 3 to 8 PROPOSED)
+## Milestone 1: greenfield core (part 1 DONE 2026-09-17; part 2 P1 DONE 2026-09-18; parts 3 to 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -196,7 +196,7 @@ follows P3 and carries the local record c414445.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `quick-xml` 0.42.0 pinned; `xml::Stream` with raw tokens and the byte order mark kept; `emend-copy --xml-null-rewrite`; the two part 1 residues; the corpus run: every `.xml` and `.rels` entry `recompressed` or `identical`, never `changed` | READY |
+| P1 | `quick-xml` 0.42.0 pinned; `xml::Stream` with raw tokens and the byte order mark kept; `emend-copy --xml-null-rewrite`; the two part 1 residues; the corpus run: every `.xml` and `.rels` entry `recompressed` or `identical`, never `changed` | DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c, 248fdd8; code a9f2cad, 4725795; record d6fa91d; 781 XML entries recompressed or identical on both targets, 89 others identical) |
 | P2 | the test builder moved to `testing.rs`; `package`: content types, relationships with target resolution, the workbook's sheets by relationship, the prefix stack; `emend-copy --survey`; the corpus run with the survey aggregated: nothing untyped, unresolved or case-only | READY |
 | P3 | the edits (relationships, overrides, parts) applied through a temporary-file rewrite; `--drop-calc-chain`; `probe-zip-xml-write` and `probe-emend-package-xml`; the size record with the checkpoint figure and the stored-replacement note; the catalogue and limits; the corpus run: nine workbooks change in exactly three entries, eighteen are byte-identical | READY |
 | Close | close-out push after P3, as part 1's, with record c414445 | PLANNED |

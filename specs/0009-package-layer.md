@@ -1,7 +1,9 @@
 # 0009: Milestone 1 part 2, the package layer
 
 Status: approved by the maintainer 2026-09-17 (planning draft the
-same day). P1 READY; P2 and P3 READY; the close-out push PLANNED.
+same day). P1 DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c,
+248fdd8; code a9f2cad, 4725795; record d6fa91d); P2 and P3 READY; the
+close-out push PLANNED.
 Context: `CLAUDE.md` (architecture, dependencies, 32-bit and sizes),
 `ROADMAP.md` ("Milestone 1"), `specs/0008-zip-layer.md` (the zip
 layer's API, the harness expectation for a replaced entry, "Size" with
@@ -553,6 +555,64 @@ header and asserts the four columns it uses resolve, which is what
 specs/0001 asks of a check that can fail. Both code commits are redone
 and every log rerun at the new commit, each header naming the
 superseded log by sha256 and why; check 1 goes in verbatim.
+
+### Planning rulings on P1 (2026-09-18, verification)
+
+Verified from primaries at d6fa91d: the seven commits and their
+messages (ASCII, Co-Authored-By last, four doc then two code then the
+record); the four doc commits hold planning's files unedited (the
+working tree at 248fdd8 differs from planning's copies by nothing);
+the code diff 248fdd8..4725795 is nine files and every one is P1's
+(the dependency, `xml.rs` and its tests, the tool and its test, the
+`Error::Xml` variant and its catalogue lines, the `probe-emend-copy`
+residue, the lock file); `xml.rs` read in full against "Module `xml`"
+and rulings 1, 2 and 4 (the whole input fed, the origin of 3 or 0, the
+tee releasing behind the caller, `Error::Io` carrying the kind, the
+four Limits classes); the 23 module tests and 7 tool tests read
+against P1's amended list, every case present; `scan.log` last,
+hashing the four sibling logs and both answers at their committed
+bytes, 0 compound shapes in every printed script, 0 control bytes and
+0 non-ASCII bytes in the seven files; both check headers pinning every
+input by sha256, check 1 naming its inputs superseded and by what.
+
+Planning's own runs at d6fa91d: the full gate (eight PASS, exit 0);
+`scripts/privacy.sh --range c414445..HEAD` (7 commits, 301 blobs, 0
+findings); `cargo test --workspace` on the host and on i686 (178
+passed, 0 failed, 2 ignored on each); the null rewrite over all 27
+corpus workbooks with the gate's host binaries, classified by the
+harness: 870 entry rows, 781 XML-named of which 771 `recompressed`
+and 10 `identical`, 242 carrying `descriptor` and no other flag, CRC-32
+and uncompressed size equal on every one, the 89 others `identical`
+and unflagged, in every file; the record pair's entry table recounted
+to the same figures on both labels.
+
+Rulings:
+
+1. P1's acceptance is met and measured: the token stream reproduced
+   every XML part of the corpus byte for byte on both targets, marks
+   included, and the pass-through left every other entry untouched.
+   The eleven departures are accepted as recorded; the report's own
+   corrections (prose that was not a measurement, typed counts that
+   went stale) are the right kind and are why the record holds.
+2. Independent check 2's three observations: the report's departure 4
+   is closed by ruling 6, nothing to do; the tool test's own copy of
+   the byte-level builder and independent parser stays, since a
+   `#[cfg(test)]` module cannot cross crates and a dev-dependency on
+   the core's test code would tie the tool's proof to the code under
+   proof, so P2's `testing.rs` consolidates the core's two modules
+   only; `Tee`'s `usize` values are in-memory buffer indices, which
+   the 32-bit rule does not reach, and every input position is `u64`.
+3. The negated-check defect (departure 10) becomes a rule in
+   `specs/0001-bootstrap.md` beside the compound-shape rule, in force
+   from P2: a negated condition goes through a helper that negates
+   (`isnot`), never `$(is ! ...)`, which runs a command named `!` and
+   prints UNEXPECTED whatever the condition does; the scan log's grep
+   covers `isnot` in the compound shape and adds the `!` form.
+4. The two unlogged asides (departures 1 and 7) stand as the report
+   labels them: history from working notes, cited by nothing.
+
+P1 is DONE. P2 starts with the doc commit carrying this ruling, the
+`specs/0001` rule and the ROADMAP row.
 
 ### P2: content types, relationships, the workbook
 

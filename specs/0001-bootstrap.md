@@ -131,6 +131,15 @@ from this needs planning's word before the run (T2 P7 ruling).
   hit as a structural failure: planning found 31 instances in the
   committed logs of six phases that no check had caught
   (`specs/0008-zip-layer.md`, the P3 repair-round rulings).
+- A negated condition goes through a helper that negates (`isnot() {
+  if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }`), with
+  a control showing `isnot true` reports UNEXPECTED. The form
+  `$(is ! cmd ...)` runs a command named `!`, which does not exist, so
+  it prints UNEXPECTED whatever the condition does (Milestone 1 part 2
+  P1, departure 10, caught from the control's own output). From part 2
+  P2 the scan log's compound-shape grep reads `(yn|is|isnot)` and a
+  second grep reports `\$\((yn|is|isnot) !` as a structural failure
+  (`specs/0009-package-layer.md`, the P1 verification rulings).
 - A push script records the base (the remote ref before the push) and
   compares against that afterwards; the tracking ref moves with a
   successful push (T0b close-out).
