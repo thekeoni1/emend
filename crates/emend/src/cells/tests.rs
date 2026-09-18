@@ -180,9 +180,18 @@ fn a_phonetic_subtree_is_skipped() {
 fn the_phonetic_skip_ends_at_its_own_end_tag() {
     // The skip is a depth and not a flag, so text after `<rPh>` closes
     // belongs to the item again and a `<t>` nested deeper inside it does not
-    // end the skip early. Without the depth this reads "askippedb" or "a".
+    // end the skip early.
+    //
+    // The `<t>y</t>` AFTER the nested `<r>` is what makes this a measurement
+    // rather than a position. A flag cleared at the first `</t>` inside the
+    // subtree is live again by the time `y` arrives, so it reads "ayb" where
+    // the depth reads "ab". An earlier version of this test put the nested
+    // `<t>` last inside `<rPh>`, so the premature clear happened after the
+    // only inner text had already been skipped and the flag passed the test
+    // too; independent check 2 of this phase built the flag and proved it.
     let table = table(&sst(
-        "<si><t>a</t><rPh sb=\"0\" eb=\"1\"><r><t>skipped</t></r></rPh><t>b</t></si>",
+        "<si><t>a</t><rPh sb=\"0\" eb=\"1\"><r><t>x</t></r><t>y</t></rPh>\
+         <t>b</t></si>",
     ));
     assert_eq!(items(&table), ["ab"]);
 }
