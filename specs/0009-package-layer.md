@@ -136,14 +136,19 @@ commit.
   It records every `xmlns` and `xmlns:<p>` declaration on each start
   tag with the depth it was declared at and drops them at the matching
   end tag (an empty element's declarations apply to itself alone).
-  `resolve_element(name) -> (Option<&[u8]>, &[u8])` gives the
-  namespace and the local name; `resolve_attribute` the same, an
-  unprefixed attribute having no namespace. A prefix no ancestor binds
-  is `Error::Package("an element or attribute uses a prefix its
-  document does not bind")`. The null rewrite never resolves a name.
+  `resolve_element(name) -> Result<(Option<&[u8]>, &[u8]), Error>`
+  gives the namespace and the local name; `resolve_attribute` the
+  same, an unprefixed attribute having no namespace. A prefix no
+  ancestor binds is `Error::Package("an element or attribute uses a
+  prefix its document does not bind")`, which is why the result is a
+  `Result` (P2 ruling 2). The null rewrite never resolves a name.
 - Escaping: attribute values the package layer writes are escaped with
   the crate's `escape` (`&`, `<`, `>`, `"` and `'`); values it reads
-  are unescaped with its `unescape_value`. Both need `str`, so a value
+  come through its `normalized_value(XmlVersion::Version10)`, which
+  unescapes and applies the attribute-value normalization XML requires
+  (a tab, CR, LF or CRLF in a value becomes one space), so a sheet name
+  written with a tab is reported with a space (P2 ruling 2; the draft
+  named the deprecated `unescape_value`). Both need `str`, so a value
   the layer must interpret that is not UTF-8, or that holds a
   reference the crate does not know, is `Error::Xml(index)`.
 
@@ -669,6 +674,25 @@ log's survey aggregation; acceptance as "Harness runs".
    `FailingWriter`, `replacement_temporaries`, `at_u16`, `at_u32`,
    `data_start_of` and the rest) stays in `archive/tests.rs`. The
    test count stays 178 on each target and `test.log` shows it.
+
+2. Reading attribute values. `Attribute::unescape_value` is
+   deprecated in 0.42.0 (`events/attributes.rs`, "use
+   `Self::normalized_value()`"), and the gate runs clippy with warnings
+   denied, so the method the draft named fails the gate. Ruling: the
+   layer reads values through `normalized_value(XmlVersion::Version10)`,
+   the crate's successor, which unescapes and applies the
+   attribute-value normalization the XML specification requires. The
+   implementing session measured the difference over the corpus
+   before recommending it: 8584258 attribute values in the 781
+   XML-named parts, 0 holding a tab, CR or LF, 253 holding an
+   ampersand, so on this corpus the choice changes no value and
+   unescaping itself is load-bearing. The Design text is amended
+   above, since a normalized value is a behaviour of the layer. Noted
+   without a ruling: `Error::Package(&'static str)` is added as
+   "Errors" says; `Scope::resolve_element` and `resolve_attribute`
+   return `Result`, since the unbound-prefix error has to travel
+   (amended above); the crate's `QName`, `LocalName` and `Prefix` are
+   `str`-based and the spec's byte slices come from `as_bytes()`.
 
 ### P3: the edits, the first real edit, the size record
 
