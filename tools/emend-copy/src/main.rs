@@ -16,6 +16,14 @@
 //!   never `changed`, and every other entry `identical` and unflagged: the
 //!   rewrite is the identity, so this is what proves the token stream loses
 //!   nothing across the corpus.
+//! - `--drop-calc-chain`: the recipe of `specs/0009-package-layer.md`,
+//!   "Module `package`", applied through the package layer: the workbook's
+//!   `calcChain` relationship, the `Override` for its target when the package
+//!   has one, and the entry when the package has one, each its own call and
+//!   nothing implicit. A package with no chain records no edit, so its output
+//!   must be byte-identical to its input; a package with one must come back
+//!   with those three gone, the two rewritten parts `changed` and every other
+//!   entry `identical` and unflagged.
 //! - `--survey`: no edit either, so the output must be byte-identical again,
 //!   and one line goes to stdout: the word `survey` then tab-separated
 //!   `key=value` pairs, COUNTS ONLY. The package layer's whole map is walked
@@ -43,11 +51,11 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
-use emend::package::{CONTENT_TYPES_PART, Package, rels_part_source};
+use emend::package::{CALC_CHAIN, CONTENT_TYPES_PART, Package, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
-[--replace <name> | --xml-null-rewrite | --survey]";
+[--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -61,6 +69,8 @@ enum Operation {
     XmlNullRewrite,
     /// No edits, and count the package layer's map on stdout.
     Survey,
+    /// Drop the calculation chain, the phase's first real edit.
+    DropCalcChain,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -122,6 +132,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--survey" => {
             run(Path::new(input), Path::new(output), Operation::Survey)
         }
+        [input, output, flag] if flag == "--drop-calc-chain" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::DropCalcChain,
+        ),
         [input, output, flag, name] if flag == "--replace" => run(
             Path::new(input),
             Path::new(output),
@@ -139,6 +154,12 @@ fn main() -> ExitCode {
 }
 
 fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
+    // The recipe records its edits on a `Package` and writes through it, so it
+    // does not share the `Edits` path the other operations build.
+    if matches!(operation, Operation::DropCalcChain) {
+        return drop_calc_chain(input, output);
+    }
+
     // The survey reads the whole map first, so a package the layer cannot
     // read stops the run before any output file exists.
     let counted = match operation {
@@ -154,6 +175,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     // would conflict with it.
     let mut edits = Edits::new();
     let extracted = match operation {
+        // Handled above, before any output file exists.
+        Operation::DropCalcChain => unreachable!("the recipe has its own path"),
         Operation::None | Operation::Survey => Vec::new(),
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
@@ -271,6 +294,85 @@ impl Survey {
         }
         line
     }
+}
+
+/// Drops the calculation chain, through the package layer.
+///
+/// The recipe of `specs/0009-package-layer.md`, "Module `package`", in the
+/// order it gives: the workbook's `calcChain` relationship, the `Override`
+/// for its target when there is one, the entry when there is one. Each is its
+/// own call, so the harness sees exactly the three changes the recipe asked
+/// for; a package with no chain records nothing and comes back byte for byte,
+/// which is the control for this operation.
+fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?.part.clone();
+
+    // Read everything the three calls need before recording any of them: each
+    // read borrows the package, and `remove_*` takes it mutably.
+    let chain = {
+        let rels = package.relationships(&workbook)?;
+        match rels.first_of(CALC_CHAIN) {
+            Some(rel) => Some((rel.id.clone(), rels.target_part(rel)?)),
+            None => None,
+        }
+    };
+    if let Some((id, part)) = chain {
+        // The Override is matched as the package writes it, leading slash and
+        // all, and removed by those same bytes: the survey's own rule for a
+        // PartName (`overrides_unresolved`), not a name built here.
+        let over = package
+            .content_types()?
+            .overrides()
+            .iter()
+            .find(|over| {
+                over.part_name
+                    .strip_prefix(b"/".as_slice())
+                    .unwrap_or(&over.part_name)
+                    == part.as_slice()
+            })
+            .map(|over| over.part_name.clone());
+        let entry = package.part(&part).is_some();
+
+        package.remove_relationship(&workbook, &id);
+        if let Some(over) = over {
+            package.remove_override(&over);
+        }
+        if entry {
+            package.remove_part(&part);
+        }
+    }
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`: a failure
+    // removes it rather than leaving a partial output for the harness.
+    let result = write_package(&mut package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+/// Writes the package back, reporting a buffering failure rather than losing
+/// it in a drop, as [`write()`] does for the archive.
+fn write_package<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    file: File,
+) -> Result<(), Error> {
+    let mut out = BufWriter::new(file);
+    package.write_to(&mut out)?;
+    out.into_inner()
+        .map_err(|e| Error::Finish(e.error().kind()))?
+        .sync_all()
+        .map_err(|e| Error::Finish(e.kind()))?;
+    Ok(())
 }
 
 /// Whether an entry has exactly that name.

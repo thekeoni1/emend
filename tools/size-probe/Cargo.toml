@@ -14,11 +14,12 @@ quick-xml = { version = "=0.42.0", default-features = false, optional = true }
 emend = { path = "../../crates/emend", optional = true }
 
 [features]
-# Enables quick-xml, for probe-zip-xml and probe-emend-edit-xml; probe-zip is
-# built without it.
+# Enables quick-xml, for probe-zip-xml, probe-zip-xml-write,
+# probe-emend-edit-xml and probe-emend-package-xml; probe-zip is built
+# without it.
 xml = ["dep:quick-xml"]
-# Enables emend, for probe-emend-copy, probe-emend-edit and
-# probe-emend-edit-xml.
+# Enables emend, for probe-emend-copy, probe-emend-edit,
+# probe-emend-edit-xml and probe-emend-package-xml.
 emend = ["dep:emend"]
 
 [[bin]]
@@ -28,6 +29,11 @@ path = "src/bin/probe-zip.rs"
 [[bin]]
 name = "probe-zip-xml"
 path = "src/bin/probe-zip-xml.rs"
+required-features = ["xml"]
+
+[[bin]]
+name = "probe-zip-xml-write"
+path = "src/bin/probe-zip-xml-write.rs"
 required-features = ["xml"]
 
 [[bin]]
@@ -43,4 +49,9 @@ required-features = ["emend"]
 [[bin]]
 name = "probe-emend-edit-xml"
 path = "src/bin/probe-emend-edit-xml.rs"
+required-features = ["emend", "xml"]
+
+[[bin]]
+name = "probe-emend-package-xml"
+path = "src/bin/probe-emend-package-xml.rs"
 required-features = ["emend", "xml"]

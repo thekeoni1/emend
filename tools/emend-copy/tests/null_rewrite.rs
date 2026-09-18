@@ -527,6 +527,11 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         // Two operations at once again, with the one P2 adds.
         vec!["--survey", "--xml-null-rewrite"],
         vec!["--xml-null-rewrite", "--survey"],
+        // Two operations at once again, with the one P3 adds.
+        vec!["--drop-calc-chain", "--survey"],
+        vec!["--survey", "--drop-calc-chain"],
+        // A flag that takes no argument, given one.
+        vec!["--drop-calc-chain", "[Content_Types].xml"],
         // An unknown operation.
         vec!["--xml-null"],
         vec!["--replace-all", "[Content_Types].xml"],
@@ -750,5 +755,169 @@ fn the_survey_refuses_a_package_it_cannot_read() {
         dir.names(),
         vec!["in.xlsx".to_string()],
         "the refusal left a file behind"
+    );
+}
+
+/// The same package with a calculation chain: the entry, its `Override` and
+/// the workbook relationship that names it, which is what the recipe drops.
+fn package_specs_with_a_chain() -> Vec<Spec> {
+    let content_types = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <Types xmlns=\"{TYPES_NS}\">\
+         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         <Override PartName=\"/xl/calcChain.xml\" ContentType=\"application/chain\"/>\
+         </Types>"
+    );
+    let workbook_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" Target=\"worksheets/sheet1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/styles\" Target=\"styles.xml\"/>\
+         <Relationship Id=\"rId3\" Type=\"{ATTR_NS}/hyperlink\" \
+         Target=\"https://example.invalid/x\" TargetMode=\"External\"/>\
+         <Relationship Id=\"rId4\" Type=\"{ATTR_NS}/calcChain\" Target=\"calcChain.xml\"/>\
+         </Relationships>"
+    );
+    let mut specs = package_specs();
+    for spec in &mut specs {
+        if spec.name == b"[Content_Types].xml" {
+            spec.data = content_types.clone().into_bytes();
+        }
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            spec.data = workbook_rels.clone().into_bytes();
+        }
+    }
+    specs.push(Spec::deflated(
+        b"xl/calcChain.xml",
+        b"<calcChain><c r=\"A1\" i=\"1\"/></calcChain>",
+    ));
+    specs
+}
+
+/// The entry of that name in a parsed output.
+#[track_caller]
+fn entry_named<'a>(entries: &'a [OutEntry], name: &[u8]) -> &'a OutEntry {
+    entries
+        .iter()
+        .find(|entry| entry.name == name)
+        .unwrap_or_else(|| panic!("no entry named {:?}", String::from_utf8_lossy(name)))
+}
+
+#[test]
+fn the_recipe_drops_the_chain_and_leaves_every_other_entry_alone() {
+    // `specs/0009-package-layer.md`, "Module `package`": three calls, the
+    // relationship, the override and the entry. The two rewritten parts must
+    // hold exactly the bytes this test builds by hand, and every other entry
+    // must come back with the bytes it went in with.
+    let dir = TempDir::new("chain");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let specs = package_specs_with_a_chain();
+    fs::write(&input, build(&specs)).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--drop-calc-chain"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let out_bytes = fs::read(&output).expect("read the output");
+    let entries = parse_independently(&out_bytes);
+
+    let got: Vec<String> = entries
+        .iter()
+        .map(|entry| String::from_utf8_lossy(&entry.name).into_owned())
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/worksheets/sheet1.xml",
+            "xl/styles.xml",
+            "xl/media/image1.bin",
+        ],
+        "the chain's entry is gone and nothing else is"
+    );
+
+    // The rewritten parts, by CRC-32 and size against bytes built here: the
+    // element's own bytes gone, everything around them kept.
+    let types_expected = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <Types xmlns=\"{TYPES_NS}\">\
+         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         </Types>"
+    );
+    let rels_expected = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" Target=\"worksheets/sheet1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/styles\" Target=\"styles.xml\"/>\
+         <Relationship Id=\"rId3\" Type=\"{ATTR_NS}/hyperlink\" \
+         Target=\"https://example.invalid/x\" TargetMode=\"External\"/>\
+         </Relationships>"
+    );
+    for (name, expected) in [
+        (b"[Content_Types].xml".as_slice(), types_expected),
+        (b"xl/_rels/workbook.xml.rels".as_slice(), rels_expected),
+    ] {
+        let entry = entry_named(&entries, name);
+        assert_eq!(
+            entry.uncompressed_size,
+            expected.len() as u64,
+            "the size of {:?}",
+            String::from_utf8_lossy(name)
+        );
+        assert_eq!(
+            entry.crc32,
+            crc32(expected.as_bytes()),
+            "the bytes of {:?}",
+            String::from_utf8_lossy(name)
+        );
+    }
+
+    // Every entry the recipe did not name: the input's own bytes, not merely
+    // the same CRC-32.
+    for spec in &specs {
+        if spec.name == b"[Content_Types].xml"
+            || spec.name == b"xl/_rels/workbook.xml.rels"
+            || spec.name == b"xl/calcChain.xml"
+        {
+            continue;
+        }
+        let entry = entry_named(&entries, &spec.name);
+        assert_eq!(
+            entry.compressed,
+            spec.payload(),
+            "the entry {:?} was rewritten",
+            String::from_utf8_lossy(&spec.name)
+        );
+    }
+
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+}
+
+#[test]
+fn the_recipe_leaves_a_package_with_no_chain_byte_for_byte() {
+    // The control for the operation: with no calcChain relationship the
+    // recipe records no edit, and no edits is the verbatim round trip.
+    let dir = TempDir::new("chain-absent");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&package_specs());
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--drop-calc-chain"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "a package with no chain came back changed"
     );
 }
