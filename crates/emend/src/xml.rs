@@ -42,8 +42,8 @@
 //!   `Clone`, so it cannot be moved out (see `parse_error`).
 //! - [`Error::Package`] "an element or attribute uses a prefix its document
 //!   does not bind", from [`Scope::resolve_element`] and
-//!   [`Scope::resolve_attribute`]. It is catalogued with the fourteen other
-//!   package messages, and with the test that pins it
+//!   [`Scope::resolve_attribute`]. It is catalogued with the other package
+//!   messages, and with the test that pins it
 //!   (`package::tests::rel_id_prefix_unbound`), in [`crate::package`]'s
 //!   module header rather than here, since the only way to reach it is
 //!   through a package part.

@@ -20,10 +20,13 @@
 //!   "Module `package`", applied through the package layer: the workbook's
 //!   `calcChain` relationship, the `Override` for its target when the package
 //!   has one, and the entry when the package has one, each its own call and
-//!   nothing implicit. A package with no chain records no edit, so its output
-//!   must be byte-identical to its input; a package with one must come back
-//!   with those three gone, the two rewritten parts `changed` and every other
-//!   entry `identical` and unflagged.
+//!   nothing implicit. A VALID package with no chain records no edit, so its
+//!   output must be byte-identical to its input; a package with one must come
+//!   back with those three gone, the two rewritten parts `changed` and every
+//!   other entry `identical` and unflagged. The content types part is read
+//!   before the chain is looked for, so a package without one is refused here
+//!   as `--survey` refuses it, whether or not its edit would be empty (part 2
+//!   P3 verification ruling 6).
 //! - `--survey`: no edit either, so the output must be byte-identical again,
 //!   and one line goes to stdout: the word `survey` then tab-separated
 //!   `key=value` pairs, COUNTS ONLY. The package layer's whole map is walked
@@ -302,12 +305,26 @@ impl Survey {
 /// order it gives: the workbook's `calcChain` relationship, the `Override`
 /// for its target when there is one, the entry when there is one. Each is its
 /// own call, so the harness sees exactly the three changes the recipe asked
-/// for; a package with no chain records nothing and comes back byte for byte,
-/// which is the control for this operation.
+/// for; a package with a chain but no `Override` and no entry records only
+/// what is there, and a valid package with no chain at all records nothing
+/// and comes back byte for byte, which is the control for this operation.
+///
+/// The content types part is read before the chain is looked for, so a
+/// package without one is refused whether or not it has a chain. Part 2 P3
+/// measured the other order: with no chain the recipe recorded no edit,
+/// `write_to` returned from `validate` at once, and a package with no
+/// `[Content_Types].xml` was copied byte for byte while `--survey` refused
+/// it. Planning ruled (part 2 P3 verification ruling 6) that an operation
+/// which would refuse a package should refuse it whether or not its edit
+/// turns out to be empty, so the two operations answer the same question the
+/// same way.
 fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let workbook = package.workbook()?.part.clone();
+    // Read for the refusal, not for a value: the answer is cached, so the
+    // `content_types()` call below this costs nothing extra.
+    package.content_types()?;
 
     // Read everything the three calls need before recording any of them: each
     // read borrows the package, and `remove_*` takes it mutably.

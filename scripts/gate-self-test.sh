@@ -291,10 +291,11 @@ fi
 # H2 plants ONE fixture per sub-case, so each count is the count its source
 # recorded, and all THREE forms specs/0007:112 names reach the hygiene step.
 # Reducing H2 to the tilde form alone fixed check 1's gap 14 but dropped the
-# lock and .bak forms from the hygiene step entirely, leaving them covered only through
-# privacy.sh as V17a and V17c (independent check 2, T6 P1, gap 7). The count-only
-# wording and the count 1 come from t0-p6c i L843; the three forms come from
-# t0-p6c a1, a2 and a3, which planted them one at a time in their own clones.
+# lock and .bak forms from the hygiene step entirely, leaving them covered only
+# through privacy.sh as V17a and V17c (independent check 2, T6 P1, gap 7). The
+# count-only wording and the count 1 come from t0-p6c i L843; the three forms
+# come from t0-p6c a1, a2 and a3, which planted them one at a time in their own
+# clones.
 if want H2a || want H2b || want H2c; then
   for sub in a b c; do
     case "$sub" in
@@ -315,12 +316,13 @@ if want H2a || want H2b || want H2c; then
 fi
 # H3's source is this phase's own negative log. specs/0007 names T0 P6c b, but
 # that case recorded a privacy "FAIL paths" line, not a hygiene line, and no
-# log anywhere records a csv or a tsv at the hygiene step; its only other authority would
-# be OFFICE_RE itself, the thing under test. Planning's ruling (2026-09-16) was
-# to establish the expectation in negative.log first and source this case to
-# that log by case name. N7 planted the same two fixtures, staged 2 paths, and
-# recorded the line below with exit 1 and exactly one FAIL line. The count 2 is
-# a measurement from a case that ran, not arithmetic over a fixture.
+# log anywhere records a csv or a tsv at the hygiene step; its only other
+# authority would be OFFICE_RE itself, the thing under test. Planning's ruling
+# (2026-09-16) was to establish the expectation in negative.log first and
+# source this case to that log by case name. N7 planted the same two fixtures,
+# staged 2 paths, and recorded the line below with exit 1 and exactly one FAIL
+# line. The count 2 is a measurement from a case that ran, not arithmetic over
+# a fixture.
 if want H3; then
   t=$(date +%s.%N); d=$(fresh H3) && {
     printf 'x\n' >"$d/data.$EXT_C"; printf 'x\n' >"$d/data.$EXT_D"

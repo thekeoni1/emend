@@ -13,6 +13,7 @@
 //! test starts from [`smallest`] and replaces or removes exactly the part it
 //! is about, so what a test changes is what it asserts.
 
+use std::collections::BTreeSet;
 use std::io::Cursor;
 
 use super::*;
@@ -2043,4 +2044,197 @@ fn an_unwritable_value_names_content_types_for_the_packages_own_rels() {
         .add_relationship(b"", b"kind", b"\xff", false)
         .expect("the id");
     assert_xml_index(refused(package), index);
+}
+
+/// The message text of a Rust string literal starting at `rest`, and the
+/// bytes consumed, or `None` if `rest` does not start a literal.
+///
+/// Used by both extractors below so the catalogue and the source are read by
+/// the same rule. `\[` and `\]` are unescaped, which is how the catalogue
+/// writes `[Content_Types].xml` inside a doc comment; no message holds any
+/// other escape, and one that did would come back with its backslash and
+/// fail the comparison rather than be silently mangled.
+fn string_literal(rest: &str) -> Option<String> {
+    let body = rest.strip_prefix('"')?;
+    let mut text = String::new();
+    let mut chars = body.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => return Some(text),
+            '\\' => match chars.next()? {
+                '[' => text.push('['),
+                ']' => text.push(']'),
+                other => {
+                    text.push('\\');
+                    text.push(other);
+                }
+            },
+            other => text.push(other),
+        }
+    }
+    None
+}
+
+/// Every message the module header catalogues, from a source file's own text.
+///
+/// A catalogue entry is a doc-comment list item whose first character is a
+/// quote: `//! - "the message" (the tests that pin it)`.
+fn catalogued(source: &str) -> BTreeSet<String> {
+    source
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("//!"))
+        .map(str::trim)
+        .filter_map(|line| string_literal(line.strip_prefix("- ")?))
+        .collect()
+}
+
+/// Every message raised as `Error::Package("...")`, with the count of
+/// `Error::Package(` occurrences beside it so a non-literal argument shows up
+/// as a difference rather than as a silent omission.
+///
+/// This reads the file's raw text, so a commented-out or otherwise inactive
+/// `Error::Package("...")` counts too. That is deliberate: the failure is
+/// loud and the fix is to delete the dead line or catalogue it, where a
+/// parser clever enough to skip comments could be wrong about which code is
+/// reachable and say nothing.
+fn raised(source: &str) -> (BTreeSet<String>, usize, usize) {
+    const CALL: &str = "Error::Package(";
+    let mut set = BTreeSet::new();
+    let mut calls = 0;
+    let mut literals = 0;
+    let mut at = 0;
+    while let Some(found) = source[at..].find(CALL) {
+        let after = at + found + CALL.len();
+        calls += 1;
+        at = after;
+        if let Some(message) = string_literal(source[after..].trim_start()) {
+            literals += 1;
+            set.insert(message);
+        }
+    }
+    (set, calls, literals)
+}
+
+#[test]
+fn the_catalogue_and_the_source_hold_the_same_messages() {
+    // `specs/0010-reading-cells.md`, "Errors", carrying part 2 P3
+    // verification ruling 2: the catalogue is checked as a SET against the
+    // messages the source raises, never as a count in prose. The count this
+    // replaces ("catalogued with the fourteen other package messages", in
+    // `xml.rs`) was true when it was written and was falsified by a later
+    // commit of the same phase, which no check could see. A set comparison
+    // cannot go stale: adding a message without cataloguing it fails here.
+    const PACKAGE: &str = include_str!("../package.rs");
+    const XML: &str = include_str!("../xml.rs");
+
+    let (package_raised, package_calls, package_literals) = raised(PACKAGE);
+    let (xml_raised, xml_calls, xml_literals) = raised(XML);
+    // Every `Error::Package(` in either module takes a literal. If one ever
+    // takes a variable the extractor cannot read it, and this is the line
+    // that says so instead of the comparison quietly passing on a subset.
+    assert_eq!(
+        (package_calls, xml_calls),
+        (package_literals, xml_literals),
+        "an Error::Package is raised with something other than a literal"
+    );
+
+    // The catalogue lives in `package.rs`; `xml.rs` says so rather than
+    // keeping a list of its own.
+    let catalogue = catalogued(PACKAGE);
+    let mut raised_all = package_raised;
+    raised_all.extend(xml_raised);
+
+    assert!(
+        !catalogue.is_empty() && !raised_all.is_empty(),
+        "an extractor found nothing, so the comparison below would be vacuous"
+    );
+    let missing = raised_all.difference(&catalogue).collect::<Vec<_>>();
+    let stale = catalogue.difference(&raised_all).collect::<Vec<_>>();
+    assert!(missing.is_empty(), "raised but not catalogued: {missing:?}");
+    assert!(stale.is_empty(), "catalogued but never raised: {stale:?}");
+}
+
+#[test]
+fn the_catalogue_extractors_can_fail() {
+    // The control for the test above. Each extractor is shown finding a
+    // planted message and the comparison is shown failing on it, so a zero
+    // difference there means the sets were read and matched rather than that
+    // nothing was read. The fixtures are text, not this crate's source.
+    let catalogue_text = "//! - \"a planted message\" (`some_test`).\n//! not a list item\n";
+    assert_eq!(
+        catalogued(catalogue_text),
+        BTreeSet::from(["a planted message".to_string()]),
+        "the catalogue extractor missed a list item"
+    );
+    // A doc line that is not a list item contributes nothing.
+    assert!(catalogued("//! \"not a list item\"\n").is_empty());
+
+    let source_text = "return Err(Error::Package(\"a planted message\"));\n";
+    let (set, calls, literals) = raised(source_text);
+    assert_eq!(
+        (set.len(), calls, literals),
+        (1, 1, 1),
+        "the source extractor missed a raised message"
+    );
+    // A non-literal argument counts as a call and not as a literal, which is
+    // what the assertion in the test above rests on.
+    let variable = "Err(Error::Package(message))";
+    let (empty, one_call, no_literal) = raised(variable);
+    assert_eq!((empty.len(), one_call, no_literal), (0, 1, 0));
+
+    // The escaped brackets the catalogue writes come back unescaped, so the
+    // one message that carries them compares equal to the source's form.
+    assert_eq!(
+        string_literal("\"no \\[Content_Types\\].xml part\"").as_deref(),
+        Some("no [Content_Types].xml part")
+    );
+}
+
+#[test]
+fn removing_an_override_keeps_both_default_spellings() {
+    // `specs/0010-reading-cells.md`, "P1", carrying part 2 P3 verification
+    // ruling 4: the two `Default` forms the raw copy has to keep are the two
+    // SPELLINGS of an empty element, with and without a space before the
+    // slash. A producer writes one or the other and the copy keeps whichever
+    // the input has, so a rewrite that normalised the spelling would change
+    // bytes no edit asked it to change. The removal here is of an `Override`,
+    // and every `Default` must come back exactly as written.
+    // The `rels` Default carries the space, the `xml` one does not. Both
+    // orders are run, so neither spelling is only ever seen in one position.
+    let spaced = "<Default Extension=\"rels\" \
+                  ContentType=\"application/vnd.openxmlformats-package.relationships+xml\" />";
+    let tight = "<Default Extension=\"xml\" ContentType=\"application/xml\"/>";
+    let keep = format!("<Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>");
+    let drop = format!(
+        "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{WORKSHEET_TYPE}\"/>"
+    );
+
+    // The point of the fixture is the space, so the fixture is checked for
+    // it: without this, editing the constant would leave a test that passes
+    // while covering only one spelling.
+    assert!(
+        spaced.contains(" />") && !tight.contains(" />"),
+        "the fixture no longer carries both Default spellings"
+    );
+
+    for defaults in [format!("{spaced}{tight}"), format!("{tight}{spaced}")] {
+        let mut parts = smallest();
+        set(
+            &mut parts,
+            b"[Content_Types].xml",
+            types(&format!("{defaults}{keep}{drop}")),
+        );
+        let (parts, mut package) = opened(parts);
+        package.remove_override(b"/xl/worksheets/sheet1.xml");
+        let output = written(package);
+
+        // The one `Override` is gone and both `Default` spellings are byte
+        // for byte what went in, the space before the slash included.
+        assert_part(
+            &output,
+            b"[Content_Types].xml",
+            &types(&format!("{defaults}{keep}")),
+        );
+        assert_untouched(&output, &parts, &[b"[Content_Types].xml"]);
+    }
 }
