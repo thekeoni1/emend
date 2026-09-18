@@ -144,7 +144,7 @@ commit.
   `Result` (P2 ruling 2). The null rewrite never resolves a name.
 - Escaping: attribute values the package layer writes are escaped with
   the crate's `escape` (`&`, `<`, `>`, `"` and `'`); values it reads
-  come through its `normalized_value(XmlVersion::Version10)`, which
+  come through its `normalized_value(XmlVersion::Implicit1_0)`, which
   unescapes and applies the attribute-value normalization XML requires
   (a tab, CR, LF or CRLF in a value becomes one space), so a sheet name
   written with a tab is reported with a space (P2 ruling 2; the draft
@@ -679,9 +679,17 @@ log's survey aggregation; acceptance as "Harness runs".
    deprecated in 0.42.0 (`events/attributes.rs`, "use
    `Self::normalized_value()`"), and the gate runs clippy with warnings
    denied, so the method the draft named fails the gate. Ruling: the
-   layer reads values through `normalized_value(XmlVersion::Version10)`,
-   the crate's successor, which unescapes and applies the
-   attribute-value normalization the XML specification requires. The
+   layer reads values through `normalized_value(XmlVersion::
+   Implicit1_0)`, the crate's successor, which unescapes and applies
+   the attribute-value normalization the XML specification requires.
+   Correction (2026-09-18, after doc commit 59f6668): planning first
+   wrote `XmlVersion::Version10`, a variant that does not exist; the
+   crate's variants are `Implicit1_0`, `Explicit1_0` and
+   `Explicit1_1`. `Implicit1_0` is what the deprecated method itself
+   passes (`events/attributes.rs`), and the two 1.0 variants take the
+   same end-of-line path, only `Explicit1_1` folding U+0085 and U+2028
+   as well; planning checked both in the source. The implementing
+   session used `Implicit1_0` and reported the error. The
    implementing session measured the difference over the corpus
    before recommending it: 8584258 attribute values in the 781
    XML-named parts, 0 holding a tab, CR or LF, 253 holding an
