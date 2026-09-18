@@ -681,7 +681,14 @@ log's survey aggregation; acceptance as "Harness runs".
    `open_err`, `bytes_replacement`, `apply`, `REPLACEMENT_LOCK`,
    `FailingWriter`, `replacement_temporaries`, `at_u16`, `at_u32`,
    `data_start_of` and the rest) stays in `archive/tests.rs`. The
-   test count stays 178 on each target and `test.log` shows it.
+   move changes no test: the evidence is the move commit's diff, whose
+   removed and added lines differ, once `pub(crate) ` and blank lines
+   are stripped, only by the module header and the ten cited
+   constants (both P2 checks made that comparison), and planning's own
+   test run at the move commit 82d4e77, recorded in the verification
+   ruling. (The draft said `test.log` shows 178; the phase's test log
+   runs at its last commit, where two later commits had added tests,
+   so no log holds that count. Amended after the checks, ruling 7.)
 
 2. Reading attribute values. `Attribute::unescape_value` is
    deprecated in 0.42.0 (`events/attributes.rs`, "use
@@ -749,7 +756,60 @@ relationship types are public constants of `package`, each a
 (transitional, strict) pair, since P3's recipe needs the calcChain
 URI (the Design text now says so).
 
+Rulings on the findings of P2's two independent checks (2026-09-18,
+before the record commit):
+
+7. Ruling 1's last sentence is amended as above: the property is
+   witnessed by the diff comparison both checks made and by planning's
+   own test run at 82d4e77 in a throwaway worktree on the host
+   (2026-09-18: 178 passed, 0 failed, 2 ignored, the P1 count), not by
+   a phase log. No rerun at an older commit.
+
+8. Four inaccurate doc comments in the code (the `archive.rs`
+   catalogue entry pointing at `xml.rs` for the `Scope` message, which
+   `package.rs` catalogues; `xml.rs`'s header still saying the module
+   produces one variant; `package/tests.rs`'s header counting the
+   smallest package as five parts where `smallest()` writes six; the
+   backticks in `package.rs`'s first catalogue entry that the message
+   does not carry) are fixed in P3's first code commit, not in P2: a
+   fourth P2 code commit would invalidate every log and both answers,
+   and a third check round is not allowed. The report records them as
+   found and deferred; P3's diff is expected to carry exactly these.
+
+9. `gate.log` and `negative.log` are rerun with the `isnot true`
+   control the `specs/0001` rule requires, since the rule is this
+   phase's own and in force from P2; the reruns name the superseded
+   rounds. The gate's binary hashes were shown equal across the two
+   existing gate rounds, so `test.log` and `run.log` stand.
+
+10. `columns_resolve` in `run.log` reports as-expected on an empty
+    file (its only rule is `NR == 1`). As used it is not vacuous: the
+    entries file's existence is asserted before it and the same file
+    yielded 781 and 89 rows. `run.log` stands with the report naming
+    the weakness; P3's run script fixes the form (an `END` rule that
+    fails when no header line was seen) with a control on an empty
+    file.
+
+11. Check 2's observation that the fact "every one of the 614 Override
+    part names resolves exactly" is witnessed by no survey key: the
+    survey gains `overrides_unresolved` (overrides whose part name,
+    without its slash, is no entry by exact bytes; `case_only` keeps
+    counting the case-folded subset) in P3's first code commit with a
+    unit test, and P3's run log runs `--survey` on both targets beside
+    the `--drop-calc-chain` runs, expecting 0. Until then the fact
+    stands as planning's own measurement, made by names only.
+
+The `scan.log` script's inherited "P1" about-line and its misattributed
+comment are the implementing session's to fix in the final scan pass,
+as it proposed.
+
 ### P3: the edits, the first real edit, the size record
+
+P3's first code commit carries the four doc-comment fixes P2 ruling 8
+names, the `overrides_unresolved` survey key of ruling 11 with its
+unit test, and the `columns_resolve` form of ruling 10 in the run
+script; the survey then runs on both targets in P3's run log beside
+the edit runs, expecting `overrides_unresolved` 0 in every file.
 
 The edit methods and `write_to`; `TempFile` shared; `--drop-calc-
 chain`; the two probes; the catalogue and Limits in the module docs
