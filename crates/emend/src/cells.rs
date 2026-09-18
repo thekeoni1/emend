@@ -34,11 +34,11 @@
 //! A shared strings table is held whole: one `String` per item and the `Vec`.
 //! The corpus's largest shared strings PART is 2748976 bytes of XML, and its
 //! 27 parts hold 110582 items between them (`specs/0010-reading-cells.md`,
-//! "The corpus"): a part's byte size and the corpus's item count are two
-//! different measurements and neither bounds the other. A consumer on a
-//! 32-bit target that meets a table larger than its address space cannot
-//! read that workbook; the cells themselves stream, so the table is the only
-//! whole-part cost in this module.
+//! "Facts planning checked"): a part's byte size and the corpus's item
+//! count are two different measurements and neither bounds the other. A
+//! consumer on a 32-bit target that meets a table larger than its address
+//! space cannot read that workbook; the cells themselves stream, so the
+//! table is the only whole-part cost in this module.
 
 use quick_xml::events::{BytesRef, Event};
 
@@ -94,10 +94,10 @@ impl SharedStrings {
     /// part of it.
     ///
     /// The corpus carries no `<rPh>` and no `<phoneticPr>` at all
-    /// (`specs/0010-reading-cells.md`, "The corpus"), so the skip is proved
-    /// by this module's tests and by nothing in the corpus run. It is here
-    /// because the format allows them, not because a measurement asked for
-    /// it.
+    /// (`specs/0010-reading-cells.md`, "Facts planning checked"), so the
+    /// skip is proved by this module's tests and by nothing in the corpus
+    /// run. It is here because the format allows them, not because a
+    /// measurement asked for it.
     pub(crate) fn read<R: Read>(stream: &mut Stream<R>, index: usize) -> Result<Self, Error> {
         let mut scope = Scope::new(index);
         let mut items: Vec<String> = Vec::new();
