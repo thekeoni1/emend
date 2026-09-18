@@ -163,7 +163,10 @@ commit.
   Error>`, parsed from `[Content_Types].xml` on the first call and
   kept. `Default { extension, content_type }` and `Override {
   part_name, content_type }` in document order, bytes as written (the
-  part name keeps its leading slash). `ContentTypes::of(&self, name:
+  part name keeps its leading slash). A `Default`, `Override` or
+  `Relationship` element lacking one of its required attributes is
+  `Error::Package("a Default, Override or Relationship element lacks a
+  required attribute")` (P2 ruling 4). `ContentTypes::of(&self, name:
   &[u8]) -> Option<&[u8]>`: the Override whose part name is `/`
   followed by the entry name, byte for byte; else the Default whose
   extension equals the bytes after the name's last `.` compared ASCII
@@ -186,10 +189,11 @@ commit.
   `target_part(&self, rel) -> Result<Vec<u8>, Error>`: for an internal
   relationship, the entry name: the target without its leading slash
   when it has one, else the target joined to the source's directory,
-  with `.` and `..` segments resolved; `..` above the root, or an empty
-  result, is `Error::Package("a relationship target outside the
-  package")`; an external relationship is `Error::Package("an external
-  relationship has no part")`. No percent-decoding and no case folding
+  and in either form `.` and `..` segments resolved (P2 ruling 5);
+  `..` above the root, or an empty result, is `Error::Package("a
+  relationship target outside the package")`; an external
+  relationship is `Error::Package("an external relationship has no
+  part")`. No percent-decoding and no case folding
   (the corpus needs neither; Limits). Two relationships with one id
   are `Error::Package("two relationships with the same id")`; a root
   other than `Relationships` in
@@ -197,7 +201,8 @@ commit.
   `Error::Package("a relationships part whose root is not
   Relationships")`.
 - Namespaces the layer knows, each in its transitional and its strict
-  form, looked up in that order: the main spreadsheet namespace
+  form, public constants of `package` as (transitional, strict) pairs,
+  looked up in that order: the main spreadsheet namespace
   (`http://schemas.openxmlformats.org/spreadsheetml/2006/main`,
   `http://purl.oclc.org/ooxml/spreadsheetml/main`); the relationships
   namespace of the `r:id` attribute (`http://schemas.openxmlformats.org/
@@ -209,7 +214,10 @@ commit.
 - The workbook: `workbook(&mut self) -> Result<&Workbook, Error>`.
   The package's officeDocument relationship gives the workbook part
   (`Error::Package("no officeDocument relationship")`, `("more than
-  one officeDocument relationship")`); its root must be `workbook` in
+  one officeDocument relationship")`, the transitional and strict
+  forms counted together (P2 ruling 6); `("the officeDocument
+  relationship names no entry")` when no entry has the resolved name
+  (P2 ruling 3)); its root must be `workbook` in
   the main namespace (`Error::Package("a workbook part whose root is
   not workbook")`). `Workbook { part, sheets: Vec<Sheet>,
   shared_strings, styles, calc_chain, theme: Option<Vec<u8>> }`, the
@@ -701,6 +709,45 @@ log's survey aggregation; acceptance as "Harness runs".
    return `Result`, since the unbound-prefix error has to travel
    (amended above); the crate's `QName`, `LocalName` and `Prefix` are
    `str`-based and the spec's byte slices come from `as_bytes()`.
+
+Rulings on the four gaps raised after code commit 5fc1b3d:
+
+3. The officeDocument relationship resolving to a name no entry has
+   is `Error::Package("the officeDocument relationship names no
+   entry")`, with its test; the Design text is amended. A sheet's
+   target need not be an entry: `sheets_resolved` measures that.
+
+4. A `Default`, `Override` or `Relationship` element lacking a
+   required attribute (`Extension` and `ContentType`; `PartName` and
+   `ContentType`; `Id`, `Type` and `Target`) is refused, not recorded
+   as nothing: `Error::Package("a Default, Override or Relationship
+   element lacks a required attribute")`, one message, with a test per
+   element kind. The implementing session had recorded such an element
+   as declaring nothing; the ruling goes the other way because the
+   spec already refuses a `<sheet>` lacking `name`, `sheetId` or
+   `r:id`, and one rule for a structurally incomplete element is
+   easier to reason about than two. A part that hits it is corrupt as
+   a package, which a later edit could not have preserved meaningfully
+   either. The Design text is amended.
+
+5. `target_part` resolves `.` and `..` in an absolute target as well
+   as a relative one: `a/../b` is not an entry name whichever form it
+   arrives in, and on the corpus no absolute target carries a dot
+   segment, so the unified rule changes no resolution. The Design
+   text is amended.
+
+6. "more than one officeDocument relationship" counts the
+   transitional and the strict form together: a package carrying one
+   of each does not say which is the workbook. The first-of-a-kind
+   rule stays for the workbook's four options. The Design text is
+   amended.
+
+Noted without a ruling: `Scope` has no method for an empty element,
+since a parser calls start, resolves, then end before the next token,
+which the Design text allows; the namespaces and the eight
+relationship types are public constants of `package`, each a
+(transitional, strict) pair, since P3's recipe needs the calcChain
+URI (the Design text now says so).
 
 ### P3: the edits, the first real edit, the size record
 
