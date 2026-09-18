@@ -92,10 +92,14 @@ not carry since it measures no candidates.
 
 The byte-level archive builder and the independent parser of
 `archive/tests.rs` (`Spec`, `Build`, `parse_independently` and their
-helpers) move unchanged into `crates/emend/src/testing.rs`, a
-`#[cfg(test)]` module, so the package tests build their fixtures and
-read their outputs through code that shares nothing with either layer.
-The move is P2's first code commit and changes no test.
+helpers) move into `crates/emend/src/testing.rs`, a `#[cfg(test)]`
+module, so the package tests build their fixtures and read their
+outputs through code that shares nothing with either layer. The move
+changes no test and no test's behaviour; the one change it makes is
+that the ten zip format constants the moved code took from the layer
+through `use super::*` are declared in `testing.rs` from the zip
+specification instead (P2 ruling 1). The move is P2's first code
+commit.
 
 ### Module `xml`
 
@@ -638,6 +642,33 @@ types part is malformed opens, and the first `content_types()` call
 fails. The corpus run `--survey` on both targets, recorded as
 `records/m1p2-p2-<utc-date>-<shortsha>.md` and `.txt`, with the run
 log's survey aggregation; acceptance as "Harness runs".
+
+### Planning rulings during P2 (2026-09-18)
+
+1. The move of the builder and the parser. As written, "move
+   unchanged" does not compile: through `use super::*` the moved code
+   takes ten constants `archive.rs` declares module-private
+   (`CENTRAL_FIXED`, `U32_MAX_MARKER`, `ZIP64_EXTRA_ID`,
+   `ZIP64_EOCD_SIG`, `LOCAL_SIG`, `EOCD_SIG`, `CENTRAL_SIG`,
+   `ZIP64_LOCATOR_SIG`, `ZIP64_EOCD_FIXED`, `GP_DESCRIPTOR`; planning
+   counted the declarations and the uses), while it already carries its
+   own `METHOD_STORE` and `METHOD_DEFLATE`. Worse than the build error,
+   the independent parser was reading the layer's idea of a central
+   record's size, so a wrong `CENTRAL_FIXED` would have been the same
+   mistake on both sides, which is exactly what that parser exists to
+   rule out. Ruling: `testing.rs` declares the ten from the zip
+   specification (APPNOTE 6.3.x, section 4.3, cited beside each
+   value), as it already does the two method constants; nothing in
+   `archive.rs` becomes `pub(crate)` for the tests' sake. The "Crate"
+   text is amended above. The move set is `crc32`, `deflate_stored`,
+   `METHOD_STORE`, `METHOD_DEFLATE`, `Spec`, `Build`, `OutEntry`,
+   `Parsed`, `parse_independently` and `names` (it takes a `Parsed`);
+   everything that asserts something about the archive layer or uses
+   its types (`round_trip`, `assert_identical`, `check_round_trip`,
+   `open_err`, `bytes_replacement`, `apply`, `REPLACEMENT_LOCK`,
+   `FailingWriter`, `replacement_temporaries`, `at_u16`, `at_u32`,
+   `data_start_of` and the rest) stays in `archive/tests.rs`. The
+   test count stays 178 on each target and `test.log` shows it.
 
 ### P3: the edits, the first real edit, the size record
 
