@@ -260,15 +260,24 @@ commit.
   of the workbook part's calcChain relationship, `remove_override` of
   its target when an override for it exists, `remove_part` of the
   target when the entry exists.
-- `write_to(&mut self, out: impl Write) -> Result<(), Error>`: every
+- `write_to(self, out: impl Write) -> Result<(), Error>`, taking the
+  package by value: a package is written at most once, and a refused
+  or failed write spends it too, since a `Replacement` is a reader
+  that cannot be read twice; the caller reopens (P3 ruling 12). Every
   edit is validated first, so a refused set writes nothing: removing an
   id or an override that is not there (`Error::Package("no such
   relationship")`, `("no such override")`), adding an override for a
-  part name that has one (`("an override for that part already
-  exists")`), editing a part also removed (`("an edit to a removed
-  part")`), removing or replacing a part no entry carries (`("no such
-  part")`; P3 ruling 9), a part name or value that is not UTF-8
-  (`Error::Xml`).
+  part name that has one and keeps it (`("an override for that part
+  already exists")`; one this write removes may be added again with
+  another content type, which is how a content type changes, P3
+  ruling 11), editing a part also removed (`("an edit to a removed
+  part")`), removing or replacing a part no entry carries, or a
+  relationship edit whose source is neither the package nor an entry
+  (`("no such part")`; P3 rulings 9 and 13), a part name or value that
+  is not UTF-8 (`Error::Xml`, carrying the index of the part the value
+  would be written into, or the source part's index when its rels part
+  does not exist yet, or `[Content_Types].xml`'s when that source is
+  the package itself; P3 ruling 13).
   Then, for `[Content_Types].xml` and each rels part with edits, the
   part is read through `Stream` and written to a temporary file (the
   layer's `TempFile`, made `pub(crate)`): every token's `raw` is
@@ -1055,6 +1064,43 @@ throwaway worktree at 11de26e reports `FAIL doc` and exits 1 on the
     the majority form above. One test per corpus form and one for the
     fallback, expected bytes built by hand. The Limits line says the
     rule, not a producer. Nothing in a log claims a producer's form.
+
+On the code commits 5dba448 and e04db06 (planning read both in full
+and ran the workspace tests on the host at e04db06: 253 passed, 0
+failed, 2 ignored, of which the library's binary is 171 and the
+tool's 12):
+
+11. An override this write removes may be added again with another
+    content type; "an override for that part already exists" refuses
+    a name that keeps its override. Accepted as the implementing
+    session judged it, since that is how a part's content type
+    changes; the Design text is amended and the test
+    `an_override_removed_and_added_again_is_not_a_duplicate` stands.
+12. `write_to` takes `self` by value. A `Replacement` is a reader
+    that cannot be read twice or cloned, so a second write on the same
+    package would silently lack the part edits; the type refuses the
+    second write instead of a runtime check, and a refused or failed
+    write spends the package too, so the caller reopens rather than
+    retrying on one whose replacements are gone. The tool's
+    `write_package` and the probe adapt; a test that writes twice opens
+    twice. The Design text is amended.
+13. Two small things in the same code: a relationship edit whose
+    source is neither the package (the empty name) nor an entry is
+    refused in `validate` as "no such part", so a rels part is never
+    created for a part that does not exist; and the elements built for
+    a rels part that does not exist yet carry the source part's index
+    in `Error::Xml`, not index 0, which names the wrong entry; when
+    the source is the package itself, which has no entry, the index is
+    `[Content_Types].xml`'s, which the created part's `Default` check
+    requires to exist and which runs before the elements are built.
+    Each with a test. The Design text is amended.
+14. The zip layer's test lock and temporary listing moved into
+    `crate::testing`, held by the package tests too: accepted, for the
+    race the implementing session saw (a package test's temporary
+    caught in flight by the zip layer's no-temporary-left snapshot).
+
+The corpus run waits for the code commit that carries 12 and 13, and
+runs at that commit.
 
 ### Close-out push (after P3)
 
