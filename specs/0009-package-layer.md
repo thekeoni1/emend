@@ -246,7 +246,9 @@ commit.
   `<sheets>` and its `<sheet>` children is skipped.
 - Edits, recorded on the `Package` and applied by `write_to`:
   `remove_relationship(source, id)`, `add_relationship(source, kind,
-  target, external) -> Vec<u8>` (the new id), `remove_override
+  target, external) -> Result<Vec<u8>, Error>` (the new id; it reads
+  the source's relationships, which can fail as `relationships` does;
+  P3 ruling 7), `remove_override
   (part_name)`, `add_override(part_name, content_type)`,
   `remove_part(name)`, `replace_part(name, Replacement)` and
   `add_part(name, Replacement)` (the entry alone; the caller adds an
@@ -264,7 +266,9 @@ commit.
   relationship")`, `("no such override")`), adding an override for a
   part name that has one (`("an override for that part already
   exists")`), editing a part also removed (`("an edit to a removed
-  part")`), a part name or value that is not UTF-8 (`Error::Xml`).
+  part")`), removing or replacing a part no entry carries (`("no such
+  part")`; P3 ruling 9), a part name or value that is not UTF-8
+  (`Error::Xml`).
   Then, for `[Content_Types].xml` and each rels part with edits, the
   part is read through `Stream` and written to a temporary file (the
   layer's `TempFile`, made `pub(crate)`): every token's `raw` is
@@ -273,15 +277,24 @@ commit.
   the root's end tag as `<Override PartName="..." ContentType="..."/>`
   or `<Relationship Id="..." Type="..." Target="..."/>`, with
   ` TargetMode="External"` before the slash when external, values
-  escaped, no whitespace added. A relationship added to a part with no
+  escaped, no whitespace added. A root written as an empty element
+  (`<Relationships xmlns="..."/>`, or `<Types .../>`) has no end tag:
+  its own raw bytes are written with the `/` of its closing `/>`
+  dropped, then the additions, then `</` + the root's name as written
+  + `>`, so the prolog and the root's attributes are kept byte for
+  byte (P3 ruling 8). A relationship added to a part with no
   rels part creates one: `<?xml version="1.0" encoding="UTF-8"
   standalone="yes"?>` then `<Relationships xmlns="...">`, the new
   elements, `</Relationships>`, added as an entry, its content type
   coming from the package's Default for `rels`
   (`Error::Package("no Default covers rels")` otherwise). Ids:
   `rId<n>`, `n` one more than the largest among the part's ids of the
-  form `rId<digits>`, `rId1` when there is none; an id of another form
-  is never generated and never collides. The temporary files become
+  form `rId<digits>`, `rId1` when there is none; the part's ids are
+  every one parsed, those pending removal included, plus the ids this
+  package has already generated for the source, so two calls give
+  `rId5` then `rId6` and a removed id is not reused within a write
+  (P3 ruling 7); an id of another form is never generated and never
+  collides. The temporary files become
   the entries' replacements and `Archive::write_to` runs with the
   assembled `Edits`; the temporaries are removed however the write
   ends.
@@ -977,6 +990,46 @@ code commit 11de26e (planning read the diff, ran `cargo doc` at
    committed with the phase's other logs.
 5. Ruling 10's `columns_resolve` form lands in P3's run log's script,
    as the commit message says; the run log is where the rule lives.
+
+On the second code commit 5fdf65a and the three edit-layer questions
+(planning read the three diffs, ran the nine-step gate at 5fdf65a with
+exit 0, and reproduced the negative case: the 5fdf65a script run in a
+throwaway worktree at 11de26e reports `FAIL doc` and exits 1 on the
+`Stream::origin` link):
+
+6. `scripts/gate-self-test.sh` naming its phase from an input
+   (`PHASE_NOTE`, beside `RERUN_NOTE`) rather than from its own text
+   is accepted, with the two "step 7" comments renamed. It is the
+   class this phase has ruled on twice, and a committed log whose
+   first line names the wrong phase is worse than a script edit; the
+   script is a gate file, and the self-test in flight runs it at
+   5fdf65a, which is what the `specs/0001` rule asks.
+7. `add_relationship` returns `Result<Vec<u8>, Error>`: the id rule
+   needs the source's relationships, which are parsed on demand and
+   can be refused, and the caller must learn the id it will reference.
+   Ids count every parsed relationship, pending removals included, and
+   every id this package has generated for the source, so consecutive
+   calls give consecutive ids and a removed id is not reused within a
+   write. The Design text is amended.
+8. A root written as an empty element is rewritten as it is copied
+   (option b), for a rels part and for `[Content_Types].xml` alike:
+   the root's raw bytes with the `/` of its `/>` dropped, the
+   additions, then `</` + the root's name as written + `>`. The Types
+   case is reachable: `<Types xmlns="..."/>` parses to empty lists, so
+   `add_override` on such a package followed by `write_to` reaches the
+   root, and its test builds the package that way. One test per part
+   kind, the expected bytes built by hand. Refusing (a) rejects a
+   legal package; a fresh part (c) discards bytes the input had. The
+   Design text is amended.
+9. `remove_part` or `replace_part` naming no entry is refused in
+   `write_to`'s validation as `Error::Package("no such part")`, with
+   its test, and never a silent no-op: the recipe asks the caller to
+   check the entry exists, and a package that lost its calcChain entry
+   but kept the relationship would otherwise write out unchanged and
+   report success. P3 adds and catalogues six messages: "no such
+   relationship", "no such override", "an override for that part
+   already exists", "an edit to a removed part", "no Default covers
+   rels", "no such part". The Design text is amended.
 
 ### Close-out push (after P3)
 
