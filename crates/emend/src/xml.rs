@@ -7,8 +7,9 @@
 //! it does: the acceptance is that the mark when present, followed by every
 //! token's [`Token::raw`] in order, is the input exactly.
 //!
-//! Nothing here reads a cell, and nothing here resolves a name. The prefix
-//! stack arrives with the package layer in part 2 P2.
+//! Nothing here reads a cell. [`Scope`], added in part 2 P2, is the prefix
+//! stack the package layer resolves names through; [`Stream`] itself never
+//! resolves one, and the null rewrite of P1 never builds a scope.
 //!
 //! # Why the whole input is fed to the parser
 //!
@@ -81,7 +82,9 @@
 use std::io::{self, BufReader, Chain, Cursor, Read};
 
 use quick_xml::Reader;
-use quick_xml::events::Event;
+use quick_xml::XmlVersion;
+use quick_xml::events::{BytesStart, Event};
+use quick_xml::name::{PrefixDeclaration, QName};
 
 use crate::archive::Error;
 
@@ -282,5 +285,139 @@ fn parse_error(err: quick_xml::Error, index: usize) -> Error {
     match err {
         quick_xml::Error::Io(e) => Error::Io(io::Error::from(e.kind())),
         _ => Error::Xml(index),
+    }
+}
+
+/// The prefix stack a package parser resolves names through.
+///
+/// `specs/0009-package-layer.md`, "Module `xml`": every `xmlns` and
+/// `xmlns:<p>` declaration is recorded with the depth it was declared at and
+/// dropped at the matching end tag. A start tag's own declarations bind for
+/// that tag, so `<x:sheets xmlns:x="...">` resolves its own name; an empty
+/// element's declarations apply to itself alone, so a caller calls
+/// [`Scope::start`], resolves, and calls [`Scope::end`] before the next
+/// token. There is no separate call for an empty element: one that recorded
+/// and dropped the declarations together could not resolve the element's own
+/// name, which is the only reason to record them at all.
+///
+/// The null rewrite never resolves a name, so nothing in P1's path builds one.
+///
+/// # Errors
+///
+/// - [`Error::Package`] "an element or attribute uses a prefix its document
+///   does not bind", from either resolver.
+/// - [`Error::Xml`], carrying the entry index given to [`Scope::new`], when a
+///   namespace declaration's value holds a reference the parser cannot
+///   resolve. A namespace URI is a value this layer interprets, so it is
+///   read through `normalized_value` rather than compared as written
+///   (`specs/0009-package-layer.md`, P2 ruling 2).
+///
+/// The version passed is `XmlVersion::Implicit1_0`. The ruling names
+/// `Version10`, which 0.42.0 does not have: its variants are `Implicit1_0`,
+/// `Explicit1_0` and `Explicit1_1`, the two 1.0 ones taking the same XML 1.0
+/// path (1.1 would additionally fold U+0085 and U+2028). `Implicit1_0` is
+/// also what the crate's own deprecated `unescape_value` passes, so this call
+/// is the method the spec first named, with the deprecation gone.
+pub struct Scope {
+    /// Each binding as (depth, prefix, namespace); the prefix is `None` for a
+    /// default namespace. Later entries shadow earlier ones with the same
+    /// prefix, so a lookup walks backwards.
+    bindings: Vec<(usize, Option<Vec<u8>>, Vec<u8>)>,
+    depth: usize,
+    index: usize,
+}
+
+impl Scope {
+    /// A scope with nothing bound, for the entry `index`.
+    ///
+    /// The index is carried only so that a malformed declaration can name the
+    /// entry it came from, as every other error in this layer does.
+    pub fn new(index: usize) -> Self {
+        Scope {
+            bindings: Vec::new(),
+            depth: 0,
+            index,
+        }
+    }
+
+    /// Records a start tag's declarations. Call [`Scope::end`] at its end tag.
+    pub fn start(&mut self, start: &BytesStart<'_>) -> Result<(), Error> {
+        self.depth += 1;
+        self.declare(start)
+    }
+
+    /// Drops the declarations of the start tag just ended.
+    pub fn end(&mut self) {
+        self.bindings.retain(|(depth, _, _)| *depth < self.depth);
+        self.depth = self.depth.saturating_sub(1);
+    }
+
+    /// The namespace and local name of an element's name.
+    ///
+    /// An unprefixed element takes the default namespace when one is bound.
+    pub fn resolve_element<'n>(&self, name: QName<'n>) -> Result<(Option<&[u8]>, &'n [u8]), Error> {
+        let (local, prefix) = name.decompose();
+        let namespace = match prefix {
+            Some(prefix) => Some(self.bound(Some(prefix.into_inner().as_bytes()))?),
+            None => self.lookup(None),
+        };
+        Ok((namespace, local.into_inner().as_bytes()))
+    }
+
+    /// The namespace and local name of an attribute's name.
+    ///
+    /// An unprefixed attribute has NO namespace, whatever default is bound,
+    /// which is why this is not the same function as
+    /// [`Scope::resolve_element`].
+    pub fn resolve_attribute<'n>(
+        &self,
+        name: QName<'n>,
+    ) -> Result<(Option<&[u8]>, &'n [u8]), Error> {
+        let (local, prefix) = name.decompose();
+        let namespace = match prefix {
+            Some(prefix) => Some(self.bound(Some(prefix.into_inner().as_bytes()))?),
+            None => None,
+        };
+        Ok((namespace, local.into_inner().as_bytes()))
+    }
+
+    /// Adds every namespace declaration this start tag carries.
+    fn declare(&mut self, start: &BytesStart<'_>) -> Result<(), Error> {
+        for attribute in start.attributes() {
+            let attribute = attribute.map_err(|_| Error::Xml(self.index))?;
+            let Some(declaration) = attribute.key.as_namespace_binding() else {
+                continue;
+            };
+            let prefix = match declaration {
+                PrefixDeclaration::Default => None,
+                PrefixDeclaration::Named(prefix) => Some(prefix.as_bytes().to_vec()),
+            };
+            let value = attribute
+                .normalized_value(XmlVersion::Implicit1_0)
+                .map_err(|_| Error::Xml(self.index))?;
+            self.bindings
+                .push((self.depth, prefix, value.as_bytes().to_vec()));
+        }
+        Ok(())
+    }
+
+    /// The namespace bound to `prefix`, innermost first, or `None`.
+    ///
+    /// A declaration of the empty string undoes a binding, as XML says, so it
+    /// reads as nothing bound rather than as a namespace whose name is empty.
+    fn lookup(&self, prefix: Option<&[u8]>) -> Option<&[u8]> {
+        self.bindings
+            .iter()
+            .rev()
+            .find(|(_, bound, _)| bound.as_deref() == prefix)
+            .map(|(_, _, namespace)| namespace.as_slice())
+            .filter(|namespace| !namespace.is_empty())
+    }
+
+    /// [`Scope::lookup`], refusing a prefix no ancestor binds.
+    fn bound(&self, prefix: Option<&[u8]>) -> Result<&[u8], Error> {
+        self.lookup(prefix).ok_or(Error::Package(
+            "an element or attribute uses a prefix its document does not bind",
+        ))
     }
 }

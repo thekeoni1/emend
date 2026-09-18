@@ -65,6 +65,12 @@
 //!   (entry N)". Produced by [`crate::xml`] and catalogued in full in that
 //!   module's header, which lists what its parser refuses and the three
 //!   not-well-formed classes it accepts; nothing in this module returns it.
+//! - `Package(message)`: a part is XML but not the package part it has to be.
+//!   Rendered as the message alone. Produced by [`crate::package`] and by
+//!   [`crate::xml::Scope`], each of which catalogues its own messages in its
+//!   module header with the test that pins it; nothing in this module returns
+//!   it. The message is a fixed string and never carries a part name or an
+//!   attribute value, since a package part's text is the workbook's.
 //! - `Unsupported(message)`, where the message is exactly one of these:
 //!   - "a multi-disk archive": a disk number other than 0 in either end record
 //!     or in a central record.
@@ -247,6 +253,13 @@ pub enum Error {
     /// and what it accepts. Neither a position nor any bytes are carried: the
     /// bytes either side of a parse error are content.
     Xml(usize),
+    /// A part is XML but not the package part it must be.
+    ///
+    /// Produced by [`crate::package`] and by [`crate::xml::Scope`], whose
+    /// headers catalogue every message. The message is a fixed string and
+    /// never carries a part name, an attribute value or any other content:
+    /// a package part's text is the workbook's.
+    Package(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -263,6 +276,7 @@ impl fmt::Display for Error {
             Error::Xml(index) => {
                 write!(f, "not well-formed XML or not UTF-8 (entry {index})")
             }
+            Error::Package(what) => f.write_str(what),
         }
     }
 }

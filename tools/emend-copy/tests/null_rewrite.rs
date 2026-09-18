@@ -77,6 +77,7 @@ impl Drop for TempDir {
 /// What the tool did.
 struct Ran {
     status: i32,
+    stdout: String,
     stderr: String,
 }
 
@@ -87,6 +88,7 @@ fn emend_copy(args: &[&Path]) -> Ran {
         .expect("run emend-copy");
     Ran {
         status: out.status.code().expect("an exit code"),
+        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
     }
 }
@@ -522,12 +524,15 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--replace", "[Content_Types].xml", "--xml-null-rewrite"],
         // The same operation twice.
         vec!["--xml-null-rewrite", "--xml-null-rewrite"],
+        // Two operations at once again, with the one P2 adds.
+        vec!["--survey", "--xml-null-rewrite"],
+        vec!["--xml-null-rewrite", "--survey"],
         // An unknown operation.
-        vec!["--survey"],
         vec!["--xml-null"],
         vec!["--replace-all", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--xml-null-rewrite", "[Content_Types].xml"],
+        vec!["--survey", "[Content_Types].xml"],
         // An operation that needs a name, without one.
         vec!["--replace"],
     ];
@@ -594,4 +599,113 @@ fn replace_is_unchanged() {
         assert_eq!(now.crc32, was.crc32);
         assert_eq!(now.uncompressed_size, was.uncompressed_size);
     }
+}
+
+// --------------------------------------------------------------- the survey
+
+/// The namespaces a real package writes, which the survey's fixture must use:
+/// the layer knows these URIs and nothing else.
+const TYPES_NS: &str = "http://schemas.openxmlformats.org/package/2006/content-types";
+const RELS_NS: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
+const MAIN_NS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+const ATTR_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+/// The smallest package the survey can count, plus one untyped entry and one
+/// external relationship so that every key it prints has something to count.
+fn package_specs() -> Vec<Spec> {
+    let content_types = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <Types xmlns=\"{TYPES_NS}\">\
+         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         </Types>"
+    );
+    let package_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/officeDocument\" Target=\"xl/workbook.xml\"/>\
+         </Relationships>"
+    );
+    let workbook = format!(
+        "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+         <sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>"
+    );
+    let workbook_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" Target=\"worksheets/sheet1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/styles\" Target=\"styles.xml\"/>\
+         <Relationship Id=\"rId3\" Type=\"{ATTR_NS}/hyperlink\" \
+         Target=\"https://example.invalid/x\" TargetMode=\"External\"/>\
+         </Relationships>"
+    );
+    vec![
+        Spec::deflated(b"[Content_Types].xml", content_types.as_bytes()),
+        Spec::stored(b"_rels/.rels", package_rels.as_bytes()),
+        Spec::deflated(b"xl/workbook.xml", workbook.as_bytes()),
+        Spec::stored(b"xl/_rels/workbook.xml.rels", workbook_rels.as_bytes()),
+        Spec::deflated(b"xl/worksheets/sheet1.xml", b"<sheetData/>"),
+        Spec::deflated(b"xl/styles.xml", b"<styleSheet/>"),
+        // Neither typed nor parsed: the survey reads only the parts it must.
+        Spec::deflated(b"xl/media/image1.bin", &binary_part()),
+    ]
+}
+
+#[test]
+fn the_survey_counts_the_map_and_edits_nothing() {
+    // `specs/0009-package-layer.md`, "Harness runs": one line, the word
+    // `survey` then tab-separated key=value pairs, counts only, and the
+    // output byte-identical because the operation makes no edit.
+    let dir = TempDir::new("survey");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&package_specs());
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--survey"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "survey\tentries=7\ttyped=5\tuntyped=1\tdefaults=2\toverrides=2\trels_parts=2\
+         \trelationships=4\texternal=1\tresolved=3\tunresolved=0\tcase_only=0\tsheets=1\
+         \tsheets_resolved=1\tshared_strings=0\tstyles=1\tcalc_chain=0\ttheme=0\n",
+        "the survey line"
+    );
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "the survey edits nothing"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+}
+
+#[test]
+fn the_survey_refuses_a_package_it_cannot_read() {
+    // An error from any parse is exit 2 with the message, so the runner
+    // records the run as an error outcome. P1's fixture is an archive of XML
+    // parts but not a package: its content types root is in another
+    // namespace.
+    let dir = TempDir::new("survey-error");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs())).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--survey"]);
+    assert_eq!(ran.status, 2, "stderr: {}", ran.stderr);
+    assert!(
+        ran.stderr
+            .contains("a content types part whose root is not Types"),
+        "the message: {}",
+        ran.stderr
+    );
+    assert!(ran.stdout.is_empty(), "no survey line: {}", ran.stdout);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string()],
+        "the refusal left a file behind"
+    );
 }

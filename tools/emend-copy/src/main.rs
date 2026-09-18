@@ -16,6 +16,13 @@
 //!   never `changed`, and every other entry `identical` and unflagged: the
 //!   rewrite is the identity, so this is what proves the token stream loses
 //!   nothing across the corpus.
+//! - `--survey`: no edit either, so the output must be byte-identical again,
+//!   and one line goes to stdout: the word `survey` then tab-separated
+//!   `key=value` pairs, COUNTS ONLY. The package layer's whole map is walked
+//!   to produce them, so a corpus file whose content types, relationships,
+//!   targets or sheets the layer cannot read is an error (exit 2) and the
+//!   runner records the run as one. The line names no entry and no value from
+//!   the workbook: a count is not content.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -36,10 +43,11 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
+use emend::package::{CONTENT_TYPES_PART, Package, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
-const USAGE: &str =
-    "usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite]";
+const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
+[--replace <name> | --xml-null-rewrite | --survey]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -51,6 +59,8 @@ enum Operation {
     Replace(Vec<u8>),
     /// Replace every XML-named entry with its own bytes through the stream.
     XmlNullRewrite,
+    /// No edits, and count the package layer's map on stdout.
+    Survey,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -68,6 +78,7 @@ enum Error {
     NoSuchName,
     Extract(io::ErrorKind),
     Rewrite(io::ErrorKind),
+    Report(io::ErrorKind),
 }
 
 impl fmt::Display for Error {
@@ -85,6 +96,7 @@ impl fmt::Display for Error {
             Error::NoSuchName => f.write_str("the archive has no entry with that name"),
             Error::Extract(kind) => write!(f, "cannot extract the entry to replace: {kind}"),
             Error::Rewrite(kind) => write!(f, "cannot write the rewritten part: {kind}"),
+            Error::Report(kind) => write!(f, "cannot write the survey line: {kind}"),
         }
     }
 }
@@ -107,6 +119,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::XmlNullRewrite,
         ),
+        [input, output, flag] if flag == "--survey" => {
+            run(Path::new(input), Path::new(output), Operation::Survey)
+        }
         [input, output, flag, name] if flag == "--replace" => run(
             Path::new(input),
             Path::new(output),
@@ -124,6 +139,13 @@ fn main() -> ExitCode {
 }
 
 fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
+    // The survey reads the whole map first, so a package the layer cannot
+    // read stops the run before any output file exists.
+    let counted = match operation {
+        Operation::Survey => Some(survey(input)?),
+        _ => None,
+    };
+
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut archive = Archive::open(BufReader::new(file))?;
 
@@ -132,7 +154,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     // would conflict with it.
     let mut edits = Edits::new();
     let extracted = match operation {
-        Operation::None => Vec::new(),
+        Operation::None | Operation::Survey => Vec::new(),
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
             let (mut file, guard) = temporary(output, "-entry")?;
@@ -180,7 +202,165 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         let _ = fs::remove_file(&temporary);
     }
     drop(extracted);
-    result
+    result?;
+
+    if let Some(counted) = counted {
+        let mut out = io::stdout().lock();
+        writeln!(out, "{}", counted.line()).map_err(|e| Error::Report(e.kind()))?;
+        out.flush().map_err(|e| Error::Report(e.kind()))?;
+    }
+    Ok(())
+}
+
+/// The survey's counts, in the order `specs/0009-package-layer.md`, "Harness
+/// runs", lists its keys.
+///
+/// Every field is `u64`: a count is a count of entries, relationships or
+/// sheets, and `usize` is 32 bits on the target that matters.
+#[derive(Default)]
+struct Survey {
+    entries: u64,
+    typed: u64,
+    untyped: u64,
+    defaults: u64,
+    overrides: u64,
+    rels_parts: u64,
+    relationships: u64,
+    external: u64,
+    resolved: u64,
+    unresolved: u64,
+    case_only: u64,
+    sheets: u64,
+    sheets_resolved: u64,
+    shared_strings: u64,
+    styles: u64,
+    calc_chain: u64,
+    theme: u64,
+}
+
+impl Survey {
+    /// The one line the tool prints: `survey` then tab-separated pairs.
+    fn line(&self) -> String {
+        let pairs = [
+            ("entries", self.entries),
+            ("typed", self.typed),
+            ("untyped", self.untyped),
+            ("defaults", self.defaults),
+            ("overrides", self.overrides),
+            ("rels_parts", self.rels_parts),
+            ("relationships", self.relationships),
+            ("external", self.external),
+            ("resolved", self.resolved),
+            ("unresolved", self.unresolved),
+            ("case_only", self.case_only),
+            ("sheets", self.sheets),
+            ("sheets_resolved", self.sheets_resolved),
+            ("shared_strings", self.shared_strings),
+            ("styles", self.styles),
+            ("calc_chain", self.calc_chain),
+            ("theme", self.theme),
+        ];
+        let mut line = String::from("survey");
+        for (key, value) in pairs {
+            line.push('\t');
+            line.push_str(key);
+            line.push('=');
+            line.push_str(&value.to_string());
+        }
+        line
+    }
+}
+
+/// Whether an entry has exactly that name.
+fn named(names: &[Vec<u8>], name: &[u8]) -> bool {
+    names.iter().any(|entry| entry.as_slice() == name)
+}
+
+/// Whether an entry has that name after ASCII case folding, and not before.
+///
+/// This is what `case_only` counts: it measures the exact-bytes rule instead
+/// of assuming it, so a corpus that needed case folding would say so.
+fn named_case_only(names: &[Vec<u8>], name: &[u8]) -> bool {
+    !named(names, name) && names.iter().any(|entry| entry.eq_ignore_ascii_case(name))
+}
+
+/// Walks the package layer's whole map and counts it.
+fn survey(input: &Path) -> Result<Survey, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let names: Vec<Vec<u8>> = package
+        .archive()
+        .entries()
+        .iter()
+        .map(|entry| entry.name().to_vec())
+        .collect();
+    let mut counted = Survey {
+        entries: names.len() as u64,
+        ..Survey::default()
+    };
+
+    {
+        let types = package.content_types()?;
+        counted.defaults = types.defaults().len() as u64;
+        counted.overrides = types.overrides().len() as u64;
+        // Every entry but the content types part itself has a type or does
+        // not: that is what the part is for.
+        for name in &names {
+            if name.as_slice() == CONTENT_TYPES_PART {
+                continue;
+            }
+            if types.of(name).is_some() {
+                counted.typed += 1;
+            } else {
+                counted.untyped += 1;
+            }
+        }
+        for over in types.overrides() {
+            let part = over.part_name.strip_prefix(b"/").unwrap_or(&over.part_name);
+            if named_case_only(&names, part) {
+                counted.case_only += 1;
+            }
+        }
+    }
+
+    // Every entry named as a rels part, read for the source its name derives.
+    let sources: Vec<Vec<u8>> = names
+        .iter()
+        .filter_map(|name| rels_part_source(name))
+        .collect();
+    counted.rels_parts = sources.len() as u64;
+    for source in &sources {
+        let rels = package.relationships(source)?;
+        for rel in rels.all() {
+            counted.relationships += 1;
+            if rel.external {
+                counted.external += 1;
+                continue;
+            }
+            let target = rels.target_part(rel)?;
+            if named(&names, &target) {
+                counted.resolved += 1;
+            } else {
+                counted.unresolved += 1;
+                if named_case_only(&names, &target) {
+                    counted.case_only += 1;
+                }
+            }
+        }
+    }
+
+    let workbook = package.workbook()?;
+    counted.sheets = workbook.sheets.len() as u64;
+    counted.sheets_resolved = workbook
+        .sheets
+        .iter()
+        .filter(|sheet| named(&names, &sheet.part))
+        .count() as u64;
+    counted.shared_strings = u64::from(workbook.shared_strings.is_some());
+    counted.styles = u64::from(workbook.styles.is_some());
+    counted.calc_chain = u64::from(workbook.calc_chain.is_some());
+    counted.theme = u64::from(workbook.theme.is_some());
+    Ok(counted)
 }
 
 /// Whether an entry name is one the null rewrite touches: `.xml` or `.rels`,
