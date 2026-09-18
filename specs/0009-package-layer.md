@@ -283,9 +283,15 @@ commit.
   dropped, then the additions, then `</` + the root's name as written
   + `>`, so the prolog and the root's attributes are kept byte for
   byte (P3 ruling 8). A relationship added to a part with no
-  rels part creates one: `<?xml version="1.0" encoding="UTF-8"
-  standalone="yes"?>` then `<Relationships xmlns="...">`, the new
-  elements, `</Relationships>`, added as an entry, its content type
+  rels part creates one in the form the package's own rels parts use
+  (P3 ruling 10): the bytes of `_rels/.rels` before its root start tag
+  (the mark if any, the declaration, whatever whitespace follows),
+  then `<Relationships xmlns="http://schemas.openxmlformats.org/
+  package/2006/relationships">` on one line, the new elements,
+  `</Relationships>` and nothing after; when the package has no
+  `_rels/.rels`, the prefix is the corpus's majority form (the mark,
+  `<?xml version="1.0" encoding="utf-8"?>`, no separator). The part
+  is added as an entry, its content type
   coming from the package's Default for `rels`
   (`Error::Package("no Default covers rels")` otherwise). Ids:
   `rId<n>`, `n` one more than the largest among the part's ids of the
@@ -926,7 +932,8 @@ chain`; the two probes; the catalogue and Limits in the module docs
 (exact-bytes part names; no percent-decoding; the first relationship
 of a kind; whitespace kept around a removed element; additions before
 the end tag without whitespace; ids generated as `rId<n>`; the rels
-part created in Excel's form). Tests: each edit alone on the smallest
+part created in the form the package's own rels parts use, which no
+producer name describes). Tests: each edit alone on the smallest
 package, the output read by the independent parser and the edited
 part's bytes compared with bytes the test builds by hand (the removed
 element gone, its surrounding whitespace kept, the addition before the
@@ -1030,6 +1037,24 @@ throwaway worktree at 11de26e reports `FAIL doc` and exits 1 on the
    relationship", "no such override", "an override for that part
    already exists", "an edit to a removed part", "no Default covers
    rels", "no such part". The Design text is amended.
+10. The created rels part's form. The Design named an Excel form
+    (`standalone="yes"`) that no corpus rels part writes; the
+    implementing session measured this and planning repeated the
+    measurement over all 216 rels parts of the 27 files, reading only
+    the bytes before and after the root: 148 parts in 10 files begin
+    with the mark, `<?xml version="1.0" encoding="utf-8"?>` and no
+    separator; 68 parts in 17 files begin with `<?xml version="1.0"
+    encoding="UTF-8"?>` and one LF, no mark; no file mixes the two;
+    every root start tag is the one line the Design writes; nothing
+    follows any end tag; and all 662 gaps between consecutive
+    Relationship elements are empty. Ruling: option (c). The created
+    part takes its prefix from the package's own `_rels/.rels` (the
+    mark and every token's raw bytes before the root start tag, read
+    through `Stream`), then the root line, the elements, the end tag
+    and nothing after; with no `_rels/.rels` to copy, the prefix is
+    the majority form above. One test per corpus form and one for the
+    fallback, expected bytes built by hand. The Limits line says the
+    rule, not a producer. Nothing in a log claims a producer's form.
 
 ### Close-out push (after P3)
 
