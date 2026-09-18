@@ -4,9 +4,16 @@
 //! `probe-emend-package-xml`'s work, then the workbook's shared strings, then
 //! every cell of the sheet part named on its command line. It prints the cell
 //! count, the sum of `number()` over the cells, and the total length of the
-//! text `resolve` gives back, so no path of the cell reader is dead: the
-//! reference and the style are read to reach the cell at all, `number()`
-//! carries the float parser, and `resolve` carries the table lookup.
+//! text `resolve` gives back, so the paths those three reach are in the
+//! binary: the reference and the style are read to reach the cell at all,
+//! `number()` carries the float parser, and `resolve` carries the table
+//! lookup.
+//!
+//! What this probe does NOT reach, so that the size figure is read for what
+//! it is: `Cell::boolean` and `Cell::error` have no caller here. Each is a
+//! kind comparison and a return, and neither pulls anything else in, but the
+//! part 3 cost this probe measures excludes them. A consumer that reads
+//! booleans or errors pays that much more, and how much is not measured.
 //!
 //! The two reads happen after every edit is recorded and before the write,
 //! because `Package::write_to` takes the package by value. So this probe

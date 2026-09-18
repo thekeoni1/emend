@@ -1370,8 +1370,17 @@ fn a_number_this_layer_reads_is_digits_alone() {
     // Ruling 2: one helper reads every number this layer takes out of an
     // attribute, so one spelling is a number everywhere or nowhere. The four
     // attributes are a row's `r`, a cell's `s`, a formula's `si` and the
-    // shared string index, and each has its own message; the spellings are
-    // what `u32::from_str` would have taken and the format does not write.
+    // shared string index, and each has its own message.
+    //
+    // TWO of the eight spellings are ones `u32::from_str` would have taken
+    // and the format does not write: `+1` and `007`, which is what ruling 2
+    // changed. `from_str` refuses the other six itself, measured in
+    // `what_the_standard_librarys_parse_takes_and_this_refuses`, so for
+    // those six this test pins behaviour this phase did not change. They are
+    // here as coverage of the four sites, not as evidence about the old
+    // reader. An earlier draft of this comment said all eight were spellings
+    // `from_str` would have taken; the independent checks of P3 measured
+    // `from_str` and found that false.
     //
     // `si` is the one that is not refused by message: an unreadable index is
     // the same case as an absent one (ruling 4), so the refusal is "a shared
@@ -1406,6 +1415,42 @@ fn a_number_this_layer_reads_is_digits_alone() {
             "a shared string index is not a number",
         );
     }
+}
+
+/// What `u32::from_str` takes that `decimal` does not, measured rather than
+/// described, because `decimal`'s doc comment says what is delegated and what
+/// is refused first and both halves are claims about the standard library.
+///
+/// This is the only test in the crate that asserts the standard library's own
+/// behaviour. It is here because a sentence in a doc comment of this crate
+/// depends on it, and because a toolchain that widened or narrowed the parse
+/// would change what `decimal` delegates: the two checks before the
+/// delegation would then be the wrong two.
+#[test]
+fn what_the_standard_librarys_parse_takes_and_this_refuses() {
+    // The two `decimal` refuses and `from_str` takes.
+    assert_eq!("+1".parse::<u32>(), Ok(1));
+    assert_eq!("+0".parse::<u32>(), Ok(0));
+    assert_eq!("007".parse::<u32>(), Ok(7));
+    assert_eq!(decimal("+1"), None);
+    assert_eq!(decimal("+0"), None);
+    assert_eq!(decimal("007"), None);
+    // A leading minus is NOT one of them: an unsigned parse refuses it, so
+    // the refusal a caller sees for a signed spelling is the standard
+    // library's and not this helper's added rule.
+    assert!("-1".parse::<u32>().is_err());
+    assert!("-0".parse::<u32>().is_err());
+    // And the six the format does not write that `from_str` refuses too, so
+    // `a_number_this_layer_reads_is_digits_alone`'s list is not eight
+    // spellings the old reader accepted.
+    for spelling in ["0x1", " 1", "1 ", "1.0", "-1", ""] {
+        assert!(spelling.parse::<u32>().is_err(), "{spelling}");
+        assert_eq!(decimal(spelling), None, "{spelling}");
+    }
+    // The range is delegated, which is the other half of the doc comment.
+    assert_eq!(decimal("4294967295"), Some(u32::MAX));
+    assert_eq!(decimal("4294967296"), None);
+    assert!("4294967296".parse::<u32>().is_err());
 }
 
 #[test]

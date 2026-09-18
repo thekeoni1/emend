@@ -110,10 +110,13 @@
 //!   styles part is not read in this part, so a caller asking what the cell
 //!   looks like gets the number and not an answer.
 //! - Attributes this layer does not model are not READ, and a part 4 rewrite
-//!   copies them raw: `<f>`'s `ca`, `aca` and the rest, `<row>`'s own
-//!   attributes, `<c>`'s beyond `r`, `s` and `t`, [`FormulaKind::DataTable`]'s
-//!   (which the corpus has no witness for), and `<sst>`'s `count` and
-//!   `uniqueCount`, which are ignored in favour of the items that are there.
+//!   copies them raw: `<f>`'s beyond `t`, `si` and `ref`, which is `ca`,
+//!   `aca` and the rest (`ref` IS modelled, as [`Formula::reference`], and
+//!   the three that are read are named here so the list is a boundary and
+//!   not a gesture), `<row>`'s own attributes, `<c>`'s beyond `r`, `s` and
+//!   `t`, [`FormulaKind::DataTable`]'s (which the corpus has no witness
+//!   for), and `<sst>`'s `count` and `uniqueCount`, which are ignored in
+//!   favour of the items that are there.
 //! - No SHEET-SIZE limit. 1048576 by 16384 is Excel's limit and not the
 //!   format's, so a reference past it is read rather than refused, and
 //!   [`CellRef`]'s two `u32` fields are what a consumer checks.
@@ -477,23 +480,28 @@ impl Cell {
     /// The parse is `str::parse::<f64>` and nothing else, so what it takes is
     /// wider than what a spreadsheet writes. A caller that needs the narrower
     /// thing reads [`Cell::value`] itself. Each case below is measured in
-    /// `cells::tests`, by
-    /// `the_parse_is_the_standard_librarys_and_wider_than_the_format`, and
-    /// not merely described here:
+    /// `cells::tests` and not merely described here, by the test named
+    /// against it: three tests do the work, not one.
     ///
-    /// - `inf`, `INF`, `infinity` and `nan`, `NaN` all parse, in any case,
-    ///   and `-inf` with them, so a cell whose text is `nan` reads as
-    ///   `Some(NaN)` and not as `None`.
+    /// - `inf`, `INF`, `infinity` and `nan`, `NaN` parse, and `-inf` with
+    ///   them, so a cell whose text is `nan` reads as `Some(NaN)` and not as
+    ///   `None`. Those six spellings are the measured ones
+    ///   (`the_parse_is_the_standard_librarys_and_wider_than_the_format`);
+    ///   the standard library takes others, and this comment does not say
+    ///   which, because nothing here measures them.
     /// - a magnitude past `f64` becomes an infinity rather than a refusal:
     ///   `1e309` is `Some(inf)`. So an infinity a caller sees may be the
     ///   producer's own word or its overflow, and this layer does not
-    ///   distinguish them.
+    ///   distinguish them
+    ///   (`the_parse_is_the_standard_librarys_and_wider_than_the_format`).
     /// - a leading `+` is taken, unlike in the indices `decimal` reads: this
-    ///   is a producer's number, not one of the format's tokens.
+    ///   is a producer's number, not one of the format's tokens (same test).
     /// - surrounding space is not taken: `" 1"` and `"1 "` are `None`, as is
-    ///   an empty value.
+    ///   an empty value
+    ///   (`a_number_cell_whose_text_is_not_a_number_has_none`).
     /// - `1.10` is `1.1`, and `-0` keeps its sign as `Some(-0.0)`, which is
-    ///   equal to `0.0` without being the same bits.
+    ///   equal to `0.0` without being the same bits
+    ///   (`a_numbers_text_is_read_as_an_f64`).
     pub fn number(&self) -> Option<f64> {
         if self.kind != Kind::Number {
             return None;
@@ -845,12 +853,18 @@ enum Slot {
 /// in `SharedStrings::resolve` (P2 ruling 2). One helper, so one spelling is
 /// a number everywhere or nowhere.
 ///
-/// `u32::from_str` alone is wider than the format: its grammar admits a
-/// leading `+` or `-`, and it reads any number of leading zeros. This refuses
-/// both, so `s="+1"`, `si="+0"` and `r="007"` are malformed rather than
-/// quietly read as 1, 0 and 7. What is left after those two checks is a
-/// canonical decimal, and `from_str` is then asked only for the value and
-/// the range: out of `u32` is `None`, the same answer as a letter.
+/// `u32::from_str` alone is wider than the format in two ways, both measured
+/// by `what_the_standard_librarys_parse_takes_and_this_refuses`: it takes a
+/// leading `+`, and it reads any number of leading zeros. This refuses both,
+/// so `s="+1"`, `si="+0"` and `r="007"` are malformed rather than quietly
+/// read as 1, 0 and 7. A leading `-` is not one of the two: an unsigned
+/// `from_str` refuses `"-1"` itself, so `decimal` and the standard library
+/// agree there and the refusal a caller sees for a signed spelling is not
+/// this helper's doing.
+///
+/// What is left after the two checks is a canonical decimal, and `from_str`
+/// is then asked only for the value and the range: out of `u32` is `None`,
+/// the same answer as a letter.
 ///
 /// `0` itself is a number: a style index and a shared string index count
 /// from 0. Whether zero is a legal value for a particular attribute belongs
