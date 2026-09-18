@@ -36,6 +36,9 @@
 //! - "no `[Content_Types].xml` part" (`open_reads_no_xml`,
 //!   `content_types_part_absent`).
 //! - "a content types part whose root is not Types" (`root_wrong_in_types`).
+//! - "a Default, Override or Relationship element lacks a required attribute"
+//!   (`default_lacks_an_attribute`, `override_lacks_an_attribute`,
+//!   `relationship_lacks_an_attribute`).
 //! - "a relationships part whose root is not Relationships"
 //!   (`root_wrong_in_rels`).
 //! - "two relationships with the same id" (`two_relationships_one_id`).
@@ -603,6 +606,16 @@ fn resolved_first(rels: &Relationships, kind: [&[u8]; 2]) -> Result<Option<Vec<u
     }
 }
 
+/// What a `Default`, `Override` or `Relationship` missing one of its
+/// required attributes is refused with (P2 ruling 4).
+///
+/// One message for all three, because the rule is one rule: an element that
+/// does not carry the attributes its kind is made of declares nothing, and a
+/// part holding one is corrupt as a package. The layer already refuses a
+/// `<sheet>` that lacks `name`, `sheetId` or `r:id` the same way.
+const INCOMPLETE: Error =
+    Error::Package("a Default, Override or Relationship element lacks a required attribute");
+
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
 /// Namespace declarations are skipped: `xmlns` and `xmlns:<p>` are not
@@ -626,10 +639,6 @@ fn written_attribute(
 }
 
 /// Reads `[Content_Types].xml`.
-///
-/// A `Default` or `Override` element that does not carry both its attributes
-/// declares nothing, so it is recorded as nothing: no message in the spec's
-/// catalogue covers one, and the layer reports what the part wrote.
 fn parse_content_types<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
@@ -662,24 +671,24 @@ fn parse_content_types<R: Read + Seek>(
                 ));
             }
             root = true;
-        } else if ours
-            && local == b"Default"
-            && let (Some(extension), Some(content_type)) = (
+        } else if ours && local == b"Default" {
+            let (Some(extension), Some(content_type)) = (
                 written_attribute(start, b"Extension", index)?,
                 written_attribute(start, b"ContentType", index)?,
-            )
-        {
+            ) else {
+                return Err(INCOMPLETE);
+            };
             defaults.push(Default {
                 extension,
                 content_type,
             });
-        } else if ours
-            && local == b"Override"
-            && let (Some(part_name), Some(content_type)) = (
+        } else if ours && local == b"Override" {
+            let (Some(part_name), Some(content_type)) = (
                 written_attribute(start, b"PartName", index)?,
                 written_attribute(start, b"ContentType", index)?,
-            )
-        {
+            ) else {
+                return Err(INCOMPLETE);
+            };
             overrides.push(Override {
                 part_name,
                 content_type,
@@ -696,10 +705,6 @@ fn parse_content_types<R: Read + Seek>(
 }
 
 /// Reads one `.rels` part, whose relationships belong to `source`.
-///
-/// As with a content type's elements, a `Relationship` that does not carry
-/// all three of `Id`, `Type` and `Target` relates nothing and is recorded as
-/// nothing.
 fn parse_relationships<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
@@ -729,14 +734,14 @@ fn parse_relationships<R: Read + Seek>(
                 ));
             }
             root = true;
-        } else if ours
-            && local == b"Relationship"
-            && let (Some(id), Some(kind), Some(target)) = (
+        } else if ours && local == b"Relationship" {
+            let (Some(id), Some(kind), Some(target)) = (
                 written_attribute(start, b"Id", index)?,
                 written_attribute(start, b"Type", index)?,
                 written_attribute(start, b"Target", index)?,
-            )
-        {
+            ) else {
+                return Err(INCOMPLETE);
+            };
             if list.iter().any(|rel| rel.id == id) {
                 return Err(Error::Package("two relationships with the same id"));
             }

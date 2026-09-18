@@ -965,3 +965,60 @@ fn non_utf8_sheet_name() {
     let mut package = package(parts);
     assert_xml(package.workbook().expect_err("refused"));
 }
+
+/// P2 ruling 4: one message for a structurally incomplete element, and one
+/// test per element kind. A `Default` needs `Extension` and `ContentType`.
+#[test]
+fn default_lacks_an_attribute() {
+    for element in [
+        "<Default ContentType=\"application/xml\"/>",
+        "<Default Extension=\"xml\"/>",
+        "<Default/>",
+    ] {
+        let mut parts = smallest();
+        set(&mut parts, b"[Content_Types].xml", types(element));
+        let mut package = package(parts);
+        assert_package(
+            package.content_types().expect_err("refused"),
+            "a Default, Override or Relationship element lacks a required attribute",
+        );
+    }
+}
+
+/// An `Override` needs `PartName` and `ContentType`.
+#[test]
+fn override_lacks_an_attribute() {
+    for element in [
+        "<Override ContentType=\"application/xml\"/>",
+        "<Override PartName=\"/xl/workbook.xml\"/>",
+        "<Override/>",
+    ] {
+        let mut parts = smallest();
+        set(&mut parts, b"[Content_Types].xml", types(element));
+        let mut package = package(parts);
+        assert_package(
+            package.content_types().expect_err("refused"),
+            "a Default, Override or Relationship element lacks a required attribute",
+        );
+    }
+}
+
+/// A `Relationship` needs `Id`, `Type` and `Target`.
+#[test]
+fn relationship_lacks_an_attribute() {
+    let kind = format!("{ATTR_NS}/officeDocument");
+    for element in [
+        format!("<Relationship Type=\"{kind}\" Target=\"xl/workbook.xml\"/>"),
+        "<Relationship Id=\"rId1\" Target=\"xl/workbook.xml\"/>".to_string(),
+        format!("<Relationship Id=\"rId1\" Type=\"{kind}\"/>"),
+        "<Relationship/>".to_string(),
+    ] {
+        let mut parts = smallest();
+        set(&mut parts, b"_rels/.rels", rels(&element));
+        let mut package = package(parts);
+        assert_package(
+            package.relationships(b"").expect_err("refused"),
+            "a Default, Override or Relationship element lacks a required attribute",
+        );
+    }
+}
