@@ -1,0 +1,935 @@
+command: git rev-parse HEAD
+about: M1 part 2 P1 phase commits, last is 47257953f752345c4333cae27a03369d0be62048; HEAD at run: 47257953f752345c4333cae27a03369d0be62048
+phase: Milestone 1 part 2 P1 (specs/0009-package-layer.md) gate.log; run at 2026-09-18T00:02:17Z
+rerun: supersedes two earlier rounds of this phase gate.log, both never committed: the round at 7a856adac9e00b3b6050c4132e016dd409f02bd1 (48559 bytes, sha256 dd6ea7245654519bf3d7ec7f283909ca2a58cf2797546b5a19a67ae784213ccd), which printed 8 PASS lines and 84 as-expected lines with no failure, and the round at this commit that ended "gate log checks all as expected: no" because two of its assertions were typed commit counts the fourth doc commit had made stale (see CHANGED FOR THIS RERUN in the script above; the gate itself passed in that round too). Reason for the first: the phase code commits were redone: crates/emend/src/xml.rs module header wrongly said Error::Io was returned unchanged, when parse_error carries the kind across (quick-xml holds the error in an Arc to stay Clone), and planning rulings 5 to 8 landed as a fourth doc commit. No behaviour changed; independent check 1 raised the header sentence.
+SERIALIZED: produced with no other run in flight
+ANTHROPIC_API_KEY set in this shell: no
+DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 2 P1 gate.log (specs/0009-package-layer.md, "P1: quick-xml
+    # joins; the token stream; the null rewrite"): the full gate on a cold cache,
+    # the phase's commits and files, the core's dependency tree now that quick-xml
+    # is in it, the new and modified sources scored against the gate they must
+    # pass, and the four binary hashes negative.log and run.log then cite rather
+    # than recompute.
+    #
+    # Usage: m1p2-gate.sh > <scratch file>; the caller moves the output to
+    # records/logs/m1p2-p1/gate.log.
+    #
+    # CHANGED FOR THIS RERUN, and why. The earlier round of this log asserted "the
+    # phase has three doc commits" and "five commits: three doc and two code".
+    # Planning's rulings 5 to 8 then arrived as a fourth doc commit, and both
+    # assertions failed on a phase that was correct: they were typed counts of
+    # something the phase is allowed to grow, not properties. They are replaced by
+    # the structure specs/0001 actually requires, checked in one function over the
+    # classified commit list: every commit touches planning docs alone or code
+    # alone, no doc commit follows a code commit, and the range holds at least one
+    # code commit. The classifier and the ordering check carry four controls and a
+    # no-code control, so each can be seen to fail. The first doc commit's own
+    # pattern is still asserted to match exactly one commit, which is what makes
+    # the base unambiguous however many rulings arrive.
+    #
+    # This is a FILE, not an inline block, so "$0" names it and the log prints the
+    # script rather than the shell binary (T6 P1: an inline block made sed succeed
+    # on the ELF binary and write half a megabyte of control bytes into a log).
+    #
+    # Its own text is committed inside the log, so it holds no office file name, no
+    # path shape and no address: the office regex is read from check.sh, the
+    # pre-P6d path forms are read from git, and every control fixture is assembled
+    # at run time from pieces.
+    #
+    # DERIVED FROM the M1 part 1 P1 gate script as its log printed it, audited
+    # against specs/0001 before this run (the rule from memory/gotchas.md: a script
+    # reused from an older phase's printed log carries that phase's forbidden
+    # forms). What changed, and why:
+    #  1. The phase, spec, log directory and doc commit pattern are part 2 P1's.
+    #  2. This phase has THREE doc commits, not two. The base is the parent of the
+    #     FIRST of them, so the pattern matches the plural "docs" of that subject
+    #     alone, and the count of doc commits is asserted as well as the pattern's
+    #     uniqueness.
+    #  3. New and modified files are DERIVED from git's diff filters rather than
+    #     typed into the script. The part 1 script listed four new files and one
+    #     modified file by hand, which goes stale the moment a commit adds a file;
+    #     here the two lists come from --diff-filter=A and --diff-filter=M, and the
+    #     count of files scored is checked against the count in the diff, so a file
+    #     cannot be silently unscored.
+    #  4. A new block prints the core's dependency tree and the licence of every
+    #     package in it, because this phase is the one that adds quick-xml to the
+    #     core (specs/0009, "Crate", and CLAUDE.md, "Dependencies and licences").
+    #  5. The part 1 script carried no instance of the compound shape specs/0001
+    #     forbids, so nothing had to be unpicked; every multi-condition check here
+    #     is a named function, as it was there.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    W=$(mktemp -d)
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # For a control that must FAIL. `is ! f x` cannot express it: `!` is a shell
+    # keyword, so "$@" would try to run a command named "!" and the helper would
+    # print UNEXPECTED whatever f did.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    
+    C=$(git rev-parse HEAD)
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 2 P1 phase commits, last is $C; HEAD at run: $C"
+    echo "phase: Milestone 1 part 2 P1 (specs/0009-package-layer.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the phase base, resolved from git and checked for ambiguity"
+    # specs/0001 requires the base to be read from git by the doc commit's subject,
+    # never typed. Only the FIRST doc commit's subject carries the plural "docs",
+    # every ruling being "doc update", so the pattern below matches exactly one
+    # commit and its parent is the base however many rulings arrive.
+    #
+    # The count of doc commits is deliberately NOT asserted. The earlier round of
+    # this log asserted three, and planning's rulings 5 to 8 then arrived as a
+    # fourth, so the assertion failed on a phase that was correct: a typed count of
+    # something the phase is allowed to grow is not a property. What is asserted
+    # instead is the structure specs/0001 actually requires: every commit in the
+    # range is either a doc commit touching only planning docs or a code commit
+    # touching none, and no doc commit comes after a code commit.
+    DOC_PATTERN='^M1 part 2 P1: commit planning docs'
+    ALL_DOC_PATTERN='^M1 part 2 P1: commit planning doc'
+    echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
+    git log --format='%H' --grep="$DOC_PATTERN" >"$W/doc-matches"
+    nmatch=$(count_lines "$W/doc-matches")
+    echo "  commits matching the first doc commit's pattern: $nmatch"
+    note "the first doc commit's pattern matches exactly one commit" "$(is [ "$nmatch" = 1 ])"
+    git log --format='%H' --grep="$ALL_DOC_PATTERN" >"$W/all-doc-matches"
+    ndoc=$(count_lines "$W/all-doc-matches")
+    echo "  doc commits in this phase, by the wider pattern: $ndoc"
+    note "the phase has at least one doc commit" "$(is [ "$ndoc" -ge 1 ])"
+    DOC=$(git log --format='%H' --grep="$DOC_PATTERN" -n 1)
+    BASE=$(git rev-parse --verify "$DOC^" 2>/dev/null)
+    echo "  the first doc commit is $DOC"
+    echo "  its parent, the phase base, is $BASE"
+    note "the base resolved from git, not typed" "$(is [ -n "$BASE" ])"
+    
+    echo
+    echo "## the phase's commits"
+    echo "command: git log --reverse --format='%H %s' <base>..HEAD"
+    git log --reverse --format='    %H %s' "$BASE..HEAD"
+    ncommits=$(git rev-list --count "$BASE..HEAD")
+    echo "  commits in the range: $ncommits"
+    
+    # Each commit is classified by the paths it touches, and the sequence is
+    # checked as one property in one function. A "mixed" commit (planning docs and
+    # code together) and a doc commit after a code commit are both failures, as is
+    # a range with no code commit at all.
+    commit_class() {
+      git show --name-only --format= "$1" | awk '
+        NF { total++; if ($0 ~ /^specs\// || $0 == "ROADMAP.md") docs++ }
+        END {
+          if (total == 0) { print "empty"; exit }
+          if (docs == total) print "doc"; else if (docs == 0) print "code"; else print "mixed"
+        }'
+    }
+    order_sound() {
+      awk '$1 == "mixed" || $1 == "empty" { bad = 1 }
+           $1 == "code" { code = 1 }
+           $1 == "doc" && code { bad = 1 }
+           END { exit (bad || !code) }' "$1"
+    }
+    : >"$W/classes"
+    for h in $(git rev-list --reverse "$BASE..HEAD"); do
+      printf '%s %s\n' "$(commit_class "$h")" "$(git log --format='%h %s' -n 1 "$h")" >>"$W/classes"
+    done
+    sed 's/^/    /' "$W/classes"
+    note "every commit is planning docs alone or code alone, and no doc commit follows a code commit" \
+      "$(is order_sound "$W/classes")"
+    # The classifier and the ordering check each get controls in the same form.
+    note "control: commit_class calls the first doc commit a doc commit" \
+      "$(is [ "$(commit_class "$DOC")" = doc ])"
+    note "control: commit_class calls HEAD a code commit" \
+      "$(is [ "$(commit_class HEAD)" = code ])"
+    printf 'doc a docs\ncode b code\n'   >"$W/c-ord-ok"
+    printf 'code a code\ndoc b docs\n'   >"$W/c-ord-late"
+    printf 'mixed a both\ncode b code\n' >"$W/c-ord-mixed"
+    printf 'doc a docs\n'                >"$W/c-ord-nocode"
+    note "control: order_sound accepts docs then code" "$(is order_sound "$W/c-ord-ok")"
+    note "control: order_sound rejects a doc commit after a code commit" \
+      "$(isnot order_sound "$W/c-ord-late")"
+    note "control: order_sound rejects a commit mixing docs and code" \
+      "$(isnot order_sound "$W/c-ord-mixed")"
+    note "control: order_sound rejects a range with no code commit" \
+      "$(isnot order_sound "$W/c-ord-nocode")"
+    
+    echo
+    echo "## the changed files at the phase commit"
+    for f in $(git diff --name-only --diff-filter=d "$BASE" HEAD); do
+      git show "$C:$f" >"$W/f" 2>/dev/null || { echo "$f: READ ERROR"; fail=1; continue; }
+      echo "$f: sha256 $(sha256sum <"$W/f" | cut -d' ' -f1), bytes $(wc -c <"$W/f"), mode $(git ls-tree "$C" -- "$f" | awk '{print $1}')"
+    done
+    git diff --name-only --diff-filter=d "$BASE" HEAD >"$W/difffiles"
+    echo "  files in the diff: $(count_lines "$W/difffiles")"
+    
+    echo
+    echo "## the gate files this phase changed, listed as specs/0001 requires"
+    # specs/0001-bootstrap.md, "Rules for every phase": a phase that changes a
+    # gate file runs the gate self-test detached and commits self-test.log with
+    # the other logs; a phase that changes none LISTS IN gate.log the gate files
+    # it checked against the diff. The ten names below are the spec's.
+    cat >"$W/gate-files" <<'EOF'
+    scripts/check.sh
+    scripts/privacy.sh
+    scripts/privacy-patterns.txt
+    scripts/privacy-identity.txt
+    scripts/sys-allowlist.txt
+    scripts/install-hooks.sh
+    scripts/counting.sh
+    scripts/gate-self-test.sh
+    .gitignore
+    .github/workflows/ci.yml
+    EOF
+    touched=0
+    while IFS= read -r g; do
+      # /usr/bin/grep explicitly: in the Claude Code tool shell `grep` is a
+      # different program (specs/0001, "Rules for every phase").
+      if LC_ALL=C "$G" -Fxq -- "$g" "$W/difffiles"; then
+        echo "  gate file in the diff: $g"
+        touched=$((touched + 1))
+      fi
+    done <"$W/gate-files"
+    echo "  gate files checked: $(count_lines "$W/gate-files"); of them in the phase diff: $touched"
+    note "no gate file is in the phase diff, so specs/0001 asks for this listing rather than a self-test run" "$(is [ "$touched" -eq 0 ])"
+    
+    echo
+    echo "## the scripts this phase runs parse"
+    for s in scripts/check.sh scripts/counting.sh scripts/passthrough-run.sh; do
+      bash -n "$s" 2>/dev/null
+      note "$s parses" "$(is [ $? -eq 0 ])"
+    done
+    
+    echo
+    echo "## the core's dependency tree, now that quick-xml is in it"
+    # CLAUDE.md, "Dependencies and licences": the core depends on zip and
+    # quick-xml and NOTHING else, and every new crate's licence and transitive
+    # tree is checked. specs/0009, "Facts planning checked": quick-xml 0.42.0 with
+    # default-features off depends on memchr alone, which zip already brought.
+    # --charset ascii, because the default draws the tree with box characters and
+    # a log carries no non-ASCII byte (specs/0001, "Rules for every phase"); and
+    # the root line names the crate's directory, so the repository root is written
+    # as <repo>, an absolute machine path in a log being a defect (T0 P6d ruling).
+    echo "command: cargo tree -p emend -e normal --charset ascii"
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo tree -p emend -e normal \
+      --charset ascii >"$W/tree-raw" 2>"$W/tree.err"
+    trc=$?
+    sed "s|$MAIN|<repo>|g" "$W/tree-raw" >"$W/tree"
+    sed 's/^/    /' "$W/tree"
+    echo "  cargo tree exit: $trc; stderr bytes: $(wc -c <"$W/tree.err")"
+    note "cargo tree exits 0" "$(is [ "$trc" -eq 0 ])"
+    note "the printed tree carries no non-ASCII byte" "$(is [ "$(count_bytes "$NONASCII_CLASS" "$W/tree")" = 0 ])"
+    note "the printed tree carries no absolute path of this machine" \
+      "$(is [ "$(count_matches -F "$MAIN" "$W/tree")" = 0 ])"
+    echo "command: cargo tree -p emend -e normal --charset ascii --depth 1"
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo tree -p emend -e normal \
+      --charset ascii --depth 1 >"$W/direct-raw" 2>/dev/null
+    sed "s|$MAIN|<repo>|g" "$W/direct-raw" >"$W/direct"
+    sed 's/^/    /' "$W/direct"
+    ndirect=$(count_matches -E '^[|`+-]' "$W/direct")
+    nquick=$(count_matches -E 'quick-xml v0[.]42[.]0' "$W/tree")
+    nzip=$(count_matches -E '^.-- zip v8[.]6[.]0' "$W/tree")
+    nmemchr=$(count_matches -E 'memchr v' "$W/tree")
+    echo "  direct dependency lines: $ndirect; quick-xml 0.42.0 lines: $nquick; zip 8.6.0 as a direct dependency: $nzip; memchr lines: $nmemchr"
+    note "the core has exactly two direct dependencies" "$(is [ "$ndirect" = 2 ])"
+    note "quick-xml 0.42.0 is in the core's tree" "$(is [ "$nquick" -ge 1 ])"
+    note "memchr is in the core's tree, as the only crate quick-xml brings" "$(is [ "$nmemchr" -ge 1 ])"
+    # The control for the three counts above: a pattern that must NOT be in the
+    # tree, run through the same command form.
+    ctl "a crate absent from the core's tree, same command form" 0 \
+      count_matches -E 'serde v' "$W/tree"
+    
+    echo
+    echo "## the licence of every package in the core's tree"
+    # The gate's licences step below scores every package in the workspace; this
+    # block names the core's own tree, so the two new lines of Cargo.toml can be
+    # read against the licences they pull in. Only name, version and licence are
+    # printed: no path and no manifest text.
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo metadata --format-version 1 >"$W/metadata.json" 2>/dev/null
+    mrc=$?
+    note "cargo metadata exits 0" "$(is [ "$mrc" -eq 0 ])"
+    # The package names come from the tree printed above, not from a list typed
+    # here, so the two cannot fall out of step: a crate joining the core's tree
+    # joins this listing with it.
+    sed 's/^[^A-Za-z0-9]*//' "$W/tree" | awk 'NF { print $1 }' | sort -u >"$W/treenames"
+    ntreenames=$(count_lines "$W/treenames")
+    echo "  distinct packages in the core's tree: $ntreenames"
+    python3 - "$W/metadata.json" "$W/treenames" >"$W/licences" 2>"$W/licences.err" <<'PY'
+    import json
+    import sys
+    
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        meta = json.load(handle)
+    with open(sys.argv[2], encoding="utf-8") as handle:
+        wanted = {line.strip() for line in handle if line.strip()}
+    for pkg in sorted(meta["packages"], key=lambda p: p["name"]):
+        if pkg["name"] in wanted:
+            print("    %s %s: %s" % (pkg["name"], pkg["version"], pkg.get("license")))
+    PY
+    prc=$?
+    cat "$W/licences"
+    echo "  the licence listing exits $prc; stderr bytes: $(wc -c <"$W/licences.err")"
+    note "the licence listing ran" "$(is [ "$prc" -eq 0 ])"
+    nlic=$(count_lines "$W/licences")
+    echo "  packages listed: $nlic of the $ntreenames in the tree"
+    note "every package in the core's tree has its licence listed" "$(is [ "$nlic" = "$ntreenames" ])"
+    # Every licence printed must be one of the permissive expressions CLAUDE.md
+    # allows: the count of lines naming one must equal the number of lines, with a
+    # control through the same form. emend itself carries the workspace's
+    # MIT OR Apache-2.0, so it is one of these lines too.
+    allowed='(MIT|Apache-2[.]0|BSD-[23]-Clause|Zlib|Unlicense|Unicode-3[.]0|MIT-0)'
+    nlines_ok=$(count_matches -E ": .*$allowed" "$W/licences")
+    echo "  lines whose licence names an allowed expression: $nlines_ok of $nlic"
+    note "every listed licence is a permissive one" "$(is [ "$nlines_ok" = "$nlic" ])"
+    printf '    fake 0.0.0: GPL-3.0-only\n' >"$W/c-licence"
+    ctl "a copyleft licence line, same command form" 0 \
+      count_matches -E ": .*$allowed" "$W/c-licence"
+    
+    echo
+    echo "## the new sources scored against the gate they must pass, with controls"
+    OFF=$(sed -n "s/^readonly OFFICE_RE='\(.*\)'\$/\1/p" scripts/check.sh)
+    note "OFFICE_RE was read from check.sh and is non-empty" "$(is [ -n "$OFF" ])"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    note "the P6d narrowing commit resolved from git" "$(is [ -n "$PRE_COMMIT" ])"
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$W/pre-all" 2>/dev/null || fail=1
+    sed -n '8p;10p;11p' "$W/pre-all" >"$W/pre-patterns"
+    note "three pre-P6d forms read from the narrowing commit's parent" \
+      "$(is [ "$(count_lines "$W/pre-patterns")" = 3 ])"
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_live()     { count_from_file -E scripts/privacy-patterns.txt "$1"; }
+    f_pre()      { count_from_file -E "$W/pre-patterns" "$1"; }
+    f_office()   { count_matches -E "$OFF" "$1"; }
+    
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    printf 'plain\nhas \303\251 byte\n' >"$W/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$W/c-ctrl"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$W/c-live"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$W/c-pre"
+    printf 'name.%s%s\n' 'xl' 'sx' >"$W/c-office"
+    printf 'plain ascii only\n' >"$W/c-clean"
+    ctl "f_nonascii on a two-byte character" 2 f_nonascii "$W/c-nonascii"
+    ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$W/c-ctrl"
+    ctl "f_live on a token shape" 1 f_live "$W/c-live"
+    ctl "f_pre on a bare path shape" 1 f_pre "$W/c-pre"
+    ctl "f_office on an office file name" 1 f_office "$W/c-office"
+    for f in f_nonascii f_ctrl f_live f_pre f_office; do
+      ctl "$f on a clean file" 0 "$f" "$W/c-clean"
+    done
+    
+    # A file this phase CREATED must be clean on all five forms: it has no history
+    # to inherit a hit from. The list comes from git, not from the script.
+    git diff --name-only --diff-filter=A "$BASE" HEAD >"$W/added"
+    echo "  files added in this phase: $(count_lines "$W/added")"
+    nscored=0
+    while IFS= read -r s; do
+      echo "$s (new in this phase):"
+      echo "  non-ASCII bytes: $(f_nonascii "$s")"
+      echo "  control bytes: $(f_ctrl "$s")"
+      echo "  hits against all $(count_lines scripts/privacy-patterns.txt) live privacy patterns: $(f_live "$s")"
+      echo "  hits against the three pre-P6d bare forms: $(f_pre "$s")"
+      echo "  office file names: $(f_office "$s")"
+      clean_source() {
+        [ "$(f_nonascii "$1")" = 0 ] && [ "$(f_ctrl "$1")" = 0 ] &&
+          [ "$(f_live "$1")" = 0 ] && [ "$(f_pre "$1")" = 0 ] && [ "$(f_office "$1")" = 0 ]
+      }
+      note "$s is clean on all five forms" "$(is clean_source "$s")"
+      nscored=$((nscored + 1))
+    done <"$W/added"
+    
+    echo
+    echo "## the files this phase MODIFIED, scored by change rather than absolutely"
+    # The claim a reader needs for an inherited file is not that it is pristine but
+    # that THIS PHASE did not make it worse: the added lines score 0 on every form,
+    # and the whole-file counts equal the counts at the base. The list comes from
+    # git's M filter, so a modified file cannot go unscored.
+    git diff --name-only --diff-filter=M "$BASE" HEAD >"$W/modified"
+    echo "  files modified in this phase: $(count_lines "$W/modified")"
+    while IFS= read -r M; do
+      git show "$BASE:$M" >"$W/m-at-base" 2>/dev/null || { echo "$M: READ ERROR at base"; fail=1; continue; }
+      git diff -U0 "$BASE" HEAD -- "$M" |
+        LC_ALL=C "$G" '^+' | LC_ALL=C "$G" -v '^+++' | sed 's/^+//' >"$W/m-added"
+      echo "$M (modified in this phase):"
+      echo "  added lines: $(count_lines "$W/m-added")"
+      for form in f_nonascii f_ctrl f_live f_pre f_office; do
+        at_base=$("$form" "$W/m-at-base")
+        added=$("$form" "$W/m-added")
+        at_head=$("$form" "$M")
+        echo "  $form: at the base $at_base, in the added lines $added, at HEAD $at_head"
+        unchanged_by_this_phase() {
+          [ "$added" = 0 ] && [ "$at_base" != error ] && [ "$at_head" != error ] &&
+            [ "$at_base" = "$at_head" ]
+        }
+        note "$M: $form introduces nothing new in this phase" "$(is unchanged_by_this_phase)"
+      done
+      nscored=$((nscored + 1))
+    done <"$W/modified"
+    
+    echo
+    echo "## every file in the diff was scored"
+    ndiff=$(count_lines "$W/difffiles")
+    echo "  files in the diff: $ndiff; files scored as new or modified: $nscored"
+    note "every file in the phase diff was scored" "$(is [ "$ndiff" = "$nscored" ])"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo clean 2>&1 | sed 's/^/    /'
+    GATE=$MAIN/scripts/check.sh
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    ( cd / && RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4 "$GATE" ) >"$W/gate.out" 2>"$W/gate.err"
+    grc=$?
+    sed 's/^/    /' "$W/gate.out"
+    echo "exit: $grc; stderr bytes: $(wc -c <"$W/gate.err")"
+    npass=$(count_matches -E '^PASS ' "$W/gate.out")
+    nlicence=$(count_matches -E '^PASS licences$' "$W/gate.out")
+    note "the gate exits 0" "$(is [ "$grc" -eq 0 ])"
+    note "eight PASS lines" "$(is [ "$npass" = 8 ])"
+    note "the licences step passed with quick-xml in the core's tree" "$(is [ "$nlicence" = 1 ])"
+    note "stderr is empty" "$(is [ "$(wc -c <"$W/gate.err")" -eq 0 ])"
+    
+    echo
+    echo "## the binaries the gate built, both targets"
+    # negative.log and run.log cite these hashes; neither rebuilds and neither
+    # recomputes them from a later state. The gate builds the workspace for both
+    # targets, so these are the artefacts of the run above and of no other.
+    bins_ok=yes
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        echo "  $b: sha256 $(sha256sum <"$b" | cut -d' ' -f1), bytes $(wc -c <"$b")"
+      else
+        echo "  $b: MISSING or not executable"
+        bins_ok=no
+      fi
+    done
+    note "the gate left all four binaries, both targets, executable" "$(is [ "$bins_ok" = yes ])"
+    
+    echo
+    echo "## status after the run"
+    # run_lines and run_matches read the command's own exit status; a bare
+    # "git status ... || : >file" reads a FAILED status as a clean tree.
+    # Untracked and tracked changes under the phase's log directory are counted
+    # apart from the record pair, so the sentence and the number cannot disagree.
+    st_all=$(run_lines git status --porcelain)
+    st_untracked_log=$(run_matches -E '^[?][?] records/logs/m1p2-p1' git status --porcelain)
+    st_tracked_log=$(run_matches -E '^ ?[MARCD] records/logs/m1p2-p1' git status --porcelain)
+    st_record=$(run_matches -E '^(\?\?| ?[MARCD]) records/m1p2-p1-' git status --porcelain)
+    echo "status lines: $st_all; untracked under the log directory: $st_untracked_log; tracked and modified under it: $st_tracked_log; the phase's record pair: $st_record"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_untracked_log" != error ] &&
+        [ "$st_tracked_log" != error ] && [ "$st_record" != error ] &&
+        [ "$st_all" = "$((st_untracked_log + st_tracked_log + st_record))" ]
+    }
+    note "every change in the working tree is one of this phase's logs or its record pair" "$(is status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the phase base, resolved from git and checked for ambiguity
+command: git log --format='%H' --grep='^M1 part 2 P1: commit planning docs'
+  commits matching the first doc commit's pattern: 1
+  the first doc commit's pattern matches exactly one commit: as-expected
+  doc commits in this phase, by the wider pattern: 4
+  the phase has at least one doc commit: as-expected
+  the first doc commit is 0e6c60d49674b101f87f55bd2795258e22a10089
+  its parent, the phase base, is c41444521086d4a6b3eb6d52d51c2abb087be0d1
+  the base resolved from git, not typed: as-expected
+
+## the phase's commits
+command: git log --reverse --format='%H %s' <base>..HEAD
+    0e6c60d49674b101f87f55bd2795258e22a10089 M1 part 2 P1: commit planning docs (part 1 close-out verdict, the size ruling, the part 2 spec)
+    9b87536f9cf63e5c0390663ef58b1a04d0c65d6a M1 part 2 P1: commit planning doc update (the P1 rulings on the mark and well-formedness)
+    b97d01c0fa2d1516831fed0e270a1f842a26aac7 M1 part 2 P1: commit planning doc update (ruling 4, the XML character range)
+    248fdd86620cbbedccb4a13102739c8e24e1d108 M1 part 2 P1: commit planning doc update (rulings 5 to 8)
+    a9f2cad31c9c0dfd45e56b87223ea83d7dbfa28c M1 part 2 P1: quick-xml joins the core; the xml token stream
+    47257953f752345c4333cae27a03369d0be62048 M1 part 2 P1: emend-copy --xml-null-rewrite
+  commits in the range: 6
+    doc 0e6c60d M1 part 2 P1: commit planning docs (part 1 close-out verdict, the size ruling, the part 2 spec)
+    doc 9b87536 M1 part 2 P1: commit planning doc update (the P1 rulings on the mark and well-formedness)
+    doc b97d01c M1 part 2 P1: commit planning doc update (ruling 4, the XML character range)
+    doc 248fdd8 M1 part 2 P1: commit planning doc update (rulings 5 to 8)
+    code a9f2cad M1 part 2 P1: quick-xml joins the core; the xml token stream
+    code 4725795 M1 part 2 P1: emend-copy --xml-null-rewrite
+  every commit is planning docs alone or code alone, and no doc commit follows a code commit: as-expected
+  control: commit_class calls the first doc commit a doc commit: as-expected
+  control: commit_class calls HEAD a code commit: as-expected
+  control: order_sound accepts docs then code: as-expected
+  control: order_sound rejects a doc commit after a code commit: as-expected
+  control: order_sound rejects a commit mixing docs and code: as-expected
+  control: order_sound rejects a range with no code commit: as-expected
+
+## the changed files at the phase commit
+Cargo.lock: sha256 562bd1b82a70c99c3cf21c02065e6aeff2dc7691a900e4da67e1cf9ef3a19903, bytes 2876, mode 100644
+ROADMAP.md: sha256 e14552c2c738af114574099d4379777f1d0fab915e01e2ffdd731457bb1f4d0b, bytes 21673, mode 100644
+crates/emend/Cargo.toml: sha256 5268959d2ce45e34ff5e562eae147aca3d290c156140eecf3ff4556c72ddcbe3, bytes 828, mode 100644
+crates/emend/src/archive.rs: sha256 9f09e3293da3d41a52ebfd43c880facd3700f7a5592edbd81a43b53408708811, bytes 80825, mode 100644
+crates/emend/src/lib.rs: sha256 fdcdf482fbe97ad7724e74f4419cfce4a3b9bf06edbb997f3668b3e649d28b29, bytes 1389, mode 100644
+crates/emend/src/xml.rs: sha256 140a7332edb47918bf5344ce1bcc6430cefaf9cb04764f63138cbcbf037034c5, bytes 11783, mode 100644
+crates/emend/src/xml/tests.rs: sha256 d0c0e0efd03330d956b2af917f3a5259fee1941dc191bf798b266f07f398324b, bytes 19018, mode 100644
+specs/0008-zip-layer.md: sha256 f42ace120434ce2ccd81c9bf70e8d43e1de756bf29b545c0cc02336f5741701b, bytes 56169, mode 100644
+specs/0009-package-layer.md: sha256 d398011dcff8159f937b3ea4683a6231a8c771936b508d15838673c7d9d5c9c7, bytes 35905, mode 100644
+tools/emend-copy/src/main.rs: sha256 50bb3386107c1cb3e52373948d76c3cabcb5daa6632da1e1c202acb0f6dd7fba, bytes 11073, mode 100644
+tools/emend-copy/tests/null_rewrite.rs: sha256 b30f84200e2f0bc0f747228dad344ed2a30284c919904b656f865d617a5d8ed4, bytes 21960, mode 100644
+tools/size-probe/src/bin/probe-emend-copy.rs: sha256 fbcf2e70fb363b5e84ffe2a069bd74d011d693ccd6646641247eac92ee7e7e72, bytes 2011, mode 100644
+  files in the diff: 12
+
+## the gate files this phase changed, listed as specs/0001 requires
+  gate files checked: 10; of them in the phase diff: 0
+  no gate file is in the phase diff, so specs/0001 asks for this listing rather than a self-test run: as-expected
+
+## the scripts this phase runs parse
+  scripts/check.sh parses: as-expected
+  scripts/counting.sh parses: as-expected
+  scripts/passthrough-run.sh parses: as-expected
+
+## the core's dependency tree, now that quick-xml is in it
+command: cargo tree -p emend -e normal --charset ascii
+    emend v0.1.0 (<repo>/crates/emend)
+    |-- quick-xml v0.42.0
+    |   `-- memchr v2.8.3
+    `-- zip v8.6.0
+        |-- crc32fast v1.5.2
+        |   `-- cfg-if v1.0.4
+        |-- flate2 v1.1.10
+        |   `-- zlib-rs v0.6.8
+        |-- indexmap v2.14.2
+        |   |-- equivalent v1.0.2
+        |   `-- hashbrown v0.17.1
+        |-- memchr v2.8.3
+        `-- typed-path v0.12.3
+  cargo tree exit: 0; stderr bytes: 0
+  cargo tree exits 0: as-expected
+  the printed tree carries no non-ASCII byte: as-expected
+  the printed tree carries no absolute path of this machine: as-expected
+command: cargo tree -p emend -e normal --charset ascii --depth 1
+    emend v0.1.0 (<repo>/crates/emend)
+    |-- quick-xml v0.42.0
+    `-- zip v8.6.0
+  direct dependency lines: 2; quick-xml 0.42.0 lines: 1; zip 8.6.0 as a direct dependency: 1; memchr lines: 2
+  the core has exactly two direct dependencies: as-expected
+  quick-xml 0.42.0 is in the core's tree: as-expected
+  memchr is in the core's tree, as the only crate quick-xml brings: as-expected
+  control a crate absent from the core's tree, same command form count=0 expected=0: as-expected
+
+## the licence of every package in the core's tree
+  cargo metadata exits 0: as-expected
+  distinct packages in the core's tree: 12
+    cfg-if 1.0.4: MIT OR Apache-2.0
+    crc32fast 1.5.2: MIT OR Apache-2.0
+    emend 0.1.0: MIT OR Apache-2.0
+    equivalent 1.0.2: Apache-2.0 OR MIT
+    flate2 1.1.10: MIT OR Apache-2.0
+    hashbrown 0.17.1: MIT OR Apache-2.0
+    indexmap 2.14.2: Apache-2.0 OR MIT
+    memchr 2.8.3: Unlicense OR MIT
+    quick-xml 0.42.0: MIT
+    typed-path 0.12.3: MIT OR Apache-2.0
+    zip 8.6.0: MIT
+    zlib-rs 0.6.8: Zlib
+  the licence listing exits 0; stderr bytes: 0
+  the licence listing ran: as-expected
+  packages listed: 12 of the 12 in the tree
+  every package in the core's tree has its licence listed: as-expected
+  lines whose licence names an allowed expression: 12 of 12
+  every listed licence is a permissive one: as-expected
+  control a copyleft licence line, same command form count=0 expected=0: as-expected
+
+## the new sources scored against the gate they must pass, with controls
+  OFFICE_RE was read from check.sh and is non-empty: as-expected
+  the P6d narrowing commit resolved from git: as-expected
+  three pre-P6d forms read from the narrowing commit's parent: as-expected
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_live on a token shape count=1 expected=1: as-expected
+  control f_pre on a bare path shape count=1 expected=1: as-expected
+  control f_office on an office file name count=1 expected=1: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_live on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+  control f_office on a clean file count=0 expected=0: as-expected
+  files added in this phase: 4
+crates/emend/src/xml.rs (new in this phase):
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  crates/emend/src/xml.rs is clean on all five forms: as-expected
+crates/emend/src/xml/tests.rs (new in this phase):
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  crates/emend/src/xml/tests.rs is clean on all five forms: as-expected
+specs/0009-package-layer.md (new in this phase):
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  specs/0009-package-layer.md is clean on all five forms: as-expected
+tools/emend-copy/tests/null_rewrite.rs (new in this phase):
+  non-ASCII bytes: 0
+  control bytes: 0
+  hits against all 11 live privacy patterns: 0
+  hits against the three pre-P6d bare forms: 0
+  office file names: 0
+  tools/emend-copy/tests/null_rewrite.rs is clean on all five forms: as-expected
+
+## the files this phase MODIFIED, scored by change rather than absolutely
+  files modified in this phase: 8
+Cargo.lock (modified in this phase):
+  added lines: 1
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  Cargo.lock: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  Cargo.lock: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  Cargo.lock: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  Cargo.lock: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  Cargo.lock: f_office introduces nothing new in this phase: as-expected
+ROADMAP.md (modified in this phase):
+  added lines: 29
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  ROADMAP.md: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  ROADMAP.md: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  ROADMAP.md: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  ROADMAP.md: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  ROADMAP.md: f_office introduces nothing new in this phase: as-expected
+crates/emend/Cargo.toml (modified in this phase):
+  added lines: 6
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/Cargo.toml: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/Cargo.toml: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/Cargo.toml: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/Cargo.toml: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/Cargo.toml: f_office introduces nothing new in this phase: as-expected
+crates/emend/src/archive.rs (modified in this phase):
+  added lines: 14
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/archive.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/archive.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/archive.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/archive.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/archive.rs: f_office introduces nothing new in this phase: as-expected
+crates/emend/src/lib.rs (modified in this phase):
+  added lines: 8
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/lib.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/lib.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/lib.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/lib.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  crates/emend/src/lib.rs: f_office introduces nothing new in this phase: as-expected
+specs/0008-zip-layer.md (modified in this phase):
+  added lines: 47
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  specs/0008-zip-layer.md: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  specs/0008-zip-layer.md: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  specs/0008-zip-layer.md: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  specs/0008-zip-layer.md: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  specs/0008-zip-layer.md: f_office introduces nothing new in this phase: as-expected
+tools/emend-copy/src/main.rs (modified in this phase):
+  added lines: 126
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  tools/emend-copy/src/main.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  tools/emend-copy/src/main.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  tools/emend-copy/src/main.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  tools/emend-copy/src/main.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  tools/emend-copy/src/main.rs: f_office introduces nothing new in this phase: as-expected
+tools/size-probe/src/bin/probe-emend-copy.rs (modified in this phase):
+  added lines: 5
+  f_nonascii: at the base 0, in the added lines 0, at HEAD 0
+  tools/size-probe/src/bin/probe-emend-copy.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at HEAD 0
+  tools/size-probe/src/bin/probe-emend-copy.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at HEAD 0
+  tools/size-probe/src/bin/probe-emend-copy.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at HEAD 0
+  tools/size-probe/src/bin/probe-emend-copy.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at HEAD 0
+  tools/size-probe/src/bin/probe-emend-copy.rs: f_office introduces nothing new in this phase: as-expected
+
+## every file in the diff was scored
+  files in the diff: 12; files scored as new or modified: 12
+  every file in the phase diff was scored: as-expected
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 5723 files, 1.0GiB total
+command: (cd / && <repo>/scripts/check.sh)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+exit: 0; stderr bytes: 0
+  the gate exits 0: as-expected
+  eight PASS lines: as-expected
+  the licences step passed with quick-xml in the core's tree: as-expected
+  stderr is empty: as-expected
+
+## the binaries the gate built, both targets
+  target/debug/emend-copy: sha256 6bb450f5a298c735960005c41801da4b3e0fbd1d62046fbd55ebb6fa771ed46a, bytes 13571448
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 e64e3615901bb203f3912f62d24c262b6b364fd910e1268f7ad9345b12d49c1a, bytes 12081456
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db, bytes 9524216
+  the gate left all four binaries, both targets, executable: as-expected
+
+## status after the run
+status lines: 1; untracked under the log directory: 1; tracked and modified under it: 0; the phase's record pair: 0
+  every change in the working tree is one of this phase's logs or its record pair: as-expected
+run ended at 2026-09-18T00:03:32Z
+gate log checks all as expected: yes
