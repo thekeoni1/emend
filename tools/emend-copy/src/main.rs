@@ -41,6 +41,15 @@
 //!   else: a shared string IS content, so no item, no length of one and no
 //!   fragment of one is printed. A workbook the layer cannot read the table
 //!   of is an error (exit 2), as `--survey` is.
+//! - `--cells`: no edit either, so the output must be byte-identical again,
+//!   and one line goes to stdout: the word `cells` then tab-separated
+//!   `key=value`, the keys `specs/0010-reading-cells.md`, "Harness runs",
+//!   lists. Every sheet of the workbook is streamed in `<sheets>` order.
+//!   COUNTS ONLY, for the same reason `--shared-strings` prints two: a
+//!   cell's value IS content, so no value, no formula and no shared string
+//!   is printed, nor the length of one. A failed `resolve` is counted as
+//!   `unresolved` and the run carries on, so that count is the whole
+//!   workbook's; an error from any other parse is exit 2 with the message.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -61,12 +70,13 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
+use emend::cells::{FormulaKind, Kind};
 use emend::package::{CALC_CHAIN, CONTENT_TYPES_PART, Package, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
-| --shared-strings]";
+| --shared-strings | --cells]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -84,6 +94,8 @@ enum Operation {
     DropCalcChain,
     /// No edits, and count the shared strings table on stdout.
     SharedStrings,
+    /// No edits, and count every cell of every sheet on stdout.
+    Cells,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -150,6 +162,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::SharedStrings,
         ),
+        [input, output, flag] if flag == "--cells" => {
+            run(Path::new(input), Path::new(output), Operation::Cells)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -184,6 +199,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     let reported = match operation {
         Operation::Survey => Some(survey(input)?.line()),
         Operation::SharedStrings => Some(shared_strings_line(input)?),
+        Operation::Cells => Some(cells_line(input)?),
         _ => None,
     };
 
@@ -197,7 +213,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     let extracted = match operation {
         // Handled above, before any output file exists.
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
-        Operation::None | Operation::Survey | Operation::SharedStrings => Vec::new(),
+        Operation::None | Operation::Survey | Operation::SharedStrings | Operation::Cells => {
+            Vec::new()
+        }
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
             let (mut file, guard) = temporary(output, "-entry")?;
@@ -444,6 +462,163 @@ fn shared_strings_line(input: &Path) -> Result<String, Error> {
         bytes += item.len() as u64;
     }
     Ok(format!("strings\titems={items}\tbytes={bytes}"))
+}
+
+/// The counts `--cells` prints, one field per key.
+///
+/// Every field is `u64` and not `usize`: the corpus's 2094601 cells fit
+/// either, but `usize` is 32 bits on the target that matters and every count
+/// in this tool is already `u64`.
+#[derive(Default)]
+struct CellCounts {
+    sheets: u64,
+    cells: u64,
+    number: u64,
+    shared: u64,
+    inline: u64,
+    formula_string: u64,
+    boolean: u64,
+    error: u64,
+    date: u64,
+    values: u64,
+    empty: u64,
+    formulas: u64,
+    shared_master: u64,
+    shared_follower: u64,
+    array: u64,
+    data_table: u64,
+    numbers_parsed: u64,
+    booleans_parsed: u64,
+    resolved: u64,
+    unresolved: u64,
+    max_row: u64,
+    max_col: u64,
+    styled: u64,
+}
+
+impl CellCounts {
+    /// The one line the tool prints: `cells` then tab-separated pairs, in the
+    /// order `specs/0010-reading-cells.md`, "Harness runs", lists the keys.
+    fn line(&self) -> String {
+        let pairs = [
+            ("sheets", self.sheets),
+            ("cells", self.cells),
+            ("number", self.number),
+            ("shared", self.shared),
+            ("inline", self.inline),
+            ("formula_string", self.formula_string),
+            ("boolean", self.boolean),
+            ("error", self.error),
+            ("date", self.date),
+            ("values", self.values),
+            ("empty", self.empty),
+            ("formulas", self.formulas),
+            ("shared_master", self.shared_master),
+            ("shared_follower", self.shared_follower),
+            ("array", self.array),
+            ("data_table", self.data_table),
+            ("numbers_parsed", self.numbers_parsed),
+            ("booleans_parsed", self.booleans_parsed),
+            ("resolved", self.resolved),
+            ("unresolved", self.unresolved),
+            ("max_row", self.max_row),
+            ("max_col", self.max_col),
+            ("styled", self.styled),
+        ];
+        let mut line = String::from("cells");
+        for (key, value) in pairs {
+            line.push('\t');
+            line.push_str(key);
+            line.push('=');
+            line.push_str(&value.to_string());
+        }
+        line
+    }
+}
+
+/// Streams every sheet of the workbook in `<sheets>` order and counts it.
+///
+/// COUNTS ONLY. A cell's value IS content, so no value, no formula, no item
+/// of the shared strings table and no length of one is printed: the line
+/// names the keys the spec lists and nothing else.
+///
+/// The shared strings table is read once, before any sheet, and held while
+/// the cells stream through a mutable borrow of the same package: that is
+/// what `Package::shared_strings` handing its table over OWNED is for.
+///
+/// A failed `resolve` is COUNTED and does not stop the run, so `unresolved`
+/// is the whole count over the workbook rather than the first one found. An
+/// error from any other parse is this tool's exit 2 with the message, as
+/// `--survey` and `--shared-strings` are.
+fn cells_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let table = package.shared_strings()?;
+    // The part names are collected first: `cells` borrows the package for as
+    // long as its reader streams, and the workbook is lent by the same
+    // package.
+    let parts: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut counted = CellCounts {
+        sheets: parts.len() as u64,
+        ..CellCounts::default()
+    };
+    for part in &parts {
+        for cell in package.cells(part)? {
+            let cell = cell?;
+            counted.cells += 1;
+            match cell.kind {
+                Kind::Number => counted.number += 1,
+                Kind::SharedString => counted.shared += 1,
+                Kind::InlineString => counted.inline += 1,
+                Kind::FormulaString => counted.formula_string += 1,
+                Kind::Boolean => counted.boolean += 1,
+                Kind::Error => counted.error += 1,
+                Kind::Date => counted.date += 1,
+            }
+            if cell.value.is_some() {
+                counted.values += 1;
+            }
+            // `empty` is neither value nor formula, which is both the `<c/>`
+            // a producer writes for a styled blank and a `<c>` holding only
+            // something this layer does not read.
+            if cell.value.is_none() && cell.formula.is_none() {
+                counted.empty += 1;
+            }
+            if let Some(formula) = &cell.formula {
+                counted.formulas += 1;
+                match formula.kind {
+                    FormulaKind::Normal => {}
+                    FormulaKind::Shared { master: true, .. } => counted.shared_master += 1,
+                    FormulaKind::Shared { master: false, .. } => counted.shared_follower += 1,
+                    FormulaKind::Array => counted.array += 1,
+                    FormulaKind::DataTable => counted.data_table += 1,
+                }
+            }
+            if cell.number().is_some() {
+                counted.numbers_parsed += 1;
+            }
+            if cell.boolean().is_some() {
+                counted.booleans_parsed += 1;
+            }
+            if cell.kind == Kind::SharedString {
+                match table.resolve(&cell) {
+                    Ok(_) => counted.resolved += 1,
+                    Err(_) => counted.unresolved += 1,
+                }
+            }
+            counted.max_row = counted.max_row.max(u64::from(cell.reference.row));
+            counted.max_col = counted.max_col.max(u64::from(cell.reference.col));
+            if cell.style.is_some() {
+                counted.styled += 1;
+            }
+        }
+    }
+    Ok(counted.line())
 }
 
 /// Walks the package layer's whole map and counts it.

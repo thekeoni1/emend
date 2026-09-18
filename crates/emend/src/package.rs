@@ -64,7 +64,8 @@
 //! - "no such part" (`removing_an_absent_part`, `replacing_an_absent_part`,
 //!   `a_relationship_on_a_part_that_is_not_there`,
 //!   `a_relationship_removal_on_a_part_that_is_not_there`,
-//!   `cells::tests::a_relationship_naming_no_entry_is_refused`).
+//!   `cells::tests::a_relationship_naming_no_entry_is_refused`,
+//!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The `cells` module raises its messages through the same error and they are
@@ -79,6 +80,26 @@
 //!   (`cells::tests::an_unknown_entity_is_refused`).
 //! - "a text element holds an element"
 //!   (`cells::tests::an_element_inside_a_text_element_is_refused`).
+//! - "the worksheet part's root is not worksheet"
+//!   (`cells::tests::a_worksheet_root_of_the_wrong_name_is_refused`,
+//!   `a_worksheet_root_in_another_namespace_is_refused`).
+//! - "a cell reference is not of the form A1"
+//!   (`cells::tests::a_cell_reference_that_is_not_a1_is_refused`).
+//! - "a row number is not a number"
+//!   (`cells::tests::a_row_number_that_is_not_a_number_is_refused`).
+//! - "a cell's style index is not a number"
+//!   (`cells::tests::a_style_index_that_is_not_a_number_is_refused`).
+//! - "a cell has a type this layer does not know"
+//!   (`cells::tests::a_cell_type_this_layer_does_not_know_is_refused`).
+//! - "a formula has a type this layer does not know"
+//!   (`cells::tests::a_formula_type_this_layer_does_not_know_is_refused`).
+//! - "a shared formula has no index"
+//!   (`cells::tests::a_shared_formula_without_an_index_is_refused`,
+//!   `a_shared_index_that_is_not_a_number_is_refused`).
+//! - "a shared string index is not a number"
+//!   (`cells::tests::resolving_an_index_that_is_not_a_number_is_refused`).
+//! - "a shared string index is out of range"
+//!   (`cells::tests::resolving_an_index_out_of_range_is_refused`).
 //!
 //! # Limits
 //!
@@ -123,7 +144,7 @@ use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
-use crate::cells::SharedStrings;
+use crate::cells::{Cells, SharedStrings};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -575,6 +596,33 @@ impl<R: Read + Seek> Package<R> {
         };
         let mut stream = Stream::new(self.archive.read(index)?, index)?;
         SharedStrings::read(&mut stream, index)
+    }
+
+    /// A streaming read over the worksheet part named `part`.
+    ///
+    /// `specs/0010-reading-cells.md`, "Module `package`". The entry name is
+    /// the one a sheet's relationship resolved to, which is
+    /// [`Sheet::part`]; nothing here looks a sheet up by name, because a
+    /// caller that has the workbook already has the part.
+    ///
+    /// The reader borrows the package for as long as it streams, which is
+    /// why [`Package::shared_strings`] hands its table over OWNED: a caller
+    /// resolving shared strings while streaming cells holds the table and
+    /// the borrow at the same time.
+    ///
+    /// Records no edit: a package read this way and written writes a copy.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" when the archive holds no entry of
+    /// that name, whatever [`Archive::read`] refuses for the entry, and
+    /// whatever [`Stream::new`] refuses for its first bytes. The cells
+    /// themselves are read as the iterator runs, so a malformed worksheet is
+    /// an error from [`Cells::next`] and not from this call.
+    pub fn cells(&mut self, part: &[u8]) -> Result<Cells<'_, R>, Error> {
+        let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        let reader = self.archive.read(index)?;
+        Cells::new(Box::new(reader), index)
     }
 
     /// The package's content types, parsed on the first call and kept.

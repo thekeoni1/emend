@@ -530,8 +530,14 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         // Two operations at once again, with the one P3 adds.
         vec!["--drop-calc-chain", "--survey"],
         vec!["--survey", "--drop-calc-chain"],
+        // Two operations at once again, with part 3 P1's and P2's. P1 added
+        // no case of its own for `--shared-strings`; both are here now, so
+        // the list covers every operation the tool has.
+        vec!["--shared-strings", "--survey"],
+        vec!["--cells", "--shared-strings"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
+        vec!["--cells", "[Content_Types].xml"],
         // An unknown operation.
         vec!["--xml-null"],
         vec!["--replace-all", "[Content_Types].xml"],
@@ -971,6 +977,70 @@ fn shared_strings_specs() -> Vec<Spec> {
         Spec::deflated(b"xl/worksheets/sheet1.xml", b"<sheetData/>"),
         Spec::deflated(b"xl/sharedStrings.xml", strings.as_bytes()),
     ]
+}
+
+/// The same package with a worksheet the cell reader can read.
+///
+/// `specs/0010-reading-cells.md`, "Harness runs": one sheet, six cells, and
+/// between them a value of every shape the counts distinguish, so the line
+/// the test asserts is a measurement of this fixture and not a restatement
+/// of the keys. `C2` is a `<c/>` with neither value nor formula, `A2` is a
+/// shared master and `B2` its follower.
+fn cells_specs() -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\"><sheetData>\
+         <row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c>\
+         <c r=\"B1\" t=\"s\"><v>1</v></c>\
+         <c r=\"C1\" t=\"b\"><v>1</v></c></row>\
+         <row r=\"2\"><c r=\"A2\"><f t=\"shared\" ref=\"A2:A3\" si=\"0\">A1*2</f><v>3</v></c>\
+         <c r=\"B2\"><f t=\"shared\" si=\"0\"/><v>3</v></c>\
+         <c r=\"C2\"/></row>\
+         </sheetData></worksheet>"
+    );
+    let mut specs = shared_strings_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::deflated(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn cells_counts_every_cell_and_edits_nothing() {
+    // `specs/0010-reading-cells.md`, "Harness runs": one line, the word
+    // `cells` then tab-separated key=value pairs in the spec's own key order,
+    // counts only, and the output byte-identical because the operation makes
+    // no edit. A cell's value IS content, so no value and no shared string
+    // appears in the line; `resolved=1` is how the table is shown to have
+    // been read at all.
+    let dir = TempDir::new("cells");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&cells_specs());
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--cells"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "cells\tsheets=1\tcells=6\tnumber=4\tshared=1\tinline=0\tformula_string=0\
+         \tboolean=1\terror=0\tdate=0\tvalues=5\tempty=1\tformulas=2\tshared_master=1\
+         \tshared_follower=1\tarray=0\tdata_table=0\tnumbers_parsed=3\tbooleans_parsed=1\
+         \tresolved=1\tunresolved=0\tmax_row=2\tmax_col=3\tstyled=1\n",
+        "the cells line"
+    );
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "--cells edits nothing"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
 }
 
 #[test]

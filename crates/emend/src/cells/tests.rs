@@ -1,10 +1,11 @@
-//! Byte-built packages for the shared strings table.
+//! Byte-built packages for the shared strings table and the cell reader.
 //!
-//! `specs/0010-reading-cells.md`, "P1": every fixture is a real zip built
-//! byte by byte through [`crate::testing`], and every case goes through
-//! [`Package::shared_strings`] rather than [`SharedStrings::read`] alone, so
-//! the relationship, the `Override`, the entry and the parse are all covered
-//! by the test that names the behaviour.
+//! `specs/0010-reading-cells.md`, "P1" and "P2": every fixture is a real zip
+//! built byte by byte through [`crate::testing`], and every case goes through
+//! [`Package::shared_strings`] or [`Package::cells`] rather than
+//! [`SharedStrings::read`] or [`Cells`] alone, so the relationship, the
+//! `Override`, the entry and the parse are all covered by the test that names
+//! the behaviour.
 //!
 //! The package scaffolding here is this module's own rather than shared with
 //! `package::tests`: those helpers are private to that module, and moving
@@ -41,6 +42,17 @@ const STRINGS_TYPE: &str =
 /// `&[u8]` and not `&str` so the fixture that is deliberately not UTF-8 goes
 /// through the same builder as the rest.
 fn build(strings: Option<&[u8]>, target: Option<&str>) -> Vec<u8> {
+    build_with_sheet(None, strings, target)
+}
+
+/// The same package, with the worksheet part's bytes given.
+///
+/// `sheet` of `None` is the empty `<sheetData/>` every P1 fixture carried, so
+/// P1's cases go through this function unchanged; the cell reader's fixtures
+/// pass their own worksheet. The bytes are `&[u8]` for the same reason the
+/// shared strings part's are: the fixture that is deliberately not UTF-8 goes
+/// through the same builder as the rest.
+fn build_with_sheet(sheet: Option<&[u8]>, strings: Option<&[u8]>, target: Option<&str>) -> Vec<u8> {
     let strings_override = match strings {
         Some(_) => {
             format!("<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"{STRINGS_TYPE}\"/>")
@@ -76,14 +88,16 @@ fn build(strings: Option<&[u8]>, target: Option<&str>) -> Vec<u8> {
          <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" \
          Target=\"worksheets/sheet1.xml\"/>{strings_rel}</Relationships>"
     );
-    let sheet = format!("{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData/></worksheet>");
+    let default_sheet =
+        format!("{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData/></worksheet>");
+    let sheet = sheet.unwrap_or(default_sheet.as_bytes());
 
     let mut specs = vec![
         Spec::new(b"[Content_Types].xml", content_types.as_bytes()).deflated(),
         Spec::new(b"_rels/.rels", package_rels.as_bytes()).deflated(),
         Spec::new(b"xl/workbook.xml", workbook.as_bytes()).deflated(),
         Spec::new(b"xl/_rels/workbook.xml.rels", workbook_rels.as_bytes()).deflated(),
-        Spec::new(b"xl/worksheets/sheet1.xml", sheet.as_bytes()).deflated(),
+        Spec::new(b"xl/worksheets/sheet1.xml", sheet).deflated(),
     ];
     if let Some(body) = strings {
         specs.push(Spec::new(b"xl/sharedStrings.xml", body).deflated());
@@ -478,4 +492,732 @@ fn a_second_call_gives_an_equal_table() {
     let second = package.shared_strings().expect("the table again");
     assert_eq!(first, second);
     assert_eq!(items(&first), ["x"]);
+}
+
+// ---------------------------------------------------------------------------
+// P2: the cell reader.
+//
+// Every fixture is a worksheet built byte by byte and read through
+// `Package::cells`, and every assertion compares a cell's fields with what
+// the fixture wrote. The shared strings table is not involved except in the
+// `resolve` cases, which build one too.
+// ---------------------------------------------------------------------------
+
+const SHEET_PART: &[u8] = b"xl/worksheets/sheet1.xml";
+
+/// A worksheet in the main namespace whose `<sheetData>` holds `rows`.
+fn worksheet(rows: &str) -> String {
+    format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData>{rows}</sheetData></worksheet>"
+    )
+}
+
+/// A worksheet whose `<sheetData>` holds `rows`, followed by `siblings`.
+///
+/// The siblings go AFTER `<sheetData>`, where a producer writes conditional
+/// formatting and the rest, so a fixture can put an unknown element beside
+/// the cells as well as inside one.
+fn worksheet_with_siblings(rows: &str, siblings: &str) -> String {
+    format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData>{rows}</sheetData>\
+         {siblings}</worksheet>"
+    )
+}
+
+/// A worksheet holding one row of `cells`, the row numbered 1.
+fn one_row(cells: &str) -> String {
+    worksheet(&format!("<row r=\"1\">{cells}</row>"))
+}
+
+/// The package a worksheet fixture makes, opened.
+fn opened_sheet(sheet: &[u8], strings: Option<&[u8]>) -> Package<Cursor<Vec<u8>>> {
+    let target = strings.map(|_| "sharedStrings.xml");
+    Package::open(Cursor::new(build_with_sheet(Some(sheet), strings, target)))
+        .expect("the fixture opens")
+}
+
+/// Every cell of a package whose worksheet part is `sheet`.
+fn read_cells(sheet: &str) -> Vec<Cell> {
+    let mut package = opened_sheet(sheet.as_bytes(), None);
+    package
+        .cells(SHEET_PART)
+        .expect("the part opens")
+        .collect::<Result<Vec<_>, Error>>()
+        .expect("the cells parse")
+}
+
+/// The one cell of a package whose worksheet part is `sheet`.
+#[track_caller]
+fn one_cell(sheet: &str) -> Cell {
+    let mut cells = read_cells(sheet);
+    assert_eq!(cells.len(), 1, "one cell");
+    cells.remove(0)
+}
+
+/// What a package whose worksheet part is `sheet` is refused with.
+///
+/// The refusal may come from opening the part or from any cell after it, so
+/// this drives the whole iterator and returns the first error, and panics if
+/// every cell was accepted.
+fn refused_sheet(sheet: &[u8]) -> Error {
+    let mut package = opened_sheet(sheet, None);
+    let cells = match package.cells(SHEET_PART) {
+        Ok(cells) => cells,
+        Err(error) => return error,
+    };
+    for cell in cells {
+        match cell {
+            Ok(_) => {}
+            Err(error) => return error,
+        }
+    }
+    panic!("the fixture was accepted");
+}
+
+/// The A1 reference of every cell, in the order they were read.
+fn references(cells: &[Cell]) -> Vec<String> {
+    cells.iter().map(|cell| cell.reference.a1()).collect()
+}
+
+#[test]
+fn every_cell_type_reads_as_its_kind() {
+    // One cell per `t` the layer knows, in the order the spec lists them, so
+    // a kind mapped to the wrong name shows up as a mismatch here rather
+    // than as a wrong value in a caller.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>1</v></c>\
+         <c r=\"B1\" t=\"n\"><v>2</v></c>\
+         <c r=\"C1\" t=\"s\"><v>0</v></c>\
+         <c r=\"D1\" t=\"inlineStr\"><is><t>in</t></is></c>\
+         <c r=\"E1\" t=\"str\"><f>A1</f><v>cached</v></c>\
+         <c r=\"F1\" t=\"b\"><v>1</v></c>\
+         <c r=\"G1\" t=\"e\"><v>#REF!</v></c>\
+         <c r=\"H1\" t=\"d\"><v>2026-09-18</v></c>",
+    ));
+    let kinds: Vec<Kind> = cells.iter().map(|cell| cell.kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            Kind::Number,
+            Kind::Number,
+            Kind::SharedString,
+            Kind::InlineString,
+            Kind::FormulaString,
+            Kind::Boolean,
+            Kind::Error,
+            Kind::Date,
+        ]
+    );
+    assert_eq!(
+        references(&cells),
+        ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1"]
+    );
+    // The values travel with the kinds: a cell whose kind was right and
+    // whose value came from the wrong element would pass the list above.
+    let values: Vec<Option<&str>> = cells.iter().map(|cell| cell.value.as_deref()).collect();
+    assert_eq!(
+        values,
+        [
+            Some("1"),
+            Some("2"),
+            Some("0"),
+            Some("in"),
+            Some("cached"),
+            Some("1"),
+            Some("#REF!"),
+            Some("2026-09-18"),
+        ]
+    );
+}
+
+#[test]
+fn a_number_is_a_number_with_or_without_its_type() {
+    // The corpus writes both spellings: 1302755 cells with `t="n"` and 8233
+    // without any `t` at all (`specs/0010-reading-cells.md`, "Harness
+    // runs"). They are the same kind and the fixture proves the absence is
+    // not read as some other kind.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>1.10</v></c><c r=\"B1\" t=\"n\"><v>1.10</v></c>",
+    ));
+    assert_eq!(cells[0].kind, Kind::Number);
+    assert_eq!(cells[1].kind, Kind::Number);
+    // Nothing is normalised: the trailing zero is the producer's text and
+    // stays. `number()` parses it on request, which is P3's.
+    assert_eq!(cells[0].value.as_deref(), Some("1.10"));
+    assert_eq!(cells[1].value.as_deref(), Some("1.10"));
+}
+
+#[test]
+fn a_value_may_be_text_empty_or_absent() {
+    // Three different answers, and the difference matters to a caller: `<v/>`
+    // is a cell with an empty value, and a cell with no `<v>` has none. A
+    // reader that folded them would report the second as empty text.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>7</v></c><c r=\"B1\"><v/></c><c r=\"C1\"/>\
+         <c r=\"D1\"></c>",
+    ));
+    let values: Vec<Option<&str>> = cells.iter().map(|cell| cell.value.as_deref()).collect();
+    assert_eq!(values, [Some("7"), Some(""), None, None]);
+    assert_eq!(references(&cells), ["A1", "B1", "C1", "D1"]);
+}
+
+#[test]
+fn an_inline_string_is_the_text_under_its_is() {
+    let cell = one_cell(&one_row(
+        "<c r=\"A1\" t=\"inlineStr\"><is><t>inline</t></is></c>",
+    ));
+    assert_eq!(cell.value.as_deref(), Some("inline"));
+    assert_eq!(cell.kind, Kind::InlineString);
+}
+
+#[test]
+fn the_runs_of_an_inline_string_concatenate() {
+    // The same rule as an `<si>`: the string is the concatenation of the
+    // runs' `<t>` texts, and a run's properties are not its text.
+    let cell = one_cell(&one_row(
+        "<c r=\"A1\" t=\"inlineStr\"><is>\
+         <r><rPr><b/></rPr><t>bold</t></r><r><t> and plain</t></r></is></c>",
+    ));
+    assert_eq!(cell.value.as_deref(), Some("bold and plain"));
+}
+
+#[test]
+fn a_phonetic_subtree_inside_an_inline_string_is_skipped() {
+    // `<is>` and `<si>` are read by one function, so this is the same rule
+    // proved on the other container. The `<t>y</t>` AFTER the nested `<r>` is
+    // what makes it a measurement rather than a position: a skip that ended
+    // at the first end tag inside the subtree would read "ayb".
+    let cell = one_cell(&one_row(
+        "<c r=\"A1\" t=\"inlineStr\"><is><t>a</t>\
+         <rPh sb=\"0\" eb=\"1\"><r><t>x</t></r><t>y</t></rPh><t>b</t></is></c>",
+    ));
+    assert_eq!(cell.value.as_deref(), Some("ab"));
+}
+
+#[test]
+fn a_normal_formula_is_its_text() {
+    // Both spellings of a normal formula: `t` absent, and `t="normal"`.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><f>SUM(B1:B9)</f><v>45</v></c>\
+         <c r=\"B1\"><f t=\"normal\">1+1</f><v>2</v></c>",
+    ));
+    let first = cells[0].formula.as_ref().expect("a formula");
+    assert_eq!(first.text, "SUM(B1:B9)");
+    assert_eq!(first.kind, FormulaKind::Normal);
+    assert_eq!(first.reference, None);
+    // The cached value is the cell's value: emend stores formulas and reads
+    // cached values, and evaluates nothing (`CLAUDE.md`).
+    assert_eq!(cells[0].value.as_deref(), Some("45"));
+    let second = cells[1].formula.as_ref().expect("a formula");
+    assert_eq!(second.text, "1+1");
+    assert_eq!(second.kind, FormulaKind::Normal);
+}
+
+#[test]
+fn a_shared_master_carries_its_range_and_its_follower_carries_no_text() {
+    // The corpus has 44 masters and 292 followers
+    // (`specs/0010-reading-cells.md`, "Harness runs"). `master` is whether
+    // `ref` was there, which is how the format marks the one cell holding
+    // the expression the group follows.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\">B1*2</f><v>2</v></c>\
+         <c r=\"A2\"><f t=\"shared\" si=\"0\"/><v>4</v></c>",
+    ));
+    let master = cells[0].formula.as_ref().expect("a formula");
+    assert_eq!(
+        master.kind,
+        FormulaKind::Shared {
+            index: 0,
+            master: true
+        }
+    );
+    assert_eq!(master.text, "B1*2");
+    assert_eq!(master.reference.as_deref(), Some("A1:A3"));
+    let follower = cells[1].formula.as_ref().expect("a formula");
+    assert_eq!(
+        follower.kind,
+        FormulaKind::Shared {
+            index: 0,
+            master: false
+        }
+    );
+    // Empty, because a follower carries no expression of its own: the
+    // master's is the group's, and this layer does not copy it over.
+    assert_eq!(follower.text, "");
+    assert_eq!(follower.reference, None);
+}
+
+#[test]
+fn an_array_formula_carries_its_range() {
+    let cell = one_cell(&one_row(
+        "<c r=\"A1\"><f t=\"array\" ref=\"A1:A2\">TRANSPOSE(B1:C1)</f><v>1</v></c>",
+    ));
+    let formula = cell.formula.as_ref().expect("a formula");
+    assert_eq!(formula.kind, FormulaKind::Array);
+    assert_eq!(formula.reference.as_deref(), Some("A1:A2"));
+    assert_eq!(formula.text, "TRANSPOSE(B1:C1)");
+}
+
+#[test]
+fn a_data_table_formula_is_accepted_by_name() {
+    // The corpus holds no `dataTable` witness, so it is accepted by name and
+    // its own attributes are not modelled: `dt2D`, `dtr` and the rest are
+    // not read, and part 4's rewrite copies them raw.
+    let cell = one_cell(&one_row(
+        "<c r=\"A1\"><f t=\"dataTable\" ref=\"B2:C3\" dt2D=\"1\" dtr=\"0\" \
+         r1=\"A1\"/><v>1</v></c>",
+    ));
+    let formula = cell.formula.as_ref().expect("a formula");
+    assert_eq!(formula.kind, FormulaKind::DataTable);
+    assert_eq!(formula.reference.as_deref(), Some("B2:C3"));
+    assert_eq!(formula.text, "");
+}
+
+#[test]
+fn a_formulas_other_attributes_are_not_modelled() {
+    // `ca` and `aca` are in the fixture to prove they are neither read nor
+    // refused: the formula that comes back is the same as one without them,
+    // and a caller that needs them waits for part 4's raw copy.
+    let with = one_cell(&one_row(
+        "<c r=\"A1\"><f ca=\"1\" aca=\"1\">RAND()</f><v>0.5</v></c>",
+    ));
+    let without = one_cell(&one_row("<c r=\"A1\"><f>RAND()</f><v>0.5</v></c>"));
+    assert_eq!(with.formula, without.formula);
+    assert_eq!(
+        with.formula.as_ref().expect("a formula").kind,
+        FormulaKind::Normal
+    );
+}
+
+#[test]
+fn a_character_reference_is_expanded_in_a_value_a_formula_and_a_text() {
+    // One function assembles all three, so this proves the one place rather
+    // than three. `&#65;` is `A` and `&amp;` is `&`.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\" t=\"str\"><f>CONCAT(&quot;x&quot;,&#65;1)</f><v>&#65;&amp;b</v></c>\
+         <c r=\"B1\" t=\"inlineStr\"><is><t>&#65;&amp;b</t></is></c>",
+    ));
+    assert_eq!(cells[0].value.as_deref(), Some("A&b"));
+    assert_eq!(
+        cells[0].formula.as_ref().expect("a formula").text,
+        "CONCAT(\"x\",A1)"
+    );
+    assert_eq!(cells[1].value.as_deref(), Some("A&b"));
+}
+
+#[test]
+fn a_cell_reference_parses_only_the_a1_form() {
+    assert_eq!(CellRef::parse(b"A1"), Some(CellRef { row: 1, col: 1 }));
+    assert_eq!(
+        CellRef::parse(b"XFD1048576"),
+        Some(CellRef {
+            row: 1048576,
+            col: 16384
+        })
+    );
+    // Lower case, a leading zero, letters alone, digits alone, and letters
+    // after the digits are each refused rather than guessed at.
+    assert_eq!(CellRef::parse(b"a1"), None);
+    assert_eq!(CellRef::parse(b"A01"), None);
+    assert_eq!(CellRef::parse(b"A"), None);
+    assert_eq!(CellRef::parse(b"1"), None);
+    assert_eq!(CellRef::parse(b"A1B"), None);
+    assert_eq!(CellRef::parse(b""), None);
+    // A column past `u32::MAX`. `MWLQKWU` is 4294967295 exactly, the largest
+    // that fits, and `MWLQKWV` is one more, so the pair shows the boundary is
+    // where it is claimed and not one column either side of it. Both
+    // spellings were computed rather than recalled: the first draft of this
+    // test named `FXSHRXW`, which is `i32::MAX` and not `u32::MAX`, and the
+    // assertion caught it.
+    assert_eq!(
+        CellRef::parse(b"MWLQKWU1"),
+        Some(CellRef {
+            row: 1,
+            col: u32::MAX
+        })
+    );
+    assert_eq!(CellRef::parse(b"MWLQKWV1"), None);
+    // A row past `u32::MAX`, the same boundary on the other axis.
+    assert_eq!(
+        CellRef::parse(b"A4294967295"),
+        Some(CellRef {
+            row: u32::MAX,
+            col: 1
+        })
+    );
+    assert_eq!(CellRef::parse(b"A4294967296"), None);
+}
+
+#[test]
+fn a_reference_writes_itself_back() {
+    // Round trip through both directions, on the two boundaries of the
+    // base-26 spelling that a naive one gets wrong: `Z` to `AA`, and the
+    // largest reference Excel itself writes.
+    for spelling in ["A1", "Z1", "AA1", "AZ9", "BA10", "XFD1048576", "MWLQKWU1"] {
+        let parsed = CellRef::parse(spelling.as_bytes()).expect("parses");
+        assert_eq!(parsed.a1(), spelling, "{spelling}");
+    }
+}
+
+#[test]
+fn a_row_without_a_number_follows_the_last() {
+    // The first row with no `r` is row 1, and a later one is the last plus
+    // one: the numbering is a running count and not the row's position among
+    // the rows, so the third row here is 6 and not 3.
+    let cells = read_cells(&worksheet(
+        "<row><c><v>1</v></c></row>\
+         <row><c><v>2</v></c></row>\
+         <row r=\"5\"><c><v>3</v></c></row>\
+         <row><c><v>4</v></c></row>",
+    ));
+    assert_eq!(references(&cells), ["A1", "A2", "A5", "A6"]);
+}
+
+#[test]
+fn a_cell_without_a_reference_follows_the_previous() {
+    // Within a row the column is a running count too, and it restarts at
+    // each row: the second row's first cell is A and not D. A cell with an
+    // explicit `r` moves the count, so the cell after C1 is D1.
+    let cells = read_cells(&worksheet(
+        "<row r=\"1\"><c><v>1</v></c><c><v>2</v></c><c r=\"C1\"><v>3</v></c>\
+         <c><v>4</v></c></row>\
+         <row r=\"2\"><c><v>5</v></c></row>",
+    ));
+    assert_eq!(references(&cells), ["A1", "B1", "C1", "D1", "A2"]);
+}
+
+#[test]
+fn a_cells_own_reference_wins_over_its_row() {
+    // Not refused: the cell's own reference is what every other reader
+    // takes, and the row's attributes are not modelled here
+    // (`specs/0010-reading-cells.md`, "Module `cells`").
+    //
+    // The cell AFTER it is C1, not C7: a cell with no `r` has no reference of
+    // its own to win with, so its column counts from the previous cell's, as
+    // the spec says, and its row is the enclosing `<row>`'s. This expectation
+    // read C7 in the first draft, and the assertion caught it; the two halves
+    // of a derived reference come from two different places, and this is the
+    // fixture that shows which.
+    let cells = read_cells(&worksheet(
+        "<row r=\"1\"><c r=\"B7\"><v>1</v></c><c><v>2</v></c></row>",
+    ));
+    assert_eq!(references(&cells), ["B7", "C1"]);
+    assert_eq!(cells[0].reference.row, 7);
+    assert_eq!(cells[1].reference.row, 1);
+}
+
+#[test]
+fn a_style_index_is_carried() {
+    // 2094287 of the corpus's 2094601 cells carry an `s`
+    // (`specs/0010-reading-cells.md`, "Harness runs"). The styles part is
+    // not read here: the index is carried and nothing is looked up.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\" s=\"0\"><v>1</v></c><c r=\"B1\" s=\"164\"><v>2</v></c>\
+         <c r=\"C1\"><v>3</v></c>",
+    ));
+    let styles: Vec<Option<u32>> = cells.iter().map(|cell| cell.style).collect();
+    assert_eq!(styles, [Some(0), Some(164), None]);
+}
+
+#[test]
+fn an_unknown_element_is_skipped_with_its_subtree() {
+    // Two places at once: an `extLst` INSIDE a `<c>`, whose subtree holds a
+    // `<v>` that must not become the cell's value, and a
+    // `conditionalFormatting` sibling of `<sheetData>`, whose subtree holds a
+    // `<c>` that must not become a cell. A reader that walked into either
+    // would report three cells or the wrong value.
+    let cells = read_cells(&worksheet_with_siblings(
+        "<row r=\"1\"><c r=\"A1\"><v>1</v>\
+         <extLst><ext uri=\"{X}\"><v>999</v><c r=\"Z9\"><v>8</v></c></ext></extLst></c></row>",
+        "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\">\
+         <row r=\"9\"><c r=\"Z9\"><v>7</v></c></row></cfRule></conditionalFormatting>",
+    ));
+    assert_eq!(references(&cells), ["A1"]);
+    assert_eq!(cells[0].value.as_deref(), Some("1"));
+}
+
+#[test]
+fn a_cell_in_another_namespace_is_not_a_cell() {
+    // The strict main namespace: the elements are matched on namespace and
+    // local name, so a `<c>` a producer put in a namespace of its own is an
+    // unknown element and is skipped with its subtree, `<v>` and all.
+    let cells = read_cells(&worksheet(
+        "<row r=\"1\"><c r=\"A1\"><v>1</v></c>\
+         <other:c xmlns:other=\"urn:other\" r=\"B1\"><other:v>2</other:v></other:c>\
+         <c r=\"C1\"><v>3</v></c></row>",
+    ));
+    assert_eq!(references(&cells), ["A1", "C1"]);
+    // C1 keeps its own reference; the skipped element moved no count, which
+    // is visible because the third cell names itself.
+    assert_eq!(cells[1].value.as_deref(), Some("3"));
+}
+
+#[test]
+fn the_other_main_namespace_spelling_is_read_too() {
+    // `MAIN` holds both spellings a producer writes for the main namespace
+    // (`package::MAIN`), and the cell reader matches through the same
+    // constant the rest of the crate does.
+    let sheet = format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{}\"><sheetData>\
+         <row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData></worksheet>",
+        String::from_utf8_lossy(MAIN[1])
+    );
+    let cells = read_cells(&sheet);
+    assert_eq!(references(&cells), ["A1"]);
+}
+
+#[test]
+fn an_empty_sheet_data_gives_no_cells() {
+    let cells = read_cells(&format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData/></worksheet>"
+    ));
+    assert!(cells.is_empty(), "no cells");
+    // And a worksheet with no `<sheetData>` at all gives none either, rather
+    // than being refused: a sheet may hold nothing but its properties.
+    let none = read_cells(&format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\">\
+         <sheetPr/><dimension ref=\"A1\"/></worksheet>"
+    ));
+    assert!(none.is_empty(), "no cells");
+}
+
+#[test]
+fn a_worksheet_root_of_the_wrong_name_is_refused() {
+    let sheet = format!("{DECLARATION}\n<sheet xmlns=\"{MAIN_NS}\"><sheetData/></sheet>");
+    assert_package(
+        refused_sheet(sheet.as_bytes()),
+        "the worksheet part's root is not worksheet",
+    );
+}
+
+#[test]
+fn a_worksheet_root_in_another_namespace_is_refused() {
+    // The right local name in the wrong namespace is not the right root: the
+    // namespace is half of an element's name.
+    let sheet = format!("{DECLARATION}\n<worksheet xmlns=\"urn:other\"><sheetData/></worksheet>");
+    assert_package(
+        refused_sheet(sheet.as_bytes()),
+        "the worksheet part's root is not worksheet",
+    );
+}
+
+#[test]
+fn a_cell_type_this_layer_does_not_know_is_refused() {
+    // Refused rather than guessed at: a reader that fell back to `Number`
+    // would report a wrong value as a right one.
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\" t=\"z\"><v>1</v></c>").as_bytes()),
+        "a cell has a type this layer does not know",
+    );
+}
+
+#[test]
+fn a_formula_type_this_layer_does_not_know_is_refused() {
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\"><f t=\"cse\">1</f></c>").as_bytes()),
+        "a formula has a type this layer does not know",
+    );
+}
+
+#[test]
+fn a_shared_formula_without_an_index_is_refused() {
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\"><f t=\"shared\" ref=\"A1:A2\">1</f></c>").as_bytes()),
+        "a shared formula has no index",
+    );
+}
+
+#[test]
+fn a_shared_index_that_is_not_a_number_is_refused() {
+    // The same message as an absent `si`: either way this layer has no index
+    // to carry, and the catalogue holds one message for the case.
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\"><f t=\"shared\" si=\"x\">1</f></c>").as_bytes()),
+        "a shared formula has no index",
+    );
+}
+
+#[test]
+fn a_cell_reference_that_is_not_a1_is_refused() {
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1:B2\"><v>1</v></c>").as_bytes()),
+        "a cell reference is not of the form A1",
+    );
+}
+
+#[test]
+fn a_row_number_that_is_not_a_number_is_refused() {
+    assert_package(
+        refused_sheet(worksheet("<row r=\"one\"><c><v>1</v></c></row>").as_bytes()),
+        "a row number is not a number",
+    );
+}
+
+#[test]
+fn a_style_index_that_is_not_a_number_is_refused() {
+    assert_package(
+        refused_sheet(one_row("<c r=\"A1\" s=\"x\"><v>1</v></c>").as_bytes()),
+        "a cell's style index is not a number",
+    );
+}
+
+#[test]
+fn an_unknown_entity_in_a_cell_is_refused() {
+    // In a value, in a formula and in an inline string alike: all three go
+    // through one function, and a value with a hole in it is not the value.
+    for body in [
+        "<c r=\"A1\"><v>&nbsp;</v></c>",
+        "<c r=\"A1\"><f>&nbsp;</f></c>",
+        "<c r=\"A1\" t=\"inlineStr\"><is><t>&nbsp;</t></is></c>",
+    ] {
+        assert_package(
+            refused_sheet(one_row(body).as_bytes()),
+            "a cell holds a reference this layer cannot expand",
+        );
+    }
+}
+
+#[test]
+fn an_element_inside_a_cells_value_is_refused() {
+    // `<v>` and `<f>` are simple content in the schema, as `<t>` is, and the
+    // same refusal covers all three.
+    for body in [
+        "<c r=\"A1\"><v>a<b/>c</v></c>",
+        "<c r=\"A1\"><f>a<b/>c</f></c>",
+    ] {
+        assert_package(
+            refused_sheet(one_row(body).as_bytes()),
+            "a text element holds an element",
+        );
+    }
+}
+
+#[test]
+fn a_worksheet_that_is_not_utf8_is_refused() {
+    // The same class of refusal as the shared strings part's: not UTF-8 is
+    // `Error::Xml` carrying the entry's index, in every part.
+    let mut sheet = one_row("<c r=\"A1\"><v>").into_bytes();
+    sheet.push(0xff);
+    sheet.extend_from_slice(b"</v></c></row></sheetData></worksheet>");
+    assert_xml(refused_sheet(&sheet));
+}
+
+#[test]
+fn a_worksheet_cut_off_mid_cell_is_refused() {
+    // The part ends before the cell's end tag, which is an XML error and not
+    // a cell with a missing field.
+    let sheet = format!(
+        "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData>\
+         <row r=\"1\"><c r=\"A1\"><v>1</v>"
+    );
+    assert_xml(refused_sheet(sheet.as_bytes()));
+}
+
+#[test]
+fn the_iterator_is_spent_after_a_refusal() {
+    // A reader that carried on from an unknown position would be guessing,
+    // so the error is the last item: one `Some(Err)`, then `None`.
+    let sheet = one_row("<c r=\"A1\" t=\"z\"><v>1</v></c><c r=\"B1\"><v>2</v></c>");
+    let mut package = opened_sheet(sheet.as_bytes(), None);
+    let mut cells = package.cells(SHEET_PART).expect("the part opens");
+    assert!(cells.next().expect("an item").is_err(), "the refusal");
+    assert!(cells.next().is_none(), "spent");
+    assert!(cells.next().is_none(), "still spent");
+}
+
+#[test]
+fn cells_on_a_part_that_is_not_there_is_refused() {
+    let mut package = opened(None, None);
+    // Matched rather than `expect_err`: a reader that is streaming a part
+    // has nothing to print, so `Cells` is not `Debug`.
+    let error = match package.cells(b"xl/worksheets/sheet9.xml") {
+        Ok(_) => panic!("a refusal, not an empty read"),
+        Err(error) => error,
+    };
+    assert_package(error, "no such part");
+}
+
+#[test]
+fn resolving_a_shared_string_gives_the_item_it_names() {
+    let sheet = one_row("<c r=\"A1\" t=\"s\"><v>1</v></c>");
+    let strings = sst("<si><t>zero</t></si><si><t>one</t></si>");
+    let mut package = opened_sheet(sheet.as_bytes(), Some(strings.as_bytes()));
+    let table = package.shared_strings().expect("the table");
+    let cells: Vec<Cell> = package
+        .cells(SHEET_PART)
+        .expect("the part opens")
+        .collect::<Result<_, Error>>()
+        .expect("the cells parse");
+    // The table is owned, so it is held here WHILE the cells stream through
+    // a mutable borrow of the same package: that is the reason
+    // `shared_strings` hands its table over rather than lending it.
+    assert_eq!(table.resolve(&cells[0]).expect("resolves"), Some("one"));
+}
+
+#[test]
+fn resolving_a_cell_of_another_kind_gives_its_own_value() {
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>1.5</v></c><c r=\"B1\" t=\"inlineStr\"><is><t>in</t></is></c>\
+         <c r=\"C1\"/>",
+    ));
+    let table = SharedStrings::default();
+    assert_eq!(table.resolve(&cells[0]).expect("resolves"), Some("1.5"));
+    assert_eq!(table.resolve(&cells[1]).expect("resolves"), Some("in"));
+    // No value at all resolves to nothing, and is not an error.
+    assert_eq!(table.resolve(&cells[2]).expect("resolves"), None);
+}
+
+#[test]
+fn resolving_an_index_that_is_not_a_number_is_refused() {
+    let cells = read_cells(&one_row("<c r=\"A1\" t=\"s\"><v>x</v></c>"));
+    let table = SharedStrings::default();
+    assert_package(
+        table
+            .resolve(&cells[0])
+            .expect_err("a refusal, not a missing item"),
+        "a shared string index is not a number",
+    );
+}
+
+#[test]
+fn resolving_an_index_out_of_range_is_refused() {
+    let cells = read_cells(&one_row("<c r=\"A1\" t=\"s\"><v>2</v></c>"));
+    let table = table(&sst("<si><t>zero</t></si><si><t>one</t></si>"));
+    assert_package(
+        table
+            .resolve(&cells[0])
+            .expect_err("a refusal, not a missing item"),
+        "a shared string index is out of range",
+    );
+    // A workbook with no table at all is the same answer and not a case of
+    // its own: the index is out of range of an empty table.
+    assert_package(
+        SharedStrings::default()
+            .resolve(&cells[0])
+            .expect_err("a refusal"),
+        "a shared string index is out of range",
+    );
+}
+
+#[test]
+fn reading_cells_then_writing_copies_the_package_byte_for_byte() {
+    // Reading records no edit, so the output is the input's bytes: the
+    // fidelity harness's whole claim, proved here on a package the test
+    // built rather than on a corpus file.
+    let sheet = one_row("<c r=\"A1\" t=\"s\"><v>0</v></c><c r=\"B1\"><f>A1</f><v>1</v></c>");
+    let input = build_with_sheet(
+        Some(sheet.as_bytes()),
+        Some(sst("<si><t>x</t></si>").as_bytes()),
+        Some("sharedStrings.xml"),
+    );
+    let mut package = Package::open(Cursor::new(input.clone())).expect("the fixture opens");
+    let read: Vec<Cell> = package
+        .cells(SHEET_PART)
+        .expect("the part opens")
+        .collect::<Result<_, Error>>()
+        .expect("the cells parse");
+    assert_eq!(references(&read), ["A1", "B1"]);
+    let mut out = Vec::new();
+    package.write_to(&mut out).expect("the copy writes");
+    assert_eq!(out, input, "byte for byte");
 }
