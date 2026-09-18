@@ -25,6 +25,8 @@
 #![deny(missing_docs)]
 
 pub mod archive;
+#[cfg(test)]
+mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
