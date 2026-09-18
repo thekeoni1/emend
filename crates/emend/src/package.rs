@@ -63,7 +63,8 @@
 //!   `editing_a_removed_rels_part`, `editing_removed_content_types`).
 //! - "no such part" (`removing_an_absent_part`, `replacing_an_absent_part`,
 //!   `a_relationship_on_a_part_that_is_not_there`,
-//!   `a_relationship_removal_on_a_part_that_is_not_there`).
+//!   `a_relationship_removal_on_a_part_that_is_not_there`,
+//!   `cells::tests::a_relationship_naming_no_entry_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The `cells` module raises its messages through the same error and they are
@@ -76,6 +77,8 @@
 //!   `a_part_with_no_root_at_all_is_refused`).
 //! - "a cell holds a reference this layer cannot expand"
 //!   (`cells::tests::an_unknown_entity_is_refused`).
+//! - "a text element holds an element"
+//!   (`cells::tests::an_element_inside_a_text_element_is_refused`).
 //!
 //! # Limits
 //!
@@ -540,27 +543,35 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// A workbook with no `sharedStrings` relationship gives an empty table,
     /// so a cell naming an index in such a workbook is out of range rather
-    /// than a case of its own. A relationship naming no entry is the same
-    /// empty answer: the relationship is a claim about the package and the
-    /// entries are the package, and part 2's survey already measures
-    /// unresolved targets.
+    /// than a case of its own.
+    ///
+    /// A relationship that DOES name a part, where the archive holds no such
+    /// entry, is refused with "no such part" (`specs/0010-reading-cells.md`,
+    /// P1 ruling 5). The two cases are not the same answer: no relationship
+    /// is a workbook saying it has no table, while an unresolved target is a
+    /// claim the package makes about itself and cannot keep, and a reader
+    /// asked to follow it and finding nothing says so rather than reporting
+    /// an empty table that no part witnesses. Part 2's survey counts
+    /// unresolved targets across the package; the readers do not paper over
+    /// them.
     ///
     /// Records no edit: a package read this way and written writes a copy.
     ///
     /// # Errors
     ///
-    /// [`Error::Package`] "the shared strings part's root is not sst" or "a
-    /// cell holds a reference this layer cannot expand"; [`Error::Xml`] for
-    /// bytes that are not well-formed XML or not UTF-8; whatever
-    /// [`Package::workbook`] refuses, since the relationship is followed
-    /// through it.
+    /// [`Error::Package`] "the shared strings part's root is not sst", "a
+    /// cell holds a reference this layer cannot expand", "a text element
+    /// holds an element", or "no such part" for a relationship whose target
+    /// the archive does not hold; [`Error::Xml`] for bytes that are not
+    /// well-formed XML or not UTF-8; whatever [`Package::workbook`] refuses,
+    /// since the relationship is followed through it.
     pub fn shared_strings(&mut self) -> Result<SharedStrings, Error> {
         let part = match self.workbook()?.shared_strings.clone() {
             Some(part) => part,
             None => return Ok(SharedStrings::default()),
         };
         let Some(index) = self.archive.index_of(&part) else {
-            return Ok(SharedStrings::default());
+            return Err(NO_SUCH_PART);
         };
         let mut stream = Stream::new(self.archive.read(index)?, index)?;
         SharedStrings::read(&mut stream, index)

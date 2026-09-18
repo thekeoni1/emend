@@ -921,3 +921,85 @@ fn the_recipe_leaves_a_package_with_no_chain_byte_for_byte() {
         "a package with no chain came back changed"
     );
 }
+
+/// The same package with a `sharedStrings` part of two items and the
+/// relationship and `Override` that make it reachable.
+///
+/// `specs/0010-reading-cells.md`, P1 ruling 8. The second item is written
+/// with a CR LF pair, so the `bytes` figure below is what proves the line-end
+/// normalisation of ruling 1 reaches the built binary: without it the pair
+/// survives and `bytes` reads 9 rather than 8.
+fn shared_strings_specs() -> Vec<Spec> {
+    let content_types = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <Types xmlns=\"{TYPES_NS}\">\
+         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         <Override PartName=\"/xl/sharedStrings.xml\" \
+         ContentType=\"application/sharedStrings\"/>\
+         </Types>"
+    );
+    let package_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/officeDocument\" Target=\"xl/workbook.xml\"/>\
+         </Relationships>"
+    );
+    let workbook = format!(
+        "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+         <sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>"
+    );
+    let workbook_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" Target=\"worksheets/sheet1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/sharedStrings\" Target=\"sharedStrings.xml\"/>\
+         </Relationships>"
+    );
+    // "alpha" is five bytes; "a\r\nb" is four as written and three once the
+    // pair is one LF. Two items, eight bytes.
+    let strings = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <sst xmlns=\"{MAIN_NS}\" count=\"2\" uniqueCount=\"2\">\
+         <si><t>alpha</t></si><si><t>a\r\nb</t></si></sst>"
+    );
+    vec![
+        Spec::deflated(b"[Content_Types].xml", content_types.as_bytes()),
+        Spec::stored(b"_rels/.rels", package_rels.as_bytes()),
+        Spec::deflated(b"xl/workbook.xml", workbook.as_bytes()),
+        Spec::stored(b"xl/_rels/workbook.xml.rels", workbook_rels.as_bytes()),
+        Spec::deflated(b"xl/worksheets/sheet1.xml", b"<sheetData/>"),
+        Spec::deflated(b"xl/sharedStrings.xml", strings.as_bytes()),
+    ]
+}
+
+#[test]
+fn shared_strings_counts_the_items_and_edits_nothing() {
+    // `specs/0010-reading-cells.md`, "Harness runs" and P1 ruling 8: one
+    // line, the word `strings` then tab-separated key=value pairs, counts
+    // only, and the output byte-identical because the operation makes no
+    // edit. Two counts and nothing else, because a shared string IS content:
+    // no item, no length of a single one and no fragment of one is printed.
+    let dir = TempDir::new("shared-strings");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&shared_strings_specs());
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--shared-strings"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout, "strings\titems=2\tbytes=8\n",
+        "the strings line"
+    );
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "--shared-strings edits nothing"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+}

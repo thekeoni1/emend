@@ -206,6 +206,94 @@ fn references_are_expanded() {
     assert_eq!(items(&table), ["a&b<c>d\"e'f", "AB"]);
 }
 
+// P1 ruling 1: XML 1.0 section 2.11 line ends. Four cases, each comparing
+// what the reader gives with the string the test wrote. `quick-xml` 0.42 does
+// not normalise, so without the normalisation in `push_text` the first two
+// read back the bytes the fixture wrote and these tests fail.
+
+#[test]
+fn a_carriage_return_line_feed_pair_becomes_one_line_feed() {
+    let table = table(&sst("<si><t>a\r\nb</t></si>"));
+    assert_eq!(items(&table), ["a\nb"]);
+}
+
+#[test]
+fn a_lone_carriage_return_becomes_a_line_feed() {
+    let table = table(&sst("<si><t>a\rb</t></si>"));
+    assert_eq!(items(&table), ["a\nb"]);
+}
+
+#[test]
+fn a_line_feed_alone_is_unchanged() {
+    // The case that must NOT change, so the normalisation is not just
+    // "replace every line end with something".
+    let table = table(&sst("<si><t>a\nb</t></si>"));
+    assert_eq!(items(&table), ["a\nb"]);
+}
+
+#[test]
+fn a_carriage_return_through_a_reference_is_kept() {
+    // Section 2.11 normalises the literal input before parsing, so a CR a
+    // reference stands for is not a line end and survives as CR. This is the
+    // one way a caller can still get a CR out of this reader, and the corpus
+    // writes no `&#13;` anywhere.
+    let table = table(&sst("<si><t>a&#13;b</t></si>"));
+    assert_eq!(items(&table), ["a\rb"]);
+}
+
+#[test]
+fn line_ends_normalise_inside_cdata_too() {
+    // 2.11 is about the literal input, and a CDATA section is literal input:
+    // the same pair in a CDATA section is the same one LF.
+    let table = table(&sst("<si><t><![CDATA[a\r\nb]]></t></si>"));
+    assert_eq!(items(&table), ["a\nb"]);
+}
+
+#[test]
+fn a_reference_between_two_line_ends_separates_them() {
+    // The CR LF state is carried across chunks, so this pins that a reference
+    // between a lone CR and a lone LF leaves TWO line ends and does not
+    // swallow the second: "x\r" then `&#65;` then "\nz".
+    let table = table(&sst("<si><t>x\r&#65;\nz</t></si>"));
+    assert_eq!(items(&table), ["x\nA\nz"]);
+}
+
+// P1 ruling 2: CDATA is text. The corpus carries none, so these two tests and
+// `line_ends_normalise_inside_cdata_too` are the only thing proving it.
+
+#[test]
+fn an_item_wholly_in_cdata_is_its_text() {
+    // Before ruling 2 this read as the empty string: `quick-xml` delivers
+    // CDATA as its own event and the reader ignored it, so the item lost its
+    // text with no error at all.
+    let table = table(&sst("<si><t><![CDATA[hello]]></t></si>"));
+    assert_eq!(items(&table), ["hello"]);
+}
+
+#[test]
+fn text_on_both_sides_of_a_cdata_section_concatenates() {
+    // And in order, which an implementation that appended CDATA after the
+    // text rather than in place would fail.
+    let table = table(&sst("<si><t>a<![CDATA[b]]>c</t></si>"));
+    assert_eq!(items(&table), ["abc"]);
+}
+
+// P1 ruling 3: an element inside simple content is refused.
+
+#[test]
+fn an_element_inside_a_text_element_is_refused() {
+    // Both spellings, because `quick-xml` reports them as different events
+    // and a reader that refused only `Start` would let `<br/>` through.
+    assert_package(
+        refused(sst("<si><t>a<b>x</b>c</t></si>").as_bytes()),
+        "a text element holds an element",
+    );
+    assert_package(
+        refused(sst("<si><t>a<b/>c</t></si>").as_bytes()),
+        "a text element holds an element",
+    );
+}
+
 #[test]
 fn spaces_are_kept_with_and_without_xml_space() {
     // The reader never trims, so the attribute makes no difference to it.
@@ -293,15 +381,19 @@ fn a_workbook_with_no_shared_strings_gives_an_empty_table() {
 }
 
 #[test]
-fn a_relationship_naming_no_entry_gives_an_empty_table() {
-    // The relationship is a claim about the package and the entries are the
-    // package. Part 2's survey is where an unresolved target is counted; this
-    // layer answers the same as no relationship at all rather than inventing
-    // an error of its own.
-    let table = opened(None, Some("absent.xml"))
+fn a_relationship_naming_no_entry_is_refused() {
+    // A relationship that names a part the archive does not hold is a claim
+    // the package makes about itself and cannot keep, so following it and
+    // finding nothing is an error and not an empty table (P1 ruling 5). This
+    // is the case the test above is NOT: there, the workbook says it has no
+    // table, and an empty one is the right answer.
+    //
+    // The two cases share a method and differed only in this, so the pair is
+    // what pins the distinction: the same call, one refusal, one empty table.
+    let error = opened(None, Some("absent.xml"))
         .shared_strings()
-        .expect("an empty table, not an error");
-    assert!(table.is_empty());
+        .expect_err("a refusal, not an empty table");
+    assert_package(error, "no such part");
 }
 
 #[test]
@@ -368,9 +460,16 @@ fn the_fixture_builder_makes_a_package_the_reader_accepts() {
 }
 
 #[test]
-fn the_table_is_read_afresh_on_every_call() {
-    // `shared_strings` hands back an owned table rather than lending a cached
-    // one, so a second call neither borrows the first nor differs from it.
+fn a_second_call_gives_an_equal_table() {
+    // What this pins is the PROPERTY a caller depends on: a second call gives
+    // a table equal to the first, and both are owned, so neither borrows the
+    // package and either can be held while cells stream through it.
+    //
+    // It was called `the_table_is_read_afresh_on_every_call`, which named a
+    // MECHANISM these assertions cannot tell apart from caching the table and
+    // handing back a clone: that implementation would satisfy both and the old
+    // name would be false. Independent check 1 of P1 found it and P1 ruling 9
+    // renamed it. The reading afresh is visible in the signature, not here.
     let mut package = opened(
         Some(sst("<si><t>x</t></si>").as_bytes()),
         Some("sharedStrings.xml"),
