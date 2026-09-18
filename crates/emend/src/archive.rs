@@ -1679,10 +1679,15 @@ fn descriptor_bytes(gap: &Gap, made: &Made) -> Vec<u8> {
 /// The core may add no dependency, and [`Archive::write_to`] takes a plain
 /// `Write` with no path, so the layer cannot place this beside the caller's
 /// output. It honours `TMPDIR` through [`env::temp_dir`].
-struct TempFile(PathBuf);
+///
+/// `pub(crate)` for [`crate::package`], which writes each rewritten package
+/// part to one of these before it becomes a replacement
+/// (`specs/0009-package-layer.md`, "Module `package`": "the layer's
+/// `TempFile`, made `pub(crate)`").
+pub(crate) struct TempFile(pub(crate) PathBuf);
 
 impl TempFile {
-    fn new() -> Result<Self, Error> {
+    pub(crate) fn new() -> Result<Self, Error> {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         let name = format!("emend-replace-{}-{n}.tmp", std::process::id());

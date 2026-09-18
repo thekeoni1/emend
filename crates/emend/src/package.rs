@@ -55,17 +55,60 @@
 //! - "an element or attribute uses a prefix its document does not bind",
 //!   raised by [`Scope`] and reached from here through an `r:id` whose prefix
 //!   nothing binds (`rel_id_prefix_unbound`).
+//! - "no such relationship" (`removing_an_absent_relationship`).
+//! - "no such override" (`removing_an_absent_override`).
+//! - "an override for that part already exists"
+//!   (`adding_an_override_that_exists`).
+//! - "an edit to a removed part" (`editing_a_removed_part`,
+//!   `editing_a_removed_rels_part`, `editing_removed_content_types`).
+//! - "no such part" (`removing_an_absent_part`,
+//!   `replacing_an_absent_part`).
+//! - "no Default covers rels" (`no_default_for_rels`).
+//!
+//! # Limits
+//!
+//! What this layer does NOT do, each a decision rather than an omission
+//! (`specs/0009-package-layer.md`, "Design" and the P3 rulings):
+//!
+//! - Part names are compared by exact bytes. A relationship target that
+//!   differs from an entry's name in case alone resolves to nothing, and the
+//!   survey counts such a target rather than the layer guessing
+//!   (`case_only`).
+//! - No percent-decoding of a target, and no reference is expanded in a part
+//!   name: a target carrying `%` or `&` is taken as the bytes it is. The
+//!   corpus's 644 internal targets carry neither.
+//! - Where several relationships share a kind, the FIRST in document order
+//!   is the one [`Relationships::first_of`] answers with, and the workbook's
+//!   four optional parts are resolved that way. Nothing merges them.
+//! - A removed element loses its own bytes and nothing else: the whitespace
+//!   that surrounded it stays, because it belongs to other tokens.
+//! - An addition goes immediately before the root's end tag with no
+//!   whitespace added, which is how every rels part in the corpus writes
+//!   consecutive elements (all 662 gaps between them are empty).
+//! - A generated relationship id is `rId<n>`, one more than the largest of
+//!   that form already in the part, counting the ids pending removal and
+//!   those already generated for it in this write. An id of any other form
+//!   is never generated and never collides with one.
+//! - A rels part created for a part that had none takes its prefix from the
+//!   package's own `_rels/.rels`, up to that part's root start tag, so the
+//!   new part is written the way the package writes its others. With no
+//!   `_rels/.rels` to read, the prefix is the form 148 of the corpus's 216
+//!   rels parts use. No producer's name describes the rule, and none is
+//!   claimed for it (P3 ruling 10).
 
 #[cfg(test)]
 mod tests;
 
-use std::io::{Read, Seek};
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
+use std::str;
 
 use quick_xml::XmlVersion;
+use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
-use crate::archive::{Archive, Error};
-use crate::xml::{Scope, Stream};
+use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
+use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
 pub const CONTENT_TYPES_PART: &[u8] = b"[Content_Types].xml";
@@ -385,6 +428,57 @@ pub struct Package<R: Read + Seek> {
     /// Parsed relationships by source, the package's own under an empty name.
     relationships: Vec<Relationships>,
     workbook: Option<Workbook>,
+    /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
+    ///
+    /// Nothing is removed implicitly: a removed relationship's target, a
+    /// removed part's own rels part and its override are each their own call,
+    /// so the caller says exactly what changes and the harness checks exactly
+    /// that (`specs/0009-package-layer.md`, "Module `package`").
+    edits: Recorded,
+}
+
+/// The edits a [`Package`] has been told to make, in the order they arrived.
+#[derive(Default)]
+struct Recorded {
+    /// `(source, id)`: the relationship to drop from `source`'s rels part.
+    rel_removals: Vec<(Vec<u8>, Vec<u8>)>,
+    /// `(source, relationship)`: added at the end of `source`'s rels part.
+    rel_additions: Vec<(Vec<u8>, Relationship)>,
+    /// Part names, as the `PartName` attribute writes them.
+    override_removals: Vec<Vec<u8>>,
+    /// `(part_name, content_type)`, both as the attributes write them.
+    override_additions: Vec<(Vec<u8>, Vec<u8>)>,
+    part_removals: Vec<Vec<u8>>,
+    part_replacements: Vec<(Vec<u8>, Replacement)>,
+    part_additions: Vec<(Vec<u8>, Replacement)>,
+}
+
+impl Recorded {
+    fn is_empty(&self) -> bool {
+        self.rel_removals.is_empty()
+            && self.rel_additions.is_empty()
+            && self.override_removals.is_empty()
+            && self.override_additions.is_empty()
+            && self.part_removals.is_empty()
+            && self.part_replacements.is_empty()
+            && self.part_additions.is_empty()
+    }
+
+    /// Every source whose rels part this set changes, once each, in order.
+    fn rel_sources(&self) -> Vec<Vec<u8>> {
+        let mut sources: Vec<Vec<u8>> = Vec::new();
+        for source in self
+            .rel_removals
+            .iter()
+            .map(|(source, _)| source)
+            .chain(self.rel_additions.iter().map(|(source, _)| source))
+        {
+            if !sources.iter().any(|seen| seen == source) {
+                sources.push(source.clone());
+            }
+        }
+        sources
+    }
 }
 
 impl<R: Read + Seek> Package<R> {
@@ -399,6 +493,7 @@ impl<R: Read + Seek> Package<R> {
             content_types: None,
             relationships: Vec::new(),
             workbook: None,
+            edits: Recorded::default(),
         })
     }
 
@@ -433,7 +528,7 @@ impl<R: Read + Seek> Package<R> {
             let index = self
                 .archive
                 .index_of(CONTENT_TYPES_PART)
-                .ok_or(Error::Package("no [Content_Types].xml part"))?;
+                .ok_or(NO_CONTENT_TYPES)?;
             let parsed = parse_content_types(&mut self.archive, index)?;
             return Ok(self.content_types.insert(parsed));
         }
@@ -534,6 +629,350 @@ impl<R: Read + Seek> Package<R> {
             theme: resolved_first(rels, THEME)?,
         })
     }
+
+    /// Records the removal of the relationship `id` from `source`'s rels part.
+    ///
+    /// Nothing is read or written here, and nothing else goes with it: the
+    /// target part, its override and its own rels part are the caller's
+    /// separate calls. [`Package::write_to`] refuses an id the part does not
+    /// hold.
+    pub fn remove_relationship(&mut self, source: &[u8], id: &[u8]) {
+        self.edits.rel_removals.push((source.to_vec(), id.to_vec()));
+    }
+
+    /// Records a new relationship on `source` and returns the id it will have.
+    ///
+    /// The id is `rId<n>`, `n` one more than the largest among the part's ids
+    /// of the form `rId<digits>` and the ids this call has already handed out
+    /// for the same source, or `rId1` when there is none. An id of another
+    /// form is never generated, so a generated id never collides with one.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::relationships`] refuses for `source`'s rels part,
+    /// since the id rule has to read the ids already there. A source with no
+    /// rels part is an empty set, not an error: [`Package::write_to`] creates
+    /// the part.
+    pub fn add_relationship(
+        &mut self,
+        source: &[u8],
+        kind: &[u8],
+        target: &[u8],
+        external: bool,
+    ) -> Result<Vec<u8>, Error> {
+        let mut highest = 0u32;
+        for id in self
+            .relationships(source)?
+            .all()
+            .iter()
+            .map(|rel| rel.id.clone())
+            .collect::<Vec<Vec<u8>>>()
+        {
+            highest = highest.max(numbered_id(&id).unwrap_or(0));
+        }
+        for (at, rel) in &self.edits.rel_additions {
+            if at == source {
+                highest = highest.max(numbered_id(&rel.id).unwrap_or(0));
+            }
+        }
+        let mut id = b"rId".to_vec();
+        id.extend_from_slice((highest + 1).to_string().as_bytes());
+        self.edits.rel_additions.push((
+            source.to_vec(),
+            Relationship {
+                id: id.clone(),
+                kind: kind.to_vec(),
+                target: target.to_vec(),
+                external,
+            },
+        ));
+        Ok(id)
+    }
+
+    /// Records the removal of the `Override` for `part_name`.
+    ///
+    /// `part_name` is matched as the `PartName` attribute writes it, by exact
+    /// bytes, leading slash included. [`Package::write_to`] refuses an
+    /// override the part does not hold.
+    pub fn remove_override(&mut self, part_name: &[u8]) {
+        self.edits.override_removals.push(part_name.to_vec());
+    }
+
+    /// Records a new `Override` for `part_name`.
+    ///
+    /// [`Package::write_to`] refuses a part name that already has one.
+    pub fn add_override(&mut self, part_name: &[u8], content_type: &[u8]) {
+        self.edits
+            .override_additions
+            .push((part_name.to_vec(), content_type.to_vec()));
+    }
+
+    /// Records the removal of the entry `name`.
+    ///
+    /// The entry alone: its override and any relationship naming it are the
+    /// caller's separate calls.
+    pub fn remove_part(&mut self, name: &[u8]) {
+        self.edits.part_removals.push(name.to_vec());
+    }
+
+    /// Records new bytes for the entry `name`.
+    pub fn replace_part(&mut self, name: &[u8], replacement: Replacement) {
+        self.edits
+            .part_replacements
+            .push((name.to_vec(), replacement));
+    }
+
+    /// Records a new entry `name`.
+    ///
+    /// The entry alone: the caller adds an override or relies on a `Default`
+    /// covering its extension.
+    pub fn add_part(&mut self, name: &[u8], replacement: Replacement) {
+        self.edits.part_additions.push((name.to_vec(), replacement));
+    }
+
+    /// Writes the package back with every recorded edit applied.
+    ///
+    /// Every edit is validated first, so a refused set writes nothing. Then
+    /// `[Content_Types].xml` and each rels part with edits are read through
+    /// [`Stream`] and rewritten into a temporary file: every token's `raw` is
+    /// copied except a removed element's own bytes, so the whitespace around
+    /// one stays, and additions go immediately before the root's end tag with
+    /// no whitespace added. The temporaries become the entries'
+    /// replacements, [`Archive::write_to`] runs with the assembled
+    /// [`Edits`], and the temporaries are removed however the write ends.
+    ///
+    /// The part replacements and additions recorded are consumed: a
+    /// [`Replacement`] is a reader, which cannot be read twice or cloned, so
+    /// a second call writes the package without them. The relationship and
+    /// override edits are not, since those are bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] for an edit that cannot apply: "no such
+    /// relationship", "no such override", "an override for that part already
+    /// exists", "an edit to a removed part", "no such part", "no Default
+    /// covers rels". [`Error::Xml`] for a part name or value that is not
+    /// UTF-8, carrying the index of the part the value would have been
+    /// written into.
+    /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
+    /// [`Archive::write_to`] refuses for the assembled edits.
+    pub fn write_to(&mut self, out: impl Write) -> Result<(), Error> {
+        self.validate()?;
+        let mut edits = Edits::new();
+        // The guards outlive the write: each replacement reads its file back,
+        // and Drop removes it however this call ends.
+        let mut temporaries: Vec<TempFile> = Vec::new();
+
+        if !self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty() {
+            let index = self
+                .archive
+                .index_of(CONTENT_TYPES_PART)
+                .ok_or(NO_CONTENT_TYPES)?;
+            let additions = self.override_elements(index)?;
+            let removals = self.edits.override_removals.clone();
+            let (temp, replacement) = rewrite_part(
+                &mut self.archive,
+                index,
+                &|local, start| {
+                    Ok(local == b"Override" && attribute_in(start, b"PartName", &removals, index)?)
+                },
+                CONTENT_TYPES_NS,
+                &additions,
+            )?;
+            temporaries.push(temp);
+            edits.replace(index, replacement);
+        }
+
+        for source in self.edits.rel_sources() {
+            let name = rels_part_name(&source);
+            let additions = self.relationship_elements(&source)?;
+            let removals: Vec<Vec<u8>> = self
+                .edits
+                .rel_removals
+                .iter()
+                .filter(|(at, _)| *at == source)
+                .map(|(_, id)| id.clone())
+                .collect();
+            match self.archive.index_of(&name) {
+                Some(index) => {
+                    let (temp, replacement) = rewrite_part(
+                        &mut self.archive,
+                        index,
+                        &|local, start| {
+                            Ok(local == b"Relationship"
+                                && attribute_in(start, b"Id", &removals, index)?)
+                        },
+                        RELATIONSHIPS_NS,
+                        &additions,
+                    )?;
+                    temporaries.push(temp);
+                    edits.replace(index, replacement);
+                }
+                None => {
+                    // A part with no rels part gets one, in the form the
+                    // package's own rels parts use. Its content type is not
+                    // written anywhere: the package's Default for the rels
+                    // extension covers it, so this call is the check that
+                    // there is one, and its value is deliberately unused.
+                    self.rels_default()?;
+                    let (temp, replacement) = new_rels_part(&mut self.archive, &additions)?;
+                    temporaries.push(temp);
+                    edits.add(name, replacement);
+                }
+            }
+        }
+
+        for name in &self.edits.part_removals {
+            let index = self.archive.index_of(name).ok_or(NO_SUCH_PART)?;
+            edits.remove(index);
+        }
+        for (name, replacement) in self.edits.part_replacements.drain(..) {
+            let index = self.archive.index_of(&name).ok_or(NO_SUCH_PART)?;
+            edits.replace(index, replacement);
+        }
+        for (name, replacement) in self.edits.part_additions.drain(..) {
+            edits.add(name, replacement);
+        }
+
+        let result = self.archive.write_to(out, edits);
+        drop(temporaries);
+        result
+    }
+
+    /// Refuses every edit that cannot apply, before anything is written.
+    fn validate(&mut self) -> Result<(), Error> {
+        if self.edits.is_empty() {
+            return Ok(());
+        }
+        // A part this set removes may not also be edited, and the parts whose
+        // bytes a rels or override edit rewrites count as edited.
+        let removed = self.edits.part_removals.clone();
+        let is_removed = |name: &[u8]| removed.iter().any(|gone| gone.as_slice() == name);
+        for (name, _) in &self.edits.part_replacements {
+            if is_removed(name) {
+                return Err(REMOVED_PART_EDITED);
+            }
+        }
+        for (name, _) in &self.edits.part_additions {
+            if is_removed(name) {
+                return Err(REMOVED_PART_EDITED);
+            }
+        }
+        for source in self.edits.rel_sources() {
+            if is_removed(&rels_part_name(&source)) {
+                return Err(REMOVED_PART_EDITED);
+            }
+        }
+        if (!self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty())
+            && is_removed(CONTENT_TYPES_PART)
+        {
+            return Err(REMOVED_PART_EDITED);
+        }
+
+        // Every removal names something that is there, and no addition
+        // duplicates an override the part already holds.
+        for source in self.edits.rel_sources() {
+            let ids: Vec<Vec<u8>> = self
+                .relationships(&source)?
+                .all()
+                .iter()
+                .map(|rel| rel.id.clone())
+                .collect();
+            for (at, id) in &self.edits.rel_removals {
+                if *at == source && !ids.iter().any(|have| have == id) {
+                    return Err(NO_SUCH_RELATIONSHIP);
+                }
+            }
+        }
+        if !self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty() {
+            let present: Vec<Vec<u8>> = self
+                .content_types()?
+                .overrides()
+                .iter()
+                .map(|over| over.part_name.clone())
+                .collect();
+            for name in &self.edits.override_removals {
+                if !present.iter().any(|have| have == name) {
+                    return Err(NO_SUCH_OVERRIDE);
+                }
+            }
+            for (name, _) in &self.edits.override_additions {
+                if present.iter().any(|have| have == name)
+                    && !self.edits.override_removals.iter().any(|gone| gone == name)
+                {
+                    return Err(OVERRIDE_EXISTS);
+                }
+            }
+        }
+
+        // A part removed or replaced is named by the entry it is, so a name no
+        // entry carries is refused here rather than resolved to an index that
+        // does not exist (P3 ruling 9). An addition is not checked: a name the
+        // archive already holds is its own refusal, `Error::DuplicateName`.
+        for name in &self.edits.part_removals {
+            if self.archive.index_of(name).is_none() {
+                return Err(NO_SUCH_PART);
+            }
+        }
+        for (name, _) in &self.edits.part_replacements {
+            if self.archive.index_of(name).is_none() {
+                return Err(NO_SUCH_PART);
+            }
+        }
+        Ok(())
+    }
+
+    /// The `Default` covering the `rels` extension, which a created rels part
+    /// takes its content type from.
+    fn rels_default(&mut self) -> Result<Vec<u8>, Error> {
+        let types = self.content_types()?;
+        for def in types.defaults() {
+            if def.extension.eq_ignore_ascii_case(b"rels") {
+                return Ok(def.content_type.clone());
+            }
+        }
+        Err(NO_RELS_DEFAULT)
+    }
+
+    /// The `<Override/>` elements to add, serialised.
+    fn override_elements(&self, index: usize) -> Result<Vec<Vec<u8>>, Error> {
+        self.edits
+            .override_additions
+            .iter()
+            .map(|(name, content_type)| {
+                let mut out = b"<Override PartName=\"".to_vec();
+                out.extend_from_slice(escaped(name, index)?.as_bytes());
+                out.extend_from_slice(b"\" ContentType=\"");
+                out.extend_from_slice(escaped(content_type, index)?.as_bytes());
+                out.extend_from_slice(b"\"/>");
+                Ok(out)
+            })
+            .collect()
+    }
+
+    /// The `<Relationship/>` elements to add to `source`'s rels part.
+    fn relationship_elements(&self, source: &[u8]) -> Result<Vec<Vec<u8>>, Error> {
+        let index = self.archive.index_of(&rels_part_name(source)).unwrap_or(0);
+        self.edits
+            .rel_additions
+            .iter()
+            .filter(|(at, _)| at.as_slice() == source)
+            .map(|(_, rel)| {
+                let mut out = b"<Relationship Id=\"".to_vec();
+                out.extend_from_slice(escaped(&rel.id, index)?.as_bytes());
+                out.extend_from_slice(b"\" Type=\"");
+                out.extend_from_slice(escaped(&rel.kind, index)?.as_bytes());
+                out.extend_from_slice(b"\" Target=\"");
+                out.extend_from_slice(escaped(&rel.target, index)?.as_bytes());
+                if rel.external {
+                    out.extend_from_slice(b"\" TargetMode=\"External\"/>");
+                } else {
+                    out.extend_from_slice(b"\"/>");
+                }
+                Ok(out)
+            })
+            .collect()
+    }
 }
 
 /// The rels part of `source`, or the package's own when `source` is empty.
@@ -616,6 +1055,22 @@ fn resolved_first(rels: &Relationships, kind: [&[u8]; 2]) -> Result<Option<Vec<u
 const INCOMPLETE: Error =
     Error::Package("a Default, Override or Relationship element lacks a required attribute");
 
+/// What [`Package::write_to`] refuses an edit with, one message each.
+///
+/// Six of the seven are P3's own (`specs/0009-package-layer.md`, "Module
+/// `package`", and P3 ruling 9 for "no such part"); the first is P2's
+/// message, named here so that the two places that raise it cannot drift
+/// apart. They are constants rather than literals at the point of refusal
+/// because several are raised from more than one place, and a message that
+/// reads two ways in one crate is the defect the catalogue exists to catch.
+const NO_CONTENT_TYPES: Error = Error::Package("no [Content_Types].xml part");
+const NO_SUCH_RELATIONSHIP: Error = Error::Package("no such relationship");
+const NO_SUCH_OVERRIDE: Error = Error::Package("no such override");
+const OVERRIDE_EXISTS: Error = Error::Package("an override for that part already exists");
+const REMOVED_PART_EDITED: Error = Error::Package("an edit to a removed part");
+const NO_RELS_DEFAULT: Error = Error::Package("no Default covers rels");
+const NO_SUCH_PART: Error = Error::Package("no such part");
+
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
 /// Namespace declarations are skipped: `xmlns` and `xmlns:<p>` are not
@@ -636,6 +1091,259 @@ fn written_attribute(
         }
     }
     Ok(None)
+}
+
+/// Whether the element's unprefixed attribute `name` holds one of `values`.
+///
+/// Compared by the bytes the attribute writes, which is what the parsed
+/// `Override` and `Relationship` records hold, so a caller's value taken from
+/// one of those matches here (exact bytes; Limits).
+fn attribute_in(
+    start: &BytesStart<'_>,
+    name: &[u8],
+    values: &[Vec<u8>],
+    index: usize,
+) -> Result<bool, Error> {
+    match written_attribute(start, name, index)? {
+        Some(value) => Ok(values.contains(&value)),
+        None => Ok(false),
+    }
+}
+
+/// `value` escaped for an attribute, or [`Error::Xml`] when it is not UTF-8.
+///
+/// The crate's reader decodes text and markup as `str` (P1 ruling 2), so a
+/// value the layer writes has to be `str` too; `index` is the entry the value
+/// would have been written into, which is all the error carries.
+fn escaped(value: &[u8], index: usize) -> Result<String, Error> {
+    let text = str::from_utf8(value).map_err(|_| Error::Xml(index))?;
+    Ok(escape(text).into_owned())
+}
+
+/// The `<n>` of an id written exactly `rId<digits>`, `None` for any other
+/// form.
+///
+/// A value too large for `u32` is another form: it is not an id this layer
+/// would have generated, and treating it as one would make the next id
+/// collide.
+fn numbered_id(id: &[u8]) -> Option<u32> {
+    let digits = id.strip_prefix(b"rId".as_slice())?;
+    if digits.is_empty() || !digits.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    str::from_utf8(digits).ok()?.parse().ok()
+}
+
+/// A file to rewrite a part into: one handle, readable, mode 0600.
+///
+/// The same shape as the zip layer's own temporary (`specs/0008-zip-layer.md`,
+/// the P2 rulings of 2026-09-17, item 4): the bytes are the caller's and the
+/// temporary directory is shared.
+fn temp_for_part() -> Result<(TempFile, File), Error> {
+    let temp = TempFile::new()?;
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(&temp.0)?;
+    Ok((temp, file))
+}
+
+/// Rewinds the file the part was written into and makes it a replacement.
+///
+/// The caller hands over the handle its [`BufWriter`] gave back, so the
+/// buffer is already flushed.
+fn written_part(temp: TempFile, mut file: File) -> Result<(TempFile, Replacement), Error> {
+    // The handle is at the end of what was just written, and the replacement
+    // reads from wherever it is: without this it would read nothing at all.
+    file.seek(SeekFrom::Start(0))?;
+    Ok((temp, replacement_from_reader(file)))
+}
+
+/// What [`rewrite_part`] asks about each element it copies: the element's
+/// resolved local name and its start tag, `true` when that element's own
+/// bytes are to be dropped.
+///
+/// A named type because the borrow and the two arguments together are more
+/// than clippy's `type_complexity` allows written out at the call.
+type Removes<'a> = &'a dyn Fn(&[u8], &BytesStart<'_>) -> Result<bool, Error>;
+
+/// Rewrites one part into a temporary file: the elements `remove` names lose
+/// their own bytes, `additions` go in immediately before the root's end tag,
+/// and every other byte of the input is copied as it was read.
+///
+/// `namespace` is the namespace the removed and added elements live in, so an
+/// element of the same local name in another namespace is left alone;
+/// `remove` sees that resolved local name and the start tag. A removed
+/// element's surrounding whitespace stays because it is another token's
+/// [`Token::raw`], not part of the element's own. An element written as a
+/// start tag rather than an empty one takes its children and its end tag with
+/// it, since the element is what the caller named.
+///
+/// A root written as an empty element has no end tag, so its own bytes go out
+/// with the `/` of its `/>` dropped, then the additions, then `</` and the
+/// root's name as the input writes it (P3 ruling 8): the prolog and the
+/// root's attributes are kept byte for byte, and only those two bytes change.
+fn rewrite_part<R: Read + Seek>(
+    archive: &mut Archive<R>,
+    index: usize,
+    remove: Removes<'_>,
+    namespace: &[u8],
+    additions: &[Vec<u8>],
+) -> Result<(TempFile, Replacement), Error> {
+    /// The root element's depth, so an `<Override>` or `<Relationship>` is 2.
+    const ROOT_DEPTH: usize = 1;
+
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    // The mark is in no token's raw (`xml`'s module header), so a rewrite
+    // that keeps the part's bytes has to write it back itself.
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut added = false;
+    // The depth of a removed element written as a start tag, whose children
+    // and end tag go with it.
+    let mut dropping: Option<usize> = None;
+    while let Some(token) = stream.next()? {
+        let empty = matches!(token.event, Event::Empty(_));
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                // A start tag's own declarations bind for that tag, so the
+                // scope takes them before the name is resolved.
+                scope.start(start)?;
+                let (element_ns, local) = scope.resolve_element(start.name())?;
+                if depth == ROOT_DEPTH && empty {
+                    let raw = token.raw;
+                    let slash = raw
+                        .iter()
+                        .rposition(|byte| *byte == b'/')
+                        .ok_or(Error::Xml(index))?;
+                    out.write_all(&raw[..slash])?;
+                    out.write_all(&raw[slash + 1..])?;
+                    for addition in additions {
+                        out.write_all(addition)?;
+                    }
+                    out.write_all(b"</")?;
+                    out.write_all(start.name().into_inner().as_bytes())?;
+                    out.write_all(b">")?;
+                    added = true;
+                } else if depth > ROOT_DEPTH
+                    && dropping.is_none()
+                    && element_ns == Some(namespace)
+                    && remove(local, start)?
+                {
+                    if !empty {
+                        dropping = Some(depth);
+                    }
+                } else if dropping.is_none() {
+                    out.write_all(token.raw)?;
+                }
+                if empty {
+                    scope.end();
+                    depth = depth.saturating_sub(1);
+                }
+            }
+            Event::End(_) => {
+                if depth == ROOT_DEPTH && !added {
+                    for addition in additions {
+                        out.write_all(addition)?;
+                    }
+                    added = true;
+                }
+                let ends_removed = dropping == Some(depth);
+                if dropping.is_none() {
+                    out.write_all(token.raw)?;
+                }
+                if ends_removed {
+                    dropping = None;
+                }
+                scope.end();
+                depth = depth.saturating_sub(1);
+            }
+            _ => {
+                if dropping.is_none() {
+                    out.write_all(token.raw)?;
+                }
+            }
+        }
+    }
+    // A part whose root never ends has nowhere to put an addition. The parser
+    // refuses an unclosed root before this, so this is the belt on top of the
+    // braces: an addition is never silently dropped.
+    if !added && !additions.is_empty() {
+        return Err(Error::Xml(index));
+    }
+    written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// What a created rels part begins with when the package has no
+/// `_rels/.rels` of its own to take the form from.
+///
+/// The form 148 of the corpus's 216 rels parts write, which is the majority
+/// (P3 ruling 10). It is a fallback and not a default: a package that has its
+/// own rels parts supplies the form itself.
+fn fallback_rels_prefix() -> Vec<u8> {
+    let mut prefix = BYTE_ORDER_MARK.to_vec();
+    prefix.extend_from_slice(b"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+    prefix
+}
+
+/// The bytes a created rels part begins with: the package's own `_rels/.rels`
+/// up to its root start tag.
+///
+/// Every token's `raw` before the first `Start` or `Empty` event, the mark
+/// first when the part has one, so the declaration and whatever follows it
+/// come out exactly as that package writes them. No corpus package mixes two
+/// forms across its own rels parts, which is what makes one of them the
+/// package's form (P3 ruling 10).
+fn rels_prefix<R: Read + Seek>(archive: &mut Archive<R>) -> Result<Vec<u8>, Error> {
+    let Some(index) = archive.index_of(&rels_part_name(b"")) else {
+        return Ok(fallback_rels_prefix());
+    };
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    let mut prefix = Vec::new();
+    if stream.bom() {
+        prefix.extend_from_slice(&BYTE_ORDER_MARK);
+    }
+    while let Some(token) = stream.next()? {
+        if matches!(token.event, Event::Start(_) | Event::Empty(_)) {
+            break;
+        }
+        prefix.extend_from_slice(token.raw);
+    }
+    Ok(prefix)
+}
+
+/// A rels part for a source that had none, in the form the package's own rels
+/// parts use.
+///
+/// The prefix from [`rels_prefix`], the root on one line, the new elements
+/// with no whitespace between them, the end tag and nothing after
+/// (P3 ruling 10).
+fn new_rels_part<R: Read + Seek>(
+    archive: &mut Archive<R>,
+    additions: &[Vec<u8>],
+) -> Result<(TempFile, Replacement), Error> {
+    let prefix = rels_prefix(archive)?;
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    out.write_all(&prefix)?;
+    out.write_all(b"<Relationships xmlns=\"")?;
+    out.write_all(RELATIONSHIPS_NS)?;
+    out.write_all(b"\">")?;
+    for addition in additions {
+        out.write_all(addition)?;
+    }
+    out.write_all(b"</Relationships>")?;
+    written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
 }
 
 /// Reads `[Content_Types].xml`.

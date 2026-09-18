@@ -520,16 +520,11 @@ fn bytes_replacement(data: &[u8]) -> Replacement {
     Box::new(move |out: &mut dyn Write| out.write_all(&data))
 }
 
-/// Serializes every test that makes a replacement temporary.
-///
-/// `cargo test` runs these in threads of ONE process, so they share both the
-/// temporary directory and the process id in the temporary's name. Without
-/// this, the snapshot in `a_replacement_error_leaves_no_temporary_behind`
-/// catches another test's file in flight and the test fails on a race rather
-/// than on the layer. Every replacement in these tests goes through `apply`
-/// or holds this lock itself; the refusal tests make no temporary, because
-/// `plan` rejects them before any compression starts.
-static REPLACEMENT_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// The lock and the listing moved to [`crate::testing`] in M1 part 2 P3: the
+/// package layer writes each rewritten part to a temporary of the same form,
+/// in the same process, so its tests have to hold the same lock or the
+/// snapshots here catch one of ITS files in flight.
+use crate::testing::{TEMPORARY_LOCK as REPLACEMENT_LOCK, replacement_temporaries};
 
 /// Opens the input, applies the edits, and returns the output bytes.
 fn apply(input: &[u8], edits: Edits) -> Vec<u8> {
@@ -785,19 +780,6 @@ fn a_replacement_error_leaves_no_temporary_behind() {
         before,
         "a replacement temporary was left in the temporary directory"
     );
-}
-
-/// The layer's replacement temporaries belonging to this process, by name.
-fn replacement_temporaries() -> Vec<std::ffi::OsString> {
-    let prefix = format!("emend-replace-{}-", std::process::id());
-    let mut found: Vec<std::ffi::OsString> = std::fs::read_dir(env::temp_dir())
-        .expect("read the temporary directory")
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.file_name())
-        .filter(|name| name.to_string_lossy().starts_with(&prefix))
-        .collect();
-    found.sort();
-    found
 }
 
 // ------------------------------------------------ the replaced entry's form

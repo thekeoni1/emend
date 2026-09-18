@@ -516,7 +516,79 @@ pub(crate) fn parse_independently(bytes: &[u8]) -> Parsed {
     }
 }
 
+/// Serializes every test that makes a temporary of the layers' own form.
+///
+/// `cargo test` runs the tests in threads of ONE process, so they share both
+/// the temporary directory and the process id in the temporary's name.
+/// Without this, a snapshot like `a_replacement_error_leaves_no_temporary_
+/// behind` catches another test's file in flight and fails on a race rather
+/// than on the layer. Both layers make temporaries of that form: the zip
+/// layer compresses a replacement into one, and from M1 part 2 P3 the package
+/// layer writes each rewritten part into one, so the two layers' tests hold
+/// the SAME lock and it lives here rather than in either of them.
+pub(crate) static TEMPORARY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// The layers' temporaries belonging to this process, by name.
+pub(crate) fn replacement_temporaries() -> Vec<std::ffi::OsString> {
+    let prefix = format!("emend-replace-{}-", std::process::id());
+    let mut found: Vec<std::ffi::OsString> = std::fs::read_dir(std::env::temp_dir())
+        .expect("read the temporary directory")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name())
+        .filter(|name| name.to_string_lossy().starts_with(&prefix))
+        .collect();
+    found.sort();
+    found
+}
+
 /// The entry names an archive holds, in central directory order.
 pub(crate) fn names(parsed: &Parsed) -> Vec<Vec<u8>> {
     parsed.entries.iter().map(|e| e.name.clone()).collect()
+}
+
+/// The bytes of the stored entry named `name`, found with this reader's own
+/// offsets.
+///
+/// `specs/0009-package-layer.md`, "P3": an edit test compares the edited
+/// part's bytes with bytes the test builds by hand, so it needs the output's
+/// bytes back without asking the layer that wrote them. Stored only: every
+/// package fixture is stored and [`crate::archive::Archive::write_to`] keeps
+/// an entry's method, so a rewritten part comes back stored, and a caller
+/// that reaches a compressed entry is told rather than given plausible
+/// rubbish.
+#[track_caller]
+pub(crate) fn stored_data(bytes: &[u8], name: &[u8]) -> Vec<u8> {
+    /// The local header's fixed part: signature, version, flags, method,
+    /// time, date, CRC-32, both sizes and both lengths, as `Build` writes it
+    /// above.
+    const FIXED: usize = 30;
+    /// Where the name and extra lengths sit inside that fixed part.
+    const NAME_LENGTH_AT: usize = 26;
+    const EXTRA_LENGTH_AT: usize = 28;
+
+    let parsed = parse_independently(bytes);
+    let entry = parsed
+        .entries
+        .iter()
+        .find(|entry| entry.name == name)
+        .unwrap_or_else(|| panic!("no entry named {:?}", String::from_utf8_lossy(name)));
+    assert_eq!(
+        entry.method,
+        METHOD_STORE,
+        "stored_data on a compressed entry: {:?}",
+        String::from_utf8_lossy(name)
+    );
+    let at = (parsed.base + entry.local_offset) as usize;
+    assert_eq!(
+        bytes[at..at + 4],
+        LOCAL_SIG.to_le_bytes(),
+        "no local header at the recorded offset for {:?}",
+        String::from_utf8_lossy(name)
+    );
+    let name_length =
+        u16::from_le_bytes([bytes[at + NAME_LENGTH_AT], bytes[at + NAME_LENGTH_AT + 1]]) as usize;
+    let extra_length =
+        u16::from_le_bytes([bytes[at + EXTRA_LENGTH_AT], bytes[at + EXTRA_LENGTH_AT + 1]]) as usize;
+    let start = at + FIXED + name_length + extra_length;
+    bytes[start..start + entry.uncompressed_size as usize].to_vec()
 }
