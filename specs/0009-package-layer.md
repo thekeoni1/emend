@@ -368,7 +368,9 @@ each run names its operation through `--tool-arg` and the record's
 
 The survey's keys: `entries`; `typed` and `untyped` (every entry other
 than `[Content_Types].xml`, by `ContentTypes::of`); `defaults`,
-`overrides`; `rels_parts` (entries named as a rels part, each parsed
+`overrides`, `overrides_unresolved` (overrides whose part name, without
+its slash, is no entry by exact bytes; P2 ruling 11, added in P3);
+`rels_parts` (entries named as a rels part, each parsed
 for the source its name derives); `relationships`, `external`,
 `resolved`, `unresolved` (internal targets that do and do not resolve
 to an entry by exact bytes) and `case_only` (unresolved ones, and
@@ -902,7 +904,9 @@ ruling 11 with its unit test, and the `columns_resolve` form of
 ruling 10 in the run script; the survey then runs on both targets in
 P3's run log beside the edit runs, expecting `overrides_unresolved` 0
 in every file. P3's gate controls assert properties, never a position
-(verification ruling 4).
+(verification ruling 4). P3's second code commit adds the gate's `doc`
+step and the one link fix it needs (P3 ruling 4), before the edits, so
+the gate that checks the edit commits already carries it.
 
 The edit methods and `write_to`; `TempFile` shared; `--drop-calc-
 chain`; the two probes; the catalogue and Limits in the module docs
@@ -924,6 +928,55 @@ message in the catalogue tested or marked untested. The corpus run
 <utc-date>-<shortsha>.md` and `.txt`. The size log and record as
 "Size"; the report states part 2's own cost and asks the maintainer
 the checkpoint question.
+
+### Planning rulings during P3 (2026-09-18)
+
+On the four items the implementing session raised after the first
+code commit 11de26e (planning read the diff, ran `cargo doc` at
+11de26e and reproduced the one warning it names):
+
+1. The catalogue entry for "no [Content_Types].xml part" escapes its
+   brackets rather than dropping the backticks: rustdoc reads bare
+   `[Content_Types]` as an intra-doc link, which is why the backticks
+   were there. Accepted; the doc text now equals the message byte for
+   byte and makes no link. Recorded because check 1 called the fix
+   cosmetic and it was not.
+2. Two of the five doc-comment fixes were applied in two places each
+   (the five-parts sentence in `package/tests.rs`'s header and in
+   `smallest()`'s doc; the message in `package.rs`'s catalogue and in
+   `content_types`'s doc). Accepted as done: "exactly these five"
+   names five defects, and a file that states one string two ways is
+   one defect in two places. P3's checks expect the five in seven
+   places; nothing is reverted.
+3. `overrides_unresolved` sits directly after `overrides` in the
+   survey line, as committed and as the tool tests pin it; the Design
+   list of keys is amended above. The order the tests pin is the order
+   P3's run log quotes.
+4. The gate gains a step. `cargo doc` was no step of the gate, so no
+   committed check read a doc comment, and the tree has carried
+   "public documentation for `xml` links to private item
+   `Stream::origin`" since P1; planning confirmed at 11de26e that
+   `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps` exits
+   101 on it, in under a second when the build is warm. Ruling: step
+   5 `doc`, placed after `clippy`, runs exactly that command through
+   the gate's `quiet` wrapper and prints `PASS doc`; `native`,
+   `licences`, `hygiene` and `privacy` become steps 6 to 9, so `--ci`
+   runs steps 1 to 8 and skips step 9, and `--quick` keeps the step,
+   since it is cheap. The script's header, `STEPS` and `--only` follow;
+   the workflow needs no change, since `--ci` selects steps by name.
+   The `Stream::origin` link is fixed in the same commit, which would
+   otherwise fail its own gate. P3's negative log adds one case: a
+   throwaway worktree in which a public doc comment links a private
+   item fails the gate at `FAIL doc` with a non-zero exit, through the
+   `isnot` helper with its control. `specs/0003-ci.md`'s `--ci`
+   description is amended to the new numbers; every earlier "eight
+   PASS" is the record of the gate as it was and stands. From this
+   commit a phase's `gate.log` is a full run of nine steps. The
+   commit changes a gate file, so the `specs/0001` rule for that
+   applies: `scripts/gate-self-test.sh` runs in P3 and its log is
+   committed with the phase's other logs.
+5. Ruling 10's `columns_resolve` form lands in P3's run log's script,
+   as the commit message says; the run log is where the rule lives.
 
 ### Close-out push (after P3)
 
