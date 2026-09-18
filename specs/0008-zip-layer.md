@@ -211,6 +211,17 @@ the compressor's cost is separated from the layer's own code; and a
 note on a stored-replacement mode that would let a consumer accepting
 larger files skip the compressor.
 
+Maintainer decision (2026-09-18, given to planning), on part 2's size
+record: part 2 alone cost 51136 section bytes, over the checkpoint's
+40960, and the maintainer chose the higher ceiling. The budget for the
+whole core at the close of Milestone 1 is 393216 section bytes (384
+KiB) over `probe-zip-xml`, judged as before on the edit-and-read probe
+with the file delta beside it. Parts 1 and 2 together spent 183980,
+leaving 209236 for parts 3 to 8. No Cargo feature is added on this
+ground; the dependency rule's requirement that anything heavier than
+the two crates sits behind a feature off by default stands unchanged,
+and the core's own cell reading and writing is never behind a feature.
+
 ### Harness runs
 
 `scripts/passthrough-run.sh` takes any copy tool through

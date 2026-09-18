@@ -1316,6 +1316,39 @@ Planning rulings on the close-out (2026-09-18):
    independent check, as the close-out spec says. Report and STOP;
    part 3's spec follows.
 
+Planning verification of the close-out record (2026-09-18), from
+primaries at 7702f6e: the doc commit 9bd9102 holds planning's three
+files unedited (95 insertions, 5 deletions; its subject deliberately
+does not match the close-out doc pattern the scan resolves the tip
+by, and that pattern still resolves to f4f48e8 alone); the record
+commit 7702f6e holds exactly the four logs, whose sha256s planning
+recomputed (push.log 1b622633..., ci-run.log 1f72c2e9...,
+correction.log 78a9276d..., scan.log 93df4168...); both messages are
+ASCII with the Co-Authored-By line last; 0 bare shapes, 0 live
+pattern hits, 0 home-directory continuations and 0 control or
+non-ASCII bytes in the four logs; scan.log ends RESULT: FAIL on the
+pre-P6d control at 2 with the expectation at 0, its self-scan at 0
+with the planted control at 1, the tip resolved by subject with HEAD
+printed beside it, and the three siblings hashed at their committed
+bytes; correction.log resolves 711fc8b and f4f48e8 by subject, counts
+2 hits at lines 79 and 130 by a printed command, prints the
+replacement wording, and its two controls score 1 and 0. Ruling on
+the disclosed defect: the third scan attempt's rerun note gave a
+sha256 for the second attempt that was invented, not read from any
+file. The implementing session found it on re-reading before
+installing, kept that attempt (sha256 8046737b..., which planning
+confirmed holds the invented string once) and named the invention in
+the committed header and the commit message; the invented string
+appears in no committed file, which planning confirmed. That handling
+stands and no second correction log is written: the fabricated hash
+was never committed, and the header note names what happened where a
+reader of the log would look. A rule is added to `specs/0001`: every
+sha256 a log cites is printed by a command run over a file that
+exists at run time; a superseded attempt is hashed and kept before
+the next starts; an attempt that was not kept is named as having no
+hash. Both commits go with part 3's close-out push. The close-out is
+DONE.
+
 ## Out of scope
 
 - Reading cells, shared strings or styles: parts 3 to 5.

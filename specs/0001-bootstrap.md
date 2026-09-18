@@ -177,6 +177,13 @@ from this needs planning's word before the run (T2 P7 ruling).
     answer is altered (M1 part 2 P3 verification ruling, 2026-09-18).
   - Every commit id in a log or check answer is read from git at run
     time by a command the log prints, never typed or padded (T3 P4).
+  - Every sha256 a log cites, a superseded attempt's included, is
+    printed by a command run over a file that exists at run time,
+    never typed from memory. A superseded attempt is hashed and kept
+    before the next one starts; an attempt that was not kept is named
+    as having no hash, and why (M1 part 2 close-out record ruling,
+    2026-09-18: a rerun note carried an invented hash, caught by the
+    implementing session before the commit and named in the header).
   - A committed log is never edited or regenerated: a correction is a
     new log whose header names the superseded lines and the commit
     they were committed at (T3 P4, `record.log`).

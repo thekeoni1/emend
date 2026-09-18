@@ -199,7 +199,30 @@ follows P3 and carries the local record c414445.
 | P1 | `quick-xml` 0.42.0 pinned; `xml::Stream` with raw tokens and the byte order mark kept; `emend-copy --xml-null-rewrite`; the two part 1 residues; the corpus run: every `.xml` and `.rels` entry `recompressed` or `identical`, never `changed` | DONE 2026-09-18 (doc 0e6c60d, 9b87536, b97d01c, 248fdd8; code a9f2cad, 4725795; record d6fa91d; 781 XML entries recompressed or identical on both targets, 89 others identical) |
 | P2 | the test builder moved to `testing.rs`; `package`: content types, relationships with target resolution, the workbook's sheets by relationship, the prefix stack; `emend-copy --survey`; the corpus run with the survey aggregated: nothing untyped, unresolved or case-only | DONE 2026-09-18 (doc bbde39e to c8b8fec; code 82d4e77, 5fc1b3d, 1334830; record eacffa2) |
 | P3 | the edits (relationships, overrides, parts) applied through a temporary-file rewrite; `--drop-calc-chain`; `probe-zip-xml-write` and `probe-emend-package-xml`; the size record with the checkpoint figure and the stored-replacement note; the catalogue and limits; the corpus run: nine workbooks change in exactly three entries, eighteen are byte-identical | DONE 2026-09-18 (doc 0a884ee to d6fcc5f; code 11de26e, 5fdf65a, 5dba448, e04db06, 14c2e14; record 711fc8b; part 2 cost 51136 section bytes, above the 40960 checkpoint: maintainer decision open) |
-| Close | close-out push after P3, as part 1's, with record c414445 | PUSHED 2026-09-18 (doc f4f48e8, 30 commits, 376 blobs, 0 findings; CI run 35341839926 success); the record commit carries a recorded finding, a bare shape in two comment lines of a committed P3 log, ruled in `specs/0009` "Planning rulings on the close-out" |
+| Close | close-out push after P3, as part 1's, with record c414445 | DONE 2026-09-18 (pushed f4f48e8, 30 commits, 376 blobs, 0 findings; CI run 35341839926 success; doc 9bd9102 and record 7702f6e local, the scan a recorded FAIL on a bare shape in two comment lines of a committed P3 log, ruled in `specs/0009` "Planning rulings on the close-out") |
+
+### Part 3: reading cells (`specs/0010-reading-cells.md`)
+
+Approved by the maintainer 2026-09-18 and sent to implementation. The
+`cells` module streams a worksheet's cells (reference, style, kind,
+value as written, formula) over `xml::Stream`; shared strings are
+parsed into a table that resolves a cell's index; typed views parse a
+number, a boolean and an error on request; nothing is written, and
+every harness output is byte-identical. Acceptance: the reader's
+counts over the corpus equal planning's independent counts (95 sheets,
+2094601 cells, 262879 formulas, 110582 shared strings, every index
+resolved). The size record after P3 is judged against the ceiling the
+part 2 checkpoint ruling set (2026-09-18: 393216 section bytes over
+`probe-zip-xml`, `specs/0008` "Size"). No push during the part; the
+close-out push follows P3 and carries the local commits 9bd9102 and
+7702f6e.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | the items part 2 carried (the `xml.rs` count and the set-equality test, the `Default`-spelling test, `--drop-calc-chain` reading content types first, the rewrapped comments, the run and self-test script forms); `SharedStrings`, `Package::shared_strings`, `--shared-strings`; the corpus run: 110582 items, per file equal to an independent count | PROPOSED |
+| P2 | `cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind}`, `Package::cells`, `resolve`, `--cells`; the corpus run with every count asserted by name | PROPOSED |
+| P3 | `number`, `boolean`, `error`; the catalogue and limits; `probe-emend-cells-xml` with the float-parser variant; the size record against the checkpoint ruling; the negative log through the binary | PROPOSED |
+| Close | close-out push after P3, as part 2's, carrying 9bd9102 and 7702f6e | PLANNED |
 
 ## Unscoped
 
