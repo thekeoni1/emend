@@ -1,0 +1,1204 @@
+command: git rev-parse HEAD
+about: M1 part 2 P2 phase commit c8b8fece099d946ae52156432ca84b2504f9cf58; HEAD at run: c8b8fece099d946ae52156432ca84b2504f9cf58
+phase: Milestone 1 part 2 P2 (specs/0009-package-layer.md) negative.log; run at 2026-09-18T02:47:05Z
+rerun: this log supersedes the round at 68340 bytes, sha256 6777b74b4b0e94687cb25c826244dbd30ce51653c5dab6e7121be45944ab9df6, which was never committed. That round printed 116 as-expected verdict lines, no UNEXPECTED line, and ended "negative log checks all as expected: yes"; every refusal of the layer behaved as expected in it, and the reason it is superseded is a defect of this script, not of the layer. specs/0001 as this phase amended it requires a negated condition to carry a control showing that the negating helper reports UNEXPECTED on a passing command. This log has exactly one negated condition, the control that a key no message holds selects nothing, so without that second control a mis-defined helper would have made it vacuous with nothing else here to notice. Independent check 2 of this phase found the omission and specs/0009 P2 ruling 9 ordered the rerun. The control is added and no check of the layer changed. That round in turn superseded the log's first round, at 66322 bytes, sha256 264c4310b866029b552348752875c7a5907b86f9c15721bd09091c55643ebe97, which failed three of its own checks and none of the layer's: the usage text had moved onto two source lines with a Rust string continuation and a line oriented sed read none of it, the layer's unbound-prefix message was looked for in package.rs when Scope raises it from xml.rs, and the survey line's shape was written with a backslash-t that grep -E reads as the letter t. Its note described those three defects but did not name the round it replaced by byte count and sha256, as specs/0001 asks; both earlier rounds are named that way here. This round also runs one commit later, at the doc commit carrying rulings 7 to 11.
+SERIALIZED: produced with no other run in flight
+every fixture is generated; no corpus file is copied or read
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 2 P2 negative.log (specs/0009-package-layer.md, "P2:
+    # content types, relationships, the workbook"): the tool's refusals, the
+    # package layer's refusals reached through --survey, and the runner's refusal
+    # of a tool argument holding a tab.
+    #
+    # Four families of case:
+    #
+    #  N1 to N15, the operation parsing. specs/0009, "Harness runs": at most ONE
+    #  operation per invocation, given after the two paths, and P2 adds a third
+    #  operation to the two P1 had. The cases are two operations at once (in both
+    #  orders, the same one twice, and with --survey in the pair), an unknown
+    #  operation including one a letter away from a real name, an operation before
+    #  the paths, an operation given an argument it does not take, and one given
+    #  none where it needs one. Four positive controls stand beside them, because a
+    #  refusal test proves nothing if the accepted forms are refused too.
+    #
+    #  S0 to S14, the package layer's refusals, every one through the BUILT binary
+    #  rather than a unit test. --survey walks the whole map, so each of the
+    #  layer's messages is reachable by a package built to hit it: this is where
+    #  the catalogue in package.rs's header is checked against what a user sees.
+    #  S0 is the positive control, a sound package that surveys and edits nothing.
+    #  The messages are EXTRACTED from the committed package.rs at run time and
+    #  selected by a short key, never typed here, and each key is asserted to name
+    #  exactly one message. The one message of the catalogue no fixture can reach
+    #  is "an external relationship has no part": the survey counts an external
+    #  relationship rather than resolving it, so only the unit test
+    #  package::tests::external_target reaches that one.
+    #
+    #  X1 and X2, P1's refusal, re-run unchanged: a part that is not XML under an
+    #  XML name is exit 2 with the layer's message under --xml-null-rewrite, and
+    #  the same archive copies verbatim with no operation.
+    #
+    #  R1 and R2, the runner. A --tool-arg value holding a tab is refused before
+    #  anything runs, since a tool argument goes into a tab separated run row; R2
+    #  is the control, the same invocation with the tab removed.
+    #
+    # Every case runs in a scratch clone under <scratch>, never in the main working
+    # tree, with the binaries the gate built copied in; gate.log prints the same
+    # four hashes and nothing is rebuilt here. Every fixture is GENERATED: no
+    # corpus file is copied or read.
+    #
+    # DERIVED FROM the M1 part 2 P1 negative script as records/logs/m1p2-p1/
+    # negative.log printed it, audited against specs/0001 before this run (the rule
+    # from memory/gotchas.md: a script reused from an older phase's printed log
+    # carries that phase's forbidden forms). What changed, and why:
+    #  1. The phase and the log directory are part 2 P2's.
+    #  2. The N family is renumbered and extended, because --survey was an unknown
+    #     operation in P1 and is a real one here: the P1 case that asserted it
+    #     refused would now assert the opposite of the truth, which is exactly the
+    #     kind of inherited assertion this header exists to catch.
+    #  3. The S family is new, with its generated packages and the extractor that
+    #     reads the layer's messages out of its source.
+    #  4. Neither shape specs/0001 forbids appears here: no check chains a second
+    #     condition after a bracket test inside one command substitution, and no
+    #     negation is handed to a helper as a leading bang. Every multi-condition
+    #     check is a named function and every negated one goes through isnot. The
+    #     shapes are described rather than written out, so this log's own text
+    #     does not trip the shape grep the phase's scan log runs over every
+    #     printed script.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    B=$(mktemp -d)
+    trap 'rm -rf "$B"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # Negation goes through a helper, never through `is ! cmd ...`: `!` is a shell
+    # keyword, so passing it as the first argument runs a command of that name,
+    # which fails with 127 and prints UNEXPECTED whatever the condition did
+    # (specs/0001, from this milestone's P1 departure 10).
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    # Rewrites the scratch base out of any captured text, so no absolute path is
+    # printed even when a tool echoes one.
+    hide() { sed "s#$B#<scratch>#g; s#$MAIN#<repo>#g"; }
+    
+    if [ "$(git rev-parse HEAD)" != "$C" ]; then echo "HEAD is not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 2 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 2 P2 (specs/0009-package-layer.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then echo "rerun: $RERUN_NOTE"; fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "every fixture is generated; no corpus file is copied or read"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the scratch clone and the gate's binaries"
+    echo "command: git clone --quiet --shared <repo> <scratch>/clone"
+    git clone --quiet --shared "$MAIN" "$B/clone" 2>&1 | hide | sed 's/^/    /'
+    CLONE=$B/clone
+    clone_head=$(git -C "$CLONE" rev-parse HEAD)
+    echo "  clone HEAD: $clone_head"
+    note "the clone is at the phase commit" "$(is [ "$clone_head" = "$C" ])"
+    mkdir -p "$CLONE/target/debug" "$CLONE/target/i686-unknown-linux-musl/debug"
+    bins_ok=yes
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if cp "$MAIN/$b" "$CLONE/$b" 2>/dev/null; then
+        echo "  copied $b: sha256 $(sha256sum <"$CLONE/$b" | cut -d' ' -f1), bytes $(wc -c <"$CLONE/$b")"
+      else
+        echo "  copied $b: FAILED"
+        bins_ok=no
+      fi
+    done
+    # One function, four conditions. The part 1 P1 script chained these with the
+    # and-operator inside a single `is` substitution, which captures the first test
+    # alone (specs/0001, "Rules for every phase"; the header above says why the
+    # form is described here and never quoted).
+    all_four_executable() {
+      [ "$bins_ok" = yes ] || return 1
+      for f in "$CLONE/target/debug/emend-copy" "$CLONE/target/debug/xlsx-diff" \
+               "$CLONE/target/i686-unknown-linux-musl/debug/emend-copy" \
+               "$CLONE/target/i686-unknown-linux-musl/debug/xlsx-diff"; do
+        [ -x "$f" ] || return 1
+      done
+      return 0
+    }
+    note "all four binaries were copied in and all four are executable" "$(is all_four_executable)"
+    EC=$CLONE/target/debug/emend-copy
+    XD=$CLONE/target/debug/xlsx-diff
+    echo "  (gate.log prints these same four hashes; nothing is rebuilt here)"
+    
+    echo
+    echo "## the generated fixtures"
+    cat >"$B/gen.py" <<'GEN_PY'
+    import hashlib, os, sys, zipfile
+    
+    base, corpus = sys.argv[1:3]
+    os.makedirs(os.path.join(corpus, "corpus"), mode=0o700, exist_ok=True)
+    
+    BOM = b"\xef\xbb\xbf"
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Default Extension="rels" ContentType="application/rels"/></Types>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+          '<sheets><sheet name="S" sheetId="1"/></sheets></workbook>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://example.invalid/rels">'
+            '<Relationship Id="rId1" Type="http://example.invalid/t" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+    
+    
+    def sound(path):
+        """A small, valid archive: stored and deflated XML, a marked rels part,
+        and one binary entry that the rewrite must not touch."""
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", CT, zipfile.ZIP_STORED)
+            z.writestr("xl/workbook.xml", WB, zipfile.ZIP_DEFLATED)
+            z.writestr("_rels/.rels", BOM.decode("utf-8") + RELS, zipfile.ZIP_STORED)
+            z.writestr("xl/media/image1.bin", bytes(range(256)) * 4, zipfile.ZIP_DEFLATED)
+    
+    
+    def ident(path):
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    
+    
+    # ONE workbook the runner sees, its id the first twelve hex digits of its
+    # content hash, as the corpus names its files.
+    path = os.path.join(corpus, "corpus", "PLACE.xlsx")
+    sound(path)
+    entry_id = ident(path)[:12]
+    final = os.path.join(corpus, "corpus", entry_id + ".xlsx")
+    os.replace(path, final)
+    
+    header = ["id", "sha256", "bytes", "ext", "producer", "producer_version",
+              "app", "source", "tags", "added", "original_name", "note"]
+    rows = ["\t".join(header), "\t".join([
+        entry_id, ident(final), str(os.path.getsize(final)), "xlsx",
+        "generated", "0", "none", "generated", "generated", "2026-09-17",
+        "generated", "built by this log's generator"])]
+    with open(os.path.join(corpus, "manifest.tsv"), "w", newline="\n") as handle:
+        handle.write("\n".join(rows) + "\n")
+    
+    # The fixtures for the tool's own refusals, outside the manifest.
+    sound(os.path.join(base, "sound.xlsx"))
+    
+    # A part that is not XML under an XML name. The SOUND part comes first, so the
+    # index in the refusal is the failing entry's and not simply zero: the bytes
+    # are not valid UTF-8, which is what this parser refuses (ruling 4).
+    with zipfile.ZipFile(os.path.join(base, "badxml.xlsx"), "w") as z:
+        z.writestr("[Content_Types].xml", CT, zipfile.ZIP_STORED)
+        z.writestr("xl/worksheets/sheet1.xml", b"\x89PNG\r\n\x1a\n\xff\xfe\x80\x81" * 4,
+                   zipfile.ZIP_DEFLATED)
+    
+    # The packages the S family surveys. One sound, then one per refusal, each
+    # differing from the sound one in exactly the element the case is about.
+    ATTR = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    PKG_RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    PKG_TYPES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                 '<Default Extension="rels" ContentType="application/rels"/>'
+                 '<Default Extension="xml" ContentType="application/xml"/>'
+                 '<Override PartName="/xl/workbook.xml" ContentType="application/workbook"/>'
+                 '</Types>')
+    PKG_RELS = ('<Relationships xmlns="%s">'
+                '<Relationship Id="rId1" Type="%s/officeDocument" Target="xl/workbook.xml"/>'
+                '</Relationships>' % (PKG_RELS_NS, ATTR))
+    PKG_WB = ('<workbook xmlns="%s" xmlns:r="%s"><sheets>'
+              '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>' % (MAIN_NS, ATTR))
+    PKG_WB_RELS = ('<Relationships xmlns="%s">'
+                   '<Relationship Id="rId1" Type="%s/worksheet" Target="worksheets/sheet1.xml"/>'
+                   '</Relationships>' % (PKG_RELS_NS, ATTR))
+    PKG_SHEET = '<worksheet xmlns="%s"><sheetData/></worksheet>' % MAIN_NS
+    
+    
+    def package(name, types=PKG_TYPES, rels=PKG_RELS, workbook=PKG_WB,
+                workbook_rels=PKG_WB_RELS, with_types=True):
+        """The smallest package, with one part replaced or dropped."""
+        path = os.path.join(base, name + ".xlsx")
+        with zipfile.ZipFile(path, "w") as z:
+            if with_types:
+                z.writestr("[Content_Types].xml", types, zipfile.ZIP_STORED)
+            z.writestr("_rels/.rels", rels, zipfile.ZIP_STORED)
+            z.writestr("xl/workbook.xml", workbook, zipfile.ZIP_DEFLATED)
+            z.writestr("xl/_rels/workbook.xml.rels", workbook_rels, zipfile.ZIP_STORED)
+            z.writestr("xl/worksheets/sheet1.xml", PKG_SHEET, zipfile.ZIP_DEFLATED)
+        print("%s: %d bytes" % (name, os.path.getsize(path)))
+    
+    
+    package("pkg")
+    package("pkg-noct", with_types=False)
+    package("pkg-ctroot", types=PKG_TYPES.replace("<Types ", "<Kinds ")
+            .replace("</Types>", "</Kinds>"))
+    package("pkg-incomplete",
+            types=PKG_TYPES.replace('<Default Extension="xml" ContentType="application/xml"/>',
+                                    '<Default Extension="xml"/>'))
+    package("pkg-relsroot", rels=PKG_RELS.replace("<Relationships ", "<Relations ")
+            .replace("</Relationships>", "</Relations>"))
+    package("pkg-dupid", workbook_rels=PKG_WB_RELS.replace(
+        "</Relationships>",
+        '<Relationship Id="rId1" Type="%s/styles" Target="styles.xml"/></Relationships>' % ATTR))
+    package("pkg-above", rels=PKG_RELS.replace('Target="xl/workbook.xml"',
+                                               'Target="../workbook.xml"'))
+    package("pkg-noffice", rels=PKG_RELS.replace("/officeDocument", "/thumbnail"))
+    package("pkg-twooffice", rels=PKG_RELS.replace(
+        "</Relationships>",
+        '<Relationship Id="rId2" Type="%s/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>' % ATTR))
+    package("pkg-dangling", rels=PKG_RELS.replace('Target="xl/workbook.xml"',
+                                                  'Target="xl/missing.xml"'))
+    package("pkg-wbroot", workbook=PKG_WB.replace("<workbook ", "<book ")
+            .replace("</workbook>", "</book>"))
+    package("pkg-nosheetid", workbook=PKG_WB.replace(' r:id="rId1"', ""))
+    package("pkg-sheetid", workbook=PKG_WB.replace('sheetId="1"', 'sheetId="one"'))
+    package("pkg-missingrel", workbook=PKG_WB.replace('r:id="rId1"', 'r:id="rId404"'))
+    package("pkg-unbound", workbook=PKG_WB.replace(' xmlns:r="%s"' % ATTR, ""))
+    
+    print("sound: %d bytes" % os.path.getsize(os.path.join(base, "sound.xlsx")))
+    print("badxml: %d bytes" % os.path.getsize(os.path.join(base, "badxml.xlsx")))
+    print("corpus entry %s: %d bytes" % (entry_id, os.path.getsize(final)))
+    print("the bad part is entry 1 of 2 in badxml, after a sound content types part")
+    GEN_PY
+    echo "command: python3 <scratch>/gen.py <scratch> <scratch>/corpus"
+    python3 "$B/gen.py" "$B" "$B/corpus" >"$B/gen.out" 2>&1
+    genrc=$?
+    hide <"$B/gen.out" | sed 's/^/    /'
+    note "the generator exits 0" "$(is [ "$genrc" -eq 0 ])"
+    nrows=$(count_lines "$B/corpus/manifest.tsv")
+    echo "  manifest lines including the header: $nrows"
+    note "the manifest has a header and one row" "$(is [ "$nrows" = 2 ])"
+    ID=$(awk -F'\t' 'NR == 2 { print $1 }' "$B/corpus/manifest.tsv")
+    
+    echo
+    echo "## the messages this log asserts, read from the committed source"
+    # Never typed here: a log that types a message keeps passing against a string
+    # the tool no longer prints (the same rule as the gate log reading OFFICE_RE
+    # from check.sh).
+    # The usage text spans two source lines now that a third operation is named,
+    # joined by a Rust string continuation, so a line oriented sed cannot read it.
+    # This reads the constant and undoes the continuation, which is the string the
+    # binary itself prints.
+    cat >"$B/usage.py" <<'USAGE_PY'
+    import re
+    import sys
+    
+    source = open(sys.argv[1], encoding="utf-8").read()
+    found = re.search(r'const USAGE: &str = "((?:[^"\\]|\\.)*)"', source, re.S)
+    print(re.sub(r'\\\n\s*', '', found.group(1)) if found else '')
+    USAGE_PY
+    USAGE=$(python3 "$B/usage.py" "$MAIN/tools/emend-copy/src/main.rs")
+    echo "command: python3 <scratch>/usage.py tools/emend-copy/src/main.rs"
+    echo "  usage text read from the source: [$USAGE]"
+    note "the usage text was read from the tool's source and is not empty" "$(is [ -n "$USAGE" ])"
+    XML_FMT=$(sed -n 's/^ *write!(f, "\(not well-formed XML or not UTF-8 (entry {index})\)")$/\1/p' \
+      "$MAIN/crates/emend/src/archive.rs")
+    echo "  the layer's XML message format read from archive.rs: [$XML_FMT]"
+    note "the XML message format was read from the layer's source and is not empty" "$(is [ -n "$XML_FMT" ])"
+    XML_MSG="error: ${XML_FMT/\{index\}/1}"
+    echo "  the message expected for entry 1: [$XML_MSG]"
+    note "substituting the index left no brace in the expected message" \
+      "$(is [ "$XML_MSG" = "${XML_MSG%\{*}" ])"
+    TAB_FMT=$(sed -n 's/.*die "\(a --tool-arg value must hold no tab or newline\); \$USAGE".*/\1/p' \
+      "$MAIN/scripts/passthrough-run.sh")
+    echo "  the runner's tab refusal read from passthrough-run.sh: [$TAB_FMT]"
+    note "the tab refusal text was read from the runner's source and is not empty" "$(is [ -n "$TAB_FMT" ])"
+    
+    # The package layer's messages, every one of them, extracted from the
+    # committed source. The S family then selects one by a short key and asserts
+    # the key names exactly one message, so a case cannot quietly assert a string
+    # the layer does not hold and no message is typed into this script.
+    cat >"$B/msgs.py" <<'MSG_PY'
+    import re
+    import sys
+    
+    for path in sys.argv[1:]:
+        source = open(path, encoding="utf-8").read()
+        for message in re.findall(r'Error::Package\(\s*"((?:[^"\\]|\\.)*)"', source, re.S):
+            print(message)
+    MSG_PY
+    # Both modules: Scope raises the unbound-prefix message and lives in xml.rs
+    # while package.rs raises the rest, and package.rs's header catalogues both.
+    # The first round of this log read package.rs alone and its last case failed.
+    echo "command: python3 <scratch>/msgs.py crates/emend/src/package.rs crates/emend/src/xml.rs | sort -u"
+    python3 "$B/msgs.py" "$MAIN/crates/emend/src/package.rs" "$MAIN/crates/emend/src/xml.rs" \
+      | sort -u >"$B/messages"
+    nmsg=$(count_lines "$B/messages")
+    sed 's/^/    /' "$B/messages"
+    echo "  messages extracted: $nmsg"
+    note "the layer's messages were extracted from its own source" "$(is [ "$nmsg" -ge 14 ])"
+    msg_of() { LC_ALL=C "$G" -F "$1" "$B/messages"; }
+    msg_one() { [ "$(count_matches -F "$1" "$B/messages")" = 1 ]; }
+    # The control for the selector, in the same form: a key no message holds
+    # selects none, so an empty expected message cannot read as a pass.
+    note "control: a key no message holds selects nothing" "$(isnot msg_one 'no such message anywhere')"
+    # specs/0001, as this phase amended it: a negated condition goes through a
+    # helper that negates, WITH a control showing `isnot true` reports UNEXPECTED.
+    # The line above is this log's only negated condition, so without this control
+    # a mis-defined helper would make it vacuous and nothing else here would
+    # notice. Independent check 2 of this phase caught the omission.
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    
+    # ec_case <label> <expected exit> <expected stderr, empty for none> <args...>
+    #
+    # The whole stderr line is compared, not its "error: " prefix, and the note
+    # beside it says exactly what was checked.
+    ec_case() {
+      local label=$1 expect_rc=$2 expect_err=$3
+      shift 3
+      ( cd "$B" && "$EC" "$@" ) >"$B/$label.out" 2>"$B/$label.err"
+      local rc=$?
+      local errlines got
+      errlines=$(count_lines "$B/$label.err")
+      got=$(cat "$B/$label.err")
+      echo "  $label: exit $rc; stderr lines $errlines"
+      hide <"$B/$label.err" | sed 's/^/      /'
+      ec_ok() {
+        [ "$rc" -eq "$expect_rc" ] || return 1
+        [ "$got" = "$expect_err" ] || return 1
+        if [ -z "$expect_err" ]; then [ "$errlines" = 0 ]; else [ "$errlines" = 1 ]; fi
+      }
+      local said
+      if [ -z "$expect_err" ]; then
+        said="and says nothing on stderr"
+      else
+        said="and stderr is exactly the expected line"
+      fi
+      note "$label exits $expect_rc $said" "$(is ec_ok)"
+    }
+    
+    # left_none <label> <output path>: no output file and no temporary of the
+    # tool's own survived the case. The temporary forms are
+    # .<name>.emend-copy[-kind]-<pid>.tmp, all of which the runner's leftover glob
+    # matches; a refusal must leave none.
+    left_none() {
+      local label=$1 out=$2 ntmp
+      ntmp=$(find "$B" -maxdepth 1 -name '.*emend-copy*.tmp' | wc -l)
+      echo "  $label: output present: $([ -e "$out" ] && echo yes || echo no); temporaries of the tool: $ntmp"
+      no_leftovers() {
+        [ ! -e "$out" ] || return 1
+        [ "$ntmp" = 0 ] || return 1
+      }
+      note "$label left no output and no temporary" "$(is no_leftovers)"
+    }
+    
+    echo
+    echo "## N1 to N4: two operations at once"
+    echo "command: emend-copy <scratch>/sound.xlsx <scratch>/out-N1.xlsx --xml-null-rewrite --replace [Content_Types].xml"
+    ec_case N1 2 "error: $USAGE" sound.xlsx out-N1.xlsx --xml-null-rewrite --replace '[Content_Types].xml'
+    left_none N1 "$B/out-N1.xlsx"
+    echo "command: emend-copy ... --replace [Content_Types].xml --xml-null-rewrite"
+    ec_case N2 2 "error: $USAGE" sound.xlsx out-N2.xlsx --replace '[Content_Types].xml' --xml-null-rewrite
+    left_none N2 "$B/out-N2.xlsx"
+    echo "command: emend-copy ... --xml-null-rewrite --xml-null-rewrite"
+    ec_case N3 2 "error: $USAGE" sound.xlsx out-N3.xlsx --xml-null-rewrite --xml-null-rewrite
+    left_none N3 "$B/out-N3.xlsx"
+    # P2's operation in the pair. In P1 --survey alone was the unknown-operation
+    # case; it is a real operation now, so what must be refused is TWO of them.
+    echo "command: emend-copy ... --survey --xml-null-rewrite"
+    ec_case N4 2 "error: $USAGE" sound.xlsx out-N4.xlsx --survey --xml-null-rewrite
+    left_none N4 "$B/out-N4.xlsx"
+    
+    echo
+    echo "## N5 and N6: an unknown operation"
+    echo "command: emend-copy ... --xml-null (a letter away from the real name)"
+    ec_case N5 2 "error: $USAGE" sound.xlsx out-N5.xlsx --xml-null
+    left_none N5 "$B/out-N5.xlsx"
+    echo "command: emend-copy ... --replace-all [Content_Types].xml"
+    ec_case N6 2 "error: $USAGE" sound.xlsx out-N6.xlsx --replace-all '[Content_Types].xml'
+    left_none N6 "$B/out-N6.xlsx"
+    
+    echo
+    echo "## N7 and N8: an operation before the paths"
+    echo "command: emend-copy --xml-null-rewrite <scratch>/sound.xlsx <scratch>/out-N7.xlsx"
+    ec_case N7 2 "error: $USAGE" --xml-null-rewrite sound.xlsx out-N7.xlsx
+    left_none N7 "$B/out-N7.xlsx"
+    echo "command: emend-copy --survey <scratch>/pkg.xlsx <scratch>/out-N8.xlsx"
+    ec_case N8 2 "error: $USAGE" --survey pkg.xlsx out-N8.xlsx
+    left_none N8 "$B/out-N8.xlsx"
+    
+    echo
+    echo "## N9 to N11: the operation's own arguments"
+    echo "command: emend-copy ... --replace (with no name)"
+    ec_case N9 2 "error: $USAGE" sound.xlsx out-N9.xlsx --replace
+    left_none N9 "$B/out-N9.xlsx"
+    echo "command: emend-copy ... --xml-null-rewrite [Content_Types].xml (an argument it does not take)"
+    ec_case N10 2 "error: $USAGE" sound.xlsx out-N10.xlsx --xml-null-rewrite '[Content_Types].xml'
+    left_none N10 "$B/out-N10.xlsx"
+    echo "command: emend-copy ... --survey [Content_Types].xml (an argument it does not take)"
+    ec_case N11 2 "error: $USAGE" sound.xlsx out-N11.xlsx --survey '[Content_Types].xml'
+    left_none N11 "$B/out-N11.xlsx"
+    
+    echo
+    echo "## N12 to N15: the accepted forms, so the refusals above are not vacuous"
+    echo "command: emend-copy <scratch>/sound.xlsx <scratch>/out-N12.xlsx --xml-null-rewrite"
+    ec_case N12 0 "" sound.xlsx out-N12.xlsx --xml-null-rewrite
+    n12_same=$(cmp -s "$B/sound.xlsx" "$B/out-N12.xlsx" && echo yes || echo no)
+    echo "  N12 the output exists: $([ -e "$B/out-N12.xlsx" ] && echo yes || echo no); byte-identical to the input: $n12_same"
+    note "N12 the accepted form produced an output" "$(is [ -e "$B/out-N12.xlsx" ])"
+    # The null rewrite REPLACES its XML entries, so the file is not expected to be
+    # byte-identical: the entries are recompressed by the zip crate. What must hold
+    # is that the harness reports every XML entry recompressed or identical and
+    # never changed, which P1's run log measured over the corpus; here the diff
+    # tool is run on the one generated pair to show the same thing in miniature.
+    echo "command: xlsx-diff <scratch>/sound.xlsx <scratch>/out-N12.xlsx"
+    ( cd "$B" && "$XD" sound.xlsx out-N12.xlsx ) >"$B/N12.diff" 2>"$B/N12.diff.err"
+    ndrc=$?
+    echo "  diff exit: $ndrc; stderr bytes: $(wc -c <"$B/N12.diff.err")"
+    hide <"$B/N12.diff" | sed 's/^/      /'
+    # The tool's OWN accounting is read, from its archive summary lines, rather
+    # than counted out of the entry rows: those lines are what specs/0004 fixes
+    # and what the runner's summary columns come from.
+    diff_value() {
+      awk -F'\t' -v k="$2" '$1 == "archive" && $2 == k { print $3 }' "$1"
+    }
+    n_entries=$(diff_value "$B/N12.diff" entries_in)
+    n_identical=$(diff_value "$B/N12.diff" identical)
+    n_recompressed=$(diff_value "$B/N12.diff" recompressed)
+    n_changed=$(diff_value "$B/N12.diff" changed)
+    n_dropped=$(diff_value "$B/N12.diff" dropped)
+    n_added=$(diff_value "$B/N12.diff" added)
+    n_flagged=$(diff_value "$B/N12.diff" flagged)
+    n_order=$(diff_value "$B/N12.diff" order_preserved)
+    echo "  entries_in $n_entries; identical $n_identical; recompressed $n_recompressed; changed $n_changed; dropped $n_dropped; added $n_added; flagged $n_flagged; order_preserved $n_order"
+    n12_statuses() {
+      [ "$n_changed" = 0 ] || return 1
+      [ "$n_dropped" = 0 ] || return 1
+      [ "$n_added" = 0 ] || return 1
+      [ "$n_flagged" = 0 ] || return 1
+      [ "$n_order" = yes ] || return 1
+      [ "$((n_identical + n_recompressed))" = "$n_entries" ] || return 1
+    }
+    note "N12 every entry is identical or recompressed, none changed, dropped, added or flagged" "$(is n12_statuses)"
+    # The control for diff_value, through the same command form: a key the tool
+    # never prints yields nothing, so a silent empty value cannot read as a pass.
+    n12_missing=$(diff_value "$B/N12.diff" no_such_key)
+    note "control: diff_value yields nothing for a key the tool does not print" "$(is [ -z "$n12_missing" ])"
+    echo "command: emend-copy <scratch>/sound.xlsx <scratch>/out-N13.xlsx --replace [Content_Types].xml"
+    ec_case N13 0 "" sound.xlsx out-N13.xlsx --replace '[Content_Types].xml'
+    note "N13 the accepted form produced an output" "$(is [ -e "$B/out-N13.xlsx" ])"
+    echo "command: emend-copy <scratch>/sound.xlsx <scratch>/out-N14.xlsx (no operation)"
+    ec_case N14 0 "" sound.xlsx out-N14.xlsx
+    n14_same=$(cmp -s "$B/sound.xlsx" "$B/out-N14.xlsx" && echo yes || echo no)
+    echo "  N14 byte-identical to the input: $n14_same"
+    note "N14 a no-operation copy is byte-identical" "$(is [ "$n14_same" = yes ])"
+    echo "command: emend-copy <scratch>/pkg.xlsx <scratch>/out-N15.xlsx --survey"
+    ec_case N15 0 "" pkg.xlsx out-N15.xlsx --survey
+    n15_same=$(cmp -s "$B/pkg.xlsx" "$B/out-N15.xlsx" && echo yes || echo no)
+    echo "  N15 byte-identical to the input: $n15_same"
+    note "N15 the accepted --survey produced a byte-identical output" "$(is [ "$n15_same" = yes ])"
+    
+    echo
+    echo "## S0: the positive control, a sound package surveys and edits nothing"
+    # The refusals below prove nothing unless a package the layer CAN read comes
+    # back with exit 0, one line of the fixed shape, and the input's own bytes.
+    # The tab is built with printf: grep -E reads a backslash followed by t as
+    # the letter t, so a pattern written with that escape matches nothing and the
+    # count reads as a failure however sound the line is. The first round of this
+    # log failed exactly that way.
+    TAB=$(printf '\t')
+    SHAPE="^survey(${TAB}[a-z_]+=[0-9]+)+\$"
+    echo "  the shape asserted: survey, then one or more tab separated key=count pairs"
+    s0_line=$(count_matches -E "$SHAPE" "$B/N15.out")
+    echo "  survey lines of the fixed shape in N15's stdout: $s0_line"
+    sed 's/^/      /' "$B/N15.out"
+    s0_ok() {
+      [ "$n15_same" = yes ] || return 1
+      [ "$s0_line" = 1 ] || return 1
+    }
+    note "S0 one line of the fixed shape, and the output is the input's bytes" "$(is s0_ok)"
+    # The control for the shape, in the same command form: a line that is not of
+    # that shape is not counted, so the count above is not vacuous.
+    printf 'survey entries=1\n' >"$B/c-shape"
+    printf 'survey%sentries=x\n' "$TAB" >>"$B/c-shape"
+    s0_ctl=$(count_matches -E "$SHAPE" "$B/c-shape")
+    note "control: a space separated line and a non-numeric value are not of the shape" \
+      "$(is [ "$s0_ctl" = 0 ])"
+    
+    echo
+    echo "## S1 to S14: the package layer's refusals, each through --survey"
+    # s_case <label> <fixture> <key>: the key selects the layer's message from the
+    # extracted list, and the whole stderr line must be "error: " and that message.
+    s_case() {
+      local label=$1 fixture=$2 key=$3 msg
+      note "$label: the key names exactly one of the layer's messages" "$(is msg_one "$key")"
+      msg=$(msg_of "$key")
+      echo "command: emend-copy <scratch>/$fixture.xlsx <scratch>/out-$label.xlsx --survey"
+      ec_case "$label" 2 "error: $msg" "$fixture.xlsx" "out-$label.xlsx" --survey
+      left_none "$label" "$B/out-$label.xlsx"
+      note "$label printed no survey line" "$(is [ ! -s "$B/$label.out" ])"
+    }
+    s_case S1 pkg-noct 'no [Content_Types].xml part'
+    s_case S2 pkg-ctroot 'content types part whose root'
+    s_case S3 pkg-incomplete 'lacks a required attribute'
+    s_case S4 pkg-relsroot 'relationships part whose root'
+    s_case S5 pkg-dupid 'two relationships with the same id'
+    s_case S6 pkg-above 'target outside the package'
+    s_case S7 pkg-noffice 'no officeDocument relationship'
+    s_case S8 pkg-twooffice 'more than one officeDocument'
+    s_case S9 pkg-dangling 'names no entry'
+    s_case S10 pkg-wbroot 'root is not workbook'
+    s_case S11 pkg-nosheetid 'lacks name, sheetId or r:id'
+    s_case S12 pkg-sheetid 'sheetId that is not a number'
+    s_case S13 pkg-missingrel "sheet's relationship is missing"
+    s_case S14 pkg-unbound 'prefix its document does not bind'
+    
+    echo
+    echo "## X1: a part that is not XML under an XML name"
+    echo "command: emend-copy <scratch>/badxml.xlsx <scratch>/out-X1.xlsx --xml-null-rewrite"
+    ec_case X1 2 "$XML_MSG" badxml.xlsx out-X1.xlsx --xml-null-rewrite
+    left_none X1 "$B/out-X1.xlsx"
+    # The index is the FAILING entry's: the fixture's sound content types part is
+    # entry 0 and the bad sheet is entry 1, so a message naming 0 would mean the
+    # index was not carried through.
+    x1_index=$(count_matches -F '(entry 1)' "$B/X1.err")
+    x1_zero=$(count_matches -F '(entry 0)' "$B/X1.err")
+    echo "  X1 stderr naming entry 1: $x1_index; naming entry 0: $x1_zero"
+    note "X1 names the failing entry's index, not zero" "$(is [ "$x1_index" = 1 ])"
+    note "X1 does not name entry 0" "$(is [ "$x1_zero" = 0 ])"
+    # And the control: the same archive copied with NO operation is fine, so the
+    # refusal comes from parsing the part and not from the archive itself.
+    echo "command: emend-copy <scratch>/badxml.xlsx <scratch>/out-X2.xlsx (no operation)"
+    ec_case X2 0 "" badxml.xlsx out-X2.xlsx
+    x2_same=$(cmp -s "$B/badxml.xlsx" "$B/out-X2.xlsx" && echo yes || echo no)
+    echo "  X2 byte-identical to the input: $x2_same"
+    note "X2 the same archive copies verbatim with no operation" "$(is [ "$x2_same" = yes ])"
+    
+    echo
+    echo "## R1: a --tool-arg value holding a tab is refused"
+    # The runner refuses during argument parsing, before any tool runs, so the
+    # real binary is given as --passthrough and never invoked.
+    ( cd "$CLONE" && scripts/passthrough-run.sh --label host --passthrough "$EC" \
+        --xlsx-diff "$XD" --corpus "$B/corpus" --out "$B/run-R1" --timeout 60 \
+        --tool-arg "$(printf -- '--xml-null-rewrite\tx')" ) >"$B/R1.out" 2>"$B/R1.err"
+    r1rc=$?
+    echo "command: scripts/passthrough-run.sh ... --out <scratch>/run-R1 --tool-arg '<a value holding a tab>'"
+    echo "  exit: $r1rc"
+    hide <"$B/R1.err" | sed 's/^/    /'
+    r1_refusal=$(count_matches -F "error: $TAB_FMT" "$B/R1.err")
+    echo "  stderr lines carrying the runner's tab refusal: $r1_refusal"
+    note "R1 exits 2" "$(is [ "$r1rc" -eq 2 ])"
+    note "R1 refuses with the message read from the runner's source" "$(is [ "$r1_refusal" = 1 ])"
+    note "R1 wrote no run row" "$(is [ ! -e "$B/run-R1/run.host.tsv" ])"
+    
+    echo
+    echo "## R2: the control, the same invocation with the tab removed"
+    ( cd "$CLONE" && scripts/passthrough-run.sh --label host --passthrough "$EC" \
+        --xlsx-diff "$XD" --corpus "$B/corpus" --out "$B/run-R2" --timeout 60 \
+        --tool-arg '--xml-null-rewrite' ) >"$B/R2.out" 2>"$B/R2.err"
+    r2rc=$?
+    echo "command: scripts/passthrough-run.sh ... --out <scratch>/run-R2 --tool-arg --xml-null-rewrite"
+    echo "  exit: $r2rc"
+    hide <"$B/R2.err" | sed 's/^/    /'
+    r2_refusal=$(count_matches -F "error: $TAB_FMT" "$B/R2.err")
+    echo "  stderr lines carrying the tab refusal: $r2_refusal"
+    note "R2 exits 0" "$(is [ "$r2rc" -eq 0 ])"
+    note "R2 carries no tab refusal" "$(is [ "$r2_refusal" = 0 ])"
+    note "R2 wrote a run row" "$(is [ -e "$B/run-R2/run.host.tsv" ])"
+    if [ -e "$B/run-R2/summary.host.tsv" ]; then
+      echo "  the summary row's columns, printed as the runner wrote them:"
+      hide <"$B/run-R2/summary.host.tsv" | sed 's/^/      /'
+      r2_args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                            k && NR == 2 { print $k }' "$B/run-R2/run.host.tsv")
+      echo "  the run row's tool_args column: [$r2_args]"
+      note "R2 the run row records the operation" "$(is [ "$r2_args" = '--xml-null-rewrite' ])"
+    fi
+    
+    echo
+    echo "## no temporary of emend-copy's own survived any case"
+    ntmp_all=$(find "$B" -name '.*emend-copy*.tmp' | wc -l)
+    echo "  temporaries anywhere under <scratch>: $ntmp_all"
+    note "no temporary survived" "$(is [ "$ntmp_all" = 0 ])"
+    # The control for the form above: a planted file of the same shape is found,
+    # so the zero means absence and not a broken find.
+    : >"$B/.planted.emend-copy-0.tmp"
+    ntmp_ctl=$(find "$B" -name '.*emend-copy*.tmp' | wc -l)
+    echo "  control, with one planted temporary of the same shape: $ntmp_ctl"
+    note "control: the find form reports a planted temporary" "$(is [ "$ntmp_ctl" = 1 ])"
+    rm -f "$B/.planted.emend-copy-0.tmp"
+    
+    echo
+    echo "## the main working tree was never used"
+    echo "command: git -C <repo> status --porcelain"
+    st_all=$(run_lines git -C "$MAIN" status --porcelain)
+    st_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p2-p2|records/m1p2-p2-)' git -C "$MAIN" status --porcelain)
+    echo "status lines in the main tree: $st_all; of them this phase's logs or record pair: $st_log"
+    main_untouched() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "the main working tree holds nothing but this phase's logs" "$(is main_untouched)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the scratch clone and the gate's binaries
+command: git clone --quiet --shared <repo> <scratch>/clone
+  clone HEAD: c8b8fece099d946ae52156432ca84b2504f9cf58
+  the clone is at the phase commit: as-expected
+  copied target/debug/emend-copy: sha256 cfdb3d8b1270c5dfca5e2232ac5673e6a562e5529efa9d9295236affdab4936d, bytes 14498848
+  copied target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e, bytes 10754288
+  copied target/i686-unknown-linux-musl/debug/emend-copy: sha256 5e9eaa98915739ff7ed18b7beb23957f231216de6cdd1b675786d7d5f1ebda36, bytes 12951112
+  copied target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db, bytes 9524216
+  all four binaries were copied in and all four are executable: as-expected
+  (gate.log prints these same four hashes; nothing is rebuilt here)
+
+## the generated fixtures
+command: python3 <scratch>/gen.py <scratch> <scratch>/corpus
+    pkg: 1630 bytes
+    pkg-noct: 1189 bytes
+    pkg-ctroot: 1630 bytes
+    pkg-incomplete: 1600 bytes
+    pkg-relsroot: 1622 bytes
+    pkg-dupid: 1757 bytes
+    pkg-above: 1630 bytes
+    pkg-noffice: 1620 bytes
+    pkg-twooffice: 1770 bytes
+    pkg-dangling: 1629 bytes
+    pkg-wbroot: 1627 bytes
+    pkg-nosheetid: 1623 bytes
+    pkg-sheetid: 1630 bytes
+    pkg-missingrel: 1632 bytes
+    pkg-unbound: 1602 bytes
+    sound: 1326 bytes
+    badxml: 531 bytes
+    corpus entry 41f7d4394c6a: 1326 bytes
+    the bad part is entry 1 of 2 in badxml, after a sound content types part
+  the generator exits 0: as-expected
+  manifest lines including the header: 2
+  the manifest has a header and one row: as-expected
+
+## the messages this log asserts, read from the committed source
+command: python3 <scratch>/usage.py tools/emend-copy/src/main.rs
+  usage text read from the source: [usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]]
+  the usage text was read from the tool's source and is not empty: as-expected
+  the layer's XML message format read from archive.rs: [not well-formed XML or not UTF-8 (entry {index})]
+  the XML message format was read from the layer's source and is not empty: as-expected
+  the message expected for entry 1: [error: not well-formed XML or not UTF-8 (entry 1)]
+  substituting the index left no brace in the expected message: as-expected
+  the runner's tab refusal read from passthrough-run.sh: [a --tool-arg value must hold no tab or newline]
+  the tab refusal text was read from the runner's source and is not empty: as-expected
+command: python3 <scratch>/msgs.py crates/emend/src/package.rs crates/emend/src/xml.rs | sort -u
+    a Default, Override or Relationship element lacks a required attribute
+    a content types part whose root is not Types
+    a relationship target outside the package
+    a relationships part whose root is not Relationships
+    a sheet element lacks name, sheetId or r:id
+    a sheet's relationship is missing
+    a sheetId that is not a number
+    a workbook part whose root is not workbook
+    an element or attribute uses a prefix its document does not bind
+    an external relationship has no part
+    more than one officeDocument relationship
+    no [Content_Types].xml part
+    no officeDocument relationship
+    the officeDocument relationship names no entry
+    two relationships with the same id
+  messages extracted: 15
+  the layer's messages were extracted from its own source: as-expected
+  control: a key no message holds selects nothing: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+
+## N1 to N4: two operations at once
+command: emend-copy <scratch>/sound.xlsx <scratch>/out-N1.xlsx --xml-null-rewrite --replace [Content_Types].xml
+  N1: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N1 exits 2 and stderr is exactly the expected line: as-expected
+  N1: output present: no; temporaries of the tool: 0
+  N1 left no output and no temporary: as-expected
+command: emend-copy ... --replace [Content_Types].xml --xml-null-rewrite
+  N2: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N2 exits 2 and stderr is exactly the expected line: as-expected
+  N2: output present: no; temporaries of the tool: 0
+  N2 left no output and no temporary: as-expected
+command: emend-copy ... --xml-null-rewrite --xml-null-rewrite
+  N3: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N3 exits 2 and stderr is exactly the expected line: as-expected
+  N3: output present: no; temporaries of the tool: 0
+  N3 left no output and no temporary: as-expected
+command: emend-copy ... --survey --xml-null-rewrite
+  N4: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N4 exits 2 and stderr is exactly the expected line: as-expected
+  N4: output present: no; temporaries of the tool: 0
+  N4 left no output and no temporary: as-expected
+
+## N5 and N6: an unknown operation
+command: emend-copy ... --xml-null (a letter away from the real name)
+  N5: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N5 exits 2 and stderr is exactly the expected line: as-expected
+  N5: output present: no; temporaries of the tool: 0
+  N5 left no output and no temporary: as-expected
+command: emend-copy ... --replace-all [Content_Types].xml
+  N6: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N6 exits 2 and stderr is exactly the expected line: as-expected
+  N6: output present: no; temporaries of the tool: 0
+  N6 left no output and no temporary: as-expected
+
+## N7 and N8: an operation before the paths
+command: emend-copy --xml-null-rewrite <scratch>/sound.xlsx <scratch>/out-N7.xlsx
+  N7: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N7 exits 2 and stderr is exactly the expected line: as-expected
+  N7: output present: no; temporaries of the tool: 0
+  N7 left no output and no temporary: as-expected
+command: emend-copy --survey <scratch>/pkg.xlsx <scratch>/out-N8.xlsx
+  N8: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N8 exits 2 and stderr is exactly the expected line: as-expected
+  N8: output present: no; temporaries of the tool: 0
+  N8 left no output and no temporary: as-expected
+
+## N9 to N11: the operation's own arguments
+command: emend-copy ... --replace (with no name)
+  N9: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N9 exits 2 and stderr is exactly the expected line: as-expected
+  N9: output present: no; temporaries of the tool: 0
+  N9 left no output and no temporary: as-expected
+command: emend-copy ... --xml-null-rewrite [Content_Types].xml (an argument it does not take)
+  N10: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N10 exits 2 and stderr is exactly the expected line: as-expected
+  N10: output present: no; temporaries of the tool: 0
+  N10 left no output and no temporary: as-expected
+command: emend-copy ... --survey [Content_Types].xml (an argument it does not take)
+  N11: exit 2; stderr lines 1
+      error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey]
+  N11 exits 2 and stderr is exactly the expected line: as-expected
+  N11: output present: no; temporaries of the tool: 0
+  N11 left no output and no temporary: as-expected
+
+## N12 to N15: the accepted forms, so the refusals above are not vacuous
+command: emend-copy <scratch>/sound.xlsx <scratch>/out-N12.xlsx --xml-null-rewrite
+  N12: exit 0; stderr lines 0
+  N12 exits 0 and says nothing on stderr: as-expected
+  N12 the output exists: yes; byte-identical to the input: no
+  N12 the accepted form produced an output: as-expected
+command: xlsx-diff <scratch>/sound.xlsx <scratch>/out-N12.xlsx
+  diff exit: 1; stderr bytes: 0
+      entry	[Content_Types].xml	identical	0	0	0	0	254	254	254	254	e3e8d95d	e3e8d95d				
+      entry	xl/workbook.xml	recompressed	1	1	8	8	189	189	148	148	6e24fe79	6e24fe79				
+      entry	_rels/.rels	identical	2	2	0	0	190	190	190	190	f38d62fb	f38d62fb				
+      entry	xl/media/image1.bin	identical	3	3	8	8	1024	1024	280	280	b70b4c26	b70b4c26				
+      archive	entries_in	4
+      archive	entries_out	4
+      archive	identical	3
+      archive	recompressed	1
+      archive	changed	0
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	1056
+      archive	central_start_out	1056
+      archive	uncompressed_in	1657
+      archive	uncompressed_out	1657
+      archive	compressed_in	872
+      archive	compressed_out	872
+      archive	bytes_in	1326
+      archive	bytes_out	1326
+      archive	files_identical	no
+  entries_in 4; identical 3; recompressed 1; changed 0; dropped 0; added 0; flagged 0; order_preserved yes
+  N12 every entry is identical or recompressed, none changed, dropped, added or flagged: as-expected
+  control: diff_value yields nothing for a key the tool does not print: as-expected
+command: emend-copy <scratch>/sound.xlsx <scratch>/out-N13.xlsx --replace [Content_Types].xml
+  N13: exit 0; stderr lines 0
+  N13 exits 0 and says nothing on stderr: as-expected
+  N13 the accepted form produced an output: as-expected
+command: emend-copy <scratch>/sound.xlsx <scratch>/out-N14.xlsx (no operation)
+  N14: exit 0; stderr lines 0
+  N14 exits 0 and says nothing on stderr: as-expected
+  N14 byte-identical to the input: yes
+  N14 a no-operation copy is byte-identical: as-expected
+command: emend-copy <scratch>/pkg.xlsx <scratch>/out-N15.xlsx --survey
+  N15: exit 0; stderr lines 0
+  N15 exits 0 and says nothing on stderr: as-expected
+  N15 byte-identical to the input: yes
+  N15 the accepted --survey produced a byte-identical output: as-expected
+
+## S0: the positive control, a sound package surveys and edits nothing
+  the shape asserted: survey, then one or more tab separated key=count pairs
+  survey lines of the fixed shape in N15's stdout: 1
+      survey	entries=5	typed=4	untyped=0	defaults=2	overrides=1	rels_parts=2	relationships=2	external=0	resolved=2	unresolved=0	case_only=0	sheets=1	sheets_resolved=1	shared_strings=0	styles=0	calc_chain=0	theme=0
+  S0 one line of the fixed shape, and the output is the input's bytes: as-expected
+  control: a space separated line and a non-numeric value are not of the shape: as-expected
+
+## S1 to S14: the package layer's refusals, each through --survey
+  S1: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-noct.xlsx <scratch>/out-S1.xlsx --survey
+  S1: exit 2; stderr lines 1
+      error: no [Content_Types].xml part
+  S1 exits 2 and stderr is exactly the expected line: as-expected
+  S1: output present: no; temporaries of the tool: 0
+  S1 left no output and no temporary: as-expected
+  S1 printed no survey line: as-expected
+  S2: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-ctroot.xlsx <scratch>/out-S2.xlsx --survey
+  S2: exit 2; stderr lines 1
+      error: a content types part whose root is not Types
+  S2 exits 2 and stderr is exactly the expected line: as-expected
+  S2: output present: no; temporaries of the tool: 0
+  S2 left no output and no temporary: as-expected
+  S2 printed no survey line: as-expected
+  S3: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-incomplete.xlsx <scratch>/out-S3.xlsx --survey
+  S3: exit 2; stderr lines 1
+      error: a Default, Override or Relationship element lacks a required attribute
+  S3 exits 2 and stderr is exactly the expected line: as-expected
+  S3: output present: no; temporaries of the tool: 0
+  S3 left no output and no temporary: as-expected
+  S3 printed no survey line: as-expected
+  S4: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-relsroot.xlsx <scratch>/out-S4.xlsx --survey
+  S4: exit 2; stderr lines 1
+      error: a relationships part whose root is not Relationships
+  S4 exits 2 and stderr is exactly the expected line: as-expected
+  S4: output present: no; temporaries of the tool: 0
+  S4 left no output and no temporary: as-expected
+  S4 printed no survey line: as-expected
+  S5: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-dupid.xlsx <scratch>/out-S5.xlsx --survey
+  S5: exit 2; stderr lines 1
+      error: two relationships with the same id
+  S5 exits 2 and stderr is exactly the expected line: as-expected
+  S5: output present: no; temporaries of the tool: 0
+  S5 left no output and no temporary: as-expected
+  S5 printed no survey line: as-expected
+  S6: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-above.xlsx <scratch>/out-S6.xlsx --survey
+  S6: exit 2; stderr lines 1
+      error: a relationship target outside the package
+  S6 exits 2 and stderr is exactly the expected line: as-expected
+  S6: output present: no; temporaries of the tool: 0
+  S6 left no output and no temporary: as-expected
+  S6 printed no survey line: as-expected
+  S7: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-noffice.xlsx <scratch>/out-S7.xlsx --survey
+  S7: exit 2; stderr lines 1
+      error: no officeDocument relationship
+  S7 exits 2 and stderr is exactly the expected line: as-expected
+  S7: output present: no; temporaries of the tool: 0
+  S7 left no output and no temporary: as-expected
+  S7 printed no survey line: as-expected
+  S8: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-twooffice.xlsx <scratch>/out-S8.xlsx --survey
+  S8: exit 2; stderr lines 1
+      error: more than one officeDocument relationship
+  S8 exits 2 and stderr is exactly the expected line: as-expected
+  S8: output present: no; temporaries of the tool: 0
+  S8 left no output and no temporary: as-expected
+  S8 printed no survey line: as-expected
+  S9: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-dangling.xlsx <scratch>/out-S9.xlsx --survey
+  S9: exit 2; stderr lines 1
+      error: the officeDocument relationship names no entry
+  S9 exits 2 and stderr is exactly the expected line: as-expected
+  S9: output present: no; temporaries of the tool: 0
+  S9 left no output and no temporary: as-expected
+  S9 printed no survey line: as-expected
+  S10: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-wbroot.xlsx <scratch>/out-S10.xlsx --survey
+  S10: exit 2; stderr lines 1
+      error: a workbook part whose root is not workbook
+  S10 exits 2 and stderr is exactly the expected line: as-expected
+  S10: output present: no; temporaries of the tool: 0
+  S10 left no output and no temporary: as-expected
+  S10 printed no survey line: as-expected
+  S11: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-nosheetid.xlsx <scratch>/out-S11.xlsx --survey
+  S11: exit 2; stderr lines 1
+      error: a sheet element lacks name, sheetId or r:id
+  S11 exits 2 and stderr is exactly the expected line: as-expected
+  S11: output present: no; temporaries of the tool: 0
+  S11 left no output and no temporary: as-expected
+  S11 printed no survey line: as-expected
+  S12: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-sheetid.xlsx <scratch>/out-S12.xlsx --survey
+  S12: exit 2; stderr lines 1
+      error: a sheetId that is not a number
+  S12 exits 2 and stderr is exactly the expected line: as-expected
+  S12: output present: no; temporaries of the tool: 0
+  S12 left no output and no temporary: as-expected
+  S12 printed no survey line: as-expected
+  S13: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-missingrel.xlsx <scratch>/out-S13.xlsx --survey
+  S13: exit 2; stderr lines 1
+      error: a sheet's relationship is missing
+  S13 exits 2 and stderr is exactly the expected line: as-expected
+  S13: output present: no; temporaries of the tool: 0
+  S13 left no output and no temporary: as-expected
+  S13 printed no survey line: as-expected
+  S14: the key names exactly one of the layer's messages: as-expected
+command: emend-copy <scratch>/pkg-unbound.xlsx <scratch>/out-S14.xlsx --survey
+  S14: exit 2; stderr lines 1
+      error: an element or attribute uses a prefix its document does not bind
+  S14 exits 2 and stderr is exactly the expected line: as-expected
+  S14: output present: no; temporaries of the tool: 0
+  S14 left no output and no temporary: as-expected
+  S14 printed no survey line: as-expected
+
+## X1: a part that is not XML under an XML name
+command: emend-copy <scratch>/badxml.xlsx <scratch>/out-X1.xlsx --xml-null-rewrite
+  X1: exit 2; stderr lines 1
+      error: not well-formed XML or not UTF-8 (entry 1)
+  X1 exits 2 and stderr is exactly the expected line: as-expected
+  X1: output present: no; temporaries of the tool: 0
+  X1 left no output and no temporary: as-expected
+  X1 stderr naming entry 1: 1; naming entry 0: 0
+  X1 names the failing entry's index, not zero: as-expected
+  X1 does not name entry 0: as-expected
+command: emend-copy <scratch>/badxml.xlsx <scratch>/out-X2.xlsx (no operation)
+  X2: exit 0; stderr lines 0
+  X2 exits 0 and says nothing on stderr: as-expected
+  X2 byte-identical to the input: yes
+  X2 the same archive copies verbatim with no operation: as-expected
+
+## R1: a --tool-arg value holding a tab is refused
+command: scripts/passthrough-run.sh ... --out <scratch>/run-R1 --tool-arg '<a value holding a tab>'
+  exit: 2
+    error: a --tool-arg value must hold no tab or newline; usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>] [--tool-arg <arg>]...
+  stderr lines carrying the runner's tab refusal: 1
+  R1 exits 2: as-expected
+  R1 refuses with the message read from the runner's source: as-expected
+  R1 wrote no run row: as-expected
+
+## R2: the control, the same invocation with the tab removed
+command: scripts/passthrough-run.sh ... --out <scratch>/run-R2 --tool-arg --xml-null-rewrite
+  exit: 0
+  stderr lines carrying the tab refusal: 0
+  R2 exits 0: as-expected
+  R2 carries no tab refusal: as-expected
+  R2 wrote a run row: as-expected
+  the summary row's columns, printed as the runner wrote them:
+      id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover	lo	lo_in
+      41f7d4394c6a	host	generated	generated	ok	0		0.10	7852	1326	1326	1	3	1	0	0	0	0	yes	yes	no	no	-	-
+  the run row's tool_args column: [--xml-null-rewrite]
+  R2 the run row records the operation: as-expected
+
+## no temporary of emend-copy's own survived any case
+  temporaries anywhere under <scratch>: 0
+  no temporary survived: as-expected
+  control, with one planted temporary of the same shape: 1
+  control: the find form reports a planted temporary: as-expected
+
+## the main working tree was never used
+command: git -C <repo> status --porcelain
+status lines in the main tree: 3; of them this phase's logs or record pair: 3
+  the main working tree holds nothing but this phase's logs: as-expected
+run ended at 2026-09-18T02:47:07Z
+negative log checks all as expected: yes
