@@ -1,0 +1,2701 @@
+command: git rev-parse HEAD
+about: M1 part 3 P3 phase commit 13fe4a4e6e1d775a1a2e78650f9527639a228f13; HEAD at run: 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+  the phase commit given to this script: 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+  git rev-parse HEAD at this run:        13fe4a4e6e1d775a1a2e78650f9527639a228f13
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+  the commit named above was compared with HEAD before this run started,
+  and this run stops before any pass if they differ
+phase: Milestone 1 part 3 P3 (specs/0010-reading-cells.md) run.log; run at 2026-09-18T23:30:58Z
+rerun: this is the third attempt at this phase's run.log. Attempt 1 (p3-run-attempt1.log) passed every check it prints, but the record written beside it cited the wrong spec section, 'P2: the cell reader', so it was superseded rather than corrected. Attempt 2 (p3-run-at-2575083.log) was the log installed at commit 2575083 and is superseded because the phase commit moved to 13fe4a4, where the four documentation faults the two independent checks found were fixed; a log measuring a different commit is not a measurement of this one. Both attempts are kept and hashed by the command below, and neither was edited.
+command: sha256sum and wc -c over each superseded attempt named above
+    b61931eca1e90fd51ddb9ad3de6651094a8c8cb57f2567c1551ae04d10f55dc9  153641 bytes  p3-run-attempt1.log
+    75274a0306fc1dc5a4f88e437bdb139e3d21ca715d67a83c6c84dec2da85e48e  154430 bytes  p3-run-at-2575083.log
+
+SERIALIZED: produced with no other run in flight
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls. Started as a background
+  task of the calling session, not with setsid, whose fork would lose
+  the run's exit status. This log makes ONE runner pass per target over
+  the 27 workbooks, each with a LibreOffice conversion of the input and
+  of the output, so a foreground call would risk a half-written log.
+TERMS: both target builds were finished by the gate before this run
+  started, so no cargo runs during it; foreground order host then i686;
+  nothing else running; no mid-run tuning, and a copy or conversion that
+  timed out or was killed would be recorded and listed apart, never
+  rerun with a larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the
+  figure part 2 and part 3 P1 measured and used: the largest corpus
+  workbook, whose largest part is 63745347 bytes, took about 28 seconds
+  with the host debug binary and about 30 with the i686 one. --cells
+  parses every worksheet of the workbook rather than one part, which is
+  more work than --shared-strings; the largest workbook holds 1040008
+  cells, measured on 2026-09-18 with the release binary, and 300 still
+  leaves room. Not tuned during the run: a copy that timed out would be
+  recorded as a finding and not rerun with a larger value.
+WHAT THIS LOG DOES NOT PRINT: no cell value, no formula, no shared
+  string, and no length or fragment of any of them. The tool prints 23
+  counts per workbook, the independent reader prints the same 23, and
+  this script prints counts and entry names.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## the figures this run is judged against, and where they come from
+  specs/0010-reading-cells.md, "Harness runs", over the corpus's
+    27 workbooks. Planning measured these with their own reader:
+      sheets=95
+      cells=2094601
+      number=1310988
+      shared=783275
+      inline=0
+      formula_string=273
+      boolean=40
+      error=25
+      date=0
+      values=2089191
+      empty=5410
+      formulas=262879
+      shared_master=44
+      shared_follower=292
+      array=5
+      data_table=0
+      booleans_parsed=40
+      resolved=783275
+      unresolved=0
+      styled=2094287
+  Carrying no expected figure, and why:
+      max_row, max_col: maxima the spec does not fix. Printed, compared
+        between the two targets, and compared with the independent
+        reader's, and nothing else.
+      numbers_parsed: the spec expects it to EQUAL the Number cells with
+        a value, and says a shortfall is a finding about a producer's
+        number text. This log computes that quantity from the run.
+  The two figures P2 recorded as finding P2-F1:
+      values 2089191 and empty 5410
+      are the spec's own, corrected by P2 ruling 1 from 2089138 and
+      5463: planning's survey regex missed 53 <v> elements carrying an
+      attribute, and planning's reader and the crate agreed. They are
+      expected here by name like every other key, with no departure.
+  Every other number below is measured by this run.
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 3 P3 run.log (specs/0010-reading-cells.md, "P3: the typed
+    # views, the probe, the size record", and "Harness runs"): the corpus run with
+    # THE RELEASE BINARIES THE SIZE LOG HASHED, on both targets, with
+    # --tool-arg --cells, every key's total per target asserted against the
+    # spec's expected figure BY NAME, each workbook's whole line checked against a
+    # second implementation of the reader, and the record pair.
+    #
+    # P3's acceptance, in the spec's words: "The corpus run --cells again on both
+    # targets with the release binaries the size log hashed, recorded as
+    # records/m1p3-p3-<utc-date>-<shortsha>.md and .txt, expecting the P2
+    # totals." --cells gains nothing this phase, so what is new here is the
+    # BINARIES: a release build, which the size log measured and hashed, and which
+    # this log rebuilds and hashes again before it runs anything, because the
+    # gate's cargo clean removed them. --cells records no edit, so
+    # "Harness runs" means the no-edit acceptance: every entry identical and
+    # unflagged, files_identical yes, order_preserved yes, lo ok, on every
+    # workbook.
+    #
+    # THE SUBSTANTIVE CHECK IS NOT THE ACCEPTANCE. A run in which the reader
+    # returned no cells at all would satisfy every clause of it, because reading
+    # nothing edits nothing either. So there are two substantive checks:
+    #
+    #   1. Each of the 23 keys' TOTAL is compared with the figure specs/0010
+    #      "Harness runs" gives for it, by name. Planning measured those figures
+    #      with their own reader, so this is a comparison between two
+    #      implementations and not a restatement.
+    #   2. Each WORKBOOK's whole line is compared with a line produced by a
+    #      second implementation written for this log: python3's expat-based
+    #      parser walks the package by the format's own rules and counts the same
+    #      23 keys. Per workbook AND in total, because either alone can be
+    #      satisfied while the other fails: a reader that lost cells in one
+    #      workbook and invented them in another would total correctly, and a
+    #      per-workbook agreement between two counts wrong the same way would
+    #      miss the spec's figures.
+    #
+    # NO FIGURE DEPARTS HERE, and the two that departed in P2 are why this log is
+    # shorter in one place than its predecessor. P2 measured values 2089191 where
+    # the spec said 2089138 and empty 5410 where it said 5463, recorded it as
+    # finding P2-F1, and did not change the reader. Planning resolved it against
+    # ITSELF: the spec's two figures came from a regex survey that missed 53 <v>
+    # elements carrying an attribute, planning's own expat reader and the crate
+    # agree, and ruling 1 corrected the spec to values 2089191 (2089124 with text
+    # and 67 empty) and empty 5410. So this run expects the corrected figures the
+    # spec now carries, by name, like every other key: the departure machinery P2
+    # needed is GONE from this script rather than left in place saying nothing,
+    # and if either figure moved again this log would report it as any other key's
+    # departure. The composition figure values_text moves with them, from 2089071
+    # to 2089124, which is the same 53 cells.
+    #
+    # DERIVED FROM the M1 part 3 P2 run script as records/logs/m1p3-p2/run.log
+    # printed it, audited against specs/0001 before this run (the rule from
+    # memory/gotchas.md: a script reused from an older phase's printed log carries
+    # that phase's forbidden forms). What changed, and why:
+    #  0. THE BINARIES ARE THE RELEASE ONES, which is the phase's own instruction.
+    #     The size log built them, hashed them and left them for this run; the
+    #     gate's cargo clean has since removed them, so this log rebuilds them
+    #     with the four commands the size log printed and asserts that each of the
+    #     four hashes equals the one size.log printed, READ OUT OF THAT LOG by
+    #     command rather than typed here. A rebuild that did not reproduce them
+    #     would be a finding about the build, not something to paper over, and the
+    #     run stops before the corpus if any hash differs.
+    #  1. The operation is --cells and the phase is P3's. One runner pass per
+    #     target, as in P2: the acceptance is one rule for all 27.
+    #  2. cells_counts replaces strings_counts, over the lines --cells prints. All
+    #     23 keys are read by NAME, never by position, and max_row and max_col
+    #     take the maximum rather than the sum, being maxima.
+    #  3. own_cells replaces si_count, and is a whole second implementation of the
+    #     reader rather than a count of one element: it prints the same line the
+    #     tool prints, so a workbook's two lines are compared as one string and a
+    #     disagreement names the key and both numbers. P1's independent route
+    #     counted <si> start tags with a regular expression; a cell's counts
+    #     cannot be had that way, because which <c> elements count depends on
+    #     where they sit, so this one uses the standard library's XML parser and
+    #     follows the package's relationships as the format defines them.
+    #  4. The expected figures are the 23 of "Harness runs" as ruling 1 corrected
+    #     them, asserted by name, with no departure. numbers_parsed carries
+    #     no constant: the spec says it is expected to EQUAL the Number cells with
+    #     a value, so this log computes that from the run and compares.
+    #  5. The record pair is P3's, and it carries no finding section: P2-F1 is
+    #     resolved, and the record says so with the ruling that resolved it.
+    #  6. Two agreeing readers can share one mistake, so before either is used on
+    #     the corpus both are run on four fixtures this script builds as zips,
+    #     whose answers were written into the script before either route saw
+    #     them. One of the four holds a <c> inside an extLst and a <row> inside a
+    #     conditionalFormatting: four <c> elements, two cells. cells_counts also
+    #     reports max_cells, the largest single workbook, so the corpus total
+    #     cannot be one huge sheet and 26 empty ones.
+    #  7. BOTH operations run over the corpus, not just --cells, as P2's did: P1
+    #     ruling 1's items 110582 and bytes 1497091 are asserted by name again,
+    #     now through the release binaries, so the figures are not tied to one
+    #     profile's build.
+    #  8. Everything else is P1's: the entry classifier and its controls, the
+    #     column guard and its controls, the fresh-directory guard, RUN_SUFFIX,
+    #     the record's privacy check as a named function with two controls, and
+    #     the rerun header that hashes every superseded attempt.
+    #  9. Neither shape specs/0001 forbids appears here, nor the assignment-prefix
+    #     form the scan log now greps for, which is the form P1's own first
+    #     attempt tripped over: no check chains a second condition after a bracket
+    #     test inside one command substitution, no negation is handed to a helper
+    #     as a leading bang, and no condition puts an assignment before the
+    #     command inside a substitution. Every compound condition is a named
+    #     function. The shapes are described rather than written out, so this
+    #     log's own text does not trip the shape greps the phase's scan log runs
+    #     over every printed script.
+    #
+    # PRIVACY. This log reports counts and entry names only. A cell's value IS
+    # content, so no value, no formula, no shared string and no length of one is
+    # printed, by this script, by the tool it runs, or by the independent reader:
+    # all three print counts. Workbooks appear as ids only, never as names, and
+    # the corpus directory's path is written <corpus> wherever a path is printed
+    # (specs/0005-corpus.md, planning ruling 5 of 2026-09-16).
+    #
+    # Usage: m1p3-p3-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p3-p3/run.log. One runner pass per target over 27
+    # workbooks with a LibreOffice conversion of the input and of the output each,
+    # so the caller starts it detached and polls.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    # specs/0001-bootstrap.md, "Rules for every phase": the commit is GIVEN to the
+    # script, compared with HEAD before the run, and the header prints both values
+    # and the comparison, with a control that refuses a fabricated commit. The
+    # commit is then named in the about line, so without the comparison that line
+    # would say only what the caller typed. The hard stop below is kept as well as
+    # the printed checks: a run against the wrong tree should not start, and the
+    # printed lines are what make the stop's absence visible in the log.
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() {
+      printf '%s' "$1" | LC_ALL=C /usr/bin/grep -qE '^[0-9a-f]{40}$'
+    }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    not_head() { if is_head "$1"; then return 1; else return 0; fi; }
+    if ! is_head "$C"; then echo "HEAD is not $C" >&2; exit 2; fi
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    # The run directory. RUN_SUFFIX distinguishes a rerun at the SAME commit on
+    # the same day: the runner refuses to add a second row for a workbook to an
+    # existing summary, and without a new directory a rerun's checks would read
+    # the PREVIOUS attempt's files and report on those. That happened in part 3
+    # P1, whose run log records it (records/logs/m1p3-p1/run.log), which is why
+    # the suffix exists and why the guard below stops the run before the runner is
+    # called rather than after.
+    OUT=$CORPUS/runs/$DATE-$SHORT${RUN_SUFFIX:+-$RUN_SUFFIX}
+    STEM=m1p3-p3-$DATE-$SHORT
+    OP=--cells
+    # specs/0010-reading-cells.md, "Harness runs": the totals over the corpus,
+    # named here so every assertion below reads its figure from one place and the
+    # log prints where each came from. Twenty of the 23 keys carry a figure.
+    SPEC_TOTALS='sheets=95 cells=2094601 number=1310988 shared=783275 inline=0'
+    SPEC_TOTALS="$SPEC_TOTALS formula_string=273 boolean=40 error=25 date=0"
+    SPEC_TOTALS="$SPEC_TOTALS values=2089191 empty=5410 formulas=262879"
+    SPEC_TOTALS="$SPEC_TOTALS shared_master=44 shared_follower=292 array=5"
+    SPEC_TOTALS="$SPEC_TOTALS data_table=0 booleans_parsed=40 resolved=783275"
+    SPEC_TOTALS="$SPEC_TOTALS unresolved=0 styled=2094287"
+    # The three that carry none, and why. max_row and max_col are maxima the spec
+    # does not fix, so they are printed and compared between the two targets and
+    # between the two implementations, and nothing else. numbers_parsed is
+    # expected to EQUAL the Number cells with a value, which this log computes
+    # from the run rather than from a constant.
+    SPEC_NONE='max_row max_col numbers_parsed'
+    # The compositions specs/0010 gives in its parentheses: number is "1302755
+    # with t=\"n\" and 8233 without t", values is "2089124 with text and 67
+    # empty" (ruling 1). The tool's line carries neither split, so the independent
+    # reader reports them and this log asserts them.
+    COMP_KEYS='t_n t_absent values_text values_empty neither_with_children'
+    COMP_KEYS="$COMP_KEYS empty_number empty_other shared_no_value items bytes"
+    SPEC_COMP='t_n=1302755 t_absent=8233 values_text=2089124 values_empty=67'
+    # The measurement that settled P2-F1, kept because it is what makes the
+    # corrected figures more than an assertion: a cell holding neither a <v> nor
+    # an <f> while holding some other child would have been the "53 cells with
+    # neither" the spec's old empty figure added beyond the 5410 empty elements.
+    # P2 measured none, and this run measures it again.
+    SPEC_COMP_NEITHER=0
+    SPEC_FILES=27
+    # specs/0010-reading-cells.md, P1 ruling 1, carried forward by ruling 12: P2's
+    # --shared-strings run expects items 110582 and bytes 1497091, BOTH ASSERTED
+    # BY NAME. The bytes figure is not P1's: P1's own run measured 1497107, before
+    # this part's first commit made the reader normalise line ends, and planning's
+    # reader measured 1497091 with the normalisation. So this pass is the one that
+    # replaces a stale committed figure with a measured one, which is why the
+    # ruling asks P2 for it and not P1. Both independent checks of this phase
+    # found the pass missing from the first attempt of this log.
+    SPEC_ITEMS=110582
+    SPEC_BYTES=1497091
+    fail=0
+    
+    # note <what> <verdict>: one verdict line, and a verdict other than
+    # as-expected fails the log.
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    # is <command...>: as-expected when the command succeeds.
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # isnot <command...>: as-expected when it fails. Its own helper so that no
+    # call hands a negation to `is`, which specs/0001 forbids as a shape.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    G=/usr/bin/grep
+    TAB=$(printf '\t')
+    
+    # nrows <tsv>: data rows, header excluded.
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    
+    # columns_resolve <tsv> <names>: every named column is in the file's header.
+    #
+    # The END rule is P2 ruling 10's: with NR == 1 as its only rule this form
+    # reported as-expected on an empty or headerless file, so the guard was
+    # vacuous. It now fails when no header line was seen at all, and a control on
+    # an empty file runs below rather than the fix being asserted.
+    COLUMNS_USED='id name status flags crc_in crc_out uncompressed_in uncompressed_out'
+    columns_resolve() {
+      awk -F'\t' -v want="$2" '
+        NR == 1 {
+          seen = 1
+          for (i = 1; i <= NF; i++) have[$i] = 1
+          n = split(want, w, " ")
+          for (j = 1; j <= n; j++) if (!(w[j] in have)) miss++
+          exit
+        }
+        END { exit (seen != 1 || miss > 0) }' "$1"
+    }
+    # count_where <tsv> <column> <value>: rows whose named column equals the value.
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    
+    # entry_counts <entries.tsv>: every entry row classified against the no-edit
+    # acceptance, in ONE awk program so two classes cannot drift apart between
+    # passes. Columns are read by NAME: the runner prints them in a fixed order
+    # but an assertion resting on that order would pass for the wrong reason if
+    # the order ever changed.
+    #
+    # descriptor alone is allowed in flags, as in every phase of this milestone: a
+    # data descriptor the input carried is reproduced, and the harness flags it on
+    # an entry that is otherwise byte-identical.
+    entry_counts() {
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        {
+          total++
+          status = $idx["status"]
+          flags = $idx["flags"]
+          if (status == "identical") identical++
+          else bad_status++
+          if (status == "changed") changed++
+          if (status == "dropped") dropped++
+          if (status == "added") added++
+          if (status == "recompressed") recompressed++
+          if (flags == "descriptor") descriptor++
+          else if (flags != "") bad_flags++
+          if ($idx["crc_in"] != $idx["crc_out"]) crc_differs++
+          if ($idx["uncompressed_in"] != $idx["uncompressed_out"]) size_differs++
+        }
+        END {
+          printf "rows=%d identical=%d bad_status=%d", \
+            total + 0, identical + 0, bad_status + 0
+          printf " changed=%d dropped=%d added=%d recompressed=%d", \
+            changed + 0, dropped + 0, added + 0, recompressed + 0
+          printf " descriptor=%d bad_flags=%d", descriptor + 0, bad_flags + 0
+          printf " crc_differs=%d size_differs=%d\n", \
+            crc_differs + 0, size_differs + 0
+        }' "$1"
+    }
+    
+    # CELL_KEYS: the 23 keys --cells prints, in the order specs/0010 "Harness
+    # runs" lists them. One list, used by cells_counts, by own_cells's expected
+    # line and by the assertions, so the three cannot drift apart.
+    CELL_KEYS='sheets cells number shared inline formula_string boolean error date'
+    CELL_KEYS="$CELL_KEYS values empty formulas shared_master shared_follower array"
+    CELL_KEYS="$CELL_KEYS data_table numbers_parsed booleans_parsed resolved"
+    CELL_KEYS="$CELL_KEYS unresolved max_row max_col styled"
+    
+    # cells_counts <file...>: one pass over every line --cells printed, totalling
+    # each key. Keys are read by NAME out of the key=value pairs, never by
+    # position, and max_row and max_col take the MAXIMUM rather than the sum,
+    # being maxima and not counts.
+    #
+    # not_cells counts a line whose first field is not the word cells, and
+    # malformed counts one that does not carry every key: a line the tool never
+    # printed, or printed differently, must show up as a count and not be skipped
+    # into silence.
+    cells_counts() {
+      awk -v keys="$CELL_KEYS" '
+        BEGIN { nk = split(keys, k, " ") }
+        {
+          lines++
+          if ($1 != "cells") { not_cells++; next }
+          delete seen
+          for (i = 2; i <= NF; i++) {
+            split($i, kv, "=")
+            seen[kv[1]] = kv[2]
+          }
+          missing = 0
+          for (j = 1; j <= nk; j++) if (!(k[j] in seen)) missing = 1
+          if (missing) { malformed++; next }
+          good++
+          if (seen["cells"] + 0 == 0) no_cells++
+          if (seen["cells"] + 0 > max_cells) max_cells = seen["cells"] + 0
+          for (j = 1; j <= nk; j++) {
+            if (k[j] ~ /^max_/) {
+              if (seen[k[j]] + 0 > m[k[j]]) m[k[j]] = seen[k[j]] + 0
+            } else {
+              t[k[j]] += seen[k[j]] + 0
+            }
+          }
+        }
+        END {
+          printf "lines=%d good=%d not_cells=%d malformed=%d no_cells=%d max_cells=%d", \
+            lines + 0, good + 0, not_cells + 0, malformed + 0, no_cells + 0, \
+            max_cells + 0
+          for (j = 1; j <= nk; j++) {
+            if (k[j] ~ /^max_/) printf " %s=%d", k[j], m[k[j]] + 0
+            else printf " %s=%d", k[j], t[k[j]] + 0
+          }
+          printf "\n"
+        }' "$@"
+    }
+    
+    # comp_counts <file...>: the same pass over the independent reader's SECOND
+    # lines, which carry the figures specs/0010 gives as a composition rather than
+    # as a key of the tool's line. Same rules: by name, counted, and a line that
+    # is not a composition line or is missing a key is reported rather than
+    # skipped.
+    comp_counts() {
+      awk -v keys="$COMP_KEYS" '
+        BEGIN { nk = split(keys, k, " ") }
+        {
+          lines++
+          if ($1 != "composition") { not_comp++; next }
+          delete seen
+          for (i = 2; i <= NF; i++) { split($i, kv, "="); seen[kv[1]] = kv[2] }
+          missing = 0
+          for (j = 1; j <= nk; j++) if (!(k[j] in seen)) missing = 1
+          if (missing) { malformed++; next }
+          good++
+          for (j = 1; j <= nk; j++) t[k[j]] += seen[k[j]] + 0
+        }
+        END {
+          printf "lines=%d good=%d not_comp=%d malformed=%d", \
+            lines + 0, good + 0, not_comp + 0, malformed + 0
+          for (j = 1; j <= nk; j++) printf " %s=%d", k[j], t[k[j]] + 0
+          printf "\n"
+        }' "$@"
+    }
+    
+    # strings_counts <file...>: the same pass over the lines --shared-strings
+    # prints, by name, with the same reporting of a line that is not one of them.
+    strings_counts() {
+      awk '
+        {
+          lines++
+          if ($1 != "strings") { not_strings++; next }
+          delete seen
+          for (i = 2; i <= NF; i++) {
+            if (index($i, "=") == 0) { continue }
+            split($i, kv, "=")
+            seen[kv[1]] = kv[2]
+          }
+          if (!("items" in seen) || !("bytes" in seen)) { malformed++; next }
+          good++
+          items += seen["items"]
+          bytes += seen["bytes"]
+          if (seen["items"] + 0 > max_items) { max_items = seen["items"] + 0 }
+          if (seen["items"] + 0 == 0) { empty_tables++ }
+        }
+        END {
+          printf "lines=%d good=%d not_strings=%d malformed=%d items=%d bytes=%d max_items=%d empty_tables=%d\n", \
+            lines + 0, good + 0, not_strings + 0, malformed + 0, items + 0, \
+            bytes + 0, max_items + 0, empty_tables + 0
+        }' "$@"
+    }
+    
+    # key_of <line> <key>: the value of one key in a key=value line, by name, or
+    # the word none where the line carries no such key.
+    #
+    # A field with NO "=" in it is not a pair and is skipped. The first attempt of
+    # this log did not check that, and the tool's line begins with the bare word
+    # `cells`: splitting it on "=" gave kv[1] = "cells", so `key_of <line> cells`
+    # printed an empty line and then the number. Both independent checks of this
+    # phase found it, with three consequences they each traced: every per-workbook
+    # line in the log was split in two, every row of the committed record's table
+    # was split after its first key, and the check that read `= none` could never
+    # fire because a missing key gave the empty string and not that word. The
+    # empty string is now impossible to confuse with a value, because a missing
+    # key says so in a word.
+    key_of() {
+      printf '%s\n' "$1" | awk -v want="$2" '
+        {
+          for (i = 1; i <= NF; i++) {
+            if (index($i, "=") == 0) { continue }
+            split($i, kv, "=")
+            if (kv[1] == want) { print kv[2]; found = 1 }
+          }
+        }
+        END { if (!found) { print "none" } }'
+    }
+    
+    # wb_path <id>: the corpus file that id names.
+    #
+    # The runner builds its inputs as <corpus>/corpus/<id>.<ext> with ext taken
+    # from the manifest's ext column (scripts/passthrough-run.sh), so this reads
+    # the same column rather than globbing for whatever is there: a glob would
+    # resolve to a second file if one were ever added beside a workbook, and the
+    # comparison below would then be against the wrong package without saying so.
+    wb_path() {
+      awk -F'\t' -v want="$1" '
+        NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+        $k["id"] == want { print $k["ext"]; exit }' "$CORPUS/manifest.tsv" |
+      while read -r ext; do printf '%s/corpus/%s.%s\n' "$CORPUS" "$1" "$ext"; done
+    }
+    
+    # own_cells <workbook>: the SAME line the tool prints, from a second
+    # implementation that shares no code with the library.
+    #
+    # The standard library's expat-based XML parser walks the package by the
+    # format's own rules: the package relationships name the workbook part, the
+    # workbook's relationships name each sheet's part, and the sheets are taken in
+    # <sheets> order. Cells are the <c> children of the <row> children of a
+    # <sheetData>, which is why this is a parser and not a regular expression: a
+    # <c> inside an extLst is not a cell, and which elements count depends on
+    # where they sit. python3 is already the repository's tool for corpus work
+    # (scripts/corpus-add.py, scripts/corpus-coverage.py,
+    # scripts/passthrough-record.py).
+    #
+    # BOTH spellings of the main namespace and of the relationships namespace are
+    # accepted, as the layer's own constants carry both. The first draft of this
+    # reader knew only the first spelling of the relationships namespace, resolved
+    # no sheet of the one ISO strict workbook in the corpus, and came out three
+    # sheets and 243 cells short; the controls below are what such a mistake now
+    # fails against.
+    #
+    # Nothing of a cell's content reaches this log: the function prints counts, or
+    # the word error and the exception's type.
+    # own_run <file>: both of the reader's lines, parsed once per file and kept.
+    # The corpus holds 2094601 cells and this log reads every one of them four
+    # times over (twice per target: the comparison and the record's table), so the
+    # answer is cached under the file's base name, which is unique across the
+    # corpus and the fixtures alike.
+    own_run() {
+      local key cache
+      key=$(basename "$1")
+      cache=$CTL/own/$key.txt
+      if [ ! -f "$cache" ]; then
+        mkdir -p "$CTL/own"
+        own_read "$1" >"$cache"
+      fi
+      cat "$cache"
+    }
+    
+    # own_cells <file>: the first of the two lines, in the tool's own format.
+    own_cells() { own_run "$1" | sed -n '1p'; }
+    
+    # own_composition <file>: the second line, the figures specs/0010 gives as a
+    # composition. Empty where the reader errored, which the caller reports.
+    own_composition() { own_run "$1" | sed -n '2p'; }
+    
+    own_read() {
+      python3 - "$1" <<'PY' 2>/dev/null || echo "error python-failed"
+    import os
+    import posixpath
+    import sys
+    import xml.etree.ElementTree as ET
+    import zipfile
+    
+    MAIN = ("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}",
+            "{http://purl.oclc.org/ooxml/spreadsheetml/main}")
+    RELS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    KEYS = ("sheets", "cells", "number", "shared", "inline", "formula_string",
+            "boolean", "error", "date", "values", "empty", "formulas",
+            "shared_master", "shared_follower", "array", "data_table",
+            "numbers_parsed", "booleans_parsed", "resolved", "unresolved",
+            "max_row", "max_col", "styled")
+    # The four figures specs/0010 gives as a composition rather than as a key of
+    # the line, and one more: the cells holding neither a <v> nor an <f> while
+    # holding some other child. The tool does not print these, so they are the
+    # independent reader's own second line, and they are what makes finding
+    # P2-F1's account of the corpus a measurement in this log.
+    EXTRA = ("t_n", "t_absent", "values_text", "values_empty",
+             "neither_with_children", "empty_number", "empty_other",
+             "shared_no_value", "items", "bytes")
+    KIND = {None: "number", "n": "number", "s": "shared", "inlineStr": "inline",
+            "str": "formula_string", "b": "boolean", "e": "error", "d": "date"}
+    
+    
+    def local(tag):
+        for ns in MAIN:
+            if tag.startswith(ns):
+                return tag[len(ns):]
+        return None
+    
+    
+    def relationships(z, part):
+        """The relationships of `part`, as {id: resolved entry name}."""
+        d, base = posixpath.split(part)
+        rels = posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+        if rels not in z.namelist():
+            return {}
+        out = {}
+        for rel in ET.fromstring(z.read(rels)):
+            if rel.tag != RELS + "Relationship":
+                continue
+            if rel.get("TargetMode") == "External":
+                continue
+            rid, target = rel.get("Id"), rel.get("Target")
+            if rid is None or target is None:
+                continue
+            out[rid] = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+        return out
+    
+    
+    def workbook_part(z):
+        package = relationships(z, "")
+        for rel in ET.fromstring(z.read("_rels/.rels")):
+            if rel.tag != RELS + "Relationship":
+                continue
+            if rel.get("Type", "").endswith("/officeDocument"):
+                return package.get(rel.get("Id"))
+        return None
+    
+    
+    def sheet_parts(z, workbook):
+        book = relationships(z, workbook)
+        out = []
+        for element in ET.fromstring(z.read(workbook)).iter():
+            if local(element.tag) != "sheet":
+                continue
+            rid = None
+            for ns in ATTR:
+                if element.get("{%s}id" % ns) is not None:
+                    rid = element.get("{%s}id" % ns)
+            if rid is not None and book.get(rid) is not None:
+                out.append(book[rid])
+        return out
+    
+    
+    def table_items(z, workbook):
+        """The table's items: how many, and the sum of their UTF-8 lengths.
+    
+        The same two figures `--shared-strings` prints, so the strings pass of the
+        run log compares the tool with this reader workbook by workbook. Line ends
+        are normalised as XML 1.0 requires before the length is taken, which is
+        what the phase's own first commit made the library do.
+        """
+        part = strings_part(z, workbook)
+        if part is None:
+            return 0, 0
+        items = 0
+        total = 0
+        for element in ET.fromstring(z.read(part)):
+            if local(element.tag) != "si":
+                continue
+            items += 1
+            text = "".join(t.text or "" for t in element.iter()
+                           if local(t.tag) == "t" and not phonetic_ancestor(element, t))
+            total += len(text.encode("utf-8"))
+        return items, total
+    
+    
+    def phonetic_ancestor(item, node):
+        """Whether <node> sits under an <rPh> of <item>."""
+        for phonetic in item.iter():
+            if local(phonetic.tag) != "rPh":
+                continue
+            for inner in phonetic.iter():
+                if inner is node:
+                    return True
+        return False
+    
+    
+    def strings_part(z, workbook):
+        """The shared strings part the workbook's relationships name, or None."""
+        book = relationships(z, workbook)
+        d, base = posixpath.split(workbook)
+        rels = posixpath.join(d, "_rels", base + ".rels")
+        if rels not in z.namelist():
+            return None
+        for rel in ET.fromstring(z.read(rels)):
+            if rel.tag != RELS + "Relationship":
+                continue
+            if not rel.get("Type", "").endswith("/sharedStrings"):
+                continue
+            target = book.get(rel.get("Id"))
+            if target is None or target not in set(z.namelist()):
+                return None
+            return target
+        return None
+    
+    
+    def parses_as_f64(text):
+        """What str::parse::<f64> accepts, as near as python gets to it."""
+        try:
+            float(text)
+            return True
+        except ValueError:
+            return False
+    
+    
+    def count(path):
+        c = dict.fromkeys(KEYS, 0)
+        x = dict.fromkeys(EXTRA, 0)
+        with zipfile.ZipFile(path) as z:
+            workbook = workbook_part(z)
+            if workbook is None:
+                return c, x
+            items, item_bytes = table_items(z, workbook)
+            x["items"] = items
+            x["bytes"] = item_bytes
+            names = set(z.namelist())
+            for part in sheet_parts(z, workbook):
+                if part not in names:
+                    continue
+                c["sheets"] += 1
+                for data in ET.fromstring(z.read(part)).iter():
+                    if local(data.tag) != "sheetData":
+                        continue
+                    row_number = 0
+                    for row in data:
+                        if local(row.tag) != "row":
+                            continue
+                        r = row.get("r")
+                        row_number = int(r) if r is not None else row_number + 1
+                        column = 0
+                        for cell in row:
+                            if local(cell.tag) != "c":
+                                continue
+                            c["cells"] += 1
+                            ref = cell.get("r")
+                            if ref is not None:
+                                letters = "".join(x for x in ref if x.isalpha())
+                                digits = "".join(x for x in ref if x.isdigit())
+                                column = 0
+                                for letter in letters:
+                                    column = column * 26 + ord(letter) - 64
+                                here = int(digits) if digits else row_number
+                            else:
+                                column += 1
+                                here = row_number
+                            c["max_row"] = max(c["max_row"], here)
+                            c["max_col"] = max(c["max_col"], column)
+                            if cell.get("s") is not None:
+                                c["styled"] += 1
+                            kind = cell.get("t")
+                            c[KIND[kind]] += 1
+                            if kind == "n":
+                                x["t_n"] += 1
+                            elif kind is None:
+                                x["t_absent"] += 1
+                            value = None
+                            formula = None
+                            for child in cell:
+                                name = local(child.tag)
+                                if name == "v":
+                                    value = child.text or ""
+                                elif name == "is":
+                                    value = "".join(
+                                        t.text or "" for t in child.iter()
+                                        if local(t.tag) == "t")
+                                elif name == "f":
+                                    formula = child
+                            if value is not None:
+                                c["values"] += 1
+                                if value == "":
+                                    x["values_empty"] += 1
+                                else:
+                                    x["values_text"] += 1
+                            if value is None and formula is None:
+                                c["empty"] += 1
+                                if len(cell) > 0:
+                                    x["neither_with_children"] += 1
+                                # By KIND, which is what makes the log's
+                                # `number - numbers_parsed == empty` identity say
+                                # what its label claims: the shortfall is the
+                                # Number cells with no value only if every
+                                # valueless cell is a Number cell.
+                                if kind in (None, "n"):
+                                    x["empty_number"] += 1
+                                else:
+                                    x["empty_other"] += 1
+                            if formula is not None:
+                                c["formulas"] += 1
+                                ft = formula.get("t")
+                                if ft == "shared":
+                                    if formula.get("ref") is not None:
+                                        c["shared_master"] += 1
+                                    else:
+                                        c["shared_follower"] += 1
+                                elif ft == "array":
+                                    c["array"] += 1
+                                elif ft == "dataTable":
+                                    c["data_table"] += 1
+                            if kind in (None, "n") and value is not None:
+                                if parses_as_f64(value):
+                                    c["numbers_parsed"] += 1
+                            if kind == "b" and value in ("0", "1"):
+                                c["booleans_parsed"] += 1
+                            if kind == "s":
+                                # A shared-string cell with NO VALUE has no index
+                                # to look up, and the library answers Ok(None):
+                                # a success, so the tool counts it resolved.
+                                # specs/0010 "Harness runs" defines the two keys
+                                # as the cells whose resolve SUCCEEDS and FAILS,
+                                # so that is the answer this reader gives too.
+                                # The first version of this reader called it
+                                # unresolved; independent check 2 of this phase
+                                # built such a package and found the two routes
+                                # disagreeing on it. The corpus holds none, which
+                                # `shared_no_value` below measures rather than
+                                # assumes.
+                                if value is None:
+                                    x["shared_no_value"] += 1
+                                    c["resolved"] += 1
+                                else:
+                                    try:
+                                        index = int(value)
+                                    except ValueError:
+                                        index = None
+                                    if index is None or index >= items or index < 0:
+                                        c["unresolved"] += 1
+                                    else:
+                                        c["resolved"] += 1
+        return c, x
+    
+    
+    try:
+        counted, extra = count(sys.argv[1])
+        sys.stdout.write("cells\t%s\n" % "\t".join(
+            "%s=%d" % (k, counted[k]) for k in KEYS))
+        sys.stdout.write("composition %s\n" % " ".join(
+            "%s=%d" % (k, extra[k]) for k in EXTRA))
+    except Exception as err:
+        sys.stdout.write("error %s\n" % type(err).__name__)
+    PY
+    }
+    
+    RUN_START=$(date +%s.%N)
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 3 P3 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses the null commit" \
+      "$(is not_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(is not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    # Printed as well as guarded above, so a reader sees the comparison was made
+    # rather than inferring it from two halves of the same line agreeing.
+    echo "  the commit named above was compared with HEAD before this run started,"
+    echo "  and this run stops before any pass if they differ"
+    echo "phase: Milestone 1 part 3 P3 (specs/0010-reading-cells.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0001 "Rules for every phase": every sha256 a log cites, a superseded
+      # attempt's included, is PRINTED BY A COMMAND run over a file that exists at
+      # run time, never typed from memory. The note above names its predecessors;
+      # these lines are what make those names evidence. An attempt that was not
+      # kept is named as having no hash, and why.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls. Started as a background"
+    echo "  task of the calling session, not with setsid, whose fork would lose"
+    echo "  the run's exit status. This log makes ONE runner pass per target over"
+    echo "  the 27 workbooks, each with a LibreOffice conversion of the input and"
+    echo "  of the output, so a foreground call would risk a half-written log."
+    echo "TERMS: both target builds were finished by the gate before this run"
+    echo "  started, so no cargo runs during it; foreground order host then i686;"
+    echo "  nothing else running; no mid-run tuning, and a copy or conversion that"
+    echo "  timed out or was killed would be recorded and listed apart, never"
+    echo "  rerun with a larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the"
+    echo "  figure part 2 and part 3 P1 measured and used: the largest corpus"
+    echo "  workbook, whose largest part is 63745347 bytes, took about 28 seconds"
+    echo "  with the host debug binary and about 30 with the i686 one. --cells"
+    echo "  parses every worksheet of the workbook rather than one part, which is"
+    echo "  more work than --shared-strings; the largest workbook holds 1040008"
+    echo "  cells, measured on 2026-09-18 with the release binary, and 300 still"
+    echo "  leaves room. Not tuned during the run: a copy that timed out would be"
+    echo "  recorded as a finding and not rerun with a larger value."
+    echo "WHAT THIS LOG DOES NOT PRINT: no cell value, no formula, no shared"
+    echo "  string, and no length or fragment of any of them. The tool prints 23"
+    echo "  counts per workbook, the independent reader prints the same 23, and"
+    echo "  this script prints counts and entry names."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## the figures this run is judged against, and where they come from"
+    echo "  specs/0010-reading-cells.md, \"Harness runs\", over the corpus's"
+    echo "    $SPEC_FILES workbooks. Planning measured these with their own reader:"
+    for pair in $SPEC_TOTALS; do echo "      $pair"; done
+    echo "  Carrying no expected figure, and why:"
+    echo "      max_row, max_col: maxima the spec does not fix. Printed, compared"
+    echo "        between the two targets, and compared with the independent"
+    echo "        reader's, and nothing else."
+    echo "      numbers_parsed: the spec expects it to EQUAL the Number cells with"
+    echo "        a value, and says a shortfall is a finding about a producer's"
+    echo "        number text. This log computes that quantity from the run."
+    echo "  The two figures P2 recorded as finding P2-F1:"
+    echo "      values $(key_of "$SPEC_TOTALS" values) and empty $(key_of "$SPEC_TOTALS" empty)"
+    echo "      are the spec's own, corrected by P2 ruling 1 from 2089138 and"
+    echo "      5463: planning's survey regex missed 53 <v> elements carrying an"
+    echo "      attribute, and planning's reader and the crate agreed. They are"
+    echo "      expected here by name like every other key, with no departure."
+    echo "  Every other number below is measured by this run."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    
+    CTL=$(mktemp -d)
+    trap 'rm -rf "$CTL"' EXIT
+    
+    echo "## the column guard's own controls (P2 ruling 10)"
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/head.tsv"
+    note "columns_resolve finds every column it is given" \
+      "$(is columns_resolve "$CTL/head.tsv" "$COLUMNS_USED")"
+    printf 'id\tname\tstatus\n' >"$CTL/short.tsv"
+    note "columns_resolve fails when a column is missing" \
+      "$(isnot columns_resolve "$CTL/short.tsv" "$COLUMNS_USED")"
+    : >"$CTL/empty.tsv"
+    note "columns_resolve fails on a file with no header line at all" \
+      "$(isnot columns_resolve "$CTL/empty.tsv" "$COLUMNS_USED")"
+    echo
+    
+    echo "## the entry classifier's own controls (P3 ruling 3: every counter by name)"
+    echo "  A fixture of one sound workbook and one of every fault the acceptance"
+    echo "  names, so each count below is shown moving off zero on a row built to"
+    echo "  move it. The expected line is written out in full and compared as one"
+    echo "  string: a counter dropped from the program fails here instead of"
+    echo "  reporting a zero nobody reads."
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/e.tsv"
+    printf 'a\t[Content_Types].xml\tidentical\t\t1\t1\t10\t10\n' >>"$CTL/e.tsv"
+    printf 'a\txl/workbook.xml\tidentical\tdescriptor\t2\t2\t20\t20\n' >>"$CTL/e.tsv"
+    printf 'b\txl/sharedStrings.xml\tchanged\t\t3\t4\t30\t29\n' >>"$CTL/e.tsv"
+    printf 'b\txl/calcChain.xml\tdropped\t\t5\t\t40\t\n' >>"$CTL/e.tsv"
+    printf 'b\txl/new.xml\tadded\t\t\t6\t\t50\n' >>"$CTL/e.tsv"
+    printf 'b\txl/styles.xml\trecompressed\tmtime\t7\t7\t60\t60\n' >>"$CTL/e.tsv"
+    ectl_line=$(entry_counts "$CTL/e.tsv")
+    ectl_expected='rows=6 identical=2 bad_status=4 changed=1 dropped=1 added=1 recompressed=1 descriptor=1 bad_flags=1 crc_differs=3 size_differs=3'
+    echo "  entry_counts on the fixture: $ectl_line"
+    echo "  expected:                    $ectl_expected"
+    note "entry_counts reports every counter, each moved by a row built to move it" \
+      "$(is [ "$ectl_line" = "$ectl_expected" ])"
+    printf 'id\tname\tstatus\tflags\tcrc_in\tcrc_out\tuncompressed_in\tuncompressed_out\n' >"$CTL/g.tsv"
+    printf 'a\txl/workbook.xml\tidentical\t\t1\t1\t10\t10\n' >>"$CTL/g.tsv"
+    gctl_line=$(entry_counts "$CTL/g.tsv")
+    gctl_expected='rows=1 identical=1 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0'
+    echo "  entry_counts on a sound one-row fixture: $gctl_line"
+    echo "  expected:                                $gctl_expected"
+    note "entry_counts reports all zeros on a row the acceptance accepts" \
+      "$(is [ "$gctl_line" = "$gctl_expected" ])"
+    echo
+    
+    echo "## the cells line reader's own controls (P3 ruling 3: every counter by name)"
+    echo "  Every key is read by name, so the fixture puts the pairs in the other"
+    echo "  order in one line, and every class the reader counts gets a line: a"
+    echo "  line that is not a cells line, one missing a key, one whose cells"
+    echo "  count is zero, and two sound ones whose totals and maxima are known"
+    echo "  before the reader is used on the run."
+    ctl_line() {  # a sound cells line with the given cells, values and max_row
+      printf 'cells\tsheets=1\tcells=%s\tnumber=1\tshared=0\tinline=0\tformula_string=0\tboolean=0\terror=0\tdate=0\tvalues=%s\tempty=0\tformulas=0\tshared_master=0\tshared_follower=0\tarray=0\tdata_table=0\tnumbers_parsed=0\tbooleans_parsed=0\tresolved=0\tunresolved=0\tmax_row=%s\tmax_col=2\tstyled=0\n' "$1" "$2" "$3"
+    }
+    {
+      ctl_line 4 3 7
+      ctl_line 6 5 9
+      ctl_line 0 0 0
+      printf 'cells\tsheets=1\tcells=2\n'
+      printf 'survey\tentries=5\n'
+    } >"$CTL/c.txt"
+    cctl_line=$(cells_counts "$CTL/c.txt")
+    cctl_expected='lines=5 good=3 not_cells=1 malformed=1 no_cells=1 max_cells=6 sheets=3 cells=10 number=3 shared=0 inline=0 formula_string=0 boolean=0 error=0 date=0 values=8 empty=0 formulas=0 shared_master=0 shared_follower=0 array=0 data_table=0 numbers_parsed=0 booleans_parsed=0 resolved=0 unresolved=0 max_row=9 max_col=2 styled=0'
+    echo "  cells_counts on the fixture: $cctl_line"
+    echo "  expected:                    $cctl_expected"
+    note "cells_counts reports every counter, each moved by a line built to move it" \
+      "$(is [ "$cctl_line" = "$cctl_expected" ])"
+    echo "  max_row over the two sound lines is 9, the larger of 7 and 9, and not"
+    echo "  their sum: a maximum summed would read 16 here."
+    note "cells_counts takes the maximum of max_row and not the sum" \
+      "$(is [ "$(key_of "$cctl_line" max_row)" = 9 ])"
+    echo "  max_cells over the same two lines is 6, the larger of 4 and 6, and"
+    echo "  the cells total beside it is 10, their sum: the two are read from the"
+    echo "  same field and neither is the other."
+    note "cells_counts reports the largest single line's cells as well as the total" \
+      "$(is [ "$(key_of "$cctl_line" max_cells)" = 6 ])"
+    # The by-name control, in the same command form: one line with the pairs
+    # reversed must still be read correctly.
+    rev=$(printf 'cells\tstyled=0\tmax_col=2\tmax_row=3\tunresolved=0\tresolved=0\tbooleans_parsed=0\tnumbers_parsed=0\tdata_table=0\tarray=0\tshared_follower=0\tshared_master=0\tformulas=0\tempty=0\tvalues=1\tdate=0\terror=0\tboolean=0\tformula_string=0\tinline=0\tshared=0\tnumber=1\tcells=1\tsheets=1\n' | cells_counts -)
+    echo "  cells_counts on a line with every pair in the reverse order: $rev"
+    note "cells_counts read the pairs by name and not by position" \
+      "$(is [ "$(key_of "$rev" cells)" = 1 ])"
+    note "and its values key too, which sits at the other end of that line" \
+      "$(is [ "$(key_of "$rev" values)" = 1 ])"
+    # key_of's own controls, in the same command form. The tool's line OPENS with
+    # the bare word cells, which is not a key=value pair, and the first attempt of
+    # this log read it as one: the checks below are what a reader looks at to see
+    # that it no longer does.
+    one_line=$(ctl_line 4 3 7)
+    echo "  key_of on the word the line opens with: [$(key_of "$one_line" cells)]"
+    note "key_of reads the cells KEY and not the bare word the line opens with" \
+      "$(is [ "$(key_of "$one_line" cells)" = 4 ])"
+    note "control: key_of says none where the line carries no such key" \
+      "$(is [ "$(key_of "$one_line" nosuchkey)" = none ])"
+    note "control: and none is a word, so a missing key cannot read as a value" \
+      "$(isnot [ "$(key_of "$one_line" nosuchkey)" = "" ])"
+    comp_ctl_line() {  # a sound composition line with the given t_n and items
+      printf 'composition t_n=%s t_absent=1 values_text=3 values_empty=1 neither_with_children=%s empty_number=1 empty_other=0 shared_no_value=0 items=%s bytes=7\n' \
+        "$1" "$2" "$3"
+    }
+    {
+      comp_ctl_line 2 0 4
+      comp_ctl_line 5 2 6
+      printf 'composition t_n=1 t_absent=1\n'
+      printf 'cells\tsheets=1\n'
+    } >"$CTL/comp.txt"
+    comp_ctl=$(comp_counts "$CTL/comp.txt")
+    comp_ctl_expected='lines=4 good=2 not_comp=1 malformed=1 t_n=7 t_absent=2 values_text=6 values_empty=2 neither_with_children=2 empty_number=2 empty_other=0 shared_no_value=0 items=10 bytes=14'
+    echo "  comp_counts on its own fixture: $comp_ctl"
+    echo "  expected:                       $comp_ctl_expected"
+    note "comp_counts reports every counter, each moved by a line built to move it" \
+      "$(is [ "$comp_ctl" = "$comp_ctl_expected" ])"
+    echo
+    
+    echo "## the independent reader's own controls (P3 ruling 3)"
+    echo "  Four fixtures built here as zips, so the reader is exercised on"
+    echo "  packages whose answers are known before it is used on the corpus. The"
+    echo "  faulty one carries a <c> inside an extLst inside a cell and a <row>"
+    echo "  inside a conditionalFormatting beside sheetData: neither is a cell,"
+    echo "  and a reader counting <c> elements wherever they sit would say four"
+    echo "  where the answer is two."
+    python3 - "$CTL" <<'PY'
+    import os, sys, zipfile
+    d = sys.argv[1]
+    NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    PR = "http://schemas.openxmlformats.org/package/2006/relationships"
+    AT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    TYPES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+             '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+             '<Default Extension="xml" ContentType="application/xml"/>'
+             '<Default Extension="rels" ContentType="application/rels"/></Types>')
+    PKG = ('<Relationships xmlns="%s"><Relationship Id="rId1" Type="%s/officeDocument"'
+           ' Target="xl/workbook.xml"/></Relationships>' % (PR, AT))
+    WB = ('<workbook xmlns="%s" xmlns:r="%s"><sheets>'
+          '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>' % (NS, AT))
+    WBR = ('<Relationships xmlns="%s"><Relationship Id="rId1" Type="%s/worksheet"'
+           ' Target="worksheets/sheet1.xml"/>%%s</Relationships>' % (PR, AT))
+    SSTR = ('<Relationship Id="rId2" Type="%s/sharedStrings" Target="sharedStrings.xml"/>' % AT)
+    
+    def build(name, sheet, strings=None, wb=WB, pkg=PKG):
+        with zipfile.ZipFile(os.path.join(d, name), "w") as z:
+            z.writestr("[Content_Types].xml", TYPES)
+            z.writestr("_rels/.rels", pkg)
+            z.writestr("xl/workbook.xml", wb)
+            z.writestr("xl/_rels/workbook.xml.rels", WBR % (SSTR if strings else ""))
+            z.writestr("xl/worksheets/sheet1.xml", sheet)
+            if strings:
+                z.writestr("xl/sharedStrings.xml", strings)
+    
+    def sheet(rows):
+        return '<worksheet xmlns="%s"><sheetData>%s</sheetData></worksheet>' % (NS, rows)
+    
+    # Two cells: a styled number with a value and a shared string that resolves.
+    build("own-two.xlsx",
+          sheet('<row r="1"><c r="A1" s="1"><v>1.5</v></c>'
+                '<c r="B1" t="s"><v>0</v></c></row>'),
+          strings='<sst xmlns="%s"><si><t>a</t></si></sst>' % NS)
+    # The same two cells, plus a <c> in an extLst inside a cell and a <row> in a
+    # conditionalFormatting beside sheetData. Still two cells.
+    build("own-tricky.xlsx",
+          '<worksheet xmlns="%s"><sheetData>'
+          '<row r="1"><c r="A1" s="1"><v>1.5</v>'
+          '<extLst><ext uri="{X}"><c r="Z9"><v>9</v></c></ext></extLst></c>'
+          '<c r="B1" t="s"><v>0</v></c></row></sheetData>'
+          '<conditionalFormatting sqref="A1"><cfRule type="expression">'
+          '<row r="9"><c r="Z9"><v>8</v></c></row></cfRule>'
+          '</conditionalFormatting></worksheet>' % NS,
+          strings='<sst xmlns="%s"><si><t>a</t></si></sst>' % NS)
+    # An index no table can hold, in a workbook with no shared strings part.
+    build("own-unresolved.xlsx",
+          sheet('<row r="1"><c r="A1" t="s"><v>7</v></c></row>'))
+    # A package whose officeDocument relationship is not there at all.
+    build("own-noffice.xlsx", sheet(''),
+          pkg='<Relationships xmlns="%s"/>' % PR)
+    PY
+    OWN_TWO='cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1'
+    own_two=$(own_cells "$CTL/own-two.xlsx")
+    echo "  the two-cell fixture: [$own_two]"
+    echo "  expected:             [$OWN_TWO]"
+    note "the independent reader reports the two-cell fixture key by key" \
+      "$(is [ "$own_two" = "$OWN_TWO" ])"
+    own_tricky=$(own_cells "$CTL/own-tricky.xlsx")
+    echo "  the faulty fixture:   [$own_tricky]"
+    note "the independent reader counts neither the extLst's cell nor the conditionalFormatting's" \
+      "$(is [ "$own_tricky" = "$OWN_TWO" ])"
+    own_un=$(own_cells "$CTL/own-unresolved.xlsx")
+    echo "  the unresolved fixture: [$own_un]"
+    own_un_ok() {
+      [ "$(key_of "$own_un" unresolved)" = 1 ] && [ "$(key_of "$own_un" resolved)" = 0 ]
+    }
+    note "the independent reader counts an index no table holds as unresolved" "$(is own_un_ok)"
+    own_noff=$(own_cells "$CTL/own-noffice.xlsx")
+    echo "  the fixture with no officeDocument relationship: [$own_noff]"
+    note "the independent reader reports no sheets where the package names no workbook" \
+      "$(is [ "$(key_of "$own_noff" sheets)" = 0 ])"
+    echo "  the independent reader on a file that is not a zip: $(own_cells "$CTL/e.tsv")"
+    note "the independent reader reports an error rather than counts on a file it cannot read" \
+      "$(is [ "$(own_cells "$CTL/e.tsv" | awk '{ print $1 }')" = error ])"
+    echo
+    
+    echo "## binaries: the release ones the size log hashed"
+    # specs/0010, "P3": the corpus run uses THE RELEASE BINARIES THE SIZE LOG
+    # HASHED. The four release builds are run again here and each binary's sha256
+    # is compared with the hash size.log recorded. The expected hashes are READ
+    # OUT OF THE COMMITTED LOG by command, never typed here: a hash typed from
+    # memory would make this check a restatement of itself.
+    #
+    # Whether the four files still exist when this run starts depends on the
+    # order of the phase's runs and not on this log: the gate runs `cargo clean`,
+    # so a gate run after the size log removes them and a gate run before it does
+    # not. The check is the same either way, because it is the HASHES that are
+    # compared and not the timestamps: a build that reproduced nothing would fail
+    # it, and so would a stale file left by another commit.
+    #
+    # The builds and the comparison happen BEFORE the corpus passes and the run
+    # stops if any of the four differs, so no corpus figure below can have been
+    # measured through a binary this log could not account for.
+    SIZELOG=records/logs/m1p3-p3/size.log
+    PT=$MAIN/target/release/emend-copy
+    XD=$MAIN/target/release/xlsx-diff
+    PT6=$MAIN/target/i686-unknown-linux-musl/release/emend-copy
+    XD6=$MAIN/target/i686-unknown-linux-musl/release/xlsx-diff
+    echo "command: cargo build --release -p emend-copy --offline"
+    cargo build --release -p emend-copy --offline >"$CTL/rel1.out" 2>&1 </dev/null; r1=$?
+    echo "command: cargo build --release -p xlsx-diff --offline"
+    cargo build --release -p xlsx-diff --offline >"$CTL/rel2.out" 2>&1 </dev/null; r2=$?
+    echo "command: cargo build --release -p emend-copy --target i686-unknown-linux-musl --offline"
+    cargo build --release -p emend-copy --target i686-unknown-linux-musl --offline >"$CTL/rel3.out" 2>&1 </dev/null; r3=$?
+    echo "command: cargo build --release -p xlsx-diff --target i686-unknown-linux-musl --offline"
+    cargo build --release -p xlsx-diff --target i686-unknown-linux-musl --offline >"$CTL/rel4.out" 2>&1 </dev/null; r4=$?
+    echo "  exits: $r1 $r2 $r3 $r4"
+    four_builds_ok() { [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && [ "$r3" -eq 0 ] && [ "$r4" -eq 0 ]; }
+    note "all four release builds exit 0" "$(is four_builds_ok)"
+    # The hash size.log printed for one path, read from its own line in that log.
+    size_log_hash() {
+      sed -n "s#^  $1: sha256 \([0-9a-f]\{64\}\), bytes [0-9]*\$#\1#p" "$SIZELOG"
+    }
+    echo "command: sha256sum over the four release binaries, beside the hash $SIZELOG printed"
+    rel_ok=yes
+    for rel in target/release/emend-copy target/release/xlsx-diff \
+               target/i686-unknown-linux-musl/release/emend-copy \
+               target/i686-unknown-linux-musl/release/xlsx-diff; do
+      if [ -f "$MAIN/$rel" ]; then
+        got=$(sha256sum "$MAIN/$rel" | cut -d' ' -f1)
+        want=$(size_log_hash "$rel")
+        printf '    %s\n      this run  %s\n      size.log  %s\n' "$rel" "$got" "${want:-NO LINE IN THE SIZE LOG}"
+        if [ "$got" != "$want" ]; then rel_ok=no; fi
+      else
+        echo "    MISSING: $rel"
+        rel_ok=no
+      fi
+    done
+    note "each of the four release binaries hashes to what the size log recorded" \
+      "$(is [ "$rel_ok" = yes ])"
+    # The control for the reader above, in the same command form: a path the size
+    # log holds no line for yields nothing, so a hash that matched by the reader
+    # answering the same thing to everything is not possible.
+    ctl_hash=$(size_log_hash target/release/no-such-binary)
+    note "control: the size log's reader answers nothing for a path it has no line for" \
+      "$(is [ -z "$ctl_hash" ])"
+    if [ "$rel_ok" != yes ]; then
+      echo "the release binaries do not reproduce the size log's hashes; stopping before the corpus" >&2
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+    echo
+    echo "## the two routes on fixtures whose answers are known"
+    # The corpus comparison below is an agreement between two readers, and two
+    # readers can agree by sharing a mistake. So both are first run on the four
+    # fixtures built above, whose answers were written down before either ran.
+    echo "command: target/release/emend-copy <fixture> <out> --cells, on each of the"
+    echo "four control fixtures, beside the independent reader's line for the same"
+    echo "file. The expected line for the first two was written into this script"
+    echo "before either route was run on them."
+    for f in own-two own-tricky own-unresolved own-noffice; do
+      tl=$("$PT" "$CTL/$f.xlsx" "$CTL/$f-out.xlsx" --cells 2>"$CTL/$f.err")
+      rc=$?
+      ol=$(own_cells "$CTL/$f.xlsx")
+      printf '  %s: exit %s\n' "$f" "$rc"
+      printf '    tool: [%s]\n' "$tl"
+      printf '    own:  [%s]\n' "$ol"
+      if [ -s "$CTL/$f.err" ]; then printf '    tool stderr: %s\n' "$(cat "$CTL/$f.err")"; fi
+      case $f in
+        own-noffice)
+          # The one place the two routes differ, and it is by design: the library
+          # refuses a package that names no workbook, where the reader has nothing
+          # to walk and reports no sheets. Printed rather than asserted equal.
+          note "the tool refuses the fixture that names no workbook" \
+            "$(is [ "$rc" -ne 0 ])"
+          note "and says so on stderr rather than printing a line" \
+            "$(is [ -z "$tl" ])"
+          ;;
+        *)
+          note "$f: the two routes print the same line" "$(is [ "$tl" = "$ol" ])"
+          ;;
+      esac
+    done
+    note "the tool's line for the two-cell fixture is the one written down first" \
+      "$(is [ "$("$PT" "$CTL/own-two.xlsx" "$CTL/own-two-out2.xlsx" --cells)" = "$OWN_TWO" ])"
+    # And the faulty fixture through the LIBRARY, not just the reader: a <c> in an
+    # extLst and a <row> in a conditionalFormatting are not cells for either route.
+    note "the tool counts two cells in the fixture holding four <c> elements" \
+      "$(is [ "$("$PT" "$CTL/own-tricky.xlsx" "$CTL/own-tricky-out2.xlsx" --cells)" = "$OWN_TWO" ])"
+    echo
+    
+    echo "## runner settings, chosen before the run"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); --memory 2048 MiB; image $LO_IMAGE"
+    echo "  --tool-arg $OP"
+    echo
+    
+    # Before either pass: the run directory must hold no summary for either
+    # label. A directory left by an earlier attempt would be appended to, and
+    # every count below would then be read from a mixture of two runs.
+    echo "## the run directory is this run's own"
+    echo "  run directory: $(printf '%s' "$OUT" | sed "s#$CORPUS#<corpus>#")"
+    fresh_dir() {
+      [ ! -f "$OUT/summary.host.tsv" ] && [ ! -f "$OUT/summary.i686.tsv" ]
+    }
+    note "the run directory holds no summary from an earlier attempt" "$(is fresh_dir)"
+    if ! fresh_dir; then
+      echo "  STOPPING: a rerun needs a new directory; set RUN_SUFFIX"
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+    echo
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then P=$PT; X=$XD; else P=$PT6; X=$XD6; fi
+      echo "## $label run, --tool-arg $OP"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $(printf '%s' "$P" | sed "s#$MAIN#<repo>#") --xlsx-diff $(printf '%s' "$X" | sed "s#$MAIN#<repo>#") --out $(printf '%s' "$OUT" | sed "s#$CORPUS#<corpus>#") --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $OP"
+      scripts/passthrough-run.sh --label "$label" --passthrough "$P" --xlsx-diff "$X" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$OP" \
+        >"$OUT-$label.stdout" 2>"$OUT-$label.stderr"
+      rc=$?
+      hide <"$OUT-$label.stdout" | sed 's/^/    /'
+      if [ -s "$OUT-$label.stderr" ]; then hide <"$OUT-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the run's stderr is empty" \
+        "$(is [ "$(wc -c <"$OUT-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ]; then
+        echo "  the run wrote no summary file"; fail=1; continue
+      fi
+      rows=$(nrows "$SUM")
+      echo "  summary rows: $rows"
+      note "$label a summary row per corpus workbook" "$(is [ "$rows" = "$SPEC_FILES" ])"
+      for k in files_identical order_preserved lo lo_in; do
+        case $k in
+          files_identical | order_preserved) want=yes ;;
+          *) want=ok ;;
+        esac
+        got=$(count_where "$SUM" "$k" "$want")
+        echo "  $k $want: $got of $rows"
+        note "$label $k is $want in every workbook" "$(is [ "$got" = "$rows" ])"
+      done
+    
+      if [ ! -f "$ENT" ]; then
+        echo "  the run wrote no entries file"; fail=1; continue
+      fi
+      note "$label the entries file has every column this log reads" \
+        "$(is columns_resolve "$ENT" "$COLUMNS_USED")"
+      eline=$(entry_counts "$ENT")
+      echo "  entry_counts over every entry of every workbook: $eline"
+      eval "$(echo "$eline" | tr ' ' '\n' | sed 's/^/e_/')"
+      note "$label every entry is identical" "$(is [ "$e_bad_status" = 0 ])"
+      note "$label nothing was changed, dropped or added" \
+        "$(is [ "$((e_changed + e_dropped + e_added))" = 0 ])"
+      note "$label no flag but descriptor appears" "$(is [ "$e_bad_flags" = 0 ])"
+      note "$label no entry's crc differs" "$(is [ "$e_crc_differs" = 0 ])"
+      note "$label no entry's size differs" "$(is [ "$e_size_differs" = 0 ])"
+    
+      # The tool's own lines, one per workbook, and the independent reader's line
+      # beside each. The comparison is the point of this log, and it is the WHOLE
+      # line that is compared, all 23 keys at once: comparing only the cells count
+      # would pass a reader that put every cell in the wrong class.
+      : >"$OUT-$label.cells"
+      nstdout=0
+      bad_pair=0
+      no_line=0
+      echo "  per workbook: the line the tool printed, and this script's own"
+      echo "  reading of the same package by python3 alone. A disagreement names"
+      echo "  the workbook's id, the keys that differ, and both lines in full."
+      for d in "$OUT"/*/; do
+        sf=$d/stdout.$label.txt
+        [ -f "$sf" ] || continue
+        id=$(basename "$d")
+        nstdout=$((nstdout + 1))
+        line=$(cat "$sf")
+        cat "$sf" >>"$OUT-$label.cells"
+        src=$(wb_path "$id")
+        own=error-no-such-id
+        if [ -n "$src" ]; then own=$(own_cells "$src"); fi
+        if [ "$(key_of "$line" cells)" = none ]; then
+          printf '    %s  NO cells KEY  line=[%s]\n' "$id" "$line"
+          no_line=$((no_line + 1))
+          continue
+        fi
+        case $own in
+          error*) printf '    %s  OWN READING FAILED: %s\n' "$id" "$own"
+                  bad_pair=$((bad_pair + 1)); continue ;;
+        esac
+        if [ "$line" = "$own" ]; then
+          printf '    %s  agree  sheets=%s cells=%s values=%s formulas=%s shared=%s\n' \
+            "$id" "$(key_of "$line" sheets)" "$(key_of "$line" cells)" \
+            "$(key_of "$line" values)" "$(key_of "$line" formulas)" \
+            "$(key_of "$line" shared)"
+        else
+          printf '    %s  DISAGREE\n' "$id"
+          for k in $CELL_KEYS; do
+            t=$(key_of "$line" "$k")
+            o=$(key_of "$own" "$k")
+            if [ "$t" != "$o" ]; then
+              printf '      %s: tool %s, own %s\n' "$k" "$t" "$o"
+            fi
+          done
+          printf '      tool: [%s]\n' "$line"
+          printf '      own:  [%s]\n' "$own"
+          bad_pair=$((bad_pair + 1))
+        fi
+      done
+      echo "  workbook directories holding a stdout file for this label: $nstdout"
+      note "$label every workbook left a stdout file" "$(is [ "$nstdout" = "$rows" ])"
+      note "$label every line carried a cells key" "$(is [ "$no_line" = 0 ])"
+      note "$label every workbook's whole line equals the independent reader's" \
+        "$(is [ "$bad_pair" = 0 ])"
+    
+      cline=$(cells_counts "$OUT-$label.cells")
+      echo "  cells_counts over all of them: $cline"
+      eval "$(echo "$cline" | tr ' ' '\n' | sed 's/^/c_/')"
+      note "$label one line per workbook" "$(is [ "$c_lines" = "$rows" ])"
+      note "$label every line was a cells line" "$(is [ "$c_not_cells" = 0 ])"
+      note "$label no line was malformed" "$(is [ "$c_malformed" = 0 ])"
+      note "$label no workbook reported zero cells" "$(is [ "$c_no_cells" = 0 ])"
+      echo
+    
+      echo "  ### $label: every key's total, asserted by name"
+      for pair in $SPEC_TOTALS; do
+        k=${pair%%=*}
+        want=${pair#*=}
+        got=$(key_of "$cline" "$k")
+        # Every key the same way, values and empty included: ruling 1 put the
+        # spec's figures where both readers measure, so there is no key here that
+        # needs a case of its own.
+        echo "  $k: total $got; the spec's figure $want"
+        note "$label $k total is the spec's $want" "$(is [ "$got" = "$want" ])"
+      done
+      echo "  the three keys specs/0010 gives no figure for:"
+      for k in $SPEC_NONE; do
+        echo "    $k: $(key_of "$cline" "$k")"
+      done
+      echo
+    
+      echo "  ### $label: the identities the keys must satisfy"
+      # These hold whatever the corpus is, so they judge the reader and not the
+      # figures: a reader that lost cells, or put one in two classes, breaks them.
+      kinds_sum=0
+      for k in number shared inline formula_string boolean error date; do
+        kinds_sum=$((kinds_sum + $(key_of "$cline" "$k")))
+      done
+      echo "  number + shared + inline + formula_string + boolean + error + date"
+      echo "    = $kinds_sum; cells = $(key_of "$cline" cells)"
+      note "$label every cell is in exactly one type class" \
+        "$(is [ "$kinds_sum" = "$(key_of "$cline" cells)" ])"
+      vsum=$(($(key_of "$cline" values) + $(key_of "$cline" empty)))
+      echo "  values + empty = $vsum; cells = $(key_of "$cline" cells)"
+      note "$label every cell either held a value or was counted empty" \
+        "$(is [ "$vsum" = "$(key_of "$cline" cells)" ])"
+      echo "  resolved = $(key_of "$cline" resolved); shared = $(key_of "$cline" shared)"
+      # Again the label is the property the numbers pin: a shared cell with no
+      # value resolves successfully to nothing and counts here too, so "to an
+      # item" waits for the measurement below that the corpus holds none.
+      note "$label every shared-string cell's resolve succeeded" \
+        "$(is [ "$(key_of "$cline" resolved)" = "$(key_of "$cline" shared)" ])"
+      note "$label no shared-string cell failed to resolve" \
+        "$(is [ "$(key_of "$cline" unresolved)" = 0 ])"
+      # specs/0010 warns that `numbers_parsed` may fall short of `number` where a
+      # cached value is not a number this layer can read. It does not, and the
+      # shortfall is exactly the Number cells that hold no value at all.
+      np=$(key_of "$cline" numbers_parsed)
+      short=$(($(key_of "$cline" number) - np))
+      echo "  number - numbers_parsed = $short; empty = $(key_of "$cline" empty)"
+      # The LABEL says what the arithmetic pins and no more: the step from here
+      # to "every Number value parsed" needs the empty cells to be Number cells,
+      # which the composition section below measures by kind.
+      note "$label the parse shortfall is exactly the cells holding no value" \
+        "$(is [ "$short" = "$(key_of "$cline" empty)" ])"
+      # The spec gives numbers_parsed no figure, so the quantity compared here is
+      # computed from two figures it does give: the Number cells less the cells
+      # holding no value, both read from SPEC_TOTALS rather than typed.
+      parsed_want=$(($(key_of "$SPEC_TOTALS" number) - $(key_of "$SPEC_TOTALS" empty)))
+      note "$label the parsed numbers are the spec's number less its empty, $parsed_want" \
+        "$(is [ "$np" = "$parsed_want" ])"
+      echo "  booleans_parsed = $(key_of "$cline" booleans_parsed); boolean = $(key_of "$cline" boolean)"
+      note "$label every boolean cell parsed as a boolean" \
+        "$(is [ "$(key_of "$cline" booleans_parsed)" = "$(key_of "$cline" boolean)" ])"
+      fkinds=$(($(key_of "$cline" shared_master) + $(key_of "$cline" shared_follower) \
+        + $(key_of "$cline" array) + $(key_of "$cline" data_table)))
+      echo "  the named formula kinds total $fkinds of $(key_of "$cline" formulas) formulas,"
+      echo "  the rest being ordinary ones, which carry no t attribute"
+      note "$label the named formula kinds are no more than the formulas" \
+        "$(is [ "$fkinds" -le "$(key_of "$cline" formulas)" ])"
+      note "$label a formula cell is not more than the cells" \
+        "$(is [ "$(key_of "$cline" formulas)" -le "$(key_of "$cline" cells)" ])"
+      # The sheet grid's own limits, from ECMA-376 part 1: 1048576 rows by 16384
+      # columns. A reader mis-reading a reference would exceed one of them.
+      echo "  max_row = $(key_of "$cline" max_row); max_col = $(key_of "$cline" max_col)"
+      note "$label the largest row is within the grid's 1048576" \
+        "$(is [ "$(key_of "$cline" max_row)" -le 1048576 ])"
+      note "$label the largest column is within the grid's 16384" \
+        "$(is [ "$(key_of "$cline" max_col)" -le 16384 ])"
+      note "$label the largest row is at least one" \
+        "$(is [ "$(key_of "$cline" max_row)" -ge 1 ])"
+      # A reader returning one huge sheet and nothing else would still total
+      # correctly, so the largest single workbook is asserted to be smaller.
+      echo "  the largest single workbook reported $c_max_cells cells"
+      note "$label the largest workbook is smaller than the corpus total" \
+        "$(is [ "$c_max_cells" -lt "$(key_of "$cline" cells)" ])"
+      echo
+    done
+    
+    echo "## the --shared-strings pass: P1 ruling 1's items and bytes"
+    echo "  The operation P1 added, run again here because ruling 1 asks THIS"
+    echo "  phase's run for its two figures: items $SPEC_ITEMS and bytes"
+    echo "  $SPEC_BYTES, both asserted by name. The bytes figure moved when this"
+    echo "  part's first commit made the reader normalise line ends, so the only"
+    echo "  committed corpus measurement of it, P1's 1497107, is stale until this"
+    echo "  pass replaces it."
+    {
+      printf 'strings\titems=4\tbytes=9\n'
+      printf 'strings\titems=6\tbytes=11\n'
+      printf 'strings\titems=0\tbytes=0\n'
+      printf 'strings\titems=2\n'
+      printf 'cells\tsheets=1\n'
+    } >"$CTL/s.txt"
+    sctl=$(strings_counts "$CTL/s.txt")
+    sctl_expected='lines=5 good=3 not_strings=1 malformed=1 items=10 bytes=20 max_items=6 empty_tables=1'
+    echo "  strings_counts on its own fixture: $sctl"
+    echo "  expected:                          $sctl_expected"
+    note "strings_counts reports every counter, each moved by a line built to move it" \
+      "$(is [ "$sctl" = "$sctl_expected" ])"
+    OUTS=$OUT-strings
+    fresh_strings() {
+      [ ! -f "$OUTS/summary.host.tsv" ] && [ ! -f "$OUTS/summary.i686.tsv" ]
+    }
+    note "the strings run directory holds no summary from an earlier attempt" \
+      "$(is fresh_strings)"
+    if ! fresh_strings; then
+      echo "  STOPPING: a rerun needs a new directory; set RUN_SUFFIX"
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+    for label in host i686; do
+      if [ "$label" = host ]; then P=$PT; X=$XD; else P=$PT6; X=$XD6; fi
+      echo "  ### $label, --tool-arg --shared-strings"
+      echo "  command: scripts/passthrough-run.sh --label $label --out $(printf '%s' "$OUTS" | sed "s#$CORPUS#<corpus>#") --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg --shared-strings"
+      scripts/passthrough-run.sh --label "$label" --passthrough "$P" --xlsx-diff "$X" \
+        --out "$OUTS" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg --shared-strings \
+        >"$OUTS-$label.stdout" 2>"$OUTS-$label.stderr"
+      rc=$?
+      hide <"$OUTS-$label.stdout" | sed 's/^/      /'
+      if [ -s "$OUTS-$label.stderr" ]; then hide <"$OUTS-$label.stderr" | sed 's/^/      stderr: /'; fi
+      note "$label strings: the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label strings: the run's stderr is empty" \
+        "$(is [ "$(wc -c <"$OUTS-$label.stderr")" -eq 0 ])"
+      SSUM=$OUTS/summary.$label.tsv
+      if [ ! -f "$SSUM" ]; then
+        echo "  the strings run wrote no summary file"; fail=1; continue
+      fi
+      srows=$(nrows "$SSUM")
+      echo "  summary rows: $srows"
+      note "$label strings: a summary row per corpus workbook" \
+        "$(is [ "$srows" = "$SPEC_FILES" ])"
+      for k in files_identical order_preserved lo lo_in; do
+        case $k in
+          files_identical | order_preserved) want=yes ;;
+          *) want=ok ;;
+        esac
+        got=$(count_where "$SSUM" "$k" "$want")
+        echo "  $k $want: $got of $srows"
+        note "$label strings: $k is $want in every workbook" "$(is [ "$got" = "$srows" ])"
+      done
+      SENT=$OUTS/entries.$label.tsv
+      if [ -f "$SENT" ]; then
+        seline=$(entry_counts "$SENT")
+        echo "  entry_counts over every entry of every workbook: $seline"
+        note "$label strings: every entry is identical and unflagged" \
+          "$(is [ "$(key_of "$seline" bad_status)" = 0 ])"
+      else
+        echo "  the strings run wrote no entries file"; fail=1
+      fi
+      : >"$OUTS-$label.strings"
+      sbad=0
+      for d in "$OUTS"/*/; do
+        sf=$d/stdout.$label.txt
+        [ -f "$sf" ] || continue
+        id=$(basename "$d")
+        line=$(cat "$sf")
+        cat "$sf" >>"$OUTS-$label.strings"
+        src=$(wb_path "$id")
+        own=none
+        if [ -n "$src" ]; then own=$(own_composition "$src"); fi
+        oi=$(key_of "$own" items)
+        ob=$(key_of "$own" bytes)
+        ti=$(key_of "$line" items)
+        tb=$(key_of "$line" bytes)
+        if [ "$ti" = "$oi" ] && [ "$tb" = "$ob" ]; then
+          printf '      %s  items=%s bytes=%s  agree\n' "$id" "$ti" "$tb"
+        else
+          printf '      %s  items=%s bytes=%s  own items=%s bytes=%s  DISAGREE\n' \
+            "$id" "$ti" "$tb" "$oi" "$ob"
+          sbad=$((sbad + 1))
+        fi
+      done
+      note "$label strings: every workbook's items and bytes equal the independent reader's" \
+        "$(is [ "$sbad" = 0 ])"
+      sline=$(strings_counts "$OUTS-$label.strings")
+      echo "  strings_counts over all of them: $sline"
+      note "$label strings: one line per workbook" \
+        "$(is [ "$(key_of "$sline" lines)" = "$SPEC_FILES" ])"
+      note "$label strings: no line was malformed" \
+        "$(is [ "$(key_of "$sline" malformed)" = 0 ])"
+      note "$label strings: items total is ruling 1's $SPEC_ITEMS" \
+        "$(is [ "$(key_of "$sline" items)" = "$SPEC_ITEMS" ])"
+      note "$label strings: bytes total is ruling 1's $SPEC_BYTES" \
+        "$(is [ "$(key_of "$sline" bytes)" = "$SPEC_BYTES" ])"
+      # And the stale figure is named, so the log says which of the two this run
+      # measured rather than leaving a reader to compare it with P1's by hand.
+      note "$label strings: the bytes total is not P1's pre-normalisation 1497107" \
+        "$(isnot [ "$(key_of "$sline" bytes)" = 1497107 ])"
+      note "$label strings: no workbook reported an empty table" \
+        "$(is [ "$(key_of "$sline" empty_tables)" = 0 ])"
+      note "$label strings: the largest table is smaller than the corpus total" \
+        "$(is [ "$(key_of "$sline" max_items)" -lt "$(key_of "$sline" items)" ])"
+    done
+    if [ -f "$OUTS-host.strings" ] && [ -f "$OUTS-i686.strings" ]; then
+      note "strings: the two targets' lines are identical file to file" \
+        "$(is cmp -s "$OUTS-host.strings" "$OUTS-i686.strings")"
+    fi
+    echo
+    
+    echo "## the two targets against each other"
+    if [ -f "$OUT-host.cells" ] && [ -f "$OUT-i686.cells" ]; then
+      hl=$(cells_counts "$OUT-host.cells")
+      il=$(cells_counts "$OUT-i686.cells")
+      echo "  host: $hl"
+      echo "  i686: $il"
+      note "both targets report the same counts, key for key" "$(is [ "$hl" = "$il" ])"
+      note "the two targets' lines are identical file to file" \
+        "$(is cmp -s "$OUT-host.cells" "$OUT-i686.cells")"
+      # 32 bits is the target that matters, and the counters are u64 there too.
+      # A truncation to 32 bits would show as a smaller total on i686 alone.
+      note "the i686 cells total equals the host's" \
+        "$(is [ "$(key_of "$il" cells)" = "$(key_of "$hl" cells)" ])"
+    else
+      echo "  a target left no cells file"; fail=1
+    fi
+    echo
+    
+    echo "## the compositions specs/0010 gives, and the cause of finding P2-F1"
+    echo "  specs/0010 splits two of its figures in parentheses: number into the"
+    echo "  cells spelling t=\"n\" and those with no t at all, and values into"
+    echo "  those whose value carries text and those whose <v> is empty. The"
+    echo "  tool's line carries neither split, so these come from the independent"
+    echo "  reader's second line, one per workbook, already parsed above."
+    : >"$OUT-composition.txt"
+    comp_missing=0
+    for d in "$OUT"/*/; do
+      id=$(basename "$d")
+      src=$(wb_path "$id")
+      [ -n "$src" ] || continue
+      cl=$(own_composition "$src")
+      if [ -z "$cl" ]; then
+        printf '    %s  NO COMPOSITION LINE\n' "$id"
+        comp_missing=$((comp_missing + 1))
+        continue
+      fi
+      printf '%s\n' "$cl" >>"$OUT-composition.txt"
+    done
+    note "every workbook left a composition line" "$(is [ "$comp_missing" = 0 ])"
+    COMP=$(comp_counts "$OUT-composition.txt")
+    echo "  comp_counts over the corpus: $COMP"
+    note "one composition line per corpus workbook" \
+      "$(is [ "$(key_of "$COMP" lines)" = "$SPEC_FILES" ])"
+    note "no composition line was malformed" \
+      "$(is [ "$(key_of "$COMP" malformed)" = 0 ])"
+    HOSTL=$(cells_counts "$OUT-host.cells")
+    for pair in $SPEC_COMP; do
+      k=${pair%%=*}
+      want=${pair#*=}
+      got=$(key_of "$COMP" "$k")
+      case $k in
+        *)
+          echo "  $k: $got; specs/0010 says $want"
+          note "$k is the spec's $want" "$(is [ "$got" = "$want" ])"
+          ;;
+      esac
+    done
+    echo "  t_n + t_absent = $(($(key_of "$COMP" t_n) + $(key_of "$COMP" t_absent)));"
+    echo "  number = $(key_of "$HOSTL" number)"
+    note "the two spellings account for every Number cell" \
+      "$(is [ "$(($(key_of "$COMP" t_n) + $(key_of "$COMP" t_absent)))" = "$(key_of "$HOSTL" number)" ])"
+    echo "  values_text + values_empty = $(($(key_of "$COMP" values_text) + $(key_of "$COMP" values_empty)));"
+    echo "  values = $(key_of "$HOSTL" values)"
+    note "the two compositions account for every cell holding a value" \
+      "$(is [ "$(($(key_of "$COMP" values_text) + $(key_of "$COMP" values_empty)))" = "$(key_of "$HOSTL" values)" ])"
+    echo "  cells holding neither a <v> nor an <f> while holding another child:"
+    echo "  $(key_of "$COMP" neither_with_children); the spec's empty figure adds 53 such cells"
+    note "no cell holds neither a value nor a formula while holding another child" \
+      "$(is [ "$(key_of "$COMP" neither_with_children)" = "$SPEC_COMP_NEITHER" ])"
+    echo
+    echo "  ### what the two identities above rest on"
+    echo "  The host identity number - numbers_parsed = empty holds whatever the"
+    echo "  kinds are, so on its own it does NOT say that every Number cell with"
+    echo "  a value parsed: the same arithmetic would come out if some valueless"
+    echo "  cells were of another kind and as many Number values had failed to"
+    echo "  parse. Both independent checks of this phase made that point. The"
+    echo "  premise is measurable, so it is measured here, by kind:"
+    echo "    empty cells of kind Number (t absent or t=\"n\"): $(key_of "$COMP" empty_number)"
+    echo "    empty cells of every other kind:                 $(key_of "$COMP" empty_other)"
+    note "every cell holding neither a value nor a formula is a Number cell" \
+      "$(is [ "$(key_of "$COMP" empty_other)" = 0 ])"
+    note "and they are the whole of the empty count" \
+      "$(is [ "$(key_of "$COMP" empty_number)" = "$(key_of "$HOSTL" empty)" ])"
+    echo "  With empty_other = 0 the shortfall number - numbers_parsed is the"
+    echo "  valueless Number cells and nothing else, so no Number value failed"
+    echo "  to parse: $(key_of "$HOSTL" numbers_parsed) of $(key_of "$HOSTL" number) parsed."
+    echo
+    echo "  The resolved identity rests on a second premise. A shared-string cell"
+    echo "  with NO value resolves to Ok(None), a success, so the tool counts it"
+    echo "  resolved without an item being read; independent check 2 of this"
+    echo "  phase built such a package. resolved == shared therefore means every"
+    echo "  shared cell resolved TO AN ITEM only where no such cell exists:"
+    echo "    shared-string cells with no value at all: $(key_of "$COMP" shared_no_value)"
+    note "no shared-string cell in the corpus is without a value" \
+      "$(is [ "$(key_of "$COMP" shared_no_value)" = 0 ])"
+    echo
+    
+    echo "## the record pair"
+    REC=records/$STEM.md
+    RECT=records/$STEM.txt
+    {
+      echo "# M1 part 3 P3 corpus run: the typed views, through the release binaries"
+      echo
+      echo "specs/0010-reading-cells.md, \"P3: the typed views, the probe, the"
+      echo "size record\" and \"Harness runs\". Phase commit $C; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+      echo
+      echo "\`--cells\` on both targets over the $SPEC_FILES corpus workbooks. It"
+      echo "records no edit, so the acceptance is the no-edit one: every entry"
+      echo "identical and unflagged, files_identical yes, order_preserved yes,"
+      echo "lo ok. That acceptance an empty reader would also satisfy, so the"
+      echo "substantive check is elsewhere, in two parts."
+      echo
+      echo "First, every workbook's whole line, all 23 keys at once, is compared"
+      echo "with a second reading of the same package by python3 alone, sharing"
+      echo "no code with the library. Every line agreed, on both targets, and the"
+      echo "two targets' lines are identical file to file."
+      echo
+      echo "Second, each key's corpus total is asserted by name against the"
+      echo "figures specs/0010 gives under \"Harness runs\". Of the 23 keys,"
+      echo "specs/0010 gives a figure for 20, and all twenty agree exactly,"
+      echo "\`values\` and \`empty\` included: those two are the spec's figures"
+      echo "as P2 ruling 1 corrected them, so what P2 recorded as finding P2-F1"
+      echo "is measured here against the corrected spec and is not a departure."
+      echo "Of the three keys it gives no figure for, \`numbers_parsed\` is"
+      echo "compared with what the run itself measures, and \`max_row\` and"
+      echo "\`max_col\` are printed and bounded by the sheet grid's own limits"
+      echo "rather than asserted against a figure."
+      echo
+      echo "Third, the operation P1 added was run over the corpus again, as P2's"
+      echo "run did: \`items\` $SPEC_ITEMS and \`bytes\` $SPEC_BYTES, both"
+      echo "asserted by name and both measured on both targets. Every workbook's"
+      echo "\`items\` and \`bytes\` also equalled the independent reader's."
+      echo
+      echo "Fourth, and this is what is new in P3's run: the binaries are the"
+      echo "RELEASE ones the size log built and hashed, not the gate's debug"
+      echo "ones. This run ran the same four release builds and asserted that"
+      echo "all four sha256 hashes equal the ones \`size.log\` recorded, read"
+      echo "out of that log by command, with a control that the reader answers"
+      echo "nothing for a path it has no line for. The corpus figures below are"
+      echo "therefore measured through the same binaries the size record"
+      echo "describes, whichever run built the files."
+      echo
+      echo "| key | host | i686 | specs/0010 |"
+      echo "| --- | --- | --- | --- |"
+      hl=$(cells_counts "$OUT-host.cells")
+      il=$(cells_counts "$OUT-i686.cells")
+      for k in $CELL_KEYS; do
+        want=$(key_of "$SPEC_TOTALS" "$k")
+        case $want in none) want="(none given)" ;; esac
+        echo "| $k | $(key_of "$hl" "$k") | $(key_of "$il" "$k") | $want |"
+      done
+      echo
+      echo "## Finding P2-F1, as it stands now"
+      echo
+      echo "P2's run measured \`values\` $(key_of "$SPEC_TOTALS" values) and"
+      echo "\`empty\` $(key_of "$SPEC_TOTALS" empty) where the spec then said"
+      echo "2089138 and 5463, recorded the difference as finding P2-F1 and did"
+      echo "not change the reader. Planning resolved it against itself: the"
+      echo "spec's two figures came from a survey regex that missed 53 \`<v>\`"
+      echo "elements carrying an attribute, planning's own reader and the crate"
+      echo "agreed, and ruling 1 corrected the spec. This run measures the"
+      echo "corrected figures, so the table above has no departure in it."
+      echo
+      echo "The measurement that settled it was made again here: exactly"
+      echo "$(key_of "$SPEC_TOTALS" empty) cells hold neither a \`<v>\` nor an"
+      echo "\`<f>\`, and zero cells hold neither while holding any child element"
+      echo "at all."
+      echo
+      echo "specs/0010 also warns that \`numbers_parsed\` may fall short of"
+      echo "\`number\` where a cached value is not a number this layer reads. It"
+      echo "does not: the whole shortfall is the $(key_of "$SPEC_TOTALS" empty)"
+      echo "Number cells that hold no value, every one of the remaining"
+      echo "$(($(key_of "$SPEC_TOTALS" number) - $(key_of "$SPEC_TOTALS" empty))) parsing."
+      echo
+      echo "| items (--shared-strings) | $(key_of "$(strings_counts "$OUTS-host.strings")" items) | $(key_of "$(strings_counts "$OUTS-i686.strings")" items) | $SPEC_ITEMS |"
+      echo "| bytes (--shared-strings) | $(key_of "$(strings_counts "$OUTS-host.strings")" bytes) | $(key_of "$(strings_counts "$OUTS-i686.strings")" bytes) | $SPEC_BYTES |"
+      echo
+      echo "The log is \`records/logs/m1p3-p3/run.log\`. Workbooks are cited by id"
+      echo "only; no cell value, no formula, no shared string, and no length or"
+      echo "fragment of any of them appears in either file."
+    } >"$REC"
+    {
+      echo "M1 part 3 P3 corpus run, --cells, both targets, release binaries."
+      echo "phase commit $C; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo
+      for label in host i686; do
+        echo "## $label"
+        if [ -f "$OUT-$label.cells" ]; then
+          echo "cells_counts: $(cells_counts "$OUT-$label.cells")"
+          echo "entry_counts: $(entry_counts "$OUT/entries.$label.tsv")"
+          echo
+          printf 'id'
+          for k in $CELL_KEYS; do printf '%s%s' "$TAB" "$k"; done
+          printf '%sown_agrees\n' "$TAB"
+          for d in "$OUT"/*/; do
+            sf=$d/stdout.$label.txt
+            [ -f "$sf" ] || continue
+            id=$(basename "$d")
+            line=$(cat "$sf")
+            src=$(wb_path "$id")
+            own=none
+            if [ -n "$src" ]; then own=$(own_cells "$src"); fi
+            printf '%s' "$id"
+            for k in $CELL_KEYS; do printf '%s%s' "$TAB" "$(key_of "$line" "$k")"; done
+            if [ "$line" = "$own" ]; then printf '%syes\n' "$TAB"; else printf '%sno\n' "$TAB"; fi
+          done
+        fi
+        echo
+      done
+    } >"$RECT"
+    echo "command: sha256sum over the record pair"
+    sha256sum "$REC" "$RECT" | sed 's/^/    /'
+    wc -c "$REC" "$RECT" | sed 's/^/    /'
+    # A NAMED FUNCTION, not an assignment prefix handed to the helper. Part 3 P1's
+    # run script wrote the check with an assignment before the command inside the
+    # substitution, so the shell looked for a COMMAND named by the assignment,
+    # failed with 127, and the check reported as-expected whatever the record
+    # held. Planning made that the third forbidden form in specs/0001, and this
+    # phase's scan log greps for it with a fixture and a control.
+    names_no_office_file() {
+      LC_ALL=C "$G" -q -E '[.](xlsx|xltx|xlsm)' "$1"
+    }
+    # BOTH record files, not just the .md. An independent check of part 3 P1 found
+    # that check passing only the .md while the .txt is the file carrying a row per
+    # workbook, so the more exposed of the two was the one nothing looked at. The
+    # loop names each file in its own result line, because one combined verdict
+    # would not say which file was clean.
+    for rf in "$REC" "$RECT"; do
+      note "the record $(basename "$rf") names no corpus file name" \
+        "$(isnot names_no_office_file "$rf")"
+    done
+    # Its control, in the same command form: a fixture that DOES name one must be
+    # caught, or the as-expected above says only that the function ran.
+    printf 'a line naming %s%s\n' 'book' '.xlsx' >"$CTL/office.txt"
+    note "control: the same check catches a fixture that names an office file" \
+      "$(is names_no_office_file "$CTL/office.txt")"
+    # And the negative control: a fixture naming no such file is not caught.
+    printf 'a line naming no office file at all\n' >"$CTL/nooffice.txt"
+    note "control: the same check passes a fixture that names none" \
+      "$(isnot names_no_office_file "$CTL/nooffice.txt")"
+    echo
+    
+    echo "## result"
+    echo "wall time: $(awk -v a="$RUN_START" -v b="$(date +%s.%N)" 'BEGIN { printf "%.0fs", b - a }')"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$fail" -eq 0 ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; fi
+    [ "$fail" -eq 0 ]
+    
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the column guard's own controls (P2 ruling 10)
+  columns_resolve finds every column it is given: as-expected
+  columns_resolve fails when a column is missing: as-expected
+  columns_resolve fails on a file with no header line at all: as-expected
+
+## the entry classifier's own controls (P3 ruling 3: every counter by name)
+  A fixture of one sound workbook and one of every fault the acceptance
+  names, so each count below is shown moving off zero on a row built to
+  move it. The expected line is written out in full and compared as one
+  string: a counter dropped from the program fails here instead of
+  reporting a zero nobody reads.
+  entry_counts on the fixture: rows=6 identical=2 bad_status=4 changed=1 dropped=1 added=1 recompressed=1 descriptor=1 bad_flags=1 crc_differs=3 size_differs=3
+  expected:                    rows=6 identical=2 bad_status=4 changed=1 dropped=1 added=1 recompressed=1 descriptor=1 bad_flags=1 crc_differs=3 size_differs=3
+  entry_counts reports every counter, each moved by a row built to move it: as-expected
+  entry_counts on a sound one-row fixture: rows=1 identical=1 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  expected:                                rows=1 identical=1 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  entry_counts reports all zeros on a row the acceptance accepts: as-expected
+
+## the cells line reader's own controls (P3 ruling 3: every counter by name)
+  Every key is read by name, so the fixture puts the pairs in the other
+  order in one line, and every class the reader counts gets a line: a
+  line that is not a cells line, one missing a key, one whose cells
+  count is zero, and two sound ones whose totals and maxima are known
+  before the reader is used on the run.
+  cells_counts on the fixture: lines=5 good=3 not_cells=1 malformed=1 no_cells=1 max_cells=6 sheets=3 cells=10 number=3 shared=0 inline=0 formula_string=0 boolean=0 error=0 date=0 values=8 empty=0 formulas=0 shared_master=0 shared_follower=0 array=0 data_table=0 numbers_parsed=0 booleans_parsed=0 resolved=0 unresolved=0 max_row=9 max_col=2 styled=0
+  expected:                    lines=5 good=3 not_cells=1 malformed=1 no_cells=1 max_cells=6 sheets=3 cells=10 number=3 shared=0 inline=0 formula_string=0 boolean=0 error=0 date=0 values=8 empty=0 formulas=0 shared_master=0 shared_follower=0 array=0 data_table=0 numbers_parsed=0 booleans_parsed=0 resolved=0 unresolved=0 max_row=9 max_col=2 styled=0
+  cells_counts reports every counter, each moved by a line built to move it: as-expected
+  max_row over the two sound lines is 9, the larger of 7 and 9, and not
+  their sum: a maximum summed would read 16 here.
+  cells_counts takes the maximum of max_row and not the sum: as-expected
+  max_cells over the same two lines is 6, the larger of 4 and 6, and
+  the cells total beside it is 10, their sum: the two are read from the
+  same field and neither is the other.
+  cells_counts reports the largest single line's cells as well as the total: as-expected
+  cells_counts on a line with every pair in the reverse order: lines=1 good=1 not_cells=0 malformed=0 no_cells=0 max_cells=1 sheets=1 cells=1 number=1 shared=0 inline=0 formula_string=0 boolean=0 error=0 date=0 values=1 empty=0 formulas=0 shared_master=0 shared_follower=0 array=0 data_table=0 numbers_parsed=0 booleans_parsed=0 resolved=0 unresolved=0 max_row=3 max_col=2 styled=0
+  cells_counts read the pairs by name and not by position: as-expected
+  and its values key too, which sits at the other end of that line: as-expected
+  key_of on the word the line opens with: [4]
+  key_of reads the cells KEY and not the bare word the line opens with: as-expected
+  control: key_of says none where the line carries no such key: as-expected
+  control: and none is a word, so a missing key cannot read as a value: as-expected
+  comp_counts on its own fixture: lines=4 good=2 not_comp=1 malformed=1 t_n=7 t_absent=2 values_text=6 values_empty=2 neither_with_children=2 empty_number=2 empty_other=0 shared_no_value=0 items=10 bytes=14
+  expected:                       lines=4 good=2 not_comp=1 malformed=1 t_n=7 t_absent=2 values_text=6 values_empty=2 neither_with_children=2 empty_number=2 empty_other=0 shared_no_value=0 items=10 bytes=14
+  comp_counts reports every counter, each moved by a line built to move it: as-expected
+
+## the independent reader's own controls (P3 ruling 3)
+  Four fixtures built here as zips, so the reader is exercised on
+  packages whose answers are known before it is used on the corpus. The
+  faulty one carries a <c> inside an extLst inside a cell and a <row>
+  inside a conditionalFormatting beside sheetData: neither is a cell,
+  and a reader counting <c> elements wherever they sit would say four
+  where the answer is two.
+  the two-cell fixture: [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+  expected:             [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+  the independent reader reports the two-cell fixture key by key: as-expected
+  the faulty fixture:   [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+  the independent reader counts neither the extLst's cell nor the conditionalFormatting's: as-expected
+  the unresolved fixture: [cells	sheets=1	cells=1	number=0	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=1	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=0	booleans_parsed=0	resolved=0	unresolved=1	max_row=1	max_col=1	styled=0]
+  the independent reader counts an index no table holds as unresolved: as-expected
+  the fixture with no officeDocument relationship: [cells	sheets=0	cells=0	number=0	shared=0	inline=0	formula_string=0	boolean=0	error=0	date=0	values=0	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=0	booleans_parsed=0	resolved=0	unresolved=0	max_row=0	max_col=0	styled=0]
+  the independent reader reports no sheets where the package names no workbook: as-expected
+  the independent reader on a file that is not a zip: error BadZipFile
+  the independent reader reports an error rather than counts on a file it cannot read: as-expected
+
+## binaries: the release ones the size log hashed
+command: cargo build --release -p emend-copy --offline
+command: cargo build --release -p xlsx-diff --offline
+command: cargo build --release -p emend-copy --target i686-unknown-linux-musl --offline
+command: cargo build --release -p xlsx-diff --target i686-unknown-linux-musl --offline
+  exits: 0 0 0 0
+  all four release builds exit 0: as-expected
+command: sha256sum over the four release binaries, beside the hash records/logs/m1p3-p3/size.log printed
+    target/release/emend-copy
+      this run  8ce3e3a9b2c8113a89ab82e36b7309b575de67b7890852c68607447be466e272
+      size.log  8ce3e3a9b2c8113a89ab82e36b7309b575de67b7890852c68607447be466e272
+    target/release/xlsx-diff
+      this run  26baa97865aec2981ada3ed13dc58660387b84640a806445f8bbe503224636e1
+      size.log  26baa97865aec2981ada3ed13dc58660387b84640a806445f8bbe503224636e1
+    target/i686-unknown-linux-musl/release/emend-copy
+      this run  c2a289b48034077ab62c6eb7f4bc73888d8cfa48a57e52a39b1644b663e200be
+      size.log  c2a289b48034077ab62c6eb7f4bc73888d8cfa48a57e52a39b1644b663e200be
+    target/i686-unknown-linux-musl/release/xlsx-diff
+      this run  5e5f0f6f5c6b794cb32a52314752bd0f031b540a07ec167ae8bb99bd2f7d3d47
+      size.log  5e5f0f6f5c6b794cb32a52314752bd0f031b540a07ec167ae8bb99bd2f7d3d47
+  each of the four release binaries hashes to what the size log recorded: as-expected
+  control: the size log's reader answers nothing for a path it has no line for: as-expected
+
+## the two routes on fixtures whose answers are known
+command: target/release/emend-copy <fixture> <out> --cells, on each of the
+four control fixtures, beside the independent reader's line for the same
+file. The expected line for the first two was written into this script
+before either route was run on them.
+  own-two: exit 0
+    tool: [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+    own:  [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+  own-two: the two routes print the same line: as-expected
+  own-tricky: exit 0
+    tool: [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+    own:  [cells	sheets=1	cells=2	number=1	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=2	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=1	booleans_parsed=0	resolved=1	unresolved=0	max_row=1	max_col=2	styled=1]
+  own-tricky: the two routes print the same line: as-expected
+  own-unresolved: exit 0
+    tool: [cells	sheets=1	cells=1	number=0	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=1	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=0	booleans_parsed=0	resolved=0	unresolved=1	max_row=1	max_col=1	styled=0]
+    own:  [cells	sheets=1	cells=1	number=0	shared=1	inline=0	formula_string=0	boolean=0	error=0	date=0	values=1	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=0	booleans_parsed=0	resolved=0	unresolved=1	max_row=1	max_col=1	styled=0]
+  own-unresolved: the two routes print the same line: as-expected
+  own-noffice: exit 2
+    tool: []
+    own:  [cells	sheets=0	cells=0	number=0	shared=0	inline=0	formula_string=0	boolean=0	error=0	date=0	values=0	empty=0	formulas=0	shared_master=0	shared_follower=0	array=0	data_table=0	numbers_parsed=0	booleans_parsed=0	resolved=0	unresolved=0	max_row=0	max_col=0	styled=0]
+    tool stderr: error: no officeDocument relationship
+  the tool refuses the fixture that names no workbook: as-expected
+  and says so on stderr rather than printing a line: as-expected
+  the tool's line for the two-cell fixture is the one written down first: as-expected
+  the tool counts two cells in the fixture holding four <c> elements: as-expected
+
+## runner settings, chosen before the run
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); --memory 2048 MiB; image localhost/emend-lo:25.2.3-2-deb13u6
+  --tool-arg --cells
+
+## the run directory is this run's own
+  run directory: <corpus>/runs/2026-09-18-13fe4a4-3
+  the run directory holds no summary from an earlier attempt: as-expected
+
+## host run, --tool-arg --cells
+command: scripts/passthrough-run.sh --label host --passthrough <repo>/target/release/emend-copy --xlsx-diff <repo>/target/release/xlsx-diff --out <corpus>/runs/2026-09-18-13fe4a4-3 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --cells
+    d8245b84086f host ok 0 0.10 7836
+    f56906d42e0a host ok 0 0.10 7820
+    0fbf4e5e3be9 host ok 0 0.10 7652
+    bdfe649d5b97 host ok 0 0.10 7500
+    ae7e17525a35 host ok 0 0.10 7908
+    63e820d98612 host ok 0 0.10 7900
+    054df34b1472 host ok 0 0.10 7896
+    9132ce5303d8 host ok 0 1.30 7556
+    ed2fbd304d51 host ok 0 0.10 7996
+    80adab651c77 host ok 0 0.10 7512
+    9ada43d71c80 host ok 0 0.10 7636
+    885819a9642e host ok 0 0.10 7828
+    f2ba081da509 host ok 0 0.10 7524
+    16c3be622455 host ok 0 0.10 7928
+    a72460f992a8 host ok 0 0.10 7648
+    f8459281d739 host ok 0 0.10 7648
+    ab0e6a529465 host ok 0 1.30 8012
+    f9efcac9808f host ok 0 0.10 7688
+    8aaebea134fb host ok 0 0.10 7856
+    6778a242d1f9 host ok 0 0.10 7824
+    75387404b8af host ok 0 0.10 7516
+    40d747fb5d9e host ok 0 0.10 7820
+    3084c0591814 host ok 0 0.10 7884
+    f3a462783621 host ok 0 0.10 7796
+    ed4c55f07c69 host ok 0 0.10 7796
+    7935c5119065 host ok 0 0.10 7576
+    18d1e8ba72b5 host ok 0 0.10 7876
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the run exits 0: as-expected
+  host the run's stderr is empty: as-expected
+  summary rows: 27
+  host a summary row per corpus workbook: as-expected
+  files_identical yes: 27 of 27
+  host files_identical is yes in every workbook: as-expected
+  order_preserved yes: 27 of 27
+  host order_preserved is yes in every workbook: as-expected
+  lo ok: 27 of 27
+  host lo is ok in every workbook: as-expected
+  lo_in ok: 27 of 27
+  host lo_in is ok in every workbook: as-expected
+  host the entries file has every column this log reads: as-expected
+  entry_counts over every entry of every workbook: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  host every entry is identical: as-expected
+  host nothing was changed, dropped or added: as-expected
+  host no flag but descriptor appears: as-expected
+  host no entry's crc differs: as-expected
+  host no entry's size differs: as-expected
+  per workbook: the line the tool printed, and this script's own
+  reading of the same package by python3 alone. A disagreement names
+  the workbook's id, the keys that differ, and both lines in full.
+    054df34b1472  agree  sheets=4 cells=504 values=501 formulas=72 shared=284
+    0fbf4e5e3be9  agree  sheets=2 cells=155 values=155 formulas=42 shared=41
+    16c3be622455  agree  sheets=3 cells=199 values=199 formulas=147 shared=13
+    18d1e8ba72b5  agree  sheets=14 cells=672 values=425 formulas=123 shared=260
+    3084c0591814  agree  sheets=3 cells=1102 values=649 formulas=284 shared=45
+    40d747fb5d9e  agree  sheets=2 cells=318 values=132 formulas=63 shared=69
+    63e820d98612  agree  sheets=2 cells=469 values=469 formulas=169 shared=15
+    6778a242d1f9  agree  sheets=3 cells=133 values=114 formulas=9 shared=81
+    75387404b8af  agree  sheets=4 cells=786 values=335 formulas=215 shared=102
+    7935c5119065  agree  sheets=4 cells=1194 values=468 formulas=71 shared=203
+    80adab651c77  agree  sheets=4 cells=519 values=515 formulas=210 shared=169
+    885819a9642e  agree  sheets=2 cells=155 values=155 formulas=42 shared=41
+    8aaebea134fb  agree  sheets=8 cells=2316 values=958 formulas=220 shared=353
+    9132ce5303d8  agree  sheets=1 cells=1040008 values=1040008 formulas=130000 shared=390008
+    9ada43d71c80  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    a72460f992a8  agree  sheets=2 cells=469 values=469 formulas=169 shared=15
+    ab0e6a529465  agree  sheets=1 cells=1040008 values=1040008 formulas=130000 shared=390008
+    ae7e17525a35  agree  sheets=3 cells=199 values=199 formulas=147 shared=13
+    bdfe649d5b97  agree  sheets=2 cells=60 values=55 formulas=0 shared=31
+    d8245b84086f  agree  sheets=4 cells=519 values=515 formulas=170 shared=169
+    ed2fbd304d51  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    ed4c55f07c69  agree  sheets=1 cells=513 values=69 formulas=0 shared=63
+    f2ba081da509  agree  sheets=2 cells=60 values=55 formulas=0 shared=31
+    f3a462783621  agree  sheets=5 cells=2169 values=1170 formulas=554 shared=310
+    f56906d42e0a  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    f8459281d739  agree  sheets=4 cells=504 values=501 formulas=72 shared=284
+    f9efcac9808f  agree  sheets=6 cells=841 values=422 formulas=100 shared=247
+  workbook directories holding a stdout file for this label: 27
+  host every workbook left a stdout file: as-expected
+  host every line carried a cells key: as-expected
+  host every workbook's whole line equals the independent reader's: as-expected
+  cells_counts over all of them: lines=27 good=27 not_cells=0 malformed=0 no_cells=0 max_cells=1040008 sheets=95 cells=2094601 number=1310988 shared=783275 inline=0 formula_string=273 boolean=40 error=25 date=0 values=2089191 empty=5410 formulas=262879 shared_master=44 shared_follower=292 array=5 data_table=0 numbers_parsed=1305578 booleans_parsed=40 resolved=783275 unresolved=0 max_row=130001 max_col=28 styled=2094287
+  host one line per workbook: as-expected
+  host every line was a cells line: as-expected
+  host no line was malformed: as-expected
+  host no workbook reported zero cells: as-expected
+
+  ### host: every key's total, asserted by name
+  sheets: total 95; the spec's figure 95
+  host sheets total is the spec's 95: as-expected
+  cells: total 2094601; the spec's figure 2094601
+  host cells total is the spec's 2094601: as-expected
+  number: total 1310988; the spec's figure 1310988
+  host number total is the spec's 1310988: as-expected
+  shared: total 783275; the spec's figure 783275
+  host shared total is the spec's 783275: as-expected
+  inline: total 0; the spec's figure 0
+  host inline total is the spec's 0: as-expected
+  formula_string: total 273; the spec's figure 273
+  host formula_string total is the spec's 273: as-expected
+  boolean: total 40; the spec's figure 40
+  host boolean total is the spec's 40: as-expected
+  error: total 25; the spec's figure 25
+  host error total is the spec's 25: as-expected
+  date: total 0; the spec's figure 0
+  host date total is the spec's 0: as-expected
+  values: total 2089191; the spec's figure 2089191
+  host values total is the spec's 2089191: as-expected
+  empty: total 5410; the spec's figure 5410
+  host empty total is the spec's 5410: as-expected
+  formulas: total 262879; the spec's figure 262879
+  host formulas total is the spec's 262879: as-expected
+  shared_master: total 44; the spec's figure 44
+  host shared_master total is the spec's 44: as-expected
+  shared_follower: total 292; the spec's figure 292
+  host shared_follower total is the spec's 292: as-expected
+  array: total 5; the spec's figure 5
+  host array total is the spec's 5: as-expected
+  data_table: total 0; the spec's figure 0
+  host data_table total is the spec's 0: as-expected
+  booleans_parsed: total 40; the spec's figure 40
+  host booleans_parsed total is the spec's 40: as-expected
+  resolved: total 783275; the spec's figure 783275
+  host resolved total is the spec's 783275: as-expected
+  unresolved: total 0; the spec's figure 0
+  host unresolved total is the spec's 0: as-expected
+  styled: total 2094287; the spec's figure 2094287
+  host styled total is the spec's 2094287: as-expected
+  the three keys specs/0010 gives no figure for:
+    max_row: 130001
+    max_col: 28
+    numbers_parsed: 1305578
+
+  ### host: the identities the keys must satisfy
+  number + shared + inline + formula_string + boolean + error + date
+    = 2094601; cells = 2094601
+  host every cell is in exactly one type class: as-expected
+  values + empty = 2094601; cells = 2094601
+  host every cell either held a value or was counted empty: as-expected
+  resolved = 783275; shared = 783275
+  host every shared-string cell's resolve succeeded: as-expected
+  host no shared-string cell failed to resolve: as-expected
+  number - numbers_parsed = 5410; empty = 5410
+  host the parse shortfall is exactly the cells holding no value: as-expected
+  host the parsed numbers are the spec's number less its empty, 1305578: as-expected
+  booleans_parsed = 40; boolean = 40
+  host every boolean cell parsed as a boolean: as-expected
+  the named formula kinds total 341 of 262879 formulas,
+  the rest being ordinary ones, which carry no t attribute
+  host the named formula kinds are no more than the formulas: as-expected
+  host a formula cell is not more than the cells: as-expected
+  max_row = 130001; max_col = 28
+  host the largest row is within the grid's 1048576: as-expected
+  host the largest column is within the grid's 16384: as-expected
+  host the largest row is at least one: as-expected
+  the largest single workbook reported 1040008 cells
+  host the largest workbook is smaller than the corpus total: as-expected
+
+## i686 run, --tool-arg --cells
+command: scripts/passthrough-run.sh --label i686 --passthrough <repo>/target/i686-unknown-linux-musl/release/emend-copy --xlsx-diff <repo>/target/i686-unknown-linux-musl/release/xlsx-diff --out <corpus>/runs/2026-09-18-13fe4a4-3 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --cells
+    d8245b84086f i686 ok 0 0.10 7860
+    f56906d42e0a i686 ok 0 0.10 7804
+    0fbf4e5e3be9 i686 ok 0 0.10 7864
+    bdfe649d5b97 i686 ok 0 0.10 7724
+    ae7e17525a35 i686 ok 0 0.10 7888
+    63e820d98612 i686 ok 0 0.10 7724
+    054df34b1472 i686 ok 0 0.10 7844
+    9132ce5303d8 i686 ok 0 1.70 7920
+    ed2fbd304d51 i686 ok 0 0.10 7628
+    80adab651c77 i686 ok 0 0.10 7852
+    9ada43d71c80 i686 ok 0 0.10 7852
+    885819a9642e i686 ok 0 0.10 7844
+    f2ba081da509 i686 ok 0 0.10 7796
+    16c3be622455 i686 ok 0 0.10 7624
+    a72460f992a8 i686 ok 0 0.10 8012
+    f8459281d739 i686 ok 0 0.10 7560
+    ab0e6a529465 i686 ok 0 1.70 7776
+    f9efcac9808f i686 ok 0 0.10 7568
+    8aaebea134fb i686 ok 0 0.10 7716
+    6778a242d1f9 i686 ok 0 0.10 7968
+    75387404b8af i686 ok 0 0.10 7724
+    40d747fb5d9e i686 ok 0 0.10 7700
+    3084c0591814 i686 ok 0 0.10 7912
+    f3a462783621 i686 ok 0 0.10 7940
+    ed4c55f07c69 i686 ok 0 0.10 7900
+    7935c5119065 i686 ok 0 0.10 7844
+    18d1e8ba72b5 i686 ok 0 0.10 7644
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the run exits 0: as-expected
+  i686 the run's stderr is empty: as-expected
+  summary rows: 27
+  i686 a summary row per corpus workbook: as-expected
+  files_identical yes: 27 of 27
+  i686 files_identical is yes in every workbook: as-expected
+  order_preserved yes: 27 of 27
+  i686 order_preserved is yes in every workbook: as-expected
+  lo ok: 27 of 27
+  i686 lo is ok in every workbook: as-expected
+  lo_in ok: 27 of 27
+  i686 lo_in is ok in every workbook: as-expected
+  i686 the entries file has every column this log reads: as-expected
+  entry_counts over every entry of every workbook: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  i686 every entry is identical: as-expected
+  i686 nothing was changed, dropped or added: as-expected
+  i686 no flag but descriptor appears: as-expected
+  i686 no entry's crc differs: as-expected
+  i686 no entry's size differs: as-expected
+  per workbook: the line the tool printed, and this script's own
+  reading of the same package by python3 alone. A disagreement names
+  the workbook's id, the keys that differ, and both lines in full.
+    054df34b1472  agree  sheets=4 cells=504 values=501 formulas=72 shared=284
+    0fbf4e5e3be9  agree  sheets=2 cells=155 values=155 formulas=42 shared=41
+    16c3be622455  agree  sheets=3 cells=199 values=199 formulas=147 shared=13
+    18d1e8ba72b5  agree  sheets=14 cells=672 values=425 formulas=123 shared=260
+    3084c0591814  agree  sheets=3 cells=1102 values=649 formulas=284 shared=45
+    40d747fb5d9e  agree  sheets=2 cells=318 values=132 formulas=63 shared=69
+    63e820d98612  agree  sheets=2 cells=469 values=469 formulas=169 shared=15
+    6778a242d1f9  agree  sheets=3 cells=133 values=114 formulas=9 shared=81
+    75387404b8af  agree  sheets=4 cells=786 values=335 formulas=215 shared=102
+    7935c5119065  agree  sheets=4 cells=1194 values=468 formulas=71 shared=203
+    80adab651c77  agree  sheets=4 cells=519 values=515 formulas=210 shared=169
+    885819a9642e  agree  sheets=2 cells=155 values=155 formulas=42 shared=41
+    8aaebea134fb  agree  sheets=8 cells=2316 values=958 formulas=220 shared=353
+    9132ce5303d8  agree  sheets=1 cells=1040008 values=1040008 formulas=130000 shared=390008
+    9ada43d71c80  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    a72460f992a8  agree  sheets=2 cells=469 values=469 formulas=169 shared=15
+    ab0e6a529465  agree  sheets=1 cells=1040008 values=1040008 formulas=130000 shared=390008
+    ae7e17525a35  agree  sheets=3 cells=199 values=199 formulas=147 shared=13
+    bdfe649d5b97  agree  sheets=2 cells=60 values=55 formulas=0 shared=31
+    d8245b84086f  agree  sheets=4 cells=519 values=515 formulas=170 shared=169
+    ed2fbd304d51  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    ed4c55f07c69  agree  sheets=1 cells=513 values=69 formulas=0 shared=63
+    f2ba081da509  agree  sheets=2 cells=60 values=55 formulas=0 shared=31
+    f3a462783621  agree  sheets=5 cells=2169 values=1170 formulas=554 shared=310
+    f56906d42e0a  agree  sheets=3 cells=243 values=215 formulas=0 shared=140
+    f8459281d739  agree  sheets=4 cells=504 values=501 formulas=72 shared=284
+    f9efcac9808f  agree  sheets=6 cells=841 values=422 formulas=100 shared=247
+  workbook directories holding a stdout file for this label: 27
+  i686 every workbook left a stdout file: as-expected
+  i686 every line carried a cells key: as-expected
+  i686 every workbook's whole line equals the independent reader's: as-expected
+  cells_counts over all of them: lines=27 good=27 not_cells=0 malformed=0 no_cells=0 max_cells=1040008 sheets=95 cells=2094601 number=1310988 shared=783275 inline=0 formula_string=273 boolean=40 error=25 date=0 values=2089191 empty=5410 formulas=262879 shared_master=44 shared_follower=292 array=5 data_table=0 numbers_parsed=1305578 booleans_parsed=40 resolved=783275 unresolved=0 max_row=130001 max_col=28 styled=2094287
+  i686 one line per workbook: as-expected
+  i686 every line was a cells line: as-expected
+  i686 no line was malformed: as-expected
+  i686 no workbook reported zero cells: as-expected
+
+  ### i686: every key's total, asserted by name
+  sheets: total 95; the spec's figure 95
+  i686 sheets total is the spec's 95: as-expected
+  cells: total 2094601; the spec's figure 2094601
+  i686 cells total is the spec's 2094601: as-expected
+  number: total 1310988; the spec's figure 1310988
+  i686 number total is the spec's 1310988: as-expected
+  shared: total 783275; the spec's figure 783275
+  i686 shared total is the spec's 783275: as-expected
+  inline: total 0; the spec's figure 0
+  i686 inline total is the spec's 0: as-expected
+  formula_string: total 273; the spec's figure 273
+  i686 formula_string total is the spec's 273: as-expected
+  boolean: total 40; the spec's figure 40
+  i686 boolean total is the spec's 40: as-expected
+  error: total 25; the spec's figure 25
+  i686 error total is the spec's 25: as-expected
+  date: total 0; the spec's figure 0
+  i686 date total is the spec's 0: as-expected
+  values: total 2089191; the spec's figure 2089191
+  i686 values total is the spec's 2089191: as-expected
+  empty: total 5410; the spec's figure 5410
+  i686 empty total is the spec's 5410: as-expected
+  formulas: total 262879; the spec's figure 262879
+  i686 formulas total is the spec's 262879: as-expected
+  shared_master: total 44; the spec's figure 44
+  i686 shared_master total is the spec's 44: as-expected
+  shared_follower: total 292; the spec's figure 292
+  i686 shared_follower total is the spec's 292: as-expected
+  array: total 5; the spec's figure 5
+  i686 array total is the spec's 5: as-expected
+  data_table: total 0; the spec's figure 0
+  i686 data_table total is the spec's 0: as-expected
+  booleans_parsed: total 40; the spec's figure 40
+  i686 booleans_parsed total is the spec's 40: as-expected
+  resolved: total 783275; the spec's figure 783275
+  i686 resolved total is the spec's 783275: as-expected
+  unresolved: total 0; the spec's figure 0
+  i686 unresolved total is the spec's 0: as-expected
+  styled: total 2094287; the spec's figure 2094287
+  i686 styled total is the spec's 2094287: as-expected
+  the three keys specs/0010 gives no figure for:
+    max_row: 130001
+    max_col: 28
+    numbers_parsed: 1305578
+
+  ### i686: the identities the keys must satisfy
+  number + shared + inline + formula_string + boolean + error + date
+    = 2094601; cells = 2094601
+  i686 every cell is in exactly one type class: as-expected
+  values + empty = 2094601; cells = 2094601
+  i686 every cell either held a value or was counted empty: as-expected
+  resolved = 783275; shared = 783275
+  i686 every shared-string cell's resolve succeeded: as-expected
+  i686 no shared-string cell failed to resolve: as-expected
+  number - numbers_parsed = 5410; empty = 5410
+  i686 the parse shortfall is exactly the cells holding no value: as-expected
+  i686 the parsed numbers are the spec's number less its empty, 1305578: as-expected
+  booleans_parsed = 40; boolean = 40
+  i686 every boolean cell parsed as a boolean: as-expected
+  the named formula kinds total 341 of 262879 formulas,
+  the rest being ordinary ones, which carry no t attribute
+  i686 the named formula kinds are no more than the formulas: as-expected
+  i686 a formula cell is not more than the cells: as-expected
+  max_row = 130001; max_col = 28
+  i686 the largest row is within the grid's 1048576: as-expected
+  i686 the largest column is within the grid's 16384: as-expected
+  i686 the largest row is at least one: as-expected
+  the largest single workbook reported 1040008 cells
+  i686 the largest workbook is smaller than the corpus total: as-expected
+
+## the --shared-strings pass: P1 ruling 1's items and bytes
+  The operation P1 added, run again here because ruling 1 asks THIS
+  phase's run for its two figures: items 110582 and bytes
+  1497091, both asserted by name. The bytes figure moved when this
+  part's first commit made the reader normalise line ends, so the only
+  committed corpus measurement of it, P1's 1497107, is stale until this
+  pass replaces it.
+  strings_counts on its own fixture: lines=5 good=3 not_strings=1 malformed=1 items=10 bytes=20 max_items=6 empty_tables=1
+  expected:                          lines=5 good=3 not_strings=1 malformed=1 items=10 bytes=20 max_items=6 empty_tables=1
+  strings_counts reports every counter, each moved by a line built to move it: as-expected
+  the strings run directory holds no summary from an earlier attempt: as-expected
+  ### host, --tool-arg --shared-strings
+  command: scripts/passthrough-run.sh --label host --out <corpus>/runs/2026-09-18-13fe4a4-3-strings --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --shared-strings
+      d8245b84086f host ok 0 0.10 7708
+      f56906d42e0a host ok 0 0.10 7644
+      0fbf4e5e3be9 host ok 0 0.10 7888
+      bdfe649d5b97 host ok 0 0.10 7812
+      ae7e17525a35 host ok 0 0.10 7676
+      63e820d98612 host ok 0 0.10 7560
+      054df34b1472 host ok 0 0.10 7920
+      9132ce5303d8 host ok 0 0.10 7636
+      ed2fbd304d51 host ok 0 0.10 7832
+      80adab651c77 host ok 0 0.10 7784
+      9ada43d71c80 host ok 0 0.10 7756
+      885819a9642e host ok 0 0.10 7740
+      f2ba081da509 host ok 0 0.10 8004
+      16c3be622455 host ok 0 0.10 7652
+      a72460f992a8 host ok 0 0.10 7504
+      f8459281d739 host ok 0 0.10 7840
+      ab0e6a529465 host ok 0 0.10 7616
+      f9efcac9808f host ok 0 0.10 7732
+      8aaebea134fb host ok 0 0.10 7640
+      6778a242d1f9 host ok 0 0.10 7724
+      75387404b8af host ok 0 0.10 7880
+      40d747fb5d9e host ok 0 0.10 7572
+      3084c0591814 host ok 0 0.10 7876
+      f3a462783621 host ok 0 0.10 7616
+      ed4c55f07c69 host ok 0 0.10 7888
+      7935c5119065 host ok 0 0.10 7672
+      18d1e8ba72b5 host ok 0 0.10 7804
+      files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host strings: the run exits 0: as-expected
+  host strings: the run's stderr is empty: as-expected
+  summary rows: 27
+  host strings: a summary row per corpus workbook: as-expected
+  files_identical yes: 27 of 27
+  host strings: files_identical is yes in every workbook: as-expected
+  order_preserved yes: 27 of 27
+  host strings: order_preserved is yes in every workbook: as-expected
+  lo ok: 27 of 27
+  host strings: lo is ok in every workbook: as-expected
+  lo_in ok: 27 of 27
+  host strings: lo_in is ok in every workbook: as-expected
+  entry_counts over every entry of every workbook: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  host strings: every entry is identical and unflagged: as-expected
+      054df34b1472  items=125 bytes=1241  agree
+      0fbf4e5e3be9  items=33 bytes=111  agree
+      16c3be622455  items=12 bytes=141  agree
+      18d1e8ba72b5  items=52 bytes=1292  agree
+      3084c0591814  items=37 bytes=1112  agree
+      40d747fb5d9e  items=40 bytes=334  agree
+      63e820d98612  items=13 bytes=100  agree
+      6778a242d1f9  items=59 bytes=1002  agree
+      75387404b8af  items=50 bytes=459  agree
+      7935c5119065  items=95 bytes=1034  agree
+      80adab651c77  items=127 bytes=1602  agree
+      885819a9642e  items=33 bytes=111  agree
+      8aaebea134fb  items=99 bytes=2589  agree
+      9132ce5303d8  items=54472 bytes=733344  agree
+      9ada43d71c80  items=104 bytes=3105  agree
+      a72460f992a8  items=13 bytes=100  agree
+      ab0e6a529465  items=54472 bytes=733344  agree
+      ae7e17525a35  items=12 bytes=141  agree
+      bdfe649d5b97  items=18 bytes=151  agree
+      d8245b84086f  items=127 bytes=1602  agree
+      ed2fbd304d51  items=104 bytes=3105  agree
+      ed4c55f07c69  items=40 bytes=428  agree
+      f2ba081da509  items=18 bytes=151  agree
+      f3a462783621  items=65 bytes=1466  agree
+      f56906d42e0a  items=104 bytes=3105  agree
+      f8459281d739  items=125 bytes=1241  agree
+      f9efcac9808f  items=133 bytes=4680  agree
+  host strings: every workbook's items and bytes equal the independent reader's: as-expected
+  strings_counts over all of them: lines=27 good=27 not_strings=0 malformed=0 items=110582 bytes=1497091 max_items=54472 empty_tables=0
+  host strings: one line per workbook: as-expected
+  host strings: no line was malformed: as-expected
+  host strings: items total is ruling 1's 110582: as-expected
+  host strings: bytes total is ruling 1's 1497091: as-expected
+  host strings: the bytes total is not P1's pre-normalisation 1497107: as-expected
+  host strings: no workbook reported an empty table: as-expected
+  host strings: the largest table is smaller than the corpus total: as-expected
+  ### i686, --tool-arg --shared-strings
+  command: scripts/passthrough-run.sh --label i686 --out <corpus>/runs/2026-09-18-13fe4a4-3-strings --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --shared-strings
+      d8245b84086f i686 ok 0 0.10 7652
+      f56906d42e0a i686 ok 0 0.10 7712
+      0fbf4e5e3be9 i686 ok 0 0.10 7740
+      bdfe649d5b97 i686 ok 0 0.10 7856
+      ae7e17525a35 i686 ok 0 0.10 7736
+      63e820d98612 i686 ok 0 0.10 7852
+      054df34b1472 i686 ok 0 0.10 7852
+      9132ce5303d8 i686 ok 0 0.10 7744
+      ed2fbd304d51 i686 ok 0 0.10 7944
+      80adab651c77 i686 ok 0 0.10 7636
+      9ada43d71c80 i686 ok 0 0.10 7676
+      885819a9642e i686 ok 0 0.10 7576
+      f2ba081da509 i686 ok 0 0.10 7608
+      16c3be622455 i686 ok 0 0.10 7788
+      a72460f992a8 i686 ok 0 0.10 7776
+      f8459281d739 i686 ok 0 0.10 7788
+      ab0e6a529465 i686 ok 0 0.10 7972
+      f9efcac9808f i686 ok 0 0.10 7768
+      8aaebea134fb i686 ok 0 0.10 7628
+      6778a242d1f9 i686 ok 0 0.10 7744
+      75387404b8af i686 ok 0 0.10 7620
+      40d747fb5d9e i686 ok 0 0.10 7688
+      3084c0591814 i686 ok 0 0.10 7852
+      f3a462783621 i686 ok 0 0.10 7964
+      ed4c55f07c69 i686 ok 0 0.10 7960
+      7935c5119065 i686 ok 0 0.10 7928
+      18d1e8ba72b5 i686 ok 0 0.10 7644
+      files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 strings: the run exits 0: as-expected
+  i686 strings: the run's stderr is empty: as-expected
+  summary rows: 27
+  i686 strings: a summary row per corpus workbook: as-expected
+  files_identical yes: 27 of 27
+  i686 strings: files_identical is yes in every workbook: as-expected
+  order_preserved yes: 27 of 27
+  i686 strings: order_preserved is yes in every workbook: as-expected
+  lo ok: 27 of 27
+  i686 strings: lo is ok in every workbook: as-expected
+  lo_in ok: 27 of 27
+  i686 strings: lo_in is ok in every workbook: as-expected
+  entry_counts over every entry of every workbook: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+  i686 strings: every entry is identical and unflagged: as-expected
+      054df34b1472  items=125 bytes=1241  agree
+      0fbf4e5e3be9  items=33 bytes=111  agree
+      16c3be622455  items=12 bytes=141  agree
+      18d1e8ba72b5  items=52 bytes=1292  agree
+      3084c0591814  items=37 bytes=1112  agree
+      40d747fb5d9e  items=40 bytes=334  agree
+      63e820d98612  items=13 bytes=100  agree
+      6778a242d1f9  items=59 bytes=1002  agree
+      75387404b8af  items=50 bytes=459  agree
+      7935c5119065  items=95 bytes=1034  agree
+      80adab651c77  items=127 bytes=1602  agree
+      885819a9642e  items=33 bytes=111  agree
+      8aaebea134fb  items=99 bytes=2589  agree
+      9132ce5303d8  items=54472 bytes=733344  agree
+      9ada43d71c80  items=104 bytes=3105  agree
+      a72460f992a8  items=13 bytes=100  agree
+      ab0e6a529465  items=54472 bytes=733344  agree
+      ae7e17525a35  items=12 bytes=141  agree
+      bdfe649d5b97  items=18 bytes=151  agree
+      d8245b84086f  items=127 bytes=1602  agree
+      ed2fbd304d51  items=104 bytes=3105  agree
+      ed4c55f07c69  items=40 bytes=428  agree
+      f2ba081da509  items=18 bytes=151  agree
+      f3a462783621  items=65 bytes=1466  agree
+      f56906d42e0a  items=104 bytes=3105  agree
+      f8459281d739  items=125 bytes=1241  agree
+      f9efcac9808f  items=133 bytes=4680  agree
+  i686 strings: every workbook's items and bytes equal the independent reader's: as-expected
+  strings_counts over all of them: lines=27 good=27 not_strings=0 malformed=0 items=110582 bytes=1497091 max_items=54472 empty_tables=0
+  i686 strings: one line per workbook: as-expected
+  i686 strings: no line was malformed: as-expected
+  i686 strings: items total is ruling 1's 110582: as-expected
+  i686 strings: bytes total is ruling 1's 1497091: as-expected
+  i686 strings: the bytes total is not P1's pre-normalisation 1497107: as-expected
+  i686 strings: no workbook reported an empty table: as-expected
+  i686 strings: the largest table is smaller than the corpus total: as-expected
+  strings: the two targets' lines are identical file to file: as-expected
+
+## the two targets against each other
+  host: lines=27 good=27 not_cells=0 malformed=0 no_cells=0 max_cells=1040008 sheets=95 cells=2094601 number=1310988 shared=783275 inline=0 formula_string=273 boolean=40 error=25 date=0 values=2089191 empty=5410 formulas=262879 shared_master=44 shared_follower=292 array=5 data_table=0 numbers_parsed=1305578 booleans_parsed=40 resolved=783275 unresolved=0 max_row=130001 max_col=28 styled=2094287
+  i686: lines=27 good=27 not_cells=0 malformed=0 no_cells=0 max_cells=1040008 sheets=95 cells=2094601 number=1310988 shared=783275 inline=0 formula_string=273 boolean=40 error=25 date=0 values=2089191 empty=5410 formulas=262879 shared_master=44 shared_follower=292 array=5 data_table=0 numbers_parsed=1305578 booleans_parsed=40 resolved=783275 unresolved=0 max_row=130001 max_col=28 styled=2094287
+  both targets report the same counts, key for key: as-expected
+  the two targets' lines are identical file to file: as-expected
+  the i686 cells total equals the host's: as-expected
+
+## the compositions specs/0010 gives, and the cause of finding P2-F1
+  specs/0010 splits two of its figures in parentheses: number into the
+  cells spelling t="n" and those with no t at all, and values into
+  those whose value carries text and those whose <v> is empty. The
+  tool's line carries neither split, so these come from the independent
+  reader's second line, one per workbook, already parsed above.
+  every workbook left a composition line: as-expected
+  comp_counts over the corpus: lines=27 good=27 not_comp=0 malformed=0 t_n=1302755 t_absent=8233 values_text=2089124 values_empty=67 neither_with_children=0 empty_number=5410 empty_other=0 shared_no_value=0 items=110582 bytes=1497091
+  one composition line per corpus workbook: as-expected
+  no composition line was malformed: as-expected
+  t_n: 1302755; specs/0010 says 1302755
+  t_n is the spec's 1302755: as-expected
+  t_absent: 8233; specs/0010 says 8233
+  t_absent is the spec's 8233: as-expected
+  values_text: 2089124; specs/0010 says 2089124
+  values_text is the spec's 2089124: as-expected
+  values_empty: 67; specs/0010 says 67
+  values_empty is the spec's 67: as-expected
+  t_n + t_absent = 1310988;
+  number = 1310988
+  the two spellings account for every Number cell: as-expected
+  values_text + values_empty = 2089191;
+  values = 2089191
+  the two compositions account for every cell holding a value: as-expected
+  cells holding neither a <v> nor an <f> while holding another child:
+  0; the spec's empty figure adds 53 such cells
+  no cell holds neither a value nor a formula while holding another child: as-expected
+
+  ### what the two identities above rest on
+  The host identity number - numbers_parsed = empty holds whatever the
+  kinds are, so on its own it does NOT say that every Number cell with
+  a value parsed: the same arithmetic would come out if some valueless
+  cells were of another kind and as many Number values had failed to
+  parse. Both independent checks of this phase made that point. The
+  premise is measurable, so it is measured here, by kind:
+    empty cells of kind Number (t absent or t="n"): 5410
+    empty cells of every other kind:                 0
+  every cell holding neither a value nor a formula is a Number cell: as-expected
+  and they are the whole of the empty count: as-expected
+  With empty_other = 0 the shortfall number - numbers_parsed is the
+  valueless Number cells and nothing else, so no Number value failed
+  to parse: 1305578 of 1310988 parsed.
+
+  The resolved identity rests on a second premise. A shared-string cell
+  with NO value resolves to Ok(None), a success, so the tool counts it
+  resolved without an item being read; independent check 2 of this
+  phase built such a package. resolved == shared therefore means every
+  shared cell resolved TO AN ITEM only where no such cell exists:
+    shared-string cells with no value at all: 0
+  no shared-string cell in the corpus is without a value: as-expected
+
+## the record pair
+command: sha256sum over the record pair
+    6a5ff8af2d445c06adb4c4c0459a65ba8398ae28d5354f61f1cd32c5d2ecca93  records/m1p3-p3-2026-09-18-13fe4a4.md
+    eba5c235a1db0d72eda6812eb72b664a8219fb554ff479f55b5dda4d8757f0ed  records/m1p3-p3-2026-09-18-13fe4a4.txt
+     4268 records/m1p3-p3-2026-09-18-13fe4a4.md
+     6162 records/m1p3-p3-2026-09-18-13fe4a4.txt
+    10430 total
+  the record m1p3-p3-2026-09-18-13fe4a4.md names no corpus file name: as-expected
+  the record m1p3-p3-2026-09-18-13fe4a4.txt names no corpus file name: as-expected
+  control: the same check catches a fixture that names an office file: as-expected
+  control: the same check passes a fixture that names none: as-expected
+
+## result
+wall time: 622s
+run ended at 2026-09-18T23:41:20Z
+RESULT: PASS

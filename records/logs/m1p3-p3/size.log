@@ -1,0 +1,2098 @@
+command: git rev-parse HEAD
+about: M1 part 3 P3 phase commit 13fe4a4e6e1d775a1a2e78650f9527639a228f13; HEAD at run: 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+  the phase commit given to this script: 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+  git rev-parse HEAD at this run:        13fe4a4e6e1d775a1a2e78650f9527639a228f13
+the phase commit given to this script is a full sha: yes
+the phase commit given to this script is HEAD: yes
+control: the same comparison refuses the null commit: yes
+control: the same comparison refuses a short sha of the real commit: yes
+phase: Milestone 1 part 3 P3 (specs/0010-reading-cells.md) size.log; run at 2026-09-18T23:25:54Z
+rerun: four attempts are superseded, all at 2575083, and none is committed. Attempt 1: its rebuild of the earlier probes carried part 2's feature map, so two probes failed to build in the scratch clone and went unclassified, two checks reading no. Attempt 2: the record it wrote said run.log cites these hashes 'rather than building its own', which the gate's cargo clean made false. Attempt 3: the variant-build check was written 'yn [ ... ] && [ ... ]' inside one command substitution, the first shape specs/0001 forbids, so only the exit status was in the verdict and the warning count was not; the phase's own scan grep caught it and it is now one named function. Attempt 4 passed every check and is superseded because the phase commit moved to 13fe4a4, which fixes the four doc sentences both independent checks found. This run also adds what those checks asked of this log: headroom is a section figure alone, the ceiling is not subtracted from a file delta, the eight builds are called eight, and the reader's own subtraction of the ruling's figures is reconciled with the drift that explains it.
+command: sha256sum and wc -c over each superseded attempt named above
+    305459995ada340efc3bfeab333af093d81d8841d72b13bf669baa3203a84550  117453 bytes  p3-size-attempt1.out
+    5304f53b868d8c52661bb92ec521b981ab18f74a0405e5a465621f0224bfd709  120442 bytes  p3-size-2.out
+    b85f25eab5e7d3813e99dff5f1abd979af4ffeec8944809fc0d3a02ec29ebae1  121542 bytes  p3-size-attempt3.out
+    b30716905f77dcad49f68bddb85997d47a14eada7a115f8a1f365facaac9a447  122316 bytes  p3-size-at-2575083.log
+SERIALIZED: produced with no other run in flight
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never
+at entry: status lines 4, all of them this phase's logs
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 3 P3 size.log (specs/0010-reading-cells.md, "Size"): the
+    # EIGHT size probes built in the size profile for i686-unknown-linux-musl as
+    # part 2 built its seven (records/logs/m1p2-p3/size.log), the seven earlier
+    # probes compared with records/size-m1p2-2026-09-18-14c2e14.md with every
+    # difference classified, the figures the spec asks for, the float parser's own
+    # cost, the release binaries the corpus run uses, and the record.
+    #
+    # What "Size" asks this log to print, all of it measured here:
+    #  - for all eight probes, the file size, the section total and .text from
+    #    `size -A`;
+    #  - the seven earlier probes compared with the part 2 record, every difference
+    #    classified from the bytes: the build id, panic-location line numbers, or
+    #    code, the last with the commit and the lines that caused it;
+    #  - the budget figure, probe-emend-cells-xml over probe-zip-xml, against the
+    #    393216 the maintainer's checkpoint ruling set, with the file delta beside
+    #    it, and part 3's own cost, the same probe over probe-emend-package-xml;
+    #  - the float parser's own cost, from a variant of probe-emend-cells-xml whose
+    #    sum is a byte count of the values instead of number(). The variant is
+    #    built in a scratch copy of the tree, as part 1 P3 built its sort
+    #    candidates, and is not committed: it exists to turn one figure in the
+    #    record from a guess into a measurement.
+    #
+    # The spec says "re-measuring the eight earlier probes". There are SEVEN
+    # earlier probes: part 2's record tabulates probe-zip, probe-zip-xml,
+    # probe-zip-xml-write, probe-emend-copy, probe-emend-edit, probe-emend-edit-xml
+    # and probe-emend-package-xml, and the eighth, probe-emend-cells-xml, is the
+    # one this part ADDS and so has nothing earlier to be compared with. This log
+    # measures all eight and compares the seven, and the count is printed rather
+    # than asserted from the sentence.
+    #
+    # THE RELEASE BINARIES. specs/0010, "P3", has the corpus run use "the release
+    # binaries the size log hashed", so this log builds emend-copy and xlsx-diff in
+    # the release profile for both targets and prints their sha256 and byte counts.
+    # The run log cites these rather than building its own, exactly as P2's run and
+    # negative logs cited the gate's debug binaries.
+    #
+    # File sizes on this target move in 4096-byte steps (the DIFFERENCES between
+    # probes are whole pages, the sizes are not); the section figures resolve to
+    # the byte. Both are printed, and the record says why.
+    #
+    # HOW THE CLASSIFICATION WORKS. Part 3 ADDED code (the cell reader), so a probe
+    # that links emend may legitimately differ in .text, and a single shift does not
+    # describe it. This log classifies from the bytes themselves: it reports, per
+    # section, how many bytes differ, and reaches one of four verdicts -- identical,
+    # build id alone, build id and panic-location line numbers, or code. A verdict
+    # of "code" then has to be accounted for by the source commits between the two
+    # measurements, which are printed with their line counts; a code verdict with no
+    # such commit is a FAILING check, because then the cause is unknown. The
+    # classifier has two controls in the same command form: a file against itself,
+    # which must read identical, and a file against a copy with one byte flipped
+    # inside .text, which must read as code.
+    #
+    # Usage: m1p3-p3-size.sh <phase commit> <record output file> > <scratch file>;
+    # the caller moves the output to records/logs/m1p3-p3/size.log and the record
+    # to records/size-m1p3-<utc-date>-<shortsha>.md.
+    #
+    # Every check with more than one condition is a named function, defined on the
+    # line before it and called through yn (specs/0001-bootstrap.md, "Rules for
+    # every phase"). Neither shape that file forbids appears here.
+    
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    RECORD_OUT=${2:?record output file required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    unset CARGO_TARGET_DIR
+    I686=i686-unknown-linux-musl
+    PART2_REC=records/size-m1p2-2026-09-18-14c2e14.md
+    PART2_LOG=records/logs/m1p2-p3/size.log
+    # The checkpoint ruling recorded in specs/0010, "Size".
+    CEILING=393216
+    SPENT_BEFORE=183980
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    hide() { sed "s#$T#<scratch>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    # static_i686_stripped <binary>: file(1) reports a stripped static 32-bit i386 ELF.
+    static_i686_stripped() {
+      local d
+      d=$(file -b "$1")
+      [[ "$d" == *"ELF 32-bit LSB executable, Intel i386"* ]] && [[ "$d" == *"statically linked"* ]] && [[ "$d" == *", stripped"* ]]
+    }
+    # section <binary> <name>: a section's size from `size -A`, or "error".
+    section() {
+      local out
+      out=$(size -A "$1" 2>/dev/null) || { printf 'error'; return; }
+      printf '%s\n' "$out" | awk -v s="$2" '$1 == s { print $2; found = 1 } END { if (!found) print "error" }'
+    }
+    
+    # specs/0001 "Rules for every phase" (M1 part 3 P2 ruling): the phase commit is
+    # GIVEN to the script and compared with HEAD, both printed, with a control that
+    # refuses a fabricated commit. A header that reads the commit from HEAD and
+    # prints it twice asserts nothing.
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() {
+      printf '%s' "$1" | LC_ALL=C /usr/bin/grep -qE '^[0-9a-f]{40}$'
+    }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    not_head() { if is_head "$1"; then return 1; else return 0; fi; }
+    if ! is_head "$C"; then echo "HEAD is not $C" >&2; exit 2; fi
+    entry_all=$(run_lines git status --porcelain)
+    entry_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p3-p3|records/size-m1p3-|records/m1p3-p3-)' git status --porcelain)
+    entry_clean() {
+      [ "$entry_all" != error ] && [ "$entry_log" != error ] && [ "$entry_all" = "$entry_log" ]
+    }
+    if ! entry_clean; then echo "the working tree holds changes outside this phase's logs" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 3 P3 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn is_head "$C")"
+    check "control: the same comparison refuses the null commit" "$(yn not_head "$NULL_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" \
+      "$(yn not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo "phase: Milestone 1 part 3 P3 (specs/0010-reading-cells.md) size.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0001 "Rules for every phase": every sha256 a log cites, a superseded
+      # attempt's included, is PRINTED BY A COMMAND run over a file that exists at
+      # run time, never typed from memory.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR"
+    echo "at entry: status lines $entry_all, all of them this phase's logs"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## toolchain"
+    RUSTC=$(rustc --version)
+    CARGO=$(cargo --version)
+    echo "$RUSTC"
+    echo "$CARGO"
+    echo "installed targets for the pinned toolchain:"
+    rustup target list --installed | sed 's/^/    /'
+    echo "command: size --version"
+    size --version | head -1 | sed 's/^/    /'
+    
+    echo
+    echo "## manifests at $C"
+    for f in Cargo.toml tools/size-probe/Cargo.toml crates/emend/Cargo.toml; do
+      echo "$f (sha256 $(git show "$C:$f" | sha256sum | cut -d' ' -f1)):"
+      git show "$C:$f" | sed 's/^/    /'
+    done
+    ZIP_V=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' Cargo.lock)
+    QX_V=$(awk '$0 == "name = \"quick-xml\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' Cargo.lock)
+    echo "Cargo.lock: zip $ZIP_V; quick-xml $QX_V"
+    check "zip in Cargo.lock is 8.6.0" "$(yn [ "$ZIP_V" = 8.6.0 ])"
+    check "quick-xml in Cargo.lock is 0.42.0" "$(yn [ "$QX_V" = 0.42.0 ])"
+    
+    echo
+    echo "## dependency trees, by feature"
+    tree_count() {
+      # tree_count <features or empty> <crate>: lines naming that crate in the
+      # normal-edge tree, or "error" if cargo tree failed.
+      local out rc
+      if [ -n "$1" ]; then
+        out=$(cargo tree -p size-probe --features "$1" -e normal --prefix none --target "$I686" --offline 2>/dev/null); rc=$?
+      else
+        out=$(cargo tree -p size-probe -e normal --prefix none --target "$I686" --offline 2>/dev/null); rc=$?
+      fi
+      [ "$rc" -eq 0 ] || { printf 'error'; return; }
+      printf '%s\n' "$out" | awk -v c="$2" '$1 == c { n++ } END { print n + 0 }'
+    }
+    for feat in "" xml emend emend,xml; do
+      label=${feat:-none}
+      echo "command: cargo tree -p size-probe ${feat:+--features $feat} -e normal --prefix none --target $I686 --offline"
+      if [ -n "$feat" ]; then
+        cargo tree -p size-probe --features "$feat" -e normal --prefix none --target "$I686" --offline 2>&1 | hide | sed 's/^/    /'
+      else
+        cargo tree -p size-probe -e normal --prefix none --target "$I686" --offline 2>&1 | hide | sed 's/^/    /'
+      fi
+      echo "  features $label: quick-xml lines $(tree_count "$feat" quick-xml); emend lines $(tree_count "$feat" emend)"
+    done
+    no_feature_is_bare() { [ "$(tree_count "" quick-xml)" = 0 ] && [ "$(tree_count "" emend)" = 0 ]; }
+    check "with no feature, neither quick-xml nor emend is in the tree (probe-zip is built as the baseline was)" \
+      "$(yn no_feature_is_bare)"
+    xml_alone_is_xml() { [ "$(tree_count xml quick-xml)" -ge 1 ] && [ "$(tree_count xml emend)" = 0 ]; }
+    check "with xml alone, quick-xml is in and emend is not (probe-zip-xml and probe-zip-xml-write are built as the baseline was)" \
+      "$(yn xml_alone_is_xml)"
+    # This check is NOT part 1's. Part 1 asserted that with the emend feature alone
+    # quick-xml was absent from the tree, which was true when emend depended on zip
+    # only. Part 2 P1 added quick-xml to the CORE, so quick-xml is now in the tree
+    # whenever emend is, brought by emend rather than by the probe's own optional
+    # dependency. Part 2 P3's size log is where that wording was corrected: its
+    # first run carried part 1's sentence and failed on it, the figures being right
+    # and the sentence stale (records/logs/m1p2-p3/size.log). The check asserts what
+    # the manifests say.
+    emend_alone_brings_quick_xml() {
+      [ "$(tree_count emend emend)" -ge 1 ] && [ "$(tree_count emend quick-xml)" -ge 1 ]
+    }
+    check "with emend alone, emend is in and quick-xml comes with it, the core's own dependency since part 2 P1" \
+      "$(yn emend_alone_brings_quick_xml)"
+    # And the property that distinguishes the two features after that change: the
+    # probe's own optional quick-xml is what feature xml adds, so with NO feature
+    # neither crate is there, which the check above this block asserts.
+    both_features_both_crates() { [ "$(tree_count emend,xml emend)" -ge 1 ] && [ "$(tree_count emend,xml quick-xml)" -ge 1 ]; }
+    check "with emend and xml, both are in (probe-emend-edit-xml and probe-emend-package-xml)" \
+      "$(yn both_features_both_crates)"
+    # The core's rule from CLAUDE.md, read off the tree rather than asserted: with
+    # emend and xml, the tree holds zip, quick-xml, emend and nothing else of
+    # emend's own making. flate2 and its zlib-rs backend are zip's, not emend's.
+    echo "command: cargo tree -p emend -e normal --prefix none --target $I686 --offline"
+    cargo tree -p emend -e normal --prefix none --target "$I686" --offline 2>&1 | hide | sed 's/^/    /'
+    core_tree_count() {
+      local out rc
+      out=$(cargo tree -p emend -e normal --prefix none --target "$I686" --offline 2>/dev/null); rc=$?
+      [ "$rc" -eq 0 ] || { printf 'error'; return; }
+      printf '%s\n' "$out" | awk -v c="$1" '$1 == c { n++ } END { print n + 0 }'
+    }
+    echo "  emend's own tree: zip lines $(core_tree_count zip); quick-xml lines $(core_tree_count quick-xml)"
+    core_has_both() { [ "$(core_tree_count zip)" -ge 1 ] && [ "$(core_tree_count quick-xml)" -ge 1 ]; }
+    check "the core's tree names zip and quick-xml" "$(yn core_has_both)"
+    
+    echo
+    echo "## the eight size builds for $I686"
+    echo "command: cargo clean -p size-probe --profile size --target $I686"
+    cargo clean -p size-probe --profile size --target "$I686" 2>&1 | sed 's/^/    /'
+    build() {
+      # build <bin> <features or empty>
+      local rc
+      echo "command: cargo build -p size-probe --bin $1 ${2:+--features $2 }--profile size --target $I686 --offline"
+      if [ -n "$2" ]; then
+        cargo build -p size-probe --bin "$1" --features "$2" --profile size --target "$I686" --offline >"$T/b-$1" 2>&1 </dev/null; rc=$?
+      else
+        cargo build -p size-probe --bin "$1" --profile size --target "$I686" --offline >"$T/b-$1" 2>&1 </dev/null; rc=$?
+      fi
+      echo "exit: $rc"
+      return "$rc"
+    }
+    brc=0
+    PROBES_TO_BUILD="probe-zip probe-zip-xml probe-zip-xml-write probe-emend-copy probe-emend-edit probe-emend-edit-xml probe-emend-package-xml probe-emend-cells-xml"
+    # features_of <probe>: the Cargo features that probe needs, as its
+    # required-features line in tools/size-probe/Cargo.toml says. ONE map, used by
+    # the build here and by the rebuild at the part 2 commit below: the first
+    # attempt of this log carried part 2's own list, which named five probes and
+    # sent every other emend probe to "emend" alone, so probe-zip-xml-write and
+    # probe-emend-package-xml failed to build with exit 101 in the scratch clone
+    # and two probes went unclassified. The two lists are now one function.
+    features_of() {
+      case $1 in
+        probe-zip) echo "" ;;
+        probe-zip-xml | probe-zip-xml-write) echo xml ;;
+        probe-emend-copy | probe-emend-edit) echo emend ;;
+        probe-emend-edit-xml | probe-emend-package-xml | probe-emend-cells-xml) echo emend,xml ;;
+        *) echo UNKNOWN ;;
+      esac
+    }
+    for b in $PROBES_TO_BUILD; do
+      build "$b" "$(features_of "$b")" || brc=1
+    done
+    check "all eight size builds exit 0" "$(yn [ "$brc" -eq 0 ])"
+    # A probe this map does not know would be built with the literal feature
+    # UNKNOWN and fail; the control says the map answers for every probe named,
+    # and refuses one it has never heard of.
+    unknown_feat=$(features_of probe-that-does-not-exist)
+    echo "  the feature map's answer for a probe it does not know: $unknown_feat"
+    map_knows_all() {
+      local b
+      for b in $PROBES_TO_BUILD; do
+        [ "$(features_of "$b")" != UNKNOWN ] || return 1
+      done
+      [ "$unknown_feat" = UNKNOWN ]
+    }
+    check "control: the feature map answers for all eight probes and refuses one it does not know" \
+      "$(yn map_knows_all)"
+    for b in $PROBES_TO_BUILD; do
+      warns=$(count_matches -E '^(warning|error)' "$T/b-$b")
+      echo "  $b: build output lines $(count_lines "$T/b-$b"), of them warnings or errors $warns"
+      check "$b built with no warning and no error line" "$(yn [ "$warns" = 0 ])"
+    done
+    
+    D=target/$I686/size
+    PROBES="probe-zip probe-zip-xml probe-zip-xml-write probe-emend-copy probe-emend-edit probe-emend-edit-xml probe-emend-package-xml probe-emend-cells-xml"
+    check "the probes built and the probes measured are the same list" \
+      "$(yn [ "$PROBES" = "$PROBES_TO_BUILD" ])"
+    # Every probe part 2's record tabulates. probe-emend-cells-xml is this part's
+    # own and has nothing earlier to compare with, which is why the two lists
+    # differ by exactly it, checked below rather than eyeballed.
+    EARLIER="probe-zip probe-zip-xml probe-zip-xml-write probe-emend-copy probe-emend-edit probe-emend-edit-xml probe-emend-package-xml"
+    declare -A FILE SECT TEXT SHA
+    echo
+    echo "## the figures"
+    for b in $PROBES; do
+      FILE[$b]=$(stat -c %s "$D/$b")
+      SECT[$b]=$(section "$D/$b" Total)
+      TEXT[$b]=$(section "$D/$b" .text)
+      SHA[$b]=$(sha256sum <"$D/$b" | cut -d' ' -f1)
+      echo "$D/$b: file ${FILE[$b]} bytes; sections ${SECT[$b]}; .text ${TEXT[$b]}; sha256 ${SHA[$b]}"
+      echo "    $(file -b "$D/$b" | sed 's/, BuildID\[[^]]*\]=[0-9a-f]*//')"
+      check "$b is a stripped static i386 ELF" "$(yn static_i686_stripped "$D/$b")"
+      figures_read() { [ "${SECT[$b]}" != error ] && [ "${TEXT[$b]}" != error ]; }
+      check "$b's section figures were read" "$(yn figures_read)"
+    done
+    
+    # File sizes on this target change in whole 4096-byte steps, but they are NOT
+    # whole multiples of a page: every probe carries the same remainder, so it is
+    # the DIFFERENCES that come in whole pages (part 1 P3's size log, which failed
+    # on the opposite claim before it was corrected).
+    REM=$((FILE[probe-zip] % 4096))
+    for b in $PROBES; do
+      echo "  $b: ${FILE[$b]} = $((FILE[$b] / 4096)) pages of 4096 bytes + $((FILE[$b] % 4096))"
+    done
+    same_remainder() {
+      local b
+      for b in $PROBES; do
+        [ $((FILE[$b] % 4096)) -eq "$REM" ] || return 1
+      done
+    }
+    check "all eight file sizes leave the same remainder modulo 4096, $REM bytes, so every difference between them is whole pages" \
+      "$(yn same_remainder)"
+    
+    echo
+    echo "## the seven earlier probes, against the part 2 size record"
+    # specs/0010, "Size": compare the seven earlier probes with the part 2 record
+    # and classify every difference. The figures come from the RECORD, which the
+    # spec names; the sha256s come from the log that wrote it, since a record
+    # carries no hashes. The commit both were measured at is read from the record
+    # rather than from its file name.
+    echo "command: read the figures from $PART2_REC (sha256 $(sha256sum <"$PART2_REC" | cut -d' ' -f1))"
+    echo "command: read the hashes from $PART2_LOG (sha256 $(sha256sum <"$PART2_LOG" | cut -d' ' -f1))"
+    PART2_AT=$(sed -n 's/^- Commit: \([0-9a-f]\{40\}\)$/\1/p' "$PART2_REC")
+    LOG_AT=$(sed -n 's/^about: M1 part 2 P3 phase commit \([0-9a-f]*\);.*/\1/p' "$PART2_LOG")
+    echo "  the record was measured at $PART2_AT"
+    echo "  the log was measured at    $LOG_AT"
+    check "the part 2 record names the commit it was measured at" "$(yn [ -n "$PART2_AT" ])"
+    check "the part 2 log was measured at the same commit as its record" "$(yn [ "$PART2_AT" = "$LOG_AT" ])"
+    declare -A WAS_FILE WAS_SECT WAS_TEXT WAS_SHA
+    for b in $EARLIER; do
+      # The record's row for this probe: the last three cells of its table row.
+      row=$(awk -F'|' -v p="\`$b\`" '$2 ~ /^ `probe-/ { gsub(/^ | $/, "", $2); if ($2 == p) { gsub(/ /, "", $4); gsub(/ /, "", $5); gsub(/ /, "", $6); print $4, $5, $6; exit } }' "$PART2_REC")
+      WAS_FILE[$b]=$(printf '%s\n' "$row" | awk '{ print $1 }')
+      WAS_SECT[$b]=$(printf '%s\n' "$row" | awk '{ print $2 }')
+      WAS_TEXT[$b]=$(printf '%s\n' "$row" | awk '{ print $3 }')
+      WAS_SHA[$b]=$(sed -n "s#^target/$I686/size/$b: file [0-9]* bytes; sections [0-9]*; \.text [0-9]*; sha256 \([0-9a-f]\{64\}\)\$#\1#p" "$PART2_LOG")
+      echo "  $b: then file ${WAS_FILE[$b]}, sections ${WAS_SECT[$b]}, .text ${WAS_TEXT[$b]}, sha256 ${WAS_SHA[$b]}"
+      echo "  $b: now  file ${FILE[$b]}, sections ${SECT[$b]}, .text ${TEXT[$b]}, sha256 ${SHA[$b]}"
+      read_all() {
+        [ -n "${WAS_FILE[$b]}" ] && [ -n "${WAS_SECT[$b]}" ] && [ -n "${WAS_TEXT[$b]}" ] &&
+          [ "${#WAS_SHA[$b]}" -eq 64 ]
+      }
+      check "$b: the part 2 figures and hash were read" "$(yn read_all)"
+    done
+    
+    # What could have moved these figures between the two measurements, listed from
+    # git rather than assumed: emend's own source, each probe's own source, and the
+    # workspace manifest and lock file, since the size profile and the dependency
+    # versions live there. A probe is accounted for by the commits touching the
+    # paths that are ITS OWN causes, which is why this is per probe: probe-zip
+    # links no emend, so an emend commit explains nothing about it.
+    echo "  what could move these figures, from git:"
+    for paths in crates/emend/src tools/size-probe/src Cargo.toml Cargo.lock; do
+      echo "command: git log --oneline $PART2_AT..$C -- $paths"
+      git log --oneline "$PART2_AT..$C" -- "$paths" | sed 's/^/    /'
+      echo "command: git diff --stat $PART2_AT..$C -- $paths"
+      git diff --stat "$PART2_AT..$C" -- "$paths" | sed 's/^/    /'
+    done
+    # cause_paths <probe>: the paths whose change would explain that probe moving.
+    cause_paths() {
+      echo Cargo.toml Cargo.lock "tools/size-probe/src/bin/$1.rs"
+      case $1 in
+        probe-emend-*) echo crates/emend/src ;;
+      esac
+    }
+    # cause_commits <probe>: how many commits between the two measurements touched
+    # them, or "error" if git could not be read.
+    cause_commits() {
+      # shellcheck disable=SC2046
+      run_lines git log --format=%H "$PART2_AT..$C" -- $(cause_paths "$1")
+    }
+    EMEND_COMMITS=$(run_lines git log --format=%H "$PART2_AT..$C" -- crates/emend/src)
+    echo "  commits that touched crates/emend/src between the two measurements: $EMEND_COMMITS"
+    check "the count of emend source commits was read" "$(yn [ "$EMEND_COMMITS" != error ])"
+    declare -A CAUSES
+    for b in $EARLIER; do
+      CAUSES[$b]=$(cause_commits "$b")
+      echo "  $b: its own causes are $(cause_paths "$b" | tr '\n' ' '), touched by ${CAUSES[$b]} commits between the two measurements"
+      check "$b: the count of commits that could have moved it was read" "$(yn [ "${CAUSES[$b]}" != error ])"
+    done
+    
+    # The classifier. It reads the ELF32 section table of both files and reports,
+    # per section, how many bytes differ, then reaches one of four verdicts.
+    cat >"$T/classify.py" <<'CLASSIFY_PY'
+    import struct, sys
+    
+    old = open(sys.argv[1], "rb").read()
+    new = open(sys.argv[2], "rb").read()
+    
+    
+    def sections(data):
+        shoff, = struct.unpack_from("<I", data, 32)
+        shentsize, shnum, shstrndx = struct.unpack_from("<HHH", data, 46)
+        heads = [struct.unpack_from("<IIIIII", data, shoff + i * shentsize) for i in range(shnum)]
+        names_off = heads[shstrndx][4]
+        out = {}
+        for h in heads:
+            end = data.index(b"\0", names_off + h[0])
+            out[data[names_off + h[0]:end].decode()] = (h[4], h[5])
+        return out
+    
+    
+    so, sn = sections(old), sections(new)
+    same_length = len(old) == len(new)
+    same_layout = so == sn
+    print("same length: %s" % ("yes" if same_length else "no"))
+    print("same section layout: %s" % ("yes" if same_layout else "no"))
+    diffs = [i for i in range(min(len(old), len(new))) if old[i] != new[i]]
+    print("differing bytes: %d" % len(diffs))
+    
+    
+    def where(i):
+        for name, (off, size) in sn.items():
+            if name and off <= i < off + size:
+                return name
+        return "no section"
+    
+    
+    per = {}
+    for i in diffs:
+        per[where(i)] = per.get(where(i), 0) + 1
+    for name in sorted(per):
+        print("differing bytes in %s: %d" % (name, per[name]))
+    touched = set(per)
+    
+    # The 4-byte slots in .data.rel.ro that changed, with their deltas: a
+    # panic-location line number moves as a small signed change in one slot.
+    rel = sn.get(".data.rel.ro")
+    deltas = {}
+    if rel is not None:
+        slots = sorted({i - (i - rel[0]) % 4 for i in diffs if rel[0] <= i < rel[0] + rel[1]})
+        for s in slots:
+            if s + 4 <= min(len(old), len(new)):
+                d = struct.unpack_from("<I", new, s)[0] - struct.unpack_from("<I", old, s)[0]
+                deltas[d] = deltas.get(d, 0) + 1
+        print(".data.rel.ro slots that changed: %d" % len(slots))
+        shown = sorted(deltas.items(), key=lambda kv: -kv[1])[:8]
+        print(".data.rel.ro slot deltas, commonest first: %s"
+              % (" ".join("%+d x%d" % (d, n) for d, n in shown) or "none"))
+    
+    if not diffs and same_length and same_layout:
+        verdict = "identical"
+    elif same_length and same_layout and touched <= {".note.gnu.build-id"}:
+        verdict = "build id alone"
+    elif same_length and same_layout and touched <= {".note.gnu.build-id", ".data.rel.ro"}:
+        verdict = "build id and panic-location line numbers"
+    else:
+        verdict = "code"
+    print("verdict: %s" % verdict)
+    CLASSIFY_PY
+    
+    # The classifier's own controls, in the same command form it is used in: a file
+    # against itself must read identical, and a copy with ONE byte flipped inside
+    # .text must read as code. Without the second, a classifier that never looked
+    # at .text would pass everything as a build id.
+    cp "$D/probe-zip" "$T/ctl-same"
+    python3 "$T/classify.py" "$D/probe-zip" "$T/ctl-same" >"$T/ctl-same.out" 2>&1
+    sed 's/^/    control, a file against itself: /' "$T/ctl-same.out"
+    check "control: a file against itself reads identical" \
+      "$(yn [ "$(count_matches -Fx 'verdict: identical' "$T/ctl-same.out")" = 1 ])"
+    cp "$D/probe-zip" "$T/ctl-flip"
+    python3 - "$T/ctl-flip" <<'FLIP_PY'
+    import struct, sys
+    
+    p = sys.argv[1]
+    data = bytearray(open(p, "rb").read())
+    shoff, = struct.unpack_from("<I", data, 32)
+    shentsize, shnum, shstrndx = struct.unpack_from("<HHH", data, 46)
+    heads = [struct.unpack_from("<IIIIII", data, shoff + i * shentsize) for i in range(shnum)]
+    names_off = heads[shstrndx][4]
+    off = None
+    for h in heads:
+        end = data.index(b"\0", names_off + h[0])
+        if data[names_off + h[0]:end] == b".text":
+            off = h[4] + 16
+    if off is None:
+        raise SystemExit("no .text section")
+    data[off] ^= 0xFF
+    open(p, "wb").write(data)
+    print("one byte flipped 16 bytes into .text")
+    FLIP_PY
+    python3 "$T/classify.py" "$D/probe-zip" "$T/ctl-flip" >"$T/ctl-flip.out" 2>&1
+    sed 's/^/    control, one byte flipped in .text: /' "$T/ctl-flip.out"
+    flip_is_code() {
+      [ "$(count_matches -Fx 'verdict: code' "$T/ctl-flip.out")" = 1 ] &&
+        [ "$(count_matches -Fx 'differing bytes in .text: 1' "$T/ctl-flip.out")" = 1 ]
+    }
+    check "control: one byte flipped in .text reads as code, and is counted in .text" "$(yn flip_is_code)"
+    
+    # The five earlier probes rebuilt at the part 2 commit, in a scratch clone. The
+    # rebuild is only trusted once it reproduces the part 2 log's own sha256, which
+    # is what makes the comparison a comparison with that record and not with a
+    # build of this session's making.
+    O=$T/part2
+    git clone --quiet --shared "$MAIN" "$O" 2>/dev/null
+    git -C "$O" checkout --quiet "$PART2_AT"
+    echo "command: in a scratch clone at $PART2_AT, cargo build -p size-probe --bin <probe> [--features ...] --profile size --target $I686 --offline"
+    declare -A VERDICT
+    for b in $EARLIER; do
+      feat=$(features_of "$b")
+      if [ -n "$feat" ]; then
+        ( cd "$O" && CARGO_TARGET_DIR="$O/target" cargo build -p size-probe --bin "$b" --features "$feat" \
+            --profile size --target "$I686" --offline ) >"$T/part2-$b.out" 2>&1 </dev/null
+      else
+        ( cd "$O" && CARGO_TARGET_DIR="$O/target" cargo build -p size-probe --bin "$b" \
+            --profile size --target "$I686" --offline ) >"$T/part2-$b.out" 2>&1 </dev/null
+      fi
+      rc=$?
+      then_bin=$O/target/$I686/size/$b
+      then_sha=$(sha256sum <"$then_bin" 2>/dev/null | cut -d' ' -f1)
+      then_file=$(stat -c %s "$then_bin" 2>/dev/null || echo error)
+      echo "  $b rebuilt at $PART2_AT: build exit $rc; file $then_file; sha256 $then_sha"
+      check "$b rebuilt at the part 2 commit reproduces the part 2 log's sha256" \
+        "$(yn [ "$then_sha" = "${WAS_SHA[$b]}" ])"
+      python3 "$T/classify.py" "$then_bin" "$D/$b" >"$T/cl-$b.out" 2>&1
+      sed "s/^/    $b: /" "$T/cl-$b.out"
+      VERDICT[$b]=$(sed -n 's/^verdict: \(.*\)$/\1/p' "$T/cl-$b.out")
+      echo "  $b: classified as ${VERDICT[$b]}"
+      check "$b's difference was classified" "$(yn [ -n "${VERDICT[$b]}" ])"
+      # A code verdict must be accounted for by a commit that touched one of THIS
+      # probe's causes; a code verdict with none would be a difference whose cause
+      # this log cannot name, which is a finding, not a pass.
+      accounted() {
+        [ "${VERDICT[$b]}" != code ] || { [ "${CAUSES[$b]}" != error ] && [ "${CAUSES[$b]}" -gt 0 ]; }
+      }
+      check "$b: if the verdict is code, a commit that could have caused it is named above" \
+        "$(yn accounted)"
+    done
+    FIG_UNCHANGED=0
+    figures_kept() {
+      [ "${WAS_FILE[$1]}" = "${FILE[$1]}" ] && [ "${WAS_SECT[$1]}" = "${SECT[$1]}" ] &&
+        [ "${WAS_TEXT[$1]}" = "${TEXT[$1]}" ]
+    }
+    for b in $EARLIER; do
+      if figures_kept "$b"; then
+        FIG_UNCHANGED=$((FIG_UNCHANGED + 1))
+        echo "  $b keeps all three part 2 figures"
+      else
+        echo "  $b moved: file $((FILE[$b] - WAS_FILE[$b])), sections $((SECT[$b] - WAS_SECT[$b])), .text $((TEXT[$b] - WAS_TEXT[$b]))"
+      fi
+    done
+    echo "  of the seven earlier probes, $FIG_UNCHANGED keep every part 2 figure"
+    
+    echo
+    echo "## the figures specs/0010 asks for"
+    BUDGET=$CEILING
+    JUDGED_SECT=$((SECT[probe-emend-cells-xml] - SECT[probe-zip-xml]))
+    JUDGED_FILE=$((FILE[probe-emend-cells-xml] - FILE[probe-zip-xml]))
+    JUDGED_TEXT=$((TEXT[probe-emend-cells-xml] - TEXT[probe-zip-xml]))
+    OVER_WRITE_SECT=$((SECT[probe-emend-cells-xml] - SECT[probe-zip-xml-write]))
+    OVER_WRITE_FILE=$((FILE[probe-emend-cells-xml] - FILE[probe-zip-xml-write]))
+    OVER_WRITE_TEXT=$((TEXT[probe-emend-cells-xml] - TEXT[probe-zip-xml-write]))
+    PART3_SECT=$((SECT[probe-emend-cells-xml] - SECT[probe-emend-package-xml]))
+    PART3_FILE=$((FILE[probe-emend-cells-xml] - FILE[probe-emend-package-xml]))
+    PART3_TEXT=$((TEXT[probe-emend-cells-xml] - TEXT[probe-emend-package-xml]))
+    ENCODER_SECT=$((SECT[probe-zip-xml-write] - SECT[probe-zip-xml]))
+    ENCODER_FILE=$((FILE[probe-zip-xml-write] - FILE[probe-zip-xml]))
+    ENCODER_TEXT=$((TEXT[probe-zip-xml-write] - TEXT[probe-zip-xml]))
+    echo "  1. the budget figure, probe-emend-cells-xml over probe-zip-xml:"
+    echo "     sections $JUDGED_SECT, file $JUDGED_FILE, .text $JUDGED_TEXT; the ceiling is $BUDGET"
+    # HEADROOM IS A SECTION FIGURE ONLY. The checkpoint ruling states the ceiling
+    # in section bytes, so the ceiling less the FILE delta subtracts one unit from
+    # another and is not a headroom the ruling defines. Both independent checks of
+    # this phase raised it against the earlier run of this log, which printed the
+    # pair and compared both against the ceiling. The file delta is printed beside
+    # it, which is what "Size" asks for, and nothing is subtracted from it.
+    echo "     headroom under the ceiling, in section bytes: $((BUDGET - JUDGED_SECT))"
+    echo "     the same figure by file size, beside it and not a headroom: $JUDGED_FILE"
+    echo "  2. the same probe over probe-zip-xml-write, the core's cost to a consumer that already links the writer:"
+    echo "     sections $OVER_WRITE_SECT, file $OVER_WRITE_FILE, .text $OVER_WRITE_TEXT"
+    echo "  3. part 3's own cost, probe-emend-cells-xml over probe-emend-package-xml:"
+    echo "     sections $PART3_SECT, file $PART3_FILE, .text $PART3_TEXT"
+    echo "  beside them, the encoder's cost the part 2 record's stored-replacement note needs,"
+    echo "  probe-zip-xml-write over probe-zip-xml: sections $ENCODER_SECT, file $ENCODER_FILE, .text $ENCODER_TEXT"
+    check "the budget figure is under $BUDGET section bytes, the unit the ruling sets" \
+      "$(yn [ "$JUDGED_SECT" -lt "$BUDGET" ])"
+    # THE SUBTRACTION A READER WILL TRY, and why it does not come out. The ruling
+    # recorded what parts 1 and 2 had spent, measured at the part 2 commit; part
+    # 3's own cost is measured over probe-emend-package-xml AT THIS COMMIT, and
+    # that probe is larger than it was then. So the ruling's remaining figure less
+    # part 3's own cost differs from the headroom above by exactly that drift,
+    # which belongs to the earlier probes and not to part 3's spend. Both
+    # independent checks of this phase asked for this reconciliation: the earlier
+    # run of this log printed the two figures and never joined them.
+    PKG_DRIFT=$((SECT[probe-emend-package-xml] - WAS_SECT[probe-emend-package-xml]))
+    SPENT_NOW=$((SPENT_BEFORE + PKG_DRIFT))
+    echo "  the reconciliation a reader's own subtraction needs:"
+    echo "    the ruling's spend by parts 1 and 2: $SPENT_BEFORE"
+    echo "    probe-emend-package-xml's drift since the part 2 commit: $PKG_DRIFT"
+    echo "    so parts 1 and 2 measured at THIS commit: $SPENT_NOW"
+    echo "    $SPENT_NOW + part 3's own $PART3_SECT = $((SPENT_NOW + PART3_SECT)), the budget figure $JUDGED_SECT"
+    echo "    and the ruling's remaining $((BUDGET - SPENT_BEFORE)) less part 3's own $PART3_SECT is"
+    echo "    $((BUDGET - SPENT_BEFORE - PART3_SECT)), which is the headroom above plus the same drift"
+    reconciles() { [ "$((SPENT_NOW + PART3_SECT))" = "$JUDGED_SECT" ]; }
+    check "the ruling's spend, the drift and part 3's own cost add up to the budget figure" \
+      "$(yn reconciles)"
+    # The control, in the same command form: the same sum WITHOUT the drift must
+    # not equal the budget figure, so the check above is not one that would pass
+    # whatever the drift were.
+    reconciles_without_drift() { [ "$((SPENT_BEFORE + PART3_SECT))" = "$JUDGED_SECT" ]; }
+    no_reconcile_without_drift() { ! reconciles_without_drift; }
+    check "control: the same sum without the drift does not reach the budget figure" \
+      "$(yn no_reconcile_without_drift)"
+    check "the cells probe is larger than probe-emend-package-xml, by sections" "$(yn [ "$PART3_SECT" -gt 0 ])"
+    check "the cells probe is larger than probe-zip-xml-write, by sections" "$(yn [ "$OVER_WRITE_SECT" -gt 0 ])"
+    check "the writer baseline is larger than probe-zip-xml, by sections (the encoder is in it)" \
+      "$(yn [ "$ENCODER_SECT" -gt 0 ])"
+    
+    # The checkpoint ruling's own arithmetic, checked rather than quoted. It says
+    # parts 1 and 2 spent 183980 and that 209236 of the 393216 remain. The 183980
+    # is part 2's budget figure, which is in part 2's record and is read from it
+    # here, so a mistyped constant in this script fails instead of passing.
+    WAS_BUDGET=$(sed -n 's/^| the budget, `probe-emend-package-xml` over `probe-zip-xml` | \([0-9]*\) |.*/\1/p' "$PART2_REC")
+    echo "  the checkpoint ruling (specs/0010, \"Size\"): ceiling $CEILING, parts 1 and 2 spent $SPENT_BEFORE"
+    echo "  part 2's record's own budget figure, read from $PART2_REC: $WAS_BUDGET"
+    spent_matches_record() { [ -n "$WAS_BUDGET" ] && [ "$WAS_BUDGET" = "$SPENT_BEFORE" ]; }
+    check "the figure the checkpoint ruling calls spent is part 2's own recorded budget figure" \
+      "$(yn spent_matches_record)"
+    echo "  what parts 1 to 3 have spent: $JUDGED_SECT section bytes; the ruling's remaining $((CEILING - SPENT_BEFORE)) becomes $((CEILING - JUDGED_SECT))"
+    echo "  part 3's share of the spend: $PART3_SECT of $JUDGED_SECT"
+    ruling_remaining_checks() { [ $((CEILING - SPENT_BEFORE)) -eq 209236 ]; }
+    check "the ruling's own subtraction holds: $CEILING minus $SPENT_BEFORE is 209236" \
+      "$(yn ruling_remaining_checks)"
+    # A growth this part did not cause would show as part 3's cost exceeding the
+    # whole spend's growth; the two are printed together so the record can be read
+    # without the reader doing the arithmetic.
+    part3_within_spend() { [ "$PART3_SECT" -le "$JUDGED_SECT" ]; }
+    check "part 3's own cost is no larger than the whole budget figure" "$(yn part3_within_spend)"
+    
+    echo
+    echo "## the eight probes on a generated package"
+    # A fictional package, generated here: the smallest thing that has a workbook,
+    # a calculation chain with its override and relationship, two parts the recipe
+    # must not touch, and, added for this part, a shared strings table and a sheet
+    # with cells to read. The cells are two numbers and two shared strings, so the
+    # cells probe exercises the float parser and the table lookup rather than
+    # counting an empty sheet. No corpus file is read by this log.
+    python3 - "$T/probe.xlsx" <<'FIXTURE_PY'
+    import sys, zipfile
+    
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '<Override PartName="/xl/calcChain.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml"/>'
+          '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+          '</Types>')
+    ROOT_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                 '</Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+          'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+          '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    WB_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+               '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+               '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+               '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain" Target="calcChain.xml"/>'
+               '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
+               '</Relationships>')
+    SHEET = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+             '<sheetData><row r="1"><c r="A1"><v>1.5</v></c><c r="B1" t="s"><v>0</v></c>'
+             '<c r="C1" t="s"><v>1</v></c><c r="D1"><v>2.25</v></c>'
+             '</row></sheetData></worksheet>')
+    # Two items, of five and two bytes. The cells probe's `text` figure covers
+    # EVERY cell, because `resolve` answers with a non-shared cell's own value: 5
+    # and 2 for the items, plus "1.5" and "2.25", is 14.
+    SST = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+           '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="2" uniqueCount="2">'
+           '<si><t>alpha</t></si><si><t>bb</t></si></sst>')
+    STYLES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+              '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>')
+    CHAIN = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+             '<calcChain xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+             '<c r="A1" i="1"/></calcChain>')
+    
+    with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", CT)
+        z.writestr("_rels/.rels", ROOT_RELS)
+        z.writestr("xl/workbook.xml", WB)
+        z.writestr("xl/_rels/workbook.xml.rels", WB_RELS)
+        z.writestr("xl/worksheets/sheet1.xml", SHEET)
+        z.writestr("xl/sharedStrings.xml", SST)
+        z.writestr("xl/styles.xml", STYLES)
+        z.writestr("xl/calcChain.xml", CHAIN)
+    print("generated: 8 entries, a workbook with one sheet of four cells, a shared "
+          "strings table of two items, a chain with its override and relationship")
+    FIXTURE_PY
+    THEME_NAME=/xl/theme/theme1.xml
+    THEME_TYPE=application/vnd.openxmlformats-officedocument.theme+xml
+    "$D/probe-zip" "$T/probe.xlsx" >"$T/o-zip" 2>&1; R_ZIP=$?
+    "$D/probe-zip-xml" "$T/probe.xlsx" xl/workbook.xml >"$T/o-zipxml" 2>&1; R_ZIPXML=$?
+    "$D/probe-zip-xml-write" "$T/probe.xlsx" xl/workbook.xml "$T/written.zip" >"$T/o-write" 2>&1; R_WRITE=$?
+    "$D/probe-emend-copy" "$T/probe.xlsx" "$T/copy.xlsx" >"$T/o-copy" 2>&1; R_COPY=$?
+    "$D/probe-emend-edit" "$T/probe.xlsx" "$T/edit.xlsx" '[Content_Types].xml' xl/styles.xml added.xml >"$T/o-edit" 2>&1; R_EDIT=$?
+    "$D/probe-emend-edit-xml" "$T/probe.xlsx" "$T/editx.xlsx" '[Content_Types].xml' xl/styles.xml added.xml >"$T/o-editx" 2>&1; R_EDITX=$?
+    "$D/probe-emend-package-xml" "$T/probe.xlsx" "$T/pkg.xlsx" xl/worksheets/sheet1.xml "$THEME_NAME" "$THEME_TYPE" >"$T/o-pkg" 2>&1; R_PKG=$?
+    "$D/probe-emend-cells-xml" "$T/probe.xlsx" "$T/cells.xlsx" xl/worksheets/sheet1.xml "$THEME_NAME" "$THEME_TYPE" xl/worksheets/sheet1.xml >"$T/o-cells" 2>&1; R_CELLS=$?
+    declare -A RC
+    RC[zip]=$R_ZIP; RC[zipxml]=$R_ZIPXML; RC[write]=$R_WRITE; RC[copy]=$R_COPY
+    RC[edit]=$R_EDIT; RC[editx]=$R_EDITX; RC[pkg]=$R_PKG; RC[cells]=$R_CELLS
+    for n in zip zipxml write copy edit editx pkg cells; do
+      echo "  run $n (exit ${RC[$n]}):"
+      hide <"$T/o-$n" | sed 's/^/    /'
+    done
+    zip_prints_count() { [ "$R_ZIP" -eq 0 ] && [ "$(cat "$T/o-zip")" = "entries 8" ]; }
+    check "probe-zip prints the entry count" "$(yn zip_prints_count)"
+    zipxml_prints_both() { [ "$R_ZIPXML" -eq 0 ] && [ "$(cat "$T/o-zipxml")" = "$(printf 'entries 8\nelements 3')" ]; }
+    check "probe-zip-xml prints the entry count and the workbook's three elements" "$(yn zipxml_prints_both)"
+    write_prints_both() { [ "$R_WRITE" -eq 0 ] && [ "$(cat "$T/o-write")" = "$(printf 'entries 8\nelements 3')" ]; }
+    check "probe-zip-xml-write prints the same two counts" "$(yn write_prints_both)"
+    python3 - "$T/written.zip" >"$T/o-written-names" 2>&1 <<'PY'
+    import sys, zipfile
+    z = zipfile.ZipFile(sys.argv[1])
+    i = z.infolist()
+    print("%d %s %d" % (len(i), i[0].filename, i[0].compress_type))
+    PY
+    echo "  the archive probe-zip-xml-write wrote, read by python's zipfile: $(cat "$T/o-written-names")"
+    write_wrote_deflated() { [ "$R_WRITE" -eq 0 ] && [ "$(cat "$T/o-written-names")" = "1 xl/workbook.xml 8" ]; }
+    check "probe-zip-xml-write wrote one deflated entry through the zip crate's writer" "$(yn write_wrote_deflated)"
+    copy_identical() { [ "$R_COPY" -eq 0 ] && cmp -s "$T/probe.xlsx" "$T/copy.xlsx"; }
+    check "probe-emend-copy exits 0 and its copy is byte-identical" "$(yn copy_identical)"
+    python3 - "$T/edit.xlsx" >"$T/o-edit-names" 2>&1 <<'PY'
+    import sys, zipfile
+    print(" ".join(sorted(zipfile.ZipFile(sys.argv[1]).namelist())))
+    PY
+    echo "  names in the edited archive: $(cat "$T/o-edit-names")"
+    edit_did_three() {
+      [ "$R_EDIT" -eq 0 ] &&
+        [ "$(cat "$T/o-edit-names")" = "$(printf '%s' '[Content_Types].xml _rels/.rels added.xml xl/_rels/workbook.xml.rels xl/calcChain.xml xl/sharedStrings.xml xl/workbook.xml xl/worksheets/sheet1.xml')" ]
+    }
+    check "probe-emend-edit exits 0; the replaced entry stays, styles.xml goes, added.xml appears" \
+      "$(yn edit_did_three)"
+    editx_same_archive() { [ "$R_EDITX" -eq 0 ] && cmp -s "$T/edit.xlsx" "$T/editx.xlsx"; }
+    check "probe-emend-edit-xml writes the same archive as probe-emend-edit" "$(yn editx_same_archive)"
+    
+    # The package probe is the only place the whole layer runs on 32-bit in a
+    # release build, so its output is checked part by part, not just by exit status.
+    python3 - "$T/probe.xlsx" "$T/pkg.xlsx" "$THEME_NAME" >"$T/o-pkg-check" 2>&1 <<'PKG_PY'
+    import sys, zipfile
+    
+    src, out, theme = zipfile.ZipFile(sys.argv[1]), zipfile.ZipFile(sys.argv[2]), sys.argv[3]
+    sn, on = src.namelist(), out.namelist()
+    print("entries in: %d; entries out: %d" % (len(sn), len(on)))
+    print("order preserved among the entries that stayed: %s"
+          % ("yes" if [n for n in sn if n in on] == on else "no"))
+    print("the chain's entry is gone: %s" % ("yes" if "xl/calcChain.xml" not in on else "no"))
+    ct = out.read("[Content_Types].xml").decode()
+    print("the chain's override is gone: %s" % ("yes" if "calcChain.xml" not in ct else "no"))
+    print("the theme override is there: %s" % ("yes" if ('PartName="%s"' % theme) in ct else "no"))
+    rels = out.read("xl/_rels/workbook.xml.rels").decode()
+    print("the chain's relationship is gone: %s" % ("yes" if "calcChain" not in rels else "no"))
+    print("a theme relationship is there: %s"
+          % ("yes" if "relationships/theme" in rels and ('Target="%s"' % theme) in rels else "no"))
+    # Every other part, the REPLACED one included: it is replaced by its own bytes
+    # passed through the token stream, so it must come back byte for byte too, and
+    # a stream that did not reproduce it exactly would show up right here.
+    rest = [n for n in on if n not in ("[Content_Types].xml", "xl/_rels/workbook.xml.rels")]
+    same = [n for n in rest if src.read(n) == out.read(n)]
+    print("parts outside the two the recipe rewrites: %d, of them byte-identical to the input: %d"
+          % (len(rest), len(same)))
+    PKG_PY
+    sed 's/^/    /' "$T/o-pkg-check"
+    # The replaced sheet is richer than part 2's: worksheet, sheetData, row, four
+    # `<c>` and their four `<v>` is eleven elements.
+    pkg_prints_counts() { [ "$R_PKG" -eq 0 ] && [ "$(cat "$T/o-pkg")" = "$(printf 'sheets 1\nelements 11')" ]; }
+    check "probe-emend-package-xml exits 0 and prints the sheet count and the replaced part's elements" \
+      "$(yn pkg_prints_counts)"
+    pkg_recipe_held() {
+      [ "$(count_matches -Fx "the chain's entry is gone: yes" "$T/o-pkg-check")" = 1 ] &&
+        [ "$(count_matches -Fx "the chain's override is gone: yes" "$T/o-pkg-check")" = 1 ] &&
+        [ "$(count_matches -Fx "the chain's relationship is gone: yes" "$T/o-pkg-check")" = 1 ]
+    }
+    check "the recipe removed the chain's entry, its override and its relationship" "$(yn pkg_recipe_held)"
+    pkg_additions_held() {
+      [ "$(count_matches -Fx "the theme override is there: yes" "$T/o-pkg-check")" = 1 ] &&
+        [ "$(count_matches -Fx "a theme relationship is there: yes" "$T/o-pkg-check")" = 1 ]
+    }
+    check "the override and the relationship named on the command line were added" "$(yn pkg_additions_held)"
+    pkg_rest_untouched() {
+      [ "$(count_matches -Fx "entries in: 8; entries out: 7" "$T/o-pkg-check")" = 1 ] &&
+        [ "$(count_matches -Fx "order preserved among the entries that stayed: yes" "$T/o-pkg-check")" = 1 ] &&
+        [ "$(count_matches -Fx "parts outside the two the recipe rewrites: 5, of them byte-identical to the input: 5" "$T/o-pkg-check")" = 1 ]
+    }
+    check "every other part came through unchanged, in order" "$(yn pkg_rest_untouched)"
+    
+    # The cells probe: its own output, checked figure by figure against what the
+    # fixture was built to contain rather than against whatever it printed.
+    # sheets 1; elements 11, the replaced sheet's; items 2; cells 4; sum 3.75,
+    # which is 1.5 + 2.25 and nothing from the two shared cells; text 14.
+    cells_prints_counts() {
+      [ "$R_CELLS" -eq 0 ] &&
+        [ "$(cat "$T/o-cells")" = "$(printf 'sheets 1\nelements 11\nitems 2\ncells 4\nsum 3.75\ntext 14')" ]
+    }
+    check "probe-emend-cells-xml exits 0 and prints the six counts the fixture was built for" \
+      "$(yn cells_prints_counts)"
+    cells_copy_matches_pkg() { [ "$R_CELLS" -eq 0 ] && cmp -s "$T/pkg.xlsx" "$T/cells.xlsx"; }
+    check "the cells probe writes the same package the package probe writes, so its reads changed nothing" \
+      "$(yn cells_copy_matches_pkg)"
+    
+    echo
+    echo "## the float parser's own cost"
+    # specs/0010, "Size": one variant whose sum is a byte count of the values
+    # instead of number(), built in a scratch copy of the tree as part 1 P3 built
+    # its sort candidates, so the float parser's cost is a measurement and not a
+    # guess. The variant is not committed and exists only inside this log's run.
+    V=$T/variant
+    git clone --quiet --shared "$MAIN" "$V" 2>/dev/null
+    git -C "$V" checkout --quiet "$C"
+    echo "command: in a scratch clone at $C, replace the number() arm of probe-emend-cells-xml and build it"
+    python3 - "$V/tools/size-probe/src/bin/probe-emend-cells-xml.rs" >"$T/o-variant-edit" 2>&1 <<'VARIANT_PY'
+    import sys
+    
+    path = sys.argv[1]
+    source = open(path).read()
+    OLD = """        if let Some(number) = cell.number() {
+                sum += number;
+            }"""
+    NEW = """        if let Some(value) = cell.value.as_deref() {
+                sum += value.len() as f64;
+            }"""
+    if source.count(OLD) != 1:
+        raise SystemExit("the number() arm is not in the probe exactly once")
+    open(path, "w").write(source.replace(OLD, NEW))
+    print("edited: the variant counts the values' bytes where the probe calls number()")
+    VARIANT_PY
+    sed 's/^/    /' "$T/o-variant-edit"
+    check "the variant's one edit was made" \
+      "$(yn [ "$(count_matches -Fx 'edited: the variant counts the values'"'"' bytes where the probe calls number()' "$T/o-variant-edit")" = 1 ])"
+    ( cd "$V" && CARGO_TARGET_DIR="$V/target" cargo build -p size-probe --bin probe-emend-cells-xml \
+        --features emend,xml --profile size --target "$I686" --offline ) >"$T/b-variant" 2>&1 </dev/null
+    vrc=$?
+    VB=$V/target/$I686/size/probe-emend-cells-xml
+    echo "  the variant build exited $vrc, with $(count_matches -E '^(warning|error)' "$T/b-variant") warning or error lines"
+    # ONE NAMED FUNCTION, two conditions. This check was written as
+    # `yn [ ... ] && [ ... ]` inside one command substitution, which is the first
+    # shape specs/0001 forbids, and the phase's first scan of this log caught it:
+    # `yn` took the first bracket as its command and printed yes or no for that
+    # alone, while the `&&` and the second bracket ran after the substitution had
+    # already produced its answer, so the warning count was never part of the
+    # verdict. The rerun header names the attempt this run supersedes.
+    V_WARNINGS=$(count_matches -E '^(warning|error)' "$T/b-variant")
+    variant_built_clean() { [ "$vrc" -eq 0 ] && [ "$V_WARNINGS" = 0 ]; }
+    check "the variant built with no warning and no error line" "$(yn variant_built_clean)"
+    V_FILE=$(stat -c %s "$VB" 2>/dev/null || echo error)
+    V_SECT=$(section "$VB" Total)
+    V_TEXT=$(section "$VB" .text)
+    V_SHA=$(sha256sum <"$VB" 2>/dev/null | cut -d' ' -f1)
+    echo "  the variant: file $V_FILE; sections $V_SECT; .text $V_TEXT; sha256 $V_SHA"
+    variant_read() { [ "$V_SECT" != error ] && [ "$V_TEXT" != error ] && [ "$V_FILE" != error ]; }
+    check "the variant's figures were read" "$(yn variant_read)"
+    # The variant must not be the same binary: if the edit changed nothing the
+    # difference below would be zero and would be reported as a cost of zero,
+    # which is exactly the guess this measurement replaces.
+    check "the variant is a different binary from the probe" \
+      "$(yn [ "$V_SHA" != "${SHA[probe-emend-cells-xml]}" ])"
+    "$VB" "$T/probe.xlsx" "$T/variant.xlsx" xl/worksheets/sheet1.xml "$THEME_NAME" "$THEME_TYPE" xl/worksheets/sheet1.xml >"$T/o-variant" 2>&1
+    R_VARIANT=$?
+    echo "  the variant run (exit $R_VARIANT):"
+    hide <"$T/o-variant" | sed 's/^/    /'
+    # The same six lines but for the sum, which is now the values' bytes:
+    # "1.5" and "2.25" and the two shared cells' "0" and "1" is 9.
+    variant_sums_bytes() {
+      [ "$R_VARIANT" -eq 0 ] &&
+        [ "$(cat "$T/o-variant")" = "$(printf 'sheets 1\nelements 11\nitems 2\ncells 4\nsum 9\ntext 14')" ]
+    }
+    check "the variant counts the values' bytes where the probe sums number(), and agrees on every other figure" \
+      "$(yn variant_sums_bytes)"
+    FLOAT_SECT=$((SECT[probe-emend-cells-xml] - V_SECT))
+    FLOAT_FILE=$((FILE[probe-emend-cells-xml] - V_FILE))
+    FLOAT_TEXT=$((TEXT[probe-emend-cells-xml] - V_TEXT))
+    echo "  the float parser's own cost, the probe over the variant:"
+    echo "     sections $FLOAT_SECT, file $FLOAT_FILE, .text $FLOAT_TEXT"
+    echo "  this is what str::parse::<f64> and what it pulls in cost this consumer,"
+    echo "  measured by removing its only call and changing nothing else."
+    
+    echo
+    echo "## the release binaries the corpus run uses"
+    # specs/0010, "P3": the corpus run uses "the release binaries the size log
+    # hashed". They are built here and hashed here. The gate runs cargo clean, so
+    # whether the files still exist when the corpus run starts depends on the
+    # order of the phase's runs, not on this log: what makes the two logs
+    # measurements of the same binaries is that the run log runs the same four
+    # builds, hashes what it will use, and compares it with the hashes below, read
+    # out of this log by command. A build that did not reproduce them would stop
+    # that run before the corpus.
+    rrc=0
+    for target in host "$I686"; do
+      for bin in emend-copy xlsx-diff; do
+        if [ "$target" = host ]; then
+          echo "command: cargo build --release -p $bin --offline"
+          cargo build --release -p "$bin" --offline >"$T/r-$bin-host" 2>&1 </dev/null || rrc=1
+        else
+          echo "command: cargo build --release -p $bin --target $I686 --offline"
+          cargo build --release -p "$bin" --target "$I686" --offline >"$T/r-$bin-$I686" 2>&1 </dev/null || rrc=1
+        fi
+      done
+    done
+    check "all four release builds exit 0" "$(yn [ "$rrc" -eq 0 ])"
+    for rel in target/release/emend-copy target/release/xlsx-diff \
+               "target/$I686/release/emend-copy" "target/$I686/release/xlsx-diff"; do
+      if [ -f "$rel" ]; then
+        echo "  $rel: sha256 $(sha256sum <"$rel" | cut -d' ' -f1), bytes $(stat -c %s "$rel")"
+      else
+        echo "  $rel: MISSING"
+        fail=1
+      fi
+    done
+    rel_all_there() {
+      [ -f target/release/emend-copy ] && [ -f target/release/xlsx-diff ] &&
+        [ -f "target/$I686/release/emend-copy" ] && [ -f "target/$I686/release/xlsx-diff" ]
+    }
+    check "the four release binaries the run log will cite are all present and hashed above" \
+      "$(yn rel_all_there)"
+    
+    SHORT=$(git rev-parse --short "$C")
+    DATE=$(date -u +%Y-%m-%d)
+    cat >"$RECORD_OUT" <<EOF
+    # Size, Milestone 1 part 3: $DATE-$SHORT
+    
+    The stripped \`i686-unknown-linux-musl\` sizes of the eight size probes,
+    measured by \`records/logs/m1p3-p3/size.log\` as part 2's seven were measured
+    by \`records/logs/m1p2-p3/size.log\` (\`specs/0010-reading-cells.md\`, "Size").
+    The budget is judged on \`probe-emend-cells-xml\`, the consumer that links the
+    whole core to date, over \`probe-zip-xml\`. This record follows
+    \`$PART2_REC\`, which stands as history.
+    
+    - Commit: $C
+    - Date: $DATE (UTC)
+    - Toolchain: $RUSTC; $CARGO
+    - Target: $I686
+    - Profile: \`size\` in the workspace \`Cargo.toml\` (inherits release,
+      opt-level "z", lto "fat", codegen-units 1, panic "abort", strip true,
+      debug false)
+    - \`zip\` $ZIP_V, \`default-features = false\`, features
+      \`deflate-flate2-zlib-rs\`; \`quick-xml\` $QX_V behind the \`size-probe\`
+      feature \`xml\`; emend behind the \`size-probe\` feature \`emend\`
+    
+    ## The probes
+    
+    | Binary | What it does | File bytes | Section bytes | .text bytes |
+    | --- | --- | --- | --- | --- |
+    | \`probe-zip\` | opens an archive with \`zip\`, prints the entry count | ${FILE[probe-zip]} | ${SECT[probe-zip]} | ${TEXT[probe-zip]} |
+    | \`probe-zip-xml\` | the same, then reads one entry through \`zip\` and counts its elements with \`quick-xml\` | ${FILE[probe-zip-xml]} | ${SECT[probe-zip-xml]} | ${TEXT[probe-zip-xml]} |
+    | \`probe-zip-xml-write\` | \`probe-zip-xml\`, then writes one deflated entry to a second archive through the \`zip\` crate's \`ZipWriter\` | ${FILE[probe-zip-xml-write]} | ${SECT[probe-zip-xml-write]} | ${TEXT[probe-zip-xml-write]} |
+    | \`probe-emend-copy\` | opens an archive with emend and writes it back with no edits | ${FILE[probe-emend-copy]} | ${SECT[probe-emend-copy]} | ${TEXT[probe-emend-copy]} |
+    | \`probe-emend-edit\` | opens with emend, reads the entry to replace, and writes a replace, a removal and an addition from its command line | ${FILE[probe-emend-edit]} | ${SECT[probe-emend-edit]} | ${TEXT[probe-emend-edit]} |
+    | \`probe-emend-edit-xml\` | \`probe-emend-edit\`, plus the \`quick-xml\` element count over the replaced entry's bytes | ${FILE[probe-emend-edit-xml]} | ${SECT[probe-emend-edit-xml]} | ${TEXT[probe-emend-edit-xml]} |
+    | \`probe-emend-package-xml\` | opens with \`Package\`, resolves the workbook, drops the calculation chain, adds an override and a \`theme\` relationship, replaces a part through \`Stream\`, writes the package, counts the replaced part's elements | ${FILE[probe-emend-package-xml]} | ${SECT[probe-emend-package-xml]} | ${TEXT[probe-emend-package-xml]} |
+    | \`probe-emend-cells-xml\` | \`probe-emend-package-xml\`, plus the shared strings and every cell of the named sheet: the cell count, the sum of \`number()\` and the length of the \`resolve\`d text | ${FILE[probe-emend-cells-xml]} | ${SECT[probe-emend-cells-xml]} | ${TEXT[probe-emend-cells-xml]} |
+    
+    ## The seven earlier probes against part 2
+    
+    Each of the seven was rebuilt at $PART2_AT, the commit
+    \`$PART2_REC\` was measured at, in a scratch clone, and the rebuild reproduced
+    that log's sha256 before any comparison was made. The classification is read
+    off the bytes, not from an expected shift: per-section differing-byte counts,
+    then one of four verdicts. \`probe-emend-cells-xml\` is not in this table
+    because part 3 adds it and there is no earlier measurement of it to compare
+    with.
+    
+    | Probe | Part 2 file | now | Part 2 sections | now | Verdict |
+    | --- | --- | --- | --- | --- | --- |
+    | \`probe-zip\` | ${WAS_FILE[probe-zip]} | ${FILE[probe-zip]} | ${WAS_SECT[probe-zip]} | ${SECT[probe-zip]} | ${VERDICT[probe-zip]} |
+    | \`probe-zip-xml\` | ${WAS_FILE[probe-zip-xml]} | ${FILE[probe-zip-xml]} | ${WAS_SECT[probe-zip-xml]} | ${SECT[probe-zip-xml]} | ${VERDICT[probe-zip-xml]} |
+    | \`probe-zip-xml-write\` | ${WAS_FILE[probe-zip-xml-write]} | ${FILE[probe-zip-xml-write]} | ${WAS_SECT[probe-zip-xml-write]} | ${SECT[probe-zip-xml-write]} | ${VERDICT[probe-zip-xml-write]} |
+    | \`probe-emend-copy\` | ${WAS_FILE[probe-emend-copy]} | ${FILE[probe-emend-copy]} | ${WAS_SECT[probe-emend-copy]} | ${SECT[probe-emend-copy]} | ${VERDICT[probe-emend-copy]} |
+    | \`probe-emend-edit\` | ${WAS_FILE[probe-emend-edit]} | ${FILE[probe-emend-edit]} | ${WAS_SECT[probe-emend-edit]} | ${SECT[probe-emend-edit]} | ${VERDICT[probe-emend-edit]} |
+    | \`probe-emend-edit-xml\` | ${WAS_FILE[probe-emend-edit-xml]} | ${FILE[probe-emend-edit-xml]} | ${WAS_SECT[probe-emend-edit-xml]} | ${SECT[probe-emend-edit-xml]} | ${VERDICT[probe-emend-edit-xml]} |
+    | \`probe-emend-package-xml\` | ${WAS_FILE[probe-emend-package-xml]} | ${FILE[probe-emend-package-xml]} | ${WAS_SECT[probe-emend-package-xml]} | ${SECT[probe-emend-package-xml]} | ${VERDICT[probe-emend-package-xml]} |
+    
+    $FIG_UNCHANGED of the seven keep every part 2 figure. A verdict of "code" is
+    accounted for per probe by the commits that touched THAT probe's causes: its
+    own source, the workspace manifest and lock file, and, for a probe that links
+    emend, \`crates/emend/src\`, which $EMEND_COMMITS commits touched between
+    $PART2_AT and this commit. The log lists them with their line counts and fails
+    if a code verdict has no such commit behind it.
+    
+    ## The figures
+    
+    Section bytes, with the file delta beside each:
+    
+    | Figure | Sections | File | .text |
+    | --- | --- | --- | --- |
+    | the budget, \`probe-emend-cells-xml\` over \`probe-zip-xml\` | $JUDGED_SECT | $JUDGED_FILE | $JUDGED_TEXT |
+    | over \`probe-zip-xml-write\`, the cost to a consumer that already links the writer | $OVER_WRITE_SECT | $OVER_WRITE_FILE | $OVER_WRITE_TEXT |
+    | part 3's own cost, over \`probe-emend-package-xml\` | $PART3_SECT | $PART3_FILE | $PART3_TEXT |
+    | the float parser's own cost, over the variant below | $FLOAT_SECT | $FLOAT_FILE | $FLOAT_TEXT |
+    
+    The ceiling is $CEILING section bytes above \`probe-zip-xml\`, set by the
+    maintainer's checkpoint ruling of 2026-09-18 (\`specs/0010-reading-cells.md\`,
+    "Size"). The budget figure is $JUDGED_SECT section bytes, which leaves
+    $((CEILING - JUDGED_SECT)) under the ceiling. By file size the same figure is
+    $JUDGED_FILE, given beside it as "Size" asks and not subtracted from a
+    ceiling stated in another unit.
+    
+    The ruling recorded $SPENT_BEFORE spent by parts 1 and 2, which is part 2's
+    own recorded budget figure, and $((CEILING - SPENT_BEFORE)) remaining for
+    parts 3 to 8. Part 3's own share of the spend is $PART3_SECT section bytes,
+    and after part 3 the remaining figure is $((CEILING - JUDGED_SECT)).
+    
+    Those four numbers do not subtract into each other, and the reason is
+    measured rather than left to the reader:
+    $((CEILING - SPENT_BEFORE)) - $PART3_SECT is
+    $((CEILING - SPENT_BEFORE - PART3_SECT)), which is $PKG_DRIFT more than
+    $((CEILING - JUDGED_SECT)). The ruling's spend was measured at the part 2
+    commit; part 3's own cost is measured over \`probe-emend-package-xml\` at
+    THIS commit, and that probe is $PKG_DRIFT section bytes larger than it was
+    then (the comparison table above). Parts 1 and 2 measured here cost
+    $SPENT_NOW, and $SPENT_NOW + $PART3_SECT = $JUDGED_SECT. The $PKG_DRIFT
+    belongs to the earlier probes' drift, not to part 3's spend.
+    
+    ## The float parser's own cost
+    
+    \`specs/0010-reading-cells.md\`, "Size", asks for this figure to be measured
+    rather than guessed. A variant of \`probe-emend-cells-xml\` was built in a
+    scratch copy of the tree at this commit, with one edit and no other: the arm
+    that adds \`cell.number()\` to the sum adds the byte length of \`cell.value\`
+    instead, so \`str::parse::<f64>\` has no caller left in the binary. Everything
+    else it links is the same. The variant is not committed; it exists only inside
+    the run of \`records/logs/m1p3-p3/size.log\`, which prints its build, its
+    figures and its own run on the generated package.
+    
+    | Binary | File bytes | Section bytes | .text bytes |
+    | --- | --- | --- | --- |
+    | \`probe-emend-cells-xml\` | ${FILE[probe-emend-cells-xml]} | ${SECT[probe-emend-cells-xml]} | ${TEXT[probe-emend-cells-xml]} |
+    | the variant, without \`number()\` | $V_FILE | $V_SECT | $V_TEXT |
+    
+    The difference, $FLOAT_SECT section bytes and $FLOAT_TEXT bytes of \`.text\`,
+    is what the float parser and what it pulls in cost a consumer that reads
+    numbers. A consumer that only needs the cells' text as written pays neither.
+    
+    ## The release binaries the corpus run used
+    
+    \`specs/0010-reading-cells.md\`, "P3", has the part 3 corpus run use the
+    release binaries this log hashed. They are built and hashed in
+    \`records/logs/m1p3-p3/size.log\`. \`records/logs/m1p3-p3/run.log\` runs the
+    same four builds and asserts that each of the four sha256 hashes equals the
+    one recorded here, reading them out of this log by command and stopping before
+    the corpus if any differed. All four reproduced. That, and not the order of
+    the two runs, is what makes the two logs measurements of the same binaries:
+    the gate's \`cargo clean\` removes these files, so whether they survive from
+    this log to that one depends on where the gate ran.
+    
+    ## Reading these figures
+    
+    File sizes on this target change in whole 4096-byte steps. They are not
+    themselves whole pages: all eight probes leave the same remainder, $REM bytes,
+    modulo 4096, so it is every DIFFERENCE between them that is a whole number of
+    pages. A change under a page is therefore invisible in the file size, while
+    the section totals, from \`size -A\`, resolve to the byte. Both are given for
+    every figure above.
+    EOF
+    echo
+    echo "## the size record, written to <scratch>"
+    hide <"$RECORD_OUT" | sed 's/^/    /'
+    check "the record is ASCII" "$(yn [ "$(count_bytes "$NONASCII_CLASS" "$RECORD_OUT")" = 0 ])"
+    check "the record carries no control byte" "$(yn [ "$(count_bytes "$CTRL_CLASS" "$RECORD_OUT")" = 0 ])"
+    # U+2014 is non-ASCII, so the check above already covers it; it is asserted by
+    # itself as well because CLAUDE.md names that character, and a reader looking
+    # for it should find the answer rather than have to reason about coverage.
+    check "the record carries no U+2014" \
+      "$(yn [ "$(count_matches -F "$(printf '\342\200\224')" "$RECORD_OUT")" = 0 ])"
+    check "the record names no home, mount, corpus or scratch path" \
+      "$(yn [ "$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing|/tmp/)' "$RECORD_OUT")" = 0 ])"
+    check "the record carries no unfilled figure" "$(yn [ "$(count_matches -F 'error' "$RECORD_OUT")" = 0 ])"
+    
+    echo
+    echo "## status after the run"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p3-p3|records/size-m1p3-|records/m1p3-p3-)' git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or its size record: $st_log"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]; }
+    check "every change in the working tree is one of this phase's logs or its size record" "$(yn status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "size log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## toolchain
+rustc 1.98.1 (48a229cea 2026-09-01)
+cargo 1.98.1 (797e8a9bc 2026-08-05)
+installed targets for the pinned toolchain:
+    i686-unknown-linux-musl
+    x86_64-unknown-linux-gnu
+command: size --version
+    GNU size (GNU Binutils for Ubuntu) 2.46
+
+## manifests at 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+Cargo.toml (sha256 bdf980cea8fe4bf52cc4ffa5d136b90c67f43ce2c46f591362b2147b6c31a9bb):
+    [workspace]
+    resolver = "3"
+    members = [
+        "crates/emend",
+        "tools/emend-copy",
+        "tools/passthrough",
+        "tools/size-probe",
+        "tools/xlsx-diff",
+    ]
+    
+    [workspace.package]
+    edition = "2024"
+    license = "MIT OR Apache-2.0"
+    
+    # The size baseline (specs/0006-passthrough.md, "Size baseline"): stripped,
+    # size-optimised release builds of tools/size-probe for i686 musl.
+    [profile.size]
+    inherits = "release"
+    opt-level = "z"
+    lto = "fat"
+    codegen-units = 1
+    panic = "abort"
+    strip = true
+    debug = false
+tools/size-probe/Cargo.toml (sha256 3ecb2dcff8249a6a4c3ebac39d41dff7a4e7c157d9166a45aec9b43ceee771df):
+    [package]
+    name = "size-probe"
+    version = "0.1.0"
+    edition.workspace = true
+    license.workspace = true
+    publish = false
+    
+    [dependencies]
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    quick-xml = { version = "=0.42.0", default-features = false, optional = true }
+    # emend's core, for the three emend probes (specs/0008-zip-layer.md, "Size").
+    # Optional, so probe-zip and probe-zip-xml are built exactly as the baseline
+    # built them, with nothing of emend compiled in.
+    emend = { path = "../../crates/emend", optional = true }
+    
+    [features]
+    # Enables quick-xml, for probe-zip-xml, probe-zip-xml-write,
+    # probe-emend-edit-xml, probe-emend-package-xml and probe-emend-cells-xml;
+    # probe-zip is built without it.
+    xml = ["dep:quick-xml"]
+    # Enables emend, for probe-emend-copy, probe-emend-edit,
+    # probe-emend-edit-xml, probe-emend-package-xml and probe-emend-cells-xml.
+    emend = ["dep:emend"]
+    
+    [[bin]]
+    name = "probe-zip"
+    path = "src/bin/probe-zip.rs"
+    
+    [[bin]]
+    name = "probe-zip-xml"
+    path = "src/bin/probe-zip-xml.rs"
+    required-features = ["xml"]
+    
+    [[bin]]
+    name = "probe-zip-xml-write"
+    path = "src/bin/probe-zip-xml-write.rs"
+    required-features = ["xml"]
+    
+    [[bin]]
+    name = "probe-emend-copy"
+    path = "src/bin/probe-emend-copy.rs"
+    required-features = ["emend"]
+    
+    [[bin]]
+    name = "probe-emend-edit"
+    path = "src/bin/probe-emend-edit.rs"
+    required-features = ["emend"]
+    
+    [[bin]]
+    name = "probe-emend-edit-xml"
+    path = "src/bin/probe-emend-edit-xml.rs"
+    required-features = ["emend", "xml"]
+    
+    [[bin]]
+    name = "probe-emend-package-xml"
+    path = "src/bin/probe-emend-package-xml.rs"
+    required-features = ["emend", "xml"]
+    
+    [[bin]]
+    name = "probe-emend-cells-xml"
+    path = "src/bin/probe-emend-cells-xml.rs"
+    required-features = ["emend", "xml"]
+crates/emend/Cargo.toml (sha256 5268959d2ce45e34ff5e562eae147aca3d290c156140eecf3ff4556c72ddcbe3):
+    [package]
+    name = "emend"
+    version = "0.1.0"
+    edition.workspace = true
+    license.workspace = true
+    publish = false
+    
+    # The core's two dependencies and nothing else (CLAUDE.md, "Dependencies and
+    # licences"; specs/0008-zip-layer.md and specs/0009-package-layer.md, "Crate"),
+    # pinned and featured exactly as the tools pin them. quick-xml joins the core in
+    # Milestone 1 part 2 P1, which is why part 1's size measurement is the zip layer
+    # alone. With default-features off it brings memchr and nothing more.
+    [dependencies]
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    quick-xml = { version = "=0.42.0", default-features = false }
+    
+    # No dev-dependencies: the tests build archives byte by byte rather than
+    # through a library, so a bug in a builder cannot hide the same bug in the
+    # layer.
+Cargo.lock: zip 8.6.0; quick-xml 0.42.0
+zip in Cargo.lock is 8.6.0: yes
+quick-xml in Cargo.lock is 0.42.0: yes
+
+## dependency trees, by feature
+command: cargo tree -p size-probe  -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+  features none: quick-xml lines 0; emend lines 0
+command: cargo tree -p size-probe --features xml -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+  features xml: quick-xml lines 1; emend lines 0
+command: cargo tree -p size-probe --features emend -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    emend v0.1.0 (<repo>/crates/emend)
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+    zip v8.6.0 (*)
+  features emend: quick-xml lines 1; emend lines 1
+command: cargo tree -p size-probe --features emend,xml -e normal --prefix none --target i686-unknown-linux-musl --offline
+    size-probe v0.1.0 (<repo>/tools/size-probe)
+    emend v0.1.0 (<repo>/crates/emend)
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+    quick-xml v0.42.0 (*)
+    zip v8.6.0 (*)
+  features emend,xml: quick-xml lines 2; emend lines 1
+with no feature, neither quick-xml nor emend is in the tree (probe-zip is built as the baseline was): yes
+with xml alone, quick-xml is in and emend is not (probe-zip-xml and probe-zip-xml-write are built as the baseline was): yes
+with emend alone, emend is in and quick-xml comes with it, the core's own dependency since part 2 P1: yes
+with emend and xml, both are in (probe-emend-edit-xml and probe-emend-package-xml): yes
+command: cargo tree -p emend -e normal --prefix none --target i686-unknown-linux-musl --offline
+    emend v0.1.0 (<repo>/crates/emend)
+    quick-xml v0.42.0
+    memchr v2.8.3
+    zip v8.6.0
+    crc32fast v1.5.2
+    cfg-if v1.0.4
+    flate2 v1.1.10
+    zlib-rs v0.6.8
+    indexmap v2.14.2
+    equivalent v1.0.2
+    hashbrown v0.17.1
+    memchr v2.8.3
+    typed-path v0.12.3
+  emend's own tree: zip lines 1; quick-xml lines 1
+the core's tree names zip and quick-xml: yes
+
+## the eight size builds for i686-unknown-linux-musl
+command: cargo clean -p size-probe --profile size --target i686-unknown-linux-musl
+         Removed 0 files
+command: cargo build -p size-probe --bin probe-zip --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-zip-xml --features xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-zip-xml-write --features xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-emend-copy --features emend --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-emend-edit --features emend --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-emend-edit-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-emend-package-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+command: cargo build -p size-probe --bin probe-emend-cells-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline
+exit: 0
+all eight size builds exit 0: yes
+  the feature map's answer for a probe it does not know: UNKNOWN
+control: the feature map answers for all eight probes and refuses one it does not know: yes
+  probe-zip: build output lines 12, of them warnings or errors 0
+probe-zip built with no warning and no error line: yes
+  probe-zip-xml: build output lines 3, of them warnings or errors 0
+probe-zip-xml built with no warning and no error line: yes
+  probe-zip-xml-write: build output lines 2, of them warnings or errors 0
+probe-zip-xml-write built with no warning and no error line: yes
+  probe-emend-copy: build output lines 3, of them warnings or errors 0
+probe-emend-copy built with no warning and no error line: yes
+  probe-emend-edit: build output lines 2, of them warnings or errors 0
+probe-emend-edit built with no warning and no error line: yes
+  probe-emend-edit-xml: build output lines 2, of them warnings or errors 0
+probe-emend-edit-xml built with no warning and no error line: yes
+  probe-emend-package-xml: build output lines 2, of them warnings or errors 0
+probe-emend-package-xml built with no warning and no error line: yes
+  probe-emend-cells-xml: build output lines 2, of them warnings or errors 0
+probe-emend-cells-xml built with no warning and no error line: yes
+the probes built and the probes measured are the same list: yes
+
+## the figures
+target/i686-unknown-linux-musl/size/probe-zip: file 473636 bytes; sections 464320; .text 364751; sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-zip is a stripped static i386 ELF: yes
+probe-zip's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-zip-xml: file 539172 bytes; sections 533216; .text 411155; sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-zip-xml is a stripped static i386 ELF: yes
+probe-zip-xml's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-zip-xml-write: file 612900 bytes; sections 606004; .text 461107; sha256 5db211eca2de30e84f2d5777f20ea0e88f4dddd04977ccee9aed88dc1eb6eca8
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-zip-xml-write is a stripped static i386 ELF: yes
+probe-zip-xml-write's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-copy: file 592420 bytes; sections 584324; .text 447027; sha256 862f7bf3808aef43a33859ae9ba49b0d22f32e18ba1e2e8df627d69c21440e98
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-copy is a stripped static i386 ELF: yes
+probe-emend-copy's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-edit: file 657956 bytes; sections 649620; .text 497763; sha256 652b434ef689e08c96db6b454f2897bebef839987f66303eaf9753924643d0c5
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-edit is a stripped static i386 ELF: yes
+probe-emend-edit's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-edit-xml: file 670244 bytes; sections 666092; .text 510963; sha256 fefd0450d9e2a09c523569e81e99da1012a66f959d319edc719d03efb138f682
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-edit-xml is a stripped static i386 ELF: yes
+probe-emend-edit-xml's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-package-xml: file 723492 bytes; sections 717228; .text 551795; sha256 f8ace76c6f8c30e8898f10eb9f9d5978f0af467b14907e7ec7b63956d6435017
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-package-xml is a stripped static i386 ELF: yes
+probe-emend-package-xml's section figures were read: yes
+target/i686-unknown-linux-musl/size/probe-emend-cells-xml: file 789028 bytes; sections 780564; .text 596307; sha256 241871cb2c4e8d7dbb5fddae40345eb68c1e5b432a2b6e2eba381aa11f81c32b
+    ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, stripped
+probe-emend-cells-xml is a stripped static i386 ELF: yes
+probe-emend-cells-xml's section figures were read: yes
+  probe-zip: 473636 = 115 pages of 4096 bytes + 2596
+  probe-zip-xml: 539172 = 131 pages of 4096 bytes + 2596
+  probe-zip-xml-write: 612900 = 149 pages of 4096 bytes + 2596
+  probe-emend-copy: 592420 = 144 pages of 4096 bytes + 2596
+  probe-emend-edit: 657956 = 160 pages of 4096 bytes + 2596
+  probe-emend-edit-xml: 670244 = 163 pages of 4096 bytes + 2596
+  probe-emend-package-xml: 723492 = 176 pages of 4096 bytes + 2596
+  probe-emend-cells-xml: 789028 = 192 pages of 4096 bytes + 2596
+all eight file sizes leave the same remainder modulo 4096, 2596 bytes, so every difference between them is whole pages: yes
+
+## the seven earlier probes, against the part 2 size record
+command: read the figures from records/size-m1p2-2026-09-18-14c2e14.md (sha256 06980ea08463858eb23212a1f661fda972ca38f8c778b820952598cc597d4924)
+command: read the hashes from records/logs/m1p2-p3/size.log (sha256 2a26160dca19f582556ffffd9e5668eb1dba5296f1212b6faa372e8536a6b343)
+  the record was measured at 14c2e144c4c90069794886c04ae21ca57b8303c2
+  the log was measured at    14c2e144c4c90069794886c04ae21ca57b8303c2
+the part 2 record names the commit it was measured at: yes
+the part 2 log was measured at the same commit as its record: yes
+  probe-zip: then file 473636, sections 464320, .text 364751, sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+  probe-zip: now  file 473636, sections 464320, .text 364751, sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+probe-zip: the part 2 figures and hash were read: yes
+  probe-zip-xml: then file 539172, sections 533216, .text 411155, sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+  probe-zip-xml: now  file 539172, sections 533216, .text 411155, sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+probe-zip-xml: the part 2 figures and hash were read: yes
+  probe-zip-xml-write: then file 612900, sections 606004, .text 461107, sha256 5db211eca2de30e84f2d5777f20ea0e88f4dddd04977ccee9aed88dc1eb6eca8
+  probe-zip-xml-write: now  file 612900, sections 606004, .text 461107, sha256 5db211eca2de30e84f2d5777f20ea0e88f4dddd04977ccee9aed88dc1eb6eca8
+probe-zip-xml-write: the part 2 figures and hash were read: yes
+  probe-emend-copy: then file 592420, sections 584292, .text 446995, sha256 927aadb395d2c5b120d89faf608464acc46157ee0bbc5e5475e71dae5a9bc10f
+  probe-emend-copy: now  file 592420, sections 584324, .text 447027, sha256 862f7bf3808aef43a33859ae9ba49b0d22f32e18ba1e2e8df627d69c21440e98
+probe-emend-copy: the part 2 figures and hash were read: yes
+  probe-emend-edit: then file 657956, sections 649588, .text 497731, sha256 f610d2a4e883c26e48cbbdaa84d138fbc437c933a1e942467a6a9c8d6116be82
+  probe-emend-edit: now  file 657956, sections 649620, .text 497763, sha256 652b434ef689e08c96db6b454f2897bebef839987f66303eaf9753924643d0c5
+probe-emend-edit: the part 2 figures and hash were read: yes
+  probe-emend-edit-xml: then file 670244, sections 666060, .text 510931, sha256 862485ab283b33521893927391d0a7804246576edd90d5246a48d029e1ef3293
+  probe-emend-edit-xml: now  file 670244, sections 666092, .text 510963, sha256 fefd0450d9e2a09c523569e81e99da1012a66f959d319edc719d03efb138f682
+probe-emend-edit-xml: the part 2 figures and hash were read: yes
+  probe-emend-package-xml: then file 723492, sections 717196, .text 551763, sha256 48c7acc260c9a1190054df7eccf45b2e53dfb83842e4722fa89569f8abc3eef8
+  probe-emend-package-xml: now  file 723492, sections 717228, .text 551795, sha256 f8ace76c6f8c30e8898f10eb9f9d5978f0af467b14907e7ec7b63956d6435017
+probe-emend-package-xml: the part 2 figures and hash were read: yes
+  what could move these figures, from git:
+command: git log --oneline 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- crates/emend/src
+    13fe4a4 M1 part 3 P3: the four doc faults both independent checks found
+    8c8a0ca M1 part 3 P3: the typed views' tests, the catalogue and the Limits sections
+    e127fc2 M1 part 3 P3: the P2 rulings, and nothing of the typed views
+    52ef4e5 M1 part 3 P2: the gaps two independent checks found
+    6c27167 M1 part 3 P2: the cell reader
+    da20c6b M1 part 3 P2: the P1 rulings, and nothing of the cell reader
+    71ab06e M1 part 3 P1: cite the spec section that exists
+    5233bf4 M1 part 3 P1: make the phonetic-depth test bite, and retract a false claim
+    8f2364d M1 part 3 P1: the shared strings table, read through the package
+    04113ac M1 part 3 P1: the items part 2 left, and nothing of P1's feature
+command: git diff --stat 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- crates/emend/src
+     crates/emend/src/cells.rs         | 1263 ++++++++++++++++++++++++++++
+     crates/emend/src/cells/tests.rs   | 1649 +++++++++++++++++++++++++++++++++++++
+     crates/emend/src/lib.rs           |    9 +-
+     crates/emend/src/package.rs       |  142 +++-
+     crates/emend/src/package/tests.rs |  200 +++++
+     crates/emend/src/xml.rs           |    4 +-
+     6 files changed, 3263 insertions(+), 4 deletions(-)
+command: git log --oneline 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- tools/size-probe/src
+    13fe4a4 M1 part 3 P3: the four doc faults both independent checks found
+    2575083 M1 part 3 P3: probe-emend-cells-xml, the consumer the part 3 budget describes
+command: git diff --stat 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- tools/size-probe/src
+     tools/size-probe/src/bin/probe-emend-cells-xml.rs | 250 ++++++++++++++++++++++
+     1 file changed, 250 insertions(+)
+command: git log --oneline 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- Cargo.toml
+command: git diff --stat 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- Cargo.toml
+command: git log --oneline 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- Cargo.lock
+command: git diff --stat 14c2e144c4c90069794886c04ae21ca57b8303c2..13fe4a4e6e1d775a1a2e78650f9527639a228f13 -- Cargo.lock
+  commits that touched crates/emend/src between the two measurements: 10
+the count of emend source commits was read: yes
+  probe-zip: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-zip.rs , touched by 0 commits between the two measurements
+probe-zip: the count of commits that could have moved it was read: yes
+  probe-zip-xml: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-zip-xml.rs , touched by 0 commits between the two measurements
+probe-zip-xml: the count of commits that could have moved it was read: yes
+  probe-zip-xml-write: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-zip-xml-write.rs , touched by 0 commits between the two measurements
+probe-zip-xml-write: the count of commits that could have moved it was read: yes
+  probe-emend-copy: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-emend-copy.rs crates/emend/src , touched by 10 commits between the two measurements
+probe-emend-copy: the count of commits that could have moved it was read: yes
+  probe-emend-edit: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-emend-edit.rs crates/emend/src , touched by 10 commits between the two measurements
+probe-emend-edit: the count of commits that could have moved it was read: yes
+  probe-emend-edit-xml: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-emend-edit-xml.rs crates/emend/src , touched by 10 commits between the two measurements
+probe-emend-edit-xml: the count of commits that could have moved it was read: yes
+  probe-emend-package-xml: its own causes are Cargo.toml Cargo.lock tools/size-probe/src/bin/probe-emend-package-xml.rs crates/emend/src , touched by 10 commits between the two measurements
+probe-emend-package-xml: the count of commits that could have moved it was read: yes
+    control, a file against itself: same length: yes
+    control, a file against itself: same section layout: yes
+    control, a file against itself: differing bytes: 0
+    control, a file against itself: .data.rel.ro slots that changed: 0
+    control, a file against itself: .data.rel.ro slot deltas, commonest first: none
+    control, a file against itself: verdict: identical
+control: a file against itself reads identical: yes
+one byte flipped 16 bytes into .text
+    control, one byte flipped in .text: same length: yes
+    control, one byte flipped in .text: same section layout: yes
+    control, one byte flipped in .text: differing bytes: 1
+    control, one byte flipped in .text: differing bytes in .text: 1
+    control, one byte flipped in .text: .data.rel.ro slots that changed: 0
+    control, one byte flipped in .text: .data.rel.ro slot deltas, commonest first: none
+    control, one byte flipped in .text: verdict: code
+control: one byte flipped in .text reads as code, and is counted in .text: yes
+command: in a scratch clone at 14c2e144c4c90069794886c04ae21ca57b8303c2, cargo build -p size-probe --bin <probe> [--features ...] --profile size --target i686-unknown-linux-musl --offline
+  probe-zip rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 473636; sha256 c63b22e6f0ea5cd677426ea7fe1232327cef8b9927255c8cf71a95a246fa8724
+probe-zip rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-zip: same length: yes
+    probe-zip: same section layout: yes
+    probe-zip: differing bytes: 0
+    probe-zip: .data.rel.ro slots that changed: 0
+    probe-zip: .data.rel.ro slot deltas, commonest first: none
+    probe-zip: verdict: identical
+  probe-zip: classified as identical
+probe-zip's difference was classified: yes
+probe-zip: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-zip-xml rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 539172; sha256 52d1932f9d04e4cdbb122cee0222890c907d047efb313e8e91a8c624eafa8a2c
+probe-zip-xml rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-zip-xml: same length: yes
+    probe-zip-xml: same section layout: yes
+    probe-zip-xml: differing bytes: 0
+    probe-zip-xml: .data.rel.ro slots that changed: 0
+    probe-zip-xml: .data.rel.ro slot deltas, commonest first: none
+    probe-zip-xml: verdict: identical
+  probe-zip-xml: classified as identical
+probe-zip-xml's difference was classified: yes
+probe-zip-xml: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-zip-xml-write rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 612900; sha256 5db211eca2de30e84f2d5777f20ea0e88f4dddd04977ccee9aed88dc1eb6eca8
+probe-zip-xml-write rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-zip-xml-write: same length: yes
+    probe-zip-xml-write: same section layout: yes
+    probe-zip-xml-write: differing bytes: 0
+    probe-zip-xml-write: .data.rel.ro slots that changed: 0
+    probe-zip-xml-write: .data.rel.ro slot deltas, commonest first: none
+    probe-zip-xml-write: verdict: identical
+  probe-zip-xml-write: classified as identical
+probe-zip-xml-write's difference was classified: yes
+probe-zip-xml-write: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-emend-copy rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 592420; sha256 927aadb395d2c5b120d89faf608464acc46157ee0bbc5e5475e71dae5a9bc10f
+probe-emend-copy rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-emend-copy: same length: yes
+    probe-emend-copy: same section layout: no
+    probe-emend-copy: differing bytes: 337491
+    probe-emend-copy: differing bytes in .bss: 3
+    probe-emend-copy: differing bytes in .data: 9
+    probe-emend-copy: differing bytes in .data.rel.ro: 172
+    probe-emend-copy: differing bytes in .eh_frame: 654
+    probe-emend-copy: differing bytes in .eh_frame_hdr: 651
+    probe-emend-copy: differing bytes in .fini: 7
+    probe-emend-copy: differing bytes in .got: 1
+    probe-emend-copy: differing bytes in .note.gnu.build-id: 20
+    probe-emend-copy: differing bytes in .rodata: 2427
+    probe-emend-copy: differing bytes in .tbss: 6
+    probe-emend-copy: differing bytes in .text: 333539
+    probe-emend-copy: differing bytes in no section: 2
+    probe-emend-copy: .data.rel.ro slots that changed: 160
+    probe-emend-copy: .data.rel.ro slot deltas, commonest first: +32 x124 +31 x36
+    probe-emend-copy: verdict: code
+  probe-emend-copy: classified as code
+probe-emend-copy's difference was classified: yes
+probe-emend-copy: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-emend-edit rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 657956; sha256 f610d2a4e883c26e48cbbdaa84d138fbc437c933a1e942467a6a9c8d6116be82
+probe-emend-edit rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-emend-edit: same length: yes
+    probe-emend-edit: same section layout: no
+    probe-emend-edit: differing bytes: 356499
+    probe-emend-edit: differing bytes in .bss: 3
+    probe-emend-edit: differing bytes in .data: 7
+    probe-emend-edit: differing bytes in .data.rel.ro: 173
+    probe-emend-edit: differing bytes in .eh_frame: 712
+    probe-emend-edit: differing bytes in .eh_frame_hdr: 718
+    probe-emend-edit: differing bytes in .fini: 7
+    probe-emend-edit: differing bytes in .got: 1
+    probe-emend-edit: differing bytes in .note.gnu.build-id: 20
+    probe-emend-edit: differing bytes in .rodata: 2421
+    probe-emend-edit: differing bytes in .tbss: 5
+    probe-emend-edit: differing bytes in .text: 352430
+    probe-emend-edit: differing bytes in no section: 2
+    probe-emend-edit: .data.rel.ro slots that changed: 161
+    probe-emend-edit: .data.rel.ro slot deltas, commonest first: +32 x125 +31 x36
+    probe-emend-edit: verdict: code
+  probe-emend-edit: classified as code
+probe-emend-edit's difference was classified: yes
+probe-emend-edit: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-emend-edit-xml rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 670244; sha256 862485ab283b33521893927391d0a7804246576edd90d5246a48d029e1ef3293
+probe-emend-edit-xml rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-emend-edit-xml: same length: yes
+    probe-emend-edit-xml: same section layout: no
+    probe-emend-edit-xml: differing bytes: 358749
+    probe-emend-edit-xml: differing bytes in .bss: 5
+    probe-emend-edit-xml: differing bytes in .data: 7
+    probe-emend-edit-xml: differing bytes in .data.rel.ro: 170
+    probe-emend-edit-xml: differing bytes in .eh_frame: 743
+    probe-emend-edit-xml: differing bytes in .eh_frame_hdr: 733
+    probe-emend-edit-xml: differing bytes in .fini: 7
+    probe-emend-edit-xml: differing bytes in .got: 2
+    probe-emend-edit-xml: differing bytes in .note.gnu.build-id: 20
+    probe-emend-edit-xml: differing bytes in .rodata: 2517
+    probe-emend-edit-xml: differing bytes in .tbss: 6
+    probe-emend-edit-xml: differing bytes in .text: 354535
+    probe-emend-edit-xml: differing bytes in no section: 4
+    probe-emend-edit-xml: .data.rel.ro slots that changed: 161
+    probe-emend-edit-xml: .data.rel.ro slot deltas, commonest first: +32 x125 +31 x36
+    probe-emend-edit-xml: verdict: code
+  probe-emend-edit-xml: classified as code
+probe-emend-edit-xml's difference was classified: yes
+probe-emend-edit-xml: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-emend-package-xml rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2: build exit 0; file 723492; sha256 48c7acc260c9a1190054df7eccf45b2e53dfb83842e4722fa89569f8abc3eef8
+probe-emend-package-xml rebuilt at the part 2 commit reproduces the part 2 log's sha256: yes
+    probe-emend-package-xml: same length: yes
+    probe-emend-package-xml: same section layout: no
+    probe-emend-package-xml: differing bytes: 375611
+    probe-emend-package-xml: differing bytes in .bss: 3
+    probe-emend-package-xml: differing bytes in .data: 7
+    probe-emend-package-xml: differing bytes in .data.rel.ro: 183
+    probe-emend-package-xml: differing bytes in .eh_frame: 2087
+    probe-emend-package-xml: differing bytes in .eh_frame_hdr: 846
+    probe-emend-package-xml: differing bytes in .fini: 7
+    probe-emend-package-xml: differing bytes in .got: 1
+    probe-emend-package-xml: differing bytes in .note.gnu.build-id: 20
+    probe-emend-package-xml: differing bytes in .rodata: 2395
+    probe-emend-package-xml: differing bytes in .tbss: 5
+    probe-emend-package-xml: differing bytes in .text: 370055
+    probe-emend-package-xml: differing bytes in no section: 2
+    probe-emend-package-xml: .data.rel.ro slots that changed: 164
+    probe-emend-package-xml: .data.rel.ro slot deltas, commonest first: +32 x125 +31 x30 +180 x6 +140 x3
+    probe-emend-package-xml: verdict: code
+  probe-emend-package-xml: classified as code
+probe-emend-package-xml's difference was classified: yes
+probe-emend-package-xml: if the verdict is code, a commit that could have caused it is named above: yes
+  probe-zip keeps all three part 2 figures
+  probe-zip-xml keeps all three part 2 figures
+  probe-zip-xml-write keeps all three part 2 figures
+  probe-emend-copy moved: file 0, sections 32, .text 32
+  probe-emend-edit moved: file 0, sections 32, .text 32
+  probe-emend-edit-xml moved: file 0, sections 32, .text 32
+  probe-emend-package-xml moved: file 0, sections 32, .text 32
+  of the seven earlier probes, 3 keep every part 2 figure
+
+## the figures specs/0010 asks for
+  1. the budget figure, probe-emend-cells-xml over probe-zip-xml:
+     sections 247348, file 249856, .text 185152; the ceiling is 393216
+     headroom under the ceiling, in section bytes: 145868
+     the same figure by file size, beside it and not a headroom: 249856
+  2. the same probe over probe-zip-xml-write, the core's cost to a consumer that already links the writer:
+     sections 174560, file 176128, .text 135200
+  3. part 3's own cost, probe-emend-cells-xml over probe-emend-package-xml:
+     sections 63336, file 65536, .text 44512
+  beside them, the encoder's cost the part 2 record's stored-replacement note needs,
+  probe-zip-xml-write over probe-zip-xml: sections 72788, file 73728, .text 49952
+the budget figure is under 393216 section bytes, the unit the ruling sets: yes
+  the reconciliation a reader's own subtraction needs:
+    the ruling's spend by parts 1 and 2: 183980
+    probe-emend-package-xml's drift since the part 2 commit: 32
+    so parts 1 and 2 measured at THIS commit: 184012
+    184012 + part 3's own 63336 = 247348, the budget figure 247348
+    and the ruling's remaining 209236 less part 3's own 63336 is
+    145900, which is the headroom above plus the same drift
+the ruling's spend, the drift and part 3's own cost add up to the budget figure: yes
+control: the same sum without the drift does not reach the budget figure: yes
+the cells probe is larger than probe-emend-package-xml, by sections: yes
+the cells probe is larger than probe-zip-xml-write, by sections: yes
+the writer baseline is larger than probe-zip-xml, by sections (the encoder is in it): yes
+  the checkpoint ruling (specs/0010, "Size"): ceiling 393216, parts 1 and 2 spent 183980
+  part 2's record's own budget figure, read from records/size-m1p2-2026-09-18-14c2e14.md: 183980
+the figure the checkpoint ruling calls spent is part 2's own recorded budget figure: yes
+  what parts 1 to 3 have spent: 247348 section bytes; the ruling's remaining 209236 becomes 145868
+  part 3's share of the spend: 63336 of 247348
+the ruling's own subtraction holds: 393216 minus 183980 is 209236: yes
+part 3's own cost is no larger than the whole budget figure: yes
+
+## the eight probes on a generated package
+generated: 8 entries, a workbook with one sheet of four cells, a shared strings table of two items, a chain with its override and relationship
+  run zip (exit 0):
+    entries 8
+  run zipxml (exit 0):
+    entries 8
+    elements 3
+  run write (exit 0):
+    entries 8
+    elements 3
+  run copy (exit 0):
+    entries 8
+  run edit (exit 0):
+    entries 8
+  run editx (exit 0):
+    entries 8
+    elements 7
+  run pkg (exit 0):
+    sheets 1
+    elements 11
+  run cells (exit 0):
+    sheets 1
+    elements 11
+    items 2
+    cells 4
+    sum 3.75
+    text 14
+probe-zip prints the entry count: yes
+probe-zip-xml prints the entry count and the workbook's three elements: yes
+probe-zip-xml-write prints the same two counts: yes
+  the archive probe-zip-xml-write wrote, read by python's zipfile: 1 xl/workbook.xml 8
+probe-zip-xml-write wrote one deflated entry through the zip crate's writer: yes
+probe-emend-copy exits 0 and its copy is byte-identical: yes
+  names in the edited archive: [Content_Types].xml _rels/.rels added.xml xl/_rels/workbook.xml.rels xl/calcChain.xml xl/sharedStrings.xml xl/workbook.xml xl/worksheets/sheet1.xml
+probe-emend-edit exits 0; the replaced entry stays, styles.xml goes, added.xml appears: yes
+probe-emend-edit-xml writes the same archive as probe-emend-edit: yes
+    entries in: 8; entries out: 7
+    order preserved among the entries that stayed: yes
+    the chain's entry is gone: yes
+    the chain's override is gone: yes
+    the theme override is there: yes
+    the chain's relationship is gone: yes
+    a theme relationship is there: yes
+    parts outside the two the recipe rewrites: 5, of them byte-identical to the input: 5
+probe-emend-package-xml exits 0 and prints the sheet count and the replaced part's elements: yes
+the recipe removed the chain's entry, its override and its relationship: yes
+the override and the relationship named on the command line were added: yes
+every other part came through unchanged, in order: yes
+probe-emend-cells-xml exits 0 and prints the six counts the fixture was built for: yes
+the cells probe writes the same package the package probe writes, so its reads changed nothing: yes
+
+## the float parser's own cost
+command: in a scratch clone at 13fe4a4e6e1d775a1a2e78650f9527639a228f13, replace the number() arm of probe-emend-cells-xml and build it
+    edited: the variant counts the values' bytes where the probe calls number()
+the variant's one edit was made: yes
+  the variant build exited 0, with 0 warning or error lines
+the variant built with no warning and no error line: yes
+  the variant: file 768548; sections 761392; .text 590003; sha256 68986067dc9693e0455154522fb5567d7343cdbdd62d7792072a613804543c44
+the variant's figures were read: yes
+the variant is a different binary from the probe: yes
+  the variant run (exit 0):
+    sheets 1
+    elements 11
+    items 2
+    cells 4
+    sum 9
+    text 14
+the variant counts the values' bytes where the probe sums number(), and agrees on every other figure: yes
+  the float parser's own cost, the probe over the variant:
+     sections 19172, file 20480, .text 6304
+  this is what str::parse::<f64> and what it pulls in cost this consumer,
+  measured by removing its only call and changing nothing else.
+
+## the release binaries the corpus run uses
+command: cargo build --release -p emend-copy --offline
+command: cargo build --release -p xlsx-diff --offline
+command: cargo build --release -p emend-copy --target i686-unknown-linux-musl --offline
+command: cargo build --release -p xlsx-diff --target i686-unknown-linux-musl --offline
+all four release builds exit 0: yes
+  target/release/emend-copy: sha256 8ce3e3a9b2c8113a89ab82e36b7309b575de67b7890852c68607447be466e272, bytes 1299616
+  target/release/xlsx-diff: sha256 26baa97865aec2981ada3ed13dc58660387b84640a806445f8bbe503224636e1, bytes 773256
+  target/i686-unknown-linux-musl/release/emend-copy: sha256 c2a289b48034077ab62c6eb7f4bc73888d8cfa48a57e52a39b1644b663e200be, bytes 1332416
+  target/i686-unknown-linux-musl/release/xlsx-diff: sha256 5e5f0f6f5c6b794cb32a52314752bd0f031b540a07ec167ae8bb99bd2f7d3d47, bytes 856720
+the four release binaries the run log will cite are all present and hashed above: yes
+
+## the size record, written to <scratch>
+    # Size, Milestone 1 part 3: 2026-09-18-13fe4a4
+    
+    The stripped `i686-unknown-linux-musl` sizes of the eight size probes,
+    measured by `records/logs/m1p3-p3/size.log` as part 2's seven were measured
+    by `records/logs/m1p2-p3/size.log` (`specs/0010-reading-cells.md`, "Size").
+    The budget is judged on `probe-emend-cells-xml`, the consumer that links the
+    whole core to date, over `probe-zip-xml`. This record follows
+    `records/size-m1p2-2026-09-18-14c2e14.md`, which stands as history.
+    
+    - Commit: 13fe4a4e6e1d775a1a2e78650f9527639a228f13
+    - Date: 2026-09-18 (UTC)
+    - Toolchain: rustc 1.98.1 (48a229cea 2026-09-01); cargo 1.98.1 (797e8a9bc 2026-08-05)
+    - Target: i686-unknown-linux-musl
+    - Profile: `size` in the workspace `Cargo.toml` (inherits release,
+      opt-level "z", lto "fat", codegen-units 1, panic "abort", strip true,
+      debug false)
+    - `zip` 8.6.0, `default-features = false`, features
+      `deflate-flate2-zlib-rs`; `quick-xml` 0.42.0 behind the `size-probe`
+      feature `xml`; emend behind the `size-probe` feature `emend`
+    
+    ## The probes
+    
+    | Binary | What it does | File bytes | Section bytes | .text bytes |
+    | --- | --- | --- | --- | --- |
+    | `probe-zip` | opens an archive with `zip`, prints the entry count | 473636 | 464320 | 364751 |
+    | `probe-zip-xml` | the same, then reads one entry through `zip` and counts its elements with `quick-xml` | 539172 | 533216 | 411155 |
+    | `probe-zip-xml-write` | `probe-zip-xml`, then writes one deflated entry to a second archive through the `zip` crate's `ZipWriter` | 612900 | 606004 | 461107 |
+    | `probe-emend-copy` | opens an archive with emend and writes it back with no edits | 592420 | 584324 | 447027 |
+    | `probe-emend-edit` | opens with emend, reads the entry to replace, and writes a replace, a removal and an addition from its command line | 657956 | 649620 | 497763 |
+    | `probe-emend-edit-xml` | `probe-emend-edit`, plus the `quick-xml` element count over the replaced entry's bytes | 670244 | 666092 | 510963 |
+    | `probe-emend-package-xml` | opens with `Package`, resolves the workbook, drops the calculation chain, adds an override and a `theme` relationship, replaces a part through `Stream`, writes the package, counts the replaced part's elements | 723492 | 717228 | 551795 |
+    | `probe-emend-cells-xml` | `probe-emend-package-xml`, plus the shared strings and every cell of the named sheet: the cell count, the sum of `number()` and the length of the `resolve`d text | 789028 | 780564 | 596307 |
+    
+    ## The seven earlier probes against part 2
+    
+    Each of the seven was rebuilt at 14c2e144c4c90069794886c04ae21ca57b8303c2, the commit
+    `records/size-m1p2-2026-09-18-14c2e14.md` was measured at, in a scratch clone, and the rebuild reproduced
+    that log's sha256 before any comparison was made. The classification is read
+    off the bytes, not from an expected shift: per-section differing-byte counts,
+    then one of four verdicts. `probe-emend-cells-xml` is not in this table
+    because part 3 adds it and there is no earlier measurement of it to compare
+    with.
+    
+    | Probe | Part 2 file | now | Part 2 sections | now | Verdict |
+    | --- | --- | --- | --- | --- | --- |
+    | `probe-zip` | 473636 | 473636 | 464320 | 464320 | identical |
+    | `probe-zip-xml` | 539172 | 539172 | 533216 | 533216 | identical |
+    | `probe-zip-xml-write` | 612900 | 612900 | 606004 | 606004 | identical |
+    | `probe-emend-copy` | 592420 | 592420 | 584292 | 584324 | code |
+    | `probe-emend-edit` | 657956 | 657956 | 649588 | 649620 | code |
+    | `probe-emend-edit-xml` | 670244 | 670244 | 666060 | 666092 | code |
+    | `probe-emend-package-xml` | 723492 | 723492 | 717196 | 717228 | code |
+    
+    3 of the seven keep every part 2 figure. A verdict of "code" is
+    accounted for per probe by the commits that touched THAT probe's causes: its
+    own source, the workspace manifest and lock file, and, for a probe that links
+    emend, `crates/emend/src`, which 10 commits touched between
+    14c2e144c4c90069794886c04ae21ca57b8303c2 and this commit. The log lists them with their line counts and fails
+    if a code verdict has no such commit behind it.
+    
+    ## The figures
+    
+    Section bytes, with the file delta beside each:
+    
+    | Figure | Sections | File | .text |
+    | --- | --- | --- | --- |
+    | the budget, `probe-emend-cells-xml` over `probe-zip-xml` | 247348 | 249856 | 185152 |
+    | over `probe-zip-xml-write`, the cost to a consumer that already links the writer | 174560 | 176128 | 135200 |
+    | part 3's own cost, over `probe-emend-package-xml` | 63336 | 65536 | 44512 |
+    | the float parser's own cost, over the variant below | 19172 | 20480 | 6304 |
+    
+    The ceiling is 393216 section bytes above `probe-zip-xml`, set by the
+    maintainer's checkpoint ruling of 2026-09-18 (`specs/0010-reading-cells.md`,
+    "Size"). The budget figure is 247348 section bytes, which leaves
+    145868 under the ceiling. By file size the same figure is
+    249856, given beside it as "Size" asks and not subtracted from a
+    ceiling stated in another unit.
+    
+    The ruling recorded 183980 spent by parts 1 and 2, which is part 2's
+    own recorded budget figure, and 209236 remaining for
+    parts 3 to 8. Part 3's own share of the spend is 63336 section bytes,
+    and after part 3 the remaining figure is 145868.
+    
+    Those four numbers do not subtract into each other, and the reason is
+    measured rather than left to the reader:
+    209236 - 63336 is
+    145900, which is 32 more than
+    145868. The ruling's spend was measured at the part 2
+    commit; part 3's own cost is measured over `probe-emend-package-xml` at
+    THIS commit, and that probe is 32 section bytes larger than it was
+    then (the comparison table above). Parts 1 and 2 measured here cost
+    184012, and 184012 + 63336 = 247348. The 32
+    belongs to the earlier probes' drift, not to part 3's spend.
+    
+    ## The float parser's own cost
+    
+    `specs/0010-reading-cells.md`, "Size", asks for this figure to be measured
+    rather than guessed. A variant of `probe-emend-cells-xml` was built in a
+    scratch copy of the tree at this commit, with one edit and no other: the arm
+    that adds `cell.number()` to the sum adds the byte length of `cell.value`
+    instead, so `str::parse::<f64>` has no caller left in the binary. Everything
+    else it links is the same. The variant is not committed; it exists only inside
+    the run of `records/logs/m1p3-p3/size.log`, which prints its build, its
+    figures and its own run on the generated package.
+    
+    | Binary | File bytes | Section bytes | .text bytes |
+    | --- | --- | --- | --- |
+    | `probe-emend-cells-xml` | 789028 | 780564 | 596307 |
+    | the variant, without `number()` | 768548 | 761392 | 590003 |
+    
+    The difference, 19172 section bytes and 6304 bytes of `.text`,
+    is what the float parser and what it pulls in cost a consumer that reads
+    numbers. A consumer that only needs the cells' text as written pays neither.
+    
+    ## The release binaries the corpus run used
+    
+    `specs/0010-reading-cells.md`, "P3", has the part 3 corpus run use the
+    release binaries this log hashed. They are built and hashed in
+    `records/logs/m1p3-p3/size.log`. `records/logs/m1p3-p3/run.log` runs the
+    same four builds and asserts that each of the four sha256 hashes equals the
+    one recorded here, reading them out of this log by command and stopping before
+    the corpus if any differed. All four reproduced. That, and not the order of
+    the two runs, is what makes the two logs measurements of the same binaries:
+    the gate's `cargo clean` removes these files, so whether they survive from
+    this log to that one depends on where the gate ran.
+    
+    ## Reading these figures
+    
+    File sizes on this target change in whole 4096-byte steps. They are not
+    themselves whole pages: all eight probes leave the same remainder, 2596 bytes,
+    modulo 4096, so it is every DIFFERENCE between them that is a whole number of
+    pages. A change under a page is therefore invisible in the file size, while
+    the section totals, from `size -A`, resolve to the byte. Both are given for
+    every figure above.
+the record is ASCII: yes
+the record carries no control byte: yes
+the record carries no U+2014: yes
+the record names no home, mount, corpus or scratch path: yes
+the record carries no unfilled figure: yes
+
+## status after the run
+status lines: 4; of them this phase's logs or its size record: 4
+every change in the working tree is one of this phase's logs or its size record: yes
+run ended at 2026-09-18T23:27:52Z
+size log checks all as expected: yes
