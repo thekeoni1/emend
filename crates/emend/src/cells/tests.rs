@@ -197,12 +197,15 @@ fn the_phonetic_skip_ends_at_its_own_end_tag() {
     // end the skip early.
     //
     // The `<t>y</t>` AFTER the nested `<r>` is what makes this a measurement
-    // rather than a position. A flag cleared at the first `</t>` inside the
-    // subtree is live again by the time `y` arrives, so it reads "ayb" where
-    // the depth reads "ab". An earlier version of this test put the nested
-    // `<t>` last inside `<rPh>`, so the premature clear happened after the
-    // only inner text had already been skipped and the flag passed the test
-    // too; independent check 2 of this phase built the flag and proved it.
+    // rather than a position, and two flags are measured, not one. A flag
+    // that suppresses TEXT while the nesting is still counted is clear again
+    // by the time `y` arrives and reads "ayb"; a flag cleared at the first
+    // end tag inside the subtree ends the skip there, so the `</r>` closes
+    // the item instead and it reads "a". Both are planted as M8 and M9 in
+    // this phase's `test.log` and both fail this test, which is what the
+    // sentence above rests on. An earlier version of this test put the
+    // nested `<t>` last inside `<rPh>`, where the premature clear came after
+    // the only inner text had already been skipped and a flag passed.
     let table = table(&sst(
         "<si><t>a</t><rPh sb=\"0\" eb=\"1\"><r><t>x</t></r><t>y</t></rPh>\
          <t>b</t></si>",
@@ -352,9 +355,9 @@ fn text_in_another_namespace_is_not_the_item_s_text() {
     //
     // A `<t>` in the MAIN namespace inside an `extLst` would be read as this
     // item's text, because the rule is every `<t>` under the item rather
-    // than every `<t>` in a place the schema allows one. No producer writes
-    // that and `specs/0010` asks for the rule as written, so it is raised to
-    // planning as a question and not decided here.
+    // than every `<t>` in a place the schema allows one. Planning ruled on
+    // that in this part's doc commit: `specs/0010-reading-cells.md`, ruling
+    // 7, records it as a known reading with no corpus witness and no change.
     let body = format!(
         "{DECLARATION}\n<sst xmlns=\"{MAIN_NS}\" xmlns:x=\"http://example.invalid/ext\">\
          <si><t>kept</t><extLst><x:ext uri=\"{{0}}\"><x:t>not text</x:t></x:ext>\
@@ -529,6 +532,16 @@ fn one_row(cells: &str) -> String {
     worksheet(&format!("<row r=\"1\">{cells}</row>"))
 }
 
+/// A worksheet holding one row of `cells`, the row numbered as given.
+///
+/// Separate from [`one_row`] because the row number is the subject of two
+/// tests rather than scaffolding for them: the spelling is passed through
+/// verbatim, so a test can give one `u32::from_str` accepts and the A1 form
+/// does not.
+fn one_row_in_row(number: &str, cells: &str) -> String {
+    worksheet(&format!("<row r=\"{number}\">{cells}</row>"))
+}
+
 /// The package a worksheet fixture makes, opened.
 fn opened_sheet(sheet: &[u8], strings: Option<&[u8]>) -> Package<Cursor<Vec<u8>>> {
     let target = strings.map(|_| "sharedStrings.xml");
@@ -685,8 +698,10 @@ fn the_runs_of_an_inline_string_concatenate() {
 fn a_phonetic_subtree_inside_an_inline_string_is_skipped() {
     // `<is>` and `<si>` are read by one function, so this is the same rule
     // proved on the other container. The `<t>y</t>` AFTER the nested `<r>` is
-    // what makes it a measurement rather than a position: a skip that ended
-    // at the first end tag inside the subtree would read "ayb".
+    // what makes it a measurement rather than a position: a flag that
+    // suppressed text while still counting the nesting reads "ayb" here, and
+    // a flag cleared at the first end tag inside the subtree reads "a".
+    // M8 and M9 of this phase's `test.log` plant both and print both.
     let cell = one_cell(&one_row(
         "<c r=\"A1\" t=\"inlineStr\"><is><t>a</t>\
          <rPh sb=\"0\" eb=\"1\"><r><t>x</t></r><t>y</t></rPh><t>b</t></is></c>",
@@ -944,23 +959,34 @@ fn a_cell_in_another_namespace_is_not_a_cell() {
     let cells = read_cells(&worksheet(
         "<row r=\"1\"><c r=\"A1\"><v>1</v></c>\
          <other:c xmlns:other=\"urn:other\" r=\"B1\"><other:v>2</other:v></other:c>\
-         <c r=\"C1\"><v>3</v></c></row>",
+         <c><v>3</v></c></row>",
     ));
-    assert_eq!(references(&cells), ["A1", "C1"]);
-    // C1 keeps its own reference; the skipped element moved no count, which
-    // is visible because the third cell names itself.
+    // The third cell carries NO `r`, which is what makes the count visible:
+    // its column comes from the previous cell's, so a reader that had
+    // counted the foreign element would report C1 here and the answer is
+    // B1. An earlier version of this test gave that cell `r="C1"`, which
+    // overwrote the running count either way and made the claim in this
+    // comment unmeasurable; independent check 1 of this phase found it.
+    assert_eq!(references(&cells), ["A1", "B1"]);
     assert_eq!(cells[1].value.as_deref(), Some("3"));
 }
 
 #[test]
 fn the_other_main_namespace_spelling_is_read_too() {
-    // `MAIN` holds both spellings a producer writes for the main namespace
-    // (`package::MAIN`), and the cell reader matches through the same
-    // constant the rest of the crate does.
+    // The STRICT spelling, written out. An earlier version reached it as
+    // `MAIN[1]`, a position in the constant: reorder `MAIN` and this test
+    // would silently exercise the transitional spelling and still pass,
+    // leaving the spec's strict-namespace clause untested. The literal is
+    // asserted to be one of the crate's own two spellings, so the test
+    // cannot drift from the constant either.
+    const STRICT: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    assert!(
+        MAIN.iter().any(|spelling| *spelling == STRICT.as_bytes()),
+        "the literal is one of the crate's main-namespace spellings"
+    );
     let sheet = format!(
-        "{DECLARATION}\n<worksheet xmlns=\"{}\"><sheetData>\
-         <row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData></worksheet>",
-        String::from_utf8_lossy(MAIN[1])
+        "{DECLARATION}\n<worksheet xmlns=\"{STRICT}\"><sheetData>\
+         <row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData></worksheet>"
     );
     let cells = read_cells(&sheet);
     assert_eq!(references(&cells), ["A1"]);
@@ -1220,4 +1246,96 @@ fn reading_cells_then_writing_copies_the_package_byte_for_byte() {
     let mut out = Vec::new();
     package.write_to(&mut out).expect("the copy writes");
     assert_eq!(out, input, "byte for byte");
+}
+
+#[test]
+fn a_shared_string_cell_with_no_value_resolves_to_nothing() {
+    // `t="s"` with no `<v>` at all: there is no index to look up, so
+    // `resolve` answers `Ok(None)` rather than refusing. The distinction
+    // matters to a counter: `specs/0010-reading-cells.md`, "Harness runs",
+    // counts `resolved` and `unresolved` as the cells whose `resolve`
+    // SUCCEEDS and FAILS, so such a cell counts as resolved although no item
+    // was read. Independent check 2 of this phase built the package and
+    // found `--cells` and the run log's own second reader disagreeing on it;
+    // the corpus holds none, and this test is what pins the answer.
+    let cells = read_cells(&one_row("<c r=\"A1\" t=\"s\"/>"));
+    let table = table(&sst("<si><t>zero</t></si>"));
+    assert_eq!(cells[0].kind, Kind::SharedString);
+    assert_eq!(
+        table.resolve(&cells[0]).expect("a success, not a refusal"),
+        None
+    );
+}
+
+#[test]
+fn the_crate_root_re_exports_every_cell_type() {
+    // `specs/0010-reading-cells.md`, "Crate": `lib.rs` re-exports
+    // `cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind,
+    // SharedStrings}`. The clause is about paths, so the test names each type
+    // through the crate root and the compiler is the assertion: it fails to
+    // build if a re-export is missing. Both independent checks of this phase
+    // found the six P2 types reachable only as `emend::cells::Cell`.
+    use crate::{Cell as R1, CellRef as R2, Formula as R4, FormulaKind as R5};
+    use crate::{Kind as R6, SharedStrings as R7};
+    let _: fn(&[u8]) -> Option<R2> = R2::parse;
+    let _: R6 = R6::Number;
+    let _: R5 = R5::Normal;
+    let table = R7::default();
+    assert_eq!(table.len(), 0);
+    let cells = read_cells(&one_row("<c r=\"A1\"><f>A1</f><v>1</v></c>"));
+    let cell: &R1 = &cells[0];
+    let formula: &R4 = cell.formula.as_ref().expect("the formula");
+    assert_eq!(formula.kind, R5::Normal);
+    // `Cells` is the seventh name, and it is reached as a type through the
+    // crate root in the same way: `Package::cells` returns it.
+    let sheet = one_row("<c r=\"A1\"><v>1</v></c>");
+    let mut package = opened_sheet(sheet.as_bytes(), None);
+    let stream: crate::Cells<'_, Cursor<Vec<u8>>> = package.cells(SHEET_PART).expect("the part");
+    assert_eq!(stream.count(), 1);
+}
+
+#[test]
+fn two_cells_past_the_last_column_share_the_last_reference() {
+    // What the reader does at the top of the column range, pinned rather than
+    // left to be discovered. A cell at the last column `u32` can hold, then
+    // two cells with no `r` of their own: the running count saturates, so
+    // both take the same reference as the cell before them. Three cells are
+    // read and two carry an identical `CellRef`.
+    //
+    // Saturation is the only alternative to wrapping or refusing, and the
+    // format's own last column is XFD (16384), so no producer can reach
+    // this. A caller keying cells by reference would nevertheless collapse
+    // the two, which is why it is written down here and raised to planning
+    // as finding P2-F3 rather than left as a silent property.
+    let cells = read_cells(&one_row(
+        "<c r=\"MWLQKWU1\"><v>1</v></c><c><v>2</v></c><c><v>3</v></c>",
+    ));
+    assert_eq!(cells.len(), 3);
+    assert_eq!(cells[0].reference.col, u32::MAX);
+    assert_eq!(cells[1].reference, cells[0].reference);
+    assert_eq!(cells[2].reference, cells[0].reference);
+    assert_eq!(cells[2].value.as_deref(), Some("3"));
+}
+
+#[test]
+fn a_row_number_this_layer_accepts_is_not_always_one_a1_form_parses() {
+    // Two spellings `u32::from_str` accepts and `CellRef::parse` does not,
+    // pinned here because both are reachable and neither is refused:
+    //
+    //  - `r="0"`, which gives a cell whose `a1()` is `A0`, and `A0` is a
+    //    spelling `CellRef::parse` refuses for its leading zero. So the
+    //    round trip `parse(a1(x)) == Some(x)` holds for every reference a
+    //    package NAMES and not for every reference this reader can EMIT.
+    //  - `r="+3"`, a leading plus, where the format says a decimal number.
+    //
+    // Refusing either is a change to what the layer accepts, which planning
+    // rules and this phase does not: raised as finding P2-F2. The test states
+    // today's answer so a later ruling changes a test that exists.
+    let zero = read_cells(&one_row_in_row("0", "<c><v>1</v></c>"));
+    assert_eq!(zero[0].reference.row, 0);
+    assert_eq!(zero[0].reference.a1(), "A0");
+    assert_eq!(CellRef::parse(b"A0"), None);
+    let plus = read_cells(&one_row_in_row("+3", "<c><v>1</v></c>"));
+    assert_eq!(plus[0].reference.row, 3);
+    assert_eq!(plus[0].reference.a1(), "A3");
 }

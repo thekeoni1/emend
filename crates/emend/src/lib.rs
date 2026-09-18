@@ -8,7 +8,12 @@
 //! Part 2 P1 adds the second layer's first module (`specs/0009-package-
 //! layer.md`): [`xml`] streams a part's tokens, each with the exact input
 //! bytes it covers, so a rewrite copies what it does not change. Still
-//! nothing here reads a cell.
+//! nothing there reads a cell.
+//!
+//! Part 3 adds [`cells`] (`specs/0010-reading-cells.md`): the shared strings
+//! table, and a streaming read of one worksheet's cells. The crate reads a
+//! cell from here on; it still does not evaluate a formula, render, or
+//! convert a date.
 //!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the
@@ -32,5 +37,5 @@ mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
-pub use cells::SharedStrings;
+pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings};
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

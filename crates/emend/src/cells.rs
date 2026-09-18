@@ -77,7 +77,12 @@
 //! count are two different measurements and neither bounds the other. A
 //! consumer on a 32-bit target that meets a table larger than its address
 //! space cannot read that workbook; the cells themselves stream, so the
-//! table is the only whole-part cost in this module.
+//! table is the only WHOLE-PART cost in this module. It is not the only
+//! whole-element cost: one cell's value, formula text or inline string is
+//! assembled into a `String` as it is read, so the bound this module offers
+//! is one token, one cell and one such element at a time, which is the model
+//! `specs/0010-reading-cells.md`, "32-bit and streaming", states. The
+//! corpus's longest value is 192 bytes and its longest formula 511.
 //!
 //! [`Cells`] holds one token and one [`Cell`] at a time and never seeks, so a
 //! worksheet part of any size streams: the corpus's largest worksheet is
@@ -469,8 +474,11 @@ impl Cell {
 /// A streaming read over one worksheet part.
 ///
 /// Built by [`Package::cells`]. It reads forwards once, holds one cell at a
-/// time and never seeks, so a worksheet larger than the address space still
-/// streams (`specs/0010-reading-cells.md`, "32-bit and streaming").
+/// time and never seeks, so a worksheet part is never held whole, however
+/// large it is (`specs/0010-reading-cells.md`, "32-bit and streaming"). One
+/// ELEMENT is held whole while it is read: a `<v>`, an `<f>` or an `<is>`
+/// becomes a `String`, so a single value larger than the address space is
+/// beyond this reader even though the part around it is not.
 ///
 /// Elements are resolved through [`Scope`] and matched only in the main
 /// namespace, both spellings. An element in any other namespace, and any

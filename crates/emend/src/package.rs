@@ -77,9 +77,12 @@
 //!   `a_root_in_another_namespace_is_refused`,
 //!   `a_part_with_no_root_at_all_is_refused`).
 //! - "a cell holds a reference this layer cannot expand"
-//!   (`cells::tests::an_unknown_entity_is_refused`).
+//!   (`cells::tests::an_unknown_entity_is_refused`,
+//!   `an_unknown_entity_in_a_cell_is_refused`), the second being the same
+//!   message raised from a cell rather than from an item (P1 ruling 6).
 //! - "a text element holds an element"
-//!   (`cells::tests::an_element_inside_a_text_element_is_refused`).
+//!   (`cells::tests::an_element_inside_a_text_element_is_refused`,
+//!   `an_element_inside_a_cells_value_is_refused`).
 //! - "the worksheet part's root is not worksheet"
 //!   (`cells::tests::a_worksheet_root_of_the_wrong_name_is_refused`,
 //!   `a_worksheet_root_in_another_namespace_is_refused`).
