@@ -89,18 +89,30 @@
 //! - "a cell reference is not of the form A1"
 //!   (`cells::tests::a_cell_reference_that_is_not_a1_is_refused`).
 //! - "a row number is not a number"
-//!   (`cells::tests::a_row_number_that_is_not_a_number_is_refused`).
+//!   (`cells::tests::a_row_number_that_is_not_a_number_is_refused`,
+//!   `a_row_number_of_zero_is_refused`,
+//!   `a_number_this_layer_reads_is_digits_alone`,
+//!   `an_index_past_u32_is_refused_like_one_that_is_not_a_number`): a row is
+//!   numbered from 1, so 0 is one of the spellings this layer has no row
+//!   number for (P2 ruling 2).
 //! - "a cell's style index is not a number"
-//!   (`cells::tests::a_style_index_that_is_not_a_number_is_refused`).
+//!   (`cells::tests::a_style_index_that_is_not_a_number_is_refused`,
+//!   `a_number_this_layer_reads_is_digits_alone`,
+//!   `an_index_past_u32_is_refused_like_one_that_is_not_a_number`).
 //! - "a cell has a type this layer does not know"
 //!   (`cells::tests::a_cell_type_this_layer_does_not_know_is_refused`).
 //! - "a formula has a type this layer does not know"
 //!   (`cells::tests::a_formula_type_this_layer_does_not_know_is_refused`).
 //! - "a shared formula has no index"
 //!   (`cells::tests::a_shared_formula_without_an_index_is_refused`,
-//!   `a_shared_index_that_is_not_a_number_is_refused`).
+//!   `a_shared_index_that_is_not_a_number_is_refused`,
+//!   `a_number_this_layer_reads_is_digits_alone`,
+//!   `an_index_past_u32_is_refused_like_one_that_is_not_a_number`), the last
+//!   two being an `si` this layer cannot read rather than one that is
+//!   absent: one message covers both (P2 ruling 4).
 //! - "a shared string index is not a number"
-//!   (`cells::tests::resolving_an_index_that_is_not_a_number_is_refused`).
+//!   (`cells::tests::resolving_an_index_that_is_not_a_number_is_refused`,
+//!   `a_number_this_layer_reads_is_digits_alone`).
 //! - "a shared string index is out of range"
 //!   (`cells::tests::resolving_an_index_out_of_range_is_refused`).
 //!
@@ -134,6 +146,23 @@
 //!   `_rels/.rels` to read, the prefix is the form 148 of the corpus's 216
 //!   rels parts use. No producer's name describes the rule, and none is
 //!   claimed for it (P3 ruling 10).
+//!
+//! The two cell-reading entry points add their own limits
+//! (`specs/0010-reading-cells.md`, "Module `package`"):
+//!
+//! - [`Package::shared_strings`] parses the part on EVERY call and returns
+//!   the table owned, where [`Package::content_types`] and
+//!   [`Package::workbook`] parse once and lend. A caller that resolves cells
+//!   against the table reads it once and keeps it; calling this in a loop
+//!   re-parses the part each time. Owned rather than lent because a cell
+//!   reader borrows the package mutably, so a lent table could not be used
+//!   while reading, and cloning one would copy every string.
+//! - [`Package::cells`] borrows the package mutably for the life of the
+//!   iteration, so one sheet is read at a time and nothing else may be asked
+//!   of the package until the reader is dropped. Two sheets side by side, or
+//!   an edit made while reading, are outside what this layer offers.
+//! - Neither records an edit. A package read this way and then written comes
+//!   back byte for byte, which is what the fidelity harness measures.
 
 #[cfg(test)]
 mod tests;

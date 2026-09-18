@@ -1448,3 +1448,157 @@ fn an_index_past_u32_is_refused_like_one_that_is_not_a_number() {
         "a cell's style index is not a number",
     );
 }
+
+// The typed views: `Cell::number`, `Cell::boolean` and `Cell::error`
+// (`specs/0010-reading-cells.md`, "P3"). P2 implemented the three because
+// `--cells` counts `numbers_parsed` and `booleans_parsed` through the first
+// two; the cases below are the ones P3's section lists, and `error` had no
+// caller and no test at all until here.
+
+#[test]
+fn a_numbers_text_is_read_as_an_f64() {
+    // The three spellings the spec names, each a thing a naive reader gets
+    // wrong: a trailing zero in the fraction, an exponent with a sign, and a
+    // negative zero.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>1.10</v></c><c r=\"B1\"><v>1E+3</v></c>\
+         <c r=\"C1\"><v>-0</v></c>",
+    ));
+    assert_eq!(cells[0].number(), Some(1.1));
+    assert_eq!(cells[1].number(), Some(1000.0));
+    // `-0.0 == 0.0` is true, so the equality above would hold for either
+    // sign: the sign bit is the assertion here.
+    let zero = cells[2].number().expect("parses");
+    assert_eq!(zero, 0.0);
+    assert!(zero.is_sign_negative(), "-0 keeps its sign");
+}
+
+#[test]
+fn the_parse_is_the_standard_librarys_and_wider_than_the_format() {
+    // What `str::parse::<f64>` accepts, measured here rather than described
+    // in the doc comment alone, because `number`'s doc names these cases and
+    // `specs/0010` asks for `inf` and `nan` "as the standard library parses
+    // them and stated as such".
+    //
+    // A spreadsheet writes none of them. They are here so that a caller
+    // knows a cell reading `Some(inf)` may be a producer's literal text and
+    // not an overflow this layer computed, and so that a later change to
+    // narrow the parse changes a test.
+    for spelling in ["inf", "INF", "infinity", "1e309"] {
+        let cells = read_cells(&one_row(&format!("<c r=\"A1\"><v>{spelling}</v></c>")));
+        let number = cells[0].number().expect("parses");
+        assert!(number.is_infinite(), "{spelling}");
+        assert!(number.is_sign_positive(), "{spelling}");
+    }
+    for spelling in ["-inf", "-1e309"] {
+        let cells = read_cells(&one_row(&format!("<c r=\"A1\"><v>{spelling}</v></c>")));
+        let number = cells[0].number().expect("parses");
+        assert!(number.is_infinite(), "{spelling}");
+        assert!(number.is_sign_negative(), "{spelling}");
+    }
+    for spelling in ["nan", "NaN"] {
+        let cells = read_cells(&one_row(&format!("<c r=\"A1\"><v>{spelling}</v></c>")));
+        // `NaN != NaN`, so `assert_eq!` against `f64::NAN` would fail on a
+        // correct answer: the predicate is the assertion.
+        assert!(cells[0].number().expect("parses").is_nan(), "{spelling}");
+    }
+    // A leading plus is accepted here and refused by `decimal`: a producer's
+    // number is not one of the format's index tokens (P2 ruling 2).
+    let plus = read_cells(&one_row("<c r=\"A1\"><v>+1</v></c>"));
+    assert_eq!(plus[0].number(), Some(1.0));
+}
+
+#[test]
+fn a_number_cell_whose_text_is_not_a_number_has_none() {
+    // The spec's "a non-number `Number` cell `None`", and the cases either
+    // side of it: surrounding space, which `f64` refuses, and a cell with no
+    // value at all, which is the 5410 the corpus holds.
+    for spelling in ["x", " 1", "1 ", "1,5", "0x1", "TRUE", ""] {
+        let cells = read_cells(&one_row(&format!("<c r=\"A1\"><v>{spelling}</v></c>")));
+        assert_eq!(cells[0].number(), None, "{spelling}");
+    }
+    let empty = read_cells(&one_row("<c r=\"A1\"/>"));
+    assert_eq!(empty[0].kind, Kind::Number);
+    assert_eq!(empty[0].value, None);
+    assert_eq!(empty[0].number(), None);
+}
+
+#[test]
+fn a_booleans_text_is_read_as_a_bool() {
+    // `1` and `0` are what the format writes, and `TRUE` is the spelling a
+    // caller expects to work and does not: the answer is `None`, not an
+    // error, because a producer's text is not this layer's to correct.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\" t=\"b\"><v>1</v></c><c r=\"B1\" t=\"b\"><v>0</v></c>\
+         <c r=\"C1\" t=\"b\"><v>TRUE</v></c>",
+    ));
+    assert_eq!(cells[0].boolean(), Some(true));
+    assert_eq!(cells[1].boolean(), Some(false));
+    assert_eq!(cells[2].boolean(), None);
+    for spelling in ["true", "-1", "2", "01", ""] {
+        let cells = read_cells(&one_row(&format!(
+            "<c r=\"A1\" t=\"b\"><v>{spelling}</v></c>"
+        )));
+        assert_eq!(cells[0].boolean(), None, "{spelling}");
+    }
+    let valueless = read_cells(&one_row("<c r=\"A1\" t=\"b\"/>"));
+    assert_eq!(valueless[0].kind, Kind::Boolean);
+    assert_eq!(valueless[0].boolean(), None);
+}
+
+#[test]
+fn an_error_cells_text_is_its_error() {
+    // The error is carried as written: this layer does not name the errors,
+    // so a spelling it has never seen comes back whole rather than as `None`.
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\" t=\"e\"><v>#REF!</v></c><c r=\"B1\" t=\"e\"><v>#DIV/0!</v></c>\
+         <c r=\"C1\" t=\"e\"><v>#SOMETHING_NEW!</v></c><c r=\"D1\" t=\"e\"/>",
+    ));
+    assert_eq!(cells[0].error(), Some("#REF!"));
+    assert_eq!(cells[1].error(), Some("#DIV/0!"));
+    assert_eq!(cells[2].error(), Some("#SOMETHING_NEW!"));
+    assert_eq!(cells[3].kind, Kind::Error);
+    assert_eq!(cells[3].error(), None);
+}
+
+#[test]
+fn each_typed_view_answers_only_for_its_own_kind() {
+    // One cell of every kind the format writes, each asked all three
+    // questions. The point is the whole table at once: a view that forgot
+    // its kind check would answer for a neighbour, and the shared-string
+    // cell is the one that would be read as the number 0 if `number` went by
+    // the text alone.
+    let table = table(&sst("<si><t>zero</t></si>"));
+    let cells = read_cells(&one_row(
+        "<c r=\"A1\"><v>1</v></c>\
+         <c r=\"B1\" t=\"s\"><v>0</v></c>\
+         <c r=\"C1\" t=\"str\"><f>A1</f><v>1</v></c>\
+         <c r=\"D1\" t=\"b\"><v>1</v></c>\
+         <c r=\"E1\" t=\"e\"><v>#REF!</v></c>\
+         <c r=\"F1\" t=\"d\"><v>2026-09-18</v></c>\
+         <c r=\"G1\" t=\"inlineStr\"><is><t>1</t></is></c>",
+    ));
+    let answers: Vec<(Option<f64>, Option<bool>, Option<&str>)> = cells
+        .iter()
+        .map(|cell| (cell.number(), cell.boolean(), cell.error()))
+        .collect();
+    assert_eq!(
+        answers,
+        [
+            (Some(1.0), None, None),
+            (None, None, None),
+            (None, None, None),
+            (None, Some(true), None),
+            (None, None, Some("#REF!")),
+            (None, None, None),
+            (None, None, None),
+        ]
+    );
+    // The shared-string cell's own value is an index, and `resolve` is the
+    // only thing that reads it: the typed views leave it alone.
+    assert_eq!(table.resolve(&cells[1]).expect("resolves"), Some("zero"));
+    // A date is carried as its text and not converted, which is the one
+    // place a reader is most tempted to help (`specs/0010`, "Module
+    // `cells`": no date conversion).
+    assert_eq!(cells[5].value.as_deref(), Some("2026-09-18"));
+}

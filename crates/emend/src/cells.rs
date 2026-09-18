@@ -1,8 +1,8 @@
 //! Reading what a worksheet says, without changing anything.
 //!
 //! `specs/0010-reading-cells.md`, "Module `cells`". P1 is the shared strings
-//! table and P2 the cell reader; P3 adds the typed views' tests, the
-//! catalogue and the size record.
+//! table, P2 the cell reader, and P3 the typed views' tests, the Limits
+//! section below and the size record.
 //!
 //! Nothing here evaluates, converts or writes. A shared string item is the
 //! text a producer put there, unescaped and not trimmed: the format says
@@ -88,6 +88,35 @@
 //! worksheet part of any size streams: the corpus's largest worksheet is
 //! read the same way as its smallest. What a caller then does with the cells
 //! is the caller's own bound.
+//!
+//! What this module does NOT do, each a decision rather than an omission
+//! (`specs/0010-reading-cells.md`, "Module `cells`"):
+//!
+//! - No SEEKING, in either reader. A worksheet is read forwards once, and a
+//!   caller that wants one cell of a large sheet pays the walk to it; there
+//!   is no index of a sheet's cells to seek with, because the format keeps
+//!   none. The shared strings table is the one thing read whole, above.
+//! - No EVALUATION. A formula is its text, and the value beside it is the
+//!   cached result a producer wrote: this layer neither computes the one nor
+//!   checks it against the other, and a stale cached value is reported as it
+//!   was found. That is openpyxl's contract too, and `CLAUDE.md` makes it a
+//!   limit by design rather than a gap.
+//! - No DATE CONVERSION. [`Kind::Date`] carries its ISO 8601 text, and a
+//!   number carrying a date format is a number here: the format's serial
+//!   numbers need the workbook's 1900/1904 base and a calendar, which is
+//!   part 5's work and the dependency rule's reason for keeping it behind a
+//!   feature.
+//! - No LOOKUP of a style. A cell's `s` is carried as the index it is; the
+//!   styles part is not read in this part, so a caller asking what the cell
+//!   looks like gets the number and not an answer.
+//! - Attributes this layer does not model are not READ, and a part 4 rewrite
+//!   copies them raw: `<f>`'s `ca`, `aca` and the rest, `<row>`'s own
+//!   attributes, `<c>`'s beyond `r`, `s` and `t`, [`FormulaKind::DataTable`]'s
+//!   (which the corpus has no witness for), and `<sst>`'s `count` and
+//!   `uniqueCount`, which are ignored in favour of the items that are there.
+//! - No SHEET-SIZE limit. 1048576 by 16384 is Excel's limit and not the
+//!   format's, so a reference past it is read rather than refused, and
+//!   [`CellRef`]'s two `u32` fields are what a consumer checks.
 
 use quick_xml::events::{BytesRef, BytesStart, Event};
 
@@ -444,6 +473,27 @@ impl Cell {
     /// for a value `str::parse::<f64>` refuses. Never an error: a producer's
     /// number text that the standard library will not parse is a fact about
     /// the workbook for the caller to see, not a malformed package.
+    ///
+    /// The parse is `str::parse::<f64>` and nothing else, so what it takes is
+    /// wider than what a spreadsheet writes. A caller that needs the narrower
+    /// thing reads [`Cell::value`] itself. Each case below is measured in
+    /// `cells::tests`, by
+    /// `the_parse_is_the_standard_librarys_and_wider_than_the_format`, and
+    /// not merely described here:
+    ///
+    /// - `inf`, `INF`, `infinity` and `nan`, `NaN` all parse, in any case,
+    ///   and `-inf` with them, so a cell whose text is `nan` reads as
+    ///   `Some(NaN)` and not as `None`.
+    /// - a magnitude past `f64` becomes an infinity rather than a refusal:
+    ///   `1e309` is `Some(inf)`. So an infinity a caller sees may be the
+    ///   producer's own word or its overflow, and this layer does not
+    ///   distinguish them.
+    /// - a leading `+` is taken, unlike in the indices `decimal` reads: this
+    ///   is a producer's number, not one of the format's tokens.
+    /// - surrounding space is not taken: `" 1"` and `"1 "` are `None`, as is
+    ///   an empty value.
+    /// - `1.10` is `1.1`, and `-0` keeps its sign as `Some(-0.0)`, which is
+    ///   equal to `0.0` without being the same bits.
     pub fn number(&self) -> Option<f64> {
         if self.kind != Kind::Number {
             return None;
