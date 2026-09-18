@@ -218,7 +218,10 @@ from this needs planning's word before the run (T2 P7 ruling).
     conditions were `gate.log`'s own before they were a rule).
   - Nothing is called measured unless the log prints the measurement;
     a figure in a script's prose or comments is not one (T3 P4
-    check 1).
+    check 1). A commit message is authored text under the same rule:
+    a count it states is one a committed log prints, or the message
+    says that no log prints it (M1 part 3 P3 ruling 2, finding
+    P3-F2).
   - Print the exact script into the log.
   - A range scan is written `<base>..HEAD`. `scripts/privacy.sh
     --range <rev>` with a single revision scans that revision's whole

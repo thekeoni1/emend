@@ -125,8 +125,8 @@ index"), `Array` (`t="array"`), `DataTable` (`t="dataTable"`; no
 corpus witness, accepted by name only, its attributes not modelled).
 Any other `t` is refused with "a formula has a type this layer does
 not know". `reference` is `ref` as written when present. `ca`, `aca`
-and every other attribute of `<f>` are not modelled: part 4's rewrite
-copies them raw.
+and every attribute of `<f>` beyond `t`, `si` and `ref` are not
+modelled: part 4's rewrite copies them raw (P3 ruling 5).
 
 Typed views, each `Option` and never an error: `Cell::number() ->
 Option<f64>` parses `value` with `str::parse::<f64>` when `kind` is
@@ -237,6 +237,18 @@ default for styles, dates and the like) is recorded here when given:
 Part 3 adds no feature and nothing heavier than the two crates, so the
 answer changes no code in this part; it sets the ceiling the part 3
 size record is judged against.
+
+Measured (P3, `records/size-m1p3-2026-09-18-13fe4a4.md`, verified
+by planning 2026-09-18): the budget figure is 247348 section bytes
+(249856 file, 185152 `.text`), 145868 under the ceiling; part 3's
+own cost is 63336 sections over `probe-emend-package-xml`; the float
+parser's own cost is 19172 sections (6304 `.text`). Parts 1 and 2
+re-measured at 13fe4a4 are 184012, 32 more than the ruling's 183980,
+the drift of `probe-emend-package-xml` since the part 2 commit, and
+184012 + 63336 = 247348. The probe calls neither `Cell::boolean` nor
+`Cell::error`, so part 3's cost excludes those two (each a kind
+comparison and a return); see "Planning verification and rulings on
+P3", ruling 6.
 
 ### Harness runs
 
@@ -370,7 +382,7 @@ no seeking; no date conversion; no evaluation; the unmodelled
 attributes); `probe-emend-cells-xml` and the float-parser variant,
 measured as "Size" says, recorded as
 `records/size-m1p3-<utc-date>-<shortsha>.md`, `size.log` printing
-every figure the record carries and re-measuring the eight earlier
+every figure the record carries and re-measuring the seven earlier
 probes against part 2's record by the byte classifier; `--cells` gains
 nothing. The negative log: the tool on a package whose named sheet
 part is missing, on one whose shared strings part is not `sst`, on
@@ -566,6 +578,101 @@ Rulings:
 11. P3's first code commit, in full: rulings 2 and 8 with their tests,
     and nothing of P3's feature. P3's run expects the P2 totals as
     corrected by ruling 1.
+
+## Planning verification and rulings on P3 (2026-09-18)
+
+Verified from primaries at 13fe4a4 (records 8e9d468), with nothing
+taken from the report: the eleven committed files hash and measure as
+the report states; the scan log ran last, hashes every one of the ten
+other files at their committed bytes (planning recomputed all ten),
+reads PASS with 0 hits, and its self-scan reads 0 with the planted
+control at 1; every log takes the phase commit as an argument,
+compares it with HEAD, and prints both with two controls; the doc
+commit 79f1471 holds planning's three files at the sha256 planning
+recorded before sending them and no later commit of the part touches
+them; the thirteen superseded attempts the six rerun headers name are
+kept in the implementing session's scratch at the hashes and byte
+counts printed, and the kept scan attempt p3-scan-1.out prints
+`chained=1` for `size.log` once, which is P3-F1's measurement;
+planning's own gate at 13fe4a4 reads PASS on all nine steps and its
+own `cargo test` reads 348 passed, 0 failed, 2 ignored on the host and
+on i686; the eleven mutations each print the verdict claimed, M7
+passing and M8 failing on a correct answer as the two comments say;
+the size record's every figure appears in `size.log` and re-derives
+from the probe table (780564 - 533216 = 247348; 393216 - 247348 =
+145868; 780564 - 717228 = 63336; 780564 - 761392 = 19172; 717228 -
+717196 = 32); the seven earlier probes' part 2 figures are the part 2
+record's; the release binaries planning's own tree holds at 13fe4a4
+hash to what `size.log` recorded (emend-copy 8ce3e3a9..., xlsx-diff
+26baa978...), and planning ran that emend-copy `--cells` over the 27
+workbooks itself: every one of the 23 totals equals planning's expat
+reader's, `values` 2089191 and `empty` 5410 included. The whole diff
+9339dca..8e9d468 scores 0 against the live patterns, 0 against the
+identity file and holds 0 non-ASCII bytes; every message is ASCII and
+ends with the Co-Authored-By line alone. Both check answers are ASCII
+as written. P3 is DONE.
+
+Findings and rulings:
+
+1. P3-F1 (the chained form in `size.log`'s variant-build check) is a
+   true finding, caught by the phase's own shape grep, which is the
+   part 2 P3 rule doing its work. The fix (a named function over a
+   counted warning total), the rerun, and the hashed kept attempts
+   stand. Closed.
+2. P3-F2 (the four counts in e127fc2's message that no log prints):
+   the commit message stands as history and is not a record; the
+   four figures are cited as measured nowhere else. No later phase
+   prints that scan, because `run.log` at 13fe4a4 already is the
+   measurement: every row `r`, cell `s`, formula `si` and shared
+   index in the corpus went through `decimal` with no refusal and
+   every total matched, which is the canonicality claim as a printed
+   result. A rule is added to `specs/0001`: a commit message is
+   authored text under the measured rule, so a count it states is
+   one a committed log prints, or the message says no log prints it.
+3. Ruling 8's "no positional use of a namespace constant is left" is
+   verified by planning's own grep (one occurrence in the crate, a
+   test comment naming the old form) and by both checks; it is not
+   printed in a log and is not called measured. Stands.
+4. The four doc faults both checks found are fixed in 13fe4a4 and
+   accepted: `u32::from_str` refuses a leading minus, so the two
+   things `decimal` adds are the plus sign and leading zeros, now
+   measured by the test
+   `what_the_standard_librarys_parse_takes_and_this_refuses`; the
+   test comment names the two of eight spellings that changed;
+   `Cell::number`'s bullets each name their test; the `<f>` entry
+   names `t`, `si` and `ref` as read. e127fc2's and 8c8a0ca's messages
+   carry the earlier wording and stand as history, the report and
+   this ruling naming what is wrong in them.
+5. Spec wording, corrected in this file: "the seven earlier probes"
+   (part 2 tabulates seven; the eighth is this part's), and the
+   "Module `cells`" sentence on `<f>` names the three attributes read.
+   The log's handling, measuring eight, comparing seven and stating
+   the discrepancy in its header, was right.
+6. Size: the figures are accepted against the ceiling and recorded
+   under "Size" above; the headroom is compared in sections only,
+   with the file delta beside it; the 32-byte drift reconciliation
+   and its control stand. The probe reaches neither `Cell::boolean`
+   nor `Cell::error`, so part 3's cost excludes them; the figure is
+   what it is and the probe's doc says so. A consumer that reads
+   booleans or errors pays a kind comparison and a return more, not
+   measured.
+7. Negative log: the message for a shared strings part that is not
+   `sst` is raised through `--shared-strings`; `--cells` reaches the
+   table through the same `Package::shared_strings`. Stands. A
+   `--cells` route to it is added the next time a negative log
+   exercises cell reading (part 4), not by a rerun now.
+8. The mutation claims (eleven), the test totals (348 both targets,
+   exactly eleven more than P2's committed 337; cells 86 over 75;
+   tool 14 unchanged) and the corpus run through the release binaries
+   the size log hashed are accepted as measured.
+9. Pause. At the maintainer's request (2026-09-18) work pauses after
+   this verification and before the close-out push. So that the tree
+   is clean over the pause, the close-out's doc commit is made now:
+   planning's three files unedited as they sit in the working tree
+   (ROADMAP.md, specs/0001-bootstrap.md, specs/0010-reading-cells.md).
+   Nothing else of the close-out runs, and nothing is pushed, until
+   planning's word and the maintainer's authorisation typed in the
+   implementing session.
 
 ## Out of scope
 
