@@ -46,8 +46,10 @@ regular expressions, never the cells' text:
   without `t` are numbers. So one producer in the corpus writes
   `t="n"` explicitly on every number cell, which the reader treats as
   the absent form. The only attributes seen on `<c>` are `r`, `s` and
-  `t`. 5410 cells are empty elements (`<c .../>`), 2089071 hold `<v>`
-  with text and 67 hold `<v/>`. No `<is>` anywhere.
+  `t`. 5410 cells are empty elements (`<c .../>`), 2089124 hold `<v>`
+  with text (2089071 written `<v>` and 53 written `<v` with an
+  attribute, which planning's first survey missed: P2 ruling 1) and 67
+  hold `<v/>`. No `<is>` anywhere.
 - 262879 `<f>` elements: 292 are empty (`<f t="shared" si="..."/>`,
   the followers of a shared formula), 44 carry `t="shared"` with `ref`
   (the masters), 5 carry `t="array"`, and the other attributes seen
@@ -184,7 +186,8 @@ lend: a caller streams cells through a mutable borrow of the package,
 so a lent table could not be used while reading, and cloning it would
 cost a copy of every string. `Package::cells(&mut self, part: &[u8])
 -> Result<Cells<'_, R>, Error>` opens the named entry (else "no such
-part", the existing message) through `read_part` and `Stream`. Neither
+part", the existing message) through `Archive::read` and `Stream`
+(P2 ruling 9 amended the wording from `read_part`). Neither
 records an edit; a package read this way and written writes a copy.
 
 ### Errors
@@ -242,8 +245,11 @@ given after the two paths as the others are; neither edits, so every
 output is byte-identical. `--shared-strings` (P1) prints one line, the
 word `strings` then tab-separated `key=value`: `items` (the table's
 length) and `bytes` (the sum of the items' UTF-8 lengths). `--cells`
-(P2) streams every sheet of the workbook in `<sheets>` order and
-prints one line, the word `cells` then tab-separated `key=value`
+(P2) streams every sheet of the workbook in the order
+`Package::workbook` lists them, which `several_sheets_in_order` pins
+as document order (P2 ruling 9: every key is a total, so the order is
+by construction and not witnessed in the output), and prints one line,
+the word `cells` then tab-separated `key=value`
 counts: `sheets`; `cells`; `number`, `shared`, `inline`,
 `formula_string`, `boolean`, `error`, `date` (cells by kind);
 `values` (cells with a value); `empty` (neither value nor formula);
@@ -267,8 +273,9 @@ totals over the 27 workbooks:
 - P2: `sheets` 95; `cells` 2094601; `number` 1310988 (1302755 with
   `t="n"` and 8233 without `t`); `shared` 783275; `inline` 0;
   `formula_string` 273; `boolean` 40; `error` 25; `date` 0; `values`
-  2089138 (2089071 with text and 67 empty); `empty` 5463 (the 5410
-  empty elements and 53 cells with neither `<v>` nor `<f>`);
+  2089191 (2089124 with text and 67 empty); `empty` 5410 (the empty
+  elements, every one; corrected by P2 ruling 1 from 2089138 and 5463,
+  planning's survey error);
   `formulas` 262879; `shared_master` 44; `shared_follower` 292;
   `array` 5; `data_table` 0; `unresolved` 0 and `resolved` 783275;
   `booleans_parsed` 40; `styled` 2094287. `numbers_parsed` is
@@ -484,6 +491,81 @@ Rulings:
     and the catalogue entry, ruling 8's `--shared-strings` test, and
     ruling 9's rename. P2's run expects the `bytes` figure of ruling
     1; every other expectation in "Harness runs" is unchanged.
+
+## Planning verification and rulings on P2 (2026-09-18)
+
+Verified from primaries at 9339dca, five local commits over d1ebf1c.
+The doc commit 1f4481d carries the three planning files at the sha256
+planning recorded before sending them. Three code commits where this
+spec said two: da20c6b (the P1 rulings and nothing of the reader),
+6c27167 (the reader), 52ef4e5 (the gaps the two checks found);
+accepted as they stand. Every commit message is ASCII and ends with
+the Co-Authored-By line. The record commit 9339dca carries five logs,
+two check answers and the record pair; `scan.log`'s sibling table
+equals `sha256sum` and `wc -c` over the eight committed files, checked
+as a whole by `diff`. Every log takes the phase commit and compares it
+with HEAD, with controls, as the new rule asks. Planning's own runs at
+9339dca: the nine-step gate, every step PASS; `cargo test -p emend`
+253 passed and 1 ignored on the host and on i686 musl; an independent
+expat-based reader over the corpus (`count-cells.py`, planning's,
+sharing no code with the crate or with `run.log`'s reader): every one
+of the 20 spec figures the reader reports, `max_row` 130001,
+`max_col` 28 and `numbers_parsed` 1305578 equal to `run.log`, the two
+departures included. Privacy over every file of the phase diff: 0
+bare shapes, 0 live hits, 0 non-ASCII bytes, 0 U+2014. Check 2's
+answer: planning hashed the original in the implementing session's
+scratch directory (29f41b6f...), and reproduced the committed body
+character for character by the three substitutions the head comment
+names; the original is not committed. P2 is DONE.
+
+Finding P2-F1 is resolved against planning. The spec's `values`
+2089138 and `empty` 5463 came from planning's first survey, a regex
+over the raw parts that counted `<v>` and missed 53 `<v` elements
+carrying an attribute. Planning's expat reader and the crate agree:
+`values` 2089191 (2089124 with text, 67 empty) and `empty` 5410, every
+one an empty element. The spec is corrected above; the reader was
+right and was not changed to match, which is the rule.
+
+Rulings:
+
+1. The figures. "Facts planning checked" and "Harness runs" now carry
+   2089191, 2089124 and 5410. P3's run expects them.
+2. Decimal `u32` (P2-F2). Wherever this spec says a decimal `u32`, it
+   means ASCII digits only: no sign, no leading zero except the number
+   0 itself. One helper serves the row `r`, the cell `s`, the formula
+   `si` and the shared string index in `resolve`. A row number of 0 is
+   refused with "a row number is not a number", the doc comment saying
+   a row is numbered from 1, so `CellRef::parse(a1(x)) == Some(x)` holds
+   for every reference the reader emits but the saturated one. The
+   tests that pin `r="0"` and `r="+3"` as accepted become refusals.
+   P3's first code commit.
+3. Saturation (P2-F3) stands: no producer reaches a column past
+   `u32::MAX`, the alternatives are wrapping or refusing, and the doc
+   comment says which was chosen.
+4. An `si` past `u32` (P2-F4) stands with the message it has; ruling
+   2's helper makes the case the same as a signed or zero-padded one.
+5. The two-reader residual (P2-F5) is recorded: a `<sheetData>` where
+   the schema forbids one is skipped by the crate and read by
+   `run.log`'s reader; no corpus workbook has one. No change.
+6. A `SharedString` cell with no value (check 1's C19): `resolve`
+   answers `Ok(None)` and stands. P3's run script's independent reader
+   counts such a cell as resolved, so the two routes define the case
+   the same way; the corpus holds none (`shared_no_value` 0).
+7. `Cell::error` stays in P2 untested; P3 tests all three typed views,
+   as its section says.
+8. Check 1's C12: the strict namespace is reached in one test as
+   `MAIN[1]`, a position; the test names the spelling by its bytes.
+   P3's first code commit.
+9. Wording: "Module `package`" now says `Archive::read` (C20), and
+   "Harness runs" says the sheet order is by construction (C18).
+10. Check answers and ASCII: a check answer is committed as written
+    except that each non-ASCII character is replaced by an ASCII
+    equivalent, the replacements and the original's sha256 named in
+    a comment at the head of the file, as check 2's was; the rule is
+    added to `specs/0001`.
+11. P3's first code commit, in full: rulings 2 and 8 with their tests,
+    and nothing of P3's feature. P3's run expects the P2 totals as
+    corrected by ruling 1.
 
 ## Out of scope
 

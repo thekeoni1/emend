@@ -175,6 +175,11 @@ from this needs planning's word before the run (T2 P7 ruling).
     at the place it was made, naming what changed and why. Verbatim
     quotation does not override the rule above; nothing else in an
     answer is altered (M1 part 2 P3 verification ruling, 2026-09-18).
+    One more exception: a non-ASCII character in an answer is replaced
+    by an ASCII equivalent, and a comment at the head of the committed
+    file names each replacement and the original's sha256; planning
+    verifies the reproduction from the kept original (M1 part 3 P2
+    ruling 10, 2026-09-18).
   - Every commit id in a log or check answer is read from git at run
     time by a command the log prints, never typed or padded (T3 P4).
   - Every sha256 a log cites, a superseded attempt's included, is
