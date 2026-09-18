@@ -1,0 +1,69 @@
+M1 part 3 P1 corpus run, --shared-strings, both targets.
+phase commit 71ab06ec347f6d57c902a6da02299c228bc5cf99; run at 2026-09-18T18:22:12Z
+
+## host
+strings_counts: lines=27 good=27 not_strings=0 malformed=0 items_total=110582 bytes_total=1497107 empty_tables=0 max_items=54472
+entry_counts: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+
+id	items	own_si_count
+054df34b1472	125	125
+0fbf4e5e3be9	33	33
+16c3be622455	12	12
+18d1e8ba72b5	52	52
+3084c0591814	37	37
+40d747fb5d9e	40	40
+63e820d98612	13	13
+6778a242d1f9	59	59
+75387404b8af	50	50
+7935c5119065	95	95
+80adab651c77	127	127
+885819a9642e	33	33
+8aaebea134fb	99	99
+9132ce5303d8	54472	54472
+9ada43d71c80	104	104
+a72460f992a8	13	13
+ab0e6a529465	54472	54472
+ae7e17525a35	12	12
+bdfe649d5b97	18	18
+d8245b84086f	127	127
+ed2fbd304d51	104	104
+ed4c55f07c69	40	40
+f2ba081da509	18	18
+f3a462783621	65	65
+f56906d42e0a	104	104
+f8459281d739	125	125
+f9efcac9808f	133	133
+
+## i686
+strings_counts: lines=27 good=27 not_strings=0 malformed=0 items_total=110582 bytes_total=1497107 empty_tables=0 max_items=54472
+entry_counts: rows=870 identical=870 bad_status=0 changed=0 dropped=0 added=0 recompressed=0 descriptor=0 bad_flags=0 crc_differs=0 size_differs=0
+
+id	items	own_si_count
+054df34b1472	125	125
+0fbf4e5e3be9	33	33
+16c3be622455	12	12
+18d1e8ba72b5	52	52
+3084c0591814	37	37
+40d747fb5d9e	40	40
+63e820d98612	13	13
+6778a242d1f9	59	59
+75387404b8af	50	50
+7935c5119065	95	95
+80adab651c77	127	127
+885819a9642e	33	33
+8aaebea134fb	99	99
+9132ce5303d8	54472	54472
+9ada43d71c80	104	104
+a72460f992a8	13	13
+ab0e6a529465	54472	54472
+ae7e17525a35	12	12
+bdfe649d5b97	18	18
+d8245b84086f	127	127
+ed2fbd304d51	104	104
+ed4c55f07c69	40	40
+f2ba081da509	18	18
+f3a462783621	65	65
+f56906d42e0a	104	104
+f8459281d739	125	125
+f9efcac9808f	133	133
+
