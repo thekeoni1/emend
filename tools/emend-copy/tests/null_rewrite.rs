@@ -539,6 +539,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--edit-sample", "--cells"],
         vec!["--cells", "--edit-sample"],
         vec!["--edit-sample", "[Content_Types].xml"],
+        // And with part 4 P3's.
+        vec!["--edit-formula-sample", "--edit-sample"],
+        vec!["--edit-sample", "--edit-formula-sample"],
+        vec!["--edit-formula-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1265,6 +1269,217 @@ fn the_edit_sample_refuses_a_workbook_with_no_worksheet() {
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(
         ran.stderr, "error: the workbook has no sheet of kind Worksheet\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+// ----------------------------------------------- the formula sample edit
+
+/// The worksheet the formula sample tests edit: a shared master and its
+/// follower, which are not candidates, then two normal formulas, of which
+/// the first, C2, is the one the sample sets.
+const FORMULA_ROWS: &str = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>2</v></c>\
+     <c r=\"B1\"><f t=\"shared\" ref=\"B1:B2\" si=\"0\">A1*2</f><v>4</v></c></row>\
+     <row r=\"2\"><c r=\"B2\"><f t=\"shared\" si=\"0\"/><v>4</v></c>\
+     <c r=\"C2\" s=\"3\"><f>A1+1</f><v>3</v></c><c r=\"D2\"><f>A1+2</f><v>4</v></c></row>";
+
+/// `FORMULA_ROWS` as the sample writes them back: C2's formula gone, its
+/// value 1 and its `s` kept, and nothing else changed.
+fn formula_rows_edited() -> String {
+    FORMULA_ROWS.replace(
+        "<c r=\"C2\" s=\"3\"><f>A1+1</f><v>3</v></c>",
+        "<c r=\"C2\" s=\"3\"><v>1</v></c>",
+    )
+}
+
+/// Runs `--edit-formula-sample` on `specs` and returns the line and the
+/// output's bytes, asserting exit 0 and that no temporary was left.
+#[track_caller]
+fn formula_sample(label: &str, specs: &[Spec]) -> (String, Vec<u8>) {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--edit-formula-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    (ran.stdout, fs::read(&output).expect("read the output"))
+}
+
+/// Asserts that every entry of `specs` not in `changed` came back with the
+/// bytes it went in with.
+#[track_caller]
+fn untouched_but(entries: &[OutEntry], specs: &[Spec], changed: &[&[u8]]) {
+    for spec in specs {
+        if changed.contains(&spec.name.as_slice()) {
+            continue;
+        }
+        let entry = entry_named(entries, &spec.name);
+        assert_eq!(
+            (entry.method, &entry.compressed),
+            (spec.method, &spec.payload()),
+            "the entry {:?} was rewritten",
+            String::from_utf8_lossy(&spec.name)
+        );
+    }
+}
+
+#[test]
+fn the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain() {
+    // `specs/0011-editing-cells.md`, "Harness runs": the shared master and
+    // follower are skipped, C2 is set to 1, the chain goes in the same
+    // write, and the sheet's five cells read back with C2 as a number and no
+    // formula. The two parts the chain's removal rewrites must hold what
+    // `--drop-calc-chain` writes for the same input.
+    let sheet = edited(&format!("<sheetData>{FORMULA_ROWS}</sheetData>"));
+    let mut specs = package_specs_with_a_chain();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    let (line, output) = formula_sample("formula-sample", &specs);
+    assert_eq!(
+        line, "edit\tformula_replaced=1\tchain_dropped=1\tcells_after=5\tread_back=1\n",
+        "the edit line"
+    );
+    let entries = parse_independently(&output);
+    let names: Vec<String> = entries
+        .iter()
+        .map(|entry| String::from_utf8_lossy(&entry.name).into_owned())
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/worksheets/sheet1.xml",
+            "xl/styles.xml",
+            "xl/media/image1.bin",
+        ],
+        "the chain's entry is gone and nothing else is"
+    );
+    assert_eq!(
+        entry_named(&entries, b"xl/worksheets/sheet1.xml").compressed,
+        edited(&format!("<sheetData>{}</sheetData>", formula_rows_edited())).into_bytes(),
+        "the sheet"
+    );
+
+    let dir = TempDir::new("formula-sample-recipe");
+    let input = dir.path("in.xlsx");
+    let recipe = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &recipe, &["--drop-calc-chain"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let recipe = parse_independently(&fs::read(&recipe).expect("read the recipe's output"));
+    for name in [
+        b"[Content_Types].xml".as_slice(),
+        b"xl/_rels/workbook.xml.rels".as_slice(),
+    ] {
+        let (got, want) = (entry_named(&entries, name), entry_named(&recipe, name));
+        assert_eq!(
+            (got.method, got.crc32, &got.compressed),
+            (want.method, want.crc32, &want.compressed),
+            "{} differs from the recipe's",
+            String::from_utf8_lossy(name)
+        );
+    }
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"[Content_Types].xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"xl/worksheets/sheet1.xml",
+            b"xl/calcChain.xml",
+        ],
+    );
+}
+
+#[test]
+fn the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain() {
+    // The first worksheet has only a shared formula, so the second is
+    // edited; there is no chain, so it alone changes and chain_dropped is 0.
+    // The first sheet's count is not the one the line carries: the second
+    // sheet's is.
+    let second = edited(&format!("<sheetData>{FORMULA_ROWS}</sheetData>"));
+    let mut specs = edit_specs(
+        "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A2\" si=\"0\">1+1</f>\
+         <v>2</v></c></row><row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"0\"/><v>2</v></c>\
+         </row></sheetData>",
+    );
+    for spec in &mut specs {
+        let text = String::from_utf8(spec.data.clone()).unwrap_or_default();
+        if spec.name == b"xl/workbook.xml" {
+            let text = text.replace(
+                "</sheets>",
+                "<sheet name=\"Sheet2\" sheetId=\"2\" r:id=\"rId9\"/></sheets>",
+            );
+            *spec = Spec::deflated(b"xl/workbook.xml", text.as_bytes());
+        }
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let text = text.replace(
+                "</Relationships>",
+                &format!(
+                    "<Relationship Id=\"rId9\" Type=\"{ATTR_NS}/worksheet\" \
+                     Target=\"worksheets/sheet2.xml\"/></Relationships>"
+                ),
+            );
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", text.as_bytes());
+        }
+    }
+    specs.push(Spec::stored(b"xl/worksheets/sheet2.xml", second.as_bytes()));
+    let (line, output) = formula_sample("formula-sample-second", &specs);
+    assert_eq!(
+        line, "edit\tformula_replaced=1\tchain_dropped=0\tcells_after=5\tread_back=1\n",
+        "the edit line"
+    );
+    let entries = parse_independently(&output);
+    assert_eq!(entries.len(), specs.len(), "an entry was added or dropped");
+    assert_eq!(
+        entry_named(&entries, b"xl/worksheets/sheet2.xml").compressed,
+        edited(&format!("<sheetData>{}</sheetData>", formula_rows_edited())).into_bytes(),
+        "the second sheet"
+    );
+    untouched_but(&entries, &specs, &[b"xl/worksheets/sheet2.xml"]);
+}
+
+#[test]
+fn the_formula_sample_with_no_normal_formula_is_byte_identical() {
+    // `cells_specs` holds a shared master and its follower and no normal
+    // formula: no edit, the output the input's own bytes, and every key 0,
+    // where a cells_after of 0 means no sheet was read (P3 ruling 4).
+    let specs = cells_specs();
+    let (line, output) = formula_sample("formula-sample-none", &specs);
+    assert_eq!(
+        line, "edit\tformula_replaced=0\tchain_dropped=0\tcells_after=0\tread_back=0\n",
+        "the edit line"
+    );
+    assert_eq!(output, build(&specs), "the output is not the input");
+}
+
+#[test]
+fn the_formula_sample_refuses_what_the_write_refuses_and_leaves_nothing() {
+    // The first normal formula's cell carries `cm`, which the write refuses:
+    // exit 2, the layer's message, no line, and no output or temporary left.
+    let rows = FORMULA_ROWS.replace("<c r=\"C2\" s=\"3\">", "<c r=\"C2\" s=\"3\" cm=\"1\">");
+    let specs = edit_specs(&format!("<sheetData>{rows}</sheetData>"));
+    let dir = TempDir::new("formula-sample-refused");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--edit-formula-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a cell carries an attribute this layer does not model\n",
         "the message"
     );
     assert_eq!(ran.stdout, "", "a line was printed");

@@ -58,6 +58,16 @@
 //!   and one line goes to stdout: the word `edit` then tab-separated
 //!   `key=value`, COUNTS ONLY, for the reason `--cells` gives. A cell count
 //!   after the write other than the one the edits imply is exit 2.
+//! - `--edit-formula-sample`: the formula sample edit of the same section:
+//!   the sheets of kind `Worksheet` are read in `<sheets>` order until a cell
+//!   with a formula of kind `Normal` is found, that cell is set to
+//!   `Number(1)` and the package written, so the write's rule drops the
+//!   calculation chain when there is one. One line goes to stdout: the word
+//!   `edit` then tab-separated `formula_replaced`, `chain_dropped`,
+//!   `cells_after` and `read_back`, COUNTS ONLY. A cell count after the
+//!   write other than the one before is exit 2. A workbook with no normal
+//!   formula gets no edit, so its output is byte-identical, and every key of
+//!   its line is 0.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -84,7 +94,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
-| --shared-strings | --cells | --edit-sample]";
+| --shared-strings | --cells | --edit-sample | --edit-formula-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -106,6 +116,8 @@ enum Operation {
     Cells,
     /// The sample cell edit, and its counts on stdout.
     EditSample,
+    /// The formula sample edit, and its counts on stdout.
+    EditFormulaSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -189,6 +201,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--edit-sample" => {
             run(Path::new(input), Path::new(output), Operation::EditSample)
         }
+        [input, output, flag] if flag == "--edit-formula-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::EditFormulaSample,
+        ),
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -219,6 +236,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::EditSample) {
         return edit_sample(input, output);
     }
+    if matches!(operation, Operation::EditFormulaSample) {
+        return edit_formula_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -241,6 +261,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         // Handled above, before any output file exists.
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
         Operation::EditSample => unreachable!("the sample edit has its own path"),
+        Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
         Operation::None | Operation::Survey | Operation::SharedStrings | Operation::Cells => {
             Vec::new()
         }
@@ -511,7 +532,7 @@ fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
         let _ = fs::remove_file(output);
     }
     let (cells_after, read_back) = checked?;
-    let pairs = [
+    edit_line(&[
         ("set", set),
         ("cleared", cleared),
         ("dropped", dropped),
@@ -519,17 +540,7 @@ fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
         ("cells_before", before.cells),
         ("cells_after", cells_after),
         ("read_back", read_back),
-    ];
-    let mut line = String::from("edit");
-    for (key, value) in pairs {
-        line.push('\t');
-        line.push_str(key);
-        line.push('=');
-        line.push_str(&value.to_string());
-    }
-    let mut out = io::stdout().lock();
-    writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
-    out.flush().map_err(|e| Error::Report(e.kind()))
+    ])
 }
 
 /// Reopens the output and reads the edited sheet back: its cell count,
@@ -568,6 +579,131 @@ fn read_back(
         });
     }
     Ok((cells_after, read_back))
+}
+
+/// The formula sample edit of `specs/0011-editing-cells.md`, "Harness runs".
+///
+/// The sheets of kind `Worksheet` are read in `<sheets>` order until one holds
+/// a cell with a formula of kind `Normal`; that sheet is read to its end for
+/// its count, the first such cell is set to `Number(1)` and the package
+/// written, and the write's rule drops the calculation chain when the
+/// workbook has one. The output is reopened and that sheet read back for the
+/// line: `formula_replaced` (0 or 1), `chain_dropped` (1 when the input's
+/// workbook names a chain and the output's does not, measured from both
+/// reads), `cells_after` (the read-back count, asserted equal to the count
+/// before: exit 2 when it differs) and `read_back` (1 when the edited cell
+/// reads back as `number()` 1 with no formula). With no normal formula
+/// nothing is recorded, so the output is byte-identical, and every key is 0:
+/// a `cells_after` of 0 then means no sheet was read (P3 rulings 4 to 6). A
+/// failure after the output is in place removes it, as `edit_sample`'s does.
+fn edit_formula_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let chain_before = workbook.calc_chain.is_some();
+    let parts: Vec<Vec<u8>> = workbook
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut found = None;
+    for part in &parts {
+        let mut first = None;
+        let mut cells = 0u64;
+        for cell in package.cells(part)? {
+            let cell = cell?;
+            cells += 1;
+            let normal = cell
+                .formula
+                .as_ref()
+                .is_some_and(|formula| formula.kind == FormulaKind::Normal);
+            if normal && first.is_none() {
+                first = Some(cell.reference);
+            }
+        }
+        if let Some(reference) = first {
+            found = Some((part.as_slice(), reference, cells));
+            break;
+        }
+    }
+    if let Some((part, reference, _)) = found {
+        package.set_cell(part, reference, Value::Number(1.0));
+    }
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it, as in
+    // `edit_sample`.
+    let checked = formula_read_back(output, found);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (chain_after, cells_after, read_back) = checked?;
+    edit_line(&[
+        ("formula_replaced", u64::from(found.is_some())),
+        ("chain_dropped", u64::from(chain_before && !chain_after)),
+        ("cells_after", cells_after),
+        ("read_back", read_back),
+    ])
+}
+
+/// Reopens the output for the formula sample's line: whether its workbook
+/// still names a calculation chain; the edited sheet's cell count, asserted
+/// equal to the count before; and whether the edited cell reads back as
+/// `number()` 1 with no formula. Both counts are 0 when no sheet was edited.
+fn formula_read_back(
+    output: &Path,
+    edited: Option<(&[u8], CellRef, u64)>,
+) -> Result<(bool, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let chain_after = written.workbook()?.calc_chain.is_some();
+    let Some((part, reference, before)) = edited else {
+        return Ok((chain_after, 0, 0));
+    };
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        if cell.reference == reference && cell.number() == Some(1.0) && cell.formula.is_none() {
+            read_back += 1;
+        }
+    }
+    if cells_after != before {
+        return Err(Error::CellsAfter {
+            expected: before,
+            found: cells_after,
+        });
+    }
+    Ok((chain_after, cells_after, read_back))
+}
+
+/// Prints one `edit` line: the word, then tab-separated `key=value`.
+fn edit_line(pairs: &[(&str, u64)]) -> Result<(), Error> {
+    let mut line = String::from("edit");
+    for (key, value) in pairs {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value.to_string());
+    }
+    let mut out = io::stdout().lock();
+    writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
+    out.flush().map_err(|e| Error::Report(e.kind()))
 }
 
 /// Writes the package back, reporting a buffering failure rather than losing
