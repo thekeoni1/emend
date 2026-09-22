@@ -329,7 +329,9 @@ Expected results, `lo` and `lo_in` `ok` in every case:
   `yes`).
 - P2: in every workbook the first worksheet part `changed`, every
   other entry `identical` unflagged (no formula changes, so the chain
-  stays), `order_preserved` `yes`, `files_identical` `no`; the run
+  stays), `descriptor` alone allowed on the changed entry as
+  `specs/0008` says for a replaced one (P2 verification ruling 6),
+  `order_preserved` `yes`, `files_identical` `no`; the run
   log's own check over the extracted input and output parts, with
   `expat` as part 2 P3 counted elements: the bytes before
   `<sheetData` and the bytes from `</sheetData>` to the end are
@@ -337,9 +339,14 @@ Expected results, `lo` and `lo_in` `ok` in every case:
   presence, value text), differ from the input's exactly at the
   edited references, printed as counts `unchanged`, `changed`,
   `added`, `removed` per file and asserted against the tool's line
-  (`changed` equal to `set` minus 2, `removed` equal to `dropped`,
-  `added` 2, `changed + removed + unchanged` equal to
-  `cells_before`); `read_back` equal to `set` in every file; totals
+  (`changed` equal to `set` minus 2 plus `cleared` minus `dropped`,
+  since a cleared cell with `s` stays and counts as changed; `removed`
+  equal to `dropped`; `added` 2; `changed + removed + unchanged` equal
+  to `cells_before`; P2 ruling 1, finding P2-F1), and from the
+  comparison's own pick of A, B and M: the changed references are
+  exactly A and, when B carries `s`, B, which then has no value and
+  keeps its `s` bytes; the added references are exactly `(M + 1, 1)`
+  and `(M + 1, 2)`; `read_back` equal to `set` in every file; totals
   over the 27 of `rows_added` 27 and `cells_after` equal to the sum
   of `cells_before + 2 - dropped`. The check prints no reference and
   no text.
@@ -432,7 +439,14 @@ acceptance as "Harness runs".
 
 ### P3: the formula sample, the probe, the size record
 
-`--edit-formula-sample` with its integration test; the catalogue and
+P3's first code commit carries the P2 verification rulings: the
+remaining `expect_err("refused")` sites moved to the naming helper
+(ruling 2); a `CellsAfter` refusal removing the output and a reopen
+failure reported as the output's (ruling 3). P3's logs carry ruling
+4: a planted fault per comparison flag, rows counted in input and
+output, both phase-commit controls in every log, path fixtures
+assembled at run time. Then `--edit-formula-sample` with its
+integration test; the catalogue and
 Limits in `package`'s and `cells`'s module headers (the consequences
 above; the refusals; inline strings only; no style on a new cell);
 `probe-emend-cells-write-xml`, measured as "Size" says, recorded as
@@ -601,6 +615,90 @@ seven points and four smaller ones the report raised:
    fresh for this phase.
 9. The uncommitted files (this spec, `specs/0001`, and `ROADMAP.md`
    from this verification) go in P2's first doc commit, unedited.
+
+## Planning rulings during P2 (2026-09-22)
+
+The implementing session asked, with 4b7f55c and 595cf8b committed
+and no log written, about the acceptance clause "`changed` equal to
+`set` minus 2, `removed` equal to `dropped`": a cleared cell that
+carries `s` stays as `<c r s/>` (the design's clear rule), so the
+comparison's tuple sees it changed, not removed, and the clause holds
+only for an unstyled B. Nearly every corpus cell carries `s`
+(2094287 of 2094601, `specs/0010`), so the clause as drafted would
+fail in every workbook. This is finding P2-F1, planning's, in the
+draft's arithmetic. Rulings:
+
+1. The clause is corrected in "Harness runs": `changed` equal to
+   `set` minus 2 plus `cleared` minus `dropped`; `removed` equal to
+   `dropped`; `added` 2; the sum unchanged. The run log also asserts,
+   from the comparison's own pick of A, B and M (not the tool's), that
+   the changed references are exactly A and, when B carries `s`, B;
+   that B then has no value in the output and keeps its `s` bytes;
+   and that the added references are exactly `(M + 1, 1)` and
+   `(M + 1, 2)`. No reference is printed.
+2. The operation stays as specified (B is the second such cell,
+   styled or not); the alternative of choosing an unstyled B would
+   make the sample avoid the corpus's common case.
+3. The uncommitted smoke run over the debug binary is an unlogged
+   aside, as the report should call it; the run log is the measure.
+
+## Planning verification and rulings on P2 (2026-09-22)
+
+Verified from primaries by planning, not from the report: the range
+57d2334..ed89a57 (4cf3671 doc carrying planning's three files at the
+hashes planning sent, 4b7f55c and 595cf8b code, ed89a57 record, nine
+files under `records/`), every message ASCII with the Co-Authored-By
+line alone; every committed log, check answer and record file at the
+sha256 the report and scan.log print; the three superseded attempts
+present in the implementing scratch at their printed hashes and byte
+counts; planning's own gate at ed89a57 nine PASS; planning's own
+tests 390 passed, 2 ignored on each target; planning's own
+`privacy.sh --range 57d2334..ed89a57` 4 commits, 385 blobs, 0
+findings; the two code diffs read, 4b7f55c the three carried items
+and 595cf8b the operation with its tests, nothing else. Planning's
+own `expat` comparison over the run directory, written without
+reading the run script, picking A, B and M itself from each input's
+first worksheet in workbook order, agrees with the run log on all 27
+workbooks: prefix and suffix bytes identical, the changed references
+exactly A and the styled B, the added references exactly `(M + 1, 1)`
+and `(M + 1, 2)`, A's value `42.5` with its `s` kept, B without a
+value with its `s` kept, the text and the boolean in their forms,
+every other entry equal in CRC and sizes, the host and i686 outputs
+byte-identical, and the totals `set` 81, `cleared` 27, `dropped` 0,
+`cells_before` 2084915, `cells_after` 2084969. P2 is DONE at
+595cf8b, records ed89a57, local.
+
+Findings: P2-F1 (planning's clause, ruled during P2). Rulings on
+what the report left open:
+
+1. F-1, F-3, F-6, and check 2's notes 8 and 9: accepted as they
+   stand. R4 shows `write_to` reaches the rule; no corpus workbook
+   has an unstyled second value cell (2094287 of 2094601 cells carry
+   `s`), so the `dropped` arm is shown on generated input alone, and
+   "Harness runs" says so; a parsed `s` equal to its bytes for a
+   decimal is the same check.
+2. F-2: the twenty remaining `expect_err("refused")` sites move to
+   the helper that names what was not refused, in P3's first code
+   commit.
+3. F-4 and F-5: a `CellsAfter` refusal removes the output file, as
+   every other refusal of the tool leaves none, and a failure to
+   reopen the output is reported as the output's, not the input's;
+   both in P3's first code commit.
+4. Check 2's findings 2, 3 and 11: P3's run log plants one fault per
+   flag of its comparison, `new_cells` included; its comparison
+   counts `<row>` elements in input and output so a row total is
+   measured, not restated; every P3 log controls the phase commit
+   with the null commit and a short sha. Check 1's note 14: a path
+   control fixture is assembled at run time, as the scan's fixtures
+   are, from P3 on.
+5. 4b7f55c's message says only the edited cell's formula is read;
+   every cell's formula tag is read and only an edited cell's unknown
+   type refuses. The message stands as history; R1d measures the
+   behaviour.
+6. `descriptor` on the changed worksheet entry, as `specs/0008` allows
+   for a replaced entry, was not named in P2's acceptance and is
+   named now.
+7. This spec and `ROADMAP.md` go in P3's first doc commit, unedited.
 
 ## Out of scope
 
