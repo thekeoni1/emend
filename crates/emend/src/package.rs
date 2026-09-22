@@ -9,7 +9,8 @@
 //! came with part 2's P3; [`Package::cells`] reads a worksheet
 //! (`specs/0010-reading-cells.md`), and [`Package::set_cell`] and
 //! [`Package::clear_cell`] record cell edits that `write_to` applies
-//! (`specs/0011-editing-cells.md`).
+//! (`specs/0011-editing-cells.md`). [`Package::styles`] reads the workbook's
+//! styles part (`specs/0012-styles.md`).
 //!
 //! Every name is bytes, compared byte for byte, because a zip entry's name is
 //! bytes and the archive layer indexes it that way. No percent-decoding and
@@ -68,7 +69,8 @@
 //!   `a_relationship_on_a_part_that_is_not_there`,
 //!   `a_relationship_removal_on_a_part_that_is_not_there`,
 //!   `cells::tests::a_relationship_naming_no_entry_is_refused`,
-//!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`).
+//!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`,
+//!   `styles::tests::a_styles_relationship_naming_no_entry_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The cell edits add eight (`specs/0011-editing-cells.md`, "Errors"); the
@@ -95,8 +97,27 @@
 //! - "a worksheet without sheetData cannot be edited"
 //!   (`a_set_on_a_worksheet_without_sheet_data_is_refused`).
 //!
+//! The styles part's reading adds five (`specs/0012-styles.md`, "Errors"),
+//! the first raised here by [`Package::styles`] and the rest by `styles`:
+//!
+//! - "the workbook has no styles part"
+//!   (`styles::tests::a_workbook_with_no_styles_relationship_is_refused`).
+//! - "the styles part's root is not styleSheet"
+//!   (`styles::tests::a_root_of_the_wrong_name_is_refused`,
+//!   `a_root_in_another_namespace_is_refused`,
+//!   `a_part_with_no_root_at_all_is_refused`).
+//! - "a numFmt lacks numFmtId or formatCode"
+//!   (`styles::tests::a_num_fmt_without_an_id_is_refused`,
+//!   `a_num_fmt_without_a_code_is_refused`).
+//! - "a style attribute is not a number"
+//!   (`styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused`,
+//!   `an_xf_id_that_is_not_a_number_is_refused`).
+//! - "the styles part has more than one numFmts or cellXfs"
+//!   (`styles::tests::a_second_num_fmts_is_refused`,
+//!   `a_second_cell_xfs_is_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
-//! catalogued here with the rest, so there is one list for the three modules
+//! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
 //!
 //! - "the shared strings part's root is not sst"
@@ -243,6 +264,7 @@ use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
 use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal};
+use crate::styles::Styles;
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -543,6 +565,12 @@ pub struct Workbook {
     pub calc_chain: Option<Vec<u8>>,
     /// The resolved part of its first `theme` relationship.
     pub theme: Option<Vec<u8>>,
+    /// Whether the workbook counts dates from 1904: `<workbookPr>`'s
+    /// `date1904` written as `1` or `true`, and `false` for any other value,
+    /// when the attribute is absent and when `<workbookPr>` is
+    /// (`specs/0012-styles.md`, "Module `dates`"). The first `<workbookPr>`
+    /// among the root's children is the one read.
+    pub date1904: bool,
 }
 
 impl Workbook {
@@ -563,6 +591,7 @@ pub struct Package<R: Read + Seek> {
     /// Parsed relationships by source, the package's own under an empty name.
     relationships: Vec<Relationships>,
     workbook: Option<Workbook>,
+    styles: Option<Styles>,
     /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
     ///
     /// Nothing is removed implicitly: a removed relationship's target, a
@@ -656,6 +685,7 @@ impl<R: Read + Seek> Package<R> {
             content_types: None,
             relationships: Vec::new(),
             workbook: None,
+            styles: None,
             edits: Recorded::default(),
         })
     }
@@ -839,7 +869,7 @@ impl<R: Read + Seek> Package<R> {
         let index = self.archive.index_of(&part).ok_or(Error::Package(
             "the officeDocument relationship names no entry",
         ))?;
-        let raw = parse_workbook_sheets(&mut self.archive, index)?;
+        let (raw, date1904) = parse_workbook_sheets(&mut self.archive, index)?;
         let rels = self.relationships(&part)?;
         let mut sheets = Vec::with_capacity(raw.len());
         for sheet in raw {
@@ -862,7 +892,41 @@ impl<R: Read + Seek> Package<R> {
             styles: resolved_first(rels, STYLES)?,
             calc_chain: resolved_first(rels, CALC_CHAIN)?,
             theme: resolved_first(rels, THEME)?,
+            date1904,
         })
+    }
+
+    /// The workbook's styles part, parsed on the first call and kept.
+    ///
+    /// `specs/0012-styles.md`, "Module `styles`: what is read": the part the
+    /// workbook's first `styles` relationship names, read through [`Stream`]
+    /// and [`Scope`] with the element resolution [`Cells`] uses, for its
+    /// number formats and its cell formats.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "the workbook has no styles part" when the workbook
+    /// has no `styles` relationship, "no such part" when the relationship
+    /// names an entry the archive does not hold, and the styles messages the
+    /// module header lists; [`Error::Xml`] for bytes that are not well-formed
+    /// XML or not UTF-8; whatever [`Package::workbook`] refuses, since the
+    /// relationship is followed through it.
+    pub fn styles(&mut self) -> Result<&Styles, Error> {
+        if self.styles.is_none() {
+            let part = self
+                .workbook()?
+                .styles
+                .clone()
+                .ok_or(Error::Package("the workbook has no styles part"))?;
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            let parsed = {
+                let mut stream = Stream::new(self.archive.read(index)?, index)?;
+                Styles::read(&mut stream, index)?
+            };
+            return Ok(self.styles.insert(parsed));
+        }
+        // The branch above returns whenever the field was empty.
+        Ok(self.styles.as_ref().unwrap())
     }
 
     /// Records the removal of the relationship `id` from `source`'s rels part.
@@ -2431,11 +2495,12 @@ struct RawSheet {
     state: Option<Vec<u8>>,
 }
 
-/// Reads the workbook part's `<sheets>`, skipping everything else.
+/// Reads the workbook part's `<sheets>` and its first `<workbookPr>`'s
+/// `date1904`, skipping everything else.
 fn parse_workbook_sheets<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
-) -> Result<Vec<RawSheet>, Error> {
+) -> Result<(Vec<RawSheet>, bool), Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
     let mut root = false;
@@ -2444,6 +2509,8 @@ fn parse_workbook_sheets<R: Read + Seek>(
     let mut depth = 0usize;
     let mut sheets_at: Option<usize> = None;
     let mut out = Vec::new();
+    // `None` until the first `<workbookPr>` is read.
+    let mut date1904: Option<bool> = None;
     while let Some(token) = stream.next()? {
         let (start, empty) = match token.event {
             Event::Start(ref start) => (start, false),
@@ -2471,6 +2538,9 @@ fn parse_workbook_sheets<R: Read + Seek>(
             sheets_at = Some(depth);
         } else if ours && local == b"sheet" && sheets_at == Some(depth - 1) {
             out.push(read_sheet(start, &scope, index)?);
+        } else if ours && local == b"workbookPr" && depth == ROOT_DEPTH + 1 && date1904.is_none() {
+            let value = written_attribute(start, b"date1904", index)?;
+            date1904 = Some(matches!(value.as_deref(), Some(b"1") | Some(b"true")));
         }
         if empty {
             scope.end();
@@ -2480,7 +2550,7 @@ fn parse_workbook_sheets<R: Read + Seek>(
             depth = depth.saturating_sub(1);
         }
     }
-    Ok(out)
+    Ok((out, date1904.unwrap_or(false)))
 }
 
 /// Reads one `<sheet>` element's attributes.

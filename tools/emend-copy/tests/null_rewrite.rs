@@ -543,6 +543,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--edit-formula-sample", "--edit-sample"],
         vec!["--edit-sample", "--edit-formula-sample"],
         vec!["--edit-formula-sample", "[Content_Types].xml"],
+        // And with part 5 P1's.
+        vec!["--styles", "--cells"],
+        vec!["--cells", "--styles"],
+        vec!["--styles", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1480,6 +1484,100 @@ fn the_formula_sample_refuses_what_the_write_refuses_and_leaves_nothing() {
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(
         ran.stderr, "error: a cell carries an attribute this layer does not model\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+// ------------------------------------------------------------- --styles
+
+/// The survey's package with a workbook that counts from 1904 and a styles
+/// part the reader can read (`specs/0012-styles.md`, "Harness runs").
+///
+/// Ten cell formats, one per case the `dated` count distinguishes: a
+/// built-in General (0), a built-in date not spelled out (14), a custom
+/// number (164), a custom date (165), a date letter inside a quoted run
+/// (166), inside a bracketed run (167) and after a backslash (168), a date
+/// letter after a quote that never closes (169), a producer's spelling of a
+/// built-in percentage (9), and no `numFmtId` at all. The codes are
+/// fictional. Hand count: `xfs` 10, `num_fmts` 7, `custom` 6, `dated` 3
+/// (14, 165 and 169), `date1904` 1.
+fn styles_specs() -> Vec<Spec> {
+    let workbook = format!(
+        "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><workbookPr date1904=\"1\"/>\
+         <sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>"
+    );
+    let styles = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><numFmts count=\"7\">\
+         <numFmt numFmtId=\"9\" formatCode=\"0%\"/>\
+         <numFmt numFmtId=\"164\" formatCode=\"0.00\"/>\
+         <numFmt numFmtId=\"165\" formatCode=\"yyyy-mm-dd\"/>\
+         <numFmt numFmtId=\"166\" formatCode=\"&quot;day &quot;0\"/>\
+         <numFmt numFmtId=\"167\" formatCode=\"[Red]0\"/>\
+         <numFmt numFmtId=\"168\" formatCode=\"\\d0\"/>\
+         <numFmt numFmtId=\"169\" formatCode=\"0&quot;y\"/></numFmts>\
+         <fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts>\
+         <cellXfs count=\"10\"><xf numFmtId=\"0\"/><xf numFmtId=\"14\"/>\
+         <xf numFmtId=\"164\"/><xf numFmtId=\"165\"/><xf numFmtId=\"166\"/>\
+         <xf numFmtId=\"167\"/><xf numFmtId=\"168\"/><xf numFmtId=\"169\"/>\
+         <xf numFmtId=\"9\"/><xf fontId=\"0\"/></cellXfs></styleSheet>"
+    );
+    let mut specs = package_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/workbook.xml" {
+            *spec = Spec::deflated(b"xl/workbook.xml", workbook.as_bytes());
+        } else if spec.name == b"xl/styles.xml" {
+            *spec = Spec::deflated(b"xl/styles.xml", styles.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn styles_counts_the_styles_part_and_edits_nothing() {
+    // `specs/0012-styles.md`, "Harness runs": one line, the word `styles`
+    // then tab-separated key=value pairs in the spec's key order, counts
+    // only, and the output byte-identical because the operation makes no
+    // edit.
+    let dir = TempDir::new("styles");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&styles_specs());
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--styles"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout, "styles\txfs=10\tnum_fmts=7\tcustom=6\tdated=3\tdate1904=1\n",
+        "the styles line"
+    );
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "--styles edits nothing"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+}
+
+#[test]
+fn styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
+    // The survey's own package carries `<styleSheet/>` in no namespace, which
+    // the reader refuses by its root: exit 2, the message, no line, no file.
+    let dir = TempDir::new("styles-refused");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&package_specs())).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--styles"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: the styles part's root is not styleSheet\n",
         "the message"
     );
     assert_eq!(ran.stdout, "", "a line was printed");

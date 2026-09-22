@@ -68,6 +68,13 @@
 //!   write other than the one before is exit 2. A workbook with no normal
 //!   formula gets no edit, so its output is byte-identical, and every key of
 //!   its line is 0.
+//! - `--styles`: no edit, so the output must be byte-identical again, and one
+//!   line goes to stdout: the word `styles` then tab-separated `key=value`,
+//!   `xfs`, `num_fmts`, `custom`, `dated` and `date1904`, the keys
+//!   `specs/0012-styles.md`, "Harness runs", lists. COUNTS ONLY: a format
+//!   code is content, so no code, no font name and no length of either is
+//!   printed. A workbook whose styles part the layer cannot read is exit 2
+//!   with the message.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -90,11 +97,12 @@ use std::process::{self, ExitCode};
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
 use emend::cells::{CellRef, FormulaKind, Kind, Value};
 use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
+use emend::styles::NumberFormat;
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
-| --shared-strings | --cells | --edit-sample | --edit-formula-sample]";
+| --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -118,6 +126,8 @@ enum Operation {
     EditSample,
     /// The formula sample edit, and its counts on stdout.
     EditFormulaSample,
+    /// No edits, and count the styles part on stdout.
+    Styles,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -206,6 +216,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::EditFormulaSample,
         ),
+        [input, output, flag] if flag == "--styles" => {
+            run(Path::new(input), Path::new(output), Operation::Styles)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -247,6 +260,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::Survey => Some(survey(input)?.line()),
         Operation::SharedStrings => Some(shared_strings_line(input)?),
         Operation::Cells => Some(cells_line(input)?),
+        Operation::Styles => Some(styles_line(input)?),
         _ => None,
     };
 
@@ -262,9 +276,11 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
         Operation::EditSample => unreachable!("the sample edit has its own path"),
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
-        Operation::None | Operation::Survey | Operation::SharedStrings | Operation::Cells => {
-            Vec::new()
-        }
+        Operation::None
+        | Operation::Survey
+        | Operation::SharedStrings
+        | Operation::Cells
+        | Operation::Styles => Vec::new(),
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
             let (mut file, guard) = temporary(output, "-entry")?;
@@ -913,6 +929,93 @@ fn cells_line(input: &Path) -> Result<String, Error> {
         }
     }
     Ok(counted.line())
+}
+
+/// Reads the workbook and its styles part and counts them.
+///
+/// `specs/0012-styles.md`, "Harness runs": `xfs` is the number of cell
+/// formats, `num_fmts` of number formats, `custom` of those with an id of 164
+/// or more, `dated` of the cell formats whose number format is a date by the
+/// test below, and `date1904` is 1 when the workbook counts from 1904. COUNTS
+/// ONLY: a format code is content, so none is printed.
+fn styles_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let date1904 = u64::from(package.workbook()?.date1904);
+    let styles = package.styles()?;
+    let xfs = styles.cell_xfs.len() as u64;
+    let num_fmts = styles.num_fmts.len() as u64;
+    let custom = styles
+        .num_fmts
+        .iter()
+        .filter(|format| format.id >= 164)
+        .count() as u64;
+    let mut dated = 0u64;
+    for xf in 0..styles.cell_xfs.len() {
+        // In range by construction: `xf` counts the cell formats read.
+        let format = u32::try_from(xf)
+            .ok()
+            .and_then(|xf| styles.number_format(xf));
+        if format.as_ref().is_some_and(is_date_format) {
+            dated += 1;
+        }
+    }
+    Ok(format!(
+        "styles\txfs={xfs}\tnum_fmts={num_fmts}\tcustom={custom}\tdated={dated}\tdate1904={date1904}"
+    ))
+}
+
+/// Whether a number format shows a date or a time, by the survey's test.
+///
+/// A built-in id among 14 to 22, 27 to 36, 45 to 47 and 50 to 58, the date,
+/// time and locale-defined date ids of ECMA-376 Part 1, 18.8.30; or a code
+/// that holds one of the letters `d m h y s`, in either case, once every
+/// quoted run, every bracketed run and every backslash escape is removed,
+/// over the whole code. This is the survey's test, as `specs/0012-styles.md`,
+/// "Facts planning checked", states it (P1 ruling 1), and no library's: it
+/// lives in this tool because the layer does not decide which numbers are
+/// dates.
+fn is_date_format(format: &NumberFormat) -> bool {
+    match format {
+        NumberFormat::BuiltIn(id) => matches!(id, 14..=22 | 27..=36 | 45..=47 | 50..=58),
+        NumberFormat::Code(code) => is_date_code(code),
+    }
+}
+
+/// The code half of [`is_date_format`].
+///
+/// A quoted run is a `"` and the next `"`, and a bracketed run a `[` and the
+/// next `]`, with what lies between; a `"` or a `[` with no closing partner
+/// starts no run and is an ordinary character, as the regular expression
+/// `"[^"]*"|\[[^\]]*\]|\\.` the runs are modelled on reads it. A backslash
+/// escape is the backslash and the character after it. What is left is
+/// searched for the letters.
+fn is_date_code(code: &str) -> bool {
+    let chars: Vec<char> = code.chars().collect();
+    let mut at = 0;
+    while at < chars.len() {
+        let c = chars[at];
+        let closing = match c {
+            '"' => Some('"'),
+            '[' => Some(']'),
+            _ => None,
+        };
+        if let Some(closing) = closing
+            && let Some(offset) = chars[at + 1..].iter().position(|inner| *inner == closing)
+        {
+            at += offset + 2;
+            continue;
+        }
+        if c == '\\' && at + 1 < chars.len() {
+            at += 2;
+            continue;
+        }
+        if matches!(c, 'd' | 'm' | 'h' | 'y' | 's' | 'D' | 'M' | 'H' | 'Y' | 'S') {
+            return true;
+        }
+        at += 1;
+    }
+    false
 }
 
 /// Walks the package layer's whole map and counts it.

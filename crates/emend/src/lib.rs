@@ -15,6 +15,9 @@
 //! cell from here on; it still does not evaluate a formula, render, or
 //! convert a date.
 //!
+//! Part 5 adds [`styles`] (`specs/0012-styles.md`): the styles part's number
+//! formats and cell formats, read.
+//!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the
 //! input, and `tools/xlsx-diff` reports every entry `identical` with an
@@ -32,10 +35,12 @@
 pub mod archive;
 pub mod cells;
 pub mod package;
+pub mod styles;
 #[cfg(test)]
 mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
 pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
+pub use styles::{NumFmt, NumberFormat, Styles, Xf};
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};
