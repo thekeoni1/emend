@@ -864,6 +864,40 @@ Rulings on the six items the report left open:
    on planning's word given with this verification and the
    maintainer's authorisation typed in the implementing session.
 
+## Planning verification and rulings on the close-out (2026-09-22)
+
+Verified from primaries by planning, not from the report: `git
+fetch` and `git ls-remote` show origin/main at 35e38a5, equal to
+local main at the push; `gh repo view` says PRIVATE; `gh run view
+35753087397` reads head 35e38a5, event push, branch main, conclusion
+success, every step success, the only ci.yml run on that commit; the
+doc commit 35e38a5 carries this spec and `ROADMAP.md` at the hashes
+planning sent; the record commit 7cc4f13 touches exactly
+records/logs/m1p4-close/push.log, ci-run.log and scan.log at the
+sha256 the report prints, with the scan hashing both siblings at
+those values and naming the superseded pre-push scan by hash, which
+planning found in the implementing scratch at that hash and byte
+count; the 18 messages c824d87..7cc4f13 ASCII with the Co-Authored-By
+line alone; the only home-shaped strings in the three logs are the
+path form's own regex and the scan's run-time control fixture;
+planning's own `scripts/privacy.sh --range c824d87..7cc4f13` reads
+18 commits, 426 blobs, 0 findings, PASS. The maintainer's
+authorisation was typed in the implementing session and the record
+is the single commit after the push, as this spec's close-out says.
+
+Findings: none. Rulings:
+
+1. The close-out's script changes are accepted: the pre and push
+   modes in one log; `ANTHROPIC_API_KEY` unset as a check; the base
+   resolved as part 3's first record commit; the scan's stage
+   argument and labelled siblings; the zero-path checks with a
+   run-time control in push.log and ci-run.log (P3 verification
+   ruling 1). The CI log's strict clean-tree check returns.
+2. 7cc4f13 stays local and goes with the next push, as part 3's
+   record commit b58e894 went with this one.
+3. Milestone 1 part 4 is DONE and PUSHED. Part 5 (styles) is next
+   and starts with its spec, for the maintainer's approval.
+
 ## Out of scope
 
 - Formulas, `calcPr` and recalculation on open: part 6.

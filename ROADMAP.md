@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (parts 1 to 3 DONE and PUSHED; part 4 APPROVED 2026-09-22; parts 5 to 8 PROPOSED)
+## Milestone 1: greenfield core (parts 1 to 4 DONE and PUSHED; part 5 APPROVED 2026-09-22; parts 6 to 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -247,7 +247,36 @@ carries the local commit b58e894.
 | P1 | `drop_calc_chain` in the crate with `--drop-calc-chain` calling it; `Value`, `set_cell`, `clear_cell`, the worksheet rewrite in `write_to`, the seven messages; the corpus run `--drop-calc-chain` against part 2 P3's expectations | DONE 2026-09-22 (d7a7a7f, records 57d2334, local; three code commits by ruling 1 on finding P1-F1, the eighth message and data tables refused; verified by planning from primaries, its own gate, tests and record comparison with part 2 P3; `specs/0011` "Planning verification and rulings on P1") |
 | P2 | `--edit-sample`; the corpus run with the run log's `expat` cell comparison | DONE 2026-09-22 (595cf8b, records ed89a57, local; finding P2-F1, planning's clause, ruled during P2; verified by planning from primaries, its own gate, tests and its own `expat` comparison agreeing on all 27; `specs/0011` "Planning verification and rulings on P2") |
 | P3 | `--edit-formula-sample`; the catalogue and Limits; `probe-emend-cells-write-xml` and the size record against the ceiling; the negative log through the binary | DONE 2026-09-22 (4b31e2a, records df83dab, local; verified by planning from primaries, its own gate, tests, size rebuild and `expat` comparison; budget 278064 section bytes, 115152 under the 393216 ceiling, own cost 4100 and whole growth 30716; `specs/0011` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, as part 3's, carrying b58e894 | PROPOSED |
+| Close | close-out push after P3, as part 3's, carrying b58e894 | DONE 2026-09-22 (pushed 35e38a5, 17 commits, 423 blobs, 0 findings; CI run 35753087397 success; one record commit 7cc4f13 local, with the next push; `specs/0011` "Planning verification and rulings on the close-out") |
+
+### Part 5: styles (`specs/0012-styles.md`)
+
+Approved by the maintainer 2026-09-22 and sent to implementation,
+the three decisions taken as planning recommended (number formats
+and derived cell formats only, with fonts, fills and borders later;
+dates as the Cargo feature `dates`, off by default, no dependency;
+style indices validated against the styles part at write).
+`Package::styles` reads the number formats and cell formats;
+`add_cell_style` appends an `xf` copied from an existing one with
+its number format changed, and a custom format with an id no
+existing one uses, so nothing is renumbered; `set_cell_style`
+composes with part 4's value edits; `Workbook::date1904`;
+`dates::{DateTime, Epoch}` to and from serial numbers in both
+epochs. Acceptance: over the corpus a sample that
+adds two cell formats and one custom format, styles one cell and
+writes one dated cell leaves every other entry byte-identical, the
+styles part identical outside the two containers it grows, and the
+worksheet identical outside the two cells, by an independent parser
+in the run script; every output opens in LibreOffice; the styles
+and values read back. No push during the part; the close-out push
+follows P3 and carries the local commit 7cc4f13.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `Workbook::date1904`; the `styles` module read (`Styles`, `NumFmt`, `Xf`, `NumberFormat`); `--styles`; `add_cell_style`, `set_cell_style`, the styles rewrite and the worksheet start-tag rewrite in `write_to`, the nine messages; the corpus run `--styles` against planning's survey | READY |
+| P2 | `--style-sample`; the corpus run with the run log's `ElementTree` and byte-span check | PLANNED |
+| P3 | the `dates` feature; `--date-sample`; the catalogue and Limits; `probe-emend-styles-write-xml` and `probe-emend-dates-write-xml` with the size record against the ceiling; the negative log through the binary | PLANNED |
+| Close | close-out push after P3, as part 4's, carrying 7cc4f13 | PLANNED |
 
 ## Unscoped
 
