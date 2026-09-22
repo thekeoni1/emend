@@ -3243,3 +3243,651 @@ fn a_refused_cell_edit_leaves_no_temporary_and_no_output() {
     assert!(out.is_empty(), "a refused write wrote to the output");
     assert_eq!(replacement_temporaries(), before, "a temporary was left");
 }
+
+// ------------------------------------------------------------------ styles
+//
+// `specs/0012-styles.md`, "P1", second code commit: cell formats added to
+// the styles part and style edits applied to worksheets, the output's parts
+// read back through the independent zip reader and compared with bytes each
+// test writes out by hand.
+
+const STYLES_PART: &[u8] = b"xl/styles.xml";
+
+/// A styles part in the main namespace with `body` between its root tags.
+fn style_sheet(body: &str) -> String {
+    format!("{DECLARATION}\n<styleSheet xmlns=\"{MAIN_NS}\">{body}</styleSheet>")
+}
+
+/// The smallest package with its styles part holding `body` and its
+/// worksheet's `<sheetData>` holding `rows`.
+fn styled(body: &str, rows: &str) -> Parts {
+    let mut parts = with_rows(rows);
+    set(&mut parts, STYLES_PART, style_sheet(body));
+    parts
+}
+
+/// Four cell formats and no number formats: what the style-edit tests need
+/// an index to name.
+const FOUR_XFS: &str = "<cellXfs count=\"4\"><xf/><xf/><xf/><xf/></cellXfs>";
+
+/// The styles part after `edit` on a package whose styles part holds
+/// `body`, as text; every other part is asserted untouched.
+#[track_caller]
+fn added_styles(body: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> String {
+    let parts = styled(body, "");
+    let output = edited_output(parts.clone(), edit);
+    assert_untouched(&output, &parts, &[STYLES_PART]);
+    String::from_utf8(stored_data(&output, STYLES_PART)).expect("the part is UTF-8")
+}
+
+/// Records one addition and asserts the index it returns.
+#[track_caller]
+fn add(
+    package: &mut Package<Cursor<Vec<u8>>>,
+    base: Option<u32>,
+    format: NumberFormat,
+    index: u32,
+) {
+    let got = package
+        .add_cell_style(base, format)
+        .expect("the addition is recorded");
+    assert_eq!(got, index, "the index the addition returns");
+}
+
+/// A `NumberFormat::Code`.
+fn code(text: &str) -> NumberFormat {
+    NumberFormat::Code(text.to_string())
+}
+
+/// The worksheet part after `edit` on a package whose styles part holds
+/// `body` and whose `<sheetData>` holds `rows`, as text; every part but the
+/// worksheet and the styles part is asserted untouched.
+#[track_caller]
+fn restyled_sheet(
+    body: &str,
+    rows: &str,
+    edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>),
+) -> String {
+    let parts = styled(body, rows);
+    let output = edited_output(parts.clone(), edit);
+    assert_untouched(&output, &parts, &[SHEET, STYLES_PART]);
+    String::from_utf8(stored_data(&output, SHEET)).expect("the part is UTF-8")
+}
+
+#[test]
+fn an_xf_added_from_a_base_with_children_keeps_them_and_rebuilds_its_tag() {
+    // The first base has `numFmtId` and `applyNumberFormat` (both replaced)
+    // and spacing a rebuild changes; the second has neither (`numFmtId`
+    // gained first, `applyNumberFormat` appended last). Both keep their
+    // children raw, and the existing children stay byte for byte. The part
+    // has no `numFmts`, so the code's gains one before `fonts`.
+    let first = "<xf numFmtId=\"0\"  fontId=\"0\"\n applyNumberFormat=\"0\" applyAlignment=\"1\">\
+                 <alignment horizontal=\"center\"/></xf>";
+    let second = "<xf fontId=\"1\" applyAlignment=\"1\">\n<alignment wrapText=\"1\"/></xf>";
+    let fonts = "<fonts count=\"2\"><font><sz val=\"11\"/></font><font><b/></font></fonts>";
+    let got = added_styles(
+        &format!("{fonts}<cellXfs count=\"2\">{first}{second}</cellXfs>"),
+        |p| {
+            add(p, Some(0), code("0.000"), 2);
+            add(p, Some(1), NumberFormat::BuiltIn(14), 3);
+        },
+    );
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.000\"/></numFmts>\
+             {fonts}<cellXfs count=\"4\">{first}{second}\
+             <xf numFmtId=\"164\" fontId=\"0\" applyNumberFormat=\"1\" applyAlignment=\"1\">\
+             <alignment horizontal=\"center\"/></xf>\
+             <xf numFmtId=\"14\" fontId=\"1\" applyAlignment=\"1\" applyNumberFormat=\"1\">\n\
+             <alignment wrapText=\"1\"/></xf></cellXfs>"
+        ))
+    );
+}
+
+#[test]
+fn an_xf_added_from_a_single_quoted_base_keeps_each_quote() {
+    // P1 ruling 5: a single-quoted value holding a double quote stays
+    // well-formed because each attribute keeps its own quote character.
+    let base = "<xf numFmtId='0' fontId='0' other='a\"b'/>";
+    let got = added_styles(&format!("<cellXfs count=\"1\">{base}</cellXfs>"), |p| {
+        add(p, Some(0), NumberFormat::BuiltIn(2), 1);
+    });
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<cellXfs count=\"2\">{base}\
+             <xf numFmtId='2' fontId='0' other='a\"b' applyNumberFormat=\"1\"/></cellXfs>"
+        ))
+    );
+}
+
+#[test]
+fn an_xf_added_from_an_empty_base_and_from_none() {
+    // A built-in adds nothing to `numFmts`, which keeps its bytes.
+    let num_fmts = "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>";
+    let base = "<xf numFmtId=\"164\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>";
+    let got = added_styles(
+        &format!("{num_fmts}<cellXfs count=\"1\">{base}</cellXfs>"),
+        |p| {
+            add(p, Some(0), NumberFormat::BuiltIn(22), 1);
+            add(p, None, NumberFormat::BuiltIn(14), 2);
+        },
+    );
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "{num_fmts}<cellXfs count=\"3\">{base}\
+             <xf numFmtId=\"22\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+             applyNumberFormat=\"1\"/>\
+             <xf numFmtId=\"14\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+             applyNumberFormat=\"1\"/></cellXfs>"
+        ))
+    );
+}
+
+/// The form a `None` base takes, with `id` as its number format.
+fn plain_xf(id: u32) -> String {
+    format!(
+        "<xf numFmtId=\"{id}\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+         applyNumberFormat=\"1\"/>"
+    )
+}
+
+#[test]
+fn a_new_code_takes_164_on_a_part_with_no_custom_id() {
+    // A producer's spelling of built-in 14 is the only numFmt: the new id is
+    // 164, which is larger than 14 plus one.
+    let spelled = "<numFmt numFmtId=\"14\" formatCode=\"d/m/yyyy\"/>";
+    let got = added_styles(
+        &format!("<numFmts count=\"1\">{spelled}</numFmts><cellXfs count=\"1\"><xf/></cellXfs>"),
+        |p| add(p, None, code("0.00%"), 1),
+    );
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"2\">{spelled}<numFmt numFmtId=\"164\" formatCode=\"0.00%\"/>\
+             </numFmts><cellXfs count=\"2\"><xf/>{}</cellXfs>",
+            plain_xf(164)
+        ))
+    );
+}
+
+#[test]
+fn a_code_is_matched_or_numbered_after_the_largest_id() {
+    // Equal to an existing custom code: its id, nothing added. Equal to a
+    // spelled-out built-in: that id below 164, nothing added. New codes:
+    // one more than the largest id, the part's or one already recorded,
+    // written in id order. Two additions with an equal new code share one
+    // `numFmt` and are two `xf`s.
+    let formats = "<numFmt numFmtId=\"170\" formatCode=\"0.0\"/>\
+                   <numFmt numFmtId=\"14\" formatCode=\"d/m/yyyy\"/>\
+                   <numFmt numFmtId=\"164\" formatCode=\"#,##0\"/>";
+    let got = added_styles(
+        &format!("<numFmts count=\"3\">{formats}</numFmts><cellXfs count=\"1\"><xf/></cellXfs>"),
+        |p| {
+            add(p, None, code("0.0"), 1);
+            add(p, None, code("d/m/yyyy"), 2);
+            add(p, None, code("new one"), 3);
+            add(p, None, code("new two"), 4);
+            add(p, None, code("new one"), 5);
+        },
+    );
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"5\">{formats}\
+             <numFmt numFmtId=\"171\" formatCode=\"new one\"/>\
+             <numFmt numFmtId=\"172\" formatCode=\"new two\"/></numFmts>\
+             <cellXfs count=\"6\"><xf/>{}{}{}{}{}</cellXfs>",
+            plain_xf(170),
+            plain_xf(14),
+            plain_xf(171),
+            plain_xf(172),
+            plain_xf(171)
+        ))
+    );
+}
+
+#[test]
+fn a_code_is_escaped_and_reads_back_equal_to_itself() {
+    // P1 ruling 3: `escape`, then a tab, a line feed and a carriage return
+    // as references, so the reader's normalisation gives the code back.
+    let text = "0.0\"x\"&<\t\n\r'";
+    let parts = styled("<cellXfs count=\"1\"><xf/></cellXfs>", "");
+    let output = edited_output(parts, |p| add(p, None, code(text), 1));
+    let got = String::from_utf8(stored_data(&output, STYLES_PART)).expect("UTF-8");
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"1\"><numFmt numFmtId=\"164\" \
+             formatCode=\"0.0&quot;x&quot;&amp;&lt;&#9;&#10;&#13;&apos;\"/></numFmts>\
+             <cellXfs count=\"2\"><xf/>{}</cellXfs>",
+            plain_xf(164)
+        ))
+    );
+    let mut reopened = Package::open(Cursor::new(output)).expect("the output opens");
+    let styles = reopened.styles().expect("the output's styles read");
+    assert_eq!(styles.number_format(1), Some(code(text)));
+}
+
+#[test]
+fn counts_are_rewritten_and_empty_containers_opened_up() {
+    // Both counts rewritten; a container without `count` gets none; an
+    // empty container with `count` and one without are opened up.
+    let got = added_styles("<numFmts count=\"0\"/><cellXfs><xf/></cellXfs>", |p| {
+        add(p, None, code("0.0"), 1)
+    });
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>\
+             <cellXfs><xf/>{}</cellXfs>",
+            plain_xf(164)
+        ))
+    );
+    let got = added_styles("<numFmts/><cellXfs count=\"0\" />", |p| {
+        add(p, None, code("0.0"), 0)
+    });
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>\
+             <cellXfs count=\"1\" >{}</cellXfs>",
+            plain_xf(164)
+        ))
+    );
+}
+
+#[test]
+fn a_part_with_cell_xfs_alone_gains_num_fmts_before_it() {
+    let got = added_styles("<cellXfs count=\"1\"><xf/></cellXfs><cellStyles/>", |p| {
+        add(p, None, code("0.0"), 1)
+    });
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>\
+             <cellXfs count=\"2\"><xf/>{}</cellXfs><cellStyles/>",
+            plain_xf(164)
+        ))
+    );
+}
+
+#[test]
+fn a_prefixed_part_gets_prefixed_elements() {
+    // The new `xf` and `numFmt` take their container's prefix, and a
+    // created `numFmts` the root's.
+    let prefixed = |body: &str| {
+        format!("{DECLARATION}\n<x:styleSheet xmlns:x=\"{MAIN_NS}\">{body}</x:styleSheet>")
+    };
+    for with_num_fmts in [true, false] {
+        let existing = if with_num_fmts {
+            "<x:numFmts count=\"1\"><x:numFmt numFmtId=\"164\" formatCode=\"0\"/></x:numFmts>"
+        } else {
+            ""
+        };
+        let mut parts = styled("", "");
+        set(
+            &mut parts,
+            STYLES_PART,
+            prefixed(&format!(
+                "{existing}<x:cellXfs count=\"1\"><x:xf numFmtId=\"0\"/></x:cellXfs>"
+            )),
+        );
+        let output = edited_output(parts, |p| add(p, Some(0), code("0.0"), 1));
+        let id = if with_num_fmts { 165 } else { 164 };
+        let num_fmts = if with_num_fmts {
+            "<x:numFmts count=\"2\"><x:numFmt numFmtId=\"164\" formatCode=\"0\"/>\
+             <x:numFmt numFmtId=\"165\" formatCode=\"0.0\"/></x:numFmts>"
+        } else {
+            "<x:numFmts count=\"1\"><x:numFmt numFmtId=\"164\" formatCode=\"0.0\"/></x:numFmts>"
+        };
+        assert_part(
+            &output,
+            STYLES_PART,
+            &prefixed(&format!(
+                "{num_fmts}<x:cellXfs count=\"2\"><x:xf numFmtId=\"0\"/>\
+                 <x:xf numFmtId=\"{id}\" applyNumberFormat=\"1\"/></x:cellXfs>"
+            )),
+        );
+    }
+}
+
+#[test]
+fn every_byte_outside_the_two_containers_is_kept() {
+    // Every root child of a full part, in the schema's order, with the
+    // corpus's one line feed after the declaration and none between
+    // elements; only the two containers change.
+    let before = "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"A\"/></font></fonts>\
+                  <fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>\
+                  <borders count=\"1\"><border><left/><right/></border></borders>\
+                  <cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\"/></cellStyleXfs>";
+    let after = "<cellStyles count=\"1\"><cellStyle name=\"N\" xfId=\"0\" builtinId=\"0\"/>\
+                 </cellStyles><dxfs count=\"1\"><dxf><numFmt numFmtId=\"164\" \
+                 formatCode=\"0\"/></dxf></dxfs><tableStyles count=\"0\"/>\
+                 <extLst><ext uri=\"urn:x\"><cellXfs><xf/></cellXfs></ext></extLst>";
+    let formats = "<numFmt numFmtId=\"164\" formatCode=\"0.0\"/>";
+    let xfs = "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>";
+    let got = added_styles(
+        &format!(
+            "<numFmts count=\"1\">{formats}</numFmts>{before}\
+             <cellXfs count=\"1\">{xfs}</cellXfs>{after}"
+        ),
+        |p| add(p, Some(0), code("0.00"), 1),
+    );
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<numFmts count=\"2\">{formats}<numFmt numFmtId=\"165\" formatCode=\"0.00\"/>\
+             </numFmts>{before}<cellXfs count=\"2\">{xfs}\
+             <xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+             applyNumberFormat=\"1\"/></cellXfs>{after}"
+        ))
+    );
+}
+
+#[test]
+fn an_addition_is_refused_on_a_bad_base_or_format() {
+    let (_, mut package) = opened(styled("<cellXfs count=\"2\"><xf/><xf/></cellXfs>", ""));
+    let refused_with = |package: &mut Package<Cursor<Vec<u8>>>, base, format| match package
+        .add_cell_style(base, format)
+    {
+        Ok(index) => panic!("not refused: recorded as {index}"),
+        Err(error) => error,
+    };
+    assert_package(
+        refused_with(&mut package, Some(2), NumberFormat::BuiltIn(14)),
+        "a style index is out of range",
+    );
+    assert_package(
+        refused_with(&mut package, Some(u32::MAX), NumberFormat::BuiltIn(14)),
+        "a style index is out of range",
+    );
+    assert_package(
+        refused_with(&mut package, None, NumberFormat::BuiltIn(164)),
+        "a built-in number format id is 164 or more",
+    );
+    for text in ["", "0\u{1}0", "0\u{FFFE}"] {
+        assert_package(
+            refused_with(&mut package, None, code(text)),
+            "a number format code is empty or holds a character XML cannot carry",
+        );
+    }
+    // Nothing was recorded by the refusals: the next index is the part's
+    // count, and a base names the part's own `xf`s only.
+    add(&mut package, Some(1), NumberFormat::BuiltIn(163), 2);
+    assert_package(
+        refused_with(&mut package, Some(2), NumberFormat::BuiltIn(14)),
+        "a style index is out of range",
+    );
+}
+
+#[test]
+fn a_part_without_cell_xfs_is_refused_at_write_with_no_output() {
+    // The refusal is found once the part has streamed into its temporary:
+    // the output is empty and no temporary is left.
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    let (_, mut package) = opened(styled("<numFmts count=\"0\"/>", ""));
+    let index = package
+        .add_cell_style(None, NumberFormat::BuiltIn(14))
+        .expect("recorded: the part is read without cellXfs");
+    assert_eq!(index, 0);
+    let mut out = Vec::new();
+    // Not `refused`: it takes the lock this test already holds.
+    let error = match package.write_to(&mut out) {
+        Ok(()) => panic!("the write was not refused: it wrote {} byte(s)", out.len()),
+        Err(error) => error,
+    };
+    assert_package(error, "a styles part without cellXfs cannot take a style");
+    assert!(out.is_empty(), "a refused write wrote to the output");
+    assert_eq!(replacement_temporaries(), before, "a temporary was left");
+}
+
+#[test]
+fn a_count_that_is_not_a_number_is_refused_at_write() {
+    let (_, mut package) = opened(styled("<cellXfs count=\"two\"><xf/><xf/></cellXfs>", ""));
+    add(&mut package, None, NumberFormat::BuiltIn(14), 2);
+    assert_package(refused(package), "a style attribute is not a number");
+}
+
+#[test]
+fn a_value_edit_takes_the_style_edit_or_keeps_the_cells_own() {
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>0</v></c><c r=\"B1\" s=\"3\"><v>0</v></c>\
+                <c r=\"C1\" s=\"3\"><v>0</v></c></row>";
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(1.0));
+        p.set_cell_style(SHEET, at("A1"), Some(1));
+        p.set_cell(SHEET, at("B1"), Value::Number(2.0));
+        p.set_cell_style(SHEET, at("B1"), None);
+        p.set_cell(SHEET, at("C1"), Value::Number(3.0));
+        // And a new cell with a style.
+        p.set_cell(SHEET, at("D1"), Value::Boolean(true));
+        p.set_cell_style(SHEET, at("D1"), Some(2));
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c><c r=\"B1\"><v>2</v></c>\
+             <c r=\"C1\" s=\"3\"><v>3</v></c><c r=\"D1\" s=\"2\" t=\"b\"><v>1</v></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_clear_takes_the_style_edit() {
+    // `Some(i)` leaves `<c r s/>`, `None` removes the cell, and a clear of
+    // an absent cell with `Some(i)` writes the style alone.
+    let rows =
+        "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>0</v></c><c r=\"B1\" s=\"3\"><v>0</v></c></row>";
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        p.clear_cell(SHEET, at("A1"));
+        p.set_cell_style(SHEET, at("A1"), Some(2));
+        p.clear_cell(SHEET, at("B1"));
+        p.set_cell_style(SHEET, at("B1"), None);
+        p.clear_cell(SHEET, at("C1"));
+        p.set_cell_style(SHEET, at("C1"), Some(1));
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" s=\"2\"/><c r=\"C1\" s=\"1\"/></row>")
+    );
+}
+
+#[test]
+fn a_style_edit_alone_rewrites_the_start_tag_and_nothing_else() {
+    // A formula (its `<f>` and `<v>` raw), an inline string, an empty
+    // styled cell, an array master and a cell inside its `ref` (allowed:
+    // no formula refusal applies to a style edit), and `None` removing an
+    // `s` from a cell with a type.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\" t=\"str\"><f>B1&amp;\"x\"</f><v>ab</v></c>\
+                <c r=\"B1\" t=\"inlineStr\"><is><t>x</t></is></c><c r=\"C1\" s=\"1\"/></row>\
+                <row r=\"2\"><c r=\"A2\" s=\"1\" t=\"e\"><f t=\"array\" ref=\"A2:B2\">1/0</f>\
+                <v>#DIV/0!</v></c><c r=\"B2\" t=\"e\"><v>#DIV/0!</v></c></row>";
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        p.set_cell_style(SHEET, at("A1"), Some(2));
+        p.set_cell_style(SHEET, at("B1"), Some(2));
+        p.set_cell_style(SHEET, at("C1"), Some(3));
+        p.set_cell_style(SHEET, at("A2"), None);
+        p.set_cell_style(SHEET, at("B2"), Some(0));
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"2\" t=\"str\"><f>B1&amp;\"x\"</f><v>ab</v></c>\
+             <c r=\"B1\" s=\"2\" t=\"inlineStr\"><is><t>x</t></is></c><c r=\"C1\" s=\"3\"/></row>\
+             <row r=\"2\"><c r=\"A2\" t=\"e\"><f t=\"array\" ref=\"A2:B2\">1/0</f>\
+             <v>#DIV/0!</v></c><c r=\"B2\" s=\"0\" t=\"e\"><v>#DIV/0!</v></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_style_edit_on_a_formula_leaves_the_chain() {
+    // No formula is removed, so the chain's three parts are untouched.
+    let mut parts = chain_with_formula();
+    set(&mut parts, STYLES_PART, style_sheet(FOUR_XFS));
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell_style(SHEET, at("A1"), Some(3));
+    });
+    assert_untouched(&output, &parts, &[SHEET]);
+    assert_names(&output, &part_names(&parts));
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"3\"><f>B1*2</f><v>4</v></c><c r=\"B1\"><v>2</v></c></row>",
+        ),
+    );
+}
+
+#[test]
+fn a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing() {
+    // In an existing row, between two cells; in a new row; and `None` on
+    // absent cells in both places writes nothing.
+    let rows = "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"C1\"><v>3</v></c></row>";
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        p.set_cell_style(SHEET, at("B1"), Some(2));
+        p.set_cell_style(SHEET, at("A5"), Some(1));
+        p.set_cell_style(SHEET, at("D1"), None);
+        p.set_cell_style(SHEET, at("A3"), None);
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\" s=\"2\"/><c r=\"C1\"><v>3</v></c>\
+             </row><row r=\"5\"><c r=\"A5\" s=\"1\"/></row>"
+        )
+    );
+}
+
+#[test]
+fn the_last_style_edit_wins_and_a_later_value_edit_joins_it() {
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c><c r=\"B1\"><v>2</v></c></row>";
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        p.set_cell_style(SHEET, at("A1"), Some(2));
+        p.set_cell_style(SHEET, at("A1"), Some(3));
+        p.set_cell_style(SHEET, at("B1"), Some(2));
+        p.set_cell(SHEET, at("B1"), Value::Number(5.0));
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>1</v></c><c r=\"B1\" s=\"2\"><v>5</v></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_some_edit_needs_a_styles_part_and_a_none_edit_does_not() {
+    let mut parts = with_rows("<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c></row>");
+    drop_part(&mut parts, STYLES_PART);
+    set(
+        &mut parts,
+        b"xl/_rels/workbook.xml.rels",
+        rels(&worksheet_rel()),
+    );
+    let (_, mut package) = opened(parts.clone());
+    package.set_cell_style(SHEET, at("A1"), Some(0));
+    assert_package(refused(package), "the workbook has no styles part");
+
+    let output = edited_output(parts.clone(), |p| p.set_cell_style(SHEET, at("A1"), None));
+    assert_untouched(&output, &parts, &[SHEET]);
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with("<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>"),
+    );
+}
+
+#[test]
+fn an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>";
+    let (_, mut package) = opened(styled(FOUR_XFS, rows));
+    add(&mut package, None, NumberFormat::BuiltIn(14), 4);
+    package.set_cell_style(SHEET, at("A1"), Some(5));
+    assert_package(refused(package), "a style index is out of range");
+
+    let got = restyled_sheet(FOUR_XFS, rows, |p| {
+        add(p, None, NumberFormat::BuiltIn(14), 4);
+        p.set_cell_style(SHEET, at("A1"), Some(4));
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" s=\"4\"><v>1</v></c></row>")
+    );
+    // Without the addition, 4 is out of range.
+    let (_, mut package) = opened(styled(FOUR_XFS, rows));
+    package.set_cell_style(SHEET, at("A1"), Some(4));
+    assert_package(refused(package), "a style index is out of range");
+}
+
+#[test]
+fn a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>";
+    let (_, mut package) = opened(styled(FOUR_XFS, rows));
+    package.set_cell_style(SHEET, at("A1"), Some(1));
+    package.replace_part(SHEET, replacement_from_reader(Cursor::new(Vec::new())));
+    assert_package(
+        refused(package),
+        "a cell edit to a part this write replaces",
+    );
+
+    let (_, mut package) = opened(styled(FOUR_XFS, rows));
+    add(&mut package, None, NumberFormat::BuiltIn(14), 4);
+    package.replace_part(
+        STYLES_PART,
+        replacement_from_reader(Cursor::new(Vec::new())),
+    );
+    assert_package(
+        refused(package),
+        "a style addition to a part this write replaces",
+    );
+
+    let (_, mut package) = opened(styled(FOUR_XFS, rows));
+    add(&mut package, None, NumberFormat::BuiltIn(14), 4);
+    package.remove_part(STYLES_PART);
+    assert_package(refused(package), "an edit to a removed part");
+}
+
+#[test]
+fn the_sample_reads_back_through_styles_and_cells() {
+    // `--style-sample`'s edit on a byte-built package: a derived format on
+    // an existing number cell, a built-in date on a new one, and every
+    // read-back the tool will make.
+    let body = "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>\
+                <cellXfs count=\"2\"><xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\">\
+                <alignment horizontal=\"left\"/></xf></cellXfs>";
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>7</v></c></row>";
+    let output = edited_output(styled(body, rows), |p| {
+        add(p, Some(1), code("0.000"), 2);
+        add(p, None, NumberFormat::BuiltIn(14), 3);
+        p.set_cell_style(SHEET, at("A1"), Some(2));
+        p.set_cell(SHEET, at("A2"), Value::Number(45000.5));
+        p.set_cell_style(SHEET, at("A2"), Some(3));
+    });
+    let mut reopened = Package::open(Cursor::new(output)).expect("the output opens");
+    let styles = reopened.styles().expect("the output's styles read").clone();
+    assert_eq!((styles.cell_xfs.len(), styles.num_fmts.len()), (4, 2));
+    assert_eq!(styles.number_format(2), Some(code("0.000")));
+    assert_eq!(styles.number_format(3), Some(NumberFormat::BuiltIn(14)));
+    let cells: Vec<_> = reopened
+        .cells(SHEET)
+        .expect("the sheet opens")
+        .collect::<Result<_, _>>()
+        .expect("the sheet reads");
+    assert_eq!(cells.len(), 2);
+    assert_eq!(
+        (
+            cells[0].reference,
+            cells[0].style,
+            cells[0].value.as_deref()
+        ),
+        (at("A1"), Some(2), Some("7"))
+    );
+    assert_eq!(
+        (cells[1].reference, cells[1].style, cells[1].number()),
+        (at("A2"), Some(3), Some(45000.5))
+    );
+}

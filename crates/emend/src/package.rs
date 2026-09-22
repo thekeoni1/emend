@@ -116,6 +116,25 @@
 //!   (`styles::tests::a_second_num_fmts_is_refused`,
 //!   `a_second_cell_xfs_is_refused`).
 //!
+//! The additions and the style edits add five more (the same "Errors"),
+//! raised here by [`Package::add_cell_style`] and [`Package::write_to`]; the
+//! last two of the reading's also come from the write, "the workbook has no
+//! styles part" (`a_some_edit_needs_a_styles_part_and_a_none_edit_does_not`)
+//! and "a style attribute is not a number"
+//! (`a_count_that_is_not_a_number_is_refused_at_write`):
+//!
+//! - "a style index is out of range"
+//!   (`an_addition_is_refused_on_a_bad_base_or_format`,
+//!   `an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted`).
+//! - "a built-in number format id is 164 or more"
+//!   (`an_addition_is_refused_on_a_bad_base_or_format`).
+//! - "a number format code is empty or holds a character XML cannot carry"
+//!   (`an_addition_is_refused_on_a_bad_base_or_format`).
+//! - "a style addition to a part this write replaces"
+//!   (`a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused`).
+//! - "a styles part without cellXfs cannot take a style"
+//!   (`a_part_without_cell_xfs_is_refused_at_write_with_no_output`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -222,9 +241,10 @@
 //! `package`"; the refusals are the eight messages catalogued above):
 //!
 //! - A cell is written as the edit's value and nothing else. A new cell has
-//!   no `s`, since styling a cell is part 5; a replaced cell keeps its `s`
-//!   byte for byte and loses its `t`, its formula and its value; a cell
-//!   written into a row that has `customFormat` takes no style from the row.
+//!   no `s` unless a style edit gives it one; a replaced cell keeps its `s`
+//!   byte for byte, unless a style edit changes it, and loses its `t`, its
+//!   formula and its value; a cell written into a row that has
+//!   `customFormat` takes no style from the row.
 //! - Text is written as an inline string. Nothing is appended to the shared
 //!   strings table, and no rich text run is written.
 //! - Nothing is recomputed. The cached values of formulas that depend on an
@@ -249,6 +269,24 @@
 //!   that holds one token and the sorted edits. The edits themselves are
 //!   held in memory, in a `Vec` in call order, so a caller that records more
 //!   edits than its address space holds cannot.
+//!
+//! The style edits and additions add theirs (`specs/0012-styles.md`, "Module
+//! `package`: recording and applying style edits"):
+//!
+//! - A new `xf` copies its base's font, fill, border, alignment and
+//!   protection and changes its number format only.
+//! - A style set on a cell whose row has `customFormat` or whose column has
+//!   a `<col style>` overrides those, as any `s` does.
+//! - A cell shown as a date is a number with a date format; what a consumer
+//!   shows for a format code is the consumer's.
+//! - `dxfs`, `cellStyles`, `fonts`, `fills` and `borders` are never touched.
+//! - A `numFmts` or `cellXfs` whose `count` disagreed with its children
+//!   comes out corrected, since the rewritten `count` is the children's.
+//! - A style edit alone rewrites the cell's start tag and nothing else: it
+//!   removes no formula, never drops the chain, and the formula refusals do
+//!   not apply to it.
+//! - The styles part is rewritten at most once per write, in one streaming
+//!   pass that holds one token, the recorded additions and two counts.
 
 #[cfg(test)]
 mod tests;
@@ -263,8 +301,8 @@ use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
-use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal};
-use crate::styles::Styles;
+use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
+use crate::styles::{NewXf, NumberFormat, Styles, counted, num_fmt_element};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -618,6 +656,45 @@ struct Recorded {
     /// `(part, reference, value)`: a cell set, or cleared when the value is
     /// `None`, in the order recorded, so the last for a reference wins.
     cell_edits: Vec<(Vec<u8>, CellRef, Option<Value>)>,
+    /// `(part, reference, style)`: a cell's `s` set, or removed when the
+    /// style is `None`, in the order recorded, so the last for a reference
+    /// wins, independently of its value edits (`specs/0012-styles.md`).
+    style_edits: Vec<(Vec<u8>, CellRef, Option<u32>)>,
+    /// The cell formats [`Package::add_cell_style`] recorded, in record
+    /// order, each composed at that call.
+    xf_additions: Vec<NewXf>,
+    /// `(id, code)`: the number formats those additions need that the part
+    /// does not define, in record order.
+    num_fmt_additions: Vec<(u32, String)>,
+}
+
+/// What one reference's edits in one write ask for: a value edit, a style
+/// edit, or both, each the last recorded of its kind.
+#[derive(Clone, Default)]
+struct CellEdit {
+    /// `Some(Some(value))` a set, `Some(None)` a clear, `None` no value edit.
+    value: Option<Option<Value>>,
+    /// `Some(Some(i))` the style `i`, `Some(None)` no `s`, `None` no style
+    /// edit.
+    style: Option<Option<u32>>,
+}
+
+impl CellEdit {
+    /// Whether the edit writes a cell where there is none: a set, or a style
+    /// `Some(i)` with or without a clear.
+    fn writes_when_absent(&self) -> bool {
+        matches!(self.value, Some(Some(_))) || matches!(self.style, Some(Some(_)))
+    }
+
+    /// The `s` bytes a cell written for this edit carries: the edit's style
+    /// when there is a style edit, else `existing`, the cell's own.
+    fn style_bytes(&self, existing: Option<Vec<u8>>) -> Option<Vec<u8>> {
+        match self.style {
+            Some(Some(index)) => Some(index.to_string().into_bytes()),
+            Some(None) => None,
+            None => existing,
+        }
+    }
 }
 
 impl Recorded {
@@ -630,13 +707,21 @@ impl Recorded {
             && self.part_replacements.is_empty()
             && self.part_additions.is_empty()
             && self.cell_edits.is_empty()
+            && self.style_edits.is_empty()
+            && self.xf_additions.is_empty()
     }
 
-    /// Every worksheet part with a cell edit, once each, in the order of each
-    /// part's first edit.
+    /// Every worksheet part with a cell edit, a value edit or a style edit,
+    /// once each: the value edits' parts in the order of each part's first,
+    /// then the style edits' parts not already listed.
     fn cell_parts(&self) -> Vec<Vec<u8>> {
         let mut parts: Vec<Vec<u8>> = Vec::new();
-        for (part, _, _) in &self.cell_edits {
+        let named = self
+            .cell_edits
+            .iter()
+            .map(|(part, _, _)| part)
+            .chain(self.style_edits.iter().map(|(part, _, _)| part));
+        for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
             }
@@ -644,13 +729,19 @@ impl Recorded {
         parts
     }
 
-    /// One part's cell edits sorted by row then column, the last recorded
-    /// for a reference winning.
-    fn cell_edits_of(&self, part: &[u8]) -> Vec<(CellRef, Option<Value>)> {
-        let mut sorted: BTreeMap<CellRef, Option<Value>> = BTreeMap::new();
+    /// One part's edits sorted by row then column, the last value edit and
+    /// the last style edit recorded for a reference winning, each of its
+    /// own kind.
+    fn cell_edits_of(&self, part: &[u8]) -> Vec<(CellRef, CellEdit)> {
+        let mut sorted: BTreeMap<CellRef, CellEdit> = BTreeMap::new();
         for (at, reference, value) in &self.cell_edits {
             if at.as_slice() == part {
-                sorted.insert(*reference, value.clone());
+                sorted.entry(*reference).or_default().value = Some(value.clone());
+            }
+        }
+        for (at, reference, style) in &self.style_edits {
+            if at.as_slice() == part {
+                sorted.entry(*reference).or_default().style = Some(*style);
             }
         }
         sorted.into_iter().collect()
@@ -913,11 +1004,7 @@ impl<R: Read + Seek> Package<R> {
     /// relationship is followed through it.
     pub fn styles(&mut self) -> Result<&Styles, Error> {
         if self.styles.is_none() {
-            let part = self
-                .workbook()?
-                .styles
-                .clone()
-                .ok_or(Error::Package("the workbook has no styles part"))?;
+            let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let parsed = {
                 let mut stream = Stream::new(self.archive.read(index)?, index)?;
@@ -1105,6 +1192,118 @@ impl<R: Read + Seek> Package<R> {
         self.edits.cell_edits.push((part.to_vec(), reference, None));
     }
 
+    /// Records a new cell format and returns the index it will have.
+    ///
+    /// `specs/0012-styles.md`, "Module `styles`: what can be added". The new
+    /// `xf` is a copy of the existing cell format `base` with its number
+    /// format changed to `format`, or with `None` the form `<xf numFmtId="N"
+    /// fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`;
+    /// it is composed here and appended to `<cellXfs>` by
+    /// [`Package::write_to`]. The index is the number of `xf` elements
+    /// `<cellXfs>` holds plus the number already recorded by this package.
+    ///
+    /// The number format's id: `BuiltIn(id)` is `id`, and nothing is added to
+    /// `<numFmts>`, whether or not the part spells that id out. `Code(code)`
+    /// is the id of the first `numFmt` whose code equals it, else of the
+    /// first equal code recorded earlier by this package, else a new id: the
+    /// largest of 164, one more than the largest id the part defines and one
+    /// more than the largest recorded, and the new `(id, code)` is recorded.
+    /// Two additions with equal codes share one id; two additions with an
+    /// equal base and format are two cell formats, since nothing is
+    /// deduplicated at the `xf` level.
+    ///
+    /// The styles part is read first when it is not cached, so this fails as
+    /// [`Package::styles`] fails. Nothing is recorded when this fails.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses; [`Error::Package`] "a style
+    /// index is out of range" for a `base` at or beyond the part's cell
+    /// formats (a base names an existing `xf` only, never one recorded here),
+    /// and for an index or a new id that `u32` cannot hold; "a built-in number
+    /// format id is 164 or more"; "a number format code is empty or holds a
+    /// character XML cannot carry" (the set [`Value::Text`] refuses).
+    pub fn add_cell_style(
+        &mut self,
+        base: Option<u32>,
+        format: NumberFormat,
+    ) -> Result<u32, Error> {
+        let recorded = self.edits.xf_additions.len();
+        self.styles()?;
+        // A borrow of the field alone, so the recorded edits stay readable.
+        let Some(styles) = self.styles.as_ref() else {
+            return Err(NO_STYLES_PART);
+        };
+        let existing = styles.cell_xfs.len();
+        if let Some(base) = base
+            && usize::try_from(base).map_or(true, |base| base >= existing)
+        {
+            return Err(STYLE_OUT_OF_RANGE);
+        }
+        let (id, new_code) = match format {
+            NumberFormat::BuiltIn(id) if id >= 164 => return Err(BUILT_IN_164),
+            NumberFormat::BuiltIn(id) => (id, None),
+            NumberFormat::Code(code) => {
+                if code.is_empty() || code.chars().any(forbidden_in_xml) {
+                    return Err(CODE_REFUSED);
+                }
+                let defined = styles
+                    .num_fmts
+                    .iter()
+                    .map(|format| (format.id, &format.code))
+                    .chain(
+                        self.edits
+                            .num_fmt_additions
+                            .iter()
+                            .map(|(id, code)| (*id, code)),
+                    )
+                    .find(|(_, have)| **have == code)
+                    .map(|(id, _)| id);
+                match defined {
+                    Some(id) => (id, None),
+                    None => {
+                        let mut id = 164u32;
+                        for have in styles
+                            .num_fmts
+                            .iter()
+                            .map(|format| format.id)
+                            .chain(self.edits.num_fmt_additions.iter().map(|(id, _)| *id))
+                        {
+                            id = id.max(have.checked_add(1).ok_or(STYLE_OUT_OF_RANGE)?);
+                        }
+                        (id, Some(code))
+                    }
+                }
+            }
+        };
+        let index = u32::try_from(existing + recorded).map_err(|_| STYLE_OUT_OF_RANGE)?;
+        // The base is in range by the check above, and its bytes are ones the
+        // reader accepted, so this is `None` only for a part that could not
+        // have been read.
+        let xf = styles.derived_xf(base, id).ok_or(STYLE_OUT_OF_RANGE)?;
+        if let Some(code) = new_code {
+            self.edits.num_fmt_additions.push((id, code));
+        }
+        self.edits.xf_additions.push(xf);
+        Ok(index)
+    }
+
+    /// Records `reference` in the worksheet part `part` given the style
+    /// `style`: `Some(i)` names a cell format by index, one the part has or
+    /// one [`Package::add_cell_style`] returned, and `None` removes the
+    /// cell's `s`.
+    ///
+    /// As [`Package::set_cell`], nothing is read and nothing can fail here,
+    /// and the last style edit recorded for a reference wins, independently
+    /// of the last value edit for it (`specs/0012-styles.md`, "Module
+    /// `package`"). [`Package::write_to`] checks the index and rewrites the
+    /// part.
+    pub fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
+        self.edits
+            .style_edits
+            .push((part.to_vec(), reference, style));
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
@@ -1144,7 +1343,12 @@ impl<R: Read + Seek> Package<R> {
     /// "a worksheet without sheetData cannot be edited", and three the
     /// `cells` module raises too: "a cell reference is not of the form A1",
     /// "a row number is not a number" and, for an edited cell, "a formula
-    /// has a type this layer does not know".
+    /// has a type this layer does not know". For a style edit or addition
+    /// (`specs/0012-styles.md`): "a style index is out of range", "the
+    /// workbook has no styles part" and whatever else reading the styles
+    /// part refuses, "a style addition to a part this write replaces", "a
+    /// styles part without cellXfs cannot take a style" and, for a `count`
+    /// it rewrites, "a style attribute is not a number".
     /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
     /// the index of the part the value would have been written into.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
@@ -1172,6 +1376,31 @@ impl<R: Read + Seek> Package<R> {
         }
         if removed_formula {
             self.drop_calc_chain_once()?;
+        }
+
+        // The styles part, rewritten once when a cell format was added
+        // (`specs/0012-styles.md`, "Module `package`"). `validate` has read
+        // it, so the workbook names it and the counts are cached.
+        if !self.edits.xf_additions.is_empty() {
+            let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            let styles = self.styles()?;
+            let counts = Counts {
+                num_fmts: styles.num_fmts.len() as u64,
+                cell_xfs: styles.cell_xfs.len() as u64,
+                has_num_fmts: styles.has_num_fmts(),
+            };
+            let mut codes = self.edits.num_fmt_additions.clone();
+            codes.sort_by_key(|(id, _)| *id);
+            let (temp, replacement) = rewrite_styles(
+                &mut self.archive,
+                index,
+                &counts,
+                &codes,
+                &self.edits.xf_additions,
+            )?;
+            temporaries.push(temp);
+            edits.replace(index, replacement);
         }
 
         if !self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty() {
@@ -1406,6 +1635,37 @@ impl<R: Read + Seek> Package<R> {
                 value.check()?;
             }
         }
+
+        // A style edit names a cell format the part has or this package
+        // added, for which the styles part is read; a `None` edit needs no
+        // styles part at all. An addition goes into a styles part this write
+        // neither removes nor replaces (`specs/0012-styles.md`, "Module
+        // `package`").
+        let additions = self.edits.xf_additions.len();
+        if additions > 0 || self.edits.style_edits.iter().any(|(_, _, s)| s.is_some()) {
+            let count = self.styles()?.cell_xfs.len() + additions;
+            for (_, _, style) in &self.edits.style_edits {
+                if let Some(style) = style
+                    && usize::try_from(*style).map_or(true, |style| style >= count)
+                {
+                    return Err(STYLE_OUT_OF_RANGE);
+                }
+            }
+        }
+        if additions > 0 {
+            let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
+            if is_removed(&part) {
+                return Err(REMOVED_PART_EDITED);
+            }
+            if self
+                .edits
+                .part_replacements
+                .iter()
+                .any(|(name, _)| *name == part)
+            {
+                return Err(STYLE_ADDITION_REPLACED);
+            }
+        }
         Ok(())
     }
 
@@ -1590,6 +1850,18 @@ const OUT_OF_ORDER: Error =
 const IN_SHARED_OR_ARRAY: Error =
     Error::Package("a cell in a shared, array or data table formula cannot be edited");
 const NO_SHEET_DATA: Error = Error::Package("a worksheet without sheetData cannot be edited");
+
+/// What [`Package::styles`], [`Package::add_cell_style`] and
+/// [`Package::write_to`] refuse a style with (`specs/0012-styles.md`,
+/// "Errors"); the reading's other four are raised by `styles`.
+const NO_STYLES_PART: Error = Error::Package("the workbook has no styles part");
+const STYLE_OUT_OF_RANGE: Error = Error::Package("a style index is out of range");
+const BUILT_IN_164: Error = Error::Package("a built-in number format id is 164 or more");
+const CODE_REFUSED: Error =
+    Error::Package("a number format code is empty or holds a character XML cannot carry");
+const STYLE_ADDITION_REPLACED: Error =
+    Error::Package("a style addition to a part this write replaces");
+const NO_CELL_XFS: Error = Error::Package("a styles part without cellXfs cannot take a style");
 
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
@@ -1804,6 +2076,147 @@ fn rewrite_part<R: Read + Seek>(
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
 }
 
+/// What the styles rewrite knows of the part before it streams: its two
+/// containers' child counts, read by [`Package::styles`] from the same bytes,
+/// and whether it has a `<numFmts>`.
+struct Counts {
+    num_fmts: u64,
+    cell_xfs: u64,
+    has_num_fmts: bool,
+}
+
+/// Rewrites the styles part with the recorded additions into a temporary
+/// file.
+///
+/// `specs/0012-styles.md`, "Module `package`": every token's `raw` is copied
+/// except that the `<numFmts>` and `<cellXfs>` start tags among the root's
+/// children have their `count` values replaced by their children plus the
+/// additions, every other byte of the tag kept; the new `numFmt` elements
+/// (`codes`, in id order) go immediately before `</numFmts>` and the new `xf`
+/// elements immediately before `</cellXfs>`, each taking its container's
+/// prefix; an empty container that gains children is opened up as part 2
+/// opens an empty root; and a part with no `<numFmts>` that gains a code gets
+/// one, with the root's prefix, immediately before the first of `fonts`,
+/// `fills`, `borders`, `cellStyleXfs` and `cellXfs` among the root's
+/// children. A part with no `<cellXfs>` is refused once the stream ends,
+/// leaving no output.
+fn rewrite_styles<R: Read + Seek>(
+    archive: &mut Archive<R>,
+    index: usize,
+    counts: &Counts,
+    codes: &[(u32, String)],
+    xfs: &[NewXf],
+) -> Result<(TempFile, Replacement), Error> {
+    /// The root's children, before the first of which a new `<numFmts>`
+    /// goes, in the schema's order.
+    const AFTER_NUM_FMTS: [&[u8]; 5] =
+        [b"fonts", b"fills", b"borders", b"cellStyleXfs", b"cellXfs"];
+
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let num_fmt_elements = |prefix: &[u8]| -> Vec<u8> {
+        codes
+            .iter()
+            .flat_map(|(id, code)| num_fmt_element(prefix, *id, code))
+            .collect()
+    };
+    let xf_elements =
+        |prefix: &[u8]| -> Vec<u8> { xfs.iter().flat_map(|xf| xf.element(prefix)).collect() };
+    let num_fmts_count = counts.num_fmts + codes.len() as u64;
+    let cell_xfs_count = counts.cell_xfs + xfs.len() as u64;
+
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root_prefix: Vec<u8> = Vec::new();
+    // Whether a `<numFmts>` still has to be created before the next of
+    // `AFTER_NUM_FMTS`.
+    let mut create_num_fmts = !counts.has_num_fmts && !codes.is_empty();
+    let mut seen_cell_xfs = false;
+    // The open container among the root's children, with its prefix.
+    let mut open: Option<(bool, Vec<u8>)> = None;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 1 {
+                    root_prefix = prefix_of(start);
+                }
+                if depth == 2 && ours && create_num_fmts && AFTER_NUM_FMTS.contains(&local) {
+                    let p = &root_prefix;
+                    out.write_all(&[b"<".as_slice(), p, b"numFmts count=\""].concat())?;
+                    out.write_all(num_fmts_count.to_string().as_bytes())?;
+                    out.write_all(b"\">")?;
+                    out.write_all(&num_fmt_elements(p))?;
+                    out.write_all(&[b"</".as_slice(), p, b"numFmts>"].concat())?;
+                    create_num_fmts = false;
+                }
+                let container = if depth == 2 && ours && local == b"numFmts" {
+                    Some((true, num_fmts_count, !codes.is_empty()))
+                } else if depth == 2 && ours && local == b"cellXfs" {
+                    seen_cell_xfs = true;
+                    Some((false, cell_xfs_count, true))
+                } else {
+                    None
+                };
+                match container {
+                    Some((is_num_fmts, count, gains)) => {
+                        let tag = counted(token.raw, count, index)?;
+                        let prefix = prefix_of(start);
+                        if empty && gains {
+                            out.write_all(&opened_up(&tag, index)?)?;
+                            out.write_all(&if is_num_fmts {
+                                num_fmt_elements(&prefix)
+                            } else {
+                                xf_elements(&prefix)
+                            })?;
+                            out.write_all(b"</")?;
+                            out.write_all(start.name().into_inner().as_bytes())?;
+                            out.write_all(b">")?;
+                        } else {
+                            out.write_all(&tag)?;
+                            if !empty {
+                                open = Some((is_num_fmts, prefix));
+                            }
+                        }
+                    }
+                    None => out.write_all(token.raw)?,
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 2
+                    && let Some((is_num_fmts, prefix)) = open.take()
+                {
+                    out.write_all(&if is_num_fmts {
+                        num_fmt_elements(&prefix)
+                    } else {
+                        xf_elements(&prefix)
+                    })?;
+                }
+                out.write_all(token.raw)?;
+                scope.end();
+                depth -= 1;
+            }
+            _ => out.write_all(token.raw)?,
+        }
+    }
+    if !seen_cell_xfs {
+        return Err(NO_CELL_XFS);
+    }
+    written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
 /// A rectangle of cells, both corners included: an array formula's `ref`.
 #[derive(Clone, Copy)]
 struct Area {
@@ -1841,7 +2254,7 @@ impl Area {
 
 /// One worksheet's cell edits, sorted, and how far the rewrite has come.
 struct Pending<'e> {
-    edits: &'e [(CellRef, Option<Value>)],
+    edits: &'e [(CellRef, CellEdit)],
     next: usize,
 }
 
@@ -1850,17 +2263,20 @@ impl Pending<'_> {
         self.edits.get(self.next).map(|(reference, _)| *reference)
     }
 
-    /// Whether any edit still pending sets a cell, in `row` or, with `None`,
-    /// anywhere.
+    /// Whether any edit still pending writes a cell where there is none, in
+    /// `row` or, with `None`, anywhere: a set, or a style `Some(i)`.
     fn sets(&self, row: Option<u32>) -> bool {
-        self.edits[self.next..]
-            .iter()
-            .any(|(reference, value)| value.is_some() && row.is_none_or(|r| reference.row == r))
+        self.edits[self.next..].iter().any(|(reference, edit)| {
+            edit.writes_when_absent() && row.is_none_or(|r| reference.row == r)
+        })
     }
 
-    /// Writes the cells set in `row` before column `before` (all of the row's
-    /// with `None`); a pending clear of a cell that is not there writes
-    /// nothing.
+    /// Writes the cells pending in `row` before column `before` (all of the
+    /// row's with `None`), none of which exists: a set as its value's element
+    /// with the edit's style when there is one, a style `Some(i)` alone or
+    /// with a clear as `<c r="A1" s="i"/>`; a clear alone and a style `None`
+    /// alone write nothing. Only a set is refused inside an array's range: a
+    /// style edit never touches a formula (`specs/0012-styles.md`).
     fn write_row(
         &mut self,
         out: &mut impl Write,
@@ -1869,15 +2285,19 @@ impl Pending<'_> {
         arrays: &[Area],
         prefix: &[u8],
     ) -> Result<(), Error> {
-        while let Some((reference, value)) = self.edits.get(self.next) {
+        while let Some((reference, edit)) = self.edits.get(self.next) {
             if reference.row != row || before.is_some_and(|col| reference.col >= col) {
                 break;
             }
-            if let Some(value) = value {
-                if arrays.iter().any(|area| area.holds(*reference)) {
-                    return Err(IN_SHARED_OR_ARRAY);
+            let style = edit.style_bytes(None);
+            match &edit.value {
+                Some(Some(value)) => {
+                    if arrays.iter().any(|area| area.holds(*reference)) {
+                        return Err(IN_SHARED_OR_ARRAY);
+                    }
+                    out.write_all(&value.element(*reference, style.as_deref(), prefix))?;
                 }
-                out.write_all(&value.element(*reference, None, prefix))?;
+                _ => out.write_all(&replaced_cell(*reference, style.as_deref(), None, prefix))?,
             }
             self.next += 1;
         }
@@ -1953,6 +2373,28 @@ fn replaced_cell(
     }
 }
 
+/// A cell's start tag written anew for a style edit alone
+/// (`specs/0012-styles.md`, "Module `package`"): `prefix` on the name, the
+/// cell's own `r` and `t` bytes, and `style` as `s` between them when there
+/// is one, closed with `/>` for an empty cell and `>` otherwise.
+fn restyled_tag(tag: &CellTag, style: Option<&[u8]>, prefix: &[u8], empty: bool) -> Vec<u8> {
+    let mut out = [b"<".as_slice(), prefix, b"c r=\""].concat();
+    out.extend_from_slice(&tag.written_reference);
+    out.push(b'"');
+    if let Some(style) = style {
+        out.extend_from_slice(b" s=\"");
+        out.extend_from_slice(style);
+        out.push(b'"');
+    }
+    if let Some(kind) = &tag.kind {
+        out.extend_from_slice(b" t=\"");
+        out.extend_from_slice(kind);
+        out.push(b'"');
+    }
+    out.extend_from_slice(if empty { b"/>" } else { b">" });
+    out
+}
+
 /// An empty element's raw bytes with the `/` of its `/>` dropped, so it can
 /// be given content and an end tag (part 2's rule for an empty root).
 fn opened_up(raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
@@ -1976,7 +2418,11 @@ fn prefix_of(start: &BytesStart<'_>) -> Vec<u8> {
 /// What a `<c>` start tag says to the rewrite.
 struct CellTag {
     reference: Option<CellRef>,
+    /// `r`'s bytes as written, which a style edit alone writes back.
+    written_reference: Vec<u8>,
     style: Option<Vec<u8>>,
+    /// `t`'s bytes as written, which a style edit alone writes back.
+    kind: Option<Vec<u8>>,
     /// Whether it carries an attribute other than `r`, `s` and `t`.
     unmodelled: bool,
 }
@@ -1984,7 +2430,9 @@ struct CellTag {
 fn cell_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<CellTag, Error> {
     let mut tag = CellTag {
         reference: None,
+        written_reference: Vec::new(),
         style: None,
+        kind: None,
         unmodelled: false,
     };
     for attribute in start.attributes() {
@@ -1999,9 +2447,10 @@ fn cell_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<CellT
                     CellRef::parse(attribute.value.as_bytes())
                         .ok_or(Error::Package("a cell reference is not of the form A1"))?,
                 );
+                tag.written_reference = attribute.value.as_bytes().to_vec();
             }
             (None, b"s") => tag.style = Some(attribute.value.as_bytes().to_vec()),
-            (None, b"t") => {}
+            (None, b"t") => tag.kind = Some(attribute.value.as_bytes().to_vec()),
             _ => tag.unmodelled = true,
         }
     }
@@ -2083,7 +2532,7 @@ fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Fo
 fn rewrite_worksheet<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
-    edits: &[(CellRef, Option<Value>)],
+    edits: &[(CellRef, CellEdit)],
 ) -> Result<(TempFile, Replacement, bool), Error> {
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -2184,32 +2633,52 @@ fn rewrite_worksheet<R: Read + Seek>(
                     last_col = reference.col;
                     pending.write_row(&mut out, open, Some(reference.col), &arrays, &row_prefix)?;
                     if pending.peek() == Some(reference) {
-                        let value = pending.edits[pending.next].1.clone();
+                        let edit = pending.edits[pending.next].1.clone();
                         pending.next += 1;
                         if tag.unmodelled {
                             return Err(UNMODELLED_ATTRIBUTE);
                         }
-                        if arrays.iter().any(|area| area.holds(reference)) {
-                            return Err(IN_SHARED_OR_ARRAY);
-                        }
-                        if empty {
-                            out.write_all(&replaced_cell(
-                                reference,
-                                tag.style.as_deref(),
-                                value.as_ref(),
-                                &prefix_of(start),
-                            ))?;
-                        } else {
-                            cell = Some((
-                                depth,
-                                InCell::Replace {
-                                    reference,
-                                    style: tag.style,
-                                    prefix: prefix_of(start),
-                                    value,
-                                    formula: false,
-                                },
-                            ));
+                        let style = edit.style_bytes(tag.style.clone());
+                        match edit.value {
+                            // A style edit alone: the start tag anew, and the
+                            // children and end tag copied as an unedited
+                            // cell's are, so no formula goes and no formula
+                            // refusal applies (`specs/0012-styles.md`).
+                            None => {
+                                out.write_all(&restyled_tag(
+                                    &tag,
+                                    style.as_deref(),
+                                    &prefix_of(start),
+                                    empty,
+                                ))?;
+                                if !empty {
+                                    cell = Some((depth, InCell::Copy));
+                                }
+                            }
+                            Some(value) => {
+                                if arrays.iter().any(|area| area.holds(reference)) {
+                                    return Err(IN_SHARED_OR_ARRAY);
+                                }
+                                if empty {
+                                    out.write_all(&replaced_cell(
+                                        reference,
+                                        style.as_deref(),
+                                        value.as_ref(),
+                                        &prefix_of(start),
+                                    ))?;
+                                } else {
+                                    cell = Some((
+                                        depth,
+                                        InCell::Replace {
+                                            reference,
+                                            style,
+                                            prefix: prefix_of(start),
+                                            value,
+                                            formula: false,
+                                        },
+                                    ));
+                                }
+                            }
                         }
                     } else {
                         out.write_all(token.raw)?;

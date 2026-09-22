@@ -679,7 +679,10 @@ fn number_text(number: f64) -> String {
 }
 
 /// Whether XML 1.0 forbids `c` in a document, as [`Value::Text`] lists.
-fn forbidden_in_xml(c: char) -> bool {
+///
+/// A number format code is refused on the same set
+/// (`specs/0012-styles.md`, "Module `styles`: what can be added").
+pub(crate) fn forbidden_in_xml(c: char) -> bool {
     matches!(
         c,
         '\u{0}'..='\u{8}' | '\u{B}' | '\u{C}' | '\u{E}'..='\u{1F}' | '\u{FFFE}' | '\u{FFFF}'

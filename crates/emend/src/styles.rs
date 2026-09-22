@@ -80,6 +80,9 @@ pub struct Styles {
     /// The `xf` children of `<cellXfs>`, in part order: `cell_xfs[i]` is what
     /// a cell's `s="i"` names.
     pub cell_xfs: Vec<Xf>,
+    /// Whether the part has a `<numFmts>` among the root's children, empty
+    /// or not: a rewrite that adds a code creates one only when it has none.
+    has_num_fmts: bool,
 }
 
 /// One `<numFmt>`: a number format the part defines.
@@ -121,6 +124,39 @@ impl Xf {
     }
 }
 
+/// A cell format recorded by [`crate::package::Package::add_cell_style`],
+/// composed at that call and written by the styles rewrite.
+///
+/// Held without its element name: the new `xf` takes the qualified-name
+/// prefix of the `<cellXfs>` it goes into, which the rewrite reads from the
+/// part, so the name is the one thing written at the rewrite.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NewXf {
+    /// Everything after the name in the start tag, up to and not including
+    /// its closing `>` or `/>`: the attributes, each with its leading space.
+    attributes: Vec<u8>,
+    /// The base's bytes between its start tag and its end tag, `None` when
+    /// the new element is written empty.
+    content: Option<Vec<u8>>,
+}
+
+impl NewXf {
+    /// The element, with `prefix` (with its colon, or empty) on its name.
+    pub(crate) fn element(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = [b"<".as_slice(), prefix, b"xf"].concat();
+        out.extend_from_slice(&self.attributes);
+        match &self.content {
+            None => out.extend_from_slice(b"/>"),
+            Some(content) => {
+                out.push(b'>');
+                out.extend_from_slice(content);
+                out.extend_from_slice(&[b"</".as_slice(), prefix, b"xf>"].concat());
+            }
+        }
+        out
+    }
+}
+
 /// A cell format's number format.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NumberFormat {
@@ -133,6 +169,76 @@ pub enum NumberFormat {
 }
 
 impl Styles {
+    /// Whether the part has a `<numFmts>`, empty or not.
+    pub(crate) fn has_num_fmts(&self) -> bool {
+        self.has_num_fmts
+    }
+
+    /// The new cell format [`crate::package::Package::add_cell_style`]
+    /// records: a copy of the cell format `base` with its number format
+    /// changed to `num_fmt_id`, or the form `specs/0012-styles.md` gives for
+    /// no base.
+    ///
+    /// With a base, the start tag is written anew from the base's own bytes:
+    /// its attributes in its order, each as a space, the name, `=`, the quote
+    /// character the base used for it, the value's bytes as the base wrote
+    /// them and that quote again (P1 ruling 5), except that `numFmtId`'s
+    /// value is the new id (added first when the base had none) and
+    /// `applyNumberFormat`'s is `1` (appended last when the base had none).
+    /// The base's content between its start and end tags is kept raw, and a
+    /// base with none gives an empty element. `None` when `base` is out of
+    /// range, or when the base's start tag does not scan, which a part the
+    /// reader accepted cannot give.
+    pub(crate) fn derived_xf(&self, base: Option<u32>, num_fmt_id: u32) -> Option<NewXf> {
+        let Some(base) = base else {
+            return Some(NewXf {
+                attributes: format!(
+                    " numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"0\" borderId=\"0\" \
+                     xfId=\"0\" applyNumberFormat=\"1\""
+                )
+                .into_bytes(),
+                content: None,
+            });
+        };
+        let raw = &self.cell_xfs.get(usize::try_from(base).ok()?)?.raw;
+        let tag = scan_start_tag(raw)?;
+        let id = num_fmt_id.to_string();
+        let mut attributes = Vec::new();
+        let named = |name: &[u8]| tag.attributes.iter().any(|a| &raw[a.name.clone()] == name);
+        if !named(b"numFmtId") {
+            attributes.extend_from_slice(format!(" numFmtId=\"{id}\"").as_bytes());
+        }
+        for attribute in &tag.attributes {
+            let name = &raw[attribute.name.clone()];
+            let value: &[u8] = match name {
+                b"numFmtId" => id.as_bytes(),
+                b"applyNumberFormat" => b"1",
+                _ => &raw[attribute.value.clone()],
+            };
+            attributes.push(b' ');
+            attributes.extend_from_slice(name);
+            attributes.push(b'=');
+            attributes.push(attribute.quote);
+            attributes.extend_from_slice(value);
+            attributes.push(attribute.quote);
+        }
+        if !named(b"applyNumberFormat") {
+            attributes.extend_from_slice(b" applyNumberFormat=\"1\"");
+        }
+        let content = if tag.empty {
+            None
+        } else {
+            // The end tag is the element's last `<`: the reader kept the
+            // element's tokens and nothing after them.
+            let end = raw.iter().rposition(|byte| *byte == b'<')?;
+            Some(raw.get(tag.end..end)?.to_vec()).filter(|content| !content.is_empty())
+        };
+        Some(NewXf {
+            attributes,
+            content,
+        })
+    }
+
     /// The number format of the cell format `xf`.
     ///
     /// `None` when `xf` is out of range. Else the code of the first `numFmt`
@@ -189,6 +295,7 @@ impl Styles {
                             return Err(TWO_CONTAINERS);
                         }
                         seen_num_fmts = true;
+                        styles.has_num_fmts = true;
                         if !empty {
                             open = Some(Container::NumFmts);
                         }
@@ -267,6 +374,136 @@ const INCOMPLETE_NUM_FMT: Error = Error::Package("a numFmt lacks numFmtId or for
 const NOT_A_NUMBER: Error = Error::Package("a style attribute is not a number");
 const TWO_CONTAINERS: Error =
     Error::Package("the styles part has more than one numFmts or cellXfs");
+
+/// A `<numFmt>` element as the styles rewrite writes one: `prefix` (with its
+/// colon, or empty) on the name, and the code escaped with the crate's
+/// `escape`, then a tab, a line feed and a carriage return as character
+/// references, so the code reads back equal to itself through the
+/// attribute-value normalisation the reader applies (P1 ruling 3).
+pub(crate) fn num_fmt_element(prefix: &[u8], id: u32, code: &str) -> Vec<u8> {
+    let escaped = quick_xml::escape::escape(code)
+        .replace('\t', "&#9;")
+        .replace('\n', "&#10;")
+        .replace('\r', "&#13;");
+    let mut out = [b"<".as_slice(), prefix, b"numFmt numFmtId=\""].concat();
+    out.extend_from_slice(id.to_string().as_bytes());
+    out.extend_from_slice(b"\" formatCode=\"");
+    out.extend_from_slice(escaped.as_bytes());
+    out.extend_from_slice(b"\"/>");
+    out
+}
+
+/// A start tag's bytes with its unprefixed `count` attribute's value replaced
+/// by `count`, every other byte kept; the bytes unchanged when there is no
+/// `count`.
+///
+/// # Errors
+///
+/// [`Error::Package`] "a style attribute is not a number" for a `count` that
+/// is not a decimal `u32` as `decimal` reads one; [`Error::Xml`] for a tag
+/// that does not scan, which a part the parser accepted cannot give.
+pub(crate) fn counted(raw: &[u8], count: u64, index: usize) -> Result<Vec<u8>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    for attribute in &tag.attributes {
+        if &raw[attribute.name.clone()] != b"count" {
+            continue;
+        }
+        let value =
+            std::str::from_utf8(&raw[attribute.value.clone()]).map_err(|_| Error::Xml(index))?;
+        decimal(value).ok_or(NOT_A_NUMBER)?;
+        let mut out = raw[..attribute.value.start].to_vec();
+        out.extend_from_slice(count.to_string().as_bytes());
+        out.extend_from_slice(&raw[attribute.value.end..]);
+        return Ok(out);
+    }
+    Ok(raw.to_vec())
+}
+
+/// One attribute of a scanned start tag, as positions in its bytes.
+struct ScannedAttribute {
+    /// The qualified name.
+    name: std::ops::Range<usize>,
+    /// `"` or `'`.
+    quote: u8,
+    /// The value between the quotes, still escaped.
+    value: std::ops::Range<usize>,
+}
+
+/// A scanned start tag or empty-element tag.
+struct ScannedTag {
+    attributes: Vec<ScannedAttribute>,
+    /// The position after the tag's closing `>`.
+    end: usize,
+    /// Whether it closed with `/>`.
+    empty: bool,
+}
+
+/// Scans the start tag at the front of `raw`: its attributes with their
+/// quote characters and value positions, and where it ends.
+///
+/// The tag has already been parsed by `quick-xml`, so this only has to find
+/// positions in well-formed bytes, which the parser's own attribute iterator
+/// does not report; `None` for bytes that are not a start tag.
+fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
+    let space = |byte: u8| matches!(byte, b' ' | b'\t' | b'\n' | b'\r');
+    if raw.first() != Some(&b'<') {
+        return None;
+    }
+    let mut at = 1;
+    while at < raw.len() && !space(raw[at]) && raw[at] != b'/' && raw[at] != b'>' {
+        at += 1;
+    }
+    let mut attributes = Vec::new();
+    loop {
+        while at < raw.len() && space(raw[at]) {
+            at += 1;
+        }
+        match *raw.get(at)? {
+            b'>' => {
+                return Some(ScannedTag {
+                    attributes,
+                    end: at + 1,
+                    empty: false,
+                });
+            }
+            b'/' => {
+                return (raw.get(at + 1) == Some(&b'>')).then_some(ScannedTag {
+                    attributes,
+                    end: at + 2,
+                    empty: true,
+                });
+            }
+            _ => {}
+        }
+        let name_start = at;
+        while at < raw.len() && raw[at] != b'=' && !space(raw[at]) {
+            at += 1;
+        }
+        let name = name_start..at;
+        while at < raw.len() && space(raw[at]) {
+            at += 1;
+        }
+        if raw.get(at) != Some(&b'=') {
+            return None;
+        }
+        at += 1;
+        while at < raw.len() && space(raw[at]) {
+            at += 1;
+        }
+        let quote = *raw.get(at)?;
+        if quote != b'"' && quote != b'\'' {
+            return None;
+        }
+        at += 1;
+        let length = raw.get(at..)?.iter().position(|byte| *byte == quote)?;
+        attributes.push(ScannedAttribute {
+            name,
+            quote,
+            value: at..at + length,
+        });
+        at += length + 1;
+    }
+}
 
 /// Reads a `<numFmt>` start tag: its id, and its code unescaped and
 /// normalised.
