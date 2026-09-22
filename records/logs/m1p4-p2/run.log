@@ -1,0 +1,1580 @@
+command: git rev-parse HEAD
+about: M1 part 4 P2 phase commit 595cf8b91c0ea99400d3d1d7d3b535ae27e18259; HEAD at run: 595cf8b91c0ea99400d3d1d7d3b535ae27e18259
+  the phase commit given to this script: 595cf8b91c0ea99400d3d1d7d3b535ae27e18259
+  git rev-parse HEAD at this run:        595cf8b91c0ea99400d3d1d7d3b535ae27e18259
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+phase: Milestone 1 part 4 P2 (specs/0011-editing-cells.md) run.log; run at 2026-09-22T14:03:35Z
+command: sha256sum over planning's uncommitted file (rulings during P2)
+  specs/0011-editing-cells.md: sha256 740db7aaa474d9a6fae72b24b3107d773cc792729cb1c3b4bee9065a8b660c72
+SERIALIZED: produced with no other run in flight
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls. Started as a background
+  task of the calling session.
+TERMS: both target builds were finished by the gate before this run
+  started, so no cargo runs during it; order host then i686; nothing
+  else running; no mid-run tuning, and a copy or conversion that timed
+  out or was killed would be recorded and listed apart, never rerun with
+  a larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the
+  figure part 4 P1's run used: M1 part 2 P1 and P2 measured the largest
+  corpus workbook, whose largest part is 63745347 bytes, at about 28
+  seconds with the host debug binary and about 30 with the i686 one.
+  --edit-sample reads the first worksheet twice and rewrites it once, so
+  300 is still an order of magnitude over one pass. The figure is not
+  tuned during the run.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 4 P2 run.log (specs/0011-editing-cells.md, "P2" and
+    # "Harness runs"): the corpus run on both targets with --tool-arg
+    # --edit-sample, the run log's own expat comparison of every workbook's first
+    # worksheet part, and the record pair.
+    #
+    # P2's acceptance, from "Harness runs" as planning's rulings during P2
+    # corrected it (finding P2-F1), lo and lo_in ok in every case:
+    #  - in every workbook the first worksheet part `changed`, every other entry
+    #    `identical` unflagged (no formula changes, so the chain stays),
+    #    `order_preserved` `yes`, `files_identical` `no`;
+    #  - the log's own check over the extracted input and output parts, with
+    #    expat: the bytes before `<sheetData` and from `</sheetData>` to the end
+    #    identical; the cells, each as (reference, s, t, formula presence, value
+    #    text), counted unchanged, changed, added and removed per file and
+    #    asserted against the tool's line: changed = set - 2 + cleared - dropped,
+    #    removed = dropped, added = 2, changed + removed + unchanged =
+    #    cells_before;
+    #  - from the comparison's own pick of A, B and M, not the tool's: the changed
+    #    references are exactly A and, when B carries s, B; B then has no value in
+    #    the output and keeps its s bytes; the added references are exactly
+    #    (M + 1, 1) and (M + 1, 2). No reference is printed;
+    #  - read_back = set in every file; totals over the 27 of rows_added 27 and
+    #    cells_after = the sum of cells_before + 2 - dropped.
+    #
+    # WRITTEN FOR P2 (P1 verification ruling 8: P2's logs are written fresh). The
+    # forms it shares with part 4 P1's run script (records/logs/m1p4-p1/run.log)
+    # are the phase-commit guard, the rerun header, the binary hashes read from
+    # gate.log, the column guard, the run-row and record-pair blocks and the path
+    # check. New here: the edit-line form, the comparison (cmp.py, printed below)
+    # with its controls, and the cross-target comparison of every output.
+    #
+    # ONE PLANNING FILE IS MODIFIED AND UNCOMMITTED: specs/0011-editing-cells.md
+    # (planning's rulings during P2). The log prints its sha256 at the start and
+    # the end, and the status check accounts for exactly that line.
+    #
+    # None of the three shapes specs/0001 forbids appears here: every compound
+    # condition is a named function and every negated one goes through isnot,
+    # whose control is below; the shapes are described rather than written out.
+    #
+    # Workbooks appear as ids only. No original name, note, producer_version or
+    # app, and no corpus path: the corpus directory is written <corpus>. The
+    # comparison prints counts and yes/no flags only: no reference, no value, no
+    # text, no part name.
+    #
+    # Usage: m1p4-p2-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p4-p2/run.log. One runner pass per target over 27
+    # workbooks with a LibreOffice conversion each, so the caller starts it
+    # detached and polls.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    # A rerun takes a run directory of its own, RUN_TAG naming it (the runner
+    # refuses a second row for an id in one directory).
+    RUN_TAG=${RUN_TAG:-}
+    RUN=$DATE-$SHORT$RUN_TAG
+    OUT=$CORPUS/runs/$RUN
+    STEM=m1p4-p2-$DATE-$SHORT
+    PLANNING_FILES="specs/0011-editing-cells.md"
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    EDIT=--edit-sample
+    fail=0
+    
+    # note <what> <verdict>: one verdict line, and a verdict other than
+    # as-expected fails the log.
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    # is <command...>: as-expected when the command succeeds.
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # isnot <command...>: as-expected when it fails, so no call hands a negation
+    # to `is`, which specs/0001 forbids as a shape.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    G=/usr/bin/grep
+    W=$(mktemp -d) || exit 2
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    # columns_resolve <tsv> <names>: every named column is in the file's header,
+    # and there is a header at all.
+    columns_resolve() {
+      awk -F'\t' -v want="$2" '
+        NR == 1 {
+          seen = 1
+          for (i = 1; i <= NF; i++) have[$i] = 1
+          n = split(want, w, " ")
+          for (j = 1; j <= n; j++) if (!(w[j] in have)) miss++
+          exit
+        }
+        END { exit (seen != 1 || miss > 0) }' "$1"
+    }
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    sum_col() {
+      awk -F'\t' -v c="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k { n += $k } END { print n + 0 }' "$1"
+    }
+    # kv <line> <key>: the value of key=value in a line whose pairs are split on
+    # tabs or spaces; empty when the key is absent.
+    kv() { printf '%s\n' "$1" | tr '\t ' '\n\n' | sed -n "s/^$2=//p" | head -1; }
+    # kvn <line> <key>: the same, 0 when absent or not a number, for totals; a
+    # workbook whose line is short is refused by accept_one, so a 0 here cannot
+    # hide it.
+    kvn() {
+      local v
+      v=$(kv "$1" "$2")
+      case "$v" in '' | *[!0-9]*) echo 0 ;; *) echo "$v" ;; esac
+    }
+    
+    # The guard, before a line of the run exists.
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    if ! is_head "$C"; then echo "the phase commit must be HEAD as a full sha, not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 4 P2 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses the null commit" "$(isnot is_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(isnot is_head "$(printf '%s' "$C" | cut -c1-7)")"
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    echo "phase: Milestone 1 part 4 P2 (specs/0011-editing-cells.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "command: sha256sum over planning's uncommitted file (rulings during P2)"
+    for pf in $PLANNING_FILES; do
+      echo "  $pf: sha256 $(sha256sum <"$pf" | cut -d' ' -f1)"
+    done
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls. Started as a background"
+    echo "  task of the calling session."
+    echo "TERMS: both target builds were finished by the gate before this run"
+    echo "  started, so no cargo runs during it; order host then i686; nothing"
+    echo "  else running; no mid-run tuning, and a copy or conversion that timed"
+    echo "  out or was killed would be recorded and listed apart, never rerun with"
+    echo "  a larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the"
+    echo "  figure part 4 P1's run used: M1 part 2 P1 and P2 measured the largest"
+    echo "  corpus workbook, whose largest part is 63745347 bytes, at about 28"
+    echo "  seconds with the host debug binary and about 30 with the i686 one."
+    echo "  --edit-sample reads the first worksheet twice and rewrites it once, so"
+    echo "  300 is still an order of magnitude over one pass. The figure is not"
+    echo "  tuned during the run."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then
+      echo "  the counting controls did not all hold"
+      fail=1
+    fi
+    
+    echo
+    echo "## the comparison this log runs (python3, zipfile and expat)"
+    cat >"$W/cmp.py" <<'CMP_PY'
+    """The run log's own cell comparison (specs/0011, "Harness runs", P2).
+    
+    Usage: cmp.py <input archive> <output archive> [--plant]
+    
+    Finds the workbook's first sheet of kind worksheet in <sheets> order by the
+    package's own relationships, reads that part from both archives with
+    zipfile, and compares them with python3's expat parser, sharing no code with
+    the library:
+    
+    - the bytes before the sheetData start tag, and the bytes from its end tag to
+      the end of the part (for an empty <sheetData/>, from the byte after it);
+    - every cell, a <c> child of a <row> child of the sheetData, as the tuple
+      (reference, s, t, formula presence, value text), where the value text is
+      the <v> text or, without a <v>, the <is> text;
+    - from the INPUT alone, its own pick of A (the first cell whose t is absent,
+      n or s, with a <v> and no <f>), B (the second) and M (the largest row
+      number), and whether the output differs from the input exactly there.
+    
+    It prints ONE line of counts and yes/no flags: no reference, no value, no
+    text and no part name. With --part in place of the output it prints the
+    part's name alone, which the log compares and never prints. --plant adds one cell to the output part before it is
+    compared (after the last cell, in the last row), a planted difference the
+    comparison must report.
+    """
+    import re
+    import sys
+    import xml.parsers.expat
+    import zipfile
+    import posixpath
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    
+    
+    def rels_of(z, part):
+        d, base = posixpath.split(part)
+        name = posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+        out = []
+        if name not in z.namelist():
+            return out
+        found = []
+    
+        def start(tag, attrs):
+            if tag == RELS + " Relationship" and attrs.get("TargetMode") != "External":
+                found.append(attrs)
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(name), True)
+        for a in found:
+            target = a.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((a.get("Id"), a.get("Type", ""), resolved))
+        return out
+    
+    
+    def first_worksheet(z):
+        office = [t for (_, ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        if len(office) != 1:
+            return None
+        workbook = office[0]
+        by_id = {i: (ty, t) for (i, ty, t) in rels_of(z, workbook)}
+        order = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            if ns in MAIN and local == "sheet":
+                for a in ATTR:
+                    if a + " id" in attrs:
+                        order.append(attrs[a + " id"])
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(workbook), True)
+        for rid in order:
+            ty, target = by_id.get(rid, ("", None))
+            if ty.endswith("/worksheet"):
+                return target
+        return None
+    
+    
+    def cells(data):
+        """{reference: tuple} in document order, and the order itself."""
+        out = {}
+        order = []
+        stack = []
+        state = {"cell": None, "text": None}
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            local = local if ns in MAIN else None
+            stack.append(local)
+            if local == "c" and stack[-2:-1] == ["row"] and stack[-3:-2] == ["sheetData"]:
+                state["cell"] = {"r": attrs.get("r"), "s": attrs.get("s"),
+                                 "t": attrs.get("t"), "f": False, "v": None, "is": None}
+            elif state["cell"] is not None:
+                if local == "f" and stack[-2:-1] == ["c"]:
+                    state["cell"]["f"] = True
+                elif local == "v" and stack[-2:-1] == ["c"]:
+                    state["text"] = "v"
+                    state["cell"]["v"] = ""
+                elif local == "is" and stack[-2:-1] == ["c"]:
+                    state["cell"]["is"] = ""
+                elif local == "t" and "is" in stack:
+                    state["text"] = "is"
+    
+        def end(tag):
+            local = stack.pop()
+            if local in ("v", "t"):
+                state["text"] = None
+            if local == "c" and state["cell"] is not None and stack[-1:] == ["row"]:
+                c = state["cell"]
+                value = c["v"] if c["v"] is not None else c["is"]
+                out[c["r"]] = (c["r"], c["s"], c["t"], c["f"], value, c["v"] is not None)
+                order.append(c["r"])
+                state["cell"] = None
+    
+        def chars(text):
+            if state["cell"] is not None and state["text"] is not None:
+                state["cell"][state["text"]] += text
+    
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.EndElementHandler = end
+        p.CharacterDataHandler = chars
+        p.buffer_text = True
+        p.Parse(data, True)
+        return out, order
+    
+    
+    def bounds(data):
+        """(prefix end, end tag start or None for <sheetData/>, element end)."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?sheetData[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if data[close - 1:close] == b"/":
+            return start.start(), None, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?sheetData\s*>", data))
+        if not ends:
+            return None
+        return start.start(), ends[-1].start(), ends[-1].end()
+    
+    
+    def row_of(ref):
+        m = re.fullmatch(r"[A-Z]+([1-9][0-9]*)", ref or "")
+        return int(m.group(1)) if m else None
+    
+    
+    def main():
+        if sys.argv[2:3] == ["--part"]:
+            # The part's name, for the log to compare with the entry the runner
+            # saw changed; the log never prints it.
+            print(first_worksheet(zipfile.ZipFile(sys.argv[1])) or "")
+            return
+        zin, zout = zipfile.ZipFile(sys.argv[1]), zipfile.ZipFile(sys.argv[2])
+        plant = "--plant" in sys.argv[3:]
+        part = first_worksheet(zin)
+        if part is None or part != first_worksheet(zout):
+            print("error=no-first-worksheet")
+            return
+        din, dout = zin.read(part), zout.read(part)
+        if plant:
+            at = dout.rfind(b"</row>")
+            prefix = b""
+            rows = list(re.finditer(rb"<([A-Za-z_][\w.-]*:)?row[\s/>]", dout))
+            if rows and rows[-1].group(1):
+                prefix = rows[-1].group(1)
+            dout = (dout[:at] + b"<" + prefix + b'c r="ZZ999999"><' + prefix + b"v>0</"
+                    + prefix + b"v></" + prefix + b"c>" + dout[at:])
+        bi, bo = bounds(din), bounds(dout)
+        if bi is None or bo is None:
+            print("error=no-sheetData")
+            return
+        prefix_same = din[:bi[0]] == dout[:bo[0]]
+        # From the end tag when both have one; after the element when the input's
+        # was an empty <sheetData/>, which has no end tag to start from.
+        if bi[1] is not None and bo[1] is not None:
+            suffix_same = din[bi[1]:] == dout[bo[1]:]
+        else:
+            suffix_same = din[bi[2]:] == dout[bo[2]:]
+        cin, order = cells(din)
+        cout, _ = cells(dout)
+        unchanged = changed = added = removed = 0
+        changed_refs, removed_refs = set(), set()
+        for ref, tup in cin.items():
+            if ref not in cout:
+                removed += 1
+                removed_refs.add(ref)
+            elif cout[ref] == tup:
+                unchanged += 1
+            else:
+                changed += 1
+                changed_refs.add(ref)
+        added_refs = set(cout) - set(cin)
+        added = len(added_refs)
+    
+        # The comparison's own pick of A, B and M, from the input alone.
+        picks = [r for r in order
+                 if cin[r][2] in (None, "n", "s") and cin[r][5] and not cin[r][3]]
+        a = picks[0] if picks else None
+        b = picks[1] if len(picks) > 1 else None
+        rows = [row_of(r) for r in order]
+        m = max([x for x in rows if x is not None], default=0)
+        b_styled = b is not None and cin[b][1] is not None
+        want_changed = ({a} if a else set()) | ({b} if b_styled else set())
+        want_removed = {b} if (b is not None and not b_styled) else set()
+        want_added = {"A%d" % (m + 1), "B%d" % (m + 1)}
+        refs_as_edited = (changed_refs == want_changed and removed_refs == want_removed
+                          and added_refs == want_added)
+        a_ok = a is None or (a in cout and cout[a][1:] == (cin[a][1], None, False, "42.5", True))
+        b_ok = (not b_styled) or (b in cout and cout[b][1] == cin[b][1] and not cout[b][5]
+                                 and cout[b][4] is None)
+        new_ok = (cout.get("A%d" % (m + 1), (None,) * 6)[2:5] == ("inlineStr", False, "emend")
+                  and cout.get("B%d" % (m + 1), (None,) * 6)[2:5] == ("b", False, "1"))
+        yn = lambda x: "yes" if x else "no"
+        print(" ".join([
+            "prefix_same=%s" % yn(prefix_same), "suffix_same=%s" % yn(suffix_same),
+            "cells_in=%d" % len(cin), "cells_out=%d" % len(cout),
+            "unchanged=%d" % unchanged, "changed=%d" % changed,
+            "added=%d" % added, "removed=%d" % removed,
+            "a=%d" % (a is not None), "b=%d" % (b is not None),
+            "b_styled=%d" % b_styled,
+            "refs_as_edited=%s" % yn(refs_as_edited), "a_value=%s" % yn(a_ok),
+            "b_kept_s_no_value=%s" % yn(b_ok), "new_cells=%s" % yn(new_ok),
+        ]))
+    
+    
+    main()
+    CMP_PY
+    sed 's/^/    /' "$W/cmp.py"
+    # cmp <input> <output> [--plant]: the comparison's one line.
+    cmp_line() { python3 "$W/cmp.py" "$@" 2>&1 | tail -1; }
+    
+    echo
+    echo "## the column guard's own controls"
+    printf 'id\tname\tstatus\tflags\n' >"$W/head.tsv"
+    : >"$W/empty.tsv"
+    printf 'id\tname\n' >"$W/short.tsv"
+    COLUMNS_USED='id name status flags'
+    note "columns_resolve accepts a header holding every column it indexes" \
+      "$(is columns_resolve "$W/head.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses a header missing some of them" \
+      "$(isnot columns_resolve "$W/short.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses an empty file" "$(isnot columns_resolve "$W/empty.tsv" "$COLUMNS_USED")"
+    
+    echo
+    echo "## the comparison's own controls, on generated pairs"
+    # A fictional workbook built here: A1 (s, a number), B1 (s, a number), C1 (a
+    # number), and the output the sample edit must produce from it, written by
+    # hand: A1 42.5 keeping s, B1 kept as <c r s/>, and row 2 with the text and
+    # the boolean. Then five planted faults, each of which the comparison must
+    # report, and one pair with an UNSTYLED B, which must count as removed.
+    python3 - "$W" <<'GEN_PY'
+    import sys, zipfile
+    d = sys.argv[1]
+    NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    P = "http://schemas.openxmlformats.org/package/2006/relationships"
+    def pkg(path, sheet):
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("_rels/.rels", '<Relationships xmlns="%s"><Relationship Id="rId1" '
+                       'Type="%s/officeDocument" Target="xl/workbook.xml"/></Relationships>' % (P, R))
+            z.writestr("xl/workbook.xml", '<workbook xmlns="%s" xmlns:r="%s"><sheets>'
+                       '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>' % (NS, R))
+            z.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="%s"><Relationship '
+                       'Id="rId1" Type="%s/worksheet" Target="worksheets/sheet1.xml"/>'
+                       '</Relationships>' % (P, R))
+            z.writestr("xl/worksheets/sheet1.xml", sheet)
+    def sheet(rows, dim="A1:C1", tail="<pageMargins/>"):
+        return ('<worksheet xmlns="%s"><dimension ref="%s"/><sheetData>%s</sheetData>%s'
+                '</worksheet>' % (NS, dim, rows, tail))
+    IN = ('<row r="1"><c r="A1" s="1"><v>1</v></c><c r="B1" s="2"><v>2</v></c>'
+          '<c r="C1"><v>3</v></c></row>')
+    NEW = ('<row r="2"><c r="A2" t="inlineStr"><is><t xml:space="preserve">emend</t></is></c>'
+           '<c r="B2" t="b"><v>1</v></c></row>')
+    OUT = ('<row r="1"><c r="A1" s="1"><v>42.5</v></c><c r="B1" s="2"/>'
+           '<c r="C1"><v>3</v></c></row>' + NEW)
+    pkg(d + "/c-in.xlsx", sheet(IN))
+    pkg(d + "/c-out.xlsx", sheet(OUT))
+    pkg(d + "/c-value.xlsx", sheet(OUT.replace("<v>3</v>", "<v>4</v>")))
+    pkg(d + "/c-prefix.xlsx", sheet(OUT, dim="A1:B2"))
+    pkg(d + "/c-suffix.xlsx", sheet(OUT, tail="<pageMargins left=\"1\"/>"))
+    pkg(d + "/c-bstyle.xlsx", sheet(OUT.replace('<c r="B1" s="2"/>', '<c r="B1" s="3"/>')))
+    pkg(d + "/c-avalue.xlsx", sheet(OUT.replace("<v>42.5</v>", "<v>42</v>")))
+    pkg(d + "/c-in-plain.xlsx", sheet(IN.replace('<c r="B1" s="2">', '<c r="B1">')))
+    pkg(d + "/c-out-plain.xlsx", sheet(OUT.replace('<c r="B1" s="2"/>', "")))
+    GEN_PY
+    c_sound=$(cmp_line "$W/c-in.xlsx" "$W/c-out.xlsx")
+    c_sound_want='prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes'
+    echo "  the sound pair:  $c_sound"
+    echo "  expected:        $c_sound_want"
+    note "the comparison reports the sound pair exactly" "$(is [ "$c_sound" = "$c_sound_want" ])"
+    c_plain=$(cmp_line "$W/c-in-plain.xlsx" "$W/c-out-plain.xlsx")
+    c_plain_want='prefix_same=yes suffix_same=yes cells_in=3 cells_out=4 unchanged=1 changed=1 added=2 removed=1 a=1 b=1 b_styled=0 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes'
+    echo "  unstyled B:      $c_plain"
+    echo "  expected:        $c_plain_want"
+    note "the comparison counts an unstyled B's clear as removed" "$(is [ "$c_plain" = "$c_plain_want" ])"
+    for planted in value:changed=3:refs_as_edited=no prefix:prefix_same=no:prefix_same=no \
+                   suffix:suffix_same=no:suffix_same=no bstyle:b_kept_s_no_value=no:refs_as_edited=yes \
+                   avalue:a_value=no:a_value=no; do
+      name=${planted%%:*}
+      rest=${planted#*:}
+      want1=${rest%%:*}
+      want2=${rest#*:}
+      line=$(cmp_line "$W/c-in.xlsx" "$W/c-$name.xlsx")
+      echo "  planted $name: $line"
+      holds_both() {
+        printf '%s\n' "$line" | tr ' ' '\n' | LC_ALL=C "$G" -qx -e "$want1" || return 1
+        printf '%s\n' "$line" | tr ' ' '\n' | LC_ALL=C "$G" -qx -e "$want2"
+      }
+      note "the comparison reports the planted $name fault ($want1, $want2)" "$(is holds_both)"
+    done
+    
+    # The acceptance for one workbook, one function, every clause.
+    #   $1 the tool's edit line, $2 the comparison's line.
+    accept_one() {
+      local e=$1 c=$2 set cleared dropped rows_added before after read_back
+      set=$(kv "$e" set); cleared=$(kv "$e" cleared); dropped=$(kv "$e" dropped)
+      rows_added=$(kv "$e" rows_added); before=$(kv "$e" cells_before)
+      after=$(kv "$e" cells_after); read_back=$(kv "$e" read_back)
+      case "$e" in edit$'\t'*) ;; *) return 1 ;; esac
+      for v in "$set" "$cleared" "$dropped" "$rows_added" "$before" "$after" "$read_back"; do
+        case "$v" in '' | *[!0-9]*) return 1 ;; esac
+      done
+      for k in prefix_same suffix_same refs_as_edited a_value b_kept_s_no_value new_cells; do
+        case "$(kv "$c" "$k")" in yes | no) ;; *) return 1 ;; esac
+      done
+      for k in cells_in cells_out unchanged changed added removed a b; do
+        case "$(kv "$c" "$k")" in '' | *[!0-9]*) return 1 ;; esac
+      done
+      case "$set" in 2 | 3) ;; *) return 1 ;; esac
+      [ "$read_back" = "$set" ] || return 1
+      [ "$rows_added" = 1 ] || return 1
+      [ "$after" = "$((before + 2 - dropped))" ] || return 1
+      [ "$(kv "$c" prefix_same)" = yes ] || return 1
+      [ "$(kv "$c" suffix_same)" = yes ] || return 1
+      [ "$(kv "$c" changed)" = "$((set - 2 + cleared - dropped))" ] || return 1
+      [ "$(kv "$c" removed)" = "$dropped" ] || return 1
+      [ "$(kv "$c" added)" = 2 ] || return 1
+      [ "$(( $(kv "$c" changed) + $(kv "$c" removed) + $(kv "$c" unchanged) ))" = "$before" ] || return 1
+      [ "$(kv "$c" cells_in)" = "$before" ] || return 1
+      [ "$(kv "$c" cells_out)" = "$after" ] || return 1
+      [ "$(kv "$c" a)" = "$((set - 2))" ] || return 1
+      [ "$(kv "$c" b)" = "$cleared" ] || return 1
+      [ "$(kv "$c" refs_as_edited)" = yes ] || return 1
+      [ "$(kv "$c" a_value)" = yes ] || return 1
+      [ "$(kv "$c" b_kept_s_no_value)" = yes ] || return 1
+      [ "$(kv "$c" new_cells)" = yes ] || return 1
+    }
+    ctl_edit=$(printf 'edit\tset=3\tcleared=1\tdropped=0\trows_added=1\tcells_before=3\tcells_after=5\tread_back=3')
+    note "control: accept_one accepts the sound pair with its edit line" \
+      "$(is accept_one "$ctl_edit" "$c_sound")"
+    note "control: accept_one refuses the same pair with a line claiming dropped 1" \
+      "$(isnot accept_one "${ctl_edit/dropped=0/dropped=1}" "$c_sound")"
+    note "control: accept_one refuses a line whose read_back is short" \
+      "$(isnot accept_one "${ctl_edit/read_back=3/read_back=2}" "$c_sound")"
+    note "control: accept_one refuses the planted value fault" \
+      "$(isnot accept_one "$ctl_edit" "$(cmp_line "$W/c-in.xlsx" "$W/c-value.xlsx")")"
+    
+    echo
+    echo "## settings"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); image $LO_IMAGE; --tool-arg $EDIT"
+    echo "  out directory: <corpus>/runs/$RUN"
+    echo "  record stem: $STEM"
+    GATE_LOG=records/logs/m1p4-p2/gate.log
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        now=$(sha256sum <"$b" | cut -d' ' -f1)
+        gated=$(sed -n "s#^  $b: sha256 \([0-9a-f]*\), bytes [0-9]*\$#\1#p" "$GATE_LOG")
+        echo "  $b: sha256 $now; gate.log printed ${gated:-nothing}"
+        note "$b is the binary gate.log hashed" "$(is [ "$now" = "$gated" ])"
+      else
+        echo "  $b: MISSING"; fail=1
+      fi
+    done
+    note "control: the same comparison refuses a hash gate.log did not print" \
+      "$(isnot [ "$NULL_SHA$NULL_SHA" = "$(sed -n "s#^  target/debug/emend-copy: sha256 \([0-9a-f]*\), bytes [0-9]*\$#\1#p" "$GATE_LOG")" ])"
+    echo "  (nothing is rebuilt here)"
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows"
+    note "the corpus holds its 27 workbooks" "$(is [ "$manifest_rows" = 27 ])"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then
+        PT=target/debug/emend-copy
+        XD=target/debug/xlsx-diff
+      else
+        PT=target/i686-unknown-linux-musl/debug/emend-copy
+        XD=target/i686-unknown-linux-musl/debug/xlsx-diff
+      fi
+      echo
+      echo "## $label edit run, --tool-arg $EDIT"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$RUN --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $EDIT"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$EDIT" \
+        >"$W/run-$label.stdout" 2>"$W/run-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$W/run-$label.stderr")"
+      hide <"$W/run-$label.stdout" | sed 's/^/    /'
+      if [ -s "$W/run-$label.stderr" ]; then hide <"$W/run-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the edit run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the edit run's stderr is empty" "$(is [ "$(wc -c <"$W/run-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ] || [ ! -f "$ENT" ]; then
+        echo "  the edit run wrote no summary or entries file"; fail=1; continue
+      fi
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      noleft=$(count_where "$SUM" leftover no)
+      order=$(count_where "$SUM" order_preserved yes)
+      comment=$(count_where "$SUM" comment_equal yes)
+      fid_no=$(count_where "$SUM" files_identical no)
+      echo "  summary rows: $rows; outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in; leftover no: $noleft"
+      echo "  order_preserved yes: $order; comment_equal yes: $comment; files_identical no: $fid_no"
+      echo "  entry totals from the summary: identical $(sum_col "$SUM" identical), recompressed $(sum_col "$SUM" recompressed), changed $(sum_col "$SUM" changed), dropped $(sum_col "$SUM" dropped), added $(sum_col "$SUM" added), flagged $(sum_col "$SUM" flagged)"
+      note "$label every manifest workbook produced a summary row" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      note "$label no tool left a temporary behind" "$(is [ "$noleft" = "$rows" ])"
+      note "$label order is preserved in every file" "$(is [ "$order" = "$rows" ])"
+      note "$label the archive comment is unchanged in every file" "$(is [ "$comment" = "$rows" ])"
+      note "$label no file is byte-identical" "$(is [ "$fid_no" = "$rows" ])"
+      note "$label 27 entries changed in all, one per workbook" "$(is [ "$(sum_col "$SUM" changed)" = 27 ])"
+      note "$label nothing dropped, added or recompressed" \
+        "$(is [ "$(sum_col "$SUM" dropped)$(sum_col "$SUM" added)$(sum_col "$SUM" recompressed)" = 000 ])"
+    
+      echo "  the entries header, as the runner wrote it:"
+      echo "    $(head -1 "$ENT")"
+      note "$label every column the entry forms index is in that header" \
+        "$(is columns_resolve "$ENT" "$COLUMNS_USED")"
+    
+      echo "  per workbook: id, the tool's edit line, the comparison's line (counts only)"
+      : >"$W/edit-$label"
+      nwb=0; naccepted=0; nsheet_ok=0; nothers_ok=0
+      tot_rows_added=0; tot_after=0; tot_expected=0; tot_before=0; tot_dropped=0; tot_set=0; tot_cleared=0
+      while IFS=$'\t' read -r id ext; do
+        nwb=$((nwb + 1))
+        in_file=$CORPUS/corpus/$id.$ext
+        out_file=$OUT/$id/out.$label.$ext
+        e=$(cat "$OUT/$id/stdout.$label.txt" 2>/dev/null)
+        printf '%s\t%s\n' "$id" "$e" >>"$W/edit-$label"
+        c=$(cmp_line "$in_file" "$out_file")
+        printf '    %s %s\n' "$id" "$(printf '%s' "$e" | tr '\t' ' ')"
+        printf '    %s %s\n' "$id" "$c"
+        if accept_one "$e" "$c"; then naccepted=$((naccepted + 1)); else echo "    $id: NOT ACCEPTED"; fi
+        # The entry rows: exactly one changed, and it is the first worksheet
+        # part, found by the comparison's own reading of the package (the name is
+        # compared, not printed); every other row identical and unflagged.
+        part=$(python3 "$W/cmp.py" "$in_file" --part 2>/dev/null)
+        changed_name=$(awk -F'\t' -v id="$id" '
+          NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+          $k["id"] == id && $k["status"] == "changed" { print $k["name"] }' "$ENT")
+        nchanged=$(printf '%s' "$changed_name" | awk 'END { print NR }')
+        changed_flags=$(awk -F'\t' -v id="$id" '
+          NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+          $k["id"] == id && $k["status"] == "changed" { print $k["flags"] }' "$ENT")
+        bad_others=$(awk -F'\t' -v id="$id" '
+          NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+          $k["id"] == id && $k["status"] != "changed" && ($k["status"] != "identical" || $k["flags"] != "") { n++ }
+          END { print n + 0 }' "$ENT")
+        sheet_is_the_change() {
+          [ -n "$part" ] || return 1
+          [ "$nchanged" = 1 ] || return 1
+          [ "$changed_name" = "$part" ] || return 1
+          case "$changed_flags" in '' | descriptor) ;; *) return 1 ;; esac
+        }
+        if sheet_is_the_change; then nsheet_ok=$((nsheet_ok + 1)); else echo "    $id: the changed entry is not the first worksheet part alone (changed rows $nchanged, flags [$changed_flags])"; fi
+        if [ "$bad_others" = 0 ]; then nothers_ok=$((nothers_ok + 1)); else echo "    $id: $bad_others other entry row(s) not identical and unflagged"; fi
+        tot_rows_added=$((tot_rows_added + $(kvn "$e" rows_added)))
+        tot_after=$((tot_after + $(kvn "$e" cells_after)))
+        tot_before=$((tot_before + $(kvn "$e" cells_before)))
+        tot_dropped=$((tot_dropped + $(kvn "$e" dropped)))
+        tot_set=$((tot_set + $(kvn "$e" set)))
+        tot_cleared=$((tot_cleared + $(kvn "$e" cleared)))
+        tot_expected=$((tot_expected + $(kv "$e" cells_before) + 2 - $(kvn "$e" dropped)))
+      done < <(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next } { print $k["id"] "\t" $k["ext"] }' "$CORPUS/manifest.tsv")
+      echo "  workbooks: $nwb; accepted on every clause: $naccepted; first worksheet part the one change: $nsheet_ok; every other entry identical and unflagged: $nothers_ok"
+      echo "  totals: set $tot_set, cleared $tot_cleared, dropped $tot_dropped, rows_added $tot_rows_added, cells_before $tot_before, cells_after $tot_after, the sum of cells_before + 2 - dropped $tot_expected"
+      note "$label every workbook meets every clause of the tool line and the comparison" "$(is [ "$naccepted" = 27 ])"
+      note "$label in every workbook the first worksheet part is the one changed entry" "$(is [ "$nsheet_ok" = 27 ])"
+      note "$label in every workbook every other entry is identical and unflagged" "$(is [ "$nothers_ok" = 27 ])"
+      note "$label rows_added totals 27" "$(is [ "$tot_rows_added" = 27 ])"
+      note "$label cells_after totals the sum of cells_before + 2 - dropped" "$(is [ "$tot_after" = "$tot_expected" ])"
+    
+      # The planted difference on a REAL pair: the first workbook's output with
+      # one cell added to its worksheet part, in memory, before the comparison.
+      # The counts must move and accept_one must refuse it.
+      first_id=$(awk -F'\t' 'NR == 2 { print $1 }' "$CORPUS/manifest.tsv")
+      first_ext=$(awk -F'\t' 'NR == 2 { print $4 }' "$CORPUS/manifest.tsv")
+      e1=$(awk -F'\t' -v id="$first_id" '$1 == id { sub(/^[^\t]*\t/, ""); print }' "$W/edit-$label")
+      c_real=$(cmp_line "$CORPUS/corpus/$first_id.$first_ext" "$OUT/$first_id/out.$label.$first_ext")
+      c_plant=$(cmp_line "$CORPUS/corpus/$first_id.$first_ext" "$OUT/$first_id/out.$label.$first_ext" --plant)
+      echo "  control on $first_id, as run:          $c_real"
+      echo "  control on $first_id, one cell planted: $c_plant"
+      note "$label control: the planted cell is counted as a third added cell" \
+        "$(is [ "$(kv "$c_plant" added)" = 3 ])"
+      note "$label control: accept_one refuses the planted pair" "$(isnot accept_one "$e1" "$c_plant")"
+    done
+    
+    echo
+    echo "## the two labels agree"
+    for label in host i686; do
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { print $idx["id"] "\t" $idx["name"] "\t" $idx["status"] "\t" $idx["flags"] }' \
+        "$OUT/entries.$label.tsv" | sort >"$W/classes-$label"
+      sort "$W/edit-$label" >"$W/edit-sorted-$label"
+    done
+    note "both targets classified every entry the same way" "$(is cmp -s "$W/classes-host" "$W/classes-i686")"
+    note "both targets printed the same edit line for every workbook" \
+      "$(is cmp -s "$W/edit-sorted-host" "$W/edit-sorted-i686")"
+    same_out=0; diff_out=0
+    while IFS=$'\t' read -r id ext; do
+      h=$(sha256sum <"$OUT/$id/out.host.$ext" | cut -d' ' -f1)
+      i=$(sha256sum <"$OUT/$id/out.i686.$ext" | cut -d' ' -f1)
+      if [ "$h" = "$i" ]; then same_out=$((same_out + 1)); else diff_out=$((diff_out + 1)); echo "    $id: the two targets' outputs differ"; fi
+    done < <(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next } { print $k["id"] "\t" $k["ext"] }' "$CORPUS/manifest.tsv")
+    echo "  outputs byte-identical across the two targets: $same_out; different: $diff_out"
+    note "every workbook's host and i686 outputs are byte-identical" "$(is [ "$same_out" = "$manifest_rows" ])"
+    ida=$(awk -F'\t' 'NR == 2 { print $1 "." $4 }' "$CORPUS/manifest.tsv")
+    idb=$(awk -F'\t' 'NR == 3 { print $1 "." $4 }' "$CORPUS/manifest.tsv")
+    ca=$(sha256sum <"$OUT/${ida%%.*}/out.host.${ida#*.}" | cut -d' ' -f1)
+    cb=$(sha256sum <"$OUT/${idb%%.*}/out.i686.${idb#*.}" | cut -d' ' -f1)
+    note "control: the same comparison between two different workbooks' outputs says they differ" \
+      "$(isnot [ "$ca" = "$cb" ])"
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                           k && NR == 2 { print $k }' "$R")
+        echo "  run.$label.tsv tool_args: [$args]"
+        note "$label the run row records the operation" "$(is [ "$args" = "$EDIT" ])"
+      else
+        echo "  run.$label.tsv: MISSING"; fail=1
+      fi
+    done
+    
+    echo
+    echo "## the record pair"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$RUN --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --stem "$STEM" >"$W/record.out" 2>&1
+    rrc=$?
+    hide <"$W/record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  $f: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  $f: MISSING"; fail=1
+      fi
+    done
+    both_halves() {
+      [ -f "records/$STEM.md" ] || return 1
+      [ -f "records/$STEM.txt" ] || return 1
+    }
+    note "both halves of the record pair were written" "$(is both_halves)"
+    nargs=$(count_matches -F "$EDIT" "records/$STEM.md")
+    echo "  lines of the record naming the operation: $nargs"
+    note "the record names the operation it was run with" "$(is [ "$nargs" -ge 1 ])"
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$f")
+      echo "  $f: lines naming a home, mount or corpus path: $n"
+      note "$f carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    printf '/home/someone/emend-testing/corpus/x.xlsx\n' >"$W/path-control"
+    nctl=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$W/path-control")
+    note "control: the path form finds a planted path ($nctl)" "$(is [ "$nctl" = 1 ])"
+    
+    echo
+    echo "## status after the runs"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p4-p2|records/'"$STEM"')' git status --porcelain)
+    st_planning=$(run_matches -E '^ M specs/0011-editing-cells[.]md$' git status --porcelain)
+    echo "status lines: $st_all; of them under the phase log directory or the record pair: $st_log; planning's uncommitted file: $st_planning"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_planning" = 1 ] &&
+        [ "$st_all" = "$((st_log + st_planning))" ]
+    }
+    note "every change in the working tree is a log, the record pair or planning's one file" "$(is status_accounted)"
+    for pf in $PLANNING_FILES; do
+      echo "  $pf at the end of the run: sha256 $(sha256sum <"$pf" | cut -d' ' -f1)"
+    done
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the comparison this log runs (python3, zipfile and expat)
+    """The run log's own cell comparison (specs/0011, "Harness runs", P2).
+    
+    Usage: cmp.py <input archive> <output archive> [--plant]
+    
+    Finds the workbook's first sheet of kind worksheet in <sheets> order by the
+    package's own relationships, reads that part from both archives with
+    zipfile, and compares them with python3's expat parser, sharing no code with
+    the library:
+    
+    - the bytes before the sheetData start tag, and the bytes from its end tag to
+      the end of the part (for an empty <sheetData/>, from the byte after it);
+    - every cell, a <c> child of a <row> child of the sheetData, as the tuple
+      (reference, s, t, formula presence, value text), where the value text is
+      the <v> text or, without a <v>, the <is> text;
+    - from the INPUT alone, its own pick of A (the first cell whose t is absent,
+      n or s, with a <v> and no <f>), B (the second) and M (the largest row
+      number), and whether the output differs from the input exactly there.
+    
+    It prints ONE line of counts and yes/no flags: no reference, no value, no
+    text and no part name. With --part in place of the output it prints the
+    part's name alone, which the log compares and never prints. --plant adds one cell to the output part before it is
+    compared (after the last cell, in the last row), a planted difference the
+    comparison must report.
+    """
+    import re
+    import sys
+    import xml.parsers.expat
+    import zipfile
+    import posixpath
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    
+    
+    def rels_of(z, part):
+        d, base = posixpath.split(part)
+        name = posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+        out = []
+        if name not in z.namelist():
+            return out
+        found = []
+    
+        def start(tag, attrs):
+            if tag == RELS + " Relationship" and attrs.get("TargetMode") != "External":
+                found.append(attrs)
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(name), True)
+        for a in found:
+            target = a.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((a.get("Id"), a.get("Type", ""), resolved))
+        return out
+    
+    
+    def first_worksheet(z):
+        office = [t for (_, ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        if len(office) != 1:
+            return None
+        workbook = office[0]
+        by_id = {i: (ty, t) for (i, ty, t) in rels_of(z, workbook)}
+        order = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            if ns in MAIN and local == "sheet":
+                for a in ATTR:
+                    if a + " id" in attrs:
+                        order.append(attrs[a + " id"])
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(workbook), True)
+        for rid in order:
+            ty, target = by_id.get(rid, ("", None))
+            if ty.endswith("/worksheet"):
+                return target
+        return None
+    
+    
+    def cells(data):
+        """{reference: tuple} in document order, and the order itself."""
+        out = {}
+        order = []
+        stack = []
+        state = {"cell": None, "text": None}
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            local = local if ns in MAIN else None
+            stack.append(local)
+            if local == "c" and stack[-2:-1] == ["row"] and stack[-3:-2] == ["sheetData"]:
+                state["cell"] = {"r": attrs.get("r"), "s": attrs.get("s"),
+                                 "t": attrs.get("t"), "f": False, "v": None, "is": None}
+            elif state["cell"] is not None:
+                if local == "f" and stack[-2:-1] == ["c"]:
+                    state["cell"]["f"] = True
+                elif local == "v" and stack[-2:-1] == ["c"]:
+                    state["text"] = "v"
+                    state["cell"]["v"] = ""
+                elif local == "is" and stack[-2:-1] == ["c"]:
+                    state["cell"]["is"] = ""
+                elif local == "t" and "is" in stack:
+                    state["text"] = "is"
+    
+        def end(tag):
+            local = stack.pop()
+            if local in ("v", "t"):
+                state["text"] = None
+            if local == "c" and state["cell"] is not None and stack[-1:] == ["row"]:
+                c = state["cell"]
+                value = c["v"] if c["v"] is not None else c["is"]
+                out[c["r"]] = (c["r"], c["s"], c["t"], c["f"], value, c["v"] is not None)
+                order.append(c["r"])
+                state["cell"] = None
+    
+        def chars(text):
+            if state["cell"] is not None and state["text"] is not None:
+                state["cell"][state["text"]] += text
+    
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.EndElementHandler = end
+        p.CharacterDataHandler = chars
+        p.buffer_text = True
+        p.Parse(data, True)
+        return out, order
+    
+    
+    def bounds(data):
+        """(prefix end, end tag start or None for <sheetData/>, element end)."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?sheetData[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if data[close - 1:close] == b"/":
+            return start.start(), None, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?sheetData\s*>", data))
+        if not ends:
+            return None
+        return start.start(), ends[-1].start(), ends[-1].end()
+    
+    
+    def row_of(ref):
+        m = re.fullmatch(r"[A-Z]+([1-9][0-9]*)", ref or "")
+        return int(m.group(1)) if m else None
+    
+    
+    def main():
+        if sys.argv[2:3] == ["--part"]:
+            # The part's name, for the log to compare with the entry the runner
+            # saw changed; the log never prints it.
+            print(first_worksheet(zipfile.ZipFile(sys.argv[1])) or "")
+            return
+        zin, zout = zipfile.ZipFile(sys.argv[1]), zipfile.ZipFile(sys.argv[2])
+        plant = "--plant" in sys.argv[3:]
+        part = first_worksheet(zin)
+        if part is None or part != first_worksheet(zout):
+            print("error=no-first-worksheet")
+            return
+        din, dout = zin.read(part), zout.read(part)
+        if plant:
+            at = dout.rfind(b"</row>")
+            prefix = b""
+            rows = list(re.finditer(rb"<([A-Za-z_][\w.-]*:)?row[\s/>]", dout))
+            if rows and rows[-1].group(1):
+                prefix = rows[-1].group(1)
+            dout = (dout[:at] + b"<" + prefix + b'c r="ZZ999999"><' + prefix + b"v>0</"
+                    + prefix + b"v></" + prefix + b"c>" + dout[at:])
+        bi, bo = bounds(din), bounds(dout)
+        if bi is None or bo is None:
+            print("error=no-sheetData")
+            return
+        prefix_same = din[:bi[0]] == dout[:bo[0]]
+        # From the end tag when both have one; after the element when the input's
+        # was an empty <sheetData/>, which has no end tag to start from.
+        if bi[1] is not None and bo[1] is not None:
+            suffix_same = din[bi[1]:] == dout[bo[1]:]
+        else:
+            suffix_same = din[bi[2]:] == dout[bo[2]:]
+        cin, order = cells(din)
+        cout, _ = cells(dout)
+        unchanged = changed = added = removed = 0
+        changed_refs, removed_refs = set(), set()
+        for ref, tup in cin.items():
+            if ref not in cout:
+                removed += 1
+                removed_refs.add(ref)
+            elif cout[ref] == tup:
+                unchanged += 1
+            else:
+                changed += 1
+                changed_refs.add(ref)
+        added_refs = set(cout) - set(cin)
+        added = len(added_refs)
+    
+        # The comparison's own pick of A, B and M, from the input alone.
+        picks = [r for r in order
+                 if cin[r][2] in (None, "n", "s") and cin[r][5] and not cin[r][3]]
+        a = picks[0] if picks else None
+        b = picks[1] if len(picks) > 1 else None
+        rows = [row_of(r) for r in order]
+        m = max([x for x in rows if x is not None], default=0)
+        b_styled = b is not None and cin[b][1] is not None
+        want_changed = ({a} if a else set()) | ({b} if b_styled else set())
+        want_removed = {b} if (b is not None and not b_styled) else set()
+        want_added = {"A%d" % (m + 1), "B%d" % (m + 1)}
+        refs_as_edited = (changed_refs == want_changed and removed_refs == want_removed
+                          and added_refs == want_added)
+        a_ok = a is None or (a in cout and cout[a][1:] == (cin[a][1], None, False, "42.5", True))
+        b_ok = (not b_styled) or (b in cout and cout[b][1] == cin[b][1] and not cout[b][5]
+                                 and cout[b][4] is None)
+        new_ok = (cout.get("A%d" % (m + 1), (None,) * 6)[2:5] == ("inlineStr", False, "emend")
+                  and cout.get("B%d" % (m + 1), (None,) * 6)[2:5] == ("b", False, "1"))
+        yn = lambda x: "yes" if x else "no"
+        print(" ".join([
+            "prefix_same=%s" % yn(prefix_same), "suffix_same=%s" % yn(suffix_same),
+            "cells_in=%d" % len(cin), "cells_out=%d" % len(cout),
+            "unchanged=%d" % unchanged, "changed=%d" % changed,
+            "added=%d" % added, "removed=%d" % removed,
+            "a=%d" % (a is not None), "b=%d" % (b is not None),
+            "b_styled=%d" % b_styled,
+            "refs_as_edited=%s" % yn(refs_as_edited), "a_value=%s" % yn(a_ok),
+            "b_kept_s_no_value=%s" % yn(b_ok), "new_cells=%s" % yn(new_ok),
+        ]))
+    
+    
+    main()
+
+## the column guard's own controls
+  columns_resolve accepts a header holding every column it indexes: as-expected
+  columns_resolve refuses a header missing some of them: as-expected
+  columns_resolve refuses an empty file: as-expected
+
+## the comparison's own controls, on generated pairs
+  the sound pair:  prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  expected:        prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  the comparison reports the sound pair exactly: as-expected
+  unstyled B:      prefix_same=yes suffix_same=yes cells_in=3 cells_out=4 unchanged=1 changed=1 added=2 removed=1 a=1 b=1 b_styled=0 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  expected:        prefix_same=yes suffix_same=yes cells_in=3 cells_out=4 unchanged=1 changed=1 added=2 removed=1 a=1 b=1 b_styled=0 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  the comparison counts an unstyled B's clear as removed: as-expected
+  planted value: prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=0 changed=3 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=no a_value=yes b_kept_s_no_value=yes new_cells=yes
+  the comparison reports the planted value fault (changed=3, refs_as_edited=no): as-expected
+  planted prefix: prefix_same=no suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  the comparison reports the planted prefix fault (prefix_same=no, prefix_same=no): as-expected
+  planted suffix: prefix_same=yes suffix_same=no cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  the comparison reports the planted suffix fault (suffix_same=no, suffix_same=no): as-expected
+  planted bstyle: prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=no new_cells=yes
+  the comparison reports the planted bstyle fault (b_kept_s_no_value=no, refs_as_edited=yes): as-expected
+  planted avalue: prefix_same=yes suffix_same=yes cells_in=3 cells_out=5 unchanged=1 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=no b_kept_s_no_value=yes new_cells=yes
+  the comparison reports the planted avalue fault (a_value=no, a_value=no): as-expected
+  control: accept_one accepts the sound pair with its edit line: as-expected
+  control: accept_one refuses the same pair with a line claiming dropped 1: as-expected
+  control: accept_one refuses a line whose read_back is short: as-expected
+  control: accept_one refuses the planted value fault: as-expected
+
+## settings
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); image localhost/emend-lo:25.2.3-2-deb13u6; --tool-arg --edit-sample
+  out directory: <corpus>/runs/2026-09-22-595cf8b
+  record stem: m1p4-p2-2026-09-22-595cf8b
+  target/debug/emend-copy: sha256 24ab823620c65fd37fdeea17e571e94926539168c8565ff95c546e261843179e; gate.log printed 24ab823620c65fd37fdeea17e571e94926539168c8565ff95c546e261843179e
+  target/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e; gate.log printed a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  target/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 128ad874fe9f87a08c96c0ee2052dbbb76faaf1a3f31a9600d5d373b28b9890a; gate.log printed 128ad874fe9f87a08c96c0ee2052dbbb76faaf1a3f31a9600d5d373b28b9890a
+  target/i686-unknown-linux-musl/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db; gate.log printed 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  target/i686-unknown-linux-musl/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  control: the same comparison refuses a hash gate.log did not print: as-expected
+  (nothing is rebuilt here)
+  corpus manifest rows: 27
+  the corpus holds its 27 workbooks: as-expected
+
+## host edit run, --tool-arg --edit-sample
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-22-595cf8b --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --edit-sample
+  started 2026-09-22T14:03:36Z; ended 2026-09-22T14:09:13Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 1 0.10 7936
+    f56906d42e0a host ok 1 0.10 7780
+    0fbf4e5e3be9 host ok 1 0.10 7836
+    bdfe649d5b97 host ok 1 0.10 7708
+    ae7e17525a35 host ok 1 0.10 7832
+    63e820d98612 host ok 1 0.10 7908
+    054df34b1472 host ok 1 0.10 7604
+    9132ce5303d8 host ok 1 76.72 7604
+    ed2fbd304d51 host ok 1 0.10 7816
+    80adab651c77 host ok 1 0.10 7592
+    9ada43d71c80 host ok 1 0.10 7444
+    885819a9642e host ok 1 0.10 7844
+    f2ba081da509 host ok 1 0.10 7904
+    16c3be622455 host ok 1 0.10 7772
+    a72460f992a8 host ok 1 0.10 7752
+    f8459281d739 host ok 1 0.10 7636
+    ab0e6a529465 host ok 1 87.44 7868
+    f9efcac9808f host ok 1 0.10 7692
+    8aaebea134fb host ok 1 0.10 7880
+    6778a242d1f9 host ok 1 0.10 7892
+    75387404b8af host ok 1 0.10 7884
+    40d747fb5d9e host ok 1 0.10 7788
+    3084c0591814 host ok 1 0.10 7760
+    f3a462783621 host ok 1 0.10 7588
+    ed4c55f07c69 host ok 1 0.10 7764
+    7935c5119065 host ok 1 0.10 7696
+    18d1e8ba72b5 host ok 1 0.11 7808
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the edit run exits 0: as-expected
+  host the edit run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical no: 27
+  entry totals from the summary: identical 843, recompressed 0, changed 27, dropped 0, added 0, flagged 17
+  host every manifest workbook produced a summary row: as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host no tool left a temporary behind: as-expected
+  host order is preserved in every file: as-expected
+  host the archive comment is unchanged in every file: as-expected
+  host no file is byte-identical: as-expected
+  host 27 entries changed in all, one per workbook: as-expected
+  host nothing dropped, added or recompressed: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  host every column the entry forms index is in that header: as-expected
+  per workbook: id, the tool's edit line, the comparison's line (counts only)
+    d8245b84086f edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=416 cells_after=418 read_back=3
+    d8245b84086f prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f56906d42e0a edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    f56906d42e0a prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    0fbf4e5e3be9 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=102 cells_after=104 read_back=3
+    0fbf4e5e3be9 prefix_same=yes suffix_same=yes cells_in=102 cells_out=104 unchanged=100 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    bdfe649d5b97 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    bdfe649d5b97 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ae7e17525a35 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    ae7e17525a35 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    63e820d98612 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=281 cells_after=283 read_back=3
+    63e820d98612 prefix_same=yes suffix_same=yes cells_in=281 cells_out=283 unchanged=279 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    054df34b1472 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=427 cells_after=429 read_back=3
+    054df34b1472 prefix_same=yes suffix_same=yes cells_in=427 cells_out=429 unchanged=425 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    9132ce5303d8 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=1040008 cells_after=1040010 read_back=3
+    9132ce5303d8 prefix_same=yes suffix_same=yes cells_in=1040008 cells_out=1040010 unchanged=1040006 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ed2fbd304d51 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    ed2fbd304d51 prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    80adab651c77 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=416 cells_after=418 read_back=3
+    80adab651c77 prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    9ada43d71c80 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    9ada43d71c80 prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    885819a9642e edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=102 cells_after=104 read_back=3
+    885819a9642e prefix_same=yes suffix_same=yes cells_in=102 cells_out=104 unchanged=100 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f2ba081da509 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    f2ba081da509 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    16c3be622455 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    16c3be622455 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    a72460f992a8 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=281 cells_after=283 read_back=3
+    a72460f992a8 prefix_same=yes suffix_same=yes cells_in=281 cells_out=283 unchanged=279 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f8459281d739 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=427 cells_after=429 read_back=3
+    f8459281d739 prefix_same=yes suffix_same=yes cells_in=427 cells_out=429 unchanged=425 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ab0e6a529465 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=1040008 cells_after=1040010 read_back=3
+    ab0e6a529465 prefix_same=yes suffix_same=yes cells_in=1040008 cells_out=1040010 unchanged=1040006 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f9efcac9808f edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=8 cells_after=10 read_back=3
+    f9efcac9808f prefix_same=yes suffix_same=yes cells_in=8 cells_out=10 unchanged=6 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    8aaebea134fb edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=831 cells_after=833 read_back=3
+    8aaebea134fb prefix_same=yes suffix_same=yes cells_in=831 cells_out=833 unchanged=829 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    6778a242d1f9 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=50 cells_after=52 read_back=3
+    6778a242d1f9 prefix_same=yes suffix_same=yes cells_in=50 cells_out=52 unchanged=48 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    75387404b8af edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=121 cells_after=123 read_back=3
+    75387404b8af prefix_same=yes suffix_same=yes cells_in=121 cells_out=123 unchanged=119 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    40d747fb5d9e edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=140 cells_after=142 read_back=3
+    40d747fb5d9e prefix_same=yes suffix_same=yes cells_in=140 cells_out=142 unchanged=138 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    3084c0591814 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=8 cells_after=10 read_back=3
+    3084c0591814 prefix_same=yes suffix_same=yes cells_in=8 cells_out=10 unchanged=6 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f3a462783621 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=14 cells_after=16 read_back=3
+    f3a462783621 prefix_same=yes suffix_same=yes cells_in=14 cells_out=16 unchanged=12 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ed4c55f07c69 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=513 cells_after=515 read_back=3
+    ed4c55f07c69 prefix_same=yes suffix_same=yes cells_in=513 cells_out=515 unchanged=511 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    7935c5119065 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=204 cells_after=206 read_back=3
+    7935c5119065 prefix_same=yes suffix_same=yes cells_in=204 cells_out=206 unchanged=202 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    18d1e8ba72b5 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=18 cells_after=20 read_back=3
+    18d1e8ba72b5 prefix_same=yes suffix_same=yes cells_in=18 cells_out=20 unchanged=16 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  workbooks: 27; accepted on every clause: 27; first worksheet part the one change: 27; every other entry identical and unflagged: 27
+  totals: set 81, cleared 27, dropped 0, rows_added 27, cells_before 2084915, cells_after 2084969, the sum of cells_before + 2 - dropped 2084969
+  host every workbook meets every clause of the tool line and the comparison: as-expected
+  host in every workbook the first worksheet part is the one changed entry: as-expected
+  host in every workbook every other entry is identical and unflagged: as-expected
+  host rows_added totals 27: as-expected
+  host cells_after totals the sum of cells_before + 2 - dropped: as-expected
+  control on d8245b84086f, as run:          prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  control on d8245b84086f, one cell planted: prefix_same=yes suffix_same=yes cells_in=416 cells_out=419 unchanged=414 changed=2 added=3 removed=0 a=1 b=1 b_styled=1 refs_as_edited=no a_value=yes b_kept_s_no_value=yes new_cells=yes
+  host control: the planted cell is counted as a third added cell: as-expected
+  host control: accept_one refuses the planted pair: as-expected
+
+## i686 edit run, --tool-arg --edit-sample
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-22-595cf8b --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --edit-sample
+  started 2026-09-22T14:10:00Z; ended 2026-09-22T14:16:28Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 1 0.10 7900
+    f56906d42e0a i686 ok 1 0.10 7772
+    0fbf4e5e3be9 i686 ok 1 0.10 7624
+    bdfe649d5b97 i686 ok 1 0.10 7604
+    ae7e17525a35 i686 ok 1 0.10 7652
+    63e820d98612 i686 ok 1 0.10 7940
+    054df34b1472 i686 ok 1 0.10 7720
+    9132ce5303d8 i686 ok 1 94.36 7636
+    ed2fbd304d51 i686 ok 1 0.10 7820
+    80adab651c77 i686 ok 1 0.10 7824
+    9ada43d71c80 i686 ok 1 0.10 7680
+    885819a9642e i686 ok 1 0.10 7636
+    f2ba081da509 i686 ok 1 0.10 7592
+    16c3be622455 i686 ok 1 0.10 7796
+    a72460f992a8 i686 ok 1 0.10 7764
+    f8459281d739 i686 ok 1 0.10 7640
+    ab0e6a529465 i686 ok 1 123.08 7736
+    f9efcac9808f i686 ok 1 0.10 7904
+    8aaebea134fb i686 ok 1 0.10 7704
+    6778a242d1f9 i686 ok 1 0.10 7572
+    75387404b8af i686 ok 1 0.10 7664
+    40d747fb5d9e i686 ok 1 0.10 7864
+    3084c0591814 i686 ok 1 0.10 7600
+    f3a462783621 i686 ok 1 0.10 7740
+    ed4c55f07c69 i686 ok 1 0.10 7620
+    7935c5119065 i686 ok 1 0.10 7704
+    18d1e8ba72b5 i686 ok 1 0.10 7752
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the edit run exits 0: as-expected
+  i686 the edit run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical no: 27
+  entry totals from the summary: identical 843, recompressed 0, changed 27, dropped 0, added 0, flagged 17
+  i686 every manifest workbook produced a summary row: as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 no tool left a temporary behind: as-expected
+  i686 order is preserved in every file: as-expected
+  i686 the archive comment is unchanged in every file: as-expected
+  i686 no file is byte-identical: as-expected
+  i686 27 entries changed in all, one per workbook: as-expected
+  i686 nothing dropped, added or recompressed: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  i686 every column the entry forms index is in that header: as-expected
+  per workbook: id, the tool's edit line, the comparison's line (counts only)
+    d8245b84086f edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=416 cells_after=418 read_back=3
+    d8245b84086f prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f56906d42e0a edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    f56906d42e0a prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    0fbf4e5e3be9 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=102 cells_after=104 read_back=3
+    0fbf4e5e3be9 prefix_same=yes suffix_same=yes cells_in=102 cells_out=104 unchanged=100 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    bdfe649d5b97 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    bdfe649d5b97 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ae7e17525a35 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    ae7e17525a35 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    63e820d98612 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=281 cells_after=283 read_back=3
+    63e820d98612 prefix_same=yes suffix_same=yes cells_in=281 cells_out=283 unchanged=279 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    054df34b1472 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=427 cells_after=429 read_back=3
+    054df34b1472 prefix_same=yes suffix_same=yes cells_in=427 cells_out=429 unchanged=425 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    9132ce5303d8 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=1040008 cells_after=1040010 read_back=3
+    9132ce5303d8 prefix_same=yes suffix_same=yes cells_in=1040008 cells_out=1040010 unchanged=1040006 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ed2fbd304d51 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    ed2fbd304d51 prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    80adab651c77 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=416 cells_after=418 read_back=3
+    80adab651c77 prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    9ada43d71c80 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=164 cells_after=166 read_back=3
+    9ada43d71c80 prefix_same=yes suffix_same=yes cells_in=164 cells_out=166 unchanged=162 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    885819a9642e edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=102 cells_after=104 read_back=3
+    885819a9642e prefix_same=yes suffix_same=yes cells_in=102 cells_out=104 unchanged=100 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f2ba081da509 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    f2ba081da509 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    16c3be622455 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=12 cells_after=14 read_back=3
+    16c3be622455 prefix_same=yes suffix_same=yes cells_in=12 cells_out=14 unchanged=10 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    a72460f992a8 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=281 cells_after=283 read_back=3
+    a72460f992a8 prefix_same=yes suffix_same=yes cells_in=281 cells_out=283 unchanged=279 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f8459281d739 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=427 cells_after=429 read_back=3
+    f8459281d739 prefix_same=yes suffix_same=yes cells_in=427 cells_out=429 unchanged=425 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ab0e6a529465 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=1040008 cells_after=1040010 read_back=3
+    ab0e6a529465 prefix_same=yes suffix_same=yes cells_in=1040008 cells_out=1040010 unchanged=1040006 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f9efcac9808f edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=8 cells_after=10 read_back=3
+    f9efcac9808f prefix_same=yes suffix_same=yes cells_in=8 cells_out=10 unchanged=6 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    8aaebea134fb edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=831 cells_after=833 read_back=3
+    8aaebea134fb prefix_same=yes suffix_same=yes cells_in=831 cells_out=833 unchanged=829 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    6778a242d1f9 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=50 cells_after=52 read_back=3
+    6778a242d1f9 prefix_same=yes suffix_same=yes cells_in=50 cells_out=52 unchanged=48 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    75387404b8af edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=121 cells_after=123 read_back=3
+    75387404b8af prefix_same=yes suffix_same=yes cells_in=121 cells_out=123 unchanged=119 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    40d747fb5d9e edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=140 cells_after=142 read_back=3
+    40d747fb5d9e prefix_same=yes suffix_same=yes cells_in=140 cells_out=142 unchanged=138 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    3084c0591814 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=8 cells_after=10 read_back=3
+    3084c0591814 prefix_same=yes suffix_same=yes cells_in=8 cells_out=10 unchanged=6 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    f3a462783621 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=14 cells_after=16 read_back=3
+    f3a462783621 prefix_same=yes suffix_same=yes cells_in=14 cells_out=16 unchanged=12 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    ed4c55f07c69 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=513 cells_after=515 read_back=3
+    ed4c55f07c69 prefix_same=yes suffix_same=yes cells_in=513 cells_out=515 unchanged=511 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    7935c5119065 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=204 cells_after=206 read_back=3
+    7935c5119065 prefix_same=yes suffix_same=yes cells_in=204 cells_out=206 unchanged=202 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+    18d1e8ba72b5 edit set=3 cleared=1 dropped=0 rows_added=1 cells_before=18 cells_after=20 read_back=3
+    18d1e8ba72b5 prefix_same=yes suffix_same=yes cells_in=18 cells_out=20 unchanged=16 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  workbooks: 27; accepted on every clause: 27; first worksheet part the one change: 27; every other entry identical and unflagged: 27
+  totals: set 81, cleared 27, dropped 0, rows_added 27, cells_before 2084915, cells_after 2084969, the sum of cells_before + 2 - dropped 2084969
+  i686 every workbook meets every clause of the tool line and the comparison: as-expected
+  i686 in every workbook the first worksheet part is the one changed entry: as-expected
+  i686 in every workbook every other entry is identical and unflagged: as-expected
+  i686 rows_added totals 27: as-expected
+  i686 cells_after totals the sum of cells_before + 2 - dropped: as-expected
+  control on d8245b84086f, as run:          prefix_same=yes suffix_same=yes cells_in=416 cells_out=418 unchanged=414 changed=2 added=2 removed=0 a=1 b=1 b_styled=1 refs_as_edited=yes a_value=yes b_kept_s_no_value=yes new_cells=yes
+  control on d8245b84086f, one cell planted: prefix_same=yes suffix_same=yes cells_in=416 cells_out=419 unchanged=414 changed=2 added=3 removed=0 a=1 b=1 b_styled=1 refs_as_edited=no a_value=yes b_kept_s_no_value=yes new_cells=yes
+  i686 control: the planted cell is counted as a third added cell: as-expected
+  i686 control: accept_one refuses the planted pair: as-expected
+
+## the two labels agree
+  both targets classified every entry the same way: as-expected
+  both targets printed the same edit line for every workbook: as-expected
+  outputs byte-identical across the two targets: 27; different: 0
+  every workbook's host and i686 outputs are byte-identical: as-expected
+  control: the same comparison between two different workbooks' outputs says they differ: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: 595cf8b91c0ea99400d3d1d7d3b535ae27e18259	2026-09-22T14:03:36Z	2026-09-22T14:09:13Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	24ab823620c65fd37fdeea17e571e94926539168c8565ff95c546e261843179e	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27	--edit-sample
+  run.host.tsv tool_args: [--edit-sample]
+  host the run row records the operation: as-expected
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: 595cf8b91c0ea99400d3d1d7d3b535ae27e18259	2026-09-22T14:10:00Z	2026-09-22T14:16:28Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	128ad874fe9f87a08c96c0ee2052dbbb76faaf1a3f31a9600d5d373b28b9890a	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27	--edit-sample
+  run.i686.tsv tool_args: [--edit-sample]
+  i686 the run row records the operation: as-expected
+
+## the record pair
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-22-595cf8b --stem m1p4-p2-2026-09-22-595cf8b
+    wrote m1p4-p2-2026-09-22-595cf8b.txt and m1p4-p2-2026-09-22-595cf8b.md: labels host,i686; files 27,27; entry rows 870,870
+  the record script exits 0: as-expected
+  records/m1p4-p2-2026-09-22-595cf8b.md: 14969 bytes, sha256 3acfc9458fef72c42a78b4247e8b77efaab259eeab494754fa42ee3c19aa5436
+  records/m1p4-p2-2026-09-22-595cf8b.txt: 198677 bytes, sha256 7c2d3be1d93db44cb39a2f982e1bb7d354d4ca5850523a8548121a2109189db5
+  both halves of the record pair were written: as-expected
+  lines of the record naming the operation: 1
+  the record names the operation it was run with: as-expected
+
+## the record pair holds no corpus path and no absolute path
+  records/m1p4-p2-2026-09-22-595cf8b.md: lines naming a home, mount or corpus path: 0
+  records/m1p4-p2-2026-09-22-595cf8b.md carries no such path: as-expected
+  records/m1p4-p2-2026-09-22-595cf8b.txt: lines naming a home, mount or corpus path: 0
+  records/m1p4-p2-2026-09-22-595cf8b.txt carries no such path: as-expected
+  control: the path form finds a planted path (1): as-expected
+
+## status after the runs
+status lines: 4; of them under the phase log directory or the record pair: 3; planning's uncommitted file: 1
+  every change in the working tree is a log, the record pair or planning's one file: as-expected
+  specs/0011-editing-cells.md at the end of the run: sha256 740db7aaa474d9a6fae72b24b3107d773cc792729cb1c3b4bee9065a8b660c72
+run ended at 2026-09-22T14:17:07Z
+run log checks all as expected: yes
