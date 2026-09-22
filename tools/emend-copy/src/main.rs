@@ -75,6 +75,18 @@
 //!   code is content, so no code, no font name and no length of either is
 //!   printed. A workbook whose styles part the layer cannot read is exit 2
 //!   with the message.
+//! - `--style-sample`: the sample style edit of `specs/0012-styles.md`,
+//!   "Harness runs": two cell formats are added, one over the first sampled
+//!   cell's own format with the code `0.000` and one over no base with the
+//!   built-in id 14; the sampled cell takes the first and a new cell one row
+//!   past the last takes `Number(45000.5)` with the second. One line goes to
+//!   stdout: the word `edit` then `styled`, `added`, `xfs_before`,
+//!   `xfs_after`, `formats_added`, `cells_before`, `cells_after` and
+//!   `read_back`. COUNTS ONLY, as `--styles` is: the format code is this
+//!   tool's own constant and no cell's text, reference or format code is
+//!   printed. `xfs_after` and `cells_after` are asserted against what the
+//!   edits imply; either failing is exit 2 with the message and no output,
+//!   as `--edit-sample`'s count assertion is.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -102,7 +114,8 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
-| --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles]";
+| --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
+| --style-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -128,6 +141,8 @@ enum Operation {
     EditFormulaSample,
     /// No edits, and count the styles part on stdout.
     Styles,
+    /// The sample style edit, and its counts on stdout.
+    StyleSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -150,6 +165,7 @@ enum Error {
     NoWorksheet,
     NoNewRow,
     CellsAfter { expected: u64, found: u64 },
+    XfsAfter { expected: u64, found: u64 },
 }
 
 impl fmt::Display for Error {
@@ -174,6 +190,11 @@ impl fmt::Display for Error {
             Error::CellsAfter { expected, found } => write!(
                 f,
                 "the output's sheet holds {found} cell(s) and the edits imply {expected}"
+            ),
+            Error::XfsAfter { expected, found } => write!(
+                f,
+                "the output's styles part holds {found} cell format(s) and the edits imply \
+                 {expected}"
             ),
         }
     }
@@ -219,6 +240,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--styles" => {
             run(Path::new(input), Path::new(output), Operation::Styles)
         }
+        [input, output, flag] if flag == "--style-sample" => {
+            run(Path::new(input), Path::new(output), Operation::StyleSample)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -252,6 +276,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::EditFormulaSample) {
         return edit_formula_sample(input, output);
     }
+    if matches!(operation, Operation::StyleSample) {
+        return style_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -276,6 +303,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
         Operation::EditSample => unreachable!("the sample edit has its own path"),
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
+        Operation::StyleSample => unreachable!("the style sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -450,6 +478,11 @@ struct Sampled {
     /// A: the first `Number` or `SharedString` cell with a value and no
     /// formula.
     first: Option<CellRef>,
+    /// A's `s` and its value text, which the style sample needs: the `s` as
+    /// the base of its addition, the text to compare the read-back against.
+    /// Neither reaches a line or a message.
+    first_style: Option<u32>,
+    first_value: Option<String>,
     /// B: the second such cell, and whether it carried `s`.
     second: Option<(CellRef, bool)>,
     /// M: the largest row number, 0 for a sheet with no cells.
@@ -461,6 +494,8 @@ struct Sampled {
 fn sample<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Result<Sampled, Error> {
     let mut sampled = Sampled {
         first: None,
+        first_style: None,
+        first_value: None,
         second: None,
         max_row: 0,
         cells: 0,
@@ -474,6 +509,8 @@ fn sample<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Resu
             && cell.formula.is_none();
         if candidate && sampled.first.is_none() {
             sampled.first = Some(cell.reference);
+            sampled.first_style = cell.style;
+            sampled.first_value = cell.value.clone();
         } else if candidate && sampled.second.is_none() {
             sampled.second = Some((cell.reference, cell.style.is_some()));
         }
@@ -706,6 +743,150 @@ fn formula_read_back(
         });
     }
     Ok((chain_after, cells_after, read_back))
+}
+
+/// The sample style edit of `specs/0012-styles.md`, "Harness runs".
+///
+/// The styles part is read for X (`cell_xfs.len()`) and F (`num_fmts.len()`),
+/// and the first sheet of kind `Worksheet` in workbook order is read once
+/// through `Package::cells` for A, the first `Number` or `SharedString` cell
+/// with a value and no formula, and M, the largest row number ([`Sampled`]).
+/// Two cell formats are then recorded: S1 over A's own `s` (`None` when A has
+/// none or does not exist) with the code `0.000`, and S2 over no base with
+/// the built-in id 14. A takes `Some(S1)` when it exists, and `(M + 1, 1)` is
+/// set to `Number(45000.5)` with `Some(S2)`.
+///
+/// The output is written, reopened, and its styles part and the same sheet
+/// read back. `xfs_after` is asserted equal to X + 2 and `cells_after` to
+/// `cells_before + 1`; either failing removes the output, as `edit_sample`'s
+/// assertion does, so a refused run leaves none. No reference, value, text or
+/// format code reaches the line or a message: the line is counts only.
+fn style_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let styles = package.styles()?;
+    let xfs_before = styles.cell_xfs.len() as u64;
+    let formats_before = styles.num_fmts.len() as u64;
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let new_cell = CellRef {
+        row: new_row,
+        col: 1,
+    };
+
+    // S1 takes A's own format as its base, so the addition keeps whatever
+    // font, fill and border A had; S2 takes none, so it is the derived
+    // format's plain shape. The code is one no corpus part defines, which is
+    // what makes `formats_added` 1 in every workbook.
+    let coded =
+        package.add_cell_style(before.first_style, NumberFormat::Code("0.000".to_string()))?;
+    let dated = package.add_cell_style(None, NumberFormat::BuiltIn(14))?;
+    if let Some(first) = before.first {
+        package.set_cell_style(&part, first, Some(coded));
+    }
+    package.set_cell(&part, new_cell, Value::Number(45000.5));
+    package.set_cell_style(&part, new_cell, Some(dated));
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it, as
+    // `edit_sample`'s assertion does.
+    let checked = style_read_back(
+        output,
+        &part,
+        &before,
+        new_cell,
+        (coded, dated),
+        (xfs_before + 2, before.cells + 1),
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (xfs_after, formats_after, cells_after, read_back) = checked?;
+    edit_line(&[
+        ("styled", u64::from(before.first.is_some())),
+        ("added", 1),
+        ("xfs_before", xfs_before),
+        ("xfs_after", xfs_after),
+        (
+            "formats_added",
+            formats_after.saturating_sub(formats_before),
+        ),
+        ("cells_before", before.cells),
+        ("cells_after", cells_after),
+        ("read_back", read_back),
+    ])
+}
+
+/// Reopens the output for the style sample's line: the styles part's cell
+/// format count, asserted equal to `expected.0`; its `numFmt` count; the
+/// edited sheet's cell count, asserted equal to `expected.1`; and how many of
+/// the three read-backs hold: A's value text unchanged with `s` the new
+/// coded format, the new cell's number with `s` the new dated format, and the
+/// output's own number formats for the two new indices.
+fn style_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &Sampled,
+    new_cell: CellRef,
+    added: (u32, u32),
+    expected: (u64, u64),
+) -> Result<(u64, u64, u64, u64), Error> {
+    let (coded, dated) = added;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let styles = written.styles()?;
+    let xfs_after = styles.cell_xfs.len() as u64;
+    let formats_after = styles.num_fmts.len() as u64;
+    let formats_read_back = styles.number_format(coded)
+        == Some(NumberFormat::Code("0.000".to_string()))
+        && styles.number_format(dated) == Some(NumberFormat::BuiltIn(14));
+    if xfs_after != expected.0 {
+        return Err(Error::XfsAfter {
+            expected: expected.0,
+            found: xfs_after,
+        });
+    }
+    let mut cells_after = 0u64;
+    let mut read_back = u64::from(formats_read_back);
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let at = cell.reference;
+        if Some(at) == before.first && cell.value == before.first_value && cell.style == Some(coded)
+        {
+            read_back += 1;
+        }
+        if at == new_cell && cell.number() == Some(45000.5) && cell.style == Some(dated) {
+            read_back += 1;
+        }
+    }
+    if cells_after != expected.1 {
+        return Err(Error::CellsAfter {
+            expected: expected.1,
+            found: cells_after,
+        });
+    }
+    Ok((xfs_after, formats_after, cells_after, read_back))
 }
 
 /// Prints one `edit` line: the word, then tab-separated `key=value`.

@@ -547,6 +547,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--styles", "--cells"],
         vec!["--cells", "--styles"],
         vec!["--styles", "[Content_Types].xml"],
+        // And with part 5 P2's.
+        vec!["--style-sample", "--styles"],
+        vec!["--styles", "--style-sample"],
+        vec!["--style-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1582,4 +1586,264 @@ fn styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
     );
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+// -------------------------------------------------------- --style-sample
+
+/// `edit_specs`'s package with a styles part added: the shared-strings
+/// package it builds on carries none, so the entry, its `Override` and the
+/// workbook relationship all go in here. The part is STORED so a test can
+/// compare the rewritten bytes without an inflater.
+///
+/// Three cell formats and one `numFmt`: a built-in General (0), the custom id
+/// 164 with a font, and an `xf` with no `numFmtId`. The code is fictional.
+/// Hand count: `xfs` 3, `num_fmts` 1. The largest id is 164, so an added code
+/// takes 165.
+fn style_sample_specs(sheet_data: &str) -> Vec<Spec> {
+    styled_specs(sheet_data, &styles_part_of_the_sample())
+}
+
+/// The readable styles part the sample fixture carries.
+fn styles_part_of_the_sample() -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><numFmts count=\"1\">\
+         <numFmt numFmtId=\"164\" formatCode=\"0.00\"/></numFmts>\
+         <fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts>\
+         <cellXfs count=\"3\"><xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/>\
+         <xf/></cellXfs></styleSheet>"
+    )
+}
+
+/// `edit_specs` with `styles` as `xl/styles.xml`, typed and related, so the
+/// layer finds it from the workbook as it finds a corpus workbook's.
+fn styled_specs(sheet_data: &str, styles: &str) -> Vec<Spec> {
+    let mut specs = edit_specs(sheet_data);
+    for spec in &mut specs {
+        if spec.name == b"[Content_Types].xml" {
+            let types = format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <Types xmlns=\"{TYPES_NS}\">\
+                 <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+                 <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+                 <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+                 <Override PartName=\"/xl/worksheets/sheet1.xml\" \
+                 ContentType=\"application/sheet\"/>\
+                 <Override PartName=\"/xl/sharedStrings.xml\" \
+                 ContentType=\"application/sharedStrings\"/>\
+                 <Override PartName=\"/xl/styles.xml\" ContentType=\"application/styles\"/>\
+                 </Types>"
+            );
+            *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+        } else if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let rels = format!(
+                "<Relationships xmlns=\"{RELS_NS}\">\
+                 <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/worksheet\" \
+                 Target=\"worksheets/sheet1.xml\"/>\
+                 <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/sharedStrings\" \
+                 Target=\"sharedStrings.xml\"/>\
+                 <Relationship Id=\"rId3\" Type=\"{ATTR_NS}/styles\" Target=\"styles.xml\"/>\
+                 </Relationships>"
+            );
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        }
+    }
+    specs.push(Spec::stored(b"xl/styles.xml", styles.as_bytes()));
+    specs
+}
+
+/// Runs `--style-sample` on `specs` and returns the line, the output's styles
+/// part and its sheet part, asserting every other entry came back as it went
+/// in and that the two parts kept their stored method.
+#[track_caller]
+fn style_sample(label: &str, specs: &[Spec]) -> (String, String, String) {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(specs);
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--style-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    let before = parse_independently(&bytes);
+    let after = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        after.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        before.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        "the entry names and their order"
+    );
+    let mut sheet = None;
+    let mut styles = None;
+    for (was, now) in before.iter().zip(&after) {
+        if now.name == b"xl/worksheets/sheet1.xml" {
+            assert_eq!(now.method, 0, "the sheet stays stored");
+            sheet = Some(String::from_utf8(now.compressed.clone()).expect("UTF-8"));
+        } else if now.name == b"xl/styles.xml" {
+            assert_eq!(now.method, 0, "the styles part stays stored");
+            styles = Some(String::from_utf8(now.compressed.clone()).expect("UTF-8"));
+        } else {
+            assert_eq!(
+                (
+                    now.method,
+                    now.crc32,
+                    now.uncompressed_size,
+                    &now.compressed
+                ),
+                (
+                    was.method,
+                    was.crc32,
+                    was.uncompressed_size,
+                    &was.compressed
+                ),
+                "{} changed",
+                String::from_utf8_lossy(&now.name)
+            );
+        }
+    }
+    (
+        ran.stdout,
+        styles.expect("the styles part is in the output"),
+        sheet.expect("the sheet is in the output"),
+    )
+}
+
+/// The styles part `style_sample_specs` builds, with `num_fmts` and
+/// `cell_xfs` holding what the edit left.
+fn styled_part(num_fmts: &str, num_fmts_count: u32, cell_xfs: &str, cell_xfs_count: u32) -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><numFmts count=\"{num_fmts_count}\">\
+         {num_fmts}</numFmts>\
+         <fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts>\
+         <cellXfs count=\"{cell_xfs_count}\">{cell_xfs}</cellXfs></styleSheet>"
+    )
+}
+
+/// The `numFmt` the sample adds, and the two `xf`s: the first over A's own
+/// format, the second over none.
+const ADDED_NUM_FMT: &str = "<numFmt numFmtId=\"165\" formatCode=\"0.000\"/>";
+const ADDED_DATED_XF: &str = "<xf numFmtId=\"14\" fontId=\"0\" fillId=\"0\" borderId=\"0\" \
+                              xfId=\"0\" applyNumberFormat=\"1\"/>";
+
+#[test]
+fn the_style_sample_adds_two_formats_and_styles_two_cells() {
+    // `specs/0012-styles.md`, "Harness runs": A is A1 (a number with a value,
+    // styled `1`), B1 is a shared string and A2 a formula, M is 2, and the
+    // styles part holds three `xf`s and one `numFmt`. S1 is 3 over A's own
+    // format with the code, S2 is 4 over no base with the built-in 14, the
+    // new code takes the id 165, and the new cell goes to A3.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c>\
+                <c r=\"B1\" t=\"s\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>";
+    let (line, styles, sheet) = style_sample(
+        "style-sample",
+        &style_sample_specs(&format!("<sheetData>{rows}</sheetData>")),
+    );
+    assert_eq!(
+        line,
+        "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\
+         \tcells_after=4\tread_back=3\n",
+        "the edit line"
+    );
+    assert_eq!(
+        styles,
+        styled_part(
+            &format!("<numFmt numFmtId=\"164\" formatCode=\"0.00\"/>{ADDED_NUM_FMT}"),
+            2,
+            &format!(
+                "<xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/><xf/>\
+                 <xf numFmtId=\"165\" fontId=\"0\" applyNumberFormat=\"1\"/>{ADDED_DATED_XF}"
+            ),
+            5,
+        ),
+        "the styles part"
+    );
+    let want = "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>1.5</v></c>\
+                <c r=\"B1\" t=\"s\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>\
+                <row r=\"3\"><c r=\"A3\" s=\"4\"><v>45000.5</v></c></row>";
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{want}</sheetData>")),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone() {
+    // No cell of a sampled kind, so A does not exist: the first addition
+    // takes no base, nothing is restyled, `styled` is 0 and the read-back is
+    // the two that do not depend on A. M is 0, so the new cell is A1.
+    let (line, styles, sheet) =
+        style_sample("style-sample-empty", &style_sample_specs("<sheetData/>"));
+    assert_eq!(
+        line,
+        "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\
+         \tcells_after=1\tread_back=2\n",
+        "the edit line"
+    );
+    assert_eq!(
+        styles,
+        styled_part(
+            &format!("<numFmt numFmtId=\"164\" formatCode=\"0.00\"/>{ADDED_NUM_FMT}"),
+            2,
+            &format!(
+                "<xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/><xf/>\
+                 <xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+                 applyNumberFormat=\"1\"/>{ADDED_DATED_XF}"
+            ),
+            5,
+        ),
+        "the styles part"
+    );
+    assert_eq!(
+        sheet,
+        edited("<sheetData><row r=\"1\"><c r=\"A1\" s=\"4\"><v>45000.5</v></c></row></sheetData>"),
+        "the sheet"
+    );
+}
+
+/// Runs `--style-sample` on a package that must refuse it, and asserts the
+/// message, that no line was printed and that no file was left.
+#[track_caller]
+fn style_sample_refused(label: &str, specs: &[Spec], message: &str) {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(specs)).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--style-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(ran.stderr, format!("error: {message}\n"), "the message");
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+const A_CELL: &str = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>";
+
+#[test]
+fn the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing() {
+    // The shared-strings package `edit_specs` builds on names no styles part,
+    // so the first addition refuses before any output file exists.
+    style_sample_refused(
+        "style-sample-no-part",
+        &edit_specs(A_CELL),
+        "the workbook has no styles part",
+    );
+}
+
+#[test]
+fn the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
+    // A styles part that is there and typed but whose root is in no
+    // namespace: the reader refuses it by its root, again before any output.
+    style_sample_refused(
+        "style-sample-refused",
+        &styled_specs(A_CELL, "<styleSheet/>"),
+        "the styles part's root is not styleSheet",
+    );
 }
