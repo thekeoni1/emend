@@ -58,6 +58,19 @@
 //!   be made as a copy of one.
 //! - A format code is text to this layer: which numbers it shows as dates is
 //!   the caller's to decide.
+//! - Number formats only. What [`crate::package::Package::add_cell_style`]
+//!   adds is a cell format derived from an existing one, or the plain form
+//!   over no base, with its number format changed, and a custom number
+//!   format when its code is new. No font, fill, border, alignment or
+//!   protection is added, and `dxfs`, `cellStyles`, `fonts`, `fills` and
+//!   `borders` are never touched.
+//! - Two additions with equal codes share one `numFmt` id; two with an equal
+//!   base and format are two cell formats, since nothing is deduplicated at
+//!   the `xf` level.
+//! - An addition is refused, with the messages catalogued in
+//!   [`crate::package`]'s module header, for a base that names no existing
+//!   `xf`, a built-in id of 164 or more, a code that is empty or holds a
+//!   character XML cannot carry, and an index or id `u32` cannot hold.
 
 use std::io::Read;
 

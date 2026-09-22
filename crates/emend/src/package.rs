@@ -287,6 +287,17 @@
 //!   not apply to it.
 //! - The styles part is rewritten at most once per write, in one streaming
 //!   pass that holds one token, the recorded additions and two counts.
+//! - Number formats only. An addition is a cell format derived from an
+//!   existing one, or the plain form over no base, with its number format
+//!   changed; no font, fill, border, alignment or protection is ever added
+//!   (`specs/0012-styles.md`, "Decisions for the maintainer", 1).
+//! - A write with a `Some` style edit reads the styles part to check the
+//!   index against the `cellXfs` count plus the additions; a `None` edit
+//!   needs no styles part at all (the same section, 3).
+//! - Dates are not the core's. The core writes and reads a cell's number;
+//!   the serial a date stands for comes from the crate's `dates` feature,
+//!   which is off by default and outside the core's size, and nothing here
+//!   calls it (the same section, 2). A `t="d"` cell's text is not converted.
 
 #[cfg(test)]
 mod tests;

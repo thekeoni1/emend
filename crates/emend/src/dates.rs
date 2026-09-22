@@ -18,6 +18,39 @@
 //! A dated cell is a [`crate::cells::Value::Number`] holding the serial,
 //! with a cell format whose number format is a date. Nothing in the core
 //! knows which numbers are dates.
+//!
+//! # Errors
+//!
+//! None. Both functions answer `None` for what they refuse, and raise no
+//! [`crate::Error`]:
+//!
+//! - [`DateTime::serial`]: a month outside 1 to 12; a day outside its month,
+//!   1900-02-29 included; an hour above 23, a minute or second above 59, a
+//!   millisecond above 999; a date before the epoch's first day, 1900-01-01
+//!   or 1904-01-01; a date after 9999-12-31.
+//! - [`DateTime::from_serial`]: a serial that is not finite; after rounding
+//!   to the millisecond, one below the epoch's first day (1 or 0), one at or
+//!   after the day after 9999-12-31 (2958466 or 2957004), and the 1900
+//!   system's day 60.
+//!
+//! # Limits
+//!
+//! - The module is the Cargo feature `dates`, off by default and outside
+//!   the core: the core's size budget is measured without it, its cost is
+//!   measured beside the budget, and nothing in the core calls it
+//!   (`specs/0012-styles.md`, "Decisions for the maintainer", 2).
+//! - The calendar is the proleptic Gregorian one, with no time zone and no
+//!   leap second, to the millisecond. A serial's fraction is rounded to the
+//!   nearest millisecond, carrying into the next day when it rounds to
+//!   midnight, and every refusal above applies to the rounded value
+//!   ("Planning rulings during P3", ruling 2).
+//! - Serials 1 to 59 of the 1900 system are 1900-01-01 to 1900-02-28, as the
+//!   system's definition counts them. The day 60 has no date, so
+//!   [`DateTime::serial`] never answers it and [`DateTime::from_serial`]
+//!   refuses it.
+//! - A number format is not consulted: whether a number is a date is the
+//!   caller's to decide, from the cell's format or otherwise. A `t="d"`
+//!   cell's ISO 8601 text ([`crate::cells::Kind::Date`]) is not converted.
 
 use crate::package::Workbook;
 
