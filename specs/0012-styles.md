@@ -894,6 +894,67 @@ agree with that comparison.
    first doc commit, with `ROADMAP.md`, both unedited.
 10. P2 is DONE. P3 is READY.
 
+## Planning rulings during P3 (2026-09-22)
+
+Asked by the implementing session after the doc commit 6256267 and
+before any code. Each is ruled as proposed unless it says otherwise,
+and a second doc commit carries this file before the first code
+commit, as P1's cbc691b did.
+
+1. Five code commits, in this order: C1 the test-comment correction
+   of P2 verification ruling 6, alone; C2 the `dates` feature (the
+   Cargo feature, `dates.rs` with `Epoch`, `DateTime`, `serial`,
+   `from_serial` and their tests, the re-export under the feature);
+   C3 `emend-copy` enabling `dates` and `--date-sample` with its
+   integration test and flag-combination cases; C4 the catalogue and
+   Limits in the module headers of `package`, `styles` and `dates`;
+   C5 `size-probe`'s `dates` feature and the two probes. C4 stays
+   its own commit so its diff is prose alone.
+2. `from_serial` rounds first: after the finiteness check, the
+   total milliseconds are `round(serial * 86400000)` as a signed
+   64-bit integer, and every refusal in "Module `dates`" (below the
+   epoch's first day, at or above the day after 9999-12-31, the day
+   60 of the 1900 system) applies to that rounded value. So a serial
+   a hair under 60 is refused as day 60, a hair under 1 in the 1900
+   system reads as 1900-01-01 00:00:00.000, and a hair under the day
+   after 9999-12-31 is refused. Tests pin those three edges in both
+   directions of each boundary.
+3. "A proleptic Gregorian civil date and time" in `serial` means:
+   month 1 to 12, day 1 to the month's length in that year
+   (1900-02-29 excluded), hour 0 to 23, minute 0 to 59, second 0 to
+   59 (no leap second), millisecond 0 to 999; anything else is
+   `None`. Tests add hour 24, minute 60, second 60 and millisecond
+   1000, each refused, beside the date refusals "P3" lists.
+4. The gate is unchanged: once `emend-copy` enables `dates`, the
+   workspace test and clippy runs unify the feature on. `test.log`
+   runs `cargo test -p emend` on both targets twice, plain and with
+   `--features dates`, asserting the `dates` tests absent from the
+   first and present in the second, and runs `cargo clippy -p emend
+   --all-targets -- -D warnings` with the feature off, once, on the
+   host. `size.log` builds the crate off and on as "P3" says.
+5. `--date-sample` prints eight keys in this order: `date1904`,
+   `serial`, `added` (1), `xfs_before`, `xfs_after`, `cells_before`,
+   `cells_after`, `read_back`. "Harness runs" P3 is read with the
+   three bases added so the run log's comparison checks the two
+   asserted figures against what the line itself carries. `serial`
+   is the tool's own constant written, never a corpus number.
+6. The negative log asserts each route's own message on the
+   no-`cellXfs` fixture: `--style-sample`, with A carrying no `s`
+   (base `None`), reaches "a styles part without cellXfs cannot take
+   a style" at the write; the release probe, whose first addition
+   takes base 0, reaches "a style index is out of range" from
+   `add_cell_style` before anything is written. The log names the
+   source line of each, as `specs/0011` P3 ruling 8 did for the
+   probe's outputs. The non-numeric `numFmtId` fixture reaches "a
+   style attribute is not a number" by both routes.
+7. The defaults stand: the dates probe takes its `DateTime` as seven
+   integers parsed with `str::parse`; `probe-emend-styles-write-xml`
+   takes its `Code` as one argument; `size-probe`'s `dates` feature
+   is `["emend", "xml", "emend/dates"]`; each probe is built with its
+   own `-p size-probe --features` set and the size log prints every
+   build command, so no probe is unified with another's features;
+   the size log's nine earlier probes are part 4's nine.
+
 ## Out of scope
 
 - New fonts, fills, borders, alignments, protection and named cell
