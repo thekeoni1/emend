@@ -16,7 +16,9 @@
 //! convert a date.
 //!
 //! Part 5 adds [`styles`] (`specs/0012-styles.md`): the styles part's number
-//! formats and cell formats, read.
+//! formats and cell formats, read. Its Cargo feature `dates`, off by default,
+//! adds the module `dates`: a civil date and time to and from the serial
+//! number a cell holds, in the workbook's own epoch.
 //!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the
@@ -34,6 +36,8 @@
 
 pub mod archive;
 pub mod cells;
+#[cfg(feature = "dates")]
+pub mod dates;
 pub mod package;
 pub mod styles;
 #[cfg(test)]
@@ -42,5 +46,7 @@ pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
 pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
+#[cfg(feature = "dates")]
+pub use dates::{DateTime, Epoch};
 pub use styles::{NumFmt, NumberFormat, Styles, Xf};
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

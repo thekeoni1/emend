@@ -17,3 +17,10 @@ quick-xml = { version = "=0.42.0", default-features = false }
 # No dev-dependencies: the tests build archives byte by byte rather than
 # through a library, so a bug in a builder cannot hide the same bug in the
 # layer.
+
+# The date arithmetic of specs/0012-styles.md, "Module `dates`": off by
+# default, with no dependency of its own, so the core's size is the core's
+# and the feature's cost is measured beside it (CLAUDE.md, "Dependencies and
+# licences").
+[features]
+dates = []
