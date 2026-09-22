@@ -2380,3 +2380,690 @@ fn removing_an_override_keeps_both_default_spellings() {
         assert_untouched(&output, &parts, &[b"[Content_Types].xml"]);
     }
 }
+
+// ------------------------------------------------------------ cell edits
+//
+// `specs/0011-editing-cells.md`, "P1": byte-built worksheets in byte-built
+// packages, the edited part read back through the independent zip reader and
+// compared with bytes each test writes out by hand.
+
+const SHEET: &[u8] = b"xl/worksheets/sheet1.xml";
+
+/// A worksheet part with `body` between its root tags.
+fn worksheet(body: &str) -> String {
+    format!("{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\">{body}</worksheet>")
+}
+
+/// The smallest package with its worksheet's `<sheetData>` holding `rows`.
+fn with_rows(rows: &str) -> Parts {
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        worksheet(&format!("<sheetData>{rows}</sheetData>")),
+    );
+    parts
+}
+
+/// A reference, from its A1 spelling.
+#[track_caller]
+fn at(a1: &str) -> CellRef {
+    CellRef::parse(a1.as_bytes()).expect("an A1 reference")
+}
+
+/// Opens `parts`, lets `edit` record, writes, and returns the output.
+#[track_caller]
+fn edited_output(parts: Parts, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Vec<u8> {
+    let (_, mut package) = opened(parts);
+    edit(&mut package);
+    written(package)
+}
+
+/// The worksheet part after `edit`, as text; every other part is asserted
+/// untouched.
+#[track_caller]
+fn edited_sheet(rows: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> String {
+    let parts = with_rows(rows);
+    let output = edited_output(parts.clone(), edit);
+    assert_untouched(&output, &parts, &[SHEET]);
+    String::from_utf8(stored_data(&output, SHEET)).expect("the part is UTF-8")
+}
+
+/// The worksheet part `rows` would be, for comparison with an output.
+fn sheet_with(rows: &str) -> String {
+    worksheet(&format!("<sheetData>{rows}</sheetData>"))
+}
+
+/// The error a write refuses `rows` with after `edit`.
+#[track_caller]
+fn refused_edit(rows: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Error {
+    let (_, mut package) = opened(with_rows(rows));
+    edit(&mut package);
+    refused(package)
+}
+
+#[test]
+fn a_number_cell_replaced_keeps_its_style_and_loses_its_type() {
+    let got = edited_sheet(
+        "<row r=\"1\"><c r=\"A1\" s=\"3\" t=\"n\"><v>1</v></c></row>",
+        |p| p.set_cell(SHEET, at("A1"), Value::Number(2.5)),
+    );
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" s=\"3\"><v>2.5</v></c></row>")
+    );
+}
+
+#[test]
+fn a_text_is_written_inline_and_escaped() {
+    let text = " a&b<c>d\"e'f\tg\nh\ri ";
+    let got = edited_sheet("<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>", |p| {
+        p.set_cell(SHEET, at("A1"), Value::Text(text.to_string()))
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t xml:space=\"preserve\">\
+             \x20a&amp;b&lt;c&gt;d&quot;e&apos;f\tg\nh&#13;i </t></is></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_boolean_is_written_as_one_or_zero() {
+    for (value, digit) in [(true, "1"), (false, "0")] {
+        let got = edited_sheet("<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Boolean(value))
+        });
+        assert_eq!(
+            got,
+            sheet_with(&format!(
+                "<row r=\"1\"><c r=\"A1\" t=\"b\"><v>{digit}</v></c></row>"
+            ))
+        );
+    }
+}
+
+#[test]
+fn a_numbers_text_is_display_between_the_bounds_and_exponent_outside() {
+    let cases: [(f64, &str); 8] = [
+        (2.5, "2.5"),
+        (1.0, "1"),
+        (-0.0, "-0"),
+        (0.1 + 0.2, "0.30000000000000004"),
+        (1e21, "1E21"),
+        (1.5e-8, "1.5E-8"),
+        (1e-7, "0.0000001"),
+        (f64::MAX, "1.7976931348623157E308"),
+    ];
+    for (number, text) in cases {
+        let got = edited_sheet("<row r=\"1\"></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Number(number))
+        });
+        assert_eq!(
+            got,
+            sheet_with(&format!("<row r=\"1\"><c r=\"A1\"><v>{text}</v></c></row>")),
+            "{number:?}"
+        );
+    }
+}
+
+#[test]
+fn a_number_that_is_not_finite_is_refused() {
+    for number in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let error = refused_edit("<row r=\"1\"></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Number(number))
+        });
+        assert_package(error, "a number that is not finite cannot be written");
+    }
+}
+
+#[test]
+fn a_text_with_a_character_xml_forbids_is_refused() {
+    for bad in [
+        "\u{0}", "a\u{8}", "\u{B}", "\u{C}", "\u{1F}", "\u{FFFE}", "\u{FFFF}",
+    ] {
+        let error = refused_edit("<row r=\"1\"></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Text(bad.to_string()))
+        });
+        assert_package(error, "a text holds a character XML cannot carry");
+    }
+}
+
+#[test]
+fn a_new_cell_goes_where_its_column_puts_it() {
+    let row = "<row r=\"2\"><c r=\"B2\"><v>1</v></c><c r=\"D2\"><v>2</v></c></row>";
+    let one = |col: &str| format!("<c r=\"{col}\"><v>9</v></c>");
+    for (col, want) in [
+        (
+            "A2",
+            format!(
+                "<row r=\"2\">{}<c r=\"B2\"><v>1</v></c><c r=\"D2\"><v>2</v></c></row>",
+                one("A2")
+            ),
+        ),
+        (
+            "C2",
+            format!(
+                "<row r=\"2\"><c r=\"B2\"><v>1</v></c>{}<c r=\"D2\"><v>2</v></c></row>",
+                one("C2")
+            ),
+        ),
+        (
+            "E2",
+            format!(
+                "<row r=\"2\"><c r=\"B2\"><v>1</v></c><c r=\"D2\"><v>2</v></c>{}</row>",
+                one("E2")
+            ),
+        ),
+    ] {
+        let got = edited_sheet(row, |p| p.set_cell(SHEET, at(col), Value::Number(9.0)));
+        assert_eq!(got, sheet_with(&want), "{col}");
+    }
+}
+
+#[test]
+fn a_new_row_goes_where_its_number_puts_it() {
+    let rows = "<row r=\"2\" spans=\"1:1\"><c r=\"A2\"><v>1</v></c></row>\
+                <row r=\"4\"><c r=\"A4\"><v>2</v></c></row>";
+    let new = |n: u32| format!("<row r=\"{n}\"><c r=\"B{n}\"><v>9</v></c></row>");
+    let two = "<row r=\"2\" spans=\"1:1\"><c r=\"A2\"><v>1</v></c></row>";
+    let four = "<row r=\"4\"><c r=\"A4\"><v>2</v></c></row>";
+    for (n, want) in [
+        (1, format!("{}{two}{four}", new(1))),
+        (3, format!("{two}{}{four}", new(3))),
+        (5, format!("{two}{four}{}", new(5))),
+    ] {
+        let got = edited_sheet(rows, |p| {
+            p.set_cell(SHEET, CellRef { row: n, col: 2 }, Value::Number(9.0))
+        });
+        assert_eq!(got, sheet_with(&want), "row {n}");
+    }
+}
+
+#[test]
+fn an_empty_sheet_data_is_opened_up_for_new_rows() {
+    // smallest() writes `<sheetData/>`.
+    let parts = smallest();
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("B3"), Value::Boolean(true));
+        p.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    });
+    assert_untouched(&output, &parts, &[SHEET]);
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with(
+            "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+             <row r=\"3\"><c r=\"B3\" t=\"b\"><v>1</v></c></row>",
+        ),
+    );
+}
+
+#[test]
+fn an_empty_row_is_opened_up_for_a_new_cell() {
+    let got = edited_sheet("<row r=\"1\" ht=\"20\"/>", |p| {
+        p.set_cell(SHEET, at("C1"), Value::Number(3.0))
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\" ht=\"20\"><c r=\"C1\"><v>3</v></c></row>")
+    );
+}
+
+#[test]
+fn several_edits_in_one_row_and_in_several_rows_go_in_one_write() {
+    let rows = "\n  <row r=\"1\"><c r=\"B1\"><v>1</v></c></row>\n  <row r=\"3\"><c r=\"A3\"><v>2</v></c></row>\n";
+    let got = edited_sheet(rows, |p| {
+        p.set_cell(SHEET, at("C3"), Value::Number(5.0));
+        p.set_cell(SHEET, at("A1"), Value::Number(3.0));
+        p.set_cell(SHEET, at("C1"), Value::Number(4.0));
+        p.set_cell(SHEET, at("A2"), Value::Boolean(false));
+        p.clear_cell(SHEET, at("A3"));
+        p.set_cell(SHEET, at("A4"), Value::Number(6.0));
+    });
+    // A new row goes immediately before the start tag of the row after it,
+    // or before `</sheetData>`: after whatever whitespace the input wrote
+    // there, which is another token's and stays where it was.
+    assert_eq!(
+        got,
+        sheet_with(
+            "\n  <row r=\"1\"><c r=\"A1\"><v>3</v></c><c r=\"B1\"><v>1</v></c>\
+             <c r=\"C1\"><v>4</v></c></row>\n  <row r=\"2\"><c r=\"A2\" t=\"b\"><v>0</v></c></row>\
+             <row r=\"3\"><c r=\"C3\"><v>5</v></c></row>\n<row r=\"4\"><c r=\"A4\"><v>6</v></c></row>"
+        )
+    );
+}
+
+#[test]
+fn the_last_edit_recorded_for_a_cell_wins() {
+    let row = "<row r=\"1\"><c r=\"A1\" s=\"2\"><v>1</v></c></row>";
+    let got = edited_sheet(row, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(2.0));
+        p.set_cell(SHEET, at("A1"), Value::Number(3.0));
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" s=\"2\"><v>3</v></c></row>")
+    );
+    let got = edited_sheet(row, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(2.0));
+        p.clear_cell(SHEET, at("A1"));
+    });
+    assert_eq!(got, sheet_with("<row r=\"1\"><c r=\"A1\" s=\"2\"/></row>"));
+}
+
+#[test]
+fn clearing_a_cell_that_is_not_there_changes_nothing() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"3\"/>";
+    let got = edited_sheet(rows, |p| {
+        p.clear_cell(SHEET, at("B1"));
+        p.clear_cell(SHEET, at("A2"));
+        p.clear_cell(SHEET, at("A3"));
+        p.clear_cell(SHEET, at("A9"));
+    });
+    assert_eq!(got, sheet_with(rows));
+}
+
+#[test]
+fn a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes() {
+    let rows = "<row r=\"1\">\n  <c r=\"A1\" s=\"4\" t=\"s\"><f>1+1</f><v>2</v></c>\n  \
+                <c r=\"B1\"><v>1</v></c>\n  <c r=\"C1\"/>\n</row>";
+    let got = edited_sheet(rows, |p| {
+        p.clear_cell(SHEET, at("A1"));
+        p.clear_cell(SHEET, at("B1"));
+        p.clear_cell(SHEET, at("C1"));
+    });
+    // A row left with no cells but its style-kept one stays, attributes and
+    // the whitespace around the dropped cells included.
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\">\n  <c r=\"A1\" s=\"4\"/>\n  \n  \n</row>")
+    );
+}
+
+#[test]
+fn a_cell_with_an_attribute_this_layer_does_not_model_is_refused() {
+    for tag in [
+        "<c r=\"A1\" cm=\"1\"><v>1</v></c>",
+        "<c r=\"A1\" vm=\"1\"/>",
+    ] {
+        let error = refused_edit(&format!("<row r=\"1\">{tag}</row>"), |p| {
+            p.set_cell(SHEET, at("A1"), Value::Number(1.0))
+        });
+        assert_package(
+            error,
+            "a cell carries an attribute this layer does not model",
+        );
+    }
+    // A cell carrying one that is NOT edited is copied as it is.
+    let rows = "<row r=\"1\"><c r=\"A1\" cm=\"1\"><v>1</v></c></row>";
+    let got = edited_sheet(rows, |p| p.set_cell(SHEET, at("B1"), Value::Number(2.0)));
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" cm=\"1\"><v>1</v></c><c r=\"B1\"><v>2</v></c></row>")
+    );
+}
+
+/// A row holding a shared master at A1, its follower at B1, and an array
+/// master at A2 whose `ref` is A2:B3.
+const FORMULAS: &str = "<row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:B1\" si=\"0\">C1</f>\
+                        <v>1</v></c><c r=\"B1\"><f t=\"shared\" si=\"0\"/><v>1</v></c></row>\
+                        <row r=\"2\"><c r=\"A2\"><f t=\"array\" ref=\"A2:B3\">X1:X2</f><v>1</v></c>\
+                        <c r=\"B2\"><v>1</v></c></row>";
+
+#[test]
+fn a_cell_in_a_shared_or_array_formula_is_refused() {
+    // A1 a shared master, B1 a shared follower, A2 an array master, B2 a
+    // cell inside the array's ref, B3 a NEW cell inside it.
+    for cell in ["A1", "B1", "A2", "B2", "B3"] {
+        let error = refused_edit(FORMULAS, |p| {
+            p.set_cell(SHEET, at(cell), Value::Number(1.0))
+        });
+        assert_package(
+            error,
+            "a cell in a shared or array formula cannot be edited",
+        );
+    }
+    // Outside the array's ref, the same sheet is edited.
+    let got = edited_sheet(FORMULAS, |p| {
+        p.set_cell(SHEET, at("C2"), Value::Number(7.0))
+    });
+    assert_eq!(
+        got,
+        sheet_with(&FORMULAS.replace(
+            "<c r=\"B2\"><v>1</v></c></row>",
+            "<c r=\"B2\"><v>1</v></c><c r=\"C2\"><v>7</v></c></row>"
+        ))
+    );
+}
+
+#[test]
+fn an_array_whose_extent_is_unknown_is_refused() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><f t=\"array\" ref=\"A1:B\">1</f><v>1</v></c></row>";
+    let error = refused_edit(rows, |p| p.set_cell(SHEET, at("D9"), Value::Number(1.0)));
+    assert_package(
+        error,
+        "a cell in a shared or array formula cannot be edited",
+    );
+}
+
+/// The chain package with sheet1 holding a normal formula at A1 and a value
+/// at B1.
+fn chain_with_formula() -> Parts {
+    let mut parts = with_a_calc_chain();
+    set(
+        &mut parts,
+        SHEET,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"1\"><f>B1*2</f><v>4</v></c><c r=\"B1\"><v>2</v></c></row>",
+        ),
+    );
+    parts
+}
+
+/// The content types and workbook rels the chain package has with its chain
+/// gone, as `the_recipe_drops_the_chain_and_nothing_else` has them.
+#[track_caller]
+fn assert_chain_gone(output: &[u8]) {
+    assert_names(
+        output,
+        &[
+            b"[Content_Types].xml",
+            b"_rels/.rels",
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"xl/worksheets/sheet1.xml",
+            b"xl/styles.xml",
+        ],
+    );
+    assert_part(
+        output,
+        b"xl/_rels/workbook.xml.rels",
+        &rels(&format!("{}{}", worksheet_rel(), styles_rel())),
+    );
+    assert_part(
+        output,
+        b"[Content_Types].xml",
+        &types(&format!(
+            "<Default Extension=\"rels\" \
+             ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
+             <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+             <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+             <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{WORKSHEET_TYPE}\"/>"
+        )),
+    );
+}
+
+#[test]
+fn replacing_a_normal_formula_drops_the_chain_in_the_same_write() {
+    let parts = chain_with_formula();
+    for clear in [false, true] {
+        let output = edited_output(parts.clone(), |p| {
+            if clear {
+                p.clear_cell(SHEET, at("A1"));
+            } else {
+                p.set_cell(SHEET, at("A1"), Value::Number(5.0));
+            }
+        });
+        assert_chain_gone(&output);
+        let cell = if clear {
+            "<c r=\"A1\" s=\"1\"/>"
+        } else {
+            "<c r=\"A1\" s=\"1\"><v>5</v></c>"
+        };
+        assert_part(
+            &output,
+            SHEET,
+            &sheet_with(&format!(
+                "<row r=\"1\">{cell}<c r=\"B1\"><v>2</v></c></row>"
+            )),
+        );
+        assert_untouched(
+            &output,
+            &parts,
+            &[
+                b"[Content_Types].xml",
+                b"xl/_rels/workbook.xml.rels",
+                b"xl/calcChain.xml",
+                SHEET,
+            ],
+        );
+        // The output reads as a package: the survey's own questions.
+        let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+        assert!(
+            package
+                .workbook()
+                .expect("the workbook")
+                .calc_chain
+                .is_none()
+        );
+        assert_eq!(package.content_types().expect("types").overrides().len(), 2);
+    }
+}
+
+#[test]
+fn replacing_a_formula_without_a_chain_changes_the_sheet_alone() {
+    let mut parts = with_rows("<row r=\"1\"><c r=\"A1\"><f>1+1</f><v>2</v></c></row>");
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(3.0))
+    });
+    assert_untouched(&output, &parts, &[SHEET]);
+    set(
+        &mut parts,
+        SHEET,
+        sheet_with("<row r=\"1\"><c r=\"A1\"><v>3</v></c></row>"),
+    );
+    assert_part(
+        &output,
+        SHEET,
+        &String::from_utf8(parts[4].1.clone()).unwrap(),
+    );
+}
+
+#[test]
+fn a_chain_the_caller_already_dropped_is_dropped_once() {
+    let output = edited_output(chain_with_formula(), |p| {
+        assert!(p.drop_calc_chain().expect("the recipe"));
+        p.set_cell(SHEET, at("A1"), Value::Number(5.0));
+    });
+    assert_chain_gone(&output);
+}
+
+#[test]
+fn a_value_edit_that_removes_no_formula_keeps_the_chain() {
+    let parts = chain_with_formula();
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("B1"), Value::Number(3.0))
+    });
+    assert_untouched(&output, &parts, &[SHEET]);
+}
+
+#[test]
+fn a_worksheet_without_explicit_references_is_refused() {
+    for rows in [
+        "<row><c r=\"A1\"><v>1</v></c></row>",
+        "<row r=\"1\"><c><v>1</v></c></row>",
+    ] {
+        let error = refused_edit(rows, |p| p.set_cell(SHEET, at("B2"), Value::Number(1.0)));
+        assert_package(
+            error,
+            "a worksheet without explicit references cannot be edited",
+        );
+    }
+}
+
+#[test]
+fn a_worksheet_out_of_order_is_refused() {
+    for rows in [
+        "<row r=\"2\"/><row r=\"1\"/>",
+        "<row r=\"1\"><c r=\"B1\"/><c r=\"A1\"/></row>",
+        "<row r=\"1\"><c r=\"A1\"/><c r=\"A1\"/></row>",
+        "<row r=\"1\"/><row r=\"1\"/>",
+        "<row r=\"1\"><c r=\"A2\"/></row>",
+    ] {
+        let error = refused_edit(rows, |p| p.set_cell(SHEET, at("C9"), Value::Number(1.0)));
+        assert_package(
+            error,
+            "a worksheet whose rows or cells are out of order cannot be edited",
+        );
+    }
+}
+
+#[test]
+fn edits_to_two_sheets_go_in_one_write() {
+    let mut parts = with_rows("<row r=\"1\"/>");
+    let second = b"xl/worksheets/sheet2.xml";
+    parts.push((second.to_vec(), sheet_with("").into_bytes()));
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(1.0));
+        p.set_cell(second, at("A1"), Value::Number(2.0));
+    });
+    assert_untouched(&output, &parts, &[SHEET, second]);
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with("<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>"),
+    );
+    assert_part(
+        &output,
+        second,
+        &sheet_with("<row r=\"1\"><c r=\"A1\"><v>2</v></c></row>"),
+    );
+}
+
+#[test]
+fn a_cell_edit_to_a_part_that_is_not_a_worksheet_is_refused_by_root() {
+    let (_, mut package) = opened(smallest());
+    package.set_cell(b"xl/styles.xml", at("A1"), Value::Number(1.0));
+    assert_package(
+        refused(package),
+        "the worksheet part's root is not worksheet",
+    );
+}
+
+#[test]
+fn a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused() {
+    let (_, mut package) = opened(smallest());
+    package.set_cell(b"xl/worksheets/nowhere.xml", at("A1"), Value::Number(1.0));
+    assert_package(refused(package), "no such part");
+
+    let (_, mut package) = opened(smallest());
+    package.remove_part(SHEET);
+    package.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    assert_package(refused(package), "an edit to a removed part");
+
+    let (_, mut package) = opened(smallest());
+    package.replace_part(SHEET, replacement_from_reader(Cursor::new(Vec::new())));
+    package.clear_cell(SHEET, at("A1"));
+    assert_package(
+        refused(package),
+        "a cell edit to a part this write replaces",
+    );
+}
+
+#[test]
+fn every_byte_outside_sheet_data_is_kept() {
+    let before = "<dimension ref=\"A1:B2\"/><sheetViews><sheetView workbookViewId=\"0\"/>\
+                  </sheetViews><cols><col min=\"1\" max=\"2\" width=\"9\"/></cols>\n";
+    let after = "\n<mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells>\
+                 <pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" \
+                 header=\"0.3\" footer=\"0.3\"/>";
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!(
+            "\u{FEFF}{DECLARATION}\r\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             {before}<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>{after}</worksheet>"
+        ),
+    );
+    let output = edited_output(parts, |p| p.set_cell(SHEET, at("B2"), Value::Number(2.0)));
+    assert_part(
+        &output,
+        SHEET,
+        &format!(
+            "\u{FEFF}{DECLARATION}\r\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             {before}<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+             <row r=\"2\"><c r=\"B2\"><v>2</v></c></row></sheetData>{after}</worksheet>"
+        ),
+    );
+}
+
+#[test]
+fn the_strict_namespace_is_edited_as_the_transitional_one() {
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!(
+            "{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_STRICT}\"><x:sheetData>\
+             <x:row r=\"1\"><x:c r=\"A1\"><x:v>1</x:v></x:c></x:row></x:sheetData></x:worksheet>"
+        ),
+    );
+    let output = edited_output(parts, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(2.0));
+        p.set_cell(SHEET, at("B1"), Value::Text("t".to_string()));
+        p.set_cell(SHEET, at("A2"), Value::Boolean(true));
+    });
+    // The part binds the strict main namespace to a prefix and no default,
+    // so every new element takes the prefix of the element it goes into:
+    // unprefixed, it would be in no namespace and no reader would see it.
+    assert_part(
+        &output,
+        SHEET,
+        &format!(
+            "{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_STRICT}\"><x:sheetData>\
+             <x:row r=\"1\"><x:c r=\"A1\"><x:v>2</x:v></x:c><x:c r=\"B1\" t=\"inlineStr\">\
+             <x:is><x:t xml:space=\"preserve\">t</x:t></x:is></x:c></x:row>\
+             <x:row r=\"2\"><x:c r=\"A2\" t=\"b\"><x:v>1</x:v></x:c></x:row>\
+             </x:sheetData></x:worksheet>"
+        ),
+    );
+    let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+    let cells: Vec<crate::cells::Cell> = package
+        .cells(SHEET)
+        .expect("the reader")
+        .collect::<Result<_, _>>()
+        .expect("the cells");
+    assert_eq!(cells.len(), 3, "every new cell is in the main namespace");
+}
+
+#[test]
+fn the_values_written_read_back_through_the_cell_reader() {
+    let output = edited_output(smallest(), |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(42.5));
+        p.set_cell(SHEET, at("B1"), Value::Text("emend\r\n".to_string()));
+        p.set_cell(SHEET, at("C1"), Value::Boolean(true));
+    });
+    let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+    let cells: Vec<crate::cells::Cell> = package
+        .cells(SHEET)
+        .expect("the reader")
+        .collect::<Result<_, _>>()
+        .expect("the cells");
+    assert_eq!(cells.len(), 3);
+    assert_eq!(cells[0].number(), Some(42.5));
+    assert_eq!(cells[1].kind, crate::cells::Kind::InlineString);
+    assert_eq!(cells[1].value.as_deref(), Some("emend\r\n"));
+    assert_eq!(cells[2].boolean(), Some(true));
+}
+
+#[test]
+fn a_refused_cell_edit_leaves_no_temporary_and_no_output() {
+    // The refusal is found while the part streams, after its temporary
+    // exists: `refused` asserts the output is empty, and the temporary
+    // directory holds what it held before.
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    let (_, mut package) = opened(with_rows("<row r=\"2\"/><row r=\"1\"/>"));
+    package.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    let mut out = Vec::new();
+    let error = package.write_to(&mut out).expect_err("refused");
+    assert_package(
+        error,
+        "a worksheet whose rows or cells are out of order cannot be edited",
+    );
+    assert!(out.is_empty(), "a refused write wrote to the output");
+    assert_eq!(replacement_temporaries(), before, "a temporary was left");
+}

@@ -37,5 +37,5 @@ mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
-pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings};
+pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

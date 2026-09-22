@@ -534,6 +534,141 @@ impl Cell {
     }
 }
 
+/// What a cell can be set to (`specs/0011-editing-cells.md`, "Module
+/// `cells`: what can be written").
+///
+/// Nothing else in this part: a formula is part 6's, a date is part 5's (a
+/// number with a date style is written as the number it is), and an error
+/// value has no use a caller has asked for. A value is checked when the
+/// package is written, not when it is made: see [`Value::Number`] and
+/// [`Value::Text`] for what is refused.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value {
+    /// A number, written as a cell with no `t`.
+    ///
+    /// The text is `f64`'s `Display` when the value is zero or its magnitude
+    /// is at least `1e-7` and below `1e21`, else its `{:E}` form, so a value
+    /// prints as `2.5`, `100`, `-0`, `0.30000000000000004`, `1E21` or
+    /// `1.5E-8` and never as hundreds of digits. The boundary is
+    /// ECMAScript's `Number::toString`, a published rule. A value that is
+    /// not finite is refused: the format has no NaN and no infinity.
+    Number(f64),
+    /// A text, written as an inline string (`t="inlineStr"`).
+    ///
+    /// Escaped for XML, with a carriage return written as `&#13;` so a
+    /// reader's line-end normalisation keeps it; a tab and a line feed are
+    /// written as they are. A text holding a character XML 1.0 forbids
+    /// (U+0000 to U+0008, U+000B, U+000C, U+000E to U+001F, U+FFFE, U+FFFF)
+    /// is refused.
+    Text(String),
+    /// A boolean, written as `t="b"` with `1` or `0`.
+    Boolean(bool),
+}
+
+impl Value {
+    /// Refuses a value the format cannot carry, with the message
+    /// [`crate::package::Package::write_to`] reports for it.
+    pub(crate) fn check(&self) -> Result<(), Error> {
+        match self {
+            Value::Number(number) if !number.is_finite() => Err(Error::Package(
+                "a number that is not finite cannot be written",
+            )),
+            Value::Text(text) if text.chars().any(forbidden_in_xml) => {
+                Err(Error::Package("a text holds a character XML cannot carry"))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// The cell element for this value at `reference`, with `style` (an `s`
+    /// attribute's bytes as the input wrote them) after `r` when there is
+    /// one. One line, no whitespace added. The value has been checked.
+    ///
+    /// `prefix` is the qualified-name prefix the elements take, with its
+    /// colon (`b"x:"`), or empty: the prefix of the element the cell goes
+    /// into, so a part that binds the main namespace to a prefix gets its new
+    /// elements in that namespace too.
+    pub(crate) fn element(
+        &self,
+        reference: CellRef,
+        style: Option<&[u8]>,
+        prefix: &[u8],
+    ) -> Vec<u8> {
+        let p = prefix;
+        let mut out = [b"<".as_slice(), p, b"c r=\""].concat();
+        out.extend_from_slice(reference.a1().as_bytes());
+        out.push(b'"');
+        if let Some(style) = style {
+            out.extend_from_slice(b" s=\"");
+            out.extend_from_slice(style);
+            out.push(b'"');
+        }
+        match self {
+            Value::Number(number) => {
+                out.extend_from_slice(&[b"><".as_slice(), p, b"v>"].concat());
+                out.extend_from_slice(number_text(*number).as_bytes());
+                out.extend_from_slice(&[b"</".as_slice(), p, b"v></", p, b"c>"].concat());
+            }
+            Value::Text(text) => {
+                out.extend_from_slice(
+                    &[
+                        b" t=\"inlineStr\"><".as_slice(),
+                        p,
+                        b"is><",
+                        p,
+                        b"t xml:space=\"preserve\">",
+                    ]
+                    .concat(),
+                );
+                // `escape` leaves a carriage return as it is, and a reader
+                // normalises a raw one away (part 3 P1 finding P1-F1), so it
+                // goes out as a character reference.
+                let escaped = quick_xml::escape::escape(text.as_str());
+                out.extend_from_slice(escaped.replace('\r', "&#13;").as_bytes());
+                out.extend_from_slice(
+                    &[b"</".as_slice(), p, b"t></", p, b"is></", p, b"c>"].concat(),
+                );
+            }
+            Value::Boolean(value) => {
+                let digit: &[u8] = if *value { b"1" } else { b"0" };
+                out.extend_from_slice(
+                    &[
+                        b" t=\"b\"><".as_slice(),
+                        p,
+                        b"v>",
+                        digit,
+                        b"</",
+                        p,
+                        b"v></",
+                        p,
+                        b"c>",
+                    ]
+                    .concat(),
+                );
+            }
+        }
+        out
+    }
+}
+
+/// A number's text as [`Value::Number`] writes it. `number` is finite.
+fn number_text(number: f64) -> String {
+    let magnitude = number.abs();
+    if number == 0.0 || (1e-7..1e21).contains(&magnitude) {
+        format!("{number}")
+    } else {
+        format!("{number:E}")
+    }
+}
+
+/// Whether XML 1.0 forbids `c` in a document, as [`Value::Text`] lists.
+fn forbidden_in_xml(c: char) -> bool {
+    matches!(
+        c,
+        '\u{0}'..='\u{8}' | '\u{B}' | '\u{C}' | '\u{E}'..='\u{1F}' | '\u{FFFE}' | '\u{FFFF}'
+    )
+}
+
 /// A streaming read over one worksheet part.
 ///
 /// Built by [`Package::cells`]. It reads forwards once, holds one cell at a
@@ -869,7 +1004,7 @@ enum Slot {
 /// `0` itself is a number: a style index and a shared string index count
 /// from 0. Whether zero is a legal value for a particular attribute belongs
 /// to the caller, and `row_number` is the one that refuses it.
-fn decimal(value: &str) -> Option<u32> {
+pub(crate) fn decimal(value: &str) -> Option<u32> {
     let digits = value.as_bytes();
     if digits.is_empty() || !digits.iter().all(u8::is_ascii_digit) {
         return None;

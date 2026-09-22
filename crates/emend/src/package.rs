@@ -68,6 +68,27 @@
 //!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
+//! The cell edits add seven (`specs/0011-editing-cells.md`, "Errors"); the
+//! first two are raised by [`Value`] in `cells` and reported by
+//! [`Package::write_to`]:
+//!
+//! - "a number that is not finite cannot be written"
+//!   (`a_number_that_is_not_finite_is_refused`).
+//! - "a text holds a character XML cannot carry"
+//!   (`a_text_with_a_character_xml_forbids_is_refused`).
+//! - "a cell carries an attribute this layer does not model"
+//!   (`a_cell_with_an_attribute_this_layer_does_not_model_is_refused`).
+//! - "a cell edit to a part this write replaces"
+//!   (`a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused`).
+//! - "a worksheet without explicit references cannot be edited"
+//!   (`a_worksheet_without_explicit_references_is_refused`).
+//! - "a worksheet whose rows or cells are out of order cannot be edited"
+//!   (`a_worksheet_out_of_order_is_refused`,
+//!   `a_refused_cell_edit_leaves_no_temporary_and_no_output`).
+//! - "a cell in a shared or array formula cannot be edited"
+//!   (`a_cell_in_a_shared_or_array_formula_is_refused`,
+//!   `an_array_whose_extent_is_unknown_is_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the three modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -167,6 +188,7 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::str;
@@ -176,7 +198,7 @@ use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
-use crate::cells::{Cells, SharedStrings};
+use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -520,6 +542,9 @@ struct Recorded {
     part_removals: Vec<Vec<u8>>,
     part_replacements: Vec<(Vec<u8>, Replacement)>,
     part_additions: Vec<(Vec<u8>, Replacement)>,
+    /// `(part, reference, value)`: a cell set, or cleared when the value is
+    /// `None`, in the order recorded, so the last for a reference wins.
+    cell_edits: Vec<(Vec<u8>, CellRef, Option<Value>)>,
 }
 
 impl Recorded {
@@ -531,6 +556,31 @@ impl Recorded {
             && self.part_removals.is_empty()
             && self.part_replacements.is_empty()
             && self.part_additions.is_empty()
+            && self.cell_edits.is_empty()
+    }
+
+    /// Every worksheet part with a cell edit, once each, in the order of each
+    /// part's first edit.
+    fn cell_parts(&self) -> Vec<Vec<u8>> {
+        let mut parts: Vec<Vec<u8>> = Vec::new();
+        for (part, _, _) in &self.cell_edits {
+            if !parts.iter().any(|seen| seen == part) {
+                parts.push(part.clone());
+            }
+        }
+        parts
+    }
+
+    /// One part's cell edits sorted by row then column, the last recorded
+    /// for a reference winning.
+    fn cell_edits_of(&self, part: &[u8]) -> Vec<(CellRef, Option<Value>)> {
+        let mut sorted: BTreeMap<CellRef, Option<Value>> = BTreeMap::new();
+        for (at, reference, value) in &self.cell_edits {
+            if at.as_slice() == part {
+                sorted.insert(*reference, value.clone());
+            }
+        }
+        sorted.into_iter().collect()
     }
 
     /// Every source whose rels part this set changes, once each, in order.
@@ -924,9 +974,39 @@ impl<R: Read + Seek> Package<R> {
         Ok(true)
     }
 
+    /// Records `reference` in the worksheet part `part` set to `value`.
+    ///
+    /// `part` is the worksheet's entry name, as [`Package::cells`] takes it;
+    /// the caller finds it through [`Workbook::sheet`]. Nothing is read and
+    /// nothing can fail here, and the last edit recorded for a reference
+    /// wins. [`Package::write_to`] checks the value and rewrites the part
+    /// (`specs/0011-editing-cells.md`, "Module `package`").
+    pub fn set_cell(&mut self, part: &[u8], reference: CellRef, value: Value) {
+        self.edits
+            .cell_edits
+            .push((part.to_vec(), reference, Some(value)));
+    }
+
+    /// Records `reference` in the worksheet part `part` cleared.
+    ///
+    /// A cell with a style keeps it and loses everything else; a cell without
+    /// one is removed; a cell that does not exist stays absent. As
+    /// [`Package::set_cell`], nothing is read here and the last edit recorded
+    /// for a reference wins.
+    pub fn clear_cell(&mut self, part: &[u8], reference: CellRef) {
+        self.edits.cell_edits.push((part.to_vec(), reference, None));
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
+    /// each worksheet with cell edits is streamed into a temporary file once,
+    /// with all of its edits, as `specs/0011-editing-cells.md`, "Module
+    /// `package`", describes; a refusal found while a part streams also
+    /// writes nothing. When an edit replaced or cleared a cell whose formula
+    /// was a normal one, the calculation chain is dropped in the same write
+    /// through [`Package::drop_calc_chain`], unless its relationship is
+    /// already recorded for removal, and the set is validated again. Then
     /// `[Content_Types].xml` and each rels part with edits are read through
     /// [`Stream`] and rewritten into a temporary file: every token's `raw` is
     /// copied except a removed element's own bytes, so the whitespace around
@@ -946,9 +1026,17 @@ impl<R: Read + Seek> Package<R> {
     /// [`Error::Package`] for an edit that cannot apply: "no such
     /// relationship", "no such override", "an override for that part already
     /// exists", "an edit to a removed part", "no such part", "no Default
-    /// covers rels". [`Error::Xml`] for a part name or value that is not
-    /// UTF-8, carrying the index of the part the value would have been
-    /// written into.
+    /// covers rels", and for a cell edit "a number that is not finite cannot
+    /// be written", "a text holds a character XML cannot carry", "a cell
+    /// edit to a part this write replaces", "the worksheet part's root is not
+    /// worksheet", "a worksheet without explicit references cannot be
+    /// edited", "a worksheet whose rows or cells are out of order cannot be
+    /// edited", "a cell in a shared or array formula cannot be edited" and "a
+    /// cell carries an attribute this layer does not model".
+    /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
+    /// the index of the part the value would have been written into, and for
+    /// a worksheet with no `<sheetData>` that a cell edit would set a cell
+    /// in.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
     /// [`Archive::write_to`] refuses for the assembled edits.
     pub fn write_to(mut self, out: impl Write) -> Result<(), Error> {
@@ -957,6 +1045,29 @@ impl<R: Read + Seek> Package<R> {
         // The guards outlive the write: each replacement reads its file back,
         // and Drop removes it however this call ends.
         let mut temporaries: Vec<TempFile> = Vec::new();
+
+        // The cell edits go first, each worksheet rewritten once with all of
+        // its edits, because a removed formula adds the chain's three
+        // removals, which the content types and rels rewrites below apply
+        // (`specs/0011-editing-cells.md`, "Module `package`").
+        let mut removed_formula = false;
+        for part in self.edits.cell_parts() {
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            let sorted = self.edits.cell_edits_of(&part);
+            let (temp, replacement, removed) =
+                rewrite_worksheet(&mut self.archive, index, &sorted)?;
+            removed_formula |= removed;
+            temporaries.push(temp);
+            edits.replace(index, replacement);
+        }
+        // The chain lists the cell whose formula went, and Excel repairs a
+        // workbook whose chain names a cell with no formula. Unless the
+        // caller has already recorded the chain's relationship for removal,
+        // the recipe is applied here, and the whole set is validated again
+        // with its three removals in it.
+        if removed_formula && !self.calc_chain_pending()? && self.drop_calc_chain()? {
+            self.validate()?;
+        }
 
         if !self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty() {
             let index = self
@@ -1040,6 +1151,22 @@ impl<R: Read + Seek> Package<R> {
         let result = self.archive.write_to(out, edits);
         drop(temporaries);
         result
+    }
+
+    /// Whether the workbook's `calcChain` relationship is already recorded
+    /// for removal, so the chain rule of [`Package::write_to`] does not
+    /// record it twice.
+    fn calc_chain_pending(&mut self) -> Result<bool, Error> {
+        let workbook = self.workbook()?.part.clone();
+        let id = match self.relationships(&workbook)?.first_of(CALC_CHAIN) {
+            Some(rel) => rel.id.clone(),
+            None => return Ok(false),
+        };
+        Ok(self
+            .edits
+            .rel_removals
+            .iter()
+            .any(|(source, gone)| *source == workbook && *gone == id))
     }
 
     /// Refuses every edit that cannot apply, before anything is written.
@@ -1132,6 +1259,31 @@ impl<R: Read + Seek> Package<R> {
         for (name, _) in &self.edits.part_replacements {
             if self.archive.index_of(name).is_none() {
                 return Err(NO_SUCH_PART);
+            }
+        }
+
+        // A cell edit names a part that is there, that this write neither
+        // removes nor replaces, and carries a value the format can hold
+        // (`specs/0011-editing-cells.md`, "Module `package`").
+        for part in self.edits.cell_parts() {
+            if self.archive.index_of(&part).is_none() {
+                return Err(NO_SUCH_PART);
+            }
+            if is_removed(&part) {
+                return Err(REMOVED_PART_EDITED);
+            }
+            if self
+                .edits
+                .part_replacements
+                .iter()
+                .any(|(name, _)| *name == part)
+            {
+                return Err(CELL_EDIT_REPLACED);
+            }
+        }
+        for (_, _, value) in &self.edits.cell_edits {
+            if let Some(value) = value {
+                value.check()?;
             }
         }
         Ok(())
@@ -1304,6 +1456,19 @@ const OVERRIDE_EXISTS: Error = Error::Package("an override for that part already
 const REMOVED_PART_EDITED: Error = Error::Package("an edit to a removed part");
 const NO_RELS_DEFAULT: Error = Error::Package("no Default covers rels");
 const NO_SUCH_PART: Error = Error::Package("no such part");
+
+/// What [`Package::write_to`] refuses a cell edit with
+/// (`specs/0011-editing-cells.md`, "Errors"). The two about a value are
+/// raised by [`Value`] itself, in `cells`.
+const CELL_EDIT_REPLACED: Error = Error::Package("a cell edit to a part this write replaces");
+const UNMODELLED_ATTRIBUTE: Error =
+    Error::Package("a cell carries an attribute this layer does not model");
+const NO_EXPLICIT_REFERENCES: Error =
+    Error::Package("a worksheet without explicit references cannot be edited");
+const OUT_OF_ORDER: Error =
+    Error::Package("a worksheet whose rows or cells are out of order cannot be edited");
+const IN_SHARED_OR_ARRAY: Error =
+    Error::Package("a cell in a shared or array formula cannot be edited");
 
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
@@ -1516,6 +1681,502 @@ fn rewrite_part<R: Read + Seek>(
         return Err(Error::Xml(index));
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// A rectangle of cells, both corners included: an array formula's `ref`.
+#[derive(Clone, Copy)]
+struct Area {
+    first: CellRef,
+    last: CellRef,
+}
+
+impl Area {
+    /// Reads `A1:B2` or `A1`; `None` for anything else, so the caller refuses
+    /// a formula whose extent it cannot know.
+    fn parse(value: &[u8]) -> Option<Self> {
+        let mut halves = value.splitn(2, |byte| *byte == b':');
+        let a = CellRef::parse(halves.next()?)?;
+        let b = match halves.next() {
+            Some(half) => CellRef::parse(half)?,
+            None => a,
+        };
+        Some(Area {
+            first: CellRef {
+                row: a.row.min(b.row),
+                col: a.col.min(b.col),
+            },
+            last: CellRef {
+                row: a.row.max(b.row),
+                col: a.col.max(b.col),
+            },
+        })
+    }
+
+    fn holds(&self, cell: CellRef) -> bool {
+        (self.first.row..=self.last.row).contains(&cell.row)
+            && (self.first.col..=self.last.col).contains(&cell.col)
+    }
+}
+
+/// One worksheet's cell edits, sorted, and how far the rewrite has come.
+struct Pending<'e> {
+    edits: &'e [(CellRef, Option<Value>)],
+    next: usize,
+}
+
+impl Pending<'_> {
+    fn peek(&self) -> Option<CellRef> {
+        self.edits.get(self.next).map(|(reference, _)| *reference)
+    }
+
+    /// Whether any edit still pending sets a cell, in `row` or, with `None`,
+    /// anywhere.
+    fn sets(&self, row: Option<u32>) -> bool {
+        self.edits[self.next..]
+            .iter()
+            .any(|(reference, value)| value.is_some() && row.is_none_or(|r| reference.row == r))
+    }
+
+    /// Writes the cells set in `row` before column `before` (all of the row's
+    /// with `None`); a pending clear of a cell that is not there writes
+    /// nothing.
+    fn write_row(
+        &mut self,
+        out: &mut impl Write,
+        row: u32,
+        before: Option<u32>,
+        arrays: &[Area],
+        prefix: &[u8],
+    ) -> Result<(), Error> {
+        while let Some((reference, value)) = self.edits.get(self.next) {
+            if reference.row != row || before.is_some_and(|col| reference.col >= col) {
+                break;
+            }
+            if let Some(value) = value {
+                if arrays.iter().any(|area| area.holds(*reference)) {
+                    return Err(IN_SHARED_OR_ARRAY);
+                }
+                out.write_all(&value.element(*reference, None, prefix))?;
+            }
+            self.next += 1;
+        }
+        Ok(())
+    }
+
+    /// Writes a new `<row>` for every pending row before `row` (every row
+    /// left with `None`) that sets a cell; one with clears alone writes
+    /// nothing. `prefix` is the `<sheetData>`'s, which the rows take.
+    fn write_rows(
+        &mut self,
+        out: &mut impl Write,
+        row: Option<u32>,
+        arrays: &[Area],
+        prefix: &[u8],
+    ) -> Result<(), Error> {
+        while let Some(next) = self.peek() {
+            if row.is_some_and(|r| next.row >= r) {
+                break;
+            }
+            let opens = self.sets(Some(next.row));
+            if opens {
+                out.write_all(b"<")?;
+                out.write_all(prefix)?;
+                out.write_all(format!("row r=\"{}\">", next.row).as_bytes())?;
+            }
+            self.write_row(out, next.row, None, arrays, prefix)?;
+            if opens {
+                out.write_all(b"</")?;
+                out.write_all(prefix)?;
+                out.write_all(b"row>")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// What the rewrite does with the `<c>` it is inside.
+enum InCell {
+    /// Not edited: every token is copied.
+    Copy,
+    /// Edited: every token is dropped and the edit written at the end tag.
+    Replace {
+        reference: CellRef,
+        style: Option<Vec<u8>>,
+        /// The cell's own prefix, which its replacement keeps.
+        prefix: Vec<u8>,
+        value: Option<Value>,
+        /// Whether the cell's `<f>` was a formula this edit removes.
+        formula: bool,
+    },
+}
+
+/// The bytes that replace an edited cell: the value's element, or for a
+/// clear the cell with its style alone, or nothing.
+fn replaced_cell(
+    reference: CellRef,
+    style: Option<&[u8]>,
+    value: Option<&Value>,
+    prefix: &[u8],
+) -> Vec<u8> {
+    match (value, style) {
+        (Some(value), _) => value.element(reference, style, prefix),
+        (None, Some(style)) => {
+            let mut out = [b"<".as_slice(), prefix, b"c r=\""].concat();
+            out.extend_from_slice(reference.a1().as_bytes());
+            out.extend_from_slice(b"\" s=\"");
+            out.extend_from_slice(style);
+            out.extend_from_slice(b"\"/>");
+            out
+        }
+        (None, None) => Vec::new(),
+    }
+}
+
+/// An empty element's raw bytes with the `/` of its `/>` dropped, so it can
+/// be given content and an end tag (part 2's rule for an empty root).
+fn opened_up(raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    let slash = raw
+        .iter()
+        .rposition(|byte| *byte == b'/')
+        .ok_or(Error::Xml(index))?;
+    let mut out = raw[..slash].to_vec();
+    out.extend_from_slice(&raw[slash + 1..]);
+    Ok(out)
+}
+
+/// An element's qualified-name prefix with its colon, or empty.
+fn prefix_of(start: &BytesStart<'_>) -> Vec<u8> {
+    match start.name().prefix() {
+        Some(prefix) => [prefix.into_inner().as_bytes(), b":"].concat(),
+        None => Vec::new(),
+    }
+}
+
+/// What a `<c>` start tag says to the rewrite.
+struct CellTag {
+    reference: Option<CellRef>,
+    style: Option<Vec<u8>>,
+    /// Whether it carries an attribute other than `r`, `s` and `t`.
+    unmodelled: bool,
+}
+
+fn cell_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<CellTag, Error> {
+    let mut tag = CellTag {
+        reference: None,
+        style: None,
+        unmodelled: false,
+    };
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        match (namespace, local) {
+            (None, b"r") => {
+                tag.reference = Some(
+                    CellRef::parse(attribute.value.as_bytes())
+                        .ok_or(Error::Package("a cell reference is not of the form A1"))?,
+                );
+            }
+            (None, b"s") => tag.style = Some(attribute.value.as_bytes().to_vec()),
+            (None, b"t") => {}
+            _ => tag.unmodelled = true,
+        }
+    }
+    Ok(tag)
+}
+
+/// A `<row>`'s `r`: absent is refused, since an implied number would move
+/// when a row is inserted before it.
+fn explicit_row(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<u32, Error> {
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_none() && local == b"r" {
+            return str::from_utf8(attribute.value.as_bytes())
+                .ok()
+                .and_then(decimal)
+                .filter(|number| *number > 0)
+                .ok_or(Error::Package("a row number is not a number"));
+        }
+    }
+    Err(NO_EXPLICIT_REFERENCES)
+}
+
+/// An `<f>` start tag's `t`, and its `ref` for an array formula.
+enum FormulaTag {
+    /// `t` absent, `normal` or `dataTable`: a formula an edit may remove.
+    Removable,
+    Shared,
+    Array(Option<Area>),
+}
+
+fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<FormulaTag, Error> {
+    let mut kind: Option<Vec<u8>> = None;
+    let mut reference: Option<Vec<u8>> = None;
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        match (namespace, local) {
+            (None, b"t") => kind = Some(attribute.value.as_bytes().to_vec()),
+            (None, b"ref") => reference = Some(attribute.value.as_bytes().to_vec()),
+            _ => {}
+        }
+    }
+    match kind.as_deref() {
+        None | Some(b"normal") | Some(b"dataTable") => Ok(FormulaTag::Removable),
+        Some(b"shared") => Ok(FormulaTag::Shared),
+        Some(b"array") => Ok(FormulaTag::Array(
+            reference.as_deref().and_then(Area::parse),
+        )),
+        Some(_) => Err(Error::Package(
+            "a formula has a type this layer does not know",
+        )),
+    }
+}
+
+/// Rewrites one worksheet part with its cell edits into a temporary file,
+/// and says whether any edit removed a formula.
+///
+/// `specs/0011-editing-cells.md`, "Module `package`": every token's `raw` is
+/// copied except that an edited `<c>` (start tag, children and end tag, or
+/// its one empty tag) is replaced by the edit's form; a new cell goes before
+/// the first cell of its row with a greater column, or before `</row>`; a new
+/// row goes before the first `<row>` with a greater number, or before
+/// `</sheetData>`; an empty `<sheetData/>` or `<row/>` that gains content is
+/// opened up as part 2 opens an empty root. Everything else is the input's
+/// bytes, so nothing outside `<sheetData>` changes.
+///
+/// `edits` is sorted by row then column, as [`Recorded::cell_edits_of`]
+/// gives it.
+fn rewrite_worksheet<R: Read + Seek>(
+    archive: &mut Archive<R>,
+    index: usize,
+    edits: &[(CellRef, Option<Value>)],
+) -> Result<(TempFile, Replacement, bool), Error> {
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut pending = Pending { edits, next: 0 };
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root = false;
+    // The depth of the open `<sheetData>`; its rows are one deeper.
+    let mut data: Option<usize> = None;
+    let mut seen_data = false;
+    // The open `<row>`'s number, the last row number seen and the open row's
+    // last column, which order is checked against.
+    let mut row: Option<u32> = None;
+    let mut last_row = 0u32;
+    let mut last_col = 0u32;
+    // The `<c>` being read, at its depth.
+    let mut cell: Option<(usize, InCell)> = None;
+    // The prefixes new elements take: the `<sheetData>`'s for a new row, the
+    // open `<row>`'s for a new cell in it.
+    let mut data_prefix: Vec<u8> = Vec::new();
+    let mut row_prefix: Vec<u8> = Vec::new();
+    let mut arrays: Vec<Area> = Vec::new();
+    let mut removed_formula = false;
+
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if !root {
+                    if !ours || local != b"worksheet" {
+                        return Err(Error::Package("the worksheet part's root is not worksheet"));
+                    }
+                    root = true;
+                    out.write_all(token.raw)?;
+                } else if let Some((at, ref mut inside)) = cell {
+                    // Inside a cell: only its own `<f>` matters.
+                    if depth == at + 1 && ours && local == b"f" {
+                        let tag = formula_tag(start, &scope, index);
+                        match inside {
+                            InCell::Copy => {
+                                if let Ok(FormulaTag::Array(area)) = tag {
+                                    arrays.push(area.ok_or(IN_SHARED_OR_ARRAY)?);
+                                }
+                            }
+                            InCell::Replace { formula, .. } => match tag? {
+                                FormulaTag::Removable => *formula = true,
+                                FormulaTag::Shared | FormulaTag::Array(_) => {
+                                    return Err(IN_SHARED_OR_ARRAY);
+                                }
+                            },
+                        }
+                    }
+                    if matches!(inside, InCell::Copy) {
+                        out.write_all(token.raw)?;
+                    }
+                } else if data.is_some_and(|at| depth == at + 1) && ours && local == b"row" {
+                    let number = explicit_row(start, &scope, index)?;
+                    if number <= last_row {
+                        return Err(OUT_OF_ORDER);
+                    }
+                    last_row = number;
+                    pending.write_rows(&mut out, Some(number), &arrays, &data_prefix)?;
+                    row_prefix = prefix_of(start);
+                    if empty && pending.sets(Some(number)) {
+                        out.write_all(&opened_up(token.raw, index)?)?;
+                        pending.write_row(&mut out, number, None, &arrays, &row_prefix)?;
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                    } else {
+                        out.write_all(token.raw)?;
+                        if empty {
+                            // Clears of cells a `<row/>` does not hold.
+                            pending.write_row(&mut out, number, None, &arrays, &row_prefix)?;
+                        } else {
+                            row = Some(number);
+                            last_col = 0;
+                        }
+                    }
+                } else if let Some(open) = row
+                    && data.is_some_and(|at| depth == at + 2)
+                    && ours
+                    && local == b"c"
+                {
+                    let tag = cell_tag(start, &scope, index)?;
+                    let reference = tag.reference.ok_or(NO_EXPLICIT_REFERENCES)?;
+                    if reference.row != open || reference.col <= last_col {
+                        return Err(OUT_OF_ORDER);
+                    }
+                    last_col = reference.col;
+                    pending.write_row(&mut out, open, Some(reference.col), &arrays, &row_prefix)?;
+                    if pending.peek() == Some(reference) {
+                        let value = pending.edits[pending.next].1.clone();
+                        pending.next += 1;
+                        if tag.unmodelled {
+                            return Err(UNMODELLED_ATTRIBUTE);
+                        }
+                        if arrays.iter().any(|area| area.holds(reference)) {
+                            return Err(IN_SHARED_OR_ARRAY);
+                        }
+                        if empty {
+                            out.write_all(&replaced_cell(
+                                reference,
+                                tag.style.as_deref(),
+                                value.as_ref(),
+                                &prefix_of(start),
+                            ))?;
+                        } else {
+                            cell = Some((
+                                depth,
+                                InCell::Replace {
+                                    reference,
+                                    style: tag.style,
+                                    prefix: prefix_of(start),
+                                    value,
+                                    formula: false,
+                                },
+                            ));
+                        }
+                    } else {
+                        out.write_all(token.raw)?;
+                        if !empty {
+                            cell = Some((depth, InCell::Copy));
+                        }
+                    }
+                } else if depth == 2 && ours && local == b"sheetData" && !seen_data {
+                    seen_data = true;
+                    data_prefix = prefix_of(start);
+                    if empty && pending.sets(None) {
+                        out.write_all(&opened_up(token.raw, index)?)?;
+                        pending.write_rows(&mut out, None, &arrays, &data_prefix)?;
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                    } else {
+                        out.write_all(token.raw)?;
+                        if !empty {
+                            data = Some(depth);
+                        }
+                    }
+                } else {
+                    out.write_all(token.raw)?;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                match cell {
+                    Some((at, InCell::Copy)) => {
+                        out.write_all(token.raw)?;
+                        if depth == at {
+                            cell = None;
+                        }
+                    }
+                    Some((at, InCell::Replace { .. })) => {
+                        if depth == at
+                            && let Some((
+                                _,
+                                InCell::Replace {
+                                    reference,
+                                    style,
+                                    prefix,
+                                    value,
+                                    formula,
+                                },
+                            )) = cell.take()
+                        {
+                            removed_formula |= formula;
+                            out.write_all(&replaced_cell(
+                                reference,
+                                style.as_deref(),
+                                value.as_ref(),
+                                &prefix,
+                            ))?;
+                        }
+                    }
+                    None => {
+                        if let Some(open) = row
+                            && data.is_some_and(|at| depth == at + 1)
+                        {
+                            pending.write_row(&mut out, open, None, &arrays, &row_prefix)?;
+                            row = None;
+                        } else if data == Some(depth) {
+                            pending.write_rows(&mut out, None, &arrays, &data_prefix)?;
+                            data = None;
+                        }
+                        out.write_all(token.raw)?;
+                    }
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {
+                if !matches!(cell, Some((_, InCell::Replace { .. }))) {
+                    out.write_all(token.raw)?;
+                }
+            }
+        }
+    }
+    // A set that found no `<sheetData>` to go into: the schema requires one,
+    // so a part without it is not a worksheet this layer can write into.
+    if pending.sets(None) {
+        return Err(Error::Xml(index));
+    }
+    let (temp, replacement) =
+        written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
+    Ok((temp, replacement, removed_formula))
 }
 
 /// What a created rels part begins with when the package has no
