@@ -74,7 +74,8 @@ styles parts, never a format code, a font name or a cell's text:
   within a part; 27 codes carry a double quote and one a `<`, both
   escaped in the part; 30 are date-like by the survey's test (a
   letter among `d m h y s` in either case outside quoted runs,
-  bracketed runs and backslash escapes, the test openpyxl applies).
+  bracketed runs and backslash escapes, over the whole code; a test
+  modelled on openpyxl's, which planning did not run, P1 ruling 1).
 - `cellXfs`: 992 `xf` elements, 4 to 142 per part. Every one carries
   `numFmtId`, `fontId`, `fillId`, `borderId` and `xfId`, and starts
   with `numFmtId` (as do the 459 in `cellStyleXfs`); the apply flags
@@ -113,13 +114,21 @@ part is read through `Stream` and `Scope` with the element resolution
 `Cells` uses: the root must be `styleSheet` in the main namespace
 (`Error::Package("the styles part's root is not styleSheet")`);
 under it, `numFmts`'s `numFmt` children and `cellXfs`'s `xf` children
-are read and every other element is skipped raw at any depth.
+are read and every other element is skipped raw at any depth. A
+second `numFmts` or a second `cellXfs` at the root is refused
+(`Error::Package("the styles part has more than one numFmts or
+cellXfs")`, P1 ruling 4): the schema allows one of each, and a
+second `cellXfs` would make every `s` ambiguous.
 
 `Styles { num_fmts: Vec<NumFmt>, cell_xfs: Vec<Xf> }`, both in part
 order, so `cell_xfs[i]` is what a cell's `s="i"` names.
 
 - `NumFmt { id: u32, code: String }`: `numFmtId` as `decimal` reads a
-  digit string (`specs/0010`) and `formatCode` unescaped. A `numFmt`
+  digit string (`specs/0010`) and `formatCode` read as sheet names
+  are, through `normalized_value(XmlVersion::Implicit1_0)`
+  (`specs/0009` P2 ruling 2; P1 ruling 3), so a reference such as
+  `&#9;` survives and a literal tab, line feed or carriage return in
+  the attribute becomes a space as XML 1.0 3.3.3 says. A `numFmt`
   lacking either is refused (`Error::Package("a numFmt lacks
   numFmtId or formatCode")`); an id that is not a digit string is
   refused (`Error::Package("a style attribute is not a number")`).
@@ -187,8 +196,10 @@ and held with the record:
 
 - `base` `Some(i)`: the start tag is written anew as `<xf` then the
   base's attributes in the base's order, each as a space, the name,
-  `="`, the value's bytes as the base wrote them (still escaped) and
-  `"`, with `numFmtId`'s value replaced by the id (or added first
+  `=`, the quote character the base used for it, the value's bytes as
+  the base wrote them (still escaped) and that quote again (P1 ruling
+  5: a single-quoted value may hold a double quote), with
+  `numFmtId`'s value replaced by the id (or added first
   when the base had none) and `applyNumberFormat`'s replaced by `1`
   (or appended last when the base had none); then, when the base had
   children, the base's bytes from after its start tag to before its
@@ -232,7 +243,10 @@ rewritten:
   `raw` is copied except as follows. Immediately before `</numFmts>`
   the recorded `<numFmt numFmtId="N" formatCode="..."/>` elements are
   written in id order, the code escaped with the crate's `escape` (a
-  double quote as `&quot;`, the form 27 corpus codes take). The
+  double quote as `&quot;`, the form 27 corpus codes take) and then a
+  tab, a line feed and a carriage return as `&#9;`, `&#10;` and
+  `&#13;`, so the code reads back equal to itself and a later equal-
+  code lookup finds it (P1 ruling 3). The
   `numFmts` start tag is written with its `count` attribute's value
   bytes replaced by the number of `numFmt` children plus the number
   added and every other byte of the tag kept; a `numFmts` without
@@ -328,15 +342,20 @@ an ISO text no corpus cell uses) stays as part 3 left it.
 
 ### Errors
 
-Nine new `Error::Package` messages: "the workbook has no styles
-part", "the styles part's root is not styleSheet", "a numFmt lacks
-numFmtId or formatCode", "a style attribute is not a number", "a
-style index is out of range", "a built-in number format id is 164 or
-more", "a number format code is empty or holds a character XML
-cannot carry", "a style addition to a part this write replaces", "a
-styles part without cellXfs cannot take a style". Each joins the
-catalogue in `package`'s module header with the test that pins it,
-and the set-equality test reads the module that raises it.
+Ten new `Error::Package` messages (nine in the draft; the tenth by
+P1 ruling 4). Raised by the reading, so carried by P1's first code
+commit with their catalogue entries, the set-equality test reading
+`styles.rs` from that commit (P1 ruling 2): "the workbook has no
+styles part", "the styles part's root is not styleSheet", "a numFmt
+lacks numFmtId or formatCode", "a style attribute is not a number",
+"the styles part has more than one numFmts or cellXfs". Raised by
+the additions and the write, so carried by the second: "a style index
+is out of range", "a built-in number format id is 164 or more", "a
+number format code is empty or holds a character XML cannot carry",
+"a style addition to a part this write replaces", "a styles part
+without cellXfs cannot take a style". Each joins the catalogue in
+`package`'s module header with the test that pins it, and the
+set-equality test reads the module that raises it.
 
 ### 32-bit and streaming
 
@@ -391,7 +410,10 @@ without it).
   (`cell_xfs.len()`), `num_fmts`, `custom` (ids of 164 or more),
   `dated` (`xf`s whose `number_format` is `BuiltIn` 14 to 22, 27 to
   36, 45 to 47 or 50 to 58, or a `Code` that is date-like by the
-  survey's test, implemented in the tool), `date1904` (0 or 1). The
+  survey's test as "Facts" states it, over the whole code with every
+  bracketed run stripped, implemented in the tool and documented
+  there as the survey's test and no library's), `date1904` (0 or 1).
+  The
   output is the input copied with no edit, byte-identical. Expected
   totals over the 27: `xfs` 992, `num_fmts` 109, `custom` 100,
   `dated` 106, `date1904` 2, and 18 workbooks with `dated` above 0.
@@ -490,9 +512,12 @@ Part 5's first doc commit carries, unedited: `ROADMAP.md`,
 
 P1's first code commit: `Workbook::date1904`, the `styles` module's
 reading (`Styles`, `NumFmt`, `Xf`, `NumberFormat`, `number_format`),
-`Package::styles`, and `--styles`, with tests on byte-built styles
-parts: the five ids present and absent; a `numFmt` with an escaped
-quote and one with `<`; a part without `numFmts`; a part without
+`Package::styles`, `--styles` and the five reading messages with
+their catalogue entries (P1 ruling 2), with tests on byte-built
+styles parts: the five ids present and absent; a `numFmt` with an
+escaped quote, one with `<` and one with `&#9;` (read as a tab) and
+a literal tab (read as a space); a second `numFmts` and a second
+`cellXfs` each refused; a part without `numFmts`; a part without
 `cellXfs`; an `xf` with children and one empty; the root prefixed
 (`x:styleSheet`) and the strict main namespace; each refusal;
 `number_format` for a custom id, a producer-spelled built-in, a
@@ -502,11 +527,15 @@ absent; and the tool's line on a fictional workbook.
 
 P1's second code commit: `add_cell_style`, `set_cell_style`, the
 styles rewrite and the worksheet start-tag rewrite in `write_to`, and
-the messages. Tests on byte-built packages, the output's parts
-compared with bytes the test builds by hand (`specs/0011` P1 ruling
-5): an `xf` added from a base with children (the children raw, the
-tag rebuilt, `numFmtId` replaced, `applyNumberFormat` replaced when
-present and appended when not); from an empty base; from `None`; a
+the other five messages. Tests on byte-built packages, the output's
+parts compared with bytes the test builds by hand (`specs/0011` P1
+ruling 5): an `xf` added from a base with children (the children
+raw, the tag rebuilt, `numFmtId` replaced, `applyNumberFormat`
+replaced when present and appended when not); from a base with a
+single-quoted attribute whose value holds a double quote (the quote
+kept); from an empty base; from `None`; a code with a tab, a line
+feed and a carriage return written as references and read back
+equal; a
 base without `numFmtId` gaining one first; a code new (id 164 on a
 part with no custom id; largest plus one otherwise), a code equal to
 an existing `numFmt` (nothing added, its id used, including one
@@ -622,6 +651,45 @@ Decided by the maintainer 2026-09-22: each as recommended.
    trusts the caller and reads the styles part only when an addition
    is recorded, saving that read on a write that only reuses existing
    indices.
+
+## Planning rulings during P1 (2026-09-22)
+
+On the implementing session's five questions before the first code
+commit, each written here before it is cited. The doc commit 489d4e2
+was verified by planning from primaries: parent 7cc4f13, exactly the
+three files at the hashes the commit message prints, the message
+ASCII with the trailer alone, the amended first attempt 5154b2b with
+an equal tree (the amendment of an unpushed, unverified commit's
+message is what `specs/0001` allows; disclosed, accepted).
+
+1. The date-like test is this spec's prose: a letter among `d m h y
+   s` in either case anywhere in the code, after quoted runs, every
+   bracketed run and backslash escapes are removed. "Facts" no longer
+   calls it openpyxl's test, since planning did not run openpyxl and
+   the implementing session's recollection has it reading the first
+   section only and keeping the elapsed-time brackets; the
+   implementing session's unlogged count shows both readings give
+   106 in 18 workbooks over the corpus, so the corpus does not decide
+   it, and the tool's doc names the test as the survey's.
+2. The messages split by the code that raises them: the five raised
+   by the reading (with ruling 4's) in the first code commit, with
+   their catalogue entries and the set-equality test extended to
+   `styles.rs`; the other five in the second. "Errors" and "P1" say
+   so. Planning's handoff message said nine in the second commit;
+   the spec governs.
+3. `formatCode` is read through `normalized_value(XmlVersion::
+   Implicit1_0)` as sheet names are, and a code is written with a
+   tab, a line feed and a carriage return as character references
+   after `escape`, so a code reads back equal to itself and the
+   equal-code lookup holds. Refusing the three would have been the
+   other choice; nothing in the format forbids them, and the corpus
+   has no witness either way.
+4. A second `numFmts` or `cellXfs` at the root is refused by the
+   reader with the tenth message, "the styles part has more than one
+   numFmts or cellXfs", pinned by two tests; the corpus has none.
+5. The `xf` template keeps each attribute's own quote character, so
+   a single-quoted value holding a double quote stays well-formed;
+   one test pins it. The corpus has no single-quoted attribute.
 
 ## Out of scope
 
