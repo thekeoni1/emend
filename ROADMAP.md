@@ -274,8 +274,8 @@ follows P3 and carries the local commit 7cc4f13.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `Workbook::date1904`; the `styles` module read (`Styles`, `NumFmt`, `Xf`, `NumberFormat`); `--styles`; `add_cell_style`, `set_cell_style`, the styles rewrite and the worksheet start-tag rewrite in `write_to`, the ten messages; the corpus run `--styles` against planning's survey | DONE 2026-09-22 (abf2618, records c3d1adb, local; five P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan and per-workbook `ElementTree` count agreeing on all 27 on both targets; `specs/0012` "Planning verification and rulings on P1") |
-| P2 | `--style-sample`; the corpus run with the run log's `ElementTree` and byte-span check | READY |
-| P3 | the `dates` feature; `--date-sample`; the catalogue and Limits; `probe-emend-styles-write-xml` and `probe-emend-dates-write-xml` with the size record against the ceiling; the negative log through the binary | PLANNED |
+| P2 | `--style-sample`; the corpus run with the run log's independent XML reader and byte-span check | DONE 2026-09-22 (7c96575, records 747a96e, local; eight P2 rulings after check 1, run and negative logs rerun; verified by planning from primaries, its own gate, tests, privacy scan and its own comparison over the run directory agreeing on all 27 on both targets; `specs/0012` "Planning verification and rulings on P2") |
+| P3 | the `dates` feature; `--date-sample`; the catalogue and Limits; `probe-emend-styles-write-xml` and `probe-emend-dates-write-xml` with the size record against the ceiling; the negative log through the binary | READY |
 | Close | close-out push after P3, as part 4's, carrying 7cc4f13 | PLANNED |
 
 ## Unscoped

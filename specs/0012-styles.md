@@ -764,6 +764,136 @@ The report's six items and two offers, and one matter of its own:
     and `ROADMAP.md` unedited, then the first code commit with
     ruling 8's test, then `--style-sample` as "P2" says.
 
+## Planning rulings during P2 (2026-09-22)
+
+Check 1 of P2 (its answer 1822672adf83fe18, on the ruled inputs at
+7c96575) found the defects below. Planning confirmed each in the log
+it names before ruling. A rerun is a new attempt whose header hashes
+every superseded attempt, as `specs/0001` says.
+
+1. `run.log` did not print its script. `specs/0001` requires the
+   exact script in the log. Attempt 3 prints the assembled script
+   in full, as P1's run log did, and the report's claim that it was
+   printed is corrected to name attempt 3 as the first that did.
+2. The corpus check's `dated_xf_ok` tested six substrings, not the
+   bytes "Harness runs" gives for the second added `xf`. Attempt 3
+   tests byte equality with that exact string, and its controls gain
+   a plant that reorders the attributes, which the equality must
+   catch.
+3. `negative.log` said it compared the message list by name with
+   P1's log but read part 4 P3's. Attempt 3 compares with
+   `records/logs/m1p5-p1/negative.log` by name: none removed, none
+   added by P2's library code, and its header says so.
+4. The run log's comparison reads with `expat`, not `ElementTree`.
+   Both are independent of the library, and `expat` supplies the
+   byte offsets the span check needs. It stays. This spec's
+   "ElementTree" in "Harness runs" P2 and in "P2" is read as "an
+   independent Python XML reader", and the run log's heading says
+   which one.
+5. `gate.log` and `test.log` carry stale header comments (a
+   self-referencing source path; a control described from a
+   superseded attempt; a phase directory named where the code reads
+   the other). Their checks are sound and are not rerun. The report
+   lists each stale comment with its line. `negative.log`'s header
+   is corrected in its attempt 3.
+6. Every figure the report states is printed by a log or is
+   dropped. Attempt 3 of the run log prints the count of rows
+   marked unexpected, so "0 UNEXPECTED" can be cited; line numbers
+   in code, the hash prefixes planning gave, superseded-attempt
+   details and the removal of a run directory are not measurements
+   and leave the report or are marked as the implementer's own
+   statement. The mutation caught by ruling 8's case is reported
+   with every test the log names as catching it.
+7. The record pair is rewritten from attempt 3 and the report names
+   the superseded pair's hashes. The pre-check scan is rerun, the
+   report revised, and check 2 is given check 1's answer with the
+   attempt-3 inputs. Check 1's answer is committed as it was
+   written, its header pinning the attempt-2 inputs it read.
+8. This section is not committed inside P2: a doc commit may not
+   follow a code commit within a phase. The report cites it by this
+   file's hash, and P3's first doc commit carries it.
+
+## Planning verification and rulings on P2 (2026-09-22)
+
+Verified by planning from primaries at 747a96e (doc 6e6062c; code
+07b84be, 7c96575; record 747a96e): its own gate at HEAD (nine PASS),
+its own tests on both targets (445 passed, 2 ignored, each), its own
+privacy scan over c3d1adb..747a96e (4 commits, 420 blobs, 0
+findings), every committed file at the hash the report gives and
+`scan.log`'s hash table agreeing with each, the doc commit's two
+blobs at the hashes planning gave, the four commits in gate order
+with the Co-Authored-By line only, and the two code diffs read
+against "P2" and "Harness runs". Planning's own comparison over the
+attempt-3 run directory, written without reading the run log's, read
+every workbook's input, both outputs and both edit lines: on all 27
+workbooks and both targets every entry but the styles part and the
+first worksheet is byte-identical, the head, middle and tail spans of
+the styles part are identical (the created-container case cut at the
+creation point), the input's children are a prefix of the output's
+in both containers, one `numFmt` follows at the expected unused id,
+two `xf`s follow with the first coded and the second the exact bytes
+"Harness runs" gives, both `count` attributes equal their children
+before and after, the worksheet differs only in A's start tag (its
+`s` alone) and the one added cell at (M + 1, 1) with the number and
+`s` equal to X + 1 (in four cases into a row element that existed
+without cells, its start tag kept), A is the first value cell with no
+formula, the edit line's arithmetic holds, and the host and i686
+outputs are byte-identical. Totals on both targets: `xfs_before` 992,
+`xfs_after` 1046, `formats_added` 27, `styled` 27. A control with the
+`xf` bytes reordered and the number changed turned those two flags in
+all 54. The record pair's outcome, open-check and part-family tables
+agree with that comparison.
+
+1. Ruling 4's stated reason was wrong and is withdrawn: the run
+   log's spans come from regular expressions and its own tokenizer,
+   and `expat` reads relationships, cells and attributes. The ruling
+   stands on its other ground, a reader independent of the library.
+   The run log's header item C repeats the withdrawn reason; it is a
+   stale statement in a committed log, listed here, not rerun. The
+   tokenizer ends a tag at the first `>`; planning counted attribute
+   values holding a raw `>` in every styles and worksheet part of
+   the corpus with `ElementTree`: none. The hazard did not arise, and
+   a later comparison that keeps the tokenizer says so in its header.
+2. The label "the hash planning's P2 rulings give" in the run and
+   negative logs is wrong: this file cannot hold its own hash, and
+   the value was typed from planning's message. The value is right
+   (the file at 397da302 is the one the rulings were written into),
+   so the check's substance stands. From P3 the label reads "the
+   hash planning's handoff gave" and the report says so.
+3. The aggregate "every flag falsified" check (a sum of at least 17)
+   is accepted for P2 on the sample pair's 17 of 17 at run.log:2207.
+   From P3 a comparison's controls assert per flag that at least one
+   pair turned it.
+4. The run script's `#!/bin/sh` line with bash syntax, run as
+   `bash <script>`, is accepted on the implementer's statement. From
+   P3 every script the phase prints carries `#!/usr/bin/env bash`
+   and the log prints the invocation.
+5. The two stale docstrings in the comparison, the ten stale header
+   comments the report lists for `gate.log`, `test.log` and
+   `negative.log`, and check 1's "eleven" for twelve inputs are
+   recorded here and not rerun (ruling 5 during P2).
+6. Check 1's two harmless code notes: `sample()` cloning A's value
+   for every caller stays (a tool, not the core); the test comment at
+   the refusal test that says "the first addition refuses" where the
+   styles read refuses first is corrected in P3's first code commit,
+   as P1 verification ruling 8 placed such a correction.
+7. Decision 1 stands: "count grows by one" and "by two" in "Harness
+   runs" P2 are read as the output's `count` equalling its children,
+   which are the input's children plus the additions, as "Module
+   `package`" already says of the writer; whether the input's own
+   attribute matched its children is reported beside the flags. On
+   this corpus every input attribute matched (planning counted the
+   same).
+8. Decisions 3 to 5 of the report are accepted: the pre-check and
+   final scans cover planning's uncommitted file whenever one stands
+   in the tree; a Co-Authored-By line names the model that wrote the
+   commit and nothing else (the record commit's differs from the
+   phase's earlier three); check 2 was rightly given the working-tree
+   spec carrying the rulings that governed the reruns.
+9. The rulings during P2 and this section are committed by P3's
+   first doc commit, with `ROADMAP.md`, both unedited.
+10. P2 is DONE. P3 is READY.
+
 ## Out of scope
 
 - New fonts, fills, borders, alignments, protection and named cell
