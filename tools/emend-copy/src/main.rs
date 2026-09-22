@@ -115,6 +115,7 @@ const EXIT_ERROR: u8 = 2;
 enum Error {
     Usage,
     ReadInput(io::ErrorKind),
+    ReadOutput(io::ErrorKind),
     Layer(LayerError),
     NoFileName,
     Create(io::ErrorKind),
@@ -134,6 +135,7 @@ impl fmt::Display for Error {
         match self {
             Error::Usage => f.write_str(USAGE),
             Error::ReadInput(kind) => write!(f, "cannot read the input file: {kind}"),
+            Error::ReadOutput(kind) => write!(f, "cannot read the output file: {kind}"),
             Error::Layer(e) => write!(f, "{e}"),
             Error::NoFileName => f.write_str("the output path has no file name"),
             Error::Create(kind) => write!(f, "cannot create the output file: {kind}"),
@@ -450,7 +452,9 @@ fn sample<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Resu
 /// package is written. The output is then opened and the same part read, for
 /// `cells_after` and `read_back`. No reference, value or text reaches the
 /// line or a message: a clear of a styled cell keeps it as `<c r s/>`, so
-/// only an unstyled B is `dropped` and the count falls by it.
+/// only an unstyled B is `dropped` and the count falls by it. A failure
+/// after the output is in place, the count's assertion included, removes the
+/// output, so a refused run leaves none.
 fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
@@ -495,35 +499,18 @@ fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
     }
     result?;
 
-    let file = File::open(output).map_err(|e| Error::ReadInput(e.kind()))?;
-    let mut written = Package::open(BufReader::new(file))?;
-    let mut cells_after = 0u64;
-    let mut read_back = 0u64;
-    for cell in written.cells(&part)? {
-        let cell = cell?;
-        cells_after += 1;
-        let at = cell.reference;
-        if Some(at) == before.first && cell.number() == Some(42.5) {
-            read_back += 1;
-        }
-        if at == text && cell.kind == Kind::InlineString && cell.value.as_deref() == Some("emend") {
-            read_back += 1;
-        }
-        if at == boolean && cell.boolean() == Some(true) {
-            read_back += 1;
-        }
-    }
-
     let set = 2 + u64::from(before.first.is_some());
     let cleared = u64::from(before.second.is_some());
     let dropped = u64::from(matches!(before.second, Some((_, false))));
     let expected = before.cells + 2 - dropped;
-    if cells_after != expected {
-        return Err(Error::CellsAfter {
-            expected,
-            found: cells_after,
-        });
+
+    // The output is in place: a failure from here on removes it, as every
+    // other refusal of the tool leaves no output (P2 verification ruling 3).
+    let checked = read_back(output, &part, before.first, text, boolean, expected);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
     }
+    let (cells_after, read_back) = checked?;
     let pairs = [
         ("set", set),
         ("cleared", cleared),
@@ -543,6 +530,44 @@ fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let mut out = io::stdout().lock();
     writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
     out.flush().map_err(|e| Error::Report(e.kind()))
+}
+
+/// Reopens the output and reads the edited sheet back: its cell count,
+/// asserted equal to `expected`, the count the edits imply, and how many of
+/// the three set values read back as written.
+fn read_back(
+    output: &Path,
+    part: &[u8],
+    first: Option<CellRef>,
+    text: CellRef,
+    boolean: CellRef,
+    expected: u64,
+) -> Result<(u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let at = cell.reference;
+        if Some(at) == first && cell.number() == Some(42.5) {
+            read_back += 1;
+        }
+        if at == text && cell.kind == Kind::InlineString && cell.value.as_deref() == Some("emend") {
+            read_back += 1;
+        }
+        if at == boolean && cell.boolean() == Some(true) {
+            read_back += 1;
+        }
+    }
+    if cells_after != expected {
+        return Err(Error::CellsAfter {
+            expected,
+            found: cells_after,
+        });
+    }
+    Ok((cells_after, read_back))
 }
 
 /// Writes the package back, reporting a buffering failure rather than losing

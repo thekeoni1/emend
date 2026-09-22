@@ -3221,7 +3221,11 @@ fn a_refused_cell_edit_leaves_no_temporary_and_no_output() {
     let (_, mut package) = opened(with_rows("<row r=\"2\"/><row r=\"1\"/>"));
     package.set_cell(SHEET, at("A1"), Value::Number(1.0));
     let mut out = Vec::new();
-    let error = package.write_to(&mut out).expect_err("refused");
+    // Not `refused`: it takes the lock this test already holds.
+    let error = match package.write_to(&mut out) {
+        Ok(()) => panic!("the write was not refused: it wrote {} byte(s)", out.len()),
+        Err(error) => error,
+    };
     assert_package(
         error,
         "a worksheet whose rows or cells are out of order cannot be edited",
