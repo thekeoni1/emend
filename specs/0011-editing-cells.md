@@ -284,6 +284,17 @@ probes against part 3's record by the byte classifier. Part 3 left
 145868 section bytes of headroom; planning's expectation, not a
 measurement, is that part 4 costs less than half of it.
 
+Measured (P3, `records/size-m1p4-2026-09-22-4b31e2a.md`, verified by
+planning 2026-09-22 by its own rebuild): the budget figure is 278064
+section bytes (282624 file, 211664 `.text`), 115152 under the
+ceiling; part 4's own cost as defined above is 4100 sections (8192
+file, 3488 `.text`); the budget figure's whole growth since part 3's
+247348 is 30716, the other 26616 being the rewrite's cost to
+`probe-emend-cells-xml`, which writes a package and so links
+`write_to`, with the six commits behind that drift all part 4's.
+Both figures stand; see "Planning verification and rulings on P3",
+ruling 4.
+
 ### Harness runs
 
 `tools/emend-copy` gains two operations, at most one per invocation,
@@ -310,13 +321,21 @@ corpus workbook.
   `emend`, `boolean()` true; expected `set`). A workbook whose first
   worksheet has no cells gets A and B absent, M 0 and the two new
   cells in row 1 of a `<sheetData>` that was empty.
-- `--edit-formula-sample` (P3): the sheets are read in workbook order
-  until a cell with a formula of kind `Normal` is found; that cell is
-  set to `Number(1)` and the package written; the line `edit` carries
-  `formula_replaced` (0 or 1), `chain_dropped` (1 when the recipe ran
-  in the write, else 0) and `cells_after` from the same read-back. A
-  workbook with no normal formula gets no edit and a byte-identical
-  output.
+- `--edit-formula-sample` (P3): the sheets of kind `Worksheet` are
+  read in `<sheets>` order until a cell with a formula of kind
+  `Normal` is found; that cell is set to `Number(1)` and the package
+  written, and the output is reopened and that sheet read back; the
+  line `edit` carries `formula_replaced` (0 or 1), `chain_dropped`
+  (1 when the input's workbook has a `calcChain` relationship and the
+  reopened output's has none, measured from both reads, else 0),
+  `cells_after` (the read-back count, expected equal to the sheet's
+  count before, asserted by the tool as `--edit-sample` asserts its
+  own) and `read_back` (1 when the edited cell reads back as
+  `number()` 1 with no formula, else 0; expected equal to
+  `formula_replaced`). A workbook with no normal formula gets no
+  edit, a byte-identical output, and the line with every key 0, the
+  doc and the test saying a `cells_after` of 0 means no sheet was
+  read (P3 rulings 4 to 6).
 
 The runner and the record script are unchanged; each run names its
 operation through `--tool-arg`.
@@ -440,21 +459,28 @@ acceptance as "Harness runs".
 ### P3: the formula sample, the probe, the size record
 
 P3's first code commit carries the P2 verification rulings: the
-remaining `expect_err("refused")` sites moved to the naming helper
-(ruling 2); a `CellsAfter` refusal removing the output and a reopen
-failure reported as the output's (ruling 3). P3's logs carry ruling
-4: a planted fault per comparison flag, rows counted in input and
-output, both phase-commit controls in every log, path fixtures
-assembled at run time. Then `--edit-formula-sample` with its
-integration test; the catalogue and
+one write-path `expect_err("refused")` site made to name what it
+wrote (ruling 2 as P3 ruling 1 amends it); a `CellsAfter` refusal
+removing the output and a reopen failure reported as the output's
+(ruling 3). P3's logs carry ruling 4: a planted fault per comparison
+flag, rows counted in input and output, both phase-commit controls
+in every log, path fixtures assembled at run time. Then
+`--edit-formula-sample` with its integration test; the catalogue and
 Limits in `package`'s and `cells`'s module headers (the consequences
 above; the refusals; inline strings only; no style on a new cell);
 `probe-emend-cells-write-xml`, measured as "Size" says, recorded as
 `records/size-m1p4-<utc-date>-<shortsha>.md`, `size.log` printing
 every figure the record carries. The negative log through the built
-binary: a workbook whose named sheet lacks `r` on a row, one with a
-cell inside an array formula, one with a text that XML forbids (exit
-2, the message, no output file), and P1's refusals again. The corpus
+binary: a workbook whose sheet lacks `r` on a row and one with a
+cell inside an array formula, each through both `--edit-sample` and
+the release `probe-emend-cells-write-xml` the size log builds (exit
+2, the message; no output file from the tool, while the probe, a
+size consumer with no temporary-and-rename step, leaves its outputs
+and the log prints their presence and byte counts as measured, P3
+ruling 8); the forbidden-text message, which
+no binary can reach since every binary writes its own constant text,
+named as unreached from the source beside the package test that
+raises it (P3 ruling 7); and P1's refusals again. The corpus
 run `--edit-formula-sample` on both targets with the release binaries
 the size log hashed, recorded as `records/m1p4-p3-<utc-date>-
 <shortsha>.md` and `.txt`. The report states part 4's own cost and
@@ -679,7 +705,9 @@ what the report left open:
    decimal is the same check.
 2. F-2: the twenty remaining `expect_err("refused")` sites move to
    the helper that names what was not refused, in P3's first code
-   commit.
+   commit. AMENDED by P3 ruling 1 (finding P3-F1): one site is a
+   write and changes; nineteen are reads whose panic already names
+   the value, and stand.
 3. F-4 and F-5: a `CellsAfter` refusal removes the output file, as
    every other refusal of the tool leaves none, and a failure to
    reopen the output is reported as the output's, not the input's;
@@ -699,6 +727,142 @@ what the report left open:
    for a replaced entry, was not named in P2's acceptance and is
    named now.
 7. This spec and `ROADMAP.md` go in P3's first doc commit, unedited.
+
+## Planning rulings during P3 (2026-09-22)
+
+The implementing session asked, after the doc commit 20fd731 and
+before any code commit, about P2 verification ruling 2: the P2
+report, carrying independent check 1's wording, called the twenty
+`expect_err("refused")` sites writes, and the ruling took that as its
+premise. Planning confirmed from `crates/emend/src/package/tests.rs`
+at 20fd731: twenty sites, one a `write_to` (the test that a refused
+edit leaves no temporary and no output), nineteen reads of the
+workbook, the content types or the relationships, whose `Ok` values
+derive `Debug`, so their `expect_err` panic already prints what was
+returned; "refused: ()" can only come from a write. This is finding
+P3-F1, in the P2 report's description and in planning's ruling that
+rested on it. Rulings:
+
+1. Ruling 2 of the P2 verification is amended: the one write site
+   replaces `expect_err` with a match whose `Ok` arm panics naming
+   what the write wrote, its lock and its temporaries check kept as
+   they are; the nineteen read sites stand. `test.log` prints the
+   counts by grep: the sites, the writes among them, the reads.
+2. The rest of P3's first code commit is as "P3" says: the
+   `CellsAfter` refusal removing the output and the reopen failure
+   reported as the output's.
+3. This spec stays uncommitted through P3 and goes in the close-out's
+   doc commit; each P3 log whose status check would count it names it
+   with its sha256 at run time and accounts for its one line.
+
+The implementing session then asked, with 18bfc36 committed, about
+two gaps in `--edit-formula-sample` and noted a third; "Harness runs"
+is corrected for all three:
+
+4. With no normal formula there is no sheet to read back: the line
+   keeps its shape and carries every key 0, the doc and the test
+   saying a `cells_after` of 0 means no sheet was read.
+5. Only sheets of kind `Worksheet` are read, in `<sheets>` order, as
+   `--edit-sample` reads; `chain_dropped` is measured from the two
+   reads (the input's workbook has a `calcChain` relationship, the
+   reopened output's has none), not inferred from the edit.
+6. The line gains `read_back`, 1 when the edited cell reads back as
+   `number()` 1 with no formula, expected equal to `formula_replaced`
+   and asserted per file by the run log, beside the comparison's
+   `changed` 1; `cells_after` is asserted by the tool against the
+   sheet's count before the edit, as `--edit-sample` does.
+
+Asked again, with code committed through 4b31e2a and the gate run,
+about the negative log's third case:
+
+7. "A text that XML forbids" cannot be brought through any built
+   binary, since every binary writes its own constant text and no
+   workbook can carry a forbidden character into what is written:
+   the draft's case was planning's error. The negative log runs the
+   missing-`r` and array cases through both `--edit-sample` and the
+   release probe, and names the forbidden-text message as unreached
+   from the source beside the package test that raises it. No code
+   changes; "P3" is corrected.
+
+Asked again, with `size.log` running at 4b31e2a:
+
+8. The probe is a size consumer, not a tool: it creates its second
+   output before `write_to` and has no temporary-and-rename step, so
+   a refusal leaves both outputs in place. "No output file" is
+   asserted for the `--edit-sample` runs alone; for the probe the
+   negative log asserts exit 2, the exact message and empty stdout,
+   and prints both outputs' presence and byte counts as measured
+   with the source lines that explain them. No code change, so the
+   size record stands.
+
+## Planning verification and rulings on P3 (2026-09-22)
+
+Verified from primaries by planning, not from the report: the range
+ed89a57..df83dab (20fd731 doc carrying planning's two files at the
+hashes planning sent; 18bfc36, 858acf4, af5bba6, 4b31e2a code;
+df83dab record, eleven files under `records/`), every message ASCII
+with the Co-Authored-By line alone; every committed log, check
+answer, record and size record at the sha256 the report and scan.log
+print; the seven superseded attempts present in the implementing
+scratch at their printed hashes and byte counts; planning's own gate
+at df83dab nine PASS; planning's own tests 394 passed, 2 ignored on
+each target; planning's own `privacy.sh --range ed89a57..df83dab` 6
+commits, 400 blobs, 0 findings; the four code diffs read (the one
+write site and `ReadOutput`; the formula sample as rulings 4 to 6
+say; the Limits; the probe as "Size" says). Planning's own rebuild
+of `probe-zip-xml`, `probe-emend-cells-xml` and
+`probe-emend-cells-write-xml` in the `size` profile on i686 musl at
+df83dab reproduced the record's section totals 533216, 807180 and
+811280 and the probe's sha256 prefix 8591be14, so the budget figure
+278064 and the own cost 4100 are planning's arithmetic too, as are
+the `.text` deltas 211664 and 3488. Planning's own `expat`
+comparison over the run directory, picking the first worksheet in
+`<sheets>` order that holds a normal formula itself, agrees with the
+run log on all 27 workbooks: 21 replaced and 6 with none; in the 21,
+prefix and suffix bytes identical, exactly that cell changed to the
+value `1` with its `s` kept and no formula, no cell added or removed,
+the row count unchanged, the entries changed exactly the sheet plus,
+in the 9 with a chain, the workbook's rels part and
+`[Content_Types].xml` with the chain entry gone; in the 6,
+byte-identical outputs and an all-zero line; host and i686 outputs
+byte-identical. P3 is DONE at 4b31e2a, records df83dab, local.
+
+Findings: P3-F1 (ruled during P3, planning's and the report's).
+Rulings on the six items the report left open:
+
+1. Path controls. Only `run.log` plants a path fixture; `size.log`'s
+   and `gate.log`'s zero-path checks have no control, and `test.log`
+   and `negative.log` check no paths. Accepted for P3: the privacy
+   instrument is the scan, which passed with its controls, and
+   planning's own scan agrees. The rule already in `specs/0001`, that
+   a zero is meaningful only beside a control that can be nonzero,
+   applies to every such check from the close-out on, the fixture
+   assembled at run time.
+2. The size reconciliation's identity checks and the label "parts 1
+   to 3 measured at this commit" on a figure that holds part 4's
+   drift (`size.log`, two lines): accepted as they stand and named
+   here as wording faults; the record's own text says the drift is
+   part 4's, and the ceiling comparison and planning's rebuild are
+   the checks that can fail.
+3. Planted faults not covering `removed` 0; the missing-`r` fixture
+   holding cells without `r` in a numbered row (the reader's rule is
+   the same for both); no F4x-style control for the formula sample's
+   removal; a parse failure of the reopened output reported in the
+   library's words: accepted as they stand, each a note in the record
+   and none a defect in what was measured.
+4. Size. The budget figure 278064 section bytes is accepted against
+   the ceiling of 393216, leaving 115152. "Part 4's own cost" as
+   "Size" defines it, 4100, understates part 4's spend: the whole
+   growth since part 3's record is 30716, of which 26616 is the
+   rewrite's cost to every consumer that already writes a package,
+   measured as the drift of `probe-emend-cells-xml` with the six
+   commits behind it all part 4's. "Size" records both figures, and
+   from part 5 on a part's size record states its own cost and the
+   budget figure's whole growth side by side.
+5. This spec and `ROADMAP.md` go in the close-out's doc commit,
+   unedited. The close-out runs as "Close-out push (after P3)" says,
+   on planning's word given with this verification and the
+   maintainer's authorisation typed in the implementing session.
 
 ## Out of scope
 

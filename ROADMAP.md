@@ -246,7 +246,7 @@ carries the local commit b58e894.
 |-------|------|--------|
 | P1 | `drop_calc_chain` in the crate with `--drop-calc-chain` calling it; `Value`, `set_cell`, `clear_cell`, the worksheet rewrite in `write_to`, the seven messages; the corpus run `--drop-calc-chain` against part 2 P3's expectations | DONE 2026-09-22 (d7a7a7f, records 57d2334, local; three code commits by ruling 1 on finding P1-F1, the eighth message and data tables refused; verified by planning from primaries, its own gate, tests and record comparison with part 2 P3; `specs/0011` "Planning verification and rulings on P1") |
 | P2 | `--edit-sample`; the corpus run with the run log's `expat` cell comparison | DONE 2026-09-22 (595cf8b, records ed89a57, local; finding P2-F1, planning's clause, ruled during P2; verified by planning from primaries, its own gate, tests and its own `expat` comparison agreeing on all 27; `specs/0011` "Planning verification and rulings on P2") |
-| P3 | `--edit-formula-sample`; the catalogue and Limits; `probe-emend-cells-write-xml` and the size record against the ceiling; the negative log through the binary | PROPOSED |
+| P3 | `--edit-formula-sample`; the catalogue and Limits; `probe-emend-cells-write-xml` and the size record against the ceiling; the negative log through the binary | DONE 2026-09-22 (4b31e2a, records df83dab, local; verified by planning from primaries, its own gate, tests, size rebuild and `expat` comparison; budget 278064 section bytes, 115152 under the 393216 ceiling, own cost 4100 and whole growth 30716; `specs/0011` "Planning verification and rulings on P3") |
 | Close | close-out push after P3, as part 3's, carrying b58e894 | PROPOSED |
 
 ## Unscoped
