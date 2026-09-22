@@ -1,0 +1,2591 @@
+command: git rev-parse HEAD
+about: M1 part 5 P2 phase commit 7c965755863bbcc45b32cc36d92b29baf1067cbf; HEAD at run: 7c965755863bbcc45b32cc36d92b29baf1067cbf
+phase: Milestone 1 part 5 P2 (specs/0012-styles.md) test.log; run at 2026-09-22T18:37:39Z
+rerun: attempt 2 failed one check, this script's: the pattern for the new error was written with the variant's Error:: prefix, which the declaration line inside the enum does not carry, so two lines were counted where the claim names three (declared, displayed, raised). The pattern is now the bare variant name. Nothing else changed. Attempt 1 failed a different check of this script's and is kept as well.
+command: sha256sum and wc -c over each superseded attempt named above
+    619cf3a700d3ff8c67f6f549c67172269063de681fcaeb7e5ba7955b541f70de  169728 bytes  test-attempt-1.log
+    480c3e3951385c7d42eb5c4574341cc7fdb9a214bf9ce3280706b1bf6c890760  172017 bytes  test-attempt-2.log
+SERIALIZED: produced with no other run in flight
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4; rustc 1.98.1 (48a229cea 2026-09-01)
+at entry: status lines 1: this phase's logs and record pair 1
+the phase commit given to this script is a full sha: yes
+the phase commit given to this script is HEAD: yes
+control: the same comparison against the null commit says no: yes
+control: the same comparison against a short sha of the real commit says no: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 1 part 5 P2 test.log (specs/0012-styles.md, "Phases": test.log on
+    # both targets): cargo test for the workspace on the host and with --target
+    # i686-unknown-linux-musl, colour off. The log shows the test names, the
+    # "Running" lines and the summary lines of each run, both executed counts, and
+    # checks the two runs executed the same tests. Each check is evaluated once
+    # (specs/0001: a check with more than one condition lives in one function that
+    # returns yes or no).
+    #
+    # WRITTEN FOR M1 part 5 P2 from P1's test script
+    # (records/logs/m1p5-p1/test.log). What differs from that one, and why:
+    #  1. The phase, the spec and the log directory are P2's, and the previous
+    #     phase's figures are read from records/logs/m1p5-p2/test.log.
+    #  2. The workspace total is compared by NAME: none may be removed, and every
+    #     added one must be the tool's integration binary's, the only place P2
+    #     adds tests. Ruling 8's case joins a test that already existed, so the
+    #     package module gains no name; the mutation block is what shows that
+    #     case bites, since a count cannot. The cells module's count and the
+    #     styles module's names are asserted equal to the previous phase's.
+    #  3. No planning file is modified and uncommitted (planning's verification
+    #     went into P2's doc commit), and P2 has no size record: the entry guard
+    #     and the status block account for this phase's logs and its record pair
+    #     alone.
+    #  4. The mutation block is P2's. Each write path this phase adds or pins
+    #     gets a mutation that must be caught, with the test it must break named:
+    #     - C1 makes the arm a clear with no style edit takes for an absent cell
+    #       write a cell, which is ruling 8's case: P1's diff could not show it,
+    #       because the arm's own function was unchanged and so out of the diff;
+    #     - C2 takes no base for the coded format, so a derived xf no longer
+    #       keeps the sampled cell's own font;
+    #     - C3 gives the new cell the coded format instead of the dated one;
+    #     - C4 misspells a key of the tool's line;
+    #     - C5 writes another number in the new cell.
+    #     The unmutated worktree's pass of both crates is the block's control.
+    #  5. A block reads each code commit's files at that commit, checks every test
+    #     its message names exists there, and prints the counts the messages
+    #     state.
+    #  6. Everything else is P1's: the per-binary breakdown with its controls,
+    #     the named-test blocks, the ignored-test block, the feature builds, and
+    #     the comparison of the two targets. The counts this log prints are read
+    #     from the runs, never typed.
+    #  7. None of the three shapes specs/0001 forbids appears here; the shapes
+    #     are described rather than written out.
+    #
+    # Usage: m1p5-p2-test.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p5-p2/test.log.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # One function, two conditions (specs/0001).
+    passed_matches() { [ "$passed" -gt 0 ] && [ "$passed" -eq "$nok" ]; }
+    
+    # specs/0001 "Rules for every phase": the phase commit is GIVEN to the script
+    # and compared with HEAD, with a control, and both are printed. The hard guard
+    # is here, before a line of log exists; the printed comparison and its control
+    # are in the body below, where a reader sees them.
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { ! head_is "$1"; }
+    full_sha() { LC_ALL=C printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if ! full_sha "$C"; then echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if ! head_is "$C"; then echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    
+    # The entry guard: every change must be under this phase's log directory, or be
+    # its run record pair (header change 3).
+    entry_all=$(run_lines git status --porcelain)
+    entry_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p5-p2|records/m1p5-p2-)' git status --porcelain)
+    entry_clean() {
+      [ "$entry_all" != error ] && [ "$entry_log" != error ] &&
+        [ "$entry_all" = "$entry_log" ]
+    }
+    if ! entry_clean; then
+      echo "the working tree holds changes outside this phase's records" >&2
+      exit 2
+    fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 5 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 5 P2 (specs/0012-styles.md) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0001 "Rules for every phase": every sha256 a log cites, a superseded
+      # attempt's included, is PRINTED BY A COMMAND run over a file that exists at
+      # run time, never typed from memory. The note above names its predecessors;
+      # these lines are what make those names evidence. An attempt that was not
+      # kept is named as having no hash, and why.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS; $(rustc --version)"
+    echo "at entry: status lines $entry_all: this phase's logs and record pair $entry_log"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    # The control for the comparison, in the same command form: the same function
+    # against a commit that is not HEAD must say no, so the yes above cannot be a
+    # comparison that says yes to anything.
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    check "control: the same comparison against a short sha of the real commit says no" \
+      "$(yn not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    for target in host i686-unknown-linux-musl; do
+      echo
+      echo "## cargo test --workspace ($target)"
+      if [ "$target" = host ]; then
+        echo "command: cargo test --workspace"
+        cargo test --workspace >"$T/$target.out" 2>&1 </dev/null
+      else
+        echo "command: cargo test --workspace --target $target"
+        cargo test --workspace --target "$target" >"$T/$target.out" 2>&1 </dev/null
+      fi
+      rc=$?
+      echo "exit: $rc"
+      check "exit is 0" "$(yn [ "$rc" -eq 0 ])"
+      echo "Running lines, test lines and summary lines:"
+      LC_ALL=C "$G" -E '^ *Running |^ *Doc-tests |^test .* \.\.\. |^test result: ' "$T/$target.out" | sed 's/^ */    /'
+      LC_ALL=C "$G" -E '^test .* \.\.\. ok$' "$T/$target.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | sort >"$T/$target.names"
+      passed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      failed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^failed;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      ignored=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^ignored;$/) n += $i } END { print n + 0 }' "$T/$target.out")
+      nok=$(count_lines "$T/$target.names")
+      echo "$target: passed $passed; failed $failed; ignored $ignored; test lines ending ok: $nok"
+      check "$target: failed is 0" "$(yn [ "$failed" -eq 0 ])"
+      check "$target: passed is more than 0 and equals the ok test lines" "$(yn passed_matches)"
+      n=$(count_bytes "$CTRL_CLASS" "$T/$target.out")
+      check "$target: control bytes in the cargo output: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+      echo "$passed" >"$T/$target.count"
+    done
+    
+    echo
+    echo "## the tests per binary, which planning asked this log for"
+    # For each Running or Doc-tests line, the binary it names and how many of its
+    # tests passed, taken from the test result line that closes its block. The
+    # binary's hash suffix is stripped, so the same table can be compared with
+    # another run's: a suffix changes whenever the crate is rebuilt and carries no
+    # information about the tests.
+    per_binary() {
+      awk '
+        /^ *Running / {
+          # The label comes from the compiled binary in parentheses, with its hash
+          # suffix removed, because that names the CRATE; the words before it are
+          # only "unittests src/lib.rs" or the tests/ file, which repeat across
+          # crates. unittests and integration tests are distinguished, so a
+          # library and an integration binary of the same crate stay apart.
+          path = $NF
+          gsub(/[()]/, "", path)
+          parts = split(path, piece, "/")
+          label = piece[parts]
+          sub(/-[0-9a-f]+$/, "", label)
+          current = (($2 == "unittests") ? "unittests " : "integration ") label
+          next
+        }
+        /^ *Doc-tests / { current = "doc-tests " $2; next }
+        /^test result: / {
+          if (current == "") next
+          for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n = $i
+          printf "%s %d\n", current, n
+          current = ""
+        }
+      ' "$1" | sort
+    }
+    for target in host i686-unknown-linux-musl; do
+      per_binary "$T/$target.out" >"$T/$target.per"
+    done
+    # The tool's integration binary's own names, from its section of the host
+    # run, used by the by-name comparison below.
+    awk '
+      /^ *Running tests\/null_rewrite\.rs/ { inblock = 1; next }
+      inblock && /^test result: / { inblock = 0 }
+      inblock && /^test .* \.\.\. ok$/ { sub(/^test /, ""); sub(/ \.\.\. ok$/, ""); print }
+    ' "$T/host.out" | sort >"$T/tool.sorted"
+    sed 's/^/    /' "$T/host.per"
+    sum_per=$(awk '{ n += $NF } END { print n + 0 }' "$T/host.per")
+    echo "  the per-binary counts sum to $sum_per; the run's own passed total was $(cat "$T/host.count")"
+    check "the per-binary counts sum to the run's passed total" \
+      "$(yn [ "$sum_per" = "$(cat "$T/host.count")" ])"
+    check "the two targets produce the same per-binary breakdown" \
+      "$(yn cmp -s "$T/host.per" "$T/i686-unknown-linux-musl.per")"
+    # The control for the extraction, in the same command form: a stream with no
+    # Running line yields no rows, so a silent awk failure cannot read as "no
+    # tests" indistinguishably from a correct empty answer.
+    printf 'test result: ok. 5 passed; 0 failed; 0 ignored\n' >"$T/c-per"
+    per_binary "$T/c-per" >"$T/c-per.out"
+    nctl_per=$(count_lines "$T/c-per.out")
+    echo "  control: a result line with no Running line above it yields $nctl_per rows"
+    check "control: the per-binary form attributes nothing to a binary it never saw named" \
+      "$(yn [ "$nctl_per" = 0 ])"
+    # A positive control for the same form, so the 0 above cannot be a form that
+    # never counts anything: a Running line and its result must yield one row.
+    printf '     Running unittests src/lib.rs (target/debug/deps/libctl-0123456789abcdef)\ntest result: ok. 7 passed; 0 failed; 0 ignored\n' >"$T/c-per-hit"
+    per_binary "$T/c-per-hit" >"$T/c-per-hit.out"
+    sed 's/^/    control row: /' "$T/c-per-hit.out"
+    check "control: a Running line and its result yield one row naming the crate and its count" \
+      "$(yn [ "$(cat "$T/c-per-hit.out")" = "unittests libctl 7" ])"
+    # The library's figure beside the previous phase's total, read from that
+    # phase's committed log rather than typed. The library's own row is the
+    # unittests row of the emend crate.
+    LIB_NOW=$(awk '$1 == "unittests" && $2 == "emend" { n += $3 } END { print n + 0 }' "$T/host.per")
+    PREV_LOG=records/logs/m1p5-p1/test.log
+    PREV_TOTAL=$(sed -n 's/^host executed \([0-9]*\) tests;.*/\1/p' "$PREV_LOG")
+    NOW_TOTAL=$(cat "$T/host.count")
+    echo "  the library's own tests in this run: $LIB_NOW"
+    echo "  the workspace total: this phase $NOW_TOTAL, the previous phase $PREV_TOTAL (read from $PREV_LOG)"
+    check "the previous phase's total was read from its committed log" "$(yn [ -n "$PREV_TOTAL" ])"
+    # By name (header change 2). The previous log printed its host run's test
+    # lines indented under "## cargo test --workspace (host)"; they are read from
+    # that block alone, so the i686 block's copies are not counted twice.
+    awk '
+      /^## cargo test --workspace \(host\)$/ { inblock = 1; next }
+      /^## / { inblock = 0 }
+      inblock && /^    test .* \.\.\. ok$/ { sub(/^    test /, ""); sub(/ \.\.\. ok$/, ""); print }
+    ' "$PREV_LOG" | sort >"$T/prev.names"
+    nprev_names=$(count_lines "$T/prev.names")
+    echo "  test names the previous log's host run printed: $nprev_names"
+    check "the previous log's names account for its whole host total" "$(yn [ "$nprev_names" = "$PREV_TOTAL" ])"
+    comm -13 "$T/prev.names" "$T/host.names" >"$T/added.names"
+    comm -23 "$T/prev.names" "$T/host.names" >"$T/removed.names"
+    nadded=$(count_lines "$T/added.names")
+    nremoved=$(count_lines "$T/removed.names")
+    nadded_pkg=$(count_matches -E '^package::tests::' "$T/added.names")
+    nadded_styles=$(count_matches -E '^styles::tests::' "$T/added.names")
+    # The tool's integration binary's names carry no module prefix, so the tool's
+    # added names are the added names that are in its section of this run.
+    comm -12 "$T/added.names" "$T/tool.sorted" >"$T/added.tool"
+    nadded_tool=$(count_lines "$T/added.tool")
+    echo "  test names added since the previous phase: $nadded, of them in the package module: $nadded_pkg, in the styles module: $nadded_styles, in the tool's integration binary: $nadded_tool"
+    sed 's/^/    added: /' "$T/added.names"
+    echo "  test names removed since the previous phase: $nremoved"
+    sed 's/^/    removed: /' "$T/removed.names"
+    check "no test the previous phase ran is gone" "$(yn [ "$nremoved" = 0 ])"
+    check "every added test is the tool's integration binary's" "$(yn [ "$nadded" = "$nadded_tool" ])"
+    check "the tool's integration binary gained the style sample's tests" "$(yn [ "$nadded_tool" -ge 1 ])"
+    # Ruling 8's case joins a test that already existed, so the package module
+    # gains no NAME in this phase; the mutation block below is what shows the
+    # case bites, since a count cannot.
+    check "the package module gained no name, as ruling 8's case joins an existing test" \
+      "$(yn [ "$nadded_pkg" = 0 ])"
+    check "the styles module gained no name in this phase" "$(yn [ "$nadded_styles" = 0 ])"
+    total_grew_by_added() { [ -n "$PREV_TOTAL" ] && [ "$NOW_TOTAL" -eq "$((PREV_TOTAL + nadded))" ]; }
+    check "this phase's workspace total is the previous phase's plus the names added" \
+      "$(yn total_grew_by_added)"
+    # The control for the comparison, through the same command form: the previous
+    # names against themselves add and remove nothing.
+    comm -3 "$T/prev.names" "$T/prev.names" >"$T/c-names"
+    check "control: the same comparison of a list with itself finds no difference" \
+      "$(yn [ "$(count_lines "$T/c-names")" = 0 ])"
+    # And a positive one: a list with one name more is found to add exactly that.
+    { cat "$T/prev.names"; echo "zzz::control::name"; } | sort >"$T/c-names-plus"
+    check "control: a list with one name more is found to add exactly one" \
+      "$(yn [ "$(comm -13 "$T/prev.names" "$T/c-names-plus" | wc -l)" = 1 ])"
+    
+    echo
+    echo "## the xml module's tests, named"
+    # specs/0009's P1 list names the cases the token stream must cover, so the log
+    # prints them rather than only a count: a reader checks the list against the
+    # spec, case by case.
+    LC_ALL=C "$G" -E '^xml::tests::' "$T/host.names" | sed 's/^/    /'
+    nxml=$(count_matches -E '^xml::tests::' "$T/host.names")
+    echo "  xml module tests on the host: $nxml"
+    check "the xml module has more than twenty tests of its own" "$(yn [ "$nxml" -gt 20 ])"
+    # The same names on i686, since a test compiled out on one target is exactly
+    # what T6 P1 case B3 exists for.
+    nxml_i686=$(count_matches -E '^xml::tests::' "$T/i686-unknown-linux-musl.names")
+    echo "  xml module tests on i686-unknown-linux-musl: $nxml_i686"
+    check "the xml module's test count is the same on both targets" "$(yn [ "$nxml" = "$nxml_i686" ])"
+    
+    echo
+    echo "## the package module's tests, named"
+    # specs/0009's P2 list names the cases the package layer must cover, so the
+    # log prints them rather than only a count: a reader checks the list against
+    # the spec, case by case, as for the xml module above.
+    LC_ALL=C "$G" -E '^package::tests::' "$T/host.names" | sed 's/^/    /'
+    npkg=$(count_matches -E '^package::tests::' "$T/host.names")
+    echo "  package module tests on the host: $npkg"
+    check "the package module has more than twenty tests of its own" "$(yn [ "$npkg" -gt 20 ])"
+    PREV_PKG=$(sed -n 's/^  package module tests on the host: \([0-9]*\)$/\1/p' "$PREV_LOG")
+    echo "  the previous phase's package count, read from $PREV_LOG: $PREV_PKG"
+    check "the previous phase's package count was read from its committed log" "$(yn [ -n "$PREV_PKG" ])"
+    # The previous count plus the package names added (header change 2).
+    pkg_grew_by_added() { [ -n "$PREV_PKG" ] && [ "$npkg" -eq "$((PREV_PKG + nadded_pkg))" ]; }
+    check "the package module runs the previous phase's count plus the package names added" \
+      "$(yn pkg_grew_by_added)"
+    npkg_i686=$(count_matches -E '^package::tests::' "$T/i686-unknown-linux-musl.names")
+    echo "  package module tests on i686-unknown-linux-musl: $npkg_i686"
+    check "the package module's test count is the same on both targets" "$(yn [ "$npkg" = "$npkg_i686" ])"
+    
+    echo
+    echo "## the cells module's tests, named"
+    # specs/0010's P2 list names the cases the cell reader must cover, so the log
+    # prints them rather than only a count: a reader checks the list against the
+    # spec, case by case, as for the two modules above and as P1's log did for the
+    # shared strings table.
+    LC_ALL=C "$G" -E '^cells::tests::' "$T/host.names" | sed 's/^/    /'
+    ncells=$(count_matches -E '^cells::tests::' "$T/host.names")
+    PREV_CELLS=$(sed -n 's/^  cells module tests on the host: \([0-9]*\)$/\1/p' "$PREV_LOG")
+    echo "  cells module tests on the host: $ncells"
+    echo "  the previous phase's cells count, read from $PREV_LOG: $PREV_CELLS"
+    check "the previous phase's cells count was read from its committed log" "$(yn [ -n "$PREV_CELLS" ])"
+    # EQUAL, not larger: P1 adds no test to the cells module (header change 2).
+    check "the cells module runs exactly as many tests as the previous phase's log printed" \
+      "$(yn [ "$ncells" = "$PREV_CELLS" ])"
+    ncells_i686=$(count_matches -E '^cells::tests::' "$T/i686-unknown-linux-musl.names")
+    echo "  cells module tests on i686-unknown-linux-musl: $ncells_i686"
+    check "the cells module's test count is the same on both targets" "$(yn [ "$ncells" = "$ncells_i686" ])"
+    
+    echo
+    echo "## the styles module's tests, named"
+    # specs/0012's P1 list names the cases the styles reader must cover, so the log
+    # prints them rather than only a count. The module arrived in P1, so its names
+    # are the previous phase's and this phase adds none.
+    LC_ALL=C "$G" -E '^styles::tests::' "$T/host.names" | sed 's/^/    /'
+    nstyles=$(count_matches -E '^styles::tests::' "$T/host.names")
+    nstyles_prev=$(count_matches -E '^styles::tests::' "$T/prev.names")
+    echo "  styles module tests on the host: $nstyles; in the previous phase's log: $nstyles_prev"
+    check "the previous phase ran the styles module's tests" "$(yn [ "$nstyles_prev" -ge 1 ])"
+    check "the styles module runs exactly the previous phase's names" \
+      "$(yn [ "$nstyles" = "$nstyles_prev" ])"
+    nstyles_i686=$(count_matches -E '^styles::tests::' "$T/i686-unknown-linux-musl.names")
+    echo "  styles module tests on i686-unknown-linux-musl: $nstyles_i686"
+    check "the styles module's test count is the same on both targets" "$(yn [ "$nstyles" = "$nstyles_i686" ])"
+    
+    echo
+    echo "## the package module's added tests (the second code commit's), named"
+    LC_ALL=C "$G" -E '^package::tests::' "$T/added.names" | sed 's/^/    /'
+    
+    echo
+    echo "## the tool's integration tests, named"
+    # The null rewrite applied to a byte-built archive, and the operation parsing.
+    # These run the BUILT BINARY, so they are the only tests here that exercise
+    # emend-copy's own argument handling.
+    # Taken from the null_rewrite binary's OWN section of the cargo output, not by
+    # a name prefix: the xlsx-diff and passthrough integration tests carry no
+    # module prefix either, so a prefix filter would count them as the tool's.
+    # P1 adds to it (header change 2): the count must be the previous phase's
+    # plus the tool names added above.
+    for target in host i686-unknown-linux-musl; do
+      awk '
+        /^ *Running tests\/null_rewrite\.rs/ { inblock = 1; next }
+        inblock && /^test result: / { inblock = 0 }
+        inblock && /^test .* \.\.\. ok$/ {
+          sub(/^test /, ""); sub(/ \.\.\. ok$/, ""); print
+        }
+      ' "$T/$target.out" | sort >"$T/$target.tool"
+    done
+    sed 's/^/    /' "$T/host.tool"
+    ntool=$(count_lines "$T/host.tool")
+    ntool_i686=$(count_lines "$T/i686-unknown-linux-musl.tool")
+    echo "  tests in the tool's null_rewrite binary: host $ntool, i686-unknown-linux-musl $ntool_i686"
+    PREV_TOOL=$(sed -n "s/^  tests in the tool's null_rewrite binary: host \\([0-9]*\\),.*/\\1/p" "$PREV_LOG")
+    echo "  the previous phase's tool count, read from $PREV_LOG: $PREV_TOOL"
+    check "the previous phase's tool count was read from its committed log" "$(yn [ -n "$PREV_TOOL" ])"
+    tool_grew_by_added() { [ -n "$PREV_TOOL" ] && [ "$ntool" -eq "$((PREV_TOOL + nadded_tool))" ]; }
+    check "the tool's integration tests are the previous phase's plus the tool names added" \
+      "$(yn tool_grew_by_added)"
+    check "the tool's tests are the same names on both targets" "$(yn cmp -s "$T/host.tool" "$T/i686-unknown-linux-musl.tool")"
+    # The control for the extraction above, through the same command form: a
+    # Running line that is not the tool's yields none of the tool's names.
+    awk '
+      /^ *Running tests\/no-such-binary\.rs/ { inblock = 1; next }
+      inblock && /^test result: / { inblock = 0 }
+      inblock && /^test .* \.\.\. ok$/ { print }
+    ' "$T/host.out" >"$T/tool-control"
+    nctl=$(count_lines "$T/tool-control")
+    check "control: the same extraction for a binary that does not exist yields 0 names ($nctl)" "$(yn [ "$nctl" = 0 ])"
+    
+    echo
+    echo "## the zip layer's tests, counted (P1 adds none there)"
+    nlayer=$(count_matches -E '^archive::tests::' "$T/host.names")
+    echo "  zip layer tests on the host: $nlayer"
+    check "the zip layer still has more than twenty tests of its own" "$(yn [ "$nlayer" -gt 20 ])"
+    
+    # Both runs report TWO ignored tests, named here rather than left as a count:
+    # the two documented 4 GiB zip64 cases, gated behind `--ignored zip64`
+    # (specs/0004). The property asserted is that no test of the xml or package
+    # module is ignored and every ignored test is one of those two, so a newly
+    # ignored test anywhere could not hide among them.
+    echo "  the ignored test or tests, named:"
+    LC_ALL=C "$G" -E '^test .* \.\.\. ignored' "$T/host.out" | sed 's/^/    /'
+    nign=$(count_matches -E '^test .* \.\.\. ignored' "$T/host.out")
+    nign_xml=$(count_matches -E '^test xml::tests::.* \.\.\. ignored' "$T/host.out")
+    nign_pkg=$(count_matches -E '^test (package|styles)::tests::.* \.\.\. ignored' "$T/host.out")
+    nign_zip64=$(count_matches -E '^test .* \.\.\. ignored, writes and (rewrites an archive over 4 GiB|compares a 4 GiB \+ 1 byte entry); run with --ignored zip64$' "$T/host.out")
+    echo "  ignored tests on the host: $nign; of them in the xml module: $nign_xml; in the package or styles module: $nign_pkg; of them the documented 4 GiB zip64 cases: $nign_zip64"
+    check "no test of the xml module is ignored" "$(yn [ "$nign_xml" = 0 ])"
+    check "no test of the package or styles module is ignored" "$(yn [ "$nign_pkg" = 0 ])"
+    check "every ignored test is one of the two documented 4 GiB zip64 cases" "$(yn [ "$nign" = "$nign_zip64" ])"
+    check "there are exactly two such ignored tests" "$(yn [ "$nign_zip64" = 2 ])"
+    # The control for the reason-matching form above, through the same command
+    # form: an ignored line with any other reason is not counted.
+    printf 'test some::other ... ignored, for some other reason\n' >"$T/c-ignored"
+    nctl_ign=$(count_matches -E '^test .* \.\.\. ignored, writes and (rewrites an archive over 4 GiB|compares a 4 GiB \+ 1 byte entry); run with --ignored zip64$' "$T/c-ignored")
+    check "control: an ignored test with another reason is not counted as a zip64 case ($nctl_ign)" "$(yn [ "$nctl_ign" = 0 ])"
+    
+    echo
+    echo "## size-probe with the xml feature (the workspace runs above skip probe-zip-xml, which requires it)"
+    for target in host i686-unknown-linux-musl; do
+      if [ "$target" = host ]; then tflag=(); else tflag=(--target "$target"); fi
+      echo "command: cargo build -p size-probe --features xml --all-targets ${tflag[*]}"
+      cargo build -p size-probe --features xml --all-targets "${tflag[@]}" >"$T/xml-build-$target.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      check "$target: size-probe builds with the xml feature" "$(yn [ "$rc" -eq 0 ])"
+      echo "command: cargo clippy -p size-probe --features xml --all-targets ${tflag[*]} -- -D warnings"
+      cargo clippy -p size-probe --features xml --all-targets "${tflag[@]}" -- -D warnings >"$T/xml-clippy-$target.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      check "$target: clippy with the xml feature passes" "$(yn [ "$rc" -eq 0 ])"
+      n=$(count_bytes "$CTRL_CLASS" "$T/xml-clippy-$target.out")
+      check "$target: control bytes in the clippy output: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+    done
+    
+    echo
+    echo "## the core builds and passes clippy with both features of the probes"
+    # quick-xml is now a dependency of the core itself, so the emend probes link it
+    # transitively. Both feature sets are built here, because a feature that no
+    # workspace member enables is in no build at all (T0 P4).
+    for target in host i686-unknown-linux-musl; do
+      if [ "$target" = host ]; then tflag=(); else tflag=(--target "$target"); fi
+      echo "command: cargo clippy -p size-probe --features emend,xml --all-targets ${tflag[*]} -- -D warnings"
+      cargo clippy -p size-probe --features emend,xml --all-targets "${tflag[@]}" -- -D warnings \
+        >"$T/both-clippy-$target.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      check "$target: clippy with both features passes" "$(yn [ "$rc" -eq 0 ])"
+    done
+    
+    
+    echo
+    echo "## the code commits, resolved by subject"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    CODE1=$(by_subject 'M1 part 5 P2: the clear-alone-on-an-absent-cell case (ruling 8)')
+    CODE2=$(by_subject 'M1 part 5 P2: emend-copy --style-sample')
+    echo "  the first code commit (ruling 8's case): $CODE1"
+    echo "  the second code commit (the style sample): $CODE2"
+    all_resolved() { [ -n "$CODE1" ] && [ -n "$CODE2" ]; }
+    check "both code commits resolved from git by subject" "$(yn all_resolved)"
+    check "the second code commit is the phase commit" "$(yn [ "$CODE2" = "$C" ])"
+    check "the first code commit is the second's parent" "$(yn [ "$CODE1" = "$(git rev-parse "$CODE2^")" ])"
+    check "control: a subject no commit has resolves to nothing" \
+      "$(yn [ -z "$(by_subject 'M1 part 5 P2: no such subject anywhere')" ])"
+    
+    echo
+    echo "## the mutations, and what each one broke"
+    # specs/0001 "Rules for every phase": a claim that a test or a behaviour
+    # BITES is a printed measurement in test.log (header change 4). Each mutation
+    # is applied to a DETACHED WORKTREE of this phase's commit, with its own
+    # CARGO_TARGET_DIR, so nothing touches the tree this log is being written
+    # from. The applier refuses a mutation whose text it cannot find exactly once,
+    # so a mutation that applied to nothing cannot read as a test that failed to
+    # bite.
+    MUTTREE=$(mktemp -d)
+    git worktree add --detach "$MUTTREE/tree" "$C" >"$T/worktree.out" 2>&1
+    wt=$?
+    echo "command: git worktree add --detach <scratch>/tree $C"
+    echo "exit: $wt"
+    check "the worktree for the mutations was created at the phase commit" "$(yn [ "$wt" -eq 0 ])"
+    cleanup_worktree() {
+      git worktree remove --force "$MUTTREE/tree" >/dev/null 2>&1
+      rm -rf "$MUTTREE"
+    }
+    trap 'cleanup_worktree; rm -rf "$T"' EXIT INT TERM HUP
+    
+    cat >"$MUTTREE/mutate.py" <<'PYEOF'
+    import sys
+    
+    PACKAGE = "crates/emend/src/package.rs"
+    TOOL = "tools/emend-copy/src/main.rs"
+    
+    # C1 is ruling 8's case: the arm a clear with no style edit takes for a cell
+    # that is not there. P1's second code commit rewrote that arm while the
+    # function it calls stayed as it was, so P1's diff could not show the case;
+    # this mutation makes the arm write a cell and names the test that catches it.
+    EMPTY = "        (None, None) => Vec::new(),"
+    WRITES = '        (None, None) => [b"<".as_slice(), prefix, b"c/>"].concat(),'
+    
+    MUTATIONS = {
+        "C1": [(PACKAGE, EMPTY, WRITES)],
+        "C2": [(TOOL, "        package.add_cell_style(before.first_style, "
+                      'NumberFormat::Code("0.000".to_string()))?;',
+                "        package.add_cell_style(None, "
+                'NumberFormat::Code("0.000".to_string()))?;')],
+        "C3": [(TOOL, "    package.set_cell_style(&part, new_cell, Some(dated));",
+                "    package.set_cell_style(&part, new_cell, Some(coded));")],
+        "C4": [(TOOL, '            "formats_added",', '            "formats_add",')],
+        "C5": [(TOOL, "    package.set_cell(&part, new_cell, Value::Number(45000.5));",
+                "    package.set_cell(&part, new_cell, Value::Number(45000.0));")],
+    }
+    
+    which = sys.argv[1]
+    root = sys.argv[2]
+    for path, old, new in MUTATIONS[which]:
+        full = root + "/" + path
+        body = open(full).read()
+        found = body.count(old)
+        if found != 1:
+            print("REFUSED %s: the text to replace in %s occurs %d times, not once" % (which, path, found))
+            sys.exit(2)
+        body = body.replace(old, new, 1)
+        open(full, "w").write(body)
+        print("    applied %s to %s: %d bytes -> %d bytes" % (which, path, len(old), len(new)))
+    PYEOF
+    echo
+    echo "## the mutation applier this block runs"
+    sed 's/^/    /' "$MUTTREE/mutate.py"
+    
+    mut_expect() {
+      case "$1" in
+        C1) echo "package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing" ;;
+        C2) echo "the_style_sample_adds_two_formats_and_styles_two_cells" ;;
+        C3) echo "the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone" ;;
+        C4) echo "the_style_sample_adds_two_formats_and_styles_two_cells" ;;
+        C5) echo "the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone" ;;
+        *) echo "" ;;
+      esac
+    }
+    mut_crate() {
+      case "$1" in
+        C1) echo emend ;;
+        *) echo emend-copy ;;
+      esac
+    }
+    # A compiler error line: rustc's coded form, or cargo's "could not compile".
+    # cargo's "test failed" and "target(s) failed" lines are not compiler errors.
+    compile_errors() { count_matches -E '^error(\[E[0-9]+\]|: could not compile )' "$1"; }
+    printf 'error[E0308]: mismatched types\nerror: could not compile `emend` (lib test) due to 1 previous error\n' >"$T/c-compile"
+    printf 'error: test failed, to rerun pass `-p emend --lib`\nerror: 1 target failed:\n' >"$T/c-testfail"
+    check "control: the compiler-error form counts a coded error and a could-not-compile line ($(compile_errors "$T/c-compile"))" \
+      "$(yn [ "$(compile_errors "$T/c-compile")" = 2 ])"
+    check "control: the compiler-error form counts none of cargo's test-failure lines ($(compile_errors "$T/c-testfail"))" \
+      "$(yn [ "$(compile_errors "$T/c-testfail")" = 0 ])"
+    blocks() {
+      awk '/^---- .* stdout ----$/ { inb = 1; print; next }
+           /^note: run with/ || /^failures:$/ { inb = 0 }
+           inb && NF { print }' "$1"
+    }
+    
+    for m in C1 C2 C3 C4 C5; do
+      echo
+      echo "### $m"
+      ( cd "$MUTTREE/tree" && git checkout -q -- . ) || fail=1
+      python3 "$MUTTREE/mutate.py" "$m" "$MUTTREE/tree" >"$T/mut-$m.apply" 2>&1
+      arc=$?
+      sed 's/^/  /' "$T/mut-$m.apply"
+      check "$m: the applier found its text exactly once and replaced it" "$(yn [ "$arc" -eq 0 ])"
+      if [ "$arc" -ne 0 ]; then continue; fi
+      crate=$(mut_crate "$m")
+      echo "command: cargo test --no-fail-fast -p $crate (in the mutated worktree)"
+      ( cd "$MUTTREE/tree" && CARGO_TARGET_DIR="$MUTTREE/target" \
+          cargo test --no-fail-fast -p "$crate" ) \
+        >"$T/mut-$m.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      check "$m: the mutated tree does not pass its tests" "$(yn [ "$rc" -ne 0 ])"
+      # A mutation that does not compile would also fail; the failing test must
+      # be named below, so a build failure cannot pass for a test that bites.
+      # cargo's own error lines are printed; only a compiler error counts
+      # (header change 8).
+      echo "  cargo's error lines:"
+      LC_ALL=C "$G" -E '^error' "$T/mut-$m.out" | sed 's/^/    /'
+      nerr=$(compile_errors "$T/mut-$m.out")
+      check "$m: the mutated tree compiles ($nerr compiler error lines)" "$(yn [ "$nerr" = 0 ])"
+      echo "  the failures, with what each assertion printed:"
+      blocks "$T/mut-$m.out" | sed 's/^/    /'
+      LC_ALL=C "$G" -E '^test result: FAILED' "$T/mut-$m.out" | sed 's/^/    /'
+      nmsg_lines=$(blocks "$T/mut-$m.out" | awk '!/^---- / && !/panicked at/ { n++ } END { print n + 0 }')
+      check "$m: the failure output carries the assertion's own message or values ($nmsg_lines lines)" \
+        "$(yn [ "$nmsg_lines" -ge 1 ])"
+      LC_ALL=C "$G" -E '^ +[a-z_:0-9]+$' "$T/mut-$m.out" | sed 's/^ *//' | sort -u >"$T/mut-$m.failed"
+      echo "  the failing test names this run reports:"
+      sed 's/^/    /' "$T/mut-$m.failed"
+      want=$(mut_expect "$m")
+      hit=$(count_matches -E "^${want}\$" "$T/mut-$m.failed")
+      check "$m: $want fails" "$(yn [ "$hit" -ge 1 ])"
+    done
+    
+    # The control for this whole block, in the same command form: the UNMUTATED
+    # worktree at the same commit must pass both crates' tests, so a failure above
+    # is the mutation's.
+    echo
+    echo "### control: the same worktree with no mutation applied"
+    ( cd "$MUTTREE/tree" && git checkout -q -- . ) || fail=1
+    for crate in emend emend-copy; do
+      echo "command: cargo test --no-fail-fast -p $crate (in the clean worktree)"
+      ( cd "$MUTTREE/tree" && CARGO_TARGET_DIR="$MUTTREE/target" \
+          cargo test --no-fail-fast -p "$crate" ) \
+        >"$T/mut-clean-$crate.out" 2>&1 </dev/null
+      rc=$?
+      echo "exit: $rc"
+      LC_ALL=C "$G" -E '^test result: ' "$T/mut-clean-$crate.out" | sed 's/^/    /'
+      check "control: the unmutated worktree passes $crate, so each failure above is the mutation's" \
+        "$(yn [ "$rc" -eq 0 ])"
+    done
+    # And the failing-name search's control: the clean runs name no failing test.
+    LC_ALL=C "$G" -hE '^ +[a-z_:0-9]+$' "$T/mut-clean-emend.out" "$T/mut-clean-emend-copy.out" >"$T/clean.failed"
+    check "control: the same failing-name search over the clean runs finds none" \
+      "$(yn [ "$(count_lines "$T/clean.failed")" = 0 ])"
+    cleanup_worktree
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    
+    echo
+    echo "## the two runs"
+    echo "host executed $(cat "$T/host.count") tests; i686-unknown-linux-musl executed $(cat "$T/i686-unknown-linux-musl.count") tests"
+    check "the i686 run executed the same test names as the host run" "$(yn cmp -s "$T/host.names" "$T/i686-unknown-linux-musl.names")"
+    check "the two counts are equal" "$(yn [ "$(cat "$T/host.count")" = "$(cat "$T/i686-unknown-linux-musl.count")" ])"
+    
+    echo
+    echo "## the tests and counts each code commit's message names, read at that commit (header change 5)"
+    tests_at() {
+      git show "$1:$2" 2>/dev/null | sed -n 's/^fn \([a-z_0-9]*\)() {$/\1/p' | sort
+    }
+    has_test() { tests_at "$1" "$2" | LC_ALL=C "$G" -qx -e "$3"; }
+    TOOL_TESTS=tools/emend-copy/tests/null_rewrite.rs
+    PKG_TESTS=crates/emend/src/package/tests.rs
+    TOOL_SRC=tools/emend-copy/src/main.rs
+    # lines_at <commit> <path> <pattern>: how many lines of that file at that
+    # commit match, counted through the shared helper so the form is the log's.
+    lines_at() { git show "$1:$2" 2>/dev/null | count_matches -E "$3" /dev/stdin; }
+    
+    # The first code commit's message: ruling 8's two cases join a test that
+    # already existed, and no library code changes.
+    RULING8=a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing
+    check "the test $RULING8, which $CODE1's message names, exists there" \
+      "$(yn has_test "$CODE1" "$PKG_TESTS" "$RULING8")"
+    check "control: a test that does not exist is not found at $CODE1" \
+      "$(yn [ "$(tests_at "$CODE1" "$PKG_TESTS" | count_matches -Fx no_such_test_anywhere /dev/stdin)" = 0 ])"
+    # The two clears the message names, counted inside that test's body alone.
+    clears_in_ruling8() {
+      git show "$1:$PKG_TESTS" 2>/dev/null | awk -v want="fn $RULING8() {" '
+        index($0, want) == 1 { inb = 1; next }
+        inb && /^}/ { exit }
+        inb && /p\.clear_cell\(/ { n++ }
+        END { print n + 0 }'
+    }
+    n_clears=$(clears_in_ruling8 "$CODE1")
+    n_clears_parent=$(clears_in_ruling8 "$CODE1^")
+    echo "  clear_cell calls inside $RULING8: at $CODE1 $n_clears, at its parent $n_clears_parent"
+    check "the test gains the two clears $CODE1's message names" "$(yn [ "$n_clears$n_clears_parent" = 20 ])"
+    n_files1=$(git show --name-only --format= "$CODE1" | count_lines /dev/stdin)
+    n_lib1=$(git show --name-only --format= "$CODE1" \
+      | count_matches -E '^crates/emend/src/[a-z]+\.rs$' /dev/stdin)
+    echo "  files in $CODE1: $n_files1; of them library sources outside the tests: $n_lib1"
+    check "the first code commit changes one file and no library source, as its message says" \
+      "$(yn [ "$n_files1$n_lib1" = 10 ])"
+    
+    # The second code commit's message: the flag, the two functions, the error
+    # and the tests, each read at that commit and at its parent.
+    for t in the_style_sample_adds_two_formats_and_styles_two_cells \
+             the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone \
+             the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing \
+             the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing; do
+      check "the test $t, which $CODE2's message names, exists there" \
+        "$(yn has_test "$CODE2" "$TOOL_TESTS" "$t")"
+      check "control: $t is not at the second code commit's parent" \
+        "$(yn [ "$(tests_at "$CODE2^" "$TOOL_TESTS" | count_matches -Fx "$t" /dev/stdin)" = 0 ])"
+    done
+    for f in style_sample style_read_back; do
+      n=$(lines_at "$CODE2" "$TOOL_SRC" "^fn $f\\(")
+      n_parent=$(lines_at "$CODE2^" "$TOOL_SRC" "^fn $f\\(")
+      check "$f, which $CODE2's message names, is added there ($n at it, $n_parent at its parent)" \
+        "$(yn [ "$n$n_parent" = 10 ])"
+    done
+    # The variant's own declaration inside the enum carries no Error:: prefix,
+    # so the pattern is the bare name: it is the three lines together that the
+    # commit message claims, the declaration among them.
+    ERR_RE='XfsAfter'
+    n_err=$(lines_at "$CODE2" "$TOOL_SRC" "$ERR_RE")
+    n_err_parent=$(lines_at "$CODE2^" "$TOOL_SRC" "$ERR_RE")
+    echo "  lines naming the new assertion's error: at $CODE2 $n_err, at its parent $n_err_parent"
+    check "the error the message names is declared, displayed and raised at $CODE2, and absent before" \
+      "$(yn [ "$n_err$n_err_parent" = 30 ])"
+    # The pattern is written as a character class, never as a bare --: P1's
+    # negative log lost a run to a helper that read a leading -- as its option.
+    FLAG_RE='[-][-]style-sample'
+    n_usage=$(lines_at "$CODE2" "$TOOL_SRC" "$FLAG_RE")
+    n_usage_parent=$(lines_at "$CODE2^" "$TOOL_SRC" "$FLAG_RE")
+    echo "  lines of the tool's source naming the flag: at $CODE2 $n_usage, at its parent $n_usage_parent"
+    check "the flag is new in the tool's source at $CODE2" \
+      "$(yn [ "$n_usage_parent" = 0 ])"
+    check "the flag appears in the tool's source at $CODE2" "$(yn [ "$n_usage" -ge 3 ])"
+    n_cases=$(git show "$CODE2" -- "$TOOL_TESTS" | count_matches -E '^\+ *vec!\["--style-sample"|^\+ *vec!\["--styles", "--style-sample"\]' /dev/stdin)
+    echo "  flag-combination cases the diff adds for the new flag: $n_cases"
+    check "the three flag-combination cases the message names are added" "$(yn [ "$n_cases" = 3 ])"
+    
+    echo
+    echo "## status after the runs"
+    # Header change 3: this phase's logs and its record pair, nothing else.
+    st_all=$(run_lines git status --porcelain)
+    st_untracked_log=$(run_matches -E '^[?][?] records/logs/m1p5-p2' git status --porcelain)
+    st_tracked_log=$(run_matches -E '^ ?[MARCD] records/logs/m1p5-p2' git status --porcelain)
+    st_record=$(run_matches -E '^(\?\?| ?[MARCD]) records/m1p5-p2-' git status --porcelain)
+    echo "status lines: $st_all; untracked under the log directory: $st_untracked_log; tracked and modified under it: $st_tracked_log; the phase's record pair: $st_record"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_untracked_log" != error ] &&
+        [ "$st_tracked_log" != error ] && [ "$st_record" != error ] &&
+        [ "$st_all" = "$((st_untracked_log + st_tracked_log + st_record))" ]
+    }
+    check "every change in the working tree is one of this phase's logs or its record pair" "$(yn status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## cargo test --workspace (host)
+command: cargo test --workspace
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/debug/deps/emend-ca89f5e0f0d5245c)
+    test archive::tests::a_directory_entry_round_trips ... ok
+    test archive::tests::a_file_too_short_for_a_record_is_refused ... ok
+    test archive::tests::a_local_offset_beyond_the_file_is_refused ... ok
+    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
+    test archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused ... ok
+    test archive::tests::a_marker_with_no_zip64_extra_field_is_refused_on_rewrite ... ok
+    test archive::tests::a_multi_disk_record_is_refused ... ok
+    test archive::tests::a_non_ascii_name_round_trips ... ok
+    test archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes ... ok
+    test archive::tests::a_deflated_entry_is_replaced_and_the_others_are_untouched ... ok
+    test archive::tests::a_plain_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
+    test archive::tests::a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
+    test archive::tests::a_prefix_round_trips ... ok
+    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
+    test archive::tests::a_replacement_for_an_entry_of_another_method_is_refused_when_planned ... ok
+    test archive::tests::a_temporary_archive_of_two_entries_is_refused ... ok
+    test archive::tests::a_value_past_32_bits_in_a_plain_field_is_refused ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_write_after_a_read_still_round_trips ... ok
+    test archive::tests::a_zip64_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
+    test archive::tests::a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
+    test archive::tests::a_zip64_archive_has_no_prefix ... ok
+    test archive::tests::a_zip64_archive_with_a_prefix_round_trips ... ok
+    test archive::tests::a_zip64_locator_without_its_record_is_refused ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::a_removed_entry_leaves_the_others_intact ... ok
+    test archive::tests::adding_a_name_the_archive_already_has_is_refused ... ok
+    test archive::tests::a_replace_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::an_absent_index_is_refused ... ok
+    test archive::tests::a_replace_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::a_replaced_entry_keeps_its_descriptor_with_a_signature ... ok
+    test archive::tests::a_replaced_entry_keeps_its_descriptor_without_a_signature ... ok
+    test archive::tests::an_archive_comment_on_an_empty_archive_round_trips ... ok
+    test archive::tests::an_edit_to_an_absent_index_is_refused ... ok
+    test archive::tests::an_empty_archive_behind_a_stub_round_trips_in_both_conventions ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
+    test archive::tests::an_empty_archive_round_trips ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
+    test archive::tests::bytes_after_the_end_record_are_refused_with_their_own_message ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
+    test archive::tests::comments_round_trip ... ok
+    test archive::tests::a_replaced_zip64_entry_keeps_its_markers ... ok
+    test archive::tests::deflated_entries_round_trip ... ok
+    test archive::tests::descriptor_with_signature_round_trips ... ok
+    test archive::tests::descriptor_without_signature_round_trips ... ok
+    test archive::tests::duplicate_names_are_refused ... ok
+    test archive::tests::file_order_differing_from_central_order_round_trips ... ok
+    test archive::tests::not_a_zip_is_refused ... ok
+    test archive::tests::padding_between_entries_round_trips ... ok
+    test archive::tests::a_replacement_may_come_from_a_reader ... ok
+    test archive::tests::a_replacement_too_large_for_a_plain_local_header_is_refused ... ok
+    test archive::tests::reading_an_encrypted_entry_is_refused ... ok
+    test archive::tests::a_stored_entry_is_replaced_stored ... ok
+    test archive::tests::reading_an_entry_gives_its_bytes_back ... ok
+    test archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused ... ok
+    test archive::tests::replacing_an_encrypted_entry_is_refused ... ok
+    test archive::tests::stored_entries_round_trip ... ok
+    test archive::tests::the_crate_path_reports_the_index_asked_for ... ok
+    test archive::tests::the_crate_refusals_carry_their_catalogued_messages ... ok
+    test archive::tests::the_index_reports_what_the_records_say ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::two_changes_for_one_entry_are_refused ... ok
+    test archive::tests::unknown_extra_fields_round_trip ... ok
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
+    test archive::tests::zip64_markers_round_trip ... ok
+    test archive::tests::the_replacement_temporary_is_created_with_mode_0600 ... ok
+    test archive::tests::the_catalogue_names_every_refusal ... ok
+    test archive::tests::an_added_entry_is_appended ... ok
+    test cells::tests::a_carriage_return_line_feed_pair_becomes_one_line_feed ... ok
+    test cells::tests::a_cell_reference_parses_only_the_a1_form ... ok
+    test cells::tests::a_cell_in_another_namespace_is_not_a_cell ... ok
+    test cells::tests::a_carriage_return_through_a_reference_is_kept ... ok
+    test cells::tests::a_cell_reference_that_is_not_a1_is_refused ... ok
+    test cells::tests::a_cell_without_a_reference_follows_the_previous ... ok
+    test cells::tests::a_cell_type_this_layer_does_not_know_is_refused ... ok
+    test cells::tests::a_cells_own_reference_wins_over_its_row ... ok
+    test cells::tests::a_character_reference_is_expanded_in_a_value_a_formula_and_a_text ... ok
+    test cells::tests::a_formula_type_this_layer_does_not_know_is_refused ... ok
+    test cells::tests::a_data_table_formula_is_accepted_by_name ... ok
+    test cells::tests::a_line_feed_alone_is_unchanged ... ok
+    test cells::tests::a_normal_formula_is_its_text ... ok
+    test cells::tests::a_formulas_other_attributes_are_not_modelled ... ok
+    test cells::tests::a_lone_carriage_return_becomes_a_line_feed ... ok
+    test cells::tests::a_booleans_text_is_read_as_a_bool ... ok
+    test cells::tests::a_number_is_a_number_with_or_without_its_type ... ok
+    test cells::tests::a_numbers_text_is_read_as_an_f64 ... ok
+    test cells::tests::a_part_with_no_root_at_all_is_refused ... ok
+    test cells::tests::a_phonetic_subtree_inside_an_inline_string_is_skipped ... ok
+    test cells::tests::a_phonetic_subtree_is_skipped ... ok
+    test cells::tests::a_reference_writes_itself_back ... ok
+    test cells::tests::a_plain_item_is_its_text ... ok
+    test cells::tests::a_reference_between_two_line_ends_separates_them ... ok
+    test cells::tests::a_relationship_naming_no_entry_is_refused ... ok
+    test cells::tests::a_root_in_another_namespace_is_refused ... ok
+    test cells::tests::a_row_number_of_zero_is_refused ... ok
+    test cells::tests::a_root_of_the_wrong_name_is_refused ... ok
+    test cells::tests::a_number_cell_whose_text_is_not_a_number_has_none ... ok
+    test cells::tests::a_row_without_a_number_follows_the_last ... ok
+    test cells::tests::a_row_number_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_shared_formula_without_an_index_is_refused ... ok
+    test cells::tests::a_second_call_gives_an_equal_table ... ok
+    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test cells::tests::a_shared_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_shared_master_carries_its_range_and_its_follower_carries_no_text ... ok
+    test cells::tests::a_style_index_is_carried ... ok
+    test cells::tests::a_style_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_value_may_be_text_empty_or_absent ... ok
+    test archive::tests::an_added_name_longer_than_a_header_can_record_is_refused ... ok
+    test cells::tests::a_shared_string_cell_with_no_value_resolves_to_nothing ... ok
+    test cells::tests::a_workbook_with_no_shared_strings_gives_an_empty_table ... ok
+    test cells::tests::a_worksheet_cut_off_mid_cell_is_refused ... ok
+    test cells::tests::a_worksheet_root_in_another_namespace_is_refused ... ok
+    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
+    test cells::tests::a_worksheet_that_is_not_utf8_is_refused ... ok
+    test cells::tests::a_worksheet_root_of_the_wrong_name_is_refused ... ok
+    test cells::tests::an_array_formula_carries_its_range ... ok
+    test cells::tests::an_error_cells_text_is_its_error ... ok
+    test cells::tests::an_element_inside_a_cells_value_is_refused ... ok
+    test cells::tests::an_empty_text_and_an_empty_item_are_both_the_empty_string ... ok
+    test cells::tests::an_empty_sheet_data_gives_no_cells ... ok
+    test cells::tests::an_inline_string_is_the_text_under_its_is ... ok
+    test cells::tests::cells_on_a_part_that_is_not_there_is_refused ... ok
+    test cells::tests::an_element_inside_a_text_element_is_refused ... ok
+    test cells::tests::an_unknown_element_is_skipped_with_its_subtree ... ok
+    test cells::tests::an_unknown_entity_is_refused ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows ... ok
+    test cells::tests::an_item_wholly_in_cdata_is_its_text ... ok
+    test cells::tests::an_unknown_entity_in_a_cell_is_refused ... ok
+    test cells::tests::an_index_past_u32_is_refused_like_one_that_is_not_a_number ... ok
+    test cells::tests::every_reference_the_reader_emits_parses_back ... ok
+    test cells::tests::each_typed_view_answers_only_for_its_own_kind ... ok
+    test cells::tests::every_cell_type_reads_as_its_kind ... ok
+    test cells::tests::count_and_unique_count_are_ignored ... ok
+    test cells::tests::reading_cells_then_writing_copies_the_package_byte_for_byte ... ok
+    test cells::tests::line_ends_normalise_inside_cdata_too ... ok
+    test cells::tests::get_past_the_end_is_none ... ok
+    test cells::tests::references_are_expanded ... ok
+    test archive::tests::compressing_with_another_method_is_refused_before_a_file_exists ... ok
+    test cells::tests::resolving_a_shared_string_gives_the_item_it_names ... ok
+    test cells::tests::resolving_an_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::resolving_a_cell_of_another_kind_gives_its_own_value ... ok
+    test archive::tests::order_is_preserved_around_a_removed_and_an_added_entry ... ok
+    test cells::tests::text_on_both_sides_of_a_cdata_section_concatenates ... ok
+    test cells::tests::text_that_is_not_utf8_is_an_xml_error ... ok
+    test cells::tests::text_in_another_namespace_is_not_the_item_s_text ... ok
+    test cells::tests::resolving_an_index_out_of_range_is_refused ... ok
+    test cells::tests::the_iterator_is_spent_after_a_refusal ... ok
+    test cells::tests::the_other_main_namespace_spelling_is_read_too ... ok
+    test cells::tests::the_fixture_builder_makes_a_package_the_reader_accepts ... ok
+    test cells::tests::spaces_are_kept_with_and_without_xml_space ... ok
+    test cells::tests::the_phonetic_skip_ends_at_its_own_end_tag ... ok
+    test cells::tests::a_number_this_layer_reads_is_digits_alone ... ok
+    test cells::tests::the_runs_of_an_inline_string_concatenate ... ok
+    test cells::tests::the_crate_root_re_exports_every_cell_type ... ok
+    test cells::tests::the_strict_namespace_is_accepted ... ok
+    test cells::tests::the_runs_of_an_item_concatenate ... ok
+    test cells::tests::what_the_standard_librarys_parse_takes_and_this_refuses ... ok
+    test cells::tests::two_cells_past_the_last_column_share_the_last_reference ... ok
+    test archive::tests::padding_after_a_replaced_entry_is_kept ... ok
+    test cells::tests::the_parse_is_the_standard_librarys_and_wider_than_the_format ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_relative_offsets ... ok
+    test package::tests::a_cell_edit_to_a_part_that_is_not_a_worksheet_is_refused_by_root ... ok
+    test cells::tests::zero_is_a_number_where_zero_is_a_legal_index ... ok
+    test package::tests::a_cell_reference_not_a1_refuses_the_edit ... ok
+    test package::tests::a_chain_the_caller_did_not_drop_is_dropped_once_by_the_rule ... ok
+    test package::tests::a_chain_the_caller_already_dropped_is_dropped_once ... ok
+    test package::tests::a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused ... ok
+    test package::tests::a_clear_takes_the_style_edit ... ok
+    test package::tests::a_boolean_is_written_as_one_or_zero ... ok
+    test package::tests::a_cell_with_an_attribute_this_layer_does_not_model_is_refused ... ok
+    test package::tests::a_generated_id_is_one_more_than_the_largest ... ok
+    test package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes ... ok
+    test package::tests::a_code_is_escaped_and_reads_back_equal_to_itself ... ok
+    test package::tests::a_failed_replacement_leaves_no_temporary ... ok
+    test package::tests::a_code_is_matched_or_numbered_after_the_largest_id ... ok
+    test package::tests::a_count_that_is_not_a_number_is_refused_at_write ... ok
+    test package::tests::a_created_rels_part_takes_the_packages_own_form ... ok
+    test package::tests::a_created_rels_part_takes_a_mark_and_no_separator_when_the_package_does ... ok
+    test package::tests::a_part_without_cell_xfs_is_refused_at_write_with_no_output ... ok
+    test package::tests::a_new_code_takes_164_on_a_part_with_no_custom_id ... ok
+    test package::tests::a_created_rels_part_falls_back_when_the_package_has_no_rels_part ... ok
+    test package::tests::a_package_with_no_chain_comes_back_byte_for_byte ... ok
+    test package::tests::a_number_that_is_not_finite_is_refused ... ok
+    test package::tests::a_cell_in_a_shared_or_array_formula_is_refused ... ok
+    test package::tests::a_number_cell_replaced_keeps_its_style_and_loses_its_type ... ok
+    test package::tests::a_removed_id_is_not_reused_within_a_write ... ok
+    test package::tests::a_refused_cell_edit_leaves_no_temporary_and_no_output ... ok
+    test package::tests::a_new_cell_goes_where_its_column_puts_it ... ok
+    test package::tests::a_relationship_on_a_part_that_is_not_there ... ok
+    test package::tests::a_relationship_removal_on_a_part_that_is_not_there ... ok
+    test package::tests::a_new_row_goes_where_its_number_puts_it ... ok
+    test package::tests::a_prefixed_part_gets_prefixed_elements ... ok
+    test package::tests::a_row_number_not_a_number_refuses_the_edit ... ok
+    test package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing ... ok
+    test package::tests::a_some_edit_needs_a_styles_part_and_a_none_edit_does_not ... ok
+    test package::tests::a_style_edit_on_a_formula_leaves_the_chain ... ok
+    test package::tests::a_part_with_cell_xfs_alone_gains_num_fmts_before_it ... ok
+    test package::tests::a_set_on_a_worksheet_without_sheet_data_is_refused ... ok
+    test package::tests::a_value_edit_takes_the_style_edit_or_keeps_the_cells_own ... ok
+    test package::tests::a_text_is_written_inline_and_escaped ... ok
+    test package::tests::a_style_edit_alone_rewrites_the_start_tag_and_nothing_else ... ok
+    test package::tests::a_value_edit_that_removes_no_formula_keeps_the_chain ... ok
+    test package::tests::an_addition_is_refused_on_a_bad_base_or_format ... ok
+    test package::tests::an_array_whose_extent_is_unknown_is_refused ... ok
+    test package::tests::adding_a_part_adds_the_entry_alone ... ok
+    test package::tests::a_worksheet_without_explicit_references_is_refused ... ok
+    test package::tests::an_empty_root_in_a_rels_part_gains_an_end_tag ... ok
+    test package::tests::an_addition_escapes_its_values ... ok
+    test package::tests::a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused ... ok
+    test package::tests::a_data_table_is_refused_as_an_array_is ... ok
+    test package::tests::adding_an_override_that_exists ... ok
+    test package::tests::adding_a_relationship_goes_before_the_end_tag ... ok
+    test package::tests::an_empty_root_in_content_types_gains_an_end_tag ... ok
+    test package::tests::an_id_of_another_form_is_ignored_by_the_rule ... ok
+    test package::tests::an_unwritable_value_names_content_types_for_the_packages_own_rels ... ok
+    test package::tests::adding_an_override_goes_before_the_end_tag ... ok
+    test package::tests::an_unwritable_value_names_the_source_when_the_rels_part_is_new ... ok
+    test package::tests::a_numbers_text_is_display_between_the_bounds_and_exponent_outside ... ok
+    test package::tests::content_types_part_absent ... ok
+    test package::tests::an_xf_added_from_a_base_with_children_keeps_them_and_rebuilds_its_tag ... ok
+    test package::tests::default_lacks_an_attribute ... ok
+    test package::tests::editing_a_removed_part ... ok
+    test package::tests::editing_a_removed_rels_part ... ok
+    test package::tests::an_unknown_formula_type_refuses_an_edit_to_its_cell ... ok
+    test package::tests::an_empty_row_is_opened_up_for_a_new_cell ... ok
+    test package::tests::an_external_relationship_writes_its_target_mode ... ok
+    test package::tests::an_xf_added_from_a_single_quoted_base_keeps_each_quote ... ok
+    test package::tests::an_override_removed_and_added_again_is_not_a_duplicate ... ok
+    test package::tests::edits_to_two_sheets_go_in_one_write ... ok
+    test package::tests::extension_matched_case_insensitively ... ok
+    test package::tests::external_target ... ok
+    test package::tests::an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted ... ok
+    test package::tests::an_xf_added_from_an_empty_base_and_from_none ... ok
+    test package::tests::map_resolves ... ok
+    test package::tests::non_utf8_sheet_name ... ok
+    test package::tests::no_default_for_rels ... ok
+    test package::tests::office_document_target_absent ... ok
+    test package::tests::open_reads_no_xml ... ok
+    test package::tests::clearing_a_cell_that_is_not_there_changes_nothing ... ok
+    test package::tests::no_office_document ... ok
+    test package::tests::override_beats_default ... ok
+    test package::tests::part_with_no_content_type ... ok
+    test package::tests::editing_removed_content_types ... ok
+    test package::tests::an_empty_sheet_data_is_opened_up_for_new_rows ... ok
+    test package::tests::every_byte_outside_sheet_data_is_kept ... ok
+    test package::tests::override_lacks_an_attribute ... ok
+    test package::tests::rels_names_derive ... ok
+    test package::tests::a_worksheet_out_of_order_is_refused ... ok
+    test package::tests::rels_part_absent ... ok
+    test package::tests::rel_id_prefix_unbound ... ok
+    test package::tests::removing_an_absent_override ... ok
+    test package::tests::removing_an_absent_part ... ok
+    test package::tests::removing_a_part_drops_the_entry_alone ... ok
+    test package::tests::removing_a_relationship_drops_its_element_alone ... ok
+    test package::tests::relationship_lacks_an_attribute ... ok
+    test package::tests::rel_prefix_bound_three_ways ... ok
+    test package::tests::counts_are_rewritten_and_empty_containers_opened_up ... ok
+    test package::tests::every_byte_outside_the_two_containers_is_kept ... ok
+    test package::tests::root_wrong_in_types ... ok
+    test package::tests::root_wrong_in_workbook ... ok
+    test package::tests::removing_an_element_keeps_the_whitespace_around_it ... ok
+    test package::tests::replacing_a_part_changes_only_its_bytes ... ok
+    test package::tests::root_wrong_namespace_in_types ... ok
+    test package::tests::root_wrong_in_rels ... ok
+    test package::tests::several_sheets_in_order ... ok
+    test package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write ... ok
+    test package::tests::sheet_lacks_rel_id ... ok
+    test package::tests::sheet_of_an_unknown_relationship_kind ... ok
+    test package::tests::sheet_id_not_a_number ... ok
+    test package::tests::sheet_relationship_missing ... ok
+    test package::tests::removing_an_absent_relationship ... ok
+    test package::tests::sheet_states ... ok
+    test package::tests::sheet_name_escapes ... ok
+    test package::tests::a_text_with_a_character_xml_forbids_is_refused ... ok
+    test package::tests::target_above_root ... ok
+    test package::tests::strict_namespaces ... ok
+    test package::tests::the_catalogue_extractors_can_fail ... ok
+    test package::tests::target_parent ... ok
+    test package::tests::replacing_an_absent_part ... ok
+    test package::tests::removing_an_element_written_as_a_pair ... ok
+    test package::tests::target_relative ... ok
+    test package::tests::the_method_records_nothing_when_the_workbook_is_refused ... ok
+    test package::tests::target_absolute ... ok
+    test package::tests::the_sample_reads_back_through_styles_and_cells ... ok
+    test package::tests::removing_an_override_drops_its_element_alone ... ok
+    test package::tests::two_office_documents ... ok
+    test package::tests::replacing_a_formula_without_a_chain_changes_the_sheet_alone ... ok
+    test package::tests::two_relationships_one_id ... ok
+    test package::tests::the_values_written_read_back_through_the_cell_reader ... ok
+    test package::tests::two_office_documents_one_of_each_form ... ok
+    test package::tests::workbook_options_take_the_first ... ok
+    test package::tests::replacing_a_normal_formula_drops_the_chain_in_the_same_write ... ok
+    test package::tests::several_edits_to_one_part_apply_together ... ok
+    test package::tests::the_catalogue_and_the_source_hold_the_same_messages ... ok
+    test package::tests::the_last_edit_recorded_for_a_cell_wins ... ok
+    test package::tests::the_recipe_drops_the_chain_and_nothing_else ... ok
+    test styles::tests::a_code_reference_is_kept_and_a_literal_tab_becomes_a_space ... ok
+    test package::tests::the_strict_namespace_is_edited_as_the_transitional_one ... ok
+    test styles::tests::a_num_fmt_without_a_code_is_refused ... ok
+    test package::tests::removing_an_override_keeps_both_default_spellings ... ok
+    test styles::tests::a_part_with_no_root_at_all_is_refused ... ok
+    test styles::tests::a_num_fmt_without_an_id_is_refused ... ok
+    test styles::tests::a_part_without_cell_xfs_has_none ... ok
+    test styles::tests::a_part_without_num_fmts_has_none ... ok
+    test styles::tests::a_workbook_with_no_styles_relationship_is_refused ... ok
+    test package::tests::the_method_records_what_the_tools_recipe_recorded ... ok
+    test styles::tests::a_root_in_another_namespace_is_refused ... ok
+    test package::tests::the_last_style_edit_wins_and_a_later_value_edit_joins_it ... ok
+    test styles::tests::a_prefixed_root_and_the_strict_namespace_are_read ... ok
+    test styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused ... ok
+    test styles::tests::a_second_cell_xfs_is_refused ... ok
+    test styles::tests::an_xf_keeps_its_own_bytes_with_children_and_empty ... ok
+    test styles::tests::a_styles_relationship_naming_no_entry_is_refused ... ok
+    test styles::tests::a_root_of_the_wrong_name_is_refused ... ok
+    test styles::tests::a_second_num_fmts_is_refused ... ok
+    test styles::tests::number_format_answers_by_the_first_num_fmt_then_the_built_in ... ok
+    test styles::tests::the_part_is_read_once_and_kept ... ok
+    test styles::tests::the_five_ids_are_read_present_and_absent ... ok
+    test styles::tests::only_the_two_containers_children_are_read ... ok
+    test styles::tests::num_fmts_are_read_in_order_with_their_codes_unescaped ... ok
+    test xml::tests::a_character_xml_forbids_is_accepted_when_it_is_valid_utf8 ... ok
+    test xml::tests::a_dangling_ampersand_is_refused ... ok
+    test xml::tests::a_mark_is_reported_and_is_in_no_token ... ok
+    test xml::tests::a_part_of_only_a_mark_has_no_tokens ... ok
+    test xml::tests::a_mismatched_end_tag_is_refused ... ok
+    test xml::tests::a_part_starting_with_two_marks_keeps_the_second_in_a_text_token ... ok
+    test xml::tests::a_part_shorter_than_a_mark_reconstructs ... ok
+    test xml::tests::a_reader_failure_is_io_and_not_xml ... ok
+    test xml::tests::a_refused_part_stays_refused_and_does_not_restart ... ok
+    test xml::tests::a_tag_with_no_closing_angle_bracket_is_refused ... ok
+    test xml::tests::an_empty_part_has_no_tokens_and_reconstructs_empty ... ok
+    test styles::tests::an_xf_id_that_is_not_a_number_is_refused ... ok
+    test xml::tests::no_mark_is_reported_when_the_part_has_none ... ok
+    test xml::tests::the_three_accepted_classes_are_accepted_and_reconstruct ... ok
+    test xml::tests::whitespace_before_and_after_the_root_reconstructs ... ok
+    test styles::tests::date1904_reads_one_and_true_and_nothing_else ... ok
+    test xml::tests::a_binary_part_is_refused ... ok
+    test xml::tests::a_bare_angle_bracket_in_text_with_no_later_one_is_refused ... ok
+    test xml::tests::every_form_reconstructs_in_all_eight_framings ... ok
+    test xml::tests::crlf_line_ends_are_kept_as_they_are ... ok
+    test xml::tests::the_error_message_is_the_catalogued_one ... ok
+    test xml::tests::the_index_in_an_error_is_the_one_the_stream_was_given ... ok
+    test xml::tests::a_byte_that_is_not_utf8_in_text_is_refused ... ok
+    test xml::tests::a_token_longer_than_the_read_ahead_reconstructs ... ok
+    test xml::tests::many_tokens_reconstruct_a_part_larger_than_the_read_ahead ... ok
+    test archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records ... ok
+    test archive::tests::a_65535_entry_archive_round_trips_byte_for_byte ... ok
+    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
+    test result: ok. 347 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.60s
+    Running unittests src/main.rs (target/debug/deps/emend_copy-8d3ff9d8b2111a66)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/null_rewrite.rs (target/debug/deps/null_rewrite-6d887835a4fb38e8)
+    test no_operation_is_still_a_verbatim_round_trip ... ok
+    test shared_strings_counts_the_items_and_edits_nothing ... ok
+    test styles_counts_the_styles_part_and_edits_nothing ... ok
+    test the_edit_sample_refuses_a_workbook_with_no_worksheet ... ok
+    test an_archive_with_no_xml_parts_comes_back_byte_identical ... ok
+    test a_part_that_is_not_xml_under_an_xml_name_is_refused ... ok
+    test a_marked_part_keeps_its_mark_through_the_rewrite ... ok
+    test replace_is_unchanged ... ok
+    test cells_counts_every_cell_and_edits_nothing ... ok
+    test the_edit_sample_on_an_empty_sheet_adds_row_one ... ok
+    test the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain ... ok
+    test the_edit_sample_keeps_a_styled_second_cell ... ok
+    test styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing ... ok
+    test the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing ... ok
+    test the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone ... ok
+    test the_edit_sample_sets_clears_and_adds_a_row ... ok
+    test the_formula_sample_refuses_what_the_write_refuses_and_leaves_nothing ... ok
+    test the_survey_counts_an_override_that_names_no_entry ... ok
+    test the_style_sample_adds_two_formats_and_styles_two_cells ... ok
+    test the_recipe_leaves_a_package_with_no_chain_byte_for_byte ... ok
+    test the_formula_sample_with_no_normal_formula_is_byte_identical ... ok
+    test the_survey_refuses_a_package_it_cannot_read ... ok
+    test the_survey_counts_the_map_and_edits_nothing ... ok
+    test the_recipe_drops_the_chain_and_leaves_every_other_entry_alone ... ok
+    test the_null_rewrite_keeps_every_xml_part_and_leaves_the_binary_alone ... ok
+    test the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing ... ok
+    test the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain ... ok
+    test the_operations_are_refused_unless_exactly_one_follows_the_paths ... ok
+    test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+    Running unittests src/main.rs (target/debug/deps/passthrough-e8c6c8b4c0c0c76f)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/copies.rs (target/debug/deps/copies-4727fe09e25d80de)
+    test data_descriptor_is_folded_into_the_local_header ... ok
+    test duplicate_names_keep_only_the_last_entry ... ok
+    test deflated_entries_are_copied_byte_identical ... ok
+    test stored_entries_are_copied_byte_identical ... ok
+    test leading_junk_bytes_are_dropped ... ok
+    test empty_archive_is_copied_byte_identical ... ok
+    test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
+    test archive_comment_is_kept ... ok
+    test ms_dos_made_by_and_version_needed_are_rewritten ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
+    test two_hundred_entries_are_copied_byte_identical ... ok
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+    Running tests/faults.rs (target/debug/deps/faults-3b9aaf22a475dd47)
+    test input_that_is_not_a_zip_archive ... ok
+    test existing_output_is_replaced ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
+    test output_directory_missing ... ok
+    test exit3_fault ... ok
+    test failed_rename_removes_the_temporary_file ... ok
+    test abort_fault ... ok
+    test output_path_without_a_file_name ... ok
+    test panic_fault ... ok
+    test unknown_fault_value ... ok
+    test missing_input ... ok
+    test usage_errors ... ok
+    test fault_variable_is_refused_without_the_allow_variable ... ok
+    test alloc_fault_without_a_limit_then_copies ... ok
+    test sleep_fault_is_still_running_after_a_second ... ok
+    test sleep_copying_fault_leaves_the_temporary_file_when_killed ... ok
+    test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+    Running unittests src/bin/probe-zip.rs (target/debug/deps/probe_zip-8a3f301c93e030e5)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/lib.rs (target/debug/deps/xlsx_diff-e695ed04bc917c73)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/debug/deps/xlsx_diff-92888706652b4de7)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/debug/deps/p1-6540cc403f402999)
+    test missing_file_is_an_error ... ok
+    test added_entry ... ok
+    test non_zip_file_is_an_error ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test binary_usage_error ... ok
+    test names_are_escaped ... ok
+    test dropped_entry ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test duplicate_name_is_an_error ... ok
+    test equal_archives_are_identical ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    Running tests/p2.rs (target/debug/deps/p2-27358ec6d8c12945)
+    test short_raw_stream_is_an_error ... ok
+    test unsupported_method_is_an_error ... ok
+    test encrypted_entry_is_an_error ... ok
+    test recompressed_entry_with_equal_metadata ... ok
+    test changed_entry_with_different_lengths ... ok
+    test changed_entry_with_equal_length ... ok
+    test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test recompressed_entry ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    Running tests/p3.rs (target/debug/deps/p3-101dd50939d3a113)
+    test data_descriptor_on_one_side ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test leading_junk_bytes ... ok
+    test changed_archive_comment ... ok
+    test output_side_rows_take_the_output_values ... ok
+    test each_flag_alone ... ok
+    test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
+    test different_lengths_across_several_buffers ... ok
+    test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+    Running tests/p4.rs (target/debug/deps/p4-f12276f4a3797377)
+    test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_running_past_the_end_is_an_error ... ok
+    test local_header_fields_each_alone ... ok
+    test files_identical_no_from_one_byte_inside_a_prefix ... ok
+    test no_sentinel_in_any_output ... ok
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s
+    Running tests/p5.rs (target/debug/deps/p5-7a247ac2ff766c41)
+    test descriptors_that_differ_only_in_the_signature ... ok
+    test narrowed_and_extended_flags_each_alone ... ok
+    test padding_after_an_entry ... ok
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    Running tests/p6.rs (target/debug/deps/p6-da5f6aa779e913e3)
+    test declared_size_running_over_the_next_header_alike_on_both_sides ... ok
+    test local_entries_permuted_with_the_central_order_kept ... ok
+    test zip64_placeholder_against_plain_sizes ... ok
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Doc-tests emend
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+host: passed 445; failed 0; ignored 2; test lines ending ok: 445
+host: failed is 0: yes
+host: passed is more than 0 and equals the ok test lines: yes
+host: control bytes in the cargo output: 0 (expect 0): yes
+
+## cargo test --workspace (i686-unknown-linux-musl)
+command: cargo test --workspace --target i686-unknown-linux-musl
+exit: 0
+exit is 0: yes
+Running lines, test lines and summary lines:
+    Running unittests src/lib.rs (target/i686-unknown-linux-musl/debug/deps/emend-673bf4eb174bda6b)
+    test archive::tests::a_file_too_short_for_a_record_is_refused ... ok
+    test archive::tests::a_local_offset_beyond_the_file_is_refused ... ok
+    test archive::tests::a_directory_entry_round_trips ... ok
+    test archive::tests::a_locator_and_a_directory_disagreeing_on_the_base_are_refused ... ok
+    test archive::tests::a_marker_with_no_zip64_extra_field_is_refused_on_rewrite ... ok
+    test archive::tests::a_multi_disk_record_is_refused ... ok
+    test archive::tests::a_non_ascii_name_round_trips ... ok
+    test archive::tests::a_failed_write_leaves_a_usable_archive ... ok
+    test archive::tests::a_non_zip_with_a_stray_end_record_signature_is_refused_as_trailing_bytes ... ok
+    test archive::tests::a_plain_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
+    test archive::tests::a_prefix_round_trips ... ok
+    test archive::tests::a_plain_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
+    test archive::tests::a_deflated_entry_is_replaced_and_the_others_are_untouched ... ok
+    test archive::tests::a_replacement_for_an_entry_of_another_method_is_refused_when_planned ... ok
+    test archive::tests::a_replace_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_temporary_archive_of_two_entries_is_refused ... ok
+    test archive::tests::a_value_past_32_bits_in_a_plain_field_is_refused ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::a_write_after_a_read_still_round_trips ... ok
+    test archive::tests::a_zip64_archive_behind_a_stub_with_absolute_offsets_round_trips ... ok
+    test archive::tests::a_zip64_archive_behind_a_stub_with_relative_offsets_round_trips ... ok
+    test archive::tests::a_zip64_archive_has_no_prefix ... ok
+    test archive::tests::a_zip64_archive_with_a_prefix_round_trips ... ok
+    test archive::tests::a_zip64_locator_without_its_record_is_refused ... ok
+    test archive::tests::a_remove_and_add_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::a_removed_entry_leaves_the_others_intact ... ok
+    test archive::tests::adding_a_name_the_archive_already_has_is_refused ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::an_absent_index_is_refused ... ok
+    test archive::tests::a_replace_behind_a_stub_with_relative_offsets ... ok
+    test archive::tests::a_replaced_entry_keeps_its_descriptor_with_a_signature ... ok
+    test archive::tests::an_archive_comment_on_an_empty_archive_round_trips ... ok
+    test archive::tests::a_replaced_entry_keeps_its_descriptor_without_a_signature ... ok
+    test archive::tests::an_edit_to_an_absent_index_is_refused ... ok
+    test archive::tests::an_empty_archive_round_trips ... ok
+    test archive::tests::an_empty_archive_behind_a_stub_round_trips_in_both_conventions ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_without_a_signature ... ok
+    test archive::tests::a_replaced_entry_keeps_its_zip64_descriptor_with_a_signature ... ok
+    test archive::tests::bytes_after_the_end_record_are_refused_with_their_own_message ... ok
+    test archive::tests::a_replaced_zip64_entry_keeps_its_markers ... ok
+    test archive::tests::comments_round_trip ... ok
+    test archive::tests::deflated_entries_round_trip ... ok
+    test archive::tests::descriptor_with_signature_round_trips ... ok
+    test archive::tests::a_replacement_error_leaves_no_temporary_behind ... ok
+    test archive::tests::descriptor_without_signature_round_trips ... ok
+    test archive::tests::duplicate_names_are_refused ... ok
+    test archive::tests::not_a_zip_is_refused ... ok
+    test archive::tests::file_order_differing_from_central_order_round_trips ... ok
+    test archive::tests::a_replacement_may_come_from_a_reader ... ok
+    test archive::tests::padding_between_entries_round_trips ... ok
+    test archive::tests::reading_an_entry_gives_its_bytes_back ... ok
+    test archive::tests::reading_an_encrypted_entry_is_refused ... ok
+    test archive::tests::order_is_preserved_around_a_removed_and_an_added_entry ... ok
+    test archive::tests::reading_an_entry_of_a_method_the_crate_cannot_decode_is_refused ... ok
+    test archive::tests::a_stored_entry_is_replaced_stored ... ok
+    test archive::tests::replacing_an_encrypted_entry_is_refused ... ok
+    test archive::tests::stored_entries_round_trip ... ok
+    test archive::tests::the_crate_path_reports_the_index_asked_for ... ok
+    test archive::tests::the_crate_refusals_carry_their_catalogued_messages ... ok
+    test archive::tests::a_zip64_replace_behind_a_stub_with_absolute_offsets ... ok
+    test archive::tests::the_index_reports_what_the_records_say ... ok
+    test archive::tests::two_changes_for_one_entry_are_refused ... ok
+    test archive::tests::zip64_markers_round_trip ... ok
+    test archive::tests::unknown_extra_fields_round_trip ... ok
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
+    test archive::tests::a_panicking_replacement_leaves_no_temporary_and_a_refusing_archive ... ok
+    test archive::tests::the_catalogue_names_every_refusal ... ok
+    test archive::tests::an_added_entry_is_appended ... ok
+    test cells::tests::a_cell_reference_parses_only_the_a1_form ... ok
+    test cells::tests::a_cell_in_another_namespace_is_not_a_cell ... ok
+    test archive::tests::a_zip64_sector_past_the_scan_window_is_refused_with_its_own_message ... ok
+    test cells::tests::a_carriage_return_line_feed_pair_becomes_one_line_feed ... ok
+    test cells::tests::a_cell_reference_that_is_not_a1_is_refused ... ok
+    test cells::tests::a_carriage_return_through_a_reference_is_kept ... ok
+    test cells::tests::a_cell_type_this_layer_does_not_know_is_refused ... ok
+    test cells::tests::a_cells_own_reference_wins_over_its_row ... ok
+    test cells::tests::a_cell_without_a_reference_follows_the_previous ... ok
+    test cells::tests::a_data_table_formula_is_accepted_by_name ... ok
+    test cells::tests::a_formula_type_this_layer_does_not_know_is_refused ... ok
+    test cells::tests::a_character_reference_is_expanded_in_a_value_a_formula_and_a_text ... ok
+    test cells::tests::a_formulas_other_attributes_are_not_modelled ... ok
+    test cells::tests::a_line_feed_alone_is_unchanged ... ok
+    test cells::tests::a_normal_formula_is_its_text ... ok
+    test cells::tests::a_booleans_text_is_read_as_a_bool ... ok
+    test cells::tests::a_lone_carriage_return_becomes_a_line_feed ... ok
+    test cells::tests::a_number_is_a_number_with_or_without_its_type ... ok
+    test cells::tests::a_numbers_text_is_read_as_an_f64 ... ok
+    test cells::tests::a_phonetic_subtree_inside_an_inline_string_is_skipped ... ok
+    test cells::tests::a_part_with_no_root_at_all_is_refused ... ok
+    test cells::tests::a_reference_writes_itself_back ... ok
+    test archive::tests::an_added_name_longer_than_a_header_can_record_is_refused ... ok
+    test cells::tests::a_phonetic_subtree_is_skipped ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_gains_a_signature_over_padding ... ok
+    test archive::tests::an_unsigned_descriptor_with_the_signature_as_crc_is_refused_when_nothing_follows ... ok
+    test archive::tests::compressing_with_another_method_is_refused_before_a_file_exists ... ok
+    test cells::tests::a_plain_item_is_its_text ... ok
+    test archive::tests::a_replacement_too_large_for_a_plain_local_header_is_refused ... ok
+    test cells::tests::a_reference_between_two_line_ends_separates_them ... ok
+    test cells::tests::a_relationship_naming_no_entry_is_refused ... ok
+    test cells::tests::a_root_in_another_namespace_is_refused ... ok
+    test cells::tests::a_row_number_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_row_number_of_zero_is_refused ... ok
+    test archive::tests::padding_after_a_replaced_entry_is_kept ... ok
+    test cells::tests::a_row_without_a_number_follows_the_last ... ok
+    test cells::tests::a_shared_formula_without_an_index_is_refused ... ok
+    test cells::tests::a_shared_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_root_of_the_wrong_name_is_refused ... ok
+    test archive::tests::the_replacement_temporary_is_created_with_mode_0600 ... ok
+    test cells::tests::a_second_call_gives_an_equal_table ... ok
+    test cells::tests::a_shared_master_carries_its_range_and_its_follower_carries_no_text ... ok
+    test cells::tests::a_style_index_is_carried ... ok
+    test cells::tests::a_worksheet_root_in_another_namespace_is_refused ... ok
+    test cells::tests::a_worksheet_cut_off_mid_cell_is_refused ... ok
+    test cells::tests::a_style_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::a_value_may_be_text_empty_or_absent ... ok
+    test cells::tests::a_worksheet_that_is_not_utf8_is_refused ... ok
+    test cells::tests::a_workbook_with_no_shared_strings_gives_an_empty_table ... ok
+    test cells::tests::an_array_formula_carries_its_range ... ok
+    test cells::tests::a_worksheet_root_of_the_wrong_name_is_refused ... ok
+    test cells::tests::a_number_cell_whose_text_is_not_a_number_has_none ... ok
+    test cells::tests::an_inline_string_is_the_text_under_its_is ... ok
+    test cells::tests::an_error_cells_text_is_its_error ... ok
+    test cells::tests::a_shared_string_cell_with_no_value_resolves_to_nothing ... ok
+    test cells::tests::an_empty_text_and_an_empty_item_are_both_the_empty_string ... ok
+    test cells::tests::an_unknown_element_is_skipped_with_its_subtree ... ok
+    test cells::tests::an_empty_sheet_data_gives_no_cells ... ok
+    test cells::tests::cells_on_a_part_that_is_not_there_is_refused ... ok
+    test cells::tests::an_element_inside_a_cells_value_is_refused ... ok
+    test cells::tests::an_item_wholly_in_cdata_is_its_text ... ok
+    test cells::tests::an_unknown_entity_is_refused ... ok
+    test cells::tests::every_reference_the_reader_emits_parses_back ... ok
+    test cells::tests::an_index_past_u32_is_refused_like_one_that_is_not_a_number ... ok
+    test cells::tests::an_unknown_entity_in_a_cell_is_refused ... ok
+    test cells::tests::every_cell_type_reads_as_its_kind ... ok
+    test cells::tests::reading_cells_then_writing_copies_the_package_byte_for_byte ... ok
+    test cells::tests::line_ends_normalise_inside_cdata_too ... ok
+    test cells::tests::count_and_unique_count_are_ignored ... ok
+    test cells::tests::get_past_the_end_is_none ... ok
+    test cells::tests::resolving_a_cell_of_another_kind_gives_its_own_value ... ok
+    test cells::tests::an_element_inside_a_text_element_is_refused ... ok
+    test cells::tests::references_are_expanded ... ok
+    test cells::tests::resolving_an_index_that_is_not_a_number_is_refused ... ok
+    test cells::tests::each_typed_view_answers_only_for_its_own_kind ... ok
+    test cells::tests::the_other_main_namespace_spelling_is_read_too ... ok
+    test cells::tests::resolving_a_shared_string_gives_the_item_it_names ... ok
+    test cells::tests::the_iterator_is_spent_after_a_refusal ... ok
+    test cells::tests::spaces_are_kept_with_and_without_xml_space ... ok
+    test cells::tests::text_that_is_not_utf8_is_an_xml_error ... ok
+    test cells::tests::the_crate_root_re_exports_every_cell_type ... ok
+    test cells::tests::text_in_another_namespace_is_not_the_item_s_text ... ok
+    test cells::tests::text_on_both_sides_of_a_cdata_section_concatenates ... ok
+    test cells::tests::the_runs_of_an_inline_string_concatenate ... ok
+    test cells::tests::resolving_an_index_out_of_range_is_refused ... ok
+    test cells::tests::the_fixture_builder_makes_a_package_the_reader_accepts ... ok
+    test cells::tests::what_the_standard_librarys_parse_takes_and_this_refuses ... ok
+    test cells::tests::two_cells_past_the_last_column_share_the_last_reference ... ok
+    test cells::tests::the_phonetic_skip_ends_at_its_own_end_tag ... ok
+    test cells::tests::the_strict_namespace_is_accepted ... ok
+    test cells::tests::the_runs_of_an_item_concatenate ... ok
+    test package::tests::a_cell_edit_to_a_part_that_is_not_a_worksheet_is_refused_by_root ... ok
+    test package::tests::a_cell_reference_not_a1_refuses_the_edit ... ok
+    test package::tests::a_clear_takes_the_style_edit ... ok
+    test cells::tests::zero_is_a_number_where_zero_is_a_legal_index ... ok
+    test cells::tests::the_parse_is_the_standard_librarys_and_wider_than_the_format ... ok
+    test package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes ... ok
+    test package::tests::a_chain_the_caller_already_dropped_is_dropped_once ... ok
+    test package::tests::a_chain_the_caller_did_not_drop_is_dropped_once_by_the_rule ... ok
+    test package::tests::a_boolean_is_written_as_one_or_zero ... ok
+    test package::tests::a_count_that_is_not_a_number_is_refused_at_write ... ok
+    test package::tests::a_code_is_escaped_and_reads_back_equal_to_itself ... ok
+    test package::tests::a_created_rels_part_falls_back_when_the_package_has_no_rels_part ... ok
+    test package::tests::a_generated_id_is_one_more_than_the_largest ... ok
+    test cells::tests::a_number_this_layer_reads_is_digits_alone ... ok
+    test package::tests::a_created_rels_part_takes_a_mark_and_no_separator_when_the_package_does ... ok
+    test package::tests::a_code_is_matched_or_numbered_after_the_largest_id ... ok
+    test package::tests::a_created_rels_part_takes_the_packages_own_form ... ok
+    test package::tests::a_failed_replacement_leaves_no_temporary ... ok
+    test package::tests::a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused ... ok
+    test package::tests::a_cell_with_an_attribute_this_layer_does_not_model_is_refused ... ok
+    test package::tests::a_number_cell_replaced_keeps_its_style_and_loses_its_type ... ok
+    test package::tests::a_new_code_takes_164_on_a_part_with_no_custom_id ... ok
+    test package::tests::a_package_with_no_chain_comes_back_byte_for_byte ... ok
+    test package::tests::a_relationship_on_a_part_that_is_not_there ... ok
+    test package::tests::a_removed_id_is_not_reused_within_a_write ... ok
+    test package::tests::a_part_without_cell_xfs_is_refused_at_write_with_no_output ... ok
+    test package::tests::a_part_with_cell_xfs_alone_gains_num_fmts_before_it ... ok
+    test package::tests::a_refused_cell_edit_leaves_no_temporary_and_no_output ... ok
+    test package::tests::a_relationship_removal_on_a_part_that_is_not_there ... ok
+    test package::tests::a_new_row_goes_where_its_number_puts_it ... ok
+    test package::tests::a_prefixed_part_gets_prefixed_elements ... ok
+    test package::tests::a_number_that_is_not_finite_is_refused ... ok
+    test package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing ... ok
+    test package::tests::a_new_cell_goes_where_its_column_puts_it ... ok
+    test package::tests::a_style_edit_alone_rewrites_the_start_tag_and_nothing_else ... ok
+    test package::tests::a_row_number_not_a_number_refuses_the_edit ... ok
+    test package::tests::a_style_edit_on_a_formula_leaves_the_chain ... ok
+    test package::tests::a_some_edit_needs_a_styles_part_and_a_none_edit_does_not ... ok
+    test package::tests::a_cell_in_a_shared_or_array_formula_is_refused ... ok
+    test package::tests::a_text_is_written_inline_and_escaped ... ok
+    test package::tests::a_value_edit_takes_the_style_edit_or_keeps_the_cells_own ... ok
+    test package::tests::a_data_table_is_refused_as_an_array_is ... ok
+    test package::tests::a_value_edit_that_removes_no_formula_keeps_the_chain ... ok
+    test package::tests::a_worksheet_without_explicit_references_is_refused ... ok
+    test package::tests::an_addition_is_refused_on_a_bad_base_or_format ... ok
+    test package::tests::adding_a_part_adds_the_entry_alone ... ok
+    test package::tests::adding_an_override_that_exists ... ok
+    test package::tests::adding_a_relationship_goes_before_the_end_tag ... ok
+    test package::tests::adding_an_override_goes_before_the_end_tag ... ok
+    test package::tests::a_set_on_a_worksheet_without_sheet_data_is_refused ... ok
+    test package::tests::an_id_of_another_form_is_ignored_by_the_rule ... ok
+    test package::tests::an_addition_escapes_its_values ... ok
+    test package::tests::an_array_whose_extent_is_unknown_is_refused ... ok
+    test package::tests::an_empty_root_in_content_types_gains_an_end_tag ... ok
+    test package::tests::an_override_removed_and_added_again_is_not_a_duplicate ... ok
+    test package::tests::a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused ... ok
+    test package::tests::an_empty_row_is_opened_up_for_a_new_cell ... ok
+    test package::tests::an_external_relationship_writes_its_target_mode ... ok
+    test package::tests::an_empty_sheet_data_is_opened_up_for_new_rows ... ok
+    test package::tests::content_types_part_absent ... ok
+    test package::tests::an_empty_root_in_a_rels_part_gains_an_end_tag ... ok
+    test package::tests::an_unwritable_value_names_content_types_for_the_packages_own_rels ... ok
+    test package::tests::an_unwritable_value_names_the_source_when_the_rels_part_is_new ... ok
+    test package::tests::default_lacks_an_attribute ... ok
+    test package::tests::an_xf_added_from_a_single_quoted_base_keeps_each_quote ... ok
+    test package::tests::an_xf_added_from_a_base_with_children_keeps_them_and_rebuilds_its_tag ... ok
+    test package::tests::an_xf_added_from_an_empty_base_and_from_none ... ok
+    test package::tests::clearing_a_cell_that_is_not_there_changes_nothing ... ok
+    test package::tests::extension_matched_case_insensitively ... ok
+    test package::tests::editing_a_removed_part ... ok
+    test package::tests::editing_a_removed_rels_part ... ok
+    test package::tests::a_worksheet_out_of_order_is_refused ... ok
+    test package::tests::external_target ... ok
+    test package::tests::no_office_document ... ok
+    test package::tests::map_resolves ... ok
+    test package::tests::an_unknown_formula_type_refuses_an_edit_to_its_cell ... ok
+    test package::tests::non_utf8_sheet_name ... ok
+    test package::tests::open_reads_no_xml ... ok
+    test package::tests::override_beats_default ... ok
+    test package::tests::office_document_target_absent ... ok
+    test package::tests::edits_to_two_sheets_go_in_one_write ... ok
+    test package::tests::every_byte_outside_sheet_data_is_kept ... ok
+    test package::tests::rels_names_derive ... ok
+    test package::tests::part_with_no_content_type ... ok
+    test package::tests::rel_id_prefix_unbound ... ok
+    test package::tests::override_lacks_an_attribute ... ok
+    test package::tests::rels_part_absent ... ok
+    test package::tests::an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted ... ok
+    test package::tests::editing_removed_content_types ... ok
+    test package::tests::every_byte_outside_the_two_containers_is_kept ... ok
+    test package::tests::relationship_lacks_an_attribute ... ok
+    test package::tests::no_default_for_rels ... ok
+    test package::tests::rel_prefix_bound_three_ways ... ok
+    test package::tests::removing_an_absent_part ... ok
+    test package::tests::removing_an_absent_override ... ok
+    test package::tests::counts_are_rewritten_and_empty_containers_opened_up ... ok
+    test package::tests::removing_an_absent_relationship ... ok
+    test package::tests::a_text_with_a_character_xml_forbids_is_refused ... ok
+    test package::tests::removing_a_part_drops_the_entry_alone ... ok
+    test package::tests::a_numbers_text_is_display_between_the_bounds_and_exponent_outside ... ok
+    test package::tests::root_wrong_in_types ... ok
+    test package::tests::root_wrong_in_rels ... ok
+    test package::tests::root_wrong_in_workbook ... ok
+    test package::tests::root_wrong_namespace_in_types ... ok
+    test package::tests::removing_an_element_keeps_the_whitespace_around_it ... ok
+    test package::tests::several_sheets_in_order ... ok
+    test package::tests::removing_an_element_written_as_a_pair ... ok
+    test package::tests::several_edits_to_one_part_apply_together ... ok
+    test package::tests::sheet_name_escapes ... ok
+    test package::tests::sheet_of_an_unknown_relationship_kind ... ok
+    test package::tests::sheet_states ... ok
+    test package::tests::sheet_lacks_rel_id ... ok
+    test package::tests::sheet_id_not_a_number ... ok
+    test package::tests::strict_namespaces ... ok
+    test package::tests::target_above_root ... ok
+    test package::tests::sheet_relationship_missing ... ok
+    test package::tests::target_absolute ... ok
+    test package::tests::the_catalogue_extractors_can_fail ... ok
+    test package::tests::target_parent ... ok
+    test package::tests::target_relative ... ok
+    test package::tests::replacing_a_formula_without_a_chain_changes_the_sheet_alone ... ok
+    test package::tests::the_method_records_nothing_when_the_workbook_is_refused ... ok
+    test package::tests::the_catalogue_and_the_source_hold_the_same_messages ... ok
+    test package::tests::removing_a_relationship_drops_its_element_alone ... ok
+    test package::tests::replacing_an_absent_part ... ok
+    test package::tests::two_office_documents ... ok
+    test package::tests::replacing_a_part_changes_only_its_bytes ... ok
+    test package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write ... ok
+    test package::tests::two_office_documents_one_of_each_form ... ok
+    test package::tests::two_relationships_one_id ... ok
+    test package::tests::workbook_options_take_the_first ... ok
+    test package::tests::removing_an_override_drops_its_element_alone ... ok
+    test styles::tests::a_code_reference_is_kept_and_a_literal_tab_becomes_a_space ... ok
+    test styles::tests::a_num_fmt_without_a_code_is_refused ... ok
+    test styles::tests::a_part_with_no_root_at_all_is_refused ... ok
+    test package::tests::removing_an_override_keeps_both_default_spellings ... ok
+    test styles::tests::a_num_fmt_without_an_id_is_refused ... ok
+    test styles::tests::a_part_without_cell_xfs_has_none ... ok
+    test styles::tests::a_root_in_another_namespace_is_refused ... ok
+    test styles::tests::a_part_without_num_fmts_has_none ... ok
+    test styles::tests::a_root_of_the_wrong_name_is_refused ... ok
+    test package::tests::the_last_style_edit_wins_and_a_later_value_edit_joins_it ... ok
+    test styles::tests::a_second_cell_xfs_is_refused ... ok
+    test styles::tests::a_second_num_fmts_is_refused ... ok
+    test styles::tests::a_styles_relationship_naming_no_entry_is_refused ... ok
+    test styles::tests::a_prefixed_root_and_the_strict_namespace_are_read ... ok
+    test package::tests::the_method_records_what_the_tools_recipe_recorded ... ok
+    test styles::tests::a_workbook_with_no_styles_relationship_is_refused ... ok
+    test styles::tests::an_xf_keeps_its_own_bytes_with_children_and_empty ... ok
+    test styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused ... ok
+    test package::tests::the_recipe_drops_the_chain_and_nothing_else ... ok
+    test styles::tests::num_fmts_are_read_in_order_with_their_codes_unescaped ... ok
+    test styles::tests::number_format_answers_by_the_first_num_fmt_then_the_built_in ... ok
+    test xml::tests::a_bare_angle_bracket_in_text_with_no_later_one_is_refused ... ok
+    test styles::tests::the_five_ids_are_read_present_and_absent ... ok
+    test styles::tests::only_the_two_containers_children_are_read ... ok
+    test styles::tests::the_part_is_read_once_and_kept ... ok
+    test xml::tests::a_binary_part_is_refused ... ok
+    test xml::tests::a_character_xml_forbids_is_accepted_when_it_is_valid_utf8 ... ok
+    test xml::tests::a_byte_that_is_not_utf8_in_text_is_refused ... ok
+    test xml::tests::a_dangling_ampersand_is_refused ... ok
+    test xml::tests::a_mark_is_reported_and_is_in_no_token ... ok
+    test xml::tests::a_part_of_only_a_mark_has_no_tokens ... ok
+    test xml::tests::a_mismatched_end_tag_is_refused ... ok
+    test xml::tests::a_part_shorter_than_a_mark_reconstructs ... ok
+    test xml::tests::a_part_starting_with_two_marks_keeps_the_second_in_a_text_token ... ok
+    test xml::tests::a_refused_part_stays_refused_and_does_not_restart ... ok
+    test xml::tests::a_reader_failure_is_io_and_not_xml ... ok
+    test xml::tests::an_empty_part_has_no_tokens_and_reconstructs_empty ... ok
+    test xml::tests::a_tag_with_no_closing_angle_bracket_is_refused ... ok
+    test xml::tests::crlf_line_ends_are_kept_as_they_are ... ok
+    test package::tests::the_sample_reads_back_through_styles_and_cells ... ok
+    test xml::tests::no_mark_is_reported_when_the_part_has_none ... ok
+    test package::tests::the_strict_namespace_is_edited_as_the_transitional_one ... ok
+    test xml::tests::the_error_message_is_the_catalogued_one ... ok
+    test xml::tests::the_index_in_an_error_is_the_one_the_stream_was_given ... ok
+    test xml::tests::whitespace_before_and_after_the_root_reconstructs ... ok
+    test xml::tests::a_token_longer_than_the_read_ahead_reconstructs ... ok
+    test xml::tests::the_three_accepted_classes_are_accepted_and_reconstruct ... ok
+    test package::tests::the_values_written_read_back_through_the_cell_reader ... ok
+    test styles::tests::an_xf_id_that_is_not_a_number_is_refused ... ok
+    test styles::tests::date1904_reads_one_and_true_and_nothing_else ... ok
+    test package::tests::the_last_edit_recorded_for_a_cell_wins ... ok
+    test package::tests::replacing_a_normal_formula_drops_the_chain_in_the_same_write ... ok
+    test xml::tests::every_form_reconstructs_in_all_eight_framings ... ok
+    test xml::tests::many_tokens_reconstruct_a_part_larger_than_the_read_ahead ... ok
+    test archive::tests::a_65535_entry_archive_round_trips_byte_for_byte ... ok
+    test archive::tests::adding_past_65535_entries_synthesises_the_zip64_end_records ... ok
+    test archive::tests::removing_from_65535_entries_writes_a_plain_count ... ok
+    test result: ok. 347 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.35s
+    Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/emend_copy-4d137cde7bedcb7b)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/null_rewrite.rs (target/i686-unknown-linux-musl/debug/deps/null_rewrite-d294477bc0bbbf45)
+    test a_part_that_is_not_xml_under_an_xml_name_is_refused ... ok
+    test cells_counts_every_cell_and_edits_nothing ... ok
+    test no_operation_is_still_a_verbatim_round_trip ... ok
+    test an_archive_with_no_xml_parts_comes_back_byte_identical ... ok
+    test replace_is_unchanged ... ok
+    test a_marked_part_keeps_its_mark_through_the_rewrite ... ok
+    test styles_counts_the_styles_part_and_edits_nothing ... ok
+    test the_edit_sample_keeps_a_styled_second_cell ... ok
+    test the_edit_sample_on_an_empty_sheet_adds_row_one ... ok
+    test styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing ... ok
+    test the_formula_sample_refuses_what_the_write_refuses_and_leaves_nothing ... ok
+    test shared_strings_counts_the_items_and_edits_nothing ... ok
+    test the_edit_sample_sets_clears_and_adds_a_row ... ok
+    test the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing ... ok
+    test the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain ... ok
+    test the_survey_counts_an_override_that_names_no_entry ... ok
+    test the_null_rewrite_keeps_every_xml_part_and_leaves_the_binary_alone ... ok
+    test the_survey_refuses_a_package_it_cannot_read ... ok
+    test the_recipe_leaves_a_package_with_no_chain_byte_for_byte ... ok
+    test the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing ... ok
+    test the_survey_counts_the_map_and_edits_nothing ... ok
+    test the_style_sample_adds_two_formats_and_styles_two_cells ... ok
+    test the_recipe_drops_the_chain_and_leaves_every_other_entry_alone ... ok
+    test the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone ... ok
+    test the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain ... ok
+    test the_edit_sample_refuses_a_workbook_with_no_worksheet ... ok
+    test the_formula_sample_with_no_normal_formula_is_byte_identical ... ok
+    test the_operations_are_refused_unless_exactly_one_follows_the_paths ... ok
+    test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+    Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/passthrough-cda17d434f7bb250)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/copies.rs (target/i686-unknown-linux-musl/debug/deps/copies-abfbb1bae38c85f8)
+    test duplicate_names_keep_only_the_last_entry ... ok
+    test empty_archive_is_copied_byte_identical ... ok
+    test data_descriptor_is_folded_into_the_local_header ... ok
+    test ms_dos_made_by_and_version_needed_are_rewritten ... ok
+    test archive_comment_is_kept ... ok
+    test directory_entry_loses_its_directory_mode ... ok
+    test stored_entries_are_copied_byte_identical ... ok
+    test unknown_extra_field_is_dropped_and_entry_comment_kept ... ok
+    test zip64_extra_fields_of_a_small_entry_are_dropped ... ok
+    test zip64_placeholders_written_byte_by_byte_are_dropped ... ok
+    test leading_junk_bytes_are_dropped ... ok
+    test deflated_entries_are_copied_byte_identical ... ok
+    test two_hundred_entries_are_copied_byte_identical ... ok
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+    Running tests/faults.rs (target/i686-unknown-linux-musl/debug/deps/faults-ab8cf4f35e4e77b1)
+    test input_that_is_not_a_zip_archive ... ok
+    test exit3_fault ... ok
+    test alloc_fault_under_a_256_mib_address_space_limit_aborts ... ok
+    test existing_output_is_replaced ... ok
+    test abort_fault ... ok
+    test output_directory_missing ... ok
+    test failed_rename_removes_the_temporary_file ... ok
+    test panic_fault ... ok
+    test output_path_without_a_file_name ... ok
+    test unknown_fault_value ... ok
+    test missing_input ... ok
+    test usage_errors ... ok
+    test fault_variable_is_refused_without_the_allow_variable ... ok
+    test alloc_fault_without_a_limit_then_copies ... ok
+    test sleep_copying_fault_leaves_the_temporary_file_when_killed ... ok
+    test sleep_fault_is_still_running_after_a_second ... ok
+    test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+    Running unittests src/bin/probe-zip.rs (target/i686-unknown-linux-musl/debug/deps/probe_zip-2dfc0a7801b1f701)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/lib.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-272b4e4343c36511)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running unittests src/main.rs (target/i686-unknown-linux-musl/debug/deps/xlsx_diff-aa718f5c11607750)
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Running tests/p1.rs (target/i686-unknown-linux-musl/debug/deps/p1-8b5266f69a6dc08c)
+    test missing_file_is_an_error ... ok
+    test binary_usage_error ... ok
+    test non_zip_file_is_an_error ... ok
+    test duplicate_name_is_an_error ... ok
+    test added_entry ... ok
+    test dropped_entry ... ok
+    test stored_entry_beside_deflated_entry ... ok
+    test binary_exit_status_follows_the_comparison ... ok
+    test names_are_escaped ... ok
+    test equal_archives_are_identical ... ok
+    test stored_entry_across_several_buffers_is_identical ... ok
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    Running tests/p2.rs (target/i686-unknown-linux-musl/debug/deps/p2-e08deda6115241e1)
+    test unsupported_method_is_an_error ... ok
+    test short_raw_stream_is_an_error ... ok
+    test encrypted_entry_is_an_error ... ok
+    test recompressed_entry_with_equal_metadata ... ok
+    test changed_entry_with_different_lengths ... ok
+    test changed_entry_with_equal_length ... ok
+    test wrong_crc_is_an_error ... ok
+    test entry_of_exactly_two_buffers ... ok
+    test large_entry_with_differences_in_first_middle_and_last_chunk ... ok
+    test recompressed_entry ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+    Running tests/p3.rs (target/i686-unknown-linux-musl/debug/deps/p3-252786dccc67e923)
+    test data_descriptor_on_one_side ... ok
+    test leading_junk_bytes ... ok
+    test flags_on_a_changed_entry_and_none_on_dropped_or_added ... ok
+    test changed_archive_comment ... ok
+    test output_side_rows_take_the_output_values ... ok
+    test every_archive_row_in_order ... ok
+    test reordered_entries ... ok
+    test each_flag_alone ... ok
+    test different_lengths_across_several_buffers ... ok
+    test files_identical_yes_on_a_byte_copy_and_no_otherwise ... ok
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+    Running tests/p4.rs (target/i686-unknown-linux-musl/debug/deps/p4-82623417be04b667)
+    test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+    test local_header_running_past_the_end_is_an_error ... ok
+    test local_header_fields_each_alone ... ok
+    test files_identical_no_from_one_byte_inside_a_prefix ... ok
+    test no_sentinel_in_any_output ... ok
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+    Running tests/p5.rs (target/i686-unknown-linux-musl/debug/deps/p5-2f1ee927e7bd76b8)
+    test descriptors_that_differ_only_in_the_signature ... ok
+    test narrowed_and_extended_flags_each_alone ... ok
+    test padding_after_an_entry ... ok
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+    Running tests/p6.rs (target/i686-unknown-linux-musl/debug/deps/p6-d8b3d3c6413751a3)
+    test declared_size_running_over_the_next_header_alike_on_both_sides ... ok
+    test zip64_placeholder_against_plain_sizes ... ok
+    test local_entries_permuted_with_the_central_order_kept ... ok
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    Doc-tests emend
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    Doc-tests xlsx_diff
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+i686-unknown-linux-musl: passed 445; failed 0; ignored 2; test lines ending ok: 445
+i686-unknown-linux-musl: failed is 0: yes
+i686-unknown-linux-musl: passed is more than 0 and equals the ok test lines: yes
+i686-unknown-linux-musl: control bytes in the cargo output: 0 (expect 0): yes
+
+## the tests per binary, which planning asked this log for
+    doc-tests emend 0
+    doc-tests xlsx_diff 0
+    integration copies 13
+    integration faults 16
+    integration null_rewrite 28
+    integration p1 11
+    integration p2 10
+    integration p3 10
+    integration p4 4
+    integration p5 3
+    integration p6 3
+    unittests emend 347
+    unittests emend_copy 0
+    unittests passthrough 0
+    unittests probe_zip 0
+    unittests xlsx_diff 0
+    unittests xlsx_diff 0
+  the per-binary counts sum to 445; the run's own passed total was 445
+the per-binary counts sum to the run's passed total: yes
+the two targets produce the same per-binary breakdown: yes
+  control: a result line with no Running line above it yields 0 rows
+control: the per-binary form attributes nothing to a binary it never saw named: yes
+    control row: unittests libctl 7
+control: a Running line and its result yield one row naming the crate and its count: yes
+  the library's own tests in this run: 347
+  the workspace total: this phase 445, the previous phase 441 (read from records/logs/m1p5-p1/test.log)
+the previous phase's total was read from its committed log: yes
+  test names the previous log's host run printed: 441
+the previous log's names account for its whole host total: yes
+  test names added since the previous phase: 4, of them in the package module: 0, in the styles module: 0, in the tool's integration binary: 4
+    added: the_style_sample_adds_two_formats_and_styles_two_cells
+    added: the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone
+    added: the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing
+    added: the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing
+  test names removed since the previous phase: 0
+no test the previous phase ran is gone: yes
+every added test is the tool's integration binary's: yes
+the tool's integration binary gained the style sample's tests: yes
+the package module gained no name, as ruling 8's case joins an existing test: yes
+the styles module gained no name in this phase: yes
+this phase's workspace total is the previous phase's plus the names added: yes
+control: the same comparison of a list with itself finds no difference: yes
+control: a list with one name more is found to add exactly one: yes
+
+## the xml module's tests, named
+    xml::tests::a_bare_angle_bracket_in_text_with_no_later_one_is_refused
+    xml::tests::a_binary_part_is_refused
+    xml::tests::a_byte_that_is_not_utf8_in_text_is_refused
+    xml::tests::a_character_xml_forbids_is_accepted_when_it_is_valid_utf8
+    xml::tests::a_dangling_ampersand_is_refused
+    xml::tests::a_mark_is_reported_and_is_in_no_token
+    xml::tests::a_mismatched_end_tag_is_refused
+    xml::tests::a_part_of_only_a_mark_has_no_tokens
+    xml::tests::a_part_shorter_than_a_mark_reconstructs
+    xml::tests::a_part_starting_with_two_marks_keeps_the_second_in_a_text_token
+    xml::tests::a_reader_failure_is_io_and_not_xml
+    xml::tests::a_refused_part_stays_refused_and_does_not_restart
+    xml::tests::a_tag_with_no_closing_angle_bracket_is_refused
+    xml::tests::a_token_longer_than_the_read_ahead_reconstructs
+    xml::tests::an_empty_part_has_no_tokens_and_reconstructs_empty
+    xml::tests::crlf_line_ends_are_kept_as_they_are
+    xml::tests::every_form_reconstructs_in_all_eight_framings
+    xml::tests::many_tokens_reconstruct_a_part_larger_than_the_read_ahead
+    xml::tests::no_mark_is_reported_when_the_part_has_none
+    xml::tests::the_error_message_is_the_catalogued_one
+    xml::tests::the_index_in_an_error_is_the_one_the_stream_was_given
+    xml::tests::the_three_accepted_classes_are_accepted_and_reconstruct
+    xml::tests::whitespace_before_and_after_the_root_reconstructs
+  xml module tests on the host: 23
+the xml module has more than twenty tests of its own: yes
+  xml module tests on i686-unknown-linux-musl: 23
+the xml module's test count is the same on both targets: yes
+
+## the package module's tests, named
+    package::tests::a_boolean_is_written_as_one_or_zero
+    package::tests::a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused
+    package::tests::a_cell_edit_to_a_part_that_is_not_a_worksheet_is_refused_by_root
+    package::tests::a_cell_in_a_shared_or_array_formula_is_refused
+    package::tests::a_cell_reference_not_a1_refuses_the_edit
+    package::tests::a_cell_with_an_attribute_this_layer_does_not_model_is_refused
+    package::tests::a_chain_the_caller_already_dropped_is_dropped_once
+    package::tests::a_chain_the_caller_did_not_drop_is_dropped_once_by_the_rule
+    package::tests::a_clear_takes_the_style_edit
+    package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes
+    package::tests::a_code_is_escaped_and_reads_back_equal_to_itself
+    package::tests::a_code_is_matched_or_numbered_after_the_largest_id
+    package::tests::a_count_that_is_not_a_number_is_refused_at_write
+    package::tests::a_created_rels_part_falls_back_when_the_package_has_no_rels_part
+    package::tests::a_created_rels_part_takes_a_mark_and_no_separator_when_the_package_does
+    package::tests::a_created_rels_part_takes_the_packages_own_form
+    package::tests::a_data_table_is_refused_as_an_array_is
+    package::tests::a_failed_replacement_leaves_no_temporary
+    package::tests::a_generated_id_is_one_more_than_the_largest
+    package::tests::a_new_cell_goes_where_its_column_puts_it
+    package::tests::a_new_code_takes_164_on_a_part_with_no_custom_id
+    package::tests::a_new_row_goes_where_its_number_puts_it
+    package::tests::a_number_cell_replaced_keeps_its_style_and_loses_its_type
+    package::tests::a_number_that_is_not_finite_is_refused
+    package::tests::a_numbers_text_is_display_between_the_bounds_and_exponent_outside
+    package::tests::a_package_with_no_chain_comes_back_byte_for_byte
+    package::tests::a_part_with_cell_xfs_alone_gains_num_fmts_before_it
+    package::tests::a_part_without_cell_xfs_is_refused_at_write_with_no_output
+    package::tests::a_prefixed_part_gets_prefixed_elements
+    package::tests::a_refused_cell_edit_leaves_no_temporary_and_no_output
+    package::tests::a_relationship_on_a_part_that_is_not_there
+    package::tests::a_relationship_removal_on_a_part_that_is_not_there
+    package::tests::a_removed_id_is_not_reused_within_a_write
+    package::tests::a_row_number_not_a_number_refuses_the_edit
+    package::tests::a_set_on_a_worksheet_without_sheet_data_is_refused
+    package::tests::a_some_edit_needs_a_styles_part_and_a_none_edit_does_not
+    package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing
+    package::tests::a_style_edit_alone_rewrites_the_start_tag_and_nothing_else
+    package::tests::a_style_edit_on_a_formula_leaves_the_chain
+    package::tests::a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused
+    package::tests::a_text_is_written_inline_and_escaped
+    package::tests::a_text_with_a_character_xml_forbids_is_refused
+    package::tests::a_value_edit_takes_the_style_edit_or_keeps_the_cells_own
+    package::tests::a_value_edit_that_removes_no_formula_keeps_the_chain
+    package::tests::a_worksheet_out_of_order_is_refused
+    package::tests::a_worksheet_without_explicit_references_is_refused
+    package::tests::adding_a_part_adds_the_entry_alone
+    package::tests::adding_a_relationship_goes_before_the_end_tag
+    package::tests::adding_an_override_goes_before_the_end_tag
+    package::tests::adding_an_override_that_exists
+    package::tests::an_addition_escapes_its_values
+    package::tests::an_addition_is_refused_on_a_bad_base_or_format
+    package::tests::an_array_whose_extent_is_unknown_is_refused
+    package::tests::an_empty_root_in_a_rels_part_gains_an_end_tag
+    package::tests::an_empty_root_in_content_types_gains_an_end_tag
+    package::tests::an_empty_row_is_opened_up_for_a_new_cell
+    package::tests::an_empty_sheet_data_is_opened_up_for_new_rows
+    package::tests::an_external_relationship_writes_its_target_mode
+    package::tests::an_id_of_another_form_is_ignored_by_the_rule
+    package::tests::an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted
+    package::tests::an_override_removed_and_added_again_is_not_a_duplicate
+    package::tests::an_unknown_formula_type_refuses_an_edit_to_its_cell
+    package::tests::an_unwritable_value_names_content_types_for_the_packages_own_rels
+    package::tests::an_unwritable_value_names_the_source_when_the_rels_part_is_new
+    package::tests::an_xf_added_from_a_base_with_children_keeps_them_and_rebuilds_its_tag
+    package::tests::an_xf_added_from_a_single_quoted_base_keeps_each_quote
+    package::tests::an_xf_added_from_an_empty_base_and_from_none
+    package::tests::clearing_a_cell_that_is_not_there_changes_nothing
+    package::tests::content_types_part_absent
+    package::tests::counts_are_rewritten_and_empty_containers_opened_up
+    package::tests::default_lacks_an_attribute
+    package::tests::editing_a_removed_part
+    package::tests::editing_a_removed_rels_part
+    package::tests::editing_removed_content_types
+    package::tests::edits_to_two_sheets_go_in_one_write
+    package::tests::every_byte_outside_sheet_data_is_kept
+    package::tests::every_byte_outside_the_two_containers_is_kept
+    package::tests::extension_matched_case_insensitively
+    package::tests::external_target
+    package::tests::map_resolves
+    package::tests::no_default_for_rels
+    package::tests::no_office_document
+    package::tests::non_utf8_sheet_name
+    package::tests::office_document_target_absent
+    package::tests::open_reads_no_xml
+    package::tests::override_beats_default
+    package::tests::override_lacks_an_attribute
+    package::tests::part_with_no_content_type
+    package::tests::rel_id_prefix_unbound
+    package::tests::rel_prefix_bound_three_ways
+    package::tests::relationship_lacks_an_attribute
+    package::tests::rels_names_derive
+    package::tests::rels_part_absent
+    package::tests::removing_a_part_drops_the_entry_alone
+    package::tests::removing_a_relationship_drops_its_element_alone
+    package::tests::removing_an_absent_override
+    package::tests::removing_an_absent_part
+    package::tests::removing_an_absent_relationship
+    package::tests::removing_an_element_keeps_the_whitespace_around_it
+    package::tests::removing_an_element_written_as_a_pair
+    package::tests::removing_an_override_drops_its_element_alone
+    package::tests::removing_an_override_keeps_both_default_spellings
+    package::tests::replacing_a_formula_without_a_chain_changes_the_sheet_alone
+    package::tests::replacing_a_normal_formula_drops_the_chain_in_the_same_write
+    package::tests::replacing_a_part_changes_only_its_bytes
+    package::tests::replacing_an_absent_part
+    package::tests::root_wrong_in_rels
+    package::tests::root_wrong_in_types
+    package::tests::root_wrong_in_workbook
+    package::tests::root_wrong_namespace_in_types
+    package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write
+    package::tests::several_edits_to_one_part_apply_together
+    package::tests::several_sheets_in_order
+    package::tests::sheet_id_not_a_number
+    package::tests::sheet_lacks_rel_id
+    package::tests::sheet_name_escapes
+    package::tests::sheet_of_an_unknown_relationship_kind
+    package::tests::sheet_relationship_missing
+    package::tests::sheet_states
+    package::tests::strict_namespaces
+    package::tests::target_above_root
+    package::tests::target_absolute
+    package::tests::target_parent
+    package::tests::target_relative
+    package::tests::the_catalogue_and_the_source_hold_the_same_messages
+    package::tests::the_catalogue_extractors_can_fail
+    package::tests::the_last_edit_recorded_for_a_cell_wins
+    package::tests::the_last_style_edit_wins_and_a_later_value_edit_joins_it
+    package::tests::the_method_records_nothing_when_the_workbook_is_refused
+    package::tests::the_method_records_what_the_tools_recipe_recorded
+    package::tests::the_recipe_drops_the_chain_and_nothing_else
+    package::tests::the_sample_reads_back_through_styles_and_cells
+    package::tests::the_strict_namespace_is_edited_as_the_transitional_one
+    package::tests::the_values_written_read_back_through_the_cell_reader
+    package::tests::two_office_documents
+    package::tests::two_office_documents_one_of_each_form
+    package::tests::two_relationships_one_id
+    package::tests::workbook_options_take_the_first
+  package module tests on the host: 138
+the package module has more than twenty tests of its own: yes
+  the previous phase's package count, read from records/logs/m1p5-p1/test.log: 138
+the previous phase's package count was read from its committed log: yes
+the package module runs the previous phase's count plus the package names added: yes
+  package module tests on i686-unknown-linux-musl: 138
+the package module's test count is the same on both targets: yes
+
+## the cells module's tests, named
+    cells::tests::a_booleans_text_is_read_as_a_bool
+    cells::tests::a_carriage_return_line_feed_pair_becomes_one_line_feed
+    cells::tests::a_carriage_return_through_a_reference_is_kept
+    cells::tests::a_cell_in_another_namespace_is_not_a_cell
+    cells::tests::a_cell_reference_parses_only_the_a1_form
+    cells::tests::a_cell_reference_that_is_not_a1_is_refused
+    cells::tests::a_cell_type_this_layer_does_not_know_is_refused
+    cells::tests::a_cell_without_a_reference_follows_the_previous
+    cells::tests::a_cells_own_reference_wins_over_its_row
+    cells::tests::a_character_reference_is_expanded_in_a_value_a_formula_and_a_text
+    cells::tests::a_data_table_formula_is_accepted_by_name
+    cells::tests::a_formula_type_this_layer_does_not_know_is_refused
+    cells::tests::a_formulas_other_attributes_are_not_modelled
+    cells::tests::a_line_feed_alone_is_unchanged
+    cells::tests::a_lone_carriage_return_becomes_a_line_feed
+    cells::tests::a_normal_formula_is_its_text
+    cells::tests::a_number_cell_whose_text_is_not_a_number_has_none
+    cells::tests::a_number_is_a_number_with_or_without_its_type
+    cells::tests::a_number_this_layer_reads_is_digits_alone
+    cells::tests::a_numbers_text_is_read_as_an_f64
+    cells::tests::a_part_with_no_root_at_all_is_refused
+    cells::tests::a_phonetic_subtree_inside_an_inline_string_is_skipped
+    cells::tests::a_phonetic_subtree_is_skipped
+    cells::tests::a_plain_item_is_its_text
+    cells::tests::a_reference_between_two_line_ends_separates_them
+    cells::tests::a_reference_writes_itself_back
+    cells::tests::a_relationship_naming_no_entry_is_refused
+    cells::tests::a_root_in_another_namespace_is_refused
+    cells::tests::a_root_of_the_wrong_name_is_refused
+    cells::tests::a_row_number_of_zero_is_refused
+    cells::tests::a_row_number_that_is_not_a_number_is_refused
+    cells::tests::a_row_without_a_number_follows_the_last
+    cells::tests::a_second_call_gives_an_equal_table
+    cells::tests::a_shared_formula_without_an_index_is_refused
+    cells::tests::a_shared_index_that_is_not_a_number_is_refused
+    cells::tests::a_shared_master_carries_its_range_and_its_follower_carries_no_text
+    cells::tests::a_shared_string_cell_with_no_value_resolves_to_nothing
+    cells::tests::a_style_index_is_carried
+    cells::tests::a_style_index_that_is_not_a_number_is_refused
+    cells::tests::a_value_may_be_text_empty_or_absent
+    cells::tests::a_workbook_with_no_shared_strings_gives_an_empty_table
+    cells::tests::a_worksheet_cut_off_mid_cell_is_refused
+    cells::tests::a_worksheet_root_in_another_namespace_is_refused
+    cells::tests::a_worksheet_root_of_the_wrong_name_is_refused
+    cells::tests::a_worksheet_that_is_not_utf8_is_refused
+    cells::tests::an_array_formula_carries_its_range
+    cells::tests::an_element_inside_a_cells_value_is_refused
+    cells::tests::an_element_inside_a_text_element_is_refused
+    cells::tests::an_empty_sheet_data_gives_no_cells
+    cells::tests::an_empty_text_and_an_empty_item_are_both_the_empty_string
+    cells::tests::an_error_cells_text_is_its_error
+    cells::tests::an_index_past_u32_is_refused_like_one_that_is_not_a_number
+    cells::tests::an_inline_string_is_the_text_under_its_is
+    cells::tests::an_item_wholly_in_cdata_is_its_text
+    cells::tests::an_unknown_element_is_skipped_with_its_subtree
+    cells::tests::an_unknown_entity_in_a_cell_is_refused
+    cells::tests::an_unknown_entity_is_refused
+    cells::tests::cells_on_a_part_that_is_not_there_is_refused
+    cells::tests::count_and_unique_count_are_ignored
+    cells::tests::each_typed_view_answers_only_for_its_own_kind
+    cells::tests::every_cell_type_reads_as_its_kind
+    cells::tests::every_reference_the_reader_emits_parses_back
+    cells::tests::get_past_the_end_is_none
+    cells::tests::line_ends_normalise_inside_cdata_too
+    cells::tests::reading_cells_then_writing_copies_the_package_byte_for_byte
+    cells::tests::references_are_expanded
+    cells::tests::resolving_a_cell_of_another_kind_gives_its_own_value
+    cells::tests::resolving_a_shared_string_gives_the_item_it_names
+    cells::tests::resolving_an_index_out_of_range_is_refused
+    cells::tests::resolving_an_index_that_is_not_a_number_is_refused
+    cells::tests::spaces_are_kept_with_and_without_xml_space
+    cells::tests::text_in_another_namespace_is_not_the_item_s_text
+    cells::tests::text_on_both_sides_of_a_cdata_section_concatenates
+    cells::tests::text_that_is_not_utf8_is_an_xml_error
+    cells::tests::the_crate_root_re_exports_every_cell_type
+    cells::tests::the_fixture_builder_makes_a_package_the_reader_accepts
+    cells::tests::the_iterator_is_spent_after_a_refusal
+    cells::tests::the_other_main_namespace_spelling_is_read_too
+    cells::tests::the_parse_is_the_standard_librarys_and_wider_than_the_format
+    cells::tests::the_phonetic_skip_ends_at_its_own_end_tag
+    cells::tests::the_runs_of_an_inline_string_concatenate
+    cells::tests::the_runs_of_an_item_concatenate
+    cells::tests::the_strict_namespace_is_accepted
+    cells::tests::two_cells_past_the_last_column_share_the_last_reference
+    cells::tests::what_the_standard_librarys_parse_takes_and_this_refuses
+    cells::tests::zero_is_a_number_where_zero_is_a_legal_index
+  cells module tests on the host: 86
+  the previous phase's cells count, read from records/logs/m1p5-p1/test.log: 86
+the previous phase's cells count was read from its committed log: yes
+the cells module runs exactly as many tests as the previous phase's log printed: yes
+  cells module tests on i686-unknown-linux-musl: 86
+the cells module's test count is the same on both targets: yes
+
+## the styles module's tests, named
+    styles::tests::a_code_reference_is_kept_and_a_literal_tab_becomes_a_space
+    styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused
+    styles::tests::a_num_fmt_without_a_code_is_refused
+    styles::tests::a_num_fmt_without_an_id_is_refused
+    styles::tests::a_part_with_no_root_at_all_is_refused
+    styles::tests::a_part_without_cell_xfs_has_none
+    styles::tests::a_part_without_num_fmts_has_none
+    styles::tests::a_prefixed_root_and_the_strict_namespace_are_read
+    styles::tests::a_root_in_another_namespace_is_refused
+    styles::tests::a_root_of_the_wrong_name_is_refused
+    styles::tests::a_second_cell_xfs_is_refused
+    styles::tests::a_second_num_fmts_is_refused
+    styles::tests::a_styles_relationship_naming_no_entry_is_refused
+    styles::tests::a_workbook_with_no_styles_relationship_is_refused
+    styles::tests::an_xf_id_that_is_not_a_number_is_refused
+    styles::tests::an_xf_keeps_its_own_bytes_with_children_and_empty
+    styles::tests::date1904_reads_one_and_true_and_nothing_else
+    styles::tests::num_fmts_are_read_in_order_with_their_codes_unescaped
+    styles::tests::number_format_answers_by_the_first_num_fmt_then_the_built_in
+    styles::tests::only_the_two_containers_children_are_read
+    styles::tests::the_five_ids_are_read_present_and_absent
+    styles::tests::the_part_is_read_once_and_kept
+  styles module tests on the host: 22; in the previous phase's log: 22
+the previous phase ran the styles module's tests: yes
+the styles module runs exactly the previous phase's names: yes
+  styles module tests on i686-unknown-linux-musl: 22
+the styles module's test count is the same on both targets: yes
+
+## the package module's added tests (the second code commit's), named
+
+## the tool's integration tests, named
+    a_marked_part_keeps_its_mark_through_the_rewrite
+    a_part_that_is_not_xml_under_an_xml_name_is_refused
+    an_archive_with_no_xml_parts_comes_back_byte_identical
+    cells_counts_every_cell_and_edits_nothing
+    no_operation_is_still_a_verbatim_round_trip
+    replace_is_unchanged
+    shared_strings_counts_the_items_and_edits_nothing
+    styles_counts_the_styles_part_and_edits_nothing
+    styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing
+    the_edit_sample_keeps_a_styled_second_cell
+    the_edit_sample_on_an_empty_sheet_adds_row_one
+    the_edit_sample_refuses_a_workbook_with_no_worksheet
+    the_edit_sample_sets_clears_and_adds_a_row
+    the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain
+    the_formula_sample_refuses_what_the_write_refuses_and_leaves_nothing
+    the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain
+    the_formula_sample_with_no_normal_formula_is_byte_identical
+    the_null_rewrite_keeps_every_xml_part_and_leaves_the_binary_alone
+    the_operations_are_refused_unless_exactly_one_follows_the_paths
+    the_recipe_drops_the_chain_and_leaves_every_other_entry_alone
+    the_recipe_leaves_a_package_with_no_chain_byte_for_byte
+    the_style_sample_adds_two_formats_and_styles_two_cells
+    the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone
+    the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing
+    the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing
+    the_survey_counts_an_override_that_names_no_entry
+    the_survey_counts_the_map_and_edits_nothing
+    the_survey_refuses_a_package_it_cannot_read
+  tests in the tool's null_rewrite binary: host 28, i686-unknown-linux-musl 28
+  the previous phase's tool count, read from records/logs/m1p5-p1/test.log: 24
+the previous phase's tool count was read from its committed log: yes
+the tool's integration tests are the previous phase's plus the tool names added: yes
+the tool's tests are the same names on both targets: yes
+control: the same extraction for a binary that does not exist yields 0 names (0): yes
+
+## the zip layer's tests, counted (P1 adds none there)
+  zip layer tests on the host: 78
+the zip layer still has more than twenty tests of its own: yes
+  the ignored test or tests, named:
+    test archive::tests::zip64_replace_in_an_archive_over_4_gib ... ignored, writes and rewrites an archive over 4 GiB; run with --ignored zip64
+    test zip64_entry_over_4_gib ... ignored, writes and compares a 4 GiB + 1 byte entry; run with --ignored zip64
+  ignored tests on the host: 2; of them in the xml module: 0; in the package or styles module: 0; of them the documented 4 GiB zip64 cases: 2
+no test of the xml module is ignored: yes
+no test of the package or styles module is ignored: yes
+every ignored test is one of the two documented 4 GiB zip64 cases: yes
+there are exactly two such ignored tests: yes
+control: an ignored test with another reason is not counted as a zip64 case (0): yes
+
+## size-probe with the xml feature (the workspace runs above skip probe-zip-xml, which requires it)
+command: cargo build -p size-probe --features xml --all-targets 
+exit: 0
+host: size-probe builds with the xml feature: yes
+command: cargo clippy -p size-probe --features xml --all-targets  -- -D warnings
+exit: 0
+host: clippy with the xml feature passes: yes
+host: control bytes in the clippy output: 0 (expect 0): yes
+command: cargo build -p size-probe --features xml --all-targets --target i686-unknown-linux-musl
+exit: 0
+i686-unknown-linux-musl: size-probe builds with the xml feature: yes
+command: cargo clippy -p size-probe --features xml --all-targets --target i686-unknown-linux-musl -- -D warnings
+exit: 0
+i686-unknown-linux-musl: clippy with the xml feature passes: yes
+i686-unknown-linux-musl: control bytes in the clippy output: 0 (expect 0): yes
+
+## the core builds and passes clippy with both features of the probes
+command: cargo clippy -p size-probe --features emend,xml --all-targets  -- -D warnings
+exit: 0
+host: clippy with both features passes: yes
+command: cargo clippy -p size-probe --features emend,xml --all-targets --target i686-unknown-linux-musl -- -D warnings
+exit: 0
+i686-unknown-linux-musl: clippy with both features passes: yes
+
+## the code commits, resolved by subject
+  the first code commit (ruling 8's case): 07b84be0689cef9f004f8fba938eda7ed73b0d32
+  the second code commit (the style sample): 7c965755863bbcc45b32cc36d92b29baf1067cbf
+both code commits resolved from git by subject: yes
+the second code commit is the phase commit: yes
+the first code commit is the second's parent: yes
+control: a subject no commit has resolves to nothing: yes
+
+## the mutations, and what each one broke
+command: git worktree add --detach <scratch>/tree 7c965755863bbcc45b32cc36d92b29baf1067cbf
+exit: 0
+the worktree for the mutations was created at the phase commit: yes
+
+## the mutation applier this block runs
+    import sys
+    
+    PACKAGE = "crates/emend/src/package.rs"
+    TOOL = "tools/emend-copy/src/main.rs"
+    
+    # C1 is ruling 8's case: the arm a clear with no style edit takes for a cell
+    # that is not there. P1's second code commit rewrote that arm while the
+    # function it calls stayed as it was, so P1's diff could not show the case;
+    # this mutation makes the arm write a cell and names the test that catches it.
+    EMPTY = "        (None, None) => Vec::new(),"
+    WRITES = '        (None, None) => [b"<".as_slice(), prefix, b"c/>"].concat(),'
+    
+    MUTATIONS = {
+        "C1": [(PACKAGE, EMPTY, WRITES)],
+        "C2": [(TOOL, "        package.add_cell_style(before.first_style, "
+                      'NumberFormat::Code("0.000".to_string()))?;',
+                "        package.add_cell_style(None, "
+                'NumberFormat::Code("0.000".to_string()))?;')],
+        "C3": [(TOOL, "    package.set_cell_style(&part, new_cell, Some(dated));",
+                "    package.set_cell_style(&part, new_cell, Some(coded));")],
+        "C4": [(TOOL, '            "formats_added",', '            "formats_add",')],
+        "C5": [(TOOL, "    package.set_cell(&part, new_cell, Value::Number(45000.5));",
+                "    package.set_cell(&part, new_cell, Value::Number(45000.0));")],
+    }
+    
+    which = sys.argv[1]
+    root = sys.argv[2]
+    for path, old, new in MUTATIONS[which]:
+        full = root + "/" + path
+        body = open(full).read()
+        found = body.count(old)
+        if found != 1:
+            print("REFUSED %s: the text to replace in %s occurs %d times, not once" % (which, path, found))
+            sys.exit(2)
+        body = body.replace(old, new, 1)
+        open(full, "w").write(body)
+        print("    applied %s to %s: %d bytes -> %d bytes" % (which, path, len(old), len(new)))
+control: the compiler-error form counts a coded error and a could-not-compile line (2): yes
+control: the compiler-error form counts none of cargo's test-failure lines (0): yes
+
+### C1
+      applied C1 to crates/emend/src/package.rs: 35 bytes -> 67 bytes
+C1: the applier found its text exactly once and replaced it: yes
+command: cargo test --no-fail-fast -p emend (in the mutated worktree)
+exit: 101
+C1: the mutated tree does not pass its tests: yes
+  cargo's error lines:
+    error: test failed, to rerun pass `-p emend --lib`
+    error: 1 target failed:
+C1: the mutated tree compiles (0 compiler error lines): yes
+  the failures, with what each assertion printed:
+    ---- package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes stdout ----
+    thread 'package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes' (1543411) panicked at crates/emend/src/package/tests.rs:2719:5:
+    assertion `left == right` failed
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\">\n  <c r=\"A1\" s=\"4\"/>\n  <c/>\n  <c/>\n</row></sheetData></worksheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\">\n  <c r=\"A1\" s=\"4\"/>\n  \n  \n</row></sheetData></worksheet>"
+    ---- package::tests::a_clear_takes_the_style_edit stdout ----
+    thread 'package::tests::a_clear_takes_the_style_edit' (1543410) panicked at crates/emend/src/package/tests.rs:3692:5:
+    assertion `left == right` failed
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\" s=\"2\"/><c/><c r=\"C1\" s=\"1\"/></row></sheetData></worksheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\" s=\"2\"/><c r=\"C1\" s=\"1\"/></row></sheetData></worksheet>"
+    ---- package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing stdout ----
+    thread 'package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing' (1543438) panicked at crates/emend/src/package/tests.rs:3761:5:
+    assertion `left == right` failed
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\" s=\"2\"/><c r=\"C1\"><v>3</v></c><c/><c/></row><c/><row r=\"5\"><c r=\"A5\" s=\"1\"/></row><c/></sheetData></worksheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\" s=\"2\"/><c r=\"C1\"><v>3</v></c></row><row r=\"5\"><c r=\"A5\" s=\"1\"/></row></sheetData></worksheet>"
+    ---- package::tests::clearing_a_cell_that_is_not_there_changes_nothing stdout ----
+    thread 'package::tests::clearing_a_cell_that_is_not_there_changes_nothing' (1543469) panicked at crates/emend/src/package/tests.rs:2705:5:
+    assertion `left == right` failed
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c><c/></row><c/><row r=\"3\"/><c/><c/></sheetData></worksheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"3\"/></sheetData></worksheet>"
+    ---- package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write stdout ----
+    thread 'package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write' (1543512) panicked at crates/emend/src/package/tests.rs:2668:5:
+    assertion `left == right` failed
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>\n  <row r=\"1\"><c r=\"A1\"><v>3</v></c><c r=\"B1\"><v>1</v></c><c r=\"C1\"><v>4</v></c></row>\n  <row r=\"2\"><c r=\"A2\" t=\"b\"><v>0</v></c></row><row r=\"3\"><c/><c r=\"C3\"><v>5</v></c></row>\n<row r=\"4\"><c r=\"A4\"><v>6</v></c></row></sheetData></worksheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>\n  <row r=\"1\"><c r=\"A1\"><v>3</v></c><c r=\"B1\"><v>1</v></c><c r=\"C1\"><v>4</v></c></row>\n  <row r=\"2\"><c r=\"A2\" t=\"b\"><v>0</v></c></row><row r=\"3\"><c r=\"C3\"><v>5</v></c></row>\n<row r=\"4\"><c r=\"A4\"><v>6</v></c></row></sheetData></worksheet>"
+    test result: FAILED. 342 passed; 5 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.58s
+C1: the failure output carries the assertion's own message or values (15 lines): yes
+  the failing test names this run reports:
+    package::tests::a_clear_takes_the_style_edit
+    package::tests::a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes
+    package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing
+    package::tests::clearing_a_cell_that_is_not_there_changes_nothing
+    package::tests::several_edits_in_one_row_and_in_several_rows_go_in_one_write
+C1: package::tests::a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing fails: yes
+
+### C2
+      applied C2 to tools/emend-copy/src/main.rs: 93 bytes -> 79 bytes
+C2: the applier found its text exactly once and replaced it: yes
+command: cargo test --no-fail-fast -p emend-copy (in the mutated worktree)
+exit: 101
+C2: the mutated tree does not pass its tests: yes
+  cargo's error lines:
+    error: test failed, to rerun pass `-p emend-copy --test null_rewrite`
+    error: 1 target failed:
+C2: the mutated tree compiles (0 compiler error lines): yes
+  the failures, with what each assertion printed:
+    ---- the_style_sample_adds_two_formats_and_styles_two_cells stdout ----
+    thread 'the_style_sample_adds_two_formats_and_styles_two_cells' (1544174) panicked at tools/emend-copy/tests/null_rewrite.rs:1753:5:
+    assertion `left == right` failed: the styles part
+      left: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.000\"/></numFmts><fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts><cellXfs count=\"5\"><xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/><xf/><xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/><xf numFmtId=\"14\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>"
+     right: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.000\"/></numFmts><fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts><cellXfs count=\"5\"><xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/><xf/><xf numFmtId=\"165\" fontId=\"0\" applyNumberFormat=\"1\"/><xf numFmtId=\"14\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>"
+    test result: FAILED. 27 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+C2: the failure output carries the assertion's own message or values (3 lines): yes
+  the failing test names this run reports:
+    the_style_sample_adds_two_formats_and_styles_two_cells
+C2: the_style_sample_adds_two_formats_and_styles_two_cells fails: yes
+
+### C3
+      applied C3 to tools/emend-copy/src/main.rs: 57 bytes -> 57 bytes
+C3: the applier found its text exactly once and replaced it: yes
+command: cargo test --no-fail-fast -p emend-copy (in the mutated worktree)
+exit: 101
+C3: the mutated tree does not pass its tests: yes
+  cargo's error lines:
+    error: test failed, to rerun pass `-p emend-copy --test null_rewrite`
+    error: 1 target failed:
+C3: the mutated tree compiles (0 compiler error lines): yes
+  the failures, with what each assertion printed:
+    ---- the_style_sample_adds_two_formats_and_styles_two_cells stdout ----
+    thread 'the_style_sample_adds_two_formats_and_styles_two_cells' (1544509) panicked at tools/emend-copy/tests/null_rewrite.rs:1747:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\tcells_after=4\tread_back=2\n"
+     right: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\tcells_after=4\tread_back=3\n"
+    ---- the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone stdout ----
+    thread 'the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone' (1544516) panicked at tools/emend-copy/tests/null_rewrite.rs:1784:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\tcells_after=1\tread_back=1\n"
+     right: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\tcells_after=1\tread_back=2\n"
+    test result: FAILED. 26 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+C3: the failure output carries the assertion's own message or values (6 lines): yes
+  the failing test names this run reports:
+    the_style_sample_adds_two_formats_and_styles_two_cells
+    the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone
+C3: the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone fails: yes
+
+### C4
+      applied C4 to tools/emend-copy/src/main.rs: 28 bytes -> 26 bytes
+C4: the applier found its text exactly once and replaced it: yes
+command: cargo test --no-fail-fast -p emend-copy (in the mutated worktree)
+exit: 101
+C4: the mutated tree does not pass its tests: yes
+  cargo's error lines:
+    error: test failed, to rerun pass `-p emend-copy --test null_rewrite`
+    error: 1 target failed:
+C4: the mutated tree compiles (0 compiler error lines): yes
+  the failures, with what each assertion printed:
+    ---- the_style_sample_adds_two_formats_and_styles_two_cells stdout ----
+    thread 'the_style_sample_adds_two_formats_and_styles_two_cells' (1544853) panicked at tools/emend-copy/tests/null_rewrite.rs:1747:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_add=1\tcells_before=3\tcells_after=4\tread_back=3\n"
+     right: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\tcells_after=4\tread_back=3\n"
+    ---- the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone stdout ----
+    thread 'the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone' (1544854) panicked at tools/emend-copy/tests/null_rewrite.rs:1784:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_add=1\tcells_before=0\tcells_after=1\tread_back=2\n"
+     right: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\tcells_after=1\tread_back=2\n"
+    test result: FAILED. 26 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+C4: the failure output carries the assertion's own message or values (6 lines): yes
+  the failing test names this run reports:
+    the_style_sample_adds_two_formats_and_styles_two_cells
+    the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone
+C4: the_style_sample_adds_two_formats_and_styles_two_cells fails: yes
+
+### C5
+      applied C5 to tools/emend-copy/src/main.rs: 62 bytes -> 62 bytes
+C5: the applier found its text exactly once and replaced it: yes
+command: cargo test --no-fail-fast -p emend-copy (in the mutated worktree)
+exit: 101
+C5: the mutated tree does not pass its tests: yes
+  cargo's error lines:
+    error: test failed, to rerun pass `-p emend-copy --test null_rewrite`
+    error: 1 target failed:
+C5: the mutated tree compiles (0 compiler error lines): yes
+  the failures, with what each assertion printed:
+    ---- the_style_sample_adds_two_formats_and_styles_two_cells stdout ----
+    thread 'the_style_sample_adds_two_formats_and_styles_two_cells' (1545194) panicked at tools/emend-copy/tests/null_rewrite.rs:1747:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\tcells_after=4\tread_back=2\n"
+     right: "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=3\tcells_after=4\tread_back=3\n"
+    ---- the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone stdout ----
+    thread 'the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone' (1545195) panicked at tools/emend-copy/tests/null_rewrite.rs:1784:5:
+    assertion `left == right` failed: the edit line
+      left: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\tcells_after=1\tread_back=1\n"
+     right: "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tformats_added=1\tcells_before=0\tcells_after=1\tread_back=2\n"
+    test result: FAILED. 26 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+C5: the failure output carries the assertion's own message or values (6 lines): yes
+  the failing test names this run reports:
+    the_style_sample_adds_two_formats_and_styles_two_cells
+    the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone
+C5: the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone fails: yes
+
+### control: the same worktree with no mutation applied
+command: cargo test --no-fail-fast -p emend (in the clean worktree)
+exit: 0
+    test result: ok. 347 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.61s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+control: the unmutated worktree passes emend, so each failure above is the mutation's: yes
+command: cargo test --no-fail-fast -p emend-copy (in the clean worktree)
+exit: 0
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+control: the unmutated worktree passes emend-copy, so each failure above is the mutation's: yes
+control: the same failing-name search over the clean runs finds none: yes
+
+## the two runs
+host executed 445 tests; i686-unknown-linux-musl executed 445 tests
+the i686 run executed the same test names as the host run: yes
+the two counts are equal: yes
+
+## the tests and counts each code commit's message names, read at that commit (header change 5)
+the test a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing, which 07b84be0689cef9f004f8fba938eda7ed73b0d32's message names, exists there: yes
+control: a test that does not exist is not found at 07b84be0689cef9f004f8fba938eda7ed73b0d32: yes
+  clear_cell calls inside a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing: at 07b84be0689cef9f004f8fba938eda7ed73b0d32 2, at its parent 0
+the test gains the two clears 07b84be0689cef9f004f8fba938eda7ed73b0d32's message names: yes
+  files in 07b84be0689cef9f004f8fba938eda7ed73b0d32: 1; of them library sources outside the tests: 0
+the first code commit changes one file and no library source, as its message says: yes
+the test the_style_sample_adds_two_formats_and_styles_two_cells, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, exists there: yes
+control: the_style_sample_adds_two_formats_and_styles_two_cells is not at the second code commit's parent: yes
+the test the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, exists there: yes
+control: the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone is not at the second code commit's parent: yes
+the test the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, exists there: yes
+control: the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing is not at the second code commit's parent: yes
+the test the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, exists there: yes
+control: the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing is not at the second code commit's parent: yes
+style_sample, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, is added there (1 at it, 0 at its parent): yes
+style_read_back, which 7c965755863bbcc45b32cc36d92b29baf1067cbf's message names, is added there (1 at it, 0 at its parent): yes
+  lines naming the new assertion's error: at 7c965755863bbcc45b32cc36d92b29baf1067cbf 3, at its parent 0
+the error the message names is declared, displayed and raised at 7c965755863bbcc45b32cc36d92b29baf1067cbf, and absent before: yes
+  lines of the tool's source naming the flag: at 7c965755863bbcc45b32cc36d92b29baf1067cbf 3, at its parent 0
+the flag is new in the tool's source at 7c965755863bbcc45b32cc36d92b29baf1067cbf: yes
+the flag appears in the tool's source at 7c965755863bbcc45b32cc36d92b29baf1067cbf: yes
+  flag-combination cases the diff adds for the new flag: 3
+the three flag-combination cases the message names are added: yes
+
+## status after the runs
+status lines: 1; untracked under the log directory: 1; tracked and modified under it: 0; the phase's record pair: 0
+every change in the working tree is one of this phase's logs or its record pair: yes
+run ended at 2026-09-22T18:38:15Z
+test log checks all as expected: yes

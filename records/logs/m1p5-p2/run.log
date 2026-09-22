@@ -1,0 +1,2579 @@
+command: git rev-parse HEAD
+about: M1 part 5 P2 phase commit 7c965755863bbcc45b32cc36d92b29baf1067cbf; HEAD at run: 7c965755863bbcc45b32cc36d92b29baf1067cbf
+  the phase commit given to this script: 7c965755863bbcc45b32cc36d92b29baf1067cbf
+  git rev-parse HEAD at this run:        7c965755863bbcc45b32cc36d92b29baf1067cbf
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+phase: Milestone 1 part 5 P2 (specs/0012-styles.md) run.log; run at 2026-09-22T22:54:03Z
+rerun: attempt 3, after independent check 1 and planning's "Planning rulings during P2" in specs/0012 (rulings 1, 2, 4 and 6; the script's header, items A to E, says what changed). Attempt 2 passed every check it printed, but did not print this script, tested the second added xf by substrings rather than by the bytes "Harness runs" gives, and printed no count of UNEXPECTED rows. Attempt 1 was stopped by hand partway through the host pass, not by a check: two of the six parts this script is assembled from had no final newline, so two echo calls were glued into one word. Attempt 2's record pair was moved aside before this run and is hashed below; this run writes the pair again under the same stem, from a fresh run directory.
+command: sha256sum and wc -c over each superseded attempt named above
+    29a0c7fdc33b3acdef40917ad855bcbc2c89a1dba771463fd1e2bf276a026ebb  50441 bytes  run-attempt-1.log
+    a815f652f16c107e3bff5d897f8fe75425494c9fee7db3fd50df73779b888e98  89931 bytes  run-attempt-2.log
+    7f4dc02b931aeff184f29efe26d454e4a4214b4d3086aaf4cd0a1dab74ab7366  14978 bytes  record-attempt-2.md
+    b26072d1bf379fbbcc37f7cb5e8cb25b293564bad1ff1195e7bc378749802b97  199072 bytes  record-attempt-2.txt
+SERIALIZED: produced with no other run in flight
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls. Started as a background
+  task of the calling session.
+TERMS: the four debug builds were finished by gate.log before this run
+  started, so no cargo runs during it; order host then i686; nothing
+  else running; no mid-run tuning, and a copy or conversion that timed
+  out or was killed would be recorded and listed apart, never rerun with
+  a larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the
+  figure part 4's runs used: M1 part 2 P1 and P2 measured the largest
+  corpus workbook, whose largest part is 63745347 bytes, at about 28
+  seconds with the host debug binary and about 30 with the i686 one.
+  --style-sample reads the workbook part, the styles part and the
+  first worksheet, records two format additions and two cell edits,
+  writes the archive and reopens it to read the edit back. The figure
+  is not tuned during the run.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+command: sed 's/^/    /' <this script>; sha256 e5380f13a11d1e5a2c517b29e8185169fc8487b68374d509cd8474ee3603ed01, 64265 bytes
+    #!/bin/sh
+    # Milestone 1 part 5 P2 run.log (specs/0012-styles.md, "P2" and "Harness
+    # runs"): the corpus run on both targets with --tool-arg --style-sample,
+    # using the debug binaries gate.log built and hashed, the run log's own
+    # comparison of the input and output parts, and the record pair.
+    #
+    # P2's acceptance, from "Harness runs", lo and lo_in ok in every case:
+    #  - in every workbook the styles part and the first worksheet part
+    #    `changed`, every other entry `identical` unflagged, `descriptor` alone
+    #    allowed on a changed entry, `order_preserved` yes, `files_identical` no;
+    #  - the run log's own check over the extracted input and output parts: the
+    #    three byte spans of the styles part identical, the input's children a
+    #    prefix of the output's in both containers, one numFmt added with the
+    #    expected id and `count` grown by one, two xfs added (the first carrying
+    #    that id and applyNumberFormat, the second exactly the bytes "Harness
+    #    runs" gives) and `count` grown by two; for the worksheet, `changed` equal to
+    #    `styled` with A's `s` alone different, one cell added at (M + 1, 1) with
+    #    `s` equal to X + 1, and nothing removed;
+    #  - `read_back` equal to `styled + 2` in every file;
+    #  - totals `xfs_after` 1046 and `formats_added` 27.
+    #
+    # WRITTEN FOR M1 part 5 P2 from P1's run script (records/logs/m1p5-p1/
+    # run.log). What differs from that one, and why:
+    #  1. The operation is --style-sample, which edits: the outputs are NOT the
+    #     input's bytes, and two entries per workbook change. P1's checks for a
+    #     byte-identical output and for every entry identical are replaced by
+    #     the classification P2's acceptance states, with the two changed rows
+    #     matched against the part names the comparison picks (the names are
+    #     read, never printed).
+    #  2. The comparison is P2's (cmp.py, printed below). It reads each archive
+    #     with zipfile and expat, sharing no code with the library or the tool,
+    #     makes its own pick of A, M, X and F from the INPUT, and then compares
+    #     the input and output parts by bytes and by cell. It raises seventeen
+    #     flags, and --plant <flag> plants a difference for each one: the
+    #     control this log runs for every flag it trusts.
+    #  3. A plant that cannot falsify its flag on a given pair says so
+    #     (planted=no) rather than passing for want of a difference; the control
+    #     accepts a flag that stayed yes only when the plant reports that.
+    #  4. The comparison's own controls run on three generated pairs, built here
+    #     and edited by the host debug binary: a sheet with a styled number, a
+    #     sheet with no sampled cell, and a styles part with no numFmts of its
+    #     own (the created-container case of P1 verification ruling 5).
+    #  5. The two count flags hold the OUTPUT's count attribute to the output's
+    #     own children, and those children to one (numFmts) or two (cellXfs)
+    #     more than the input's, because that is what the library writes: it
+    #     counts the children it has and adds its additions, never trusting the
+    #     input's attribute. Whether the input's own attribute agreed with its
+    #     children is a property of the corpus file, so it is reported beside
+    #     the flags (fmt_count_in_matched, xf_count_in_matched) instead of
+    #     being folded into them, where a corpus file with a stale count would
+    #     have raised a false failure.
+    #  6. P2 has no size record. The status check accounts for this phase's
+    #     logs, its record pair and one planning file: specs/0012-styles.md,
+    #     modified and uncommitted at the hash planning gave for its "Planning
+    #     rulings during P2" (ruling 8 keeps it out of P2's commits).
+    #
+    # ATTEMPT 3, after independent check 1 and planning's "Planning rulings
+    # during P2" in specs/0012 (2026-09-22). What changed from attempt 2, and why:
+    #  A. The script is printed into the log in full, under "## script", as P1's
+    #     run log did (ruling 1). Attempts 1 and 2 printed the comparison and
+    #     the generator but not this script.
+    #  B. dated_xf_ok is byte equality with the string "Harness runs" gives for
+    #     the second added xf, no longer six attribute substrings (ruling 2).
+    #     A second plant, dated_xf_order, writes the same attributes and values
+    #     in another order; on every control pair and on the first corpus pair
+    #     it must turn dated_xf_ok to no and leave every other flag yes.
+    #  C. The comparison reads with expat, not ElementTree. Both are independent
+    #     of the library, and expat gives the byte offsets the span check needs;
+    #     specs/0012's "ElementTree" in "P2" and "Harness runs" is read as "an
+    #     independent Python XML reader" (ruling 4).
+    #  D. Every verdict other than as-expected is counted, and the end of the
+    #     log prints the count and how many of them read UNEXPECTED (ruling 6).
+    #  E. The status check accounts for the uncommitted spec by its hash
+    #     (item 6 above).
+    #  The corpus run itself, the runner, the record script, the binaries and
+    #  every other check are attempt 2's. The record pair is written again under
+    #  the same stem; attempt 2's pair was moved aside first and is hashed below
+    #  with the superseded attempts.
+    #
+    # None of the three shapes specs/0001 forbids appears here: every compound
+    # condition is a named function and every negated one goes through isnot,
+    # whose control is below; the shapes are described rather than written out.
+    #
+    # Workbooks appear as ids only. No original name, note, producer_version or
+    # app, and no corpus path: the corpus directory is written <corpus>. The
+    # comparison prints counts and yes/no flags only: no reference, no value, no
+    # text, no format code, no part name.
+    #
+    # Usage: m1p5-p2-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p5-p2/run.log. One runner pass per target over 27
+    # workbooks with a LibreOffice conversion each, so the caller starts it
+    # detached and polls.
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    # A rerun takes a run directory of its own, RUN_TAG naming it (the runner
+    # refuses a second row for an id in one directory).
+    RUN_TAG=${RUN_TAG:-}
+    RUN=$DATE-$SHORT$RUN_TAG
+    OUT=$CORPUS/runs/$RUN
+    STEM=m1p5-p2-$DATE-$SHORT
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    EDIT=--style-sample
+    fail=0
+    
+    # note <what> <verdict>: one verdict line, and a verdict other than
+    # as-expected fails the log.
+    # Every verdict other than as-expected is counted, and UNEXPECTED on its own,
+    # so the log's end can print both counts (P2 ruling 6).
+    nbad=0; nunexp=0
+    note() {
+      echo "  $1: $2"
+      if [ "$2" != as-expected ]; then
+        fail=1; nbad=$((nbad + 1))
+        [ "$2" = UNEXPECTED ] && nunexp=$((nunexp + 1))
+      fi
+    }
+    # is <command...>: as-expected when the command succeeds.
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # isnot <command...>: as-expected when it fails, so no call hands a negation
+    # to `is`, which specs/0001 forbids as a shape.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    G=/usr/bin/grep
+    W=$(mktemp -d) || exit 2
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    # columns_resolve <tsv> <names>: every named column is in the file's header,
+    # and there is a header at all.
+    columns_resolve() {
+      awk -F'\t' -v want="$2" '
+        NR == 1 {
+          seen = 1
+          for (i = 1; i <= NF; i++) have[$i] = 1
+          n = split(want, w, " ")
+          for (j = 1; j <= n; j++) if (!(w[j] in have)) miss++
+          exit
+        }
+        END { exit (seen != 1 || miss > 0) }' "$1"
+    }
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    sum_col() {
+      awk -F'\t' -v c="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k { n += $k } END { print n + 0 }' "$1"
+    }
+    # kv <line> <key>: the value of key=value in a line whose pairs are split on
+    # tabs or spaces; empty when the key is absent.
+    kv() { printf '%s\n' "$1" | tr '\t ' '\n\n' | sed -n "s/^$2=//p" | head -1; }
+    # kvn <line> <key>: the same, 0 when absent or not a number, for totals; a
+    # workbook whose line is short is refused by accept_one, so a 0 here cannot
+    # hide it.
+    kvn() {
+      local v
+      v=$(kv "$1" "$2")
+      case "$v" in '' | *[!0-9]*) echo 0 ;; *) echo "$v" ;; esac
+    }
+    
+    # The guard, before a line of the run exists.
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    if ! is_head "$C"; then echo "the phase commit must be HEAD as a full sha, not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 5 P2 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses the null commit" "$(isnot is_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(isnot is_head "$(printf '%s' "$C" | cut -c1-7)")"
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    echo "phase: Milestone 1 part 5 P2 (specs/0012-styles.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls. Started as a background"
+    echo "  task of the calling session."
+    echo "TERMS: the four debug builds were finished by gate.log before this run"
+    echo "  started, so no cargo runs during it; order host then i686; nothing"
+    echo "  else running; no mid-run tuning, and a copy or conversion that timed"
+    echo "  out or was killed would be recorded and listed apart, never rerun with"
+    echo "  a larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the"
+    echo "  figure part 4's runs used: M1 part 2 P1 and P2 measured the largest"
+    echo "  corpus workbook, whose largest part is 63745347 bytes, at about 28"
+    echo "  seconds with the host debug binary and about 30 with the i686 one."
+    echo "  --style-sample reads the workbook part, the styles part and the"
+    echo "  first worksheet, records two format additions and two cell edits,"
+    echo "  writes the archive and reopens it to read the edit back. The figure"
+    echo "  is not tuned during the run."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## script"
+    echo "command: sed 's/^/    /' <this script>; sha256 $(sha256sum <"$0" | cut -d' ' -f1), $(wc -c <"$0") bytes"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the comparison this log runs (python3, zipfile and expat)"
+    cat >"$W/cmp.py" <<'CMP_PY'
+    """The run log's own style comparison (specs/0012, "Harness runs", P2).
+    
+    Usage: cmp.py <input archive> <output archive> [--plant <flag>]
+           cmp.py <input archive> --parts
+    
+    Reads the package's own relationships with zipfile and expat, sharing no code
+    with the library or the tool, and makes its own pick of the edit
+    --style-sample should have made: the first sheet of kind worksheet in
+    <sheets> order, and in it A, the first cell in document order whose t is
+    absent, "n" or "s", which has a <v> with text and no <f>, and M, the largest
+    row number among its cells (0 for none). From the styles part it takes X (the
+    <xf> children of <cellXfs>) and F (the <numFmt> children of <numFmts>).
+    
+    It then compares the two archives part by part.
+    
+    For the styles part, by bytes:
+    
+    - the bytes before <numFmts (or before <cellXfs when the input has no
+      numFmts), the bytes from </numFmts> to <cellXfs, and the bytes from
+      </cellXfs> to the end of the part are identical in input and output;
+    - inside numFmts the input's children's bytes are a prefix of the output's,
+      exactly one numFmt follows, its id is the largest input id plus one or 164
+      when that is larger, and count grows by one;
+    - inside cellXfs the input's children's bytes are a prefix of the output's,
+      exactly two xf elements follow, the first carries numFmtId equal to that
+      new id and applyNumberFormat="1", the second is byte for byte the string
+      "Harness runs" gives for it (P2 ruling 2), and count grows by two.
+    
+    For the worksheet, as specs/0011's P2 comparison does: the bytes outside
+    sheetData identical, and every cell as the tuple (reference, s, t, formula
+    presence, value text, has <v>) counted unchanged, changed, added and removed.
+    The changed references must be exactly A when A exists and none when it does
+    not, with A's t, formula presence and value text the input's and its s alone
+    different; the added reference must be exactly (M + 1, 1) with s equal to X +
+    1; and nothing is removed.
+    
+    It prints ONE line of counts and yes/no flags: no reference, no value, no
+    text, no format code and no part name. With --parts it prints two part names
+    on two lines (the sheet and the styles part, or nothing) for the log to
+    compare with the runner's entry rows; the log never prints them.
+    
+    --plant <flag> makes one planted difference in the output before the
+    comparison, chosen so that the named flag, and in general that flag alone,
+    turns from yes to no: the control for every flag this comparison raises.
+    """
+    import posixpath
+    import re
+    import sys
+    import xml.parsers.expat
+    import zipfile
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    
+    
+    def rels_name(part):
+        d, base = posixpath.split(part)
+        return posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+    
+    
+    def rels_of(z, part):
+        d = posixpath.dirname(part)
+        name = rels_name(part)
+        out = []
+        if name not in z.namelist():
+            return out
+        found = []
+    
+        def start(tag, attrs):
+            if tag == RELS + " Relationship" and attrs.get("TargetMode") != "External":
+                found.append(attrs)
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(name), True)
+        for a in found:
+            target = a.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((a.get("Id"), a.get("Type", ""), resolved))
+        return out
+    
+    
+    def workbook_of(z):
+        office = [t for (_, ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        return office[0] if len(office) == 1 else None
+    
+    
+    def worksheets(z, workbook):
+        by_id = {i: (ty, t) for (i, ty, t) in rels_of(z, workbook)}
+        order = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            if ns in MAIN and local == "sheet":
+                for a in ATTR:
+                    if a + " id" in attrs:
+                        order.append(attrs[a + " id"])
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(workbook), True)
+        out = []
+        for rid in order:
+            ty, target = by_id.get(rid, ("", None))
+            if ty.endswith("/worksheet") and target in z.namelist():
+                out.append(target)
+        return out
+    
+    
+    def chain_of(z, workbook):
+        chains = [t for (_, ty, t) in rels_of(z, workbook) if ty.endswith("/calcChain")]
+        return chains[0] if chains else None
+    
+    
+    def cells(data):
+        """{reference: tuple}, the document order, the <row> count, and the
+        first cell with a normal formula."""
+        out = {}
+        order = []
+        stack = []
+        state = {"cell": None, "text": None, "rows": 0, "normal": None}
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            local = local if ns in MAIN else None
+            stack.append(local)
+            if local == "row" and stack[-2:-1] == ["sheetData"]:
+                state["rows"] += 1
+            if local == "c" and stack[-2:-1] == ["row"] and stack[-3:-2] == ["sheetData"]:
+                state["cell"] = {"r": attrs.get("r"), "s": attrs.get("s"),
+                                 "t": attrs.get("t"), "f": False, "normal": False,
+                                 "v": None, "is": None}
+            elif state["cell"] is not None:
+                if local == "f" and stack[-2:-1] == ["c"]:
+                    state["cell"]["f"] = True
+                    state["cell"]["normal"] = attrs.get("t", "normal") == "normal"
+                elif local == "v" and stack[-2:-1] == ["c"]:
+                    state["text"] = "v"
+                    state["cell"]["v"] = ""
+                elif local == "is" and stack[-2:-1] == ["c"]:
+                    state["cell"]["is"] = ""
+                elif local == "t" and "is" in stack:
+                    state["text"] = "is"
+    
+        def end(tag):
+            local = stack.pop()
+            if local in ("v", "t"):
+                state["text"] = None
+            if local == "c" and state["cell"] is not None and stack[-1:] == ["row"]:
+                c = state["cell"]
+                value = c["v"] if c["v"] is not None else c["is"]
+                out[c["r"]] = (c["r"], c["s"], c["t"], c["f"], value, c["v"] is not None)
+                order.append(c["r"])
+                if c["normal"] and state["normal"] is None:
+                    state["normal"] = c["r"]
+                state["cell"] = None
+    
+        def chars(text):
+            if state["cell"] is not None and state["text"] is not None:
+                state["cell"][state["text"]] += text
+    
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.EndElementHandler = end
+        p.CharacterDataHandler = chars
+        p.buffer_text = True
+        p.Parse(data, True)
+        return out, order, state["rows"], state["normal"]
+    
+    
+    def bounds(data):
+        """(prefix end, end tag start or None for <sheetData/>, element end)."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?sheetData[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if data[close - 1:close] == b"/":
+            return start.start(), None, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?sheetData\s*>", data))
+        if not ends:
+            return None
+        return start.start(), ends[-1].start(), ends[-1].end()
+    
+    
+    
+    
+    def styles_of(z, workbook):
+        """The styles part the workbook names, or None."""
+        parts = [t for (_, ty, t) in rels_of(z, workbook) if ty.endswith("/styles")]
+        return parts[0] if parts and parts[0] in z.namelist() else None
+    
+    
+    def container(data, name):
+        """The spans of one root child: (start of its start tag, start of its
+        children, end of its children, end of the element), or None when the part
+        has no such element. An empty element has equal child bounds."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?" + name + rb"[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if close < 0:
+            return None
+        if data[close - 1:close] == b"/":
+            return start.start(), close + 1, close + 1, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?" + name + rb"\s*>", data))
+        if not ends:
+            return None
+        return start.start(), close + 1, ends[-1].start(), ends[-1].end()
+    
+    
+    def count_attribute(data, span):
+        """The count attribute of the start tag at span, as an int, or None."""
+        tag = data[span[0]:span[1]]
+        found = re.search(rb"\scount\s*=\s*(\"[^\"]*\"|'[^']*')", tag)
+        if found is None:
+            return None
+        try:
+            return int(found.group(1)[1:-1])
+        except ValueError:
+            return None
+    
+    
+    def elements(data):
+        """The (name, attributes, bytes) of every top-level element in data,
+        which is a container's children."""
+        out = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            out.append((local if ns in MAIN else None, attrs))
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(b"<r xmlns='" + MAIN[0].encode() + b"'>" + data + b"</r>", True)
+        return out[1:]
+    
+    
+    def num_fmt_ids(data):
+        """The numFmtId of every numFmt among a numFmts container's children."""
+        out = []
+        for (local, attrs) in elements(data):
+            if local == "numFmt" and "numFmtId" in attrs:
+                try:
+                    out.append(int(attrs["numFmtId"]))
+                except ValueError:
+                    pass
+        return out
+    
+    
+    def top_level(data):
+        """The children's bytes cut into one span per top-level element, so an
+        addition can be counted and read without a parser that keeps offsets."""
+        spans = []
+        depth = 0
+        at = 0
+        i = 0
+        while i < len(data):
+            if data[i:i + 1] == b"<" and data[i + 1:i + 2] not in (b"/", b"!", b"?"):
+                if depth == 0:
+                    at = i
+                close = data.find(b">", i)
+                if close < 0:
+                    break
+                empty = data[close - 1:close] == b"/"
+                if empty:
+                    if depth == 0:
+                        spans.append((at, close + 1))
+                else:
+                    depth += 1
+                i = close + 1
+                continue
+            if data[i:i + 2] == b"</":
+                close = data.find(b">", i)
+                if close < 0:
+                    break
+                depth -= 1
+                if depth == 0:
+                    spans.append((at, close + 1))
+                i = close + 1
+                continue
+            i += 1
+        return spans
+    
+    
+    def col_of(reference):
+        """The 1-based column of an A1 reference."""
+        letters = re.match(r"[A-Za-z]+", reference or "")
+        if letters is None:
+            return 0
+        n = 0
+        for ch in letters.group(0).upper():
+            n = n * 26 + (ord(ch) - 64)
+        return n
+    
+    
+    def row_of(reference):
+        digits = re.search(r"\d+", reference or "")
+        return int(digits.group(0)) if digits else 0
+    
+    
+    def a1(row, col):
+        name = ""
+        while col > 0:
+            col, rest = divmod(col - 1, 26)
+            name = chr(65 + rest) + name
+        return "%s%d" % (name, row)
+    
+    
+    def sampled(data):
+        """A (the first cell of a sampled kind with a value and no formula), M
+        (the largest row among the cells) and the cell count of one sheet."""
+        found, order, _, _ = cells(data)
+        a = None
+        top = 0
+        for ref in order:
+            (_, _, t, formula, value, has_v) = found[ref]
+            top = max(top, row_of(ref))
+            candidate = (t in (None, "n", "s") and has_v and value is not None
+                         and value != "" and not formula)
+            if candidate and a is None:
+                a = ref
+        return a, top, found, order
+    
+    
+    def pick(z):
+        """The workbook, its first worksheet, its styles part, A and M."""
+        workbook = workbook_of(z)
+        if workbook is None:
+            return None, None, None, None, 0
+        sheets = worksheets(z, workbook)
+        part = sheets[0] if sheets else None
+        styles = styles_of(z, workbook)
+        if part is None:
+            return workbook, None, styles, None, 0
+        a, top, _, _ = sampled(z.read(part))
+        return workbook, part, styles, a, top
+    
+    
+    PLANTS = (
+        "head_same", "mid_same", "tail_same", "fmts_prefix", "fmt_added",
+        "fmt_id_ok", "fmt_count_grew", "xfs_prefix", "xfs_added", "coded_xf_ok",
+        "dated_xf_ok", "xf_count_grew", "ws_prefix_same", "ws_suffix_same",
+        "changed_as_styled", "added_as_edited", "nothing_removed",
+        # Not a flag: a second plant for dated_xf_ok that keeps every attribute
+        # and value and only reorders them, which byte equality must catch
+        # (P2 ruling 2).
+        "dated_xf_order",
+    )
+    
+    
+    def plant_styles(data, flag, ids, fmts_in):
+        """The planted difference for a styles-part flag, and whether it applied.
+    
+        A plant that cannot falsify its flag on this pair does not apply, and
+        says so rather than leaving a flag that passes for want of a difference:
+        an input with no numFmts of its own makes the prefix flag vacuous, since
+        every byte string starts with an empty one.
+        """
+        fmts = container(data, b"numFmts")
+        xfs = container(data, b"cellXfs")
+        if flag == "head_same":
+            # Just before the first of the two containers, which is where the
+            # head span ends: a comment there lands in the head and nowhere else.
+            at = fmts[0] if fmts is not None else xfs[0]
+            return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "mid_same" and fmts is not None:
+            return data[:fmts[3]] + b"<!-- planted -->" + data[fmts[3]:], True
+        if flag == "tail_same":
+            return data[:xfs[3]] + b"<!-- planted -->" + data[xfs[3]:], True
+        if flag == "fmts_prefix" and fmts is not None and fmts_in:
+            spans = top_level(data[fmts[1]:fmts[2]])
+            if spans:
+                at = fmts[1] + spans[0][0]
+                return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "fmt_added" and fmts is not None:
+            return data[:fmts[2]] + b'<numFmt numFmtId="199" formatCode="0.0000"/>' + data[fmts[2]:], True
+        if flag == "fmt_id_ok" and fmts is not None:
+            spans = top_level(data[fmts[1]:fmts[2]])
+            if spans:
+                last = data[fmts[1] + spans[-1][0]:fmts[1] + spans[-1][1]]
+                other = re.sub(rb'numFmtId\s*=\s*"\d+"', b'numFmtId="199"', last, count=1)
+                return data[:fmts[1] + spans[-1][0]] + other + data[fmts[1] + spans[-1][1]:], True
+        if flag == "fmt_count_grew" and fmts is not None:
+            tag = data[fmts[0]:fmts[1]]
+            # Zero is never the count a growing container should carry, whatever
+            # the input held, so this plant is wrong on every pair.
+            return data[:fmts[0]] + re.sub(rb'count\s*=\s*"\d+"', b'count="0"', tag, count=1) \
+                + data[fmts[1]:], True
+        if flag == "xfs_prefix":
+            spans = top_level(data[xfs[1]:xfs[2]])
+            if spans:
+                at = xfs[1] + spans[0][0]
+                return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "xfs_added":
+            return data[:xfs[2]] + b"<xf/>" + data[xfs[2]:], True
+        if flag in ("coded_xf_ok", "dated_xf_ok"):
+            spans = top_level(data[xfs[1]:xfs[2]])
+            which = -2 if flag == "coded_xf_ok" else -1
+            if len(spans) >= 2:
+                at = xfs[1] + spans[which][0]
+                to = xfs[1] + spans[which][1]
+                return data[:at] + b'<xf numFmtId="0"/>' + data[to:], True
+        if flag == "dated_xf_order":
+            spans = top_level(data[xfs[1]:xfs[2]])
+            if len(spans) >= 2:
+                at = xfs[1] + spans[-1][0]
+                to = xfs[1] + spans[-1][1]
+                return data[:at] + DATED_XF_REORDERED + data[to:], True
+        if flag == "xf_count_grew":
+            tag = data[xfs[0]:xfs[1]]
+            return data[:xfs[0]] + re.sub(rb'count\s*=\s*"\d+"', b'count="0"', tag, count=1) \
+                + data[xfs[1]:], True
+        return data, False
+    
+    
+    def cell_spans(data, upto):
+        """One span per top-level <c> element inside sheetData."""
+        spans = []
+        for hit in re.finditer(rb"<([A-Za-z_][\w.-]*:)?c[\s/>]", data[:upto]):
+            at = hit.start()
+            close = data.find(b">", at)
+            if close < 0:
+                break
+            if data[close - 1:close] == b"/":
+                spans.append((at, close + 1))
+                continue
+            end = re.compile(rb"</([A-Za-z_][\w.-]*:)?c\s*>").search(data, close)
+            if end is None:
+                break
+            spans.append((at, end.end()))
+        return spans
+    
+    
+    def reference_of(span_bytes):
+        hit = re.search(rb'\sr\s*=\s*"([^"]*)"', span_bytes)
+        return hit.group(1).decode("ascii", "replace") if hit else ""
+    
+    
+    def plant_sheet(data, flag, a, added):  # noqa: C901
+        """The planted difference for a worksheet flag, or the bytes unchanged.
+    
+        A cell the edit itself touched is never the target: a plant on A or on
+        the added cell would leave the flag it is meant to turn as it was.
+        """
+        span = bounds(data)
+        if span is None:
+            return data, False
+        rows = list(re.finditer(rb"<([A-Za-z_][\w.-]*:)?row[\s/>]", data))
+        prefix = rows[-1].group(1) if rows and rows[-1].group(1) else b""
+        at = span[1] if span[1] is not None else span[2]
+        if flag == "ws_prefix_same":
+            return data[:span[0]] + b"<!-- planted -->" + data[span[0]:], True
+        if flag == "ws_suffix_same":
+            return data[:span[2]] + b"<!-- planted -->" + data[span[2]:], True
+        if flag == "added_as_edited":
+            # Inside the last row, not beside it: a <c> that is not a row's child
+            # is no cell, so a plant there would be read as no difference at all.
+            cell = (b"<" + prefix + b'c r="ZZ999998" s="0"><' + prefix + b"v>0</"
+                    + prefix + b"v></" + prefix + b"c>")
+            close = data.rfind(b"</" + prefix + b"row>", 0, at)
+            if close < 0:
+                row = (b"<" + prefix + b'row r="999998">' + cell + b"</" + prefix + b"row>")
+                return data[:at] + row + data[at:], True
+            return data[:close] + cell + data[close:], True
+        if flag in ("changed_as_styled", "nothing_removed"):
+            spans = [s for s in cell_spans(data, at)
+                     if reference_of(data[s[0]:s[1]]) not in (a, added)]
+            if not spans:
+                return data, False
+            start, end = spans[-1]
+            if flag == "nothing_removed":
+                return data[:start] + data[end:], True
+            # One more changed cell: its `s` is set to a value it did not carry,
+            # which is exactly what the flag says only A may have.
+            cell = data[start:end]
+            if re.search(rb'\ss\s*=\s*"[^"]*"', cell):
+                other = re.sub(rb'\ss\s*=\s*"[^"]*"', b' s="0"', cell, count=1)
+                if other == cell:
+                    other = re.sub(rb'\ss\s*=\s*"[^"]*"', b' s="1"', cell, count=1)
+            else:
+                close = cell.find(b">")
+                cut = close - 1 if cell[close - 1:close] == b"/" else close
+                other = cell[:cut] + b' s="0"' + cell[cut:]
+            if other == cell:
+                return data, False
+            return data[:start] + other + data[end:], True
+        return data, False
+    
+    
+    # The second added xf, exactly as "Harness runs" P2 writes it (P2 ruling 2).
+    DATED_XF = (b'<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" '
+                b'applyNumberFormat="1"/>')
+    # The same attributes and values in another order: the reorder plant.
+    DATED_XF_REORDERED = (b'<xf fontId="0" numFmtId="14" fillId="0" borderId="0" xfId="0" '
+                          b'applyNumberFormat="1"/>')
+    
+    
+    def creation_point(data, fallback):
+        """Where a numFmts the part does not have is created: the start of the
+        first of fonts, fills, borders, cellStyleXfs and cellXfs that the part
+        holds, whichever comes first in the part's own order."""
+        starts = []
+        for name in (b"fonts", b"fills", b"borders", b"cellStyleXfs", b"cellXfs"):
+            span = container(data, name)
+            if span is not None:
+                starts.append(span[0])
+        return min(starts) if starts else fallback
+    
+    
+    def styles_flags(din, dout, expect_id):
+        """Every styles-part flag, by bytes, and the two counts the line carries.
+    
+        A part with no numFmts of its own is the case the spec names: the head
+        then runs to <cellXfs and the created container is the addition itself.
+        """
+        out = {}
+        fin, fout = container(din, b"numFmts"), container(dout, b"numFmts")
+        xin, xout = container(din, b"cellXfs"), container(dout, b"cellXfs")
+        if xin is None or xout is None or fout is None:
+            return None, 0, 0
+        # Where a created numFmts goes: before the first of the five the part
+        # holds, in the part's own order (specs/0012, P1 verification ruling 5).
+        # For a part that has one already the head simply ends at it.
+        cut = fin[0] if fin is not None else creation_point(din, xin[0])
+        out["head_same"] = din[:cut] == dout[:fout[0]]
+        out["mid_same"] = din[fin[3] if fin is not None else cut:xin[0]] \
+            == dout[fout[3]:xout[0]]
+        out["tail_same"] = din[xin[3]:] == dout[xout[3]:]
+    
+        fmts_in = din[fin[1]:fin[2]] if fin is not None else b""
+        fmts_out = dout[fout[1]:fout[2]]
+        out["fmts_prefix"] = fmts_out.startswith(fmts_in)
+        rest = top_level(fmts_out[len(fmts_in):])
+        added_fmts = [fmts_out[len(fmts_in):][s[0]:s[1]] for s in rest]
+        out["fmt_added"] = len(added_fmts) == 1 and num_fmt_ids(added_fmts[0]) != []
+        ids = num_fmt_ids(added_fmts[0]) if out["fmt_added"] else []
+        out["fmt_id_ok"] = ids == [expect_id]
+        count_in = count_attribute(din, fin) if fin is not None else 0
+        count_out = count_attribute(dout, fout)
+        fmts_before = len(num_fmt_ids(fmts_in))
+        fmts_after = len(num_fmt_ids(fmts_out))
+        # The library writes the container's count from its CHILDREN plus the
+        # additions, not from whatever the input's attribute said, so that is
+        # what this flag holds it to: the output's count is its own children's
+        # number, and that number is one more than the input's. Whether the
+        # input's own attribute agreed with its children is a property of the
+        # INPUT and is reported beside the flag rather than folded into it.
+        out["fmt_count_grew"] = count_out is not None and count_out == fmts_after \
+            and fmts_after == fmts_before + 1
+        out["_fmt_count_in_matched"] = (count_in or 0) == fmts_before
+    
+        xfs_in = din[xin[1]:xin[2]]
+        xfs_out = dout[xout[1]:xout[2]]
+        out["xfs_prefix"] = xfs_out.startswith(xfs_in)
+        spans = top_level(xfs_out[len(xfs_in):])
+        added_xfs = [xfs_out[len(xfs_in):][s[0]:s[1]] for s in spans]
+        out["xfs_added"] = len(added_xfs) == 2
+        coded = added_xfs[0] if out["xfs_added"] else b""
+        dated = added_xfs[1] if out["xfs_added"] else b""
+        out["coded_xf_ok"] = (b'numFmtId="%d"' % expect_id) in coded \
+            and b'applyNumberFormat="1"' in coded
+        out["dated_xf_ok"] = dated == DATED_XF
+        xfs_count_in = count_attribute(din, xin)
+        xfs_count_out = count_attribute(dout, xout)
+        xfs_in_n = len(top_level(xfs_in))
+        xfs_out_n = len(top_level(xfs_out))
+        out["xf_count_grew"] = xfs_count_out is not None and xfs_count_out == xfs_out_n \
+            and xfs_out_n == xfs_in_n + 2
+        out["_xf_count_in_matched"] = xfs_count_in == xfs_in_n
+        return out, xfs_in_n, fmts_after - fmts_before
+    
+    
+    def main():
+        zin = zipfile.ZipFile(sys.argv[1])
+        workbook, part, styles, a, top = pick(zin)
+        if sys.argv[2:3] == ["--parts"]:
+            print(part or "")
+            print(styles or "")
+            return
+        zout = zipfile.ZipFile(sys.argv[2])
+        plant = None
+        if "--plant" in sys.argv[3:]:
+            plant = sys.argv[sys.argv.index("--plant") + 1]
+            if plant not in PLANTS:
+                print("error=unknown-plant")
+                return
+        yn = lambda v: "yes" if v else "no"
+        if part is None or styles is None:
+            print("found=0")
+            return
+        added = a1(top + 1, 1)
+        sin, sout = zin.read(styles), zout.read(styles)
+        din, dout = zin.read(part), zout.read(part)
+        ids = num_fmt_ids(sin[container(sin, b"numFmts")[1]:container(sin, b"numFmts")[2]]) \
+            if container(sin, b"numFmts") is not None else []
+        expect_id = max(164, max(ids) + 1) if ids else 164
+        planted = True
+        if plant is not None:
+            fmts_in = container(sin, b"numFmts") is not None
+            sout, in_styles = plant_styles(sout, plant, ids, fmts_in)
+            dout, in_sheet = plant_sheet(dout, plant, a, added)
+            planted = in_styles or in_sheet
+    
+        flags, xfs_before, formats_added = styles_flags(sin, sout, expect_id)
+        if flags is None:
+            print("error=no-container")
+            return
+        out_xfs = container(sout, b"cellXfs")
+        xfs_after = len(top_level(sout[out_xfs[1]:out_xfs[2]]))
+    
+        bi, bo = bounds(din), bounds(dout)
+        if bi is None or bo is None:
+            print("error=no-sheetData")
+            return
+        ws_prefix_same = din[:bi[0]] == dout[:bo[0]]
+        if bi[1] is not None and bo[1] is not None:
+            ws_suffix_same = din[bi[1]:] == dout[bo[1]:]
+        else:
+            ws_suffix_same = din[bi[2]:] == dout[bo[2]:]
+        cin, _, _, _ = cells(din)
+        cout, _, _, _ = cells(dout)
+        unchanged = changed = removed = 0
+        changed_refs = set()
+        for ref, tup in cin.items():
+            if ref not in cout:
+                removed += 1
+            elif cout[ref] == tup:
+                unchanged += 1
+            else:
+                changed += 1
+                changed_refs.add(ref)
+        added_refs = set(cout) - set(cin)
+        styled = 1 if a is not None else 0
+        if a is not None and a in cout and a in cin:
+            # A's `s` alone differs: its t, formula presence and value are the
+            # input's, and its new `s` is the first of the two added formats.
+            a_kept = cout[a][2:] == cin[a][2:] and cout[a][1] != cin[a][1] \
+                and cout[a][1] == str(xfs_before)
+        else:
+            a_kept = a is None
+        changed_as_styled = changed == styled and changed_refs == ({a} if a else set()) \
+            and a_kept
+        added_as_edited = added_refs == {added} and added in cout \
+            and cout[added][1] == str(xfs_before + 1) \
+            and col_of(added) == 1 and row_of(added) == top + 1
+        print(" ".join([
+            "found=1", "planted=%s" % yn(planted), "styled=%d" % styled,
+            "xfs_before=%d" % xfs_before,
+            "xfs_after=%d" % xfs_after,
+            "formats_added=%d" % formats_added,
+            "cells_in=%d" % len(cin), "cells_out=%d" % len(cout),
+            "unchanged=%d" % unchanged, "changed=%d" % changed,
+            "added=%d" % len(added_refs), "removed=%d" % removed,
+        ] + ["%s=%s" % (name, yn(flags[name])) for name in (
+            "head_same", "mid_same", "tail_same", "fmts_prefix", "fmt_added",
+            "fmt_id_ok", "fmt_count_grew", "xfs_prefix", "xfs_added",
+            "coded_xf_ok", "dated_xf_ok", "xf_count_grew")]
+          + ["fmt_count_in_matched=%s" % yn(flags["_fmt_count_in_matched"]),
+             "xf_count_in_matched=%s" % yn(flags["_xf_count_in_matched"]),
+             "ws_prefix_same=%s" % yn(ws_prefix_same),
+             "ws_suffix_same=%s" % yn(ws_suffix_same),
+             "changed_as_styled=%s" % yn(changed_as_styled),
+             "added_as_edited=%s" % yn(added_as_edited),
+             "nothing_removed=%s" % yn(removed == 0)]))
+    
+    
+    main()
+    CMP_PY
+    sed "s/^/    /" "$W/cmp.py"
+    
+    echo
+    echo "## the comparison's own controls, on generated pairs"
+    echo "The three inputs below are written here, byte for byte as the script"
+    echo "  says, and edited by the host debug binary this run uses. Their"
+    echo "  contents are fictional. The corpus is not touched by this section."
+    cat >"$W/make.py" <<'MAKE_PY'
+    """Three fictional packages for the comparison's controls.
+    
+    Usage: make.py <directory>
+    
+      sample.xlsx   a sheet with a styled number, a shared string and a formula,
+                    and a styles part with one numFmt and three xfs;
+      empty.xlsx    the same styles part and a sheet with no cells at all, so the
+                    sample has no A and styles the new cell alone;
+      nofmts.xlsx   a styles part with NO numFmts of its own, so the edit creates
+                    the container (P1 verification ruling 5).
+    """
+    import os
+    import sys
+    import zipfile
+    
+    MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
+    DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    
+    WITH_FMTS = ('<styleSheet xmlns="%s"><numFmts count="1">'
+                 '<numFmt numFmtId="164" formatCode="0.00"/></numFmts>'
+                 '<fonts count="1"><font><name val="Fictional"/></font></fonts>'
+                 '<cellXfs count="3"><xf numFmtId="0"/>'
+                 '<xf numFmtId="164" fontId="0"/><xf/></cellXfs></styleSheet>' % MAIN)
+    NO_FMTS = ('<styleSheet xmlns="%s">'
+               '<fonts count="1"><font><name val="Fictional"/></font></fonts>'
+               '<cellXfs count="2"><xf numFmtId="0"/>'
+               '<xf numFmtId="9" fontId="0"/></cellXfs></styleSheet>' % MAIN)
+    CELLS = ('<sheetData><row r="1"><c r="A1" s="1"><v>1.5</v></c>'
+             '<c r="B1" t="s"><v>1</v></c></row>'
+             '<row r="2"><c r="A2"><f>A1*2</f><v>3</v></c>'
+             '<c r="C2" s="2"><v>7</v></c></row></sheetData>')
+    
+    
+    def build(path, sheet_data, styles):
+        parts = {
+            "[Content_Types].xml": DECL + (
+                '<Types xmlns="%s"><Default Extension="rels" ContentType="application/rels"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/xl/workbook.xml" ContentType="application/workbook"/>'
+                '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/sheet"/>'
+                '<Override PartName="/xl/styles.xml" ContentType="application/styles"/>'
+                "</Types>" % TYPES),
+            "_rels/.rels": (
+                '<Relationships xmlns="%s"><Relationship Id="rId1" Type="%s/officeDocument" '
+                'Target="xl/workbook.xml"/></Relationships>' % (RELS, ATTR)),
+            "xl/workbook.xml": DECL + (
+                '<workbook xmlns="%s" xmlns:r="%s"><sheets>'
+                '<sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>' % (MAIN, ATTR)),
+            "xl/_rels/workbook.xml.rels": (
+                '<Relationships xmlns="%s">'
+                '<Relationship Id="rId1" Type="%s/worksheet" Target="worksheets/sheet1.xml"/>'
+                '<Relationship Id="rId2" Type="%s/styles" Target="styles.xml"/>'
+                "</Relationships>" % (RELS, ATTR, ATTR)),
+            "xl/worksheets/sheet1.xml": DECL + (
+                '<worksheet xmlns="%s"><dimension ref="A1"/>%s'
+                '<pageMargins left="0.7"/></worksheet>' % (MAIN, sheet_data)),
+            "xl/styles.xml": DECL + styles,
+        }
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for name, text in parts.items():
+                z.writestr(name, text)
+    
+    
+    d = sys.argv[1]
+    build(os.path.join(d, "sample.xlsx"), CELLS, WITH_FMTS)
+    build(os.path.join(d, "empty.xlsx"), "<sheetData/>", WITH_FMTS)
+    build(os.path.join(d, "nofmts.xlsx"),
+          '<sheetData><row r="1"><c r="A1" s="1"><v>2.5</v></c></row></sheetData>', NO_FMTS)
+    MAKE_PY
+    echo "the generator this section runs:"
+    sed 's/^/    /' "$W/make.py"
+    mkdir -p "$W/ctl"
+    python3 "$W/make.py" "$W/ctl"
+    echo "command: python3 make.py <scratch>/ctl; then target/debug/emend-copy <in> <out> --style-sample"
+    
+    # The seventeen flags the comparison raises, in the order it prints them.
+    FLAGS='head_same mid_same tail_same fmts_prefix fmt_added fmt_id_ok fmt_count_grew
+           xfs_prefix xfs_added coded_xf_ok dated_xf_ok xf_count_grew ws_prefix_same
+           ws_suffix_same changed_as_styled added_as_edited nothing_removed'
+    # flag_value <line> <flag>: the yes or no the comparison printed for one flag.
+    flag_value() { kv "$1" "$2"; }
+    # all_yes <line>: every flag in the line reads yes.
+    all_yes() {
+      for f in $FLAGS; do
+        [ "$(flag_value "$1" "$f")" = yes ] || return 1
+      done
+      return 0
+    }
+    # plant_bit <line> <flag>: the plant turned its own flag to no.
+    plant_bit() { [ "$(flag_value "$1" "$2")" = no ]; }
+    # plant_absent <line> <flag>: the plant did not apply, and says so, and the
+    # flag it could not falsify is still yes.
+    plant_absent() {
+      [ "$(kv "$1" planted)" = no ] && [ "$(flag_value "$1" "$2")" = yes ]
+    }
+    # only_dated_no <line>: dated_xf_ok reads no and every other flag yes, the
+    # reading the reorder plant must produce (P2 ruling 2).
+    only_dated_no() {
+      [ "$(flag_value "$1" dated_xf_ok)" = no ] || return 1
+      for f in $FLAGS; do
+        [ "$f" = dated_xf_ok ] && continue
+        [ "$(flag_value "$1" "$f")" = yes ] || return 1
+      done
+      return 0
+    }
+    # plant_accounted <line> <flag>: either of the two above, and nothing else.
+    plant_accounted() {
+      if plant_bit "$1" "$2"; then return 0; fi
+      plant_absent "$1" "$2"
+    }
+    
+    # tool_and_cmp <tool line> <comparison line>: the two lines agree on every
+    # key they share. The tool counts through the library; the comparison counts
+    # through zipfile and expat; neither sees the other's work.
+    tool_and_cmp() {
+      [ "$(kvn "$1" styled)" = "$(kvn "$2" styled)" ] || return 1
+      [ "$(kvn "$1" xfs_before)" = "$(kvn "$2" xfs_before)" ] || return 1
+      [ "$(kvn "$1" xfs_after)" = "$(kvn "$2" xfs_after)" ] || return 1
+      [ "$(kvn "$1" formats_added)" = "$(kvn "$2" formats_added)" ] || return 1
+      [ "$(kvn "$1" cells_before)" = "$(kvn "$2" cells_in)" ] || return 1
+      [ "$(kvn "$1" cells_after)" = "$(kvn "$2" cells_out)" ]
+    }
+    # read_back_as_spec <tool line> <comparison line>: read_back is styled plus
+    # two, the figure "Harness runs" states for every file.
+    read_back_as_spec() {
+      [ "$(kvn "$1" read_back)" = "$(( $(kvn "$2" styled) + 2 ))" ]
+    }
+    
+    nctl=0
+    for name in sample empty nofmts; do
+      in_file=$W/ctl/$name.xlsx
+      out_file=$W/ctl/$name-out.xlsx
+      rm -f "$out_file"
+      target/debug/emend-copy "$in_file" "$out_file" --style-sample >"$W/ctl/$name.line" 2>"$W/ctl/$name.err"
+      crc=$?
+      line=$(cat "$W/ctl/$name.line")
+      cmpline=$(python3 "$W/cmp.py" "$in_file" "$out_file")
+      echo "  $name: exit $crc; tool $(printf '%s' "$line" | tr '\t' ' ')"
+      echo "  $name: cmp  $cmpline"
+      if [ -s "$W/ctl/$name.err" ]; then hide <"$W/ctl/$name.err" | sed "s/^/    $name stderr: /"; fi
+      note "control pair $name: the tool exits 0" "$(is [ "$crc" -eq 0 ])"
+      note "control pair $name: every flag of the comparison reads yes" "$(is all_yes "$cmpline")"
+      note "control pair $name: the tool's line and the comparison agree on every shared key" \
+        "$(is tool_and_cmp "$line" "$cmpline")"
+      note "control pair $name: read_back is styled plus two" \
+        "$(is read_back_as_spec "$line" "$cmpline")"
+      nbit=0; nabsent=0
+      for f in $FLAGS; do
+        planted=$(python3 "$W/cmp.py" "$in_file" "$out_file" --plant "$f")
+        if plant_bit "$planted" "$f"; then
+          nbit=$((nbit + 1))
+        elif plant_absent "$planted" "$f"; then
+          nabsent=$((nabsent + 1))
+          echo "    $name: the plant for $f does not apply to this pair, and says so"
+        fi
+        note "control pair $name: the plant for $f is accounted for" \
+          "$(is plant_accounted "$planted" "$f")"
+      done
+      reordered=$(python3 "$W/cmp.py" "$in_file" "$out_file" --plant dated_xf_order)
+      echo "  $name: cmp with the reorder plant  $reordered"
+      note "control pair $name: the reorder plant (same attributes, another order) turns dated_xf_ok to no and nothing else" \
+        "$(is only_dated_no "$reordered")"
+      echo "  $name: plants that turned their flag: $nbit; plants that do not apply: $nabsent"
+      nctl=$((nctl + nbit))
+    done
+    echo "  planted faults that turned their own flag, over the three pairs: $nctl"
+    all_flags_planted() { [ "$nctl" -ge 17 ]; }
+    note "every flag the comparison raises was falsified by a plant on some pair" \
+      "$(is all_flags_planted)"
+    note "control: only_dated_no refuses a line where every flag reads yes" \
+      "$(isnot only_dated_no "$(for f in $FLAGS; do printf '%s=yes ' "$f"; done)")"
+    note "control: a line with no flags at all is refused by all_yes" \
+      "$(isnot all_yes "found=1 planted=yes")"
+    echo "## the column guard's own controls"
+    printf 'id\tname\tstatus\tflags\n' >"$W/head.tsv"
+    : >"$W/empty.tsv"
+    printf 'id\tname\n' >"$W/short.tsv"
+    COLUMNS_USED='id name status flags'
+    note "columns_resolve accepts a header holding every column it indexes" \
+      "$(is columns_resolve "$W/head.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses a header missing some of them" \
+      "$(isnot columns_resolve "$W/short.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses an empty file" "$(isnot columns_resolve "$W/empty.tsv" "$COLUMNS_USED")"
+    
+    # entries_p2 <entries file> <id> <sheet part> <styles part>: the runner's
+    # entry rows for one workbook are what P2 expects. Exactly two rows are
+    # `changed`, and they are the two parts the comparison picked; every other
+    # row is `identical` with no flag; a changed row may carry `descriptor` and
+    # nothing else, as specs/0008 allows for a replaced entry. Names are read
+    # here and never printed.
+    entries_p2() {
+      awk -F'\t' -v id="$2" -v sheet="$3" -v styles="$4" '
+        NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+        $k["id"] != id { next }
+        {
+          n++
+          name = $k["name"]; status = $k["status"]; flags = $k["flags"]
+          if (status == "changed") {
+            changed++
+            if (name != sheet && name != styles) bad++
+            if (flags != "" && flags != "descriptor") bad++
+          } else if (status != "identical" || flags != "") {
+            bad++
+          }
+        }
+        END { exit (n == 0 || changed != 2 || bad > 0) }' "$1"
+    }
+    printf 'id\tname\tstatus\tflags\n' >"$W/e-ctl.tsv"
+    printf 'w\ta.xml\tidentical\t\nw\tsheet1.xml\tchanged\t\nw\tstyles.xml\tchanged\tdescriptor\n' \
+      >>"$W/e-ctl.tsv"
+    note "control: entries_p2 accepts the two changed parts, descriptor allowed" \
+      "$(is entries_p2 "$W/e-ctl.tsv" w sheet1.xml styles.xml)"
+    note "control: entries_p2 refuses the same rows when another part is named" \
+      "$(isnot entries_p2 "$W/e-ctl.tsv" w sheet1.xml other.xml)"
+    sed 's/a.xml\tidentical\t$/a.xml\tidentical\tdescriptor/' "$W/e-ctl.tsv" >"$W/e-flag.tsv"
+    note "control: entries_p2 refuses an identical row that carries a flag" \
+      "$(isnot entries_p2 "$W/e-flag.tsv" w sheet1.xml styles.xml)"
+    sed 's/a.xml\tidentical\t$/a.xml\tchanged\t/' "$W/e-ctl.tsv" >"$W/e-three.tsv"
+    note "control: entries_p2 refuses a third changed row" \
+      "$(isnot entries_p2 "$W/e-three.tsv" w sheet1.xml styles.xml)"
+    sed 's/styles.xml\tchanged\tdescriptor$/styles.xml\tchanged\trecompressed/' "$W/e-ctl.tsv" \
+      >"$W/e-other.tsv"
+    note "control: entries_p2 refuses a changed row flagged anything but descriptor" \
+      "$(isnot entries_p2 "$W/e-other.tsv" w sheet1.xml styles.xml)"
+    sed '/changed/d' "$W/e-ctl.tsv" >"$W/e-none.tsv"
+    note "control: entries_p2 refuses a workbook with no changed row" \
+      "$(isnot entries_p2 "$W/e-none.tsv" w sheet1.xml styles.xml)"
+    note "control: entries_p2 refuses an id with no rows" \
+      "$(isnot entries_p2 "$W/e-ctl.tsv" nosuchid sheet1.xml styles.xml)"
+    
+    echo
+    echo "## settings"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); image $LO_IMAGE; --tool-arg $EDIT"
+    echo "  out directory: <corpus>/runs/$RUN"
+    echo "  record stem: $STEM"
+    # The debug binaries gate.log built and hashed (header change 1), each
+    # compared with the hash that log printed, read out of it by command.
+    GATE_LOG=records/logs/m1p5-p2/gate.log
+    echo "command: read the four debug hashes from $GATE_LOG (sha256 $(sha256sum <"$GATE_LOG" | cut -d' ' -f1))"
+    gate_hash() { sed -n "s#^  $1: sha256 \([0-9a-f]\{64\}\), bytes [0-9]*\$#\1#p" "$GATE_LOG"; }
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        now=$(sha256sum <"$b" | cut -d' ' -f1)
+        gated=$(gate_hash "$b")
+        echo "  $b: sha256 $now; gate.log printed ${gated:-nothing}"
+        note "$b is the binary gate.log hashed" "$(is [ "$now" = "$gated" ])"
+      else
+        echo "  $b: MISSING"; fail=1
+      fi
+    done
+    note "control: the same reader finds no hash for a binary gate.log does not name" \
+      "$(is [ -z "$(gate_hash target/debug/no-such-binary)" ])"
+    echo "  (nothing is rebuilt here)"
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows"
+    note "the corpus holds its 27 workbooks" "$(is [ "$manifest_rows" = 27 ])"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then
+        PT=target/debug/emend-copy
+        XD=target/debug/xlsx-diff
+      else
+        PT=target/i686-unknown-linux-musl/debug/emend-copy
+        XD=target/i686-unknown-linux-musl/debug/xlsx-diff
+      fi
+      echo
+      echo "## $label run, --tool-arg $EDIT"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$RUN --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $EDIT"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$EDIT" \
+        >"$W/run-$label.stdout" 2>"$W/run-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$W/run-$label.stderr")"
+      hide <"$W/run-$label.stdout" | sed 's/^/    /'
+      if [ -s "$W/run-$label.stderr" ]; then hide <"$W/run-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the run's stderr is empty" "$(is [ "$(wc -c <"$W/run-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ] || [ ! -f "$ENT" ]; then
+        echo "  the run wrote no summary or entries file"; fail=1; continue
+      fi
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      noleft=$(count_where "$SUM" leftover no)
+      order=$(count_where "$SUM" order_preserved yes)
+      comment=$(count_where "$SUM" comment_equal yes)
+      fid_yes=$(count_where "$SUM" files_identical yes)
+      echo "  summary rows: $rows; outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in; leftover no: $noleft"
+      echo "  order_preserved yes: $order; comment_equal yes: $comment; files_identical yes: $fid_yes"
+      echo "  entry totals from the summary: identical $(sum_col "$SUM" identical), recompressed $(sum_col "$SUM" recompressed), changed $(sum_col "$SUM" changed), dropped $(sum_col "$SUM" dropped), added $(sum_col "$SUM" added), flagged $(sum_col "$SUM" flagged)"
+      note "$label every manifest workbook produced a summary row" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      note "$label no tool left a temporary behind" "$(is [ "$noleft" = "$rows" ])"
+      note "$label order is preserved in every file" "$(is [ "$order" = "$rows" ])"
+      note "$label the archive comment is unchanged in every file" "$(is [ "$comment" = "$rows" ])"
+      fid_no=$(count_where "$SUM" files_identical no)
+      echo "  files_identical no: $fid_no"
+      note "$label files_identical is no in all 27, since the edit writes" "$(is [ "$fid_no" = 27 ])"
+      entries_as_p2() {
+        # Two entries change in every workbook, the styles part and the first
+        # worksheet, and nothing is recompressed, dropped or added.
+        [ "$(sum_col "$SUM" changed)" = 54 ] || return 1
+        [ "$(sum_col "$SUM" recompressed)$(sum_col "$SUM" dropped)$(sum_col "$SUM" added)" = 000 ]
+      }
+      note "$label 54 entries changed over the 27 workbooks and none moved otherwise" \
+        "$(is entries_as_p2)"
+    
+      echo "  the entries header, as the runner wrote it:"
+      echo "    $(head -1 "$ENT")"
+      note "$label every column the entry form indexes is in that header" \
+        "$(is columns_resolve "$ENT" "$COLUMNS_USED")"
+    
+      echo "  per workbook: id, the tool's edit line, the comparison's line"
+      echo "  (counts and yes/no flags only; no reference, value, text, code or part name)"
+      : >"$W/edits-$label"
+      nwb=0; nagree=0; nentries_ok=0; nflags_ok=0; nread_ok=0
+      t_xfs_after=0; t_formats=0; t_styled=0
+      while IFS=$'\t' read -r id ext; do
+        nwb=$((nwb + 1))
+        in_file=$CORPUS/corpus/$id.$ext
+        out_file=$OUT/$id/out.$label.$ext
+        e=$(cat "$OUT/$id/stdout.$label.txt" 2>/dev/null)
+        printf '%s\t%s\n' "$id" "$e" >>"$W/edits-$label"
+        c=$(python3 "$W/cmp.py" "$in_file" "$out_file")
+        printf '    %s %s\n' "$id" "$(printf '%s' "$e" | tr '\t' ' ')"
+        printf '    %s cmp %s\n' "$id" "$c"
+        # The two parts the comparison picked, read into variables and never
+        # printed: the entry rows are checked against them by name.
+        python3 "$W/cmp.py" "$in_file" --parts >"$W/parts-$id"
+        sheet_part=$(sed -n 1p "$W/parts-$id")
+        styles_part=$(sed -n 2p "$W/parts-$id")
+        if tool_and_cmp "$e" "$c"; then nagree=$((nagree + 1)); else echo "    $id: THE TOOL AND THE COMPARISON DISAGREE"; fi
+        if all_yes "$c"; then nflags_ok=$((nflags_ok + 1)); else echo "    $id: a flag of the comparison does not hold"; fi
+        if read_back_as_spec "$e" "$c"; then nread_ok=$((nread_ok + 1)); else echo "    $id: read_back is not styled plus two"; fi
+        if entries_p2 "$ENT" "$id" "$sheet_part" "$styles_part"; then
+          nentries_ok=$((nentries_ok + 1))
+        else
+          echo "    $id: the entry rows are not the two changed parts and the rest identical"
+        fi
+        t_xfs_after=$((t_xfs_after + $(kvn "$e" xfs_after)))
+        t_formats=$((t_formats + $(kvn "$e" formats_added)))
+        t_styled=$((t_styled + $(kvn "$e" styled)))
+      done < <(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next } { print $k["id"] "\t" $k["ext"] }' "$CORPUS/manifest.tsv")
+      echo "  workbooks: $nwb; the tool and the comparison agree: $nagree; every flag holds: $nflags_ok"
+      echo "  read_back is styled plus two: $nread_ok; entry rows as P2 expects: $nentries_ok"
+      echo "  $label totals from the tool's lines: xfs_after $t_xfs_after; formats_added $t_formats; styled $t_styled"
+      note "$label the tool and the comparison agree on every shared key in all 27" "$(is [ "$nagree" = 27 ])"
+      note "$label every flag of the comparison holds in all 27" "$(is [ "$nflags_ok" = 27 ])"
+      note "$label read_back is styled plus two in all 27" "$(is [ "$nread_ok" = 27 ])"
+      note "$label every workbook's entry rows are the two changed parts and the rest identical" \
+        "$(is [ "$nentries_ok" = 27 ])"
+      note "$label xfs_after totals 1046" "$(is [ "$t_xfs_after" = 1046 ])"
+      note "$label formats_added totals 27" "$(is [ "$t_formats" = 27 ])"
+    
+      # The planted difference on a REAL pair: the first workbook's own output,
+      # compared again with one flag's plant, must report that flag.
+      first=$(awk -F'\t' 'NR == 1 { print $1; exit }' "$W/edits-$label")
+      first_ext=$(awk -F'\t' -v id="$first" 'NR > 1 && $1 == id { print $4 }' "$CORPUS/manifest.tsv")
+      e1=$(awk -F'\t' -v id="$first" '$1 == id { sub(/^[^\t]*\t/, ""); print }' "$W/edits-$label")
+      c1=$(python3 "$W/cmp.py" "$CORPUS/corpus/$first.$first_ext" "$OUT/$first/out.$label.$first_ext")
+      c1_plant=$(python3 "$W/cmp.py" "$CORPUS/corpus/$first.$first_ext" \
+        "$OUT/$first/out.$label.$first_ext" --plant xfs_added)
+      note "$label control: the first workbook's comparison holds as run" "$(is all_yes "$c1")"
+      note "$label control: the same pair with an xf planted does not" "$(isnot all_yes "$c1_plant")"
+      c1_order=$(python3 "$W/cmp.py" "$CORPUS/corpus/$first.$first_ext" \
+        "$OUT/$first/out.$label.$first_ext" --plant dated_xf_order)
+      note "$label control: the same pair with the dated xf's attributes reordered fails dated_xf_ok alone" \
+        "$(is only_dated_no "$c1_order")"
+      e1_plant=$(printf '%s' "$e1" | sed "s/\txfs_after=$(kvn "$e1" xfs_after)\t/\txfs_after=$(( $(kvn "$e1" xfs_after) + 1 ))\t/")
+      note "$label control: the first workbook's line agrees with the comparison as run" \
+        "$(is tool_and_cmp "$e1" "$c1")"
+      note "$label control: the same line with xfs_after raised by one does not" \
+        "$(isnot tool_and_cmp "$e1_plant" "$c1")"
+    done
+    echo
+    echo "## the two labels agree"
+    for label in host i686; do
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { print $idx["id"] "\t" $idx["name"] "\t" $idx["status"] "\t" $idx["flags"] }' \
+        "$OUT/entries.$label.tsv" | sort >"$W/classes-$label"
+      sort "$W/edits-$label" >"$W/edits-sorted-$label"
+    done
+    note "both targets classified every entry the same way" "$(is cmp -s "$W/classes-host" "$W/classes-i686")"
+    note "both targets printed the same edit line for every workbook" \
+      "$(is cmp -s "$W/edits-sorted-host" "$W/edits-sorted-i686")"
+    note "control: the same comparison finds the host's lines differ from the i686 classes" \
+      "$(isnot cmp -s "$W/edits-sorted-host" "$W/classes-i686")"
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                           k && NR == 2 { print $k }' "$R")
+        echo "  run.$label.tsv tool_args: [$args]"
+        note "$label the run row records the operation" "$(is [ "$args" = "$EDIT" ])"
+      else
+        echo "  run.$label.tsv: MISSING"; fail=1
+      fi
+    done
+    
+    echo
+    echo "## the record pair"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$RUN --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --stem "$STEM" >"$W/record.out" 2>&1
+    rrc=$?
+    hide <"$W/record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  $f: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  $f: MISSING"; fail=1
+      fi
+    done
+    both_halves() {
+      [ -f "records/$STEM.md" ] || return 1
+      [ -f "records/$STEM.txt" ] || return 1
+    }
+    note "both halves of the record pair were written" "$(is both_halves)"
+    nargs=$(count_matches -F "$EDIT" "records/$STEM.md")
+    echo "  lines of the record naming the operation: $nargs"
+    note "the record names the operation it was run with" "$(is [ "$nargs" -ge 1 ])"
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$f")
+      echo "  $f: lines naming a home, mount or corpus path: $n"
+      note "$f carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    # The planted path is assembled at run time (P2 verification ruling 4), so
+    # this script's own text carries no home-shaped path.
+    printf '%s%s%s\n' '/ho' 'me/someone/' 'emend-testing/corpus/x.xlsx' >"$W/path-control"
+    nctl=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$W/path-control")
+    note "control: the path form finds a planted path ($nctl)" "$(is [ "$nctl" = 1 ])"
+    
+    
+    echo
+    echo "## status after the runs"
+    # specs/0012-styles.md carries planning's "Planning rulings during P2"
+    # uncommitted, as its ruling 8 says, at the hash planning gave; that one
+    # modified file is accounted for by its hash and nothing else is.
+    SPEC=specs/0012-styles.md
+    SPEC_SHA=397da302b6f4911c758c2426463dcc1b10ac84c805aa67729bd3698574ef4b27
+    spec_now=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    echo "  $SPEC: sha256 $spec_now; the hash planning's P2 rulings give: $SPEC_SHA"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p5-p2|records/'"$STEM"')' git status --porcelain)
+    st_spec=$(run_matches -E '^ M specs/0012-styles\.md$' git status --porcelain)
+    echo "status lines: $st_all; of them under the phase log directory or the record pair: $st_log; the spec modified: $st_spec"
+    spec_is_rulings() { [ "$st_spec" = 1 ] && [ "$spec_now" = "$SPEC_SHA" ]; }
+    note "the one modified planning file is specs/0012 at the P2 rulings' hash" "$(is spec_is_rulings)"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_spec" != error ] \
+        && [ "$st_all" = "$((st_log + st_spec))" ]
+    }
+    note "every change in the working tree is a log, the record pair or that spec" "$(is status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "verdict rows other than as-expected: $nbad; of them marked UNEXPECTED: $nunexp"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the comparison this log runs (python3, zipfile and expat)
+    """The run log's own style comparison (specs/0012, "Harness runs", P2).
+    
+    Usage: cmp.py <input archive> <output archive> [--plant <flag>]
+           cmp.py <input archive> --parts
+    
+    Reads the package's own relationships with zipfile and expat, sharing no code
+    with the library or the tool, and makes its own pick of the edit
+    --style-sample should have made: the first sheet of kind worksheet in
+    <sheets> order, and in it A, the first cell in document order whose t is
+    absent, "n" or "s", which has a <v> with text and no <f>, and M, the largest
+    row number among its cells (0 for none). From the styles part it takes X (the
+    <xf> children of <cellXfs>) and F (the <numFmt> children of <numFmts>).
+    
+    It then compares the two archives part by part.
+    
+    For the styles part, by bytes:
+    
+    - the bytes before <numFmts (or before <cellXfs when the input has no
+      numFmts), the bytes from </numFmts> to <cellXfs, and the bytes from
+      </cellXfs> to the end of the part are identical in input and output;
+    - inside numFmts the input's children's bytes are a prefix of the output's,
+      exactly one numFmt follows, its id is the largest input id plus one or 164
+      when that is larger, and count grows by one;
+    - inside cellXfs the input's children's bytes are a prefix of the output's,
+      exactly two xf elements follow, the first carries numFmtId equal to that
+      new id and applyNumberFormat="1", the second is byte for byte the string
+      "Harness runs" gives for it (P2 ruling 2), and count grows by two.
+    
+    For the worksheet, as specs/0011's P2 comparison does: the bytes outside
+    sheetData identical, and every cell as the tuple (reference, s, t, formula
+    presence, value text, has <v>) counted unchanged, changed, added and removed.
+    The changed references must be exactly A when A exists and none when it does
+    not, with A's t, formula presence and value text the input's and its s alone
+    different; the added reference must be exactly (M + 1, 1) with s equal to X +
+    1; and nothing is removed.
+    
+    It prints ONE line of counts and yes/no flags: no reference, no value, no
+    text, no format code and no part name. With --parts it prints two part names
+    on two lines (the sheet and the styles part, or nothing) for the log to
+    compare with the runner's entry rows; the log never prints them.
+    
+    --plant <flag> makes one planted difference in the output before the
+    comparison, chosen so that the named flag, and in general that flag alone,
+    turns from yes to no: the control for every flag this comparison raises.
+    """
+    import posixpath
+    import re
+    import sys
+    import xml.parsers.expat
+    import zipfile
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    
+    
+    def rels_name(part):
+        d, base = posixpath.split(part)
+        return posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+    
+    
+    def rels_of(z, part):
+        d = posixpath.dirname(part)
+        name = rels_name(part)
+        out = []
+        if name not in z.namelist():
+            return out
+        found = []
+    
+        def start(tag, attrs):
+            if tag == RELS + " Relationship" and attrs.get("TargetMode") != "External":
+                found.append(attrs)
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(name), True)
+        for a in found:
+            target = a.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((a.get("Id"), a.get("Type", ""), resolved))
+        return out
+    
+    
+    def workbook_of(z):
+        office = [t for (_, ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        return office[0] if len(office) == 1 else None
+    
+    
+    def worksheets(z, workbook):
+        by_id = {i: (ty, t) for (i, ty, t) in rels_of(z, workbook)}
+        order = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            if ns in MAIN and local == "sheet":
+                for a in ATTR:
+                    if a + " id" in attrs:
+                        order.append(attrs[a + " id"])
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(workbook), True)
+        out = []
+        for rid in order:
+            ty, target = by_id.get(rid, ("", None))
+            if ty.endswith("/worksheet") and target in z.namelist():
+                out.append(target)
+        return out
+    
+    
+    def chain_of(z, workbook):
+        chains = [t for (_, ty, t) in rels_of(z, workbook) if ty.endswith("/calcChain")]
+        return chains[0] if chains else None
+    
+    
+    def cells(data):
+        """{reference: tuple}, the document order, the <row> count, and the
+        first cell with a normal formula."""
+        out = {}
+        order = []
+        stack = []
+        state = {"cell": None, "text": None, "rows": 0, "normal": None}
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            local = local if ns in MAIN else None
+            stack.append(local)
+            if local == "row" and stack[-2:-1] == ["sheetData"]:
+                state["rows"] += 1
+            if local == "c" and stack[-2:-1] == ["row"] and stack[-3:-2] == ["sheetData"]:
+                state["cell"] = {"r": attrs.get("r"), "s": attrs.get("s"),
+                                 "t": attrs.get("t"), "f": False, "normal": False,
+                                 "v": None, "is": None}
+            elif state["cell"] is not None:
+                if local == "f" and stack[-2:-1] == ["c"]:
+                    state["cell"]["f"] = True
+                    state["cell"]["normal"] = attrs.get("t", "normal") == "normal"
+                elif local == "v" and stack[-2:-1] == ["c"]:
+                    state["text"] = "v"
+                    state["cell"]["v"] = ""
+                elif local == "is" and stack[-2:-1] == ["c"]:
+                    state["cell"]["is"] = ""
+                elif local == "t" and "is" in stack:
+                    state["text"] = "is"
+    
+        def end(tag):
+            local = stack.pop()
+            if local in ("v", "t"):
+                state["text"] = None
+            if local == "c" and state["cell"] is not None and stack[-1:] == ["row"]:
+                c = state["cell"]
+                value = c["v"] if c["v"] is not None else c["is"]
+                out[c["r"]] = (c["r"], c["s"], c["t"], c["f"], value, c["v"] is not None)
+                order.append(c["r"])
+                if c["normal"] and state["normal"] is None:
+                    state["normal"] = c["r"]
+                state["cell"] = None
+    
+        def chars(text):
+            if state["cell"] is not None and state["text"] is not None:
+                state["cell"][state["text"]] += text
+    
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.EndElementHandler = end
+        p.CharacterDataHandler = chars
+        p.buffer_text = True
+        p.Parse(data, True)
+        return out, order, state["rows"], state["normal"]
+    
+    
+    def bounds(data):
+        """(prefix end, end tag start or None for <sheetData/>, element end)."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?sheetData[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if data[close - 1:close] == b"/":
+            return start.start(), None, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?sheetData\s*>", data))
+        if not ends:
+            return None
+        return start.start(), ends[-1].start(), ends[-1].end()
+    
+    
+    
+    
+    def styles_of(z, workbook):
+        """The styles part the workbook names, or None."""
+        parts = [t for (_, ty, t) in rels_of(z, workbook) if ty.endswith("/styles")]
+        return parts[0] if parts and parts[0] in z.namelist() else None
+    
+    
+    def container(data, name):
+        """The spans of one root child: (start of its start tag, start of its
+        children, end of its children, end of the element), or None when the part
+        has no such element. An empty element has equal child bounds."""
+        start = re.search(rb"<([A-Za-z_][\w.-]*:)?" + name + rb"[\s/>]", data)
+        if start is None:
+            return None
+        close = data.find(b">", start.start())
+        if close < 0:
+            return None
+        if data[close - 1:close] == b"/":
+            return start.start(), close + 1, close + 1, close + 1
+        ends = list(re.finditer(rb"</([A-Za-z_][\w.-]*:)?" + name + rb"\s*>", data))
+        if not ends:
+            return None
+        return start.start(), close + 1, ends[-1].start(), ends[-1].end()
+    
+    
+    def count_attribute(data, span):
+        """The count attribute of the start tag at span, as an int, or None."""
+        tag = data[span[0]:span[1]]
+        found = re.search(rb"\scount\s*=\s*(\"[^\"]*\"|'[^']*')", tag)
+        if found is None:
+            return None
+        try:
+            return int(found.group(1)[1:-1])
+        except ValueError:
+            return None
+    
+    
+    def elements(data):
+        """The (name, attributes, bytes) of every top-level element in data,
+        which is a container's children."""
+        out = []
+    
+        def start(tag, attrs):
+            ns, _, local = tag.rpartition(" ")
+            out.append((local if ns in MAIN else None, attrs))
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(b"<r xmlns='" + MAIN[0].encode() + b"'>" + data + b"</r>", True)
+        return out[1:]
+    
+    
+    def num_fmt_ids(data):
+        """The numFmtId of every numFmt among a numFmts container's children."""
+        out = []
+        for (local, attrs) in elements(data):
+            if local == "numFmt" and "numFmtId" in attrs:
+                try:
+                    out.append(int(attrs["numFmtId"]))
+                except ValueError:
+                    pass
+        return out
+    
+    
+    def top_level(data):
+        """The children's bytes cut into one span per top-level element, so an
+        addition can be counted and read without a parser that keeps offsets."""
+        spans = []
+        depth = 0
+        at = 0
+        i = 0
+        while i < len(data):
+            if data[i:i + 1] == b"<" and data[i + 1:i + 2] not in (b"/", b"!", b"?"):
+                if depth == 0:
+                    at = i
+                close = data.find(b">", i)
+                if close < 0:
+                    break
+                empty = data[close - 1:close] == b"/"
+                if empty:
+                    if depth == 0:
+                        spans.append((at, close + 1))
+                else:
+                    depth += 1
+                i = close + 1
+                continue
+            if data[i:i + 2] == b"</":
+                close = data.find(b">", i)
+                if close < 0:
+                    break
+                depth -= 1
+                if depth == 0:
+                    spans.append((at, close + 1))
+                i = close + 1
+                continue
+            i += 1
+        return spans
+    
+    
+    def col_of(reference):
+        """The 1-based column of an A1 reference."""
+        letters = re.match(r"[A-Za-z]+", reference or "")
+        if letters is None:
+            return 0
+        n = 0
+        for ch in letters.group(0).upper():
+            n = n * 26 + (ord(ch) - 64)
+        return n
+    
+    
+    def row_of(reference):
+        digits = re.search(r"\d+", reference or "")
+        return int(digits.group(0)) if digits else 0
+    
+    
+    def a1(row, col):
+        name = ""
+        while col > 0:
+            col, rest = divmod(col - 1, 26)
+            name = chr(65 + rest) + name
+        return "%s%d" % (name, row)
+    
+    
+    def sampled(data):
+        """A (the first cell of a sampled kind with a value and no formula), M
+        (the largest row among the cells) and the cell count of one sheet."""
+        found, order, _, _ = cells(data)
+        a = None
+        top = 0
+        for ref in order:
+            (_, _, t, formula, value, has_v) = found[ref]
+            top = max(top, row_of(ref))
+            candidate = (t in (None, "n", "s") and has_v and value is not None
+                         and value != "" and not formula)
+            if candidate and a is None:
+                a = ref
+        return a, top, found, order
+    
+    
+    def pick(z):
+        """The workbook, its first worksheet, its styles part, A and M."""
+        workbook = workbook_of(z)
+        if workbook is None:
+            return None, None, None, None, 0
+        sheets = worksheets(z, workbook)
+        part = sheets[0] if sheets else None
+        styles = styles_of(z, workbook)
+        if part is None:
+            return workbook, None, styles, None, 0
+        a, top, _, _ = sampled(z.read(part))
+        return workbook, part, styles, a, top
+    
+    
+    PLANTS = (
+        "head_same", "mid_same", "tail_same", "fmts_prefix", "fmt_added",
+        "fmt_id_ok", "fmt_count_grew", "xfs_prefix", "xfs_added", "coded_xf_ok",
+        "dated_xf_ok", "xf_count_grew", "ws_prefix_same", "ws_suffix_same",
+        "changed_as_styled", "added_as_edited", "nothing_removed",
+        # Not a flag: a second plant for dated_xf_ok that keeps every attribute
+        # and value and only reorders them, which byte equality must catch
+        # (P2 ruling 2).
+        "dated_xf_order",
+    )
+    
+    
+    def plant_styles(data, flag, ids, fmts_in):
+        """The planted difference for a styles-part flag, and whether it applied.
+    
+        A plant that cannot falsify its flag on this pair does not apply, and
+        says so rather than leaving a flag that passes for want of a difference:
+        an input with no numFmts of its own makes the prefix flag vacuous, since
+        every byte string starts with an empty one.
+        """
+        fmts = container(data, b"numFmts")
+        xfs = container(data, b"cellXfs")
+        if flag == "head_same":
+            # Just before the first of the two containers, which is where the
+            # head span ends: a comment there lands in the head and nowhere else.
+            at = fmts[0] if fmts is not None else xfs[0]
+            return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "mid_same" and fmts is not None:
+            return data[:fmts[3]] + b"<!-- planted -->" + data[fmts[3]:], True
+        if flag == "tail_same":
+            return data[:xfs[3]] + b"<!-- planted -->" + data[xfs[3]:], True
+        if flag == "fmts_prefix" and fmts is not None and fmts_in:
+            spans = top_level(data[fmts[1]:fmts[2]])
+            if spans:
+                at = fmts[1] + spans[0][0]
+                return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "fmt_added" and fmts is not None:
+            return data[:fmts[2]] + b'<numFmt numFmtId="199" formatCode="0.0000"/>' + data[fmts[2]:], True
+        if flag == "fmt_id_ok" and fmts is not None:
+            spans = top_level(data[fmts[1]:fmts[2]])
+            if spans:
+                last = data[fmts[1] + spans[-1][0]:fmts[1] + spans[-1][1]]
+                other = re.sub(rb'numFmtId\s*=\s*"\d+"', b'numFmtId="199"', last, count=1)
+                return data[:fmts[1] + spans[-1][0]] + other + data[fmts[1] + spans[-1][1]:], True
+        if flag == "fmt_count_grew" and fmts is not None:
+            tag = data[fmts[0]:fmts[1]]
+            # Zero is never the count a growing container should carry, whatever
+            # the input held, so this plant is wrong on every pair.
+            return data[:fmts[0]] + re.sub(rb'count\s*=\s*"\d+"', b'count="0"', tag, count=1) \
+                + data[fmts[1]:], True
+        if flag == "xfs_prefix":
+            spans = top_level(data[xfs[1]:xfs[2]])
+            if spans:
+                at = xfs[1] + spans[0][0]
+                return data[:at] + b"<!-- planted -->" + data[at:], True
+        if flag == "xfs_added":
+            return data[:xfs[2]] + b"<xf/>" + data[xfs[2]:], True
+        if flag in ("coded_xf_ok", "dated_xf_ok"):
+            spans = top_level(data[xfs[1]:xfs[2]])
+            which = -2 if flag == "coded_xf_ok" else -1
+            if len(spans) >= 2:
+                at = xfs[1] + spans[which][0]
+                to = xfs[1] + spans[which][1]
+                return data[:at] + b'<xf numFmtId="0"/>' + data[to:], True
+        if flag == "dated_xf_order":
+            spans = top_level(data[xfs[1]:xfs[2]])
+            if len(spans) >= 2:
+                at = xfs[1] + spans[-1][0]
+                to = xfs[1] + spans[-1][1]
+                return data[:at] + DATED_XF_REORDERED + data[to:], True
+        if flag == "xf_count_grew":
+            tag = data[xfs[0]:xfs[1]]
+            return data[:xfs[0]] + re.sub(rb'count\s*=\s*"\d+"', b'count="0"', tag, count=1) \
+                + data[xfs[1]:], True
+        return data, False
+    
+    
+    def cell_spans(data, upto):
+        """One span per top-level <c> element inside sheetData."""
+        spans = []
+        for hit in re.finditer(rb"<([A-Za-z_][\w.-]*:)?c[\s/>]", data[:upto]):
+            at = hit.start()
+            close = data.find(b">", at)
+            if close < 0:
+                break
+            if data[close - 1:close] == b"/":
+                spans.append((at, close + 1))
+                continue
+            end = re.compile(rb"</([A-Za-z_][\w.-]*:)?c\s*>").search(data, close)
+            if end is None:
+                break
+            spans.append((at, end.end()))
+        return spans
+    
+    
+    def reference_of(span_bytes):
+        hit = re.search(rb'\sr\s*=\s*"([^"]*)"', span_bytes)
+        return hit.group(1).decode("ascii", "replace") if hit else ""
+    
+    
+    def plant_sheet(data, flag, a, added):  # noqa: C901
+        """The planted difference for a worksheet flag, or the bytes unchanged.
+    
+        A cell the edit itself touched is never the target: a plant on A or on
+        the added cell would leave the flag it is meant to turn as it was.
+        """
+        span = bounds(data)
+        if span is None:
+            return data, False
+        rows = list(re.finditer(rb"<([A-Za-z_][\w.-]*:)?row[\s/>]", data))
+        prefix = rows[-1].group(1) if rows and rows[-1].group(1) else b""
+        at = span[1] if span[1] is not None else span[2]
+        if flag == "ws_prefix_same":
+            return data[:span[0]] + b"<!-- planted -->" + data[span[0]:], True
+        if flag == "ws_suffix_same":
+            return data[:span[2]] + b"<!-- planted -->" + data[span[2]:], True
+        if flag == "added_as_edited":
+            # Inside the last row, not beside it: a <c> that is not a row's child
+            # is no cell, so a plant there would be read as no difference at all.
+            cell = (b"<" + prefix + b'c r="ZZ999998" s="0"><' + prefix + b"v>0</"
+                    + prefix + b"v></" + prefix + b"c>")
+            close = data.rfind(b"</" + prefix + b"row>", 0, at)
+            if close < 0:
+                row = (b"<" + prefix + b'row r="999998">' + cell + b"</" + prefix + b"row>")
+                return data[:at] + row + data[at:], True
+            return data[:close] + cell + data[close:], True
+        if flag in ("changed_as_styled", "nothing_removed"):
+            spans = [s for s in cell_spans(data, at)
+                     if reference_of(data[s[0]:s[1]]) not in (a, added)]
+            if not spans:
+                return data, False
+            start, end = spans[-1]
+            if flag == "nothing_removed":
+                return data[:start] + data[end:], True
+            # One more changed cell: its `s` is set to a value it did not carry,
+            # which is exactly what the flag says only A may have.
+            cell = data[start:end]
+            if re.search(rb'\ss\s*=\s*"[^"]*"', cell):
+                other = re.sub(rb'\ss\s*=\s*"[^"]*"', b' s="0"', cell, count=1)
+                if other == cell:
+                    other = re.sub(rb'\ss\s*=\s*"[^"]*"', b' s="1"', cell, count=1)
+            else:
+                close = cell.find(b">")
+                cut = close - 1 if cell[close - 1:close] == b"/" else close
+                other = cell[:cut] + b' s="0"' + cell[cut:]
+            if other == cell:
+                return data, False
+            return data[:start] + other + data[end:], True
+        return data, False
+    
+    
+    # The second added xf, exactly as "Harness runs" P2 writes it (P2 ruling 2).
+    DATED_XF = (b'<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" '
+                b'applyNumberFormat="1"/>')
+    # The same attributes and values in another order: the reorder plant.
+    DATED_XF_REORDERED = (b'<xf fontId="0" numFmtId="14" fillId="0" borderId="0" xfId="0" '
+                          b'applyNumberFormat="1"/>')
+    
+    
+    def creation_point(data, fallback):
+        """Where a numFmts the part does not have is created: the start of the
+        first of fonts, fills, borders, cellStyleXfs and cellXfs that the part
+        holds, whichever comes first in the part's own order."""
+        starts = []
+        for name in (b"fonts", b"fills", b"borders", b"cellStyleXfs", b"cellXfs"):
+            span = container(data, name)
+            if span is not None:
+                starts.append(span[0])
+        return min(starts) if starts else fallback
+    
+    
+    def styles_flags(din, dout, expect_id):
+        """Every styles-part flag, by bytes, and the two counts the line carries.
+    
+        A part with no numFmts of its own is the case the spec names: the head
+        then runs to <cellXfs and the created container is the addition itself.
+        """
+        out = {}
+        fin, fout = container(din, b"numFmts"), container(dout, b"numFmts")
+        xin, xout = container(din, b"cellXfs"), container(dout, b"cellXfs")
+        if xin is None or xout is None or fout is None:
+            return None, 0, 0
+        # Where a created numFmts goes: before the first of the five the part
+        # holds, in the part's own order (specs/0012, P1 verification ruling 5).
+        # For a part that has one already the head simply ends at it.
+        cut = fin[0] if fin is not None else creation_point(din, xin[0])
+        out["head_same"] = din[:cut] == dout[:fout[0]]
+        out["mid_same"] = din[fin[3] if fin is not None else cut:xin[0]] \
+            == dout[fout[3]:xout[0]]
+        out["tail_same"] = din[xin[3]:] == dout[xout[3]:]
+    
+        fmts_in = din[fin[1]:fin[2]] if fin is not None else b""
+        fmts_out = dout[fout[1]:fout[2]]
+        out["fmts_prefix"] = fmts_out.startswith(fmts_in)
+        rest = top_level(fmts_out[len(fmts_in):])
+        added_fmts = [fmts_out[len(fmts_in):][s[0]:s[1]] for s in rest]
+        out["fmt_added"] = len(added_fmts) == 1 and num_fmt_ids(added_fmts[0]) != []
+        ids = num_fmt_ids(added_fmts[0]) if out["fmt_added"] else []
+        out["fmt_id_ok"] = ids == [expect_id]
+        count_in = count_attribute(din, fin) if fin is not None else 0
+        count_out = count_attribute(dout, fout)
+        fmts_before = len(num_fmt_ids(fmts_in))
+        fmts_after = len(num_fmt_ids(fmts_out))
+        # The library writes the container's count from its CHILDREN plus the
+        # additions, not from whatever the input's attribute said, so that is
+        # what this flag holds it to: the output's count is its own children's
+        # number, and that number is one more than the input's. Whether the
+        # input's own attribute agreed with its children is a property of the
+        # INPUT and is reported beside the flag rather than folded into it.
+        out["fmt_count_grew"] = count_out is not None and count_out == fmts_after \
+            and fmts_after == fmts_before + 1
+        out["_fmt_count_in_matched"] = (count_in or 0) == fmts_before
+    
+        xfs_in = din[xin[1]:xin[2]]
+        xfs_out = dout[xout[1]:xout[2]]
+        out["xfs_prefix"] = xfs_out.startswith(xfs_in)
+        spans = top_level(xfs_out[len(xfs_in):])
+        added_xfs = [xfs_out[len(xfs_in):][s[0]:s[1]] for s in spans]
+        out["xfs_added"] = len(added_xfs) == 2
+        coded = added_xfs[0] if out["xfs_added"] else b""
+        dated = added_xfs[1] if out["xfs_added"] else b""
+        out["coded_xf_ok"] = (b'numFmtId="%d"' % expect_id) in coded \
+            and b'applyNumberFormat="1"' in coded
+        out["dated_xf_ok"] = dated == DATED_XF
+        xfs_count_in = count_attribute(din, xin)
+        xfs_count_out = count_attribute(dout, xout)
+        xfs_in_n = len(top_level(xfs_in))
+        xfs_out_n = len(top_level(xfs_out))
+        out["xf_count_grew"] = xfs_count_out is not None and xfs_count_out == xfs_out_n \
+            and xfs_out_n == xfs_in_n + 2
+        out["_xf_count_in_matched"] = xfs_count_in == xfs_in_n
+        return out, xfs_in_n, fmts_after - fmts_before
+    
+    
+    def main():
+        zin = zipfile.ZipFile(sys.argv[1])
+        workbook, part, styles, a, top = pick(zin)
+        if sys.argv[2:3] == ["--parts"]:
+            print(part or "")
+            print(styles or "")
+            return
+        zout = zipfile.ZipFile(sys.argv[2])
+        plant = None
+        if "--plant" in sys.argv[3:]:
+            plant = sys.argv[sys.argv.index("--plant") + 1]
+            if plant not in PLANTS:
+                print("error=unknown-plant")
+                return
+        yn = lambda v: "yes" if v else "no"
+        if part is None or styles is None:
+            print("found=0")
+            return
+        added = a1(top + 1, 1)
+        sin, sout = zin.read(styles), zout.read(styles)
+        din, dout = zin.read(part), zout.read(part)
+        ids = num_fmt_ids(sin[container(sin, b"numFmts")[1]:container(sin, b"numFmts")[2]]) \
+            if container(sin, b"numFmts") is not None else []
+        expect_id = max(164, max(ids) + 1) if ids else 164
+        planted = True
+        if plant is not None:
+            fmts_in = container(sin, b"numFmts") is not None
+            sout, in_styles = plant_styles(sout, plant, ids, fmts_in)
+            dout, in_sheet = plant_sheet(dout, plant, a, added)
+            planted = in_styles or in_sheet
+    
+        flags, xfs_before, formats_added = styles_flags(sin, sout, expect_id)
+        if flags is None:
+            print("error=no-container")
+            return
+        out_xfs = container(sout, b"cellXfs")
+        xfs_after = len(top_level(sout[out_xfs[1]:out_xfs[2]]))
+    
+        bi, bo = bounds(din), bounds(dout)
+        if bi is None or bo is None:
+            print("error=no-sheetData")
+            return
+        ws_prefix_same = din[:bi[0]] == dout[:bo[0]]
+        if bi[1] is not None and bo[1] is not None:
+            ws_suffix_same = din[bi[1]:] == dout[bo[1]:]
+        else:
+            ws_suffix_same = din[bi[2]:] == dout[bo[2]:]
+        cin, _, _, _ = cells(din)
+        cout, _, _, _ = cells(dout)
+        unchanged = changed = removed = 0
+        changed_refs = set()
+        for ref, tup in cin.items():
+            if ref not in cout:
+                removed += 1
+            elif cout[ref] == tup:
+                unchanged += 1
+            else:
+                changed += 1
+                changed_refs.add(ref)
+        added_refs = set(cout) - set(cin)
+        styled = 1 if a is not None else 0
+        if a is not None and a in cout and a in cin:
+            # A's `s` alone differs: its t, formula presence and value are the
+            # input's, and its new `s` is the first of the two added formats.
+            a_kept = cout[a][2:] == cin[a][2:] and cout[a][1] != cin[a][1] \
+                and cout[a][1] == str(xfs_before)
+        else:
+            a_kept = a is None
+        changed_as_styled = changed == styled and changed_refs == ({a} if a else set()) \
+            and a_kept
+        added_as_edited = added_refs == {added} and added in cout \
+            and cout[added][1] == str(xfs_before + 1) \
+            and col_of(added) == 1 and row_of(added) == top + 1
+        print(" ".join([
+            "found=1", "planted=%s" % yn(planted), "styled=%d" % styled,
+            "xfs_before=%d" % xfs_before,
+            "xfs_after=%d" % xfs_after,
+            "formats_added=%d" % formats_added,
+            "cells_in=%d" % len(cin), "cells_out=%d" % len(cout),
+            "unchanged=%d" % unchanged, "changed=%d" % changed,
+            "added=%d" % len(added_refs), "removed=%d" % removed,
+        ] + ["%s=%s" % (name, yn(flags[name])) for name in (
+            "head_same", "mid_same", "tail_same", "fmts_prefix", "fmt_added",
+            "fmt_id_ok", "fmt_count_grew", "xfs_prefix", "xfs_added",
+            "coded_xf_ok", "dated_xf_ok", "xf_count_grew")]
+          + ["fmt_count_in_matched=%s" % yn(flags["_fmt_count_in_matched"]),
+             "xf_count_in_matched=%s" % yn(flags["_xf_count_in_matched"]),
+             "ws_prefix_same=%s" % yn(ws_prefix_same),
+             "ws_suffix_same=%s" % yn(ws_suffix_same),
+             "changed_as_styled=%s" % yn(changed_as_styled),
+             "added_as_edited=%s" % yn(added_as_edited),
+             "nothing_removed=%s" % yn(removed == 0)]))
+    
+    
+    main()
+
+## the comparison's own controls, on generated pairs
+The three inputs below are written here, byte for byte as the script
+  says, and edited by the host debug binary this run uses. Their
+  contents are fictional. The corpus is not touched by this section.
+the generator this section runs:
+    """Three fictional packages for the comparison's controls.
+    
+    Usage: make.py <directory>
+    
+      sample.xlsx   a sheet with a styled number, a shared string and a formula,
+                    and a styles part with one numFmt and three xfs;
+      empty.xlsx    the same styles part and a sheet with no cells at all, so the
+                    sample has no A and styles the new cell alone;
+      nofmts.xlsx   a styles part with NO numFmts of its own, so the edit creates
+                    the container (P1 verification ruling 5).
+    """
+    import os
+    import sys
+    import zipfile
+    
+    MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    ATTR = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
+    DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    
+    WITH_FMTS = ('<styleSheet xmlns="%s"><numFmts count="1">'
+                 '<numFmt numFmtId="164" formatCode="0.00"/></numFmts>'
+                 '<fonts count="1"><font><name val="Fictional"/></font></fonts>'
+                 '<cellXfs count="3"><xf numFmtId="0"/>'
+                 '<xf numFmtId="164" fontId="0"/><xf/></cellXfs></styleSheet>' % MAIN)
+    NO_FMTS = ('<styleSheet xmlns="%s">'
+               '<fonts count="1"><font><name val="Fictional"/></font></fonts>'
+               '<cellXfs count="2"><xf numFmtId="0"/>'
+               '<xf numFmtId="9" fontId="0"/></cellXfs></styleSheet>' % MAIN)
+    CELLS = ('<sheetData><row r="1"><c r="A1" s="1"><v>1.5</v></c>'
+             '<c r="B1" t="s"><v>1</v></c></row>'
+             '<row r="2"><c r="A2"><f>A1*2</f><v>3</v></c>'
+             '<c r="C2" s="2"><v>7</v></c></row></sheetData>')
+    
+    
+    def build(path, sheet_data, styles):
+        parts = {
+            "[Content_Types].xml": DECL + (
+                '<Types xmlns="%s"><Default Extension="rels" ContentType="application/rels"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/xl/workbook.xml" ContentType="application/workbook"/>'
+                '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/sheet"/>'
+                '<Override PartName="/xl/styles.xml" ContentType="application/styles"/>'
+                "</Types>" % TYPES),
+            "_rels/.rels": (
+                '<Relationships xmlns="%s"><Relationship Id="rId1" Type="%s/officeDocument" '
+                'Target="xl/workbook.xml"/></Relationships>' % (RELS, ATTR)),
+            "xl/workbook.xml": DECL + (
+                '<workbook xmlns="%s" xmlns:r="%s"><sheets>'
+                '<sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>' % (MAIN, ATTR)),
+            "xl/_rels/workbook.xml.rels": (
+                '<Relationships xmlns="%s">'
+                '<Relationship Id="rId1" Type="%s/worksheet" Target="worksheets/sheet1.xml"/>'
+                '<Relationship Id="rId2" Type="%s/styles" Target="styles.xml"/>'
+                "</Relationships>" % (RELS, ATTR, ATTR)),
+            "xl/worksheets/sheet1.xml": DECL + (
+                '<worksheet xmlns="%s"><dimension ref="A1"/>%s'
+                '<pageMargins left="0.7"/></worksheet>' % (MAIN, sheet_data)),
+            "xl/styles.xml": DECL + styles,
+        }
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for name, text in parts.items():
+                z.writestr(name, text)
+    
+    
+    d = sys.argv[1]
+    build(os.path.join(d, "sample.xlsx"), CELLS, WITH_FMTS)
+    build(os.path.join(d, "empty.xlsx"), "<sheetData/>", WITH_FMTS)
+    build(os.path.join(d, "nofmts.xlsx"),
+          '<sheetData><row r="1"><c r="A1" s="1"><v>2.5</v></c></row></sheetData>', NO_FMTS)
+command: python3 make.py <scratch>/ctl; then target/debug/emend-copy <in> <out> --style-sample
+  sample: exit 0; tool edit styled=1 added=1 xfs_before=3 xfs_after=5 formats_added=1 cells_before=4 cells_after=5 read_back=3
+  sample: cmp  found=1 planted=yes styled=1 xfs_before=3 xfs_after=5 formats_added=1 cells_in=4 cells_out=5 unchanged=3 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair sample: the tool exits 0: as-expected
+  control pair sample: every flag of the comparison reads yes: as-expected
+  control pair sample: the tool's line and the comparison agree on every shared key: as-expected
+  control pair sample: read_back is styled plus two: as-expected
+  control pair sample: the plant for head_same is accounted for: as-expected
+  control pair sample: the plant for mid_same is accounted for: as-expected
+  control pair sample: the plant for tail_same is accounted for: as-expected
+  control pair sample: the plant for fmts_prefix is accounted for: as-expected
+  control pair sample: the plant for fmt_added is accounted for: as-expected
+  control pair sample: the plant for fmt_id_ok is accounted for: as-expected
+  control pair sample: the plant for fmt_count_grew is accounted for: as-expected
+  control pair sample: the plant for xfs_prefix is accounted for: as-expected
+  control pair sample: the plant for xfs_added is accounted for: as-expected
+  control pair sample: the plant for coded_xf_ok is accounted for: as-expected
+  control pair sample: the plant for dated_xf_ok is accounted for: as-expected
+  control pair sample: the plant for xf_count_grew is accounted for: as-expected
+  control pair sample: the plant for ws_prefix_same is accounted for: as-expected
+  control pair sample: the plant for ws_suffix_same is accounted for: as-expected
+  control pair sample: the plant for changed_as_styled is accounted for: as-expected
+  control pair sample: the plant for added_as_edited is accounted for: as-expected
+  control pair sample: the plant for nothing_removed is accounted for: as-expected
+  sample: cmp with the reorder plant  found=1 planted=yes styled=1 xfs_before=3 xfs_after=5 formats_added=1 cells_in=4 cells_out=5 unchanged=3 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=no xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair sample: the reorder plant (same attributes, another order) turns dated_xf_ok to no and nothing else: as-expected
+  sample: plants that turned their flag: 17; plants that do not apply: 0
+  empty: exit 0; tool edit styled=0 added=1 xfs_before=3 xfs_after=5 formats_added=1 cells_before=0 cells_after=1 read_back=2
+  empty: cmp  found=1 planted=yes styled=0 xfs_before=3 xfs_after=5 formats_added=1 cells_in=0 cells_out=1 unchanged=0 changed=0 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair empty: the tool exits 0: as-expected
+  control pair empty: every flag of the comparison reads yes: as-expected
+  control pair empty: the tool's line and the comparison agree on every shared key: as-expected
+  control pair empty: read_back is styled plus two: as-expected
+  control pair empty: the plant for head_same is accounted for: as-expected
+  control pair empty: the plant for mid_same is accounted for: as-expected
+  control pair empty: the plant for tail_same is accounted for: as-expected
+  control pair empty: the plant for fmts_prefix is accounted for: as-expected
+  control pair empty: the plant for fmt_added is accounted for: as-expected
+  control pair empty: the plant for fmt_id_ok is accounted for: as-expected
+  control pair empty: the plant for fmt_count_grew is accounted for: as-expected
+  control pair empty: the plant for xfs_prefix is accounted for: as-expected
+  control pair empty: the plant for xfs_added is accounted for: as-expected
+  control pair empty: the plant for coded_xf_ok is accounted for: as-expected
+  control pair empty: the plant for dated_xf_ok is accounted for: as-expected
+  control pair empty: the plant for xf_count_grew is accounted for: as-expected
+  control pair empty: the plant for ws_prefix_same is accounted for: as-expected
+  control pair empty: the plant for ws_suffix_same is accounted for: as-expected
+    empty: the plant for changed_as_styled does not apply to this pair, and says so
+  control pair empty: the plant for changed_as_styled is accounted for: as-expected
+  control pair empty: the plant for added_as_edited is accounted for: as-expected
+    empty: the plant for nothing_removed does not apply to this pair, and says so
+  control pair empty: the plant for nothing_removed is accounted for: as-expected
+  empty: cmp with the reorder plant  found=1 planted=yes styled=0 xfs_before=3 xfs_after=5 formats_added=1 cells_in=0 cells_out=1 unchanged=0 changed=0 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=no xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair empty: the reorder plant (same attributes, another order) turns dated_xf_ok to no and nothing else: as-expected
+  empty: plants that turned their flag: 15; plants that do not apply: 2
+  nofmts: exit 0; tool edit styled=1 added=1 xfs_before=2 xfs_after=4 formats_added=1 cells_before=1 cells_after=2 read_back=3
+  nofmts: cmp  found=1 planted=yes styled=1 xfs_before=2 xfs_after=4 formats_added=1 cells_in=1 cells_out=2 unchanged=0 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair nofmts: the tool exits 0: as-expected
+  control pair nofmts: every flag of the comparison reads yes: as-expected
+  control pair nofmts: the tool's line and the comparison agree on every shared key: as-expected
+  control pair nofmts: read_back is styled plus two: as-expected
+  control pair nofmts: the plant for head_same is accounted for: as-expected
+  control pair nofmts: the plant for mid_same is accounted for: as-expected
+  control pair nofmts: the plant for tail_same is accounted for: as-expected
+    nofmts: the plant for fmts_prefix does not apply to this pair, and says so
+  control pair nofmts: the plant for fmts_prefix is accounted for: as-expected
+  control pair nofmts: the plant for fmt_added is accounted for: as-expected
+  control pair nofmts: the plant for fmt_id_ok is accounted for: as-expected
+  control pair nofmts: the plant for fmt_count_grew is accounted for: as-expected
+  control pair nofmts: the plant for xfs_prefix is accounted for: as-expected
+  control pair nofmts: the plant for xfs_added is accounted for: as-expected
+  control pair nofmts: the plant for coded_xf_ok is accounted for: as-expected
+  control pair nofmts: the plant for dated_xf_ok is accounted for: as-expected
+  control pair nofmts: the plant for xf_count_grew is accounted for: as-expected
+  control pair nofmts: the plant for ws_prefix_same is accounted for: as-expected
+  control pair nofmts: the plant for ws_suffix_same is accounted for: as-expected
+    nofmts: the plant for changed_as_styled does not apply to this pair, and says so
+  control pair nofmts: the plant for changed_as_styled is accounted for: as-expected
+  control pair nofmts: the plant for added_as_edited is accounted for: as-expected
+    nofmts: the plant for nothing_removed does not apply to this pair, and says so
+  control pair nofmts: the plant for nothing_removed is accounted for: as-expected
+  nofmts: cmp with the reorder plant  found=1 planted=yes styled=1 xfs_before=2 xfs_after=4 formats_added=1 cells_in=1 cells_out=2 unchanged=0 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=no xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  control pair nofmts: the reorder plant (same attributes, another order) turns dated_xf_ok to no and nothing else: as-expected
+  nofmts: plants that turned their flag: 14; plants that do not apply: 3
+  planted faults that turned their own flag, over the three pairs: 46
+  every flag the comparison raises was falsified by a plant on some pair: as-expected
+  control: only_dated_no refuses a line where every flag reads yes: as-expected
+  control: a line with no flags at all is refused by all_yes: as-expected
+## the column guard's own controls
+  columns_resolve accepts a header holding every column it indexes: as-expected
+  columns_resolve refuses a header missing some of them: as-expected
+  columns_resolve refuses an empty file: as-expected
+  control: entries_p2 accepts the two changed parts, descriptor allowed: as-expected
+  control: entries_p2 refuses the same rows when another part is named: as-expected
+  control: entries_p2 refuses an identical row that carries a flag: as-expected
+  control: entries_p2 refuses a third changed row: as-expected
+  control: entries_p2 refuses a changed row flagged anything but descriptor: as-expected
+  control: entries_p2 refuses a workbook with no changed row: as-expected
+  control: entries_p2 refuses an id with no rows: as-expected
+
+## settings
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); image localhost/emend-lo:25.2.3-2-deb13u6; --tool-arg --style-sample
+  out directory: <corpus>/runs/2026-09-22-7c96575-c
+  record stem: m1p5-p2-2026-09-22-7c96575
+command: read the four debug hashes from records/logs/m1p5-p2/gate.log (sha256 bd54f9e7133fb4470b4a27bfd4c4b32ef6d690bdaec4eb07060fe3586e9e1a41)
+  target/debug/emend-copy: sha256 06b8d88567bbdbf6d3074a5cae3f45e2deed8bf32726e33ac9ea0485800dcedc; gate.log printed 06b8d88567bbdbf6d3074a5cae3f45e2deed8bf32726e33ac9ea0485800dcedc
+  target/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e; gate.log printed a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  target/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 755a9a1f1c445db2f528c58396d9a187102deac9f4adb57e44cc7b88b6033bf3; gate.log printed 755a9a1f1c445db2f528c58396d9a187102deac9f4adb57e44cc7b88b6033bf3
+  target/i686-unknown-linux-musl/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db; gate.log printed 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  target/i686-unknown-linux-musl/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  control: the same reader finds no hash for a binary gate.log does not name: as-expected
+  (nothing is rebuilt here)
+  corpus manifest rows: 27
+  the corpus holds its 27 workbooks: as-expected
+
+## host run, --tool-arg --style-sample
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-22-7c96575-c --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --style-sample
+  started 2026-09-22T22:54:08Z; ended 2026-09-22T22:59:03Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 1 0.10 7652
+    f56906d42e0a host ok 1 0.10 7760
+    0fbf4e5e3be9 host ok 1 0.10 7620
+    bdfe649d5b97 host ok 1 0.10 7796
+    ae7e17525a35 host ok 1 0.10 7772
+    63e820d98612 host ok 1 0.10 7732
+    054df34b1472 host ok 1 0.10 7576
+    9132ce5303d8 host ok 1 73.51 7772
+    ed2fbd304d51 host ok 1 0.10 7512
+    80adab651c77 host ok 1 0.10 7764
+    9ada43d71c80 host ok 1 0.10 7584
+    885819a9642e host ok 1 0.10 7528
+    f2ba081da509 host ok 1 0.10 7820
+    16c3be622455 host ok 1 0.10 7652
+    a72460f992a8 host ok 1 0.10 7524
+    f8459281d739 host ok 1 0.10 7804
+    ab0e6a529465 host ok 1 73.00 7636
+    f9efcac9808f host ok 1 0.10 7836
+    8aaebea134fb host ok 1 0.10 7512
+    6778a242d1f9 host ok 1 0.10 7524
+    75387404b8af host ok 1 0.10 7564
+    40d747fb5d9e host ok 1 0.10 7468
+    3084c0591814 host ok 1 0.10 7628
+    f3a462783621 host ok 1 0.20 7644
+    ed4c55f07c69 host ok 1 0.10 7800
+    7935c5119065 host ok 1 0.10 7604
+    18d1e8ba72b5 host ok 1 0.10 7880
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the run exits 0: as-expected
+  host the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical yes: 0
+  entry totals from the summary: identical 816, recompressed 0, changed 54, dropped 0, added 0, flagged 34
+  host every manifest workbook produced a summary row: as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host no tool left a temporary behind: as-expected
+  host order is preserved in every file: as-expected
+  host the archive comment is unchanged in every file: as-expected
+  files_identical no: 27
+  host files_identical is no in all 27, since the edit writes: as-expected
+  host 54 entries changed over the 27 workbooks and none moved otherwise: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  host every column the entry form indexes is in that header: as-expected
+  per workbook: id, the tool's edit line, the comparison's line
+  (counts and yes/no flags only; no reference, value, text, code or part name)
+    d8245b84086f edit styled=1 added=1 xfs_before=15 xfs_after=17 formats_added=1 cells_before=416 cells_after=417 read_back=3
+    d8245b84086f cmp found=1 planted=yes styled=1 xfs_before=15 xfs_after=17 formats_added=1 cells_in=416 cells_out=417 unchanged=415 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f56906d42e0a edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    f56906d42e0a cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    0fbf4e5e3be9 edit styled=1 added=1 xfs_before=4 xfs_after=6 formats_added=1 cells_before=102 cells_after=103 read_back=3
+    0fbf4e5e3be9 cmp found=1 planted=yes styled=1 xfs_before=4 xfs_after=6 formats_added=1 cells_in=102 cells_out=103 unchanged=101 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    bdfe649d5b97 edit styled=1 added=1 xfs_before=16 xfs_after=18 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    bdfe649d5b97 cmp found=1 planted=yes styled=1 xfs_before=16 xfs_after=18 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ae7e17525a35 edit styled=1 added=1 xfs_before=9 xfs_after=11 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    ae7e17525a35 cmp found=1 planted=yes styled=1 xfs_before=9 xfs_after=11 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    63e820d98612 edit styled=1 added=1 xfs_before=9 xfs_after=11 formats_added=1 cells_before=281 cells_after=282 read_back=3
+    63e820d98612 cmp found=1 planted=yes styled=1 xfs_before=9 xfs_after=11 formats_added=1 cells_in=281 cells_out=282 unchanged=280 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    054df34b1472 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=427 cells_after=428 read_back=3
+    054df34b1472 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=427 cells_out=428 unchanged=426 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    9132ce5303d8 edit styled=1 added=1 xfs_before=4 xfs_after=6 formats_added=1 cells_before=1040008 cells_after=1040009 read_back=3
+    9132ce5303d8 cmp found=1 planted=yes styled=1 xfs_before=4 xfs_after=6 formats_added=1 cells_in=1040008 cells_out=1040009 unchanged=1040007 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ed2fbd304d51 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    ed2fbd304d51 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    80adab651c77 edit styled=1 added=1 xfs_before=16 xfs_after=18 formats_added=1 cells_before=416 cells_after=417 read_back=3
+    80adab651c77 cmp found=1 planted=yes styled=1 xfs_before=16 xfs_after=18 formats_added=1 cells_in=416 cells_out=417 unchanged=415 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    9ada43d71c80 edit styled=1 added=1 xfs_before=11 xfs_after=13 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    9ada43d71c80 cmp found=1 planted=yes styled=1 xfs_before=11 xfs_after=13 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    885819a9642e edit styled=1 added=1 xfs_before=5 xfs_after=7 formats_added=1 cells_before=102 cells_after=103 read_back=3
+    885819a9642e cmp found=1 planted=yes styled=1 xfs_before=5 xfs_after=7 formats_added=1 cells_in=102 cells_out=103 unchanged=101 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f2ba081da509 edit styled=1 added=1 xfs_before=17 xfs_after=19 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    f2ba081da509 cmp found=1 planted=yes styled=1 xfs_before=17 xfs_after=19 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    16c3be622455 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    16c3be622455 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    a72460f992a8 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=281 cells_after=282 read_back=3
+    a72460f992a8 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=281 cells_out=282 unchanged=280 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f8459281d739 edit styled=1 added=1 xfs_before=11 xfs_after=13 formats_added=1 cells_before=427 cells_after=428 read_back=3
+    f8459281d739 cmp found=1 planted=yes styled=1 xfs_before=11 xfs_after=13 formats_added=1 cells_in=427 cells_out=428 unchanged=426 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ab0e6a529465 edit styled=1 added=1 xfs_before=5 xfs_after=7 formats_added=1 cells_before=1040008 cells_after=1040009 read_back=3
+    ab0e6a529465 cmp found=1 planted=yes styled=1 xfs_before=5 xfs_after=7 formats_added=1 cells_in=1040008 cells_out=1040009 unchanged=1040007 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f9efcac9808f edit styled=1 added=1 xfs_before=128 xfs_after=130 formats_added=1 cells_before=8 cells_after=9 read_back=3
+    f9efcac9808f cmp found=1 planted=yes styled=1 xfs_before=128 xfs_after=130 formats_added=1 cells_in=8 cells_out=9 unchanged=7 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    8aaebea134fb edit styled=1 added=1 xfs_before=104 xfs_after=106 formats_added=1 cells_before=831 cells_after=832 read_back=3
+    8aaebea134fb cmp found=1 planted=yes styled=1 xfs_before=104 xfs_after=106 formats_added=1 cells_in=831 cells_out=832 unchanged=830 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    6778a242d1f9 edit styled=1 added=1 xfs_before=21 xfs_after=23 formats_added=1 cells_before=50 cells_after=51 read_back=3
+    6778a242d1f9 cmp found=1 planted=yes styled=1 xfs_before=21 xfs_after=23 formats_added=1 cells_in=50 cells_out=51 unchanged=49 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    75387404b8af edit styled=1 added=1 xfs_before=142 xfs_after=144 formats_added=1 cells_before=121 cells_after=122 read_back=3
+    75387404b8af cmp found=1 planted=yes styled=1 xfs_before=142 xfs_after=144 formats_added=1 cells_in=121 cells_out=122 unchanged=120 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    40d747fb5d9e edit styled=1 added=1 xfs_before=23 xfs_after=25 formats_added=1 cells_before=140 cells_after=141 read_back=3
+    40d747fb5d9e cmp found=1 planted=yes styled=1 xfs_before=23 xfs_after=25 formats_added=1 cells_in=140 cells_out=141 unchanged=139 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    3084c0591814 edit styled=1 added=1 xfs_before=77 xfs_after=79 formats_added=1 cells_before=8 cells_after=9 read_back=3
+    3084c0591814 cmp found=1 planted=yes styled=1 xfs_before=77 xfs_after=79 formats_added=1 cells_in=8 cells_out=9 unchanged=7 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f3a462783621 edit styled=1 added=1 xfs_before=88 xfs_after=90 formats_added=1 cells_before=14 cells_after=15 read_back=3
+    f3a462783621 cmp found=1 planted=yes styled=1 xfs_before=88 xfs_after=90 formats_added=1 cells_in=14 cells_out=15 unchanged=13 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ed4c55f07c69 edit styled=1 added=1 xfs_before=141 xfs_after=143 formats_added=1 cells_before=513 cells_after=514 read_back=3
+    ed4c55f07c69 cmp found=1 planted=yes styled=1 xfs_before=141 xfs_after=143 formats_added=1 cells_in=513 cells_out=514 unchanged=512 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    7935c5119065 edit styled=1 added=1 xfs_before=75 xfs_after=77 formats_added=1 cells_before=204 cells_after=205 read_back=3
+    7935c5119065 cmp found=1 planted=yes styled=1 xfs_before=75 xfs_after=77 formats_added=1 cells_in=204 cells_out=205 unchanged=203 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    18d1e8ba72b5 edit styled=1 added=1 xfs_before=21 xfs_after=23 formats_added=1 cells_before=18 cells_after=19 read_back=3
+    18d1e8ba72b5 cmp found=1 planted=yes styled=1 xfs_before=21 xfs_after=23 formats_added=1 cells_in=18 cells_out=19 unchanged=17 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  workbooks: 27; the tool and the comparison agree: 27; every flag holds: 27
+  read_back is styled plus two: 27; entry rows as P2 expects: 27
+  host totals from the tool's lines: xfs_after 1046; formats_added 27; styled 27
+  host the tool and the comparison agree on every shared key in all 27: as-expected
+  host every flag of the comparison holds in all 27: as-expected
+  host read_back is styled plus two in all 27: as-expected
+  host every workbook's entry rows are the two changed parts and the rest identical: as-expected
+  host xfs_after totals 1046: as-expected
+  host formats_added totals 27: as-expected
+  host control: the first workbook's comparison holds as run: as-expected
+  host control: the same pair with an xf planted does not: as-expected
+  host control: the same pair with the dated xf's attributes reordered fails dated_xf_ok alone: as-expected
+  host control: the first workbook's line agrees with the comparison as run: as-expected
+  host control: the same line with xfs_after raised by one does not: as-expected
+
+## i686 run, --tool-arg --style-sample
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-22-7c96575-c --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --style-sample
+  started 2026-09-22T23:00:05Z; ended 2026-09-22T23:05:14Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 1 0.10 7720
+    f56906d42e0a i686 ok 1 0.10 7524
+    0fbf4e5e3be9 i686 ok 1 0.10 7616
+    bdfe649d5b97 i686 ok 1 0.10 7492
+    ae7e17525a35 i686 ok 1 0.10 7704
+    63e820d98612 i686 ok 1 0.10 7924
+    054df34b1472 i686 ok 1 0.10 7972
+    9132ce5303d8 i686 ok 1 79.90 7764
+    ed2fbd304d51 i686 ok 1 0.10 7736
+    80adab651c77 i686 ok 1 0.10 7548
+    9ada43d71c80 i686 ok 1 0.10 7672
+    885819a9642e i686 ok 1 0.10 7652
+    f2ba081da509 i686 ok 1 0.10 7688
+    16c3be622455 i686 ok 1 0.10 7924
+    a72460f992a8 i686 ok 1 0.10 7652
+    f8459281d739 i686 ok 1 0.10 7532
+    ab0e6a529465 i686 ok 1 79.71 7496
+    f9efcac9808f i686 ok 1 0.10 7704
+    8aaebea134fb i686 ok 1 0.10 7488
+    6778a242d1f9 i686 ok 1 0.10 7516
+    75387404b8af i686 ok 1 0.10 7584
+    40d747fb5d9e i686 ok 1 0.10 7660
+    3084c0591814 i686 ok 1 0.10 7584
+    f3a462783621 i686 ok 1 0.20 7828
+    ed4c55f07c69 i686 ok 1 0.10 7904
+    7935c5119065 i686 ok 1 0.10 7692
+    18d1e8ba72b5 i686 ok 1 0.10 7600
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the run exits 0: as-expected
+  i686 the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical yes: 0
+  entry totals from the summary: identical 816, recompressed 0, changed 54, dropped 0, added 0, flagged 34
+  i686 every manifest workbook produced a summary row: as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 no tool left a temporary behind: as-expected
+  i686 order is preserved in every file: as-expected
+  i686 the archive comment is unchanged in every file: as-expected
+  files_identical no: 27
+  i686 files_identical is no in all 27, since the edit writes: as-expected
+  i686 54 entries changed over the 27 workbooks and none moved otherwise: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  i686 every column the entry form indexes is in that header: as-expected
+  per workbook: id, the tool's edit line, the comparison's line
+  (counts and yes/no flags only; no reference, value, text, code or part name)
+    d8245b84086f edit styled=1 added=1 xfs_before=15 xfs_after=17 formats_added=1 cells_before=416 cells_after=417 read_back=3
+    d8245b84086f cmp found=1 planted=yes styled=1 xfs_before=15 xfs_after=17 formats_added=1 cells_in=416 cells_out=417 unchanged=415 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f56906d42e0a edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    f56906d42e0a cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    0fbf4e5e3be9 edit styled=1 added=1 xfs_before=4 xfs_after=6 formats_added=1 cells_before=102 cells_after=103 read_back=3
+    0fbf4e5e3be9 cmp found=1 planted=yes styled=1 xfs_before=4 xfs_after=6 formats_added=1 cells_in=102 cells_out=103 unchanged=101 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    bdfe649d5b97 edit styled=1 added=1 xfs_before=16 xfs_after=18 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    bdfe649d5b97 cmp found=1 planted=yes styled=1 xfs_before=16 xfs_after=18 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ae7e17525a35 edit styled=1 added=1 xfs_before=9 xfs_after=11 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    ae7e17525a35 cmp found=1 planted=yes styled=1 xfs_before=9 xfs_after=11 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    63e820d98612 edit styled=1 added=1 xfs_before=9 xfs_after=11 formats_added=1 cells_before=281 cells_after=282 read_back=3
+    63e820d98612 cmp found=1 planted=yes styled=1 xfs_before=9 xfs_after=11 formats_added=1 cells_in=281 cells_out=282 unchanged=280 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    054df34b1472 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=427 cells_after=428 read_back=3
+    054df34b1472 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=427 cells_out=428 unchanged=426 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    9132ce5303d8 edit styled=1 added=1 xfs_before=4 xfs_after=6 formats_added=1 cells_before=1040008 cells_after=1040009 read_back=3
+    9132ce5303d8 cmp found=1 planted=yes styled=1 xfs_before=4 xfs_after=6 formats_added=1 cells_in=1040008 cells_out=1040009 unchanged=1040007 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ed2fbd304d51 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    ed2fbd304d51 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    80adab651c77 edit styled=1 added=1 xfs_before=16 xfs_after=18 formats_added=1 cells_before=416 cells_after=417 read_back=3
+    80adab651c77 cmp found=1 planted=yes styled=1 xfs_before=16 xfs_after=18 formats_added=1 cells_in=416 cells_out=417 unchanged=415 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    9ada43d71c80 edit styled=1 added=1 xfs_before=11 xfs_after=13 formats_added=1 cells_before=164 cells_after=165 read_back=3
+    9ada43d71c80 cmp found=1 planted=yes styled=1 xfs_before=11 xfs_after=13 formats_added=1 cells_in=164 cells_out=165 unchanged=163 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    885819a9642e edit styled=1 added=1 xfs_before=5 xfs_after=7 formats_added=1 cells_before=102 cells_after=103 read_back=3
+    885819a9642e cmp found=1 planted=yes styled=1 xfs_before=5 xfs_after=7 formats_added=1 cells_in=102 cells_out=103 unchanged=101 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f2ba081da509 edit styled=1 added=1 xfs_before=17 xfs_after=19 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    f2ba081da509 cmp found=1 planted=yes styled=1 xfs_before=17 xfs_after=19 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    16c3be622455 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=12 cells_after=13 read_back=3
+    16c3be622455 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=12 cells_out=13 unchanged=11 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    a72460f992a8 edit styled=1 added=1 xfs_before=10 xfs_after=12 formats_added=1 cells_before=281 cells_after=282 read_back=3
+    a72460f992a8 cmp found=1 planted=yes styled=1 xfs_before=10 xfs_after=12 formats_added=1 cells_in=281 cells_out=282 unchanged=280 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f8459281d739 edit styled=1 added=1 xfs_before=11 xfs_after=13 formats_added=1 cells_before=427 cells_after=428 read_back=3
+    f8459281d739 cmp found=1 planted=yes styled=1 xfs_before=11 xfs_after=13 formats_added=1 cells_in=427 cells_out=428 unchanged=426 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ab0e6a529465 edit styled=1 added=1 xfs_before=5 xfs_after=7 formats_added=1 cells_before=1040008 cells_after=1040009 read_back=3
+    ab0e6a529465 cmp found=1 planted=yes styled=1 xfs_before=5 xfs_after=7 formats_added=1 cells_in=1040008 cells_out=1040009 unchanged=1040007 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f9efcac9808f edit styled=1 added=1 xfs_before=128 xfs_after=130 formats_added=1 cells_before=8 cells_after=9 read_back=3
+    f9efcac9808f cmp found=1 planted=yes styled=1 xfs_before=128 xfs_after=130 formats_added=1 cells_in=8 cells_out=9 unchanged=7 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    8aaebea134fb edit styled=1 added=1 xfs_before=104 xfs_after=106 formats_added=1 cells_before=831 cells_after=832 read_back=3
+    8aaebea134fb cmp found=1 planted=yes styled=1 xfs_before=104 xfs_after=106 formats_added=1 cells_in=831 cells_out=832 unchanged=830 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    6778a242d1f9 edit styled=1 added=1 xfs_before=21 xfs_after=23 formats_added=1 cells_before=50 cells_after=51 read_back=3
+    6778a242d1f9 cmp found=1 planted=yes styled=1 xfs_before=21 xfs_after=23 formats_added=1 cells_in=50 cells_out=51 unchanged=49 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    75387404b8af edit styled=1 added=1 xfs_before=142 xfs_after=144 formats_added=1 cells_before=121 cells_after=122 read_back=3
+    75387404b8af cmp found=1 planted=yes styled=1 xfs_before=142 xfs_after=144 formats_added=1 cells_in=121 cells_out=122 unchanged=120 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    40d747fb5d9e edit styled=1 added=1 xfs_before=23 xfs_after=25 formats_added=1 cells_before=140 cells_after=141 read_back=3
+    40d747fb5d9e cmp found=1 planted=yes styled=1 xfs_before=23 xfs_after=25 formats_added=1 cells_in=140 cells_out=141 unchanged=139 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    3084c0591814 edit styled=1 added=1 xfs_before=77 xfs_after=79 formats_added=1 cells_before=8 cells_after=9 read_back=3
+    3084c0591814 cmp found=1 planted=yes styled=1 xfs_before=77 xfs_after=79 formats_added=1 cells_in=8 cells_out=9 unchanged=7 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    f3a462783621 edit styled=1 added=1 xfs_before=88 xfs_after=90 formats_added=1 cells_before=14 cells_after=15 read_back=3
+    f3a462783621 cmp found=1 planted=yes styled=1 xfs_before=88 xfs_after=90 formats_added=1 cells_in=14 cells_out=15 unchanged=13 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    ed4c55f07c69 edit styled=1 added=1 xfs_before=141 xfs_after=143 formats_added=1 cells_before=513 cells_after=514 read_back=3
+    ed4c55f07c69 cmp found=1 planted=yes styled=1 xfs_before=141 xfs_after=143 formats_added=1 cells_in=513 cells_out=514 unchanged=512 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    7935c5119065 edit styled=1 added=1 xfs_before=75 xfs_after=77 formats_added=1 cells_before=204 cells_after=205 read_back=3
+    7935c5119065 cmp found=1 planted=yes styled=1 xfs_before=75 xfs_after=77 formats_added=1 cells_in=204 cells_out=205 unchanged=203 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+    18d1e8ba72b5 edit styled=1 added=1 xfs_before=21 xfs_after=23 formats_added=1 cells_before=18 cells_after=19 read_back=3
+    18d1e8ba72b5 cmp found=1 planted=yes styled=1 xfs_before=21 xfs_after=23 formats_added=1 cells_in=18 cells_out=19 unchanged=17 changed=1 added=1 removed=0 head_same=yes mid_same=yes tail_same=yes fmts_prefix=yes fmt_added=yes fmt_id_ok=yes fmt_count_grew=yes xfs_prefix=yes xfs_added=yes coded_xf_ok=yes dated_xf_ok=yes xf_count_grew=yes fmt_count_in_matched=yes xf_count_in_matched=yes ws_prefix_same=yes ws_suffix_same=yes changed_as_styled=yes added_as_edited=yes nothing_removed=yes
+  workbooks: 27; the tool and the comparison agree: 27; every flag holds: 27
+  read_back is styled plus two: 27; entry rows as P2 expects: 27
+  i686 totals from the tool's lines: xfs_after 1046; formats_added 27; styled 27
+  i686 the tool and the comparison agree on every shared key in all 27: as-expected
+  i686 every flag of the comparison holds in all 27: as-expected
+  i686 read_back is styled plus two in all 27: as-expected
+  i686 every workbook's entry rows are the two changed parts and the rest identical: as-expected
+  i686 xfs_after totals 1046: as-expected
+  i686 formats_added totals 27: as-expected
+  i686 control: the first workbook's comparison holds as run: as-expected
+  i686 control: the same pair with an xf planted does not: as-expected
+  i686 control: the same pair with the dated xf's attributes reordered fails dated_xf_ok alone: as-expected
+  i686 control: the first workbook's line agrees with the comparison as run: as-expected
+  i686 control: the same line with xfs_after raised by one does not: as-expected
+
+## the two labels agree
+  both targets classified every entry the same way: as-expected
+  both targets printed the same edit line for every workbook: as-expected
+  control: the same comparison finds the host's lines differ from the i686 classes: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: 7c965755863bbcc45b32cc36d92b29baf1067cbf	2026-09-22T22:54:08Z	2026-09-22T22:59:03Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	06b8d88567bbdbf6d3074a5cae3f45e2deed8bf32726e33ac9ea0485800dcedc	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27	--style-sample
+  run.host.tsv tool_args: [--style-sample]
+  host the run row records the operation: as-expected
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: 7c965755863bbcc45b32cc36d92b29baf1067cbf	2026-09-22T23:00:05Z	2026-09-22T23:05:14Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	755a9a1f1c445db2f528c58396d9a187102deac9f4adb57e44cc7b88b6033bf3	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27	--style-sample
+  run.i686.tsv tool_args: [--style-sample]
+  i686 the run row records the operation: as-expected
+
+## the record pair
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-22-7c96575-c --stem m1p5-p2-2026-09-22-7c96575
+    wrote m1p5-p2-2026-09-22-7c96575.txt and m1p5-p2-2026-09-22-7c96575.md: labels host,i686; files 27,27; entry rows 870,870
+  the record script exits 0: as-expected
+  records/m1p5-p2-2026-09-22-7c96575.md: 14978 bytes, sha256 a9dc080adbc0c7aa579e5e4bcd1801784d91eb7e1cce155cf7da42f4f7319478
+  records/m1p5-p2-2026-09-22-7c96575.txt: 199070 bytes, sha256 4ef1669cdb1add7c83243133cbebf2de489df1d1f261b74700605ad36a5ee022
+  both halves of the record pair were written: as-expected
+  lines of the record naming the operation: 1
+  the record names the operation it was run with: as-expected
+
+## the record pair holds no corpus path and no absolute path
+  records/m1p5-p2-2026-09-22-7c96575.md: lines naming a home, mount or corpus path: 0
+  records/m1p5-p2-2026-09-22-7c96575.md carries no such path: as-expected
+  records/m1p5-p2-2026-09-22-7c96575.txt: lines naming a home, mount or corpus path: 0
+  records/m1p5-p2-2026-09-22-7c96575.txt carries no such path: as-expected
+  control: the path form finds a planted path (1): as-expected
+
+## status after the runs
+  specs/0012-styles.md: sha256 397da302b6f4911c758c2426463dcc1b10ac84c805aa67729bd3698574ef4b27; the hash planning's P2 rulings give: 397da302b6f4911c758c2426463dcc1b10ac84c805aa67729bd3698574ef4b27
+status lines: 4; of them under the phase log directory or the record pair: 3; the spec modified: 1
+  the one modified planning file is specs/0012 at the P2 rulings' hash: as-expected
+  every change in the working tree is a log, the record pair or that spec: as-expected
+run ended at 2026-09-22T23:06:17Z
+verdict rows other than as-expected: 0; of them marked UNEXPECTED: 0
+run log checks all as expected: yes
