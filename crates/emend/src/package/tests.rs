@@ -3744,14 +3744,19 @@ fn a_style_edit_on_a_formula_leaves_the_chain() {
 
 #[test]
 fn a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing() {
-    // In an existing row, between two cells; in a new row; and `None` on
-    // absent cells in both places writes nothing.
+    // In an existing row, between two cells; in a new row; `None` on absent
+    // cells in both places writes nothing; and a clear with no style edit on
+    // an absent cell writes nothing either, in an existing row (E1) and in a
+    // row that is not there (A7), which is the arm `write_row` takes for a
+    // pending edit with no value and no style (P1 verification ruling 8).
     let rows = "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"C1\"><v>3</v></c></row>";
     let got = restyled_sheet(FOUR_XFS, rows, |p| {
         p.set_cell_style(SHEET, at("B1"), Some(2));
         p.set_cell_style(SHEET, at("A5"), Some(1));
         p.set_cell_style(SHEET, at("D1"), None);
         p.set_cell_style(SHEET, at("A3"), None);
+        p.clear_cell(SHEET, at("E1"));
+        p.clear_cell(SHEET, at("A7"));
     });
     assert_eq!(
         got,
