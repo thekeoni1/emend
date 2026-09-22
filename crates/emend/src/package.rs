@@ -68,7 +68,7 @@
 //!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
-//! The cell edits add seven (`specs/0011-editing-cells.md`, "Errors"); the
+//! The cell edits add eight (`specs/0011-editing-cells.md`, "Errors"); the
 //! first two are raised by [`Value`] in `cells` and reported by
 //! [`Package::write_to`]:
 //!
@@ -85,9 +85,12 @@
 //! - "a worksheet whose rows or cells are out of order cannot be edited"
 //!   (`a_worksheet_out_of_order_is_refused`,
 //!   `a_refused_cell_edit_leaves_no_temporary_and_no_output`).
-//! - "a cell in a shared or array formula cannot be edited"
+//! - "a cell in a shared, array or data table formula cannot be edited"
 //!   (`a_cell_in_a_shared_or_array_formula_is_refused`,
-//!   `an_array_whose_extent_is_unknown_is_refused`).
+//!   `an_array_whose_extent_is_unknown_is_refused`,
+//!   `a_data_table_is_refused_as_an_array_is`).
+//! - "a worksheet without sheetData cannot be edited"
+//!   (`a_set_on_a_worksheet_without_sheet_data_is_refused`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the three modules
@@ -1031,12 +1034,11 @@ impl<R: Read + Seek> Package<R> {
     /// edit to a part this write replaces", "the worksheet part's root is not
     /// worksheet", "a worksheet without explicit references cannot be
     /// edited", "a worksheet whose rows or cells are out of order cannot be
-    /// edited", "a cell in a shared or array formula cannot be edited" and "a
-    /// cell carries an attribute this layer does not model".
+    /// edited", "a cell in a shared, array or data table formula cannot be
+    /// edited", "a cell carries an attribute this layer does not model" and
+    /// "a worksheet without sheetData cannot be edited".
     /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
-    /// the index of the part the value would have been written into, and for
-    /// a worksheet with no `<sheetData>` that a cell edit would set a cell
-    /// in.
+    /// the index of the part the value would have been written into.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
     /// [`Archive::write_to`] refuses for the assembled edits.
     pub fn write_to(mut self, out: impl Write) -> Result<(), Error> {
@@ -1468,7 +1470,8 @@ const NO_EXPLICIT_REFERENCES: Error =
 const OUT_OF_ORDER: Error =
     Error::Package("a worksheet whose rows or cells are out of order cannot be edited");
 const IN_SHARED_OR_ARRAY: Error =
-    Error::Package("a cell in a shared or array formula cannot be edited");
+    Error::Package("a cell in a shared, array or data table formula cannot be edited");
+const NO_SHEET_DATA: Error = Error::Package("a worksheet without sheetData cannot be edited");
 
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
@@ -1907,11 +1910,14 @@ fn explicit_row(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<u
     Err(NO_EXPLICIT_REFERENCES)
 }
 
-/// An `<f>` start tag's `t`, and its `ref` for an array formula.
+/// An `<f>` start tag's `t`, and its `ref` for an array or data table
+/// formula.
 enum FormulaTag {
-    /// `t` absent, `normal` or `dataTable`: a formula an edit may remove.
+    /// `t` absent or `normal`: a formula an edit may remove.
     Removable,
     Shared,
+    /// `array` or `dataTable` (P1 ruling 3): a master whose `ref` names
+    /// other cells holding its results, `None` when the `ref` does not parse.
     Array(Option<Area>),
 }
 
@@ -1931,9 +1937,9 @@ fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Fo
         }
     }
     match kind.as_deref() {
-        None | Some(b"normal") | Some(b"dataTable") => Ok(FormulaTag::Removable),
+        None | Some(b"normal") => Ok(FormulaTag::Removable),
         Some(b"shared") => Ok(FormulaTag::Shared),
-        Some(b"array") => Ok(FormulaTag::Array(
+        Some(b"array") | Some(b"dataTable") => Ok(FormulaTag::Array(
             reference.as_deref().and_then(Area::parse),
         )),
         Some(_) => Err(Error::Package(
@@ -2169,10 +2175,10 @@ fn rewrite_worksheet<R: Read + Seek>(
             }
         }
     }
-    // A set that found no `<sheetData>` to go into: the schema requires one,
-    // so a part without it is not a worksheet this layer can write into.
+    // A set that found no `<sheetData>` to go into (P1 ruling 2); a clear
+    // alone has nothing to remove there.
     if pending.sets(None) {
-        return Err(Error::Xml(index));
+        return Err(NO_SHEET_DATA);
     }
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;

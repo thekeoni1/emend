@@ -2722,7 +2722,7 @@ fn a_cell_in_a_shared_or_array_formula_is_refused() {
         });
         assert_package(
             error,
-            "a cell in a shared or array formula cannot be edited",
+            "a cell in a shared, array or data table formula cannot be edited",
         );
     }
     // Outside the array's ref, the same sheet is edited.
@@ -2744,8 +2744,57 @@ fn an_array_whose_extent_is_unknown_is_refused() {
     let error = refused_edit(rows, |p| p.set_cell(SHEET, at("D9"), Value::Number(1.0)));
     assert_package(
         error,
-        "a cell in a shared or array formula cannot be edited",
+        "a cell in a shared, array or data table formula cannot be edited",
     );
+}
+
+#[test]
+fn a_data_table_is_refused_as_an_array_is() {
+    // A1 a data table master whose ref is B1:C2; D1 outside it.
+    let rows = "<row r=\"1\"><c r=\"A1\"><f t=\"dataTable\" ref=\"B1:C2\" dt2D=\"0\" dtr=\"0\" r1=\"Z1\"/>\
+                <v>1</v></c><c r=\"B1\"><v>2</v></c></row>";
+    for cell in ["A1", "B1", "C2"] {
+        let error = refused_edit(rows, |p| p.set_cell(SHEET, at(cell), Value::Number(1.0)));
+        assert_package(
+            error,
+            "a cell in a shared, array or data table formula cannot be edited",
+        );
+    }
+    let error = refused_edit(rows, |p| p.clear_cell(SHEET, at("A1")));
+    assert_package(
+        error,
+        "a cell in a shared, array or data table formula cannot be edited",
+    );
+    let got = edited_sheet(rows, |p| p.set_cell(SHEET, at("D1"), Value::Number(7.0)));
+    assert_eq!(
+        got,
+        sheet_with(&rows.replace(
+            "<c r=\"B1\"><v>2</v></c></row>",
+            "<c r=\"B1\"><v>2</v></c><c r=\"D1\"><v>7</v></c></row>"
+        ))
+    );
+    // A data table whose ref does not parse has an unknown extent.
+    let rows = "<row r=\"1\"><c r=\"A1\"><f t=\"dataTable\" ref=\"B1:\"/><v>1</v></c></row>";
+    let error = refused_edit(rows, |p| p.set_cell(SHEET, at("D9"), Value::Number(1.0)));
+    assert_package(
+        error,
+        "a cell in a shared, array or data table formula cannot be edited",
+    );
+}
+
+#[test]
+fn a_set_on_a_worksheet_without_sheet_data_is_refused() {
+    let mut parts = smallest();
+    set(&mut parts, SHEET, worksheet("<dimension ref=\"A1\"/>"));
+    let (_, mut package) = opened(parts.clone());
+    package.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    assert_package(
+        refused(package),
+        "a worksheet without sheetData cannot be edited",
+    );
+    // A clear alone has nothing to remove there, and the part is unchanged.
+    let output = edited_output(parts.clone(), |p| p.clear_cell(SHEET, at("A1")));
+    assert_untouched(&output, &parts, &[]);
 }
 
 /// The chain package with sheet1 holding a normal formula at A1 and a value
