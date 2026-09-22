@@ -5,8 +5,11 @@
 //! reads `[Content_Types].xml`, [`Package::relationships`] reads one part's
 //! `.rels`, and [`Package::workbook`] follows the package's `officeDocument`
 //! relationship to the workbook part and maps its sheets to theirs. Each
-//! answer is parsed once and kept. Nothing here reads a cell, and nothing
-//! here writes: the edits and `write_to` are P3.
+//! answer is parsed once and kept. The part edits and [`Package::write_to`]
+//! came with part 2's P3; [`Package::cells`] reads a worksheet
+//! (`specs/0010-reading-cells.md`), and [`Package::set_cell`] and
+//! [`Package::clear_cell`] record cell edits that `write_to` applies
+//! (`specs/0011-editing-cells.md`).
 //!
 //! Every name is bytes, compared byte for byte, because a zip entry's name is
 //! bytes and the archive layer indexes it that way. No percent-decoding and
@@ -193,6 +196,38 @@
 //!   an edit made while reading, are outside what this layer offers.
 //! - Neither records an edit. A package read this way and then written comes
 //!   back byte for byte, which is what the fidelity harness measures.
+//!
+//! The cell edits add theirs (`specs/0011-editing-cells.md`, "Module
+//! `package`"; the refusals are the eight messages catalogued above):
+//!
+//! - A cell is written as the edit's value and nothing else. A new cell has
+//!   no `s`, since styling a cell is part 5; a replaced cell keeps its `s`
+//!   byte for byte and loses its `t`, its formula and its value; a cell
+//!   written into a row that has `customFormat` takes no style from the row.
+//! - Text is written as an inline string. Nothing is appended to the shared
+//!   strings table, and no rich text run is written.
+//! - Nothing is recomputed. The cached values of formulas that depend on an
+//!   edited cell stay as the producer wrote them, because emend does not
+//!   evaluate; whether the workbook asks for a recalculation on open is part
+//!   6's question.
+//! - When an edit removes a normal formula and the workbook has a
+//!   calculation chain, the chain is dropped in the same write, once, by
+//!   [`Package::drop_calc_chain`]'s recipe: the chain would otherwise name a
+//!   cell with no formula. Nothing else about calculation changes.
+//! - `<dimension>` and a row's `spans` are not updated when a new cell lies
+//!   outside them. `<cols>`, merged cells, tables, data validation and
+//!   conditional formatting are copied raw and never adjusted. No row or
+//!   column is inserted or deleted, so no reference is fixed up.
+//! - A worksheet the rewrite cannot place an edit in safely is refused, not
+//!   repaired: a row or cell without `r`, rows or cells out of order, an
+//!   array or data table `ref` whose extent does not parse (edited or not),
+//!   an edited cell in a shared, array or data table formula or carrying an
+//!   attribute this layer does not model, and a set on a worksheet without
+//!   `<sheetData>`. An unedited cell is copied raw, whatever it carries.
+//! - A worksheet is rewritten at most once per write, in one streaming pass
+//!   that holds one token and the sorted edits. The edits themselves are
+//!   held in memory, in a `Vec` in call order, so a caller that records more
+//!   edits than its address space holds cannot.
 
 #[cfg(test)]
 mod tests;

@@ -1,14 +1,16 @@
-//! Reading what a worksheet says, without changing anything.
+//! Reading what a worksheet says, and the values a cell edit writes.
 //!
 //! `specs/0010-reading-cells.md`, "Module `cells`". P1 is the shared strings
 //! table, P2 the cell reader, and P3 the typed views' tests, the Limits
 //! section below and the size record.
 //!
-//! Nothing here evaluates, converts or writes. A shared string item is the
-//! text a producer put there, unescaped and not trimmed: the format says
-//! `xml:space="preserve"` on 110010 of the corpus's 110666 `<t>` elements and
-//! this reader would keep the spaces either way, because trimming would be a
-//! change no caller asked for.
+//! Nothing here evaluates or converts, and the readers write nothing:
+//! [`Value`] is what [`crate::package::Package::set_cell`] writes, in the
+//! forms `specs/0011-editing-cells.md`, "Module `cells`", gives. A shared
+//! string item is the text a producer put there, unescaped and not trimmed:
+//! the format says `xml:space="preserve"` on 110010 of the corpus's 110666
+//! `<t>` elements and this reader would keep the spaces either way, because
+//! trimming would be a change no caller asked for.
 //!
 //! # Text and references
 //!
@@ -120,6 +122,21 @@
 //! - No SHEET-SIZE limit. 1048576 by 16384 is Excel's limit and not the
 //!   format's, so a reference past it is read rather than refused, and
 //!   [`CellRef`]'s two `u32` fields are what a consumer checks.
+//!
+//! What [`Value`] writes, each a decision of `specs/0011-editing-cells.md`,
+//! "Module `cells`":
+//!
+//! - Three kinds only: a number, a text and a boolean. No formula (part 6),
+//!   no date (part 5: a number with a date style is written as the number it
+//!   is) and no error value.
+//! - A text is always an inline string, with `xml:space="preserve"` always
+//!   written and a carriage return written as a character reference; never
+//!   a shared string, and never rich text.
+//! - A number is written as its `Display` when it is zero or its magnitude
+//!   is at least `1e-7` and below `1e21`, else in its `{:E}` form. A number
+//!   that is not finite, and a text holding a character XML 1.0 forbids, are
+//!   refused at write.
+//! - No style. A new cell carries no `s`; a replaced one keeps its own.
 
 use quick_xml::events::{BytesRef, BytesStart, Event};
 
