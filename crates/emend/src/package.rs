@@ -111,13 +111,17 @@
 //!   (`cells::tests::a_worksheet_root_of_the_wrong_name_is_refused`,
 //!   `a_worksheet_root_in_another_namespace_is_refused`).
 //! - "a cell reference is not of the form A1"
-//!   (`cells::tests::a_cell_reference_that_is_not_a1_is_refused`).
+//!   (`cells::tests::a_cell_reference_that_is_not_a1_is_refused`, and on
+//!   the write path
+//!   `package::tests::a_cell_reference_not_a1_refuses_the_edit`).
 //! - "a row number is not a number"
 //!   (`cells::tests::a_row_number_that_is_not_a_number_is_refused`,
 //!   `a_row_number_of_zero_is_refused`,
 //!   `a_number_this_layer_reads_is_digits_alone`,
-//!   `an_index_past_u32_is_refused_like_one_that_is_not_a_number`): a row is
-//!   numbered from 1, so 0 is one of the spellings this layer has no row
+//!   `an_index_past_u32_is_refused_like_one_that_is_not_a_number`, and on
+//!   the write path
+//!   `package::tests::a_row_number_not_a_number_refuses_the_edit`): a row
+//!   is numbered from 1, so 0 is one of the spellings this layer has no row
 //!   number for (P2 ruling 2).
 //! - "a cell's style index is not a number"
 //!   (`cells::tests::a_style_index_that_is_not_a_number_is_refused`,
@@ -126,7 +130,9 @@
 //! - "a cell has a type this layer does not know"
 //!   (`cells::tests::a_cell_type_this_layer_does_not_know_is_refused`).
 //! - "a formula has a type this layer does not know"
-//!   (`cells::tests::a_formula_type_this_layer_does_not_know_is_refused`).
+//!   (`cells::tests::a_formula_type_this_layer_does_not_know_is_refused`,
+//!   and on the write path, for an edited cell only,
+//!   `package::tests::an_unknown_formula_type_refuses_an_edit_to_its_cell`).
 //! - "a shared formula has no index"
 //!   (`cells::tests::a_shared_formula_without_an_index_is_refused`,
 //!   `a_shared_index_that_is_not_a_number_is_refused`,
@@ -1035,8 +1041,11 @@ impl<R: Read + Seek> Package<R> {
     /// worksheet", "a worksheet without explicit references cannot be
     /// edited", "a worksheet whose rows or cells are out of order cannot be
     /// edited", "a cell in a shared, array or data table formula cannot be
-    /// edited", "a cell carries an attribute this layer does not model" and
-    /// "a worksheet without sheetData cannot be edited".
+    /// edited", "a cell carries an attribute this layer does not model",
+    /// "a worksheet without sheetData cannot be edited", and three the
+    /// `cells` module raises too: "a cell reference is not of the form A1",
+    /// "a row number is not a number" and, for an edited cell, "a formula
+    /// has a type this layer does not know".
     /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
     /// the index of the part the value would have been written into.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
@@ -1062,13 +1071,8 @@ impl<R: Read + Seek> Package<R> {
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
-        // The chain lists the cell whose formula went, and Excel repairs a
-        // workbook whose chain names a cell with no formula. Unless the
-        // caller has already recorded the chain's relationship for removal,
-        // the recipe is applied here, and the whole set is validated again
-        // with its three removals in it.
-        if removed_formula && !self.calc_chain_pending()? && self.drop_calc_chain()? {
-            self.validate()?;
+        if removed_formula {
+            self.drop_calc_chain_once()?;
         }
 
         if !self.edits.override_removals.is_empty() || !self.edits.override_additions.is_empty() {
@@ -1153,6 +1157,21 @@ impl<R: Read + Seek> Package<R> {
         let result = self.archive.write_to(out, edits);
         drop(temporaries);
         result
+    }
+
+    /// The chain rule of [`Package::write_to`], for a write whose cell edits
+    /// removed a formula.
+    ///
+    /// The chain lists the cell whose formula went, and Excel repairs a
+    /// workbook whose chain names a cell with no formula. Unless the caller
+    /// has already recorded the chain's relationship for removal, the recipe
+    /// is applied here, and the whole set is validated again with its three
+    /// removals in it.
+    fn drop_calc_chain_once(&mut self) -> Result<(), Error> {
+        if !self.calc_chain_pending()? && self.drop_calc_chain()? {
+            self.validate()?;
+        }
+        Ok(())
     }
 
     /// Whether the workbook's `calcChain` relationship is already recorded

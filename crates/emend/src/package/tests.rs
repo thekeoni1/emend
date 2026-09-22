@@ -1717,17 +1717,41 @@ fn several_edits_to_one_part_apply_together() {
 /// Writes the package back expecting a refusal, and asserts that nothing at
 /// all reached the output: "every edit is validated first, so a refused set
 /// writes nothing".
+///
+/// A write that is not refused panics with what it wrote, so a failure says
+/// what the refusal was expected on rather than only that the write
+/// succeeded (P1 ruling 8).
 #[track_caller]
 fn refused(package: Package<Cursor<Vec<u8>>>) -> Error {
+    match refusal(package) {
+        Ok(error) => error,
+        Err(out) => panic!(
+            "the write was not refused: it wrote {} byte(s), entries {:?}",
+            out.len(),
+            names(&parse_independently(&out))
+                .iter()
+                .map(|name| String::from_utf8_lossy(name).into_owned())
+                .collect::<Vec<_>>()
+        ),
+    }
+}
+
+/// The error a write refused on, or its output when it was not refused.
+#[track_caller]
+fn refusal(package: Package<Cursor<Vec<u8>>>) -> Result<Error, Vec<u8>> {
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = Vec::new();
-    let error = package.write_to(&mut out).expect_err("refused");
-    assert!(
-        out.is_empty(),
-        "a refused set wrote {} byte(s) to the output",
-        out.len()
-    );
-    error
+    match package.write_to(&mut out) {
+        Ok(()) => Err(out),
+        Err(error) => {
+            assert!(
+                out.is_empty(),
+                "a refused set wrote {} byte(s) to the output",
+                out.len()
+            );
+            Ok(error)
+        }
+    }
 }
 
 #[test]
@@ -2439,7 +2463,13 @@ fn sheet_with(rows: &str) -> String {
 fn refused_edit(rows: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Error {
     let (_, mut package) = opened(with_rows(rows));
     edit(&mut package);
-    refused(package)
+    match refusal(package) {
+        Ok(error) => error,
+        Err(out) => panic!(
+            "the edit to the rows {rows} was not refused: it wrote the worksheet {}",
+            String::from_utf8_lossy(&stored_data(&out, SHEET))
+        ),
+    }
 }
 
 #[test]
@@ -2788,10 +2818,14 @@ fn a_set_on_a_worksheet_without_sheet_data_is_refused() {
     set(&mut parts, SHEET, worksheet("<dimension ref=\"A1\"/>"));
     let (_, mut package) = opened(parts.clone());
     package.set_cell(SHEET, at("A1"), Value::Number(1.0));
-    assert_package(
-        refused(package),
-        "a worksheet without sheetData cannot be edited",
-    );
+    let error = match refusal(package) {
+        Ok(error) => error,
+        Err(out) => panic!(
+            "a set on a worksheet without sheetData was not refused: it wrote the worksheet {}",
+            String::from_utf8_lossy(&stored_data(&out, SHEET))
+        ),
+    };
+    assert_package(error, "a worksheet without sheetData cannot be edited");
     // A clear alone has nothing to remove there, and the part is unchanged.
     let output = edited_output(parts.clone(), |p| p.clear_cell(SHEET, at("A1")));
     assert_untouched(&output, &parts, &[]);
@@ -2910,13 +2944,92 @@ fn replacing_a_formula_without_a_chain_changes_the_sheet_alone() {
     );
 }
 
+/// The removals `package` has recorded: relationships, overrides, parts.
+fn removals_recorded(package: &Package<Cursor<Vec<u8>>>) -> (usize, usize, usize) {
+    (
+        package.edits.rel_removals.len(),
+        package.edits.override_removals.len(),
+        package.edits.part_removals.len(),
+    )
+}
+
 #[test]
 fn a_chain_the_caller_already_dropped_is_dropped_once() {
-    let output = edited_output(chain_with_formula(), |p| {
-        assert!(p.drop_calc_chain().expect("the recipe"));
-        p.set_cell(SHEET, at("A1"), Value::Number(5.0));
+    // P1 ruling 4: the three removals are counted as recorded, after the
+    // chain rule `write_to` applies for a removed formula has run, and the
+    // output is then asserted as before.
+    let (_, mut package) = opened(chain_with_formula());
+    assert!(package.drop_calc_chain().expect("the recipe"));
+    package.set_cell(SHEET, at("A1"), Value::Number(5.0));
+    assert_eq!(
+        removals_recorded(&package),
+        (1, 1, 1),
+        "after the caller's drop"
+    );
+    package.drop_calc_chain_once().expect("the chain rule");
+    assert_eq!(
+        removals_recorded(&package),
+        (1, 1, 1),
+        "after the chain rule"
+    );
+    assert_chain_gone(&written(package));
+}
+
+#[test]
+fn a_chain_the_caller_did_not_drop_is_dropped_once_by_the_rule() {
+    // The control for the count above: with no drop by the caller the rule
+    // records the three removals itself, once each.
+    let (_, mut package) = opened(chain_with_formula());
+    package.set_cell(SHEET, at("A1"), Value::Number(5.0));
+    assert_eq!(
+        removals_recorded(&package),
+        (0, 0, 0),
+        "before the chain rule"
+    );
+    package.drop_calc_chain_once().expect("the chain rule");
+    assert_eq!(
+        removals_recorded(&package),
+        (1, 1, 1),
+        "after the chain rule"
+    );
+    assert_chain_gone(&written(package));
+}
+
+#[test]
+fn a_cell_reference_not_a1_refuses_the_edit() {
+    // P1 ruling 1: the `cells` message, raised on the write path by a cell
+    // the edit does not touch, since every cell's `r` places the edit.
+    let error = refused_edit("<row r=\"1\"><c r=\"1A\"><v>1</v></c></row>", |p| {
+        p.set_cell(SHEET, at("C9"), Value::Number(1.0))
     });
-    assert_chain_gone(&output);
+    assert_package(error, "a cell reference is not of the form A1");
+}
+
+#[test]
+fn a_row_number_not_a_number_refuses_the_edit() {
+    for rows in ["<row r=\"x\"/>", "<row r=\"0\"/>"] {
+        let error = refused_edit(rows, |p| p.set_cell(SHEET, at("C9"), Value::Number(1.0)));
+        assert_package(error, "a row number is not a number");
+    }
+}
+
+#[test]
+fn an_unknown_formula_type_refuses_an_edit_to_its_cell() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><f t=\"bogus\">1</f><v>1</v></c></row>";
+    for edit in [
+        (|p: &mut Package<Cursor<Vec<u8>>>| p.set_cell(SHEET, at("A1"), Value::Number(1.0)))
+            as fn(&mut Package<Cursor<Vec<u8>>>),
+        |p| p.clear_cell(SHEET, at("A1")),
+    ] {
+        let error = refused_edit(rows, edit);
+        assert_package(error, "a formula has a type this layer does not know");
+    }
+    // Only the edited cell's formula is read: an edit beside it is made.
+    let got = edited_sheet(rows, |p| p.set_cell(SHEET, at("B1"), Value::Number(7.0)));
+    assert_eq!(
+        got,
+        sheet_with(&rows.replace("</c></row>", "</c><c r=\"B1\"><v>7</v></c></row>"))
+    );
 }
 
 #[test]
