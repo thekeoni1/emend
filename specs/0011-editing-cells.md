@@ -137,12 +137,13 @@ new bytes sit between the input's own bytes exactly as a cell would:
 
 When an existing cell is replaced, its `s` is kept byte for byte and
 written after `r`; its `t`, its `<f>`, its `<v>` and its `<is>` are
-gone. A new cell has no `s`; styling a cell is part 5. A cell
-carrying any attribute other than `r`, `s` and `t` is refused with
-`Error::Package("a cell carries an attribute this layer does not
+gone. A new cell has no `s`; styling a cell is part 5. An edited
+cell carrying any attribute other than `r`, `s` and `t` is refused
+with `Error::Package("a cell carries an attribute this layer does not
 model")`: `cm`, `vm` and `ph` bind the cell to parts this layer does
-not read, and a rewrite that dropped them would break what they name.
-No corpus cell carries one.
+not read, and a rewrite that dropped them would break what they name;
+an unedited cell is copied raw, whatever it carries (P1 ruling 4). No
+corpus cell carries one.
 
 ### Module `package`: recording and applying cell edits
 
@@ -198,16 +199,30 @@ and before the content types and relationships parts are rewritten:
   greater than the previous row's, or a cell's column not greater than
   the previous cell's in its row (`Error::Package("a worksheet whose
   rows or cells are out of order cannot be edited")`; an insertion
-  point would be ambiguous); an edit to a cell whose `<f>` is a
-  shared master, a shared follower or an array master, or whose
-  reference lies inside the `ref` of an array master already seen
-  (`Error::Package("a cell in a shared or array formula cannot be
-  edited")`; the other cells of the formula would be left pointing at
-  nothing, and rewriting them needs a formula parser this crate does
-  not have); the unmodelled-attribute refusal above. The array ranges
-  seen are a few `ref` values held as row and column bounds; an
-  array master's `ref` that does not parse as `A1:B2` or `A1` is
-  refused with the same message, since its extent is unknown.
+  point would be ambiguous, which is also why a `<c>` whose
+  reference names another row than its `<row>` is refused this way,
+  P1 ruling 4); an edit to a cell whose `<f>` is a shared master, a
+  shared follower, an array master or a data table master, or whose
+  reference lies inside the `ref` of an array or data table master
+  already seen (`Error::Package("a cell in a shared, array or data
+  table formula cannot be edited")`; the other cells of the formula
+  would be left pointing at nothing, and rewriting them needs a
+  formula parser this crate does not have; data tables by P1 ruling
+  3); the unmodelled-attribute refusal above; a set on a part with no
+  `<sheetData>` (`Error::Package("a worksheet without sheetData
+  cannot be edited")`, P1 ruling 2; a clear alone is a no-op there).
+  The ranges seen are a few `ref` values held as row and column
+  bounds; a `ref` that does not parse as `A1:B2` or `A1` is refused
+  with the same message, edited or not, since its extent is unknown
+  to every later edit (P1 verification ruling 7). The three `cells`
+  messages for a reference not of the form A1, a row number that is
+  not a number and, on an edited cell, a formula type this layer
+  does not know are raised here too (ruling 1). New elements
+  take the qualified-name prefix of the element they go into; an
+  empty `<row/>` gaining a cell is opened up as an empty
+  `<sheetData/>` is; a new row goes immediately before the next
+  `<row>` start tag or `</sheetData>`, after the whitespace the input
+  wrote there (P1 ruling 4).
 - A replaced or cleared cell whose `<f>` was a normal formula removes
   a formula. When any edit of the write does so and the workbook has
   a `calcChain` relationship, the recipe is applied in the same
@@ -230,24 +245,28 @@ row that had `customFormat` takes no style from the row.
 
 ### Errors
 
-Seven new `Error::Package` messages: "a number that is not finite
-cannot be written", "a text holds a character XML cannot carry", "a
-cell carries an attribute this layer does not model", "a cell edit to
-a part this write replaces", "a worksheet without explicit references
-cannot be edited", "a worksheet whose rows or cells are out of order
-cannot be edited", "a cell in a shared or array formula cannot be
-edited". Each joins the catalogue in `package`'s module header with
-the test that pins it, and the set-equality test reads the module
-that raises it.
+Eight new `Error::Package` messages (seven in the draft; the eighth
+and the rewording by P1 rulings 2 and 3): "a number that is not
+finite cannot be written", "a text holds a character XML cannot
+carry", "a cell carries an attribute this layer does not model", "a
+cell edit to a part this write replaces", "a worksheet without
+explicit references cannot be edited", "a worksheet whose rows or
+cells are out of order cannot be edited", "a cell in a shared, array
+or data table formula cannot be edited", "a worksheet without
+sheetData cannot be edited". Each joins the catalogue in
+`package`'s module header with the test that pins it, and the
+set-equality test reads the module that raises it.
 
 ### 32-bit and streaming
 
 The rewrite holds one token, the sorted edits, the open row's number
 and last column, and the array ranges seen; the part streams to a
 temporary file as every rewritten part does, so the 63.7 MB corpus
-part costs no memory. A worksheet's edits are held as a map from
-`(u32, u32)` to `Option<Value>`; a caller that records more edits
-than its address space holds cannot, and the Limits say so.
+part costs no memory. Edits are recorded in a `Vec` in call order and
+sorted into a map from `CellRef` to `Option<Value>` per part at
+write, the last recorded winning (P1 verification ruling 2); a caller
+that records more edits than its address space holds cannot, and the
+Limits say so.
 
 ### Size
 
@@ -362,8 +381,8 @@ a chain and none on one without.
 P1's second code commit: `Value`, `set_cell`, `clear_cell`, the
 rewrite in `write_to`, and the seven messages. Tests on byte-built
 worksheets in byte-built packages (the part 2 builder), the output's
-edited part compared with bytes the test builds by hand and read by
-the independent parser: replace a number cell, `s` kept, `t="n"` gone;
+edited part compared with bytes the test builds by hand (ruling 5):
+replace a number cell, `s` kept, `t="n"` gone;
 replace with text (the inline form; `&`, `<`, `>` escaped; leading
 and trailing spaces kept; a tab and a line feed kept; a carriage
 return as `&#13;`); replace with a boolean, both values; the number
@@ -373,13 +392,15 @@ refused; insert before an existing cell, between two, and at the end
 of a row; a new row between rows, before the first, after the last,
 and into an empty `<sheetData/>`; several edits in one row and in
 several rows in one write; the same cell set twice (the last wins);
-set then clear; clear of an absent cell (byte-identical); clear of a
+set then clear; clear of an absent cell (the part byte-identical,
+the entry still replaced, ruling 3); clear of a
 styled cell (`<c r s/>`) and of an unstyled one (dropped, whitespace
 kept); a cell with `cm` refused; a shared master, a follower, an
 array master and a cell inside an array `ref` each refused, and a
 cell outside the `ref` accepted; a normal formula replaced (the
 `<f>` gone) on a package with a chain (the three removals applied,
-the output surveyed) and without (the sheet alone changes); a
+the output reopened and read) and without (the sheet alone
+changes); a
 formula replaced when the caller already called `drop_calc_chain`
 (applied once); a row without `r`, a cell without `r`, a descending
 row, a descending cell and a repeated reference each refused; edits
@@ -398,11 +419,16 @@ The corpus run `--drop-calc-chain` on both targets, recorded as
 
 ### P2: the sample edit over the corpus
 
-`--edit-sample` with an integration test on a fictional workbook (the
-tool's existing fixtures), and the run log's `expat` cell comparison
-with a control that reports a planted difference. The corpus run on
-both targets, recorded as `records/m1p4-p2-<utc-date>-<shortsha>.md`
-and `.txt`; acceptance as "Harness runs".
+P2's first code commit carries the P1 verification rulings: the
+three `cells` messages in `write_to`'s doc with one write-path test
+each (ruling 1); the dropped-once test counting the removals
+recorded (ruling 4); the four refusal assertions printing the error
+they refused on (ruling 8). Then `--edit-sample` with an
+integration test on a fictional workbook (the tool's existing
+fixtures), and the run log's `expat` cell comparison with a control
+that reports a planted difference. The corpus run on both targets,
+recorded as `records/m1p4-p2-<utc-date>-<shortsha>.md` and `.txt`;
+acceptance as "Harness runs".
 
 ### P3: the formula sample, the probe, the size record
 
@@ -455,6 +481,127 @@ Decided by the maintainer 2026-09-22: each as recommended.
    check tells whether Excel tolerates a cell outside it, and if it
    does not, a later part adds the pass.
 
+## Planning rulings during P1 (2026-09-22)
+
+The implementing session asked, after the code commits 2e3bb2a and
+aa87cbc and with an uncommitted `gate.log` at aa87cbc, how to treat a
+claim in aa87cbc's message: seven choices "each pinned by a test", of
+which planning confirmed five named tests exist in
+`crates/emend/src/package/tests.rs` and two have none (a worksheet
+with no `<sheetData>`; `t="dataTable"` as a removable formula). This
+is finding P1-F1. Rulings:
+
+1. The message stands as history; nothing is amended or rewritten.
+   The fix is a THIRD P1 code commit, which departs from "P1" above
+   (two code commits) and says so in the report. The rule in
+   `specs/0001` for a count in a message is widened to a claim about
+   a test: a message that says a test pins something names a test
+   that exists at that commit.
+2. A worksheet with no `<sheetData>` given a set is refused as
+   `Error::Package("a worksheet without sheetData cannot be edited")`,
+   an eighth message, not `Error::Xml`: the part is well-formed XML
+   this layer read whole, and `Error::Xml` is documented as bytes it
+   cannot read. A clear-only edit set on such a part stays a no-op,
+   as the code already has it. "Errors" below counts eight.
+3. A `dataTable` formula is refused as an array formula is, not
+   removed: a data table's `<f>` carries a `ref` whose other cells
+   hold its results, exactly the shape that makes an array range
+   unsafe to edit into. Its `ref` is tracked as an array's is, and
+   one that does not parse is refused the same way. The message is
+   reworded to "a cell in a shared, array or data table formula
+   cannot be edited" in the design, the catalogue and the tests that
+   pin it. No corpus workbook has a data table (`specs/0010`); the
+   change touches no corpus run.
+4. The other five choices are accepted and the design is corrected
+   where it said less: new elements take the qualified-name prefix of
+   the element they go into; a `<c>` whose reference names another
+   row than its `<row>` is refused as out of order (the reader lets
+   the cell's reference win, `specs/0010`; an editor cannot, since
+   the insertion order would be ambiguous); the unmodelled-attribute
+   refusal applies to an EDITED cell, an unedited one being copied
+   raw; an empty `<row/>` gaining a cell is opened up as an empty
+   `<sheetData/>` is; a new row goes immediately before the next
+   `<row>` start tag or `</sheetData>`, after whatever whitespace the
+   input wrote there.
+5. The third code commit holds rulings 2 and 3 with their tests (the
+   two behaviours, and the reworded message everywhere it is pinned)
+   and nothing else. The mutation block the implementing session
+   proposed for `test.log`, one named mutation per pinned choice with
+   its bite printed, is accepted under the existing rule that a bite
+   claim is measured.
+6. Logs after this ruling run with two tracked files modified in the
+   working tree by planning and uncommitted: this spec and
+   `specs/0001-bootstrap.md`. They cannot be committed in P1 (no doc
+   commit follows a code commit) and go in P2's first doc commit. Each
+   log whose status check would count them says so in its header,
+   names both files with their sha256 at run time, and accounts for
+   exactly those two lines and no other. `gate.log` is rerun at the
+   third commit with a rerun header hashing the kept attempt at
+   aa87cbc by command.
+
+## Planning verification and rulings on P1 (2026-09-22)
+
+Verified from primaries by planning, not from the report: the range
+b58e894..57d2334 (8d865e9 doc, 2e3bb2a, aa87cbc, d7a7a7f code,
+57d2334 record, nine files under `records/`), every message ASCII
+with the Co-Authored-By line alone; every committed log, check answer
+and record file at the sha256 the report and scan.log print; every
+superseded attempt (eleven files) present in the implementing scratch
+at the hash and byte count its successor's header prints; planning's
+own gate at 57d2334 nine PASS; planning's own tests 382 passed, 2
+ignored on each target; planning's own `privacy.sh --range
+b58e894..57d2334` 5 commits, 381 blobs, 0 findings; the phase's
+record pair compared by planning with part 2 P3's on every column
+but the two timings: 54 summary rows equal, entry rows equal; the
+diffs of the three code commits read: 2e3bb2a is the recipe's move
+and the tool's call, aa87cbc the feature, d7a7a7f the eighth message,
+`dataTable` joining the array arm and the reworded constant, nothing
+else. The seven mutations bite their named tests with the clean
+control passing. P1 is DONE at d7a7a7f, records 57d2334, local.
+
+Findings: P1-F1 (ruled during P1, closed by d7a7a7f). Rulings on the
+seven points and four smaller ones the report raised:
+
+1. F-a. The rewrite raises three `cells` messages on the write path
+   ("a cell reference is not of the form A1", "a row number is not a
+   number", and for an edited cell "a formula has a type this layer
+   does not know"). Right reuse; the design above now names them.
+   P2's first code commit adds them to `write_to`'s doc and one
+   package test each on the write path.
+2. F-b. Edits are recorded in a `Vec` in call order and sorted into
+   a map per part at write, the last recorded winning. Accepted;
+   "32-bit and streaming" is corrected to say so. The `Vec` grows
+   with every call, which the Limits state.
+3. F-c. A clear of an absent cell rewrites the part to identical
+   bytes and the entry is still replaced, so the harness may show it
+   `identical` or `recompressed` as `specs/0008` allows for a
+   replaced entry. Accepted for this part; a no-op detection is not
+   required. "P1" is corrected: the part is byte-identical.
+4. F-d. The dropped-once test asserts the final state. P2's first
+   code commit adds the count: the three removals recorded once, by
+   reading what was recorded, not the output alone.
+5. F-e and F-f. "The output surveyed" and "read by the independent
+   parser" were the draft's words; the tests reopen the output
+   through the package and compare the part's bytes with bytes built
+   by hand, which is stricter. Accepted; the words are corrected.
+6. F-g. The independent checks were given one combined diff and could
+   not confirm per-commit scope; planning did, from `git show` of
+   each commit. From P2 on, a check directory holds one diff per
+   code commit as well as the combined diff, and the answer says
+   which it read for each "nothing else" (rule added to `specs/0001`
+   "Rules for every phase").
+7. An unedited array or data table master whose `ref` does not parse
+   refuses the whole worksheet's edit, since its extent is unknown to
+   every later edit. Accepted; the design and the Limits say so.
+8. Smaller points: the four mutation failures that print only
+   "refused: ()" are made to print the error in P2's first code
+   commit (the assertion names the value it refused on); a mutation
+   breaking a second test is fine; the header numbering and the
+   disclaimed inherited prose are cosmetic and P2's logs are written
+   fresh for this phase.
+9. The uncommitted files (this spec, `specs/0001`, and `ROADMAP.md`
+   from this verification) go in P2's first doc commit, unedited.
+
 ## Out of scope
 
 - Formulas, `calcPr` and recalculation on open: part 6.
@@ -462,8 +609,8 @@ Decided by the maintainer 2026-09-22: each as recommended.
 - Shared strings appended or edited; rich text (`<r>` runs) written.
 - Inserting or deleting rows or columns, and the reference fix-up
   that would need (not done by design, as `CLAUDE.md` says).
-- Editing a cell that belongs to a shared or array formula, and
-  rewriting the formula's other cells.
+- Editing a cell that belongs to a shared, array or data table
+  formula, and rewriting the formula's other cells.
 - `<dimension>`, `spans`, `<cols>`, merged cells, tables, data
   validation and conditional formatting: copied raw, never adjusted.
 - Adding a worksheet, or writing a workbook from nothing.

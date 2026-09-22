@@ -221,7 +221,12 @@ from this needs planning's word before the run (T2 P7 ruling).
     check 1). A commit message is authored text under the same rule:
     a count it states is one a committed log prints, or the message
     says that no log prints it (M1 part 3 P3 ruling 2, finding
-    P3-F2).
+    P3-F2); a test it says pins a behaviour is one that exists at
+    that commit (M1 part 4 P1 ruling 1, finding P1-F1).
+  - An independent check's directory holds one diff per code commit
+    as well as the combined diff of the phase, and the answer says
+    which diff it read for each "nothing else" it confirms or cannot
+    (M1 part 4 P1 verification ruling 6).
   - Print the exact script into the log.
   - A range scan is written `<base>..HEAD`. `scripts/privacy.sh
     --range <rev>` with a single revision scans that revision's whole
