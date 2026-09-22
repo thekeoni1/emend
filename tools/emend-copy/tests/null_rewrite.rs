@@ -1829,7 +1829,7 @@ const A_CELL: &str = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sh
 #[test]
 fn the_style_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing() {
     // The shared-strings package `edit_specs` builds on names no styles part,
-    // so the first addition refuses before any output file exists.
+    // so the styles read refuses before any output file exists.
     style_sample_refused(
         "style-sample-no-part",
         &edit_specs(A_CELL),
