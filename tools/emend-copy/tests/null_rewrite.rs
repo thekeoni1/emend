@@ -535,6 +535,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         // the list covers every operation the tool has.
         vec!["--shared-strings", "--survey"],
         vec!["--cells", "--shared-strings"],
+        // And with part 4 P2's.
+        vec!["--edit-sample", "--cells"],
+        vec!["--cells", "--edit-sample"],
+        vec!["--edit-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1072,4 +1076,197 @@ fn shared_strings_counts_the_items_and_edits_nothing() {
         vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
         "a temporary was left behind"
     );
+}
+
+// ------------------------------------------------------- the sample edit
+
+/// `cells_specs` with its worksheet replaced by `sheet_data` inside a
+/// worksheet root, STORED, so the test can compare the rewritten part's
+/// bytes (the layer keeps an entry's method) without an inflater.
+fn edit_specs(sheet_data: &str) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\"><dimension ref=\"A1\"/>{sheet_data}\
+         <pageMargins left=\"0.7\"/></worksheet>"
+    );
+    let mut specs = cells_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+/// Runs `--edit-sample` on `specs` and returns the line and the output's
+/// sheet part, asserting every other entry came back as it went in.
+#[track_caller]
+fn edit_sample(label: &str, specs: &[Spec]) -> (String, String) {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(specs);
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--edit-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    let before = parse_independently(&bytes);
+    let after = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        after.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        before.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        "the entry names and their order"
+    );
+    let mut sheet = None;
+    for (was, now) in before.iter().zip(&after) {
+        if now.name == b"xl/worksheets/sheet1.xml" {
+            assert_eq!(now.method, 0, "the sheet stays stored");
+            sheet = Some(String::from_utf8(now.compressed.clone()).expect("UTF-8"));
+        } else {
+            assert_eq!(
+                (
+                    now.method,
+                    now.crc32,
+                    now.uncompressed_size,
+                    &now.compressed
+                ),
+                (
+                    was.method,
+                    was.crc32,
+                    was.uncompressed_size,
+                    &was.compressed
+                ),
+                "{} changed",
+                String::from_utf8_lossy(&now.name)
+            );
+        }
+    }
+    (ran.stdout, sheet.expect("the sheet is in the output"))
+}
+
+/// The worksheet `edit_specs` builds, with `sheet_data` in it.
+fn edited(sheet_data: &str) -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\"><dimension ref=\"A1\"/>{sheet_data}\
+         <pageMargins left=\"0.7\"/></worksheet>"
+    )
+}
+
+/// The row the sample edit adds, numbered `row`.
+fn added_row(row: u32) -> String {
+    format!(
+        "<row r=\"{row}\"><c r=\"A{row}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">emend</t>\
+         </is></c><c r=\"B{row}\" t=\"b\"><v>1</v></c></row>"
+    )
+}
+
+#[test]
+fn the_edit_sample_sets_clears_and_adds_a_row() {
+    // `specs/0011-editing-cells.md`, "Harness runs": A is A1 (a number with
+    // a value, styled), B is B1 (a shared string, unstyled, so its clear
+    // drops it), C1 a boolean and A2, B2 formulas are not candidates, and M
+    // is 2. Set 3, cleared 1, dropped 1, 6 cells before and 6 + 2 - 1 after,
+    // and all three set values read back.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c>\
+                <c r=\"B1\" t=\"s\"><v>1</v></c>\
+                <c r=\"C1\" t=\"b\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f t=\"shared\" ref=\"A2:A3\" si=\"0\">A1*2</f><v>3</v></c>\
+                <c r=\"B2\"><f t=\"shared\" si=\"0\"/><v>3</v></c>\
+                <c r=\"C2\"/></row>";
+    let (line, sheet) = edit_sample(
+        "edit-sample",
+        &edit_specs(&format!("<sheetData>{rows}</sheetData>")),
+    );
+    assert_eq!(
+        line,
+        "edit\tset=3\tcleared=1\tdropped=1\trows_added=1\tcells_before=6\tcells_after=7\
+         \tread_back=3\n",
+        "the edit line"
+    );
+    let want = rows
+        .replace("<v>1.5</v>", "<v>42.5</v>")
+        .replace("<c r=\"B1\" t=\"s\"><v>1</v></c>", "");
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{want}{}</sheetData>", added_row(3))),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_edit_sample_keeps_a_styled_second_cell() {
+    // B styled: the clear keeps `<c r s/>`, so nothing is dropped and the
+    // count grows by the two new cells alone.
+    let rows =
+        "<row r=\"4\"><c r=\"A4\" t=\"s\"><v>0</v></c><c r=\"B4\" s=\"2\"><v>7</v></c></row>";
+    let (line, sheet) = edit_sample(
+        "edit-sample-styled",
+        &edit_specs(&format!("<sheetData>{rows}</sheetData>")),
+    );
+    assert_eq!(
+        line,
+        "edit\tset=3\tcleared=1\tdropped=0\trows_added=1\tcells_before=2\tcells_after=4\
+         \tread_back=3\n",
+        "the edit line"
+    );
+    assert_eq!(
+        sheet,
+        edited(&format!(
+            "<sheetData><row r=\"4\"><c r=\"A4\"><v>42.5</v></c><c r=\"B4\" s=\"2\"/></row>{}\
+             </sheetData>",
+            added_row(5)
+        )),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_edit_sample_on_an_empty_sheet_adds_row_one() {
+    // No cells: A and B absent, M 0, and the two new cells in row 1 of a
+    // `<sheetData/>` that is opened up.
+    let (line, sheet) = edit_sample("edit-sample-empty", &edit_specs("<sheetData/>"));
+    assert_eq!(
+        line,
+        "edit\tset=2\tcleared=0\tdropped=0\trows_added=1\tcells_before=0\tcells_after=2\
+         \tread_back=2\n",
+        "the edit line"
+    );
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{}</sheetData>", added_row(1))),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_edit_sample_refuses_a_workbook_with_no_worksheet() {
+    // The only sheet's relationship is a chartsheet: there is nothing to
+    // edit, so the run is exit 2 and no output is left.
+    let mut specs = edit_specs("<sheetData/>");
+    for spec in &mut specs {
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let rels = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("/worksheet\"", "/chartsheet\"");
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        }
+    }
+    let dir = TempDir::new("edit-sample-none");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--edit-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: the workbook has no sheet of kind Worksheet\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
 }

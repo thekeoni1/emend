@@ -50,6 +50,14 @@
 //!   is printed, nor the length of one. A failed `resolve` is counted as
 //!   `unresolved` and the run carries on, so that count is the whole
 //!   workbook's; an error from any other parse is exit 2 with the message.
+//! - `--edit-sample`: the sample cell edit of `specs/0011-editing-cells.md`,
+//!   "Harness runs", on the first sheet of kind `Worksheet`: its first
+//!   `Number` or `SharedString` cell with a value and no formula set to
+//!   42.5, the second such cell cleared, and a text and a boolean added in a
+//!   new row after the last. The output is reopened and the sheet read again,
+//!   and one line goes to stdout: the word `edit` then tab-separated
+//!   `key=value`, COUNTS ONLY, for the reason `--cells` gives. A cell count
+//!   after the write other than the one the edits imply is exit 2.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -70,13 +78,13 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
-use emend::cells::{FormulaKind, Kind};
-use emend::package::{CONTENT_TYPES_PART, Package, rels_part_source};
+use emend::cells::{CellRef, FormulaKind, Kind, Value};
+use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
-| --shared-strings | --cells]";
+| --shared-strings | --cells | --edit-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -96,6 +104,8 @@ enum Operation {
     SharedStrings,
     /// No edits, and count every cell of every sheet on stdout.
     Cells,
+    /// The sample cell edit, and its counts on stdout.
+    EditSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -114,6 +124,9 @@ enum Error {
     Extract(io::ErrorKind),
     Rewrite(io::ErrorKind),
     Report(io::ErrorKind),
+    NoWorksheet,
+    NoNewRow,
+    CellsAfter { expected: u64, found: u64 },
 }
 
 impl fmt::Display for Error {
@@ -132,6 +145,12 @@ impl fmt::Display for Error {
             Error::Extract(kind) => write!(f, "cannot extract the entry to replace: {kind}"),
             Error::Rewrite(kind) => write!(f, "cannot write the rewritten part: {kind}"),
             Error::Report(kind) => write!(f, "cannot write the report line: {kind}"),
+            Error::NoWorksheet => f.write_str("the workbook has no sheet of kind Worksheet"),
+            Error::NoNewRow => f.write_str("the worksheet's last row is the last row there is"),
+            Error::CellsAfter { expected, found } => write!(
+                f,
+                "the output's sheet holds {found} cell(s) and the edits imply {expected}"
+            ),
         }
     }
 }
@@ -165,6 +184,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--cells" => {
             run(Path::new(input), Path::new(output), Operation::Cells)
         }
+        [input, output, flag] if flag == "--edit-sample" => {
+            run(Path::new(input), Path::new(output), Operation::EditSample)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -192,6 +214,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::DropCalcChain) {
         return drop_calc_chain(input, output);
     }
+    if matches!(operation, Operation::EditSample) {
+        return edit_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -213,6 +238,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     let extracted = match operation {
         // Handled above, before any output file exists.
         Operation::DropCalcChain => unreachable!("the recipe has its own path"),
+        Operation::EditSample => unreachable!("the sample edit has its own path"),
         Operation::None | Operation::Survey | Operation::SharedStrings | Operation::Cells => {
             Vec::new()
         }
@@ -378,6 +404,145 @@ fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
         let _ = fs::remove_file(&temporary);
     }
     result
+}
+
+/// What the first read of the sample sheet finds.
+struct Sampled {
+    /// A: the first `Number` or `SharedString` cell with a value and no
+    /// formula.
+    first: Option<CellRef>,
+    /// B: the second such cell, and whether it carried `s`.
+    second: Option<(CellRef, bool)>,
+    /// M: the largest row number, 0 for a sheet with no cells.
+    max_row: u32,
+    cells: u64,
+}
+
+/// Reads one sheet through `Package::cells` for what the sample edit needs.
+fn sample<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Result<Sampled, Error> {
+    let mut sampled = Sampled {
+        first: None,
+        second: None,
+        max_row: 0,
+        cells: 0,
+    };
+    for cell in package.cells(part)? {
+        let cell = cell?;
+        sampled.cells += 1;
+        sampled.max_row = sampled.max_row.max(cell.reference.row);
+        let candidate = matches!(cell.kind, Kind::Number | Kind::SharedString)
+            && cell.value.is_some()
+            && cell.formula.is_none();
+        if candidate && sampled.first.is_none() {
+            sampled.first = Some(cell.reference);
+        } else if candidate && sampled.second.is_none() {
+            sampled.second = Some((cell.reference, cell.style.is_some()));
+        }
+    }
+    Ok(sampled)
+}
+
+/// The sample cell edit of `specs/0011-editing-cells.md`, "Harness runs".
+///
+/// The first sheet of kind `Worksheet` in workbook order is read once for A,
+/// B and M ([`Sampled`]); A is set to `Number(42.5)`, B cleared, `(M + 1, 1)`
+/// set to `Text("emend")` and `(M + 1, 2)` to `Boolean(true)`, and the
+/// package is written. The output is then opened and the same part read, for
+/// `cells_after` and `read_back`. No reference, value or text reaches the
+/// line or a message: a clear of a styled cell keeps it as `<c r s/>`, so
+/// only an unstyled B is `dropped` and the count falls by it.
+fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let text = CellRef {
+        row: new_row,
+        col: 1,
+    };
+    let boolean = CellRef {
+        row: new_row,
+        col: 2,
+    };
+
+    if let Some(first) = before.first {
+        package.set_cell(&part, first, Value::Number(42.5));
+    }
+    if let Some((second, _)) = before.second {
+        package.clear_cell(&part, second);
+    }
+    package.set_cell(&part, text, Value::Text("emend".to_string()));
+    package.set_cell(&part, boolean, Value::Boolean(true));
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    let file = File::open(output).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(&part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let at = cell.reference;
+        if Some(at) == before.first && cell.number() == Some(42.5) {
+            read_back += 1;
+        }
+        if at == text && cell.kind == Kind::InlineString && cell.value.as_deref() == Some("emend") {
+            read_back += 1;
+        }
+        if at == boolean && cell.boolean() == Some(true) {
+            read_back += 1;
+        }
+    }
+
+    let set = 2 + u64::from(before.first.is_some());
+    let cleared = u64::from(before.second.is_some());
+    let dropped = u64::from(matches!(before.second, Some((_, false))));
+    let expected = before.cells + 2 - dropped;
+    if cells_after != expected {
+        return Err(Error::CellsAfter {
+            expected,
+            found: cells_after,
+        });
+    }
+    let pairs = [
+        ("set", set),
+        ("cleared", cleared),
+        ("dropped", dropped),
+        ("rows_added", 1),
+        ("cells_before", before.cells),
+        ("cells_after", cells_after),
+        ("read_back", read_back),
+    ];
+    let mut line = String::from("edit");
+    for (key, value) in pairs {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value.to_string());
+    }
+    let mut out = io::stdout().lock();
+    writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
+    out.flush().map_err(|e| Error::Report(e.kind()))
 }
 
 /// Writes the package back, reporting a buffering failure rather than losing
