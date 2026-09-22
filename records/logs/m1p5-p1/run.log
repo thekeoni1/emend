@@ -1,0 +1,1319 @@
+command: git rev-parse HEAD
+about: M1 part 5 P1 phase commit abf2618530548627b659c0b6fce93d4370c4e6f7; HEAD at run: abf2618530548627b659c0b6fce93d4370c4e6f7
+  the phase commit given to this script: abf2618530548627b659c0b6fce93d4370c4e6f7
+  git rev-parse HEAD at this run:        abf2618530548627b659c0b6fce93d4370c4e6f7
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+phase: Milestone 1 part 5 P1 (specs/0012-styles.md) run.log; run at 2026-09-22T17:24:16Z
+rerun: second attempt at the same commit; attempt 1 failed one check per workbook, all of them agree's, and the fault was this script's trailing-space comparison of the key list (header change 5); its host pass was complete and its totals were the spec's on every key, and it was stopped during its i686 pass once the fault was certain
+command: sha256sum and wc -c over each superseded attempt named above
+    f2953e627bdb1d68b6e202b98385d25d91d029276d62878061d79ee93c4f71d1  69296 bytes  run-attempt-1.log
+SERIALIZED: produced with no other run in flight
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls. Started as a background
+  task of the calling session.
+TERMS: the four debug builds were finished by gate.log before this run
+  started, so no cargo runs during it; order host then i686; nothing
+  else running; no mid-run tuning, and a copy or conversion that timed
+  out or was killed would be recorded and listed apart, never rerun with
+  a larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the
+  figure part 4's runs used: M1 part 2 P1 and P2 measured the largest
+  corpus workbook, whose largest part is 63745347 bytes, at about 28
+  seconds with the host debug binary and about 30 with the i686 one.
+  --styles reads the workbook part and the styles part and copies the
+  archive with no edit. The figure is not tuned during the run.
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 5 P1 run.log (specs/0012-styles.md, "P1" and "Harness
+    # runs"): the corpus run on both targets with --tool-arg --styles, using the
+    # debug binaries gate.log built and hashed, the run log's own count of the
+    # same figures with ElementTree, and the record pair.
+    #
+    # P1's acceptance, from "Harness runs", lo and lo_in ok in every case:
+    #  - --styles on both targets: every entry `identical` unflagged,
+    #    `files_identical` `yes` in all 27;
+    #  - the per-workbook lines summing to the totals: xfs 992, num_fmts 109,
+    #    custom 100, dated 106, date1904 2, and 18 workbooks with dated above 0;
+    #  - the run log's own count of the same figures with ElementTree agreeing
+    #    on every key.
+    #
+    # WRITTEN FOR M1 part 5 P1 from part 4 P3's run script
+    # (records/logs/m1p4-p3/run.log). What differs from that one, and why:
+    #  1. The binaries are the gate's DEBUG builds, hashed against gate.log by
+    #     command, as part 4 P1's run did: P1 has no size build (specs/0012 puts
+    #     size.log in P3).
+    #  2. The comparison (count.py, printed below) is P1's: it reads each input
+    #     with zipfile and xml.etree.ElementTree, sharing no code with the
+    #     library or the tool, finds the workbook part and its styles part
+    #     through the package's relationships, and prints the five figures the
+    #     tool's line carries. Its date test is written here from specs/0012's
+    #     prose (P1 ruling 1), not copied from the tool. Every figure has a
+    #     generated fixture with a hand count, and the controls plant a fault
+    #     for each.
+    #  3. The entry rows are checked per workbook: every row identical and
+    #     unflagged, since --styles makes no edit.
+    #  4. No planning file is modified and uncommitted in this phase, and P1 has
+    #     no size record: the status check accounts for this phase's logs and
+    #     its record pair alone.
+    #  5. SECOND ATTEMPT (the rerun header names and hashes the first, which was
+    #     stopped during its i686 pass once the fault was certain). The first
+    #     failed one check per workbook, all of them agree's, and the fault was
+    #     this script's: agree compared the line's key list with "$KEYS " and a
+    #     command substitution had already stripped that trailing space, so no
+    #     line could agree. The printed lines showed the tool and the count
+    #     equal, and attempt 1's host totals were the spec's on every key. The
+    #     comparison is corrected and nothing else changed. The run directory is
+    #     new (RUN_TAG), since the runner refuses a second row per id.
+    #
+    # None of the three shapes specs/0001 forbids appears here: every compound
+    # condition is a named function and every negated one goes through isnot,
+    # whose control is below; the shapes are described rather than written out.
+    #
+    # Workbooks appear as ids only. No original name, note, producer_version or
+    # app, and no corpus path: the corpus directory is written <corpus>. The
+    # comparison prints counts only: no code, no font name, no part name.
+    #
+    # Usage: m1p5-p1-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p5-p1/run.log. One runner pass per target over 27
+    # workbooks with a LibreOffice conversion each, so the caller starts it
+    # detached and polls.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    SHORT=$(git rev-parse --short HEAD)
+    DATE=$(date -u +%Y-%m-%d)
+    # A rerun takes a run directory of its own, RUN_TAG naming it (the runner
+    # refuses a second row for an id in one directory).
+    RUN_TAG=${RUN_TAG:-}
+    RUN=$DATE-$SHORT$RUN_TAG
+    OUT=$CORPUS/runs/$RUN
+    STEM=m1p5-p1-$DATE-$SHORT
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    EDIT=--styles
+    fail=0
+    
+    # note <what> <verdict>: one verdict line, and a verdict other than
+    # as-expected fails the log.
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    # is <command...>: as-expected when the command succeeds.
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # isnot <command...>: as-expected when it fails, so no call hands a negation
+    # to `is`, which specs/0001 forbids as a shape.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    
+    G=/usr/bin/grep
+    W=$(mktemp -d) || exit 2
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    # columns_resolve <tsv> <names>: every named column is in the file's header,
+    # and there is a header at all.
+    columns_resolve() {
+      awk -F'\t' -v want="$2" '
+        NR == 1 {
+          seen = 1
+          for (i = 1; i <= NF; i++) have[$i] = 1
+          n = split(want, w, " ")
+          for (j = 1; j <= n; j++) if (!(w[j] in have)) miss++
+          exit
+        }
+        END { exit (seen != 1 || miss > 0) }' "$1"
+    }
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    sum_col() {
+      awk -F'\t' -v c="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k { n += $k } END { print n + 0 }' "$1"
+    }
+    # kv <line> <key>: the value of key=value in a line whose pairs are split on
+    # tabs or spaces; empty when the key is absent.
+    kv() { printf '%s\n' "$1" | tr '\t ' '\n\n' | sed -n "s/^$2=//p" | head -1; }
+    # kvn <line> <key>: the same, 0 when absent or not a number, for totals; a
+    # workbook whose line is short is refused by accept_one, so a 0 here cannot
+    # hide it.
+    kvn() {
+      local v
+      v=$(kv "$1" "$2")
+      case "$v" in '' | *[!0-9]*) echo 0 ;; *) echo "$v" ;; esac
+    }
+    
+    # The guard, before a line of the run exists.
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    if ! is_head "$C"; then echo "the phase commit must be HEAD as a full sha, not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M1 part 5 P1 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses the null commit" "$(isnot is_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(isnot is_head "$(printf '%s' "$C" | cut -c1-7)")"
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    echo "phase: Milestone 1 part 5 P1 (specs/0012-styles.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "SERIALIZED: produced with no other run in flight"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls. Started as a background"
+    echo "  task of the calling session."
+    echo "TERMS: the four debug builds were finished by gate.log before this run"
+    echo "  started, so no cargo runs during it; order host then i686; nothing"
+    echo "  else running; no mid-run tuning, and a copy or conversion that timed"
+    echo "  out or was killed would be recorded and listed apart, never rerun with"
+    echo "  a larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child, the"
+    echo "  figure part 4's runs used: M1 part 2 P1 and P2 measured the largest"
+    echo "  corpus workbook, whose largest part is 63745347 bytes, at about 28"
+    echo "  seconds with the host debug binary and about 30 with the i686 one."
+    echo "  --styles reads the workbook part and the styles part and copies the"
+    echo "  archive with no edit. The figure is not tuned during the run."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then
+      echo "  the counting controls did not all hold"
+      fail=1
+    fi
+    
+    echo
+    
+    
+    echo "## the count this log runs (python3, zipfile and ElementTree)"
+    cat >"$W/count.py" <<'COUNT_PY'
+    """The run log's own count of --styles' figures (specs/0012, "Harness runs").
+    
+    Usage: count.py <archive>
+    
+    Reads the package with zipfile and xml.etree.ElementTree, sharing no code
+    with the library or the tool: the officeDocument relationship names the
+    workbook part, whose relationships name the styles part (Type ending in
+    /styles). It prints ONE line, the tool's five keys in the tool's order:
+    
+      xfs       the xf children of the root's cellXfs child
+      num_fmts  the numFmt children of the root's numFmts child
+      custom    of those, the ones whose numFmtId is 164 or more
+      dated     the xfs whose number format is a date: the numFmt with the xf's
+                numFmtId (0 when absent) when the part defines one, judged by
+                its code; else the built-in id, a date when it is 14 to 22, 27 to
+                36, 45 to 47 or 50 to 58
+      date1904  1 when the workbook's workbookPr child has date1904 "1" or
+                "true", else 0
+    
+    A code is a date when a letter among d m h y s, in either case, is left
+    after every quoted run, every bracketed run and every backslash escape is
+    removed (specs/0012, P1 ruling 1). A run is removed only when its closing
+    character follows: an unclosed quote or bracket is left in place.
+    
+    It prints counts only: no code, no name.
+    """
+    import posixpath
+    import sys
+    import xml.etree.ElementTree as ET
+    import zipfile
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
+    DATE_IDS = set(range(14, 23)) | set(range(27, 37)) | set(range(45, 48)) | set(range(50, 59))
+    
+    
+    def local(tag):
+        ns, _, name = tag[1:].partition("}") if tag.startswith("{") else ("", "", tag)
+        return name if ns in MAIN else None
+    
+    
+    def rels_of(z, part):
+        d, base = posixpath.split(part)
+        name = posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+        if name not in z.namelist():
+            return []
+        out = []
+        for rel in ET.fromstring(z.read(name)).iter(RELS):
+            if rel.get("TargetMode") == "External":
+                continue
+            target = rel.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((rel.get("Type", ""), resolved))
+        return out
+    
+    
+    def is_date_code(code):
+        kept = []
+        at = 0
+        while at < len(code):
+            c = code[at]
+            if c in "\"[":
+                close = code.find('"' if c == '"' else "]", at + 1)
+                if close != -1:
+                    at = close + 1
+                    continue
+            if c == "\\" and at + 1 < len(code):
+                at += 2
+                continue
+            kept.append(c)
+            at += 1
+        return any(ch in "dmhysDMHYS" for ch in kept)
+    
+    
+    def count(path):
+        z = zipfile.ZipFile(path)
+        office = [t for (ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        workbook = office[0]
+        date1904 = 0
+        for child in ET.fromstring(z.read(workbook)):
+            if local(child.tag) == "workbookPr":
+                date1904 = int(child.get("date1904") in ("1", "true"))
+                break
+        styles = [t for (ty, t) in rels_of(z, workbook) if ty.endswith("/styles")][0]
+        root = ET.fromstring(z.read(styles))
+        codes = {}
+        xfs = []
+        for child in root:
+            if local(child.tag) == "numFmts":
+                for nf in child:
+                    if local(nf.tag) == "numFmt":
+                        codes[int(nf.get("numFmtId"))] = nf.get("formatCode")
+            elif local(child.tag) == "cellXfs":
+                xfs = [xf for xf in child if local(xf.tag) == "xf"]
+        dated = 0
+        for xf in xfs:
+            fid = int(xf.get("numFmtId", "0"))
+            if fid in codes:
+                dated += is_date_code(codes[fid])
+            else:
+                dated += fid in DATE_IDS
+        nfs = sum(1 for child in root if local(child.tag) == "numFmts" for nf in child
+                  if local(nf.tag) == "numFmt")
+        return "xfs=%d num_fmts=%d custom=%d dated=%d date1904=%d" % (
+            len(xfs), nfs, sum(1 for i in codes if i >= 164), dated, date1904)
+    
+    
+    print(count(sys.argv[1]))
+    COUNT_PY
+    sed 's/^/    /' "$W/count.py"
+    count_line() { python3 "$W/count.py" "$1" 2>&1 | tail -1; }
+    KEYS='xfs num_fmts custom dated date1904'
+    
+    # agree <tool line> <count line>: the tool's line is the word styles and the
+    # five keys in order, every value a number, and each equal to the count's.
+    agree() {
+      local e=$1 c=$2 k v
+      case "$e" in styles$'\t'*) ;; *) return 1 ;; esac
+      # The key list, in order. Command substitution strips the trailing
+      # newline the last tr writes AND the trailing space before it, so the
+      # comparison is against $KEYS with no trailing space; the first attempt
+      # compared against one and no workbook could ever agree (header change 5).
+      [ "$(printf '%s' "$e" | tr '\t' '\n' | sed -n '2,$s/=.*//p' | tr '\n' ' ')" = "$KEYS" ] || return 1
+      for k in $KEYS; do
+        v=$(kv "$e" "$k")
+        case "$v" in '' | *[!0-9]*) return 1 ;; esac
+        [ "$v" = "$(kv "$c" "$k")" ] || return 1
+      done
+    }
+    
+    echo
+    echo "## the count's own controls, on generated packages"
+    # A fictional workbook built here, whose styles part exercises every clause of
+    # the count, and one variant per planted fault. The codes are fictional. By
+    # hand for c-sound: numFmts holds 164 "0.00" (not a date), 165 "yyyy-mm-dd"
+    # (a date), 166 a date letter inside a closed quoted run (not), 167 inside a
+    # closed bracketed run (not), 168 after a backslash (not), 169 after a quote
+    # that never closes (a date), and 14 spelled as "0.0" (a code, not a date,
+    # although built-in 14 is one); cellXfs holds one xf for each of 164 to 169,
+    # one for 14, one for built-in 22 with no numFmt (a date), and one with no
+    # numFmtId (0, not a date). xfs 9, num_fmts 7, custom 6, dated 3 (165, 169,
+    # 22), date1904 1. The part is prefixed and the workbook carries date1904.
+    python3 - "$W" <<'GEN_PY'
+    import sys, zipfile
+    d = sys.argv[1]
+    NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    P = "http://schemas.openxmlformats.org/package/2006/relationships"
+    FMTS = [(164, "0.00"), (165, "yyyy-mm-dd"), (166, "&quot;day &quot;0"),
+            (167, "[Red]0"), (168, "\\d0"), (169, "0&quot;y"), (14, "0.0")]
+    def pkg(path, fmts=FMTS, xfs=None, pr='<workbookPr date1904="1"/>'):
+        if xfs is None:
+            xfs = ['<x:xf numFmtId="%d"/>' % i for i in (164, 165, 166, 167, 168, 169, 14, 22)]
+            xfs.append('<x:xf fontId="0"/>')
+        styles = ('<x:styleSheet xmlns:x="%s"><x:numFmts count="%d">%s</x:numFmts>'
+                  '<x:cellXfs count="%d">%s</x:cellXfs></x:styleSheet>' % (
+                      NS, len(fmts), "".join('<x:numFmt numFmtId="%d" formatCode="%s"/>' % f
+                                             for f in fmts), len(xfs), "".join(xfs)))
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("_rels/.rels", '<Relationships xmlns="%s"><Relationship Id="rId1" '
+                       'Type="%s/officeDocument" Target="xl/workbook.xml"/></Relationships>' % (P, R))
+            z.writestr("xl/workbook.xml", '<workbook xmlns="%s" xmlns:r="%s">%s<sheets>'
+                       '<sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>' % (NS, R, pr))
+            z.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="%s">'
+                       '<Relationship Id="rId1" Type="%s/worksheet" Target="worksheets/sheet1.xml"/>'
+                       '<Relationship Id="rId2" Type="%s/styles" Target="styles.xml"/>'
+                       '</Relationships>' % (P, R, R))
+            z.writestr("xl/worksheets/sheet1.xml", '<worksheet xmlns="%s"><sheetData/></worksheet>' % NS)
+            z.writestr("xl/styles.xml", styles)
+    pkg(d + "/c-sound.xlsx")
+    pkg(d + "/c-1900.xlsx", pr="")
+    pkg(d + "/c-brackets.xlsx", fmts=[(f[0], "[Red]d0") if f[0] == 167 else f for f in FMTS])
+    pkg(d + "/c-closed.xlsx", fmts=[(f[0], "0&quot;y&quot;") if f[0] == 169 else f for f in FMTS])
+    pkg(d + "/c-spelled.xlsx", fmts=[f for f in FMTS if f[0] != 14])
+    pkg(d + "/c-custom.xlsx", fmts=FMTS + [(163, "0")])
+    GEN_PY
+    c_sound=$(count_line "$W/c-sound.xlsx")
+    c_sound_want='xfs=9 num_fmts=7 custom=6 dated=3 date1904=1'
+    echo "  the sound package: $c_sound"
+    echo "  by hand:           $c_sound_want"
+    note "the count reports the sound package exactly" "$(is [ "$c_sound" = "$c_sound_want" ])"
+    # One planted fault per clause, each moving the figure the clause decides:
+    # date1904 absent; a date letter outside a closed bracketed run; a closed
+    # quote around the letter that was unclosed; the spelled-out 14 removed, so
+    # built-in 14 is a date again; a numFmt below 164, not custom.
+    for planted in 1900:date1904=0 brackets:dated=4 closed:dated=2 spelled:dated=4 custom:custom=6; do
+      name=${planted%%:*}
+      want=${planted#*:}
+      line=$(count_line "$W/c-$name.xlsx")
+      echo "  planted $name: $line"
+      note "the count reports the planted $name fault ($want)" \
+        "$(is [ "$(kv "$line" "${want%%=*}")" = "${want#*=}" ])"
+    done
+    note "control: the custom fault leaves num_fmts one higher" \
+      "$(is [ "$(kv "$(count_line "$W/c-custom.xlsx")" num_fmts)" = 8 ])"
+    # The tool on the same sound package, through the gate's host binary: the
+    # two counts, written independently, agree on a package built to disagree
+    # wherever a clause is misread.
+    echo "command: emend-copy <scratch>/c-sound.xlsx <scratch>/c-sound-out.xlsx --styles"
+    target/debug/emend-copy "$W/c-sound.xlsx" "$W/c-sound-out.xlsx" --styles >"$W/c-tool.out" 2>"$W/c-tool.err"
+    c_rc=$?
+    c_tool=$(cat "$W/c-tool.out")
+    echo "  exit $c_rc; the tool's line: $(printf '%s' "$c_tool" | tr '\t' ' ')"
+    note "the tool and the count agree on the sound package" "$(is agree "$c_tool" "$c_sound")"
+    note "control: agree refuses the same line against a count with dated off by one" \
+      "$(isnot agree "$c_tool" "${c_sound/dated=3/dated=4}")"
+    note "control: agree refuses a line with a key missing" \
+      "$(isnot agree "$(printf 'styles\txfs=9\tnum_fmts=7\tcustom=6\tdated=3')" "$c_sound")"
+    note "control: agree refuses a line whose keys are out of order" \
+      "$(isnot agree "$(printf 'styles\tnum_fmts=7\txfs=9\tcustom=6\tdated=3\tdate1904=1')" "$c_sound")"
+    
+    echo
+    echo "## the column guard's own controls"
+    printf 'id\tname\tstatus\tflags\n' >"$W/head.tsv"
+    : >"$W/empty.tsv"
+    printf 'id\tname\n' >"$W/short.tsv"
+    COLUMNS_USED='id name status flags'
+    note "columns_resolve accepts a header holding every column it indexes" \
+      "$(is columns_resolve "$W/head.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses a header missing some of them" \
+      "$(isnot columns_resolve "$W/short.tsv" "$COLUMNS_USED")"
+    note "columns_resolve refuses an empty file" "$(isnot columns_resolve "$W/empty.tsv" "$COLUMNS_USED")"
+    
+    # entries_ok <entries file> <id>: the runner's entry rows for one workbook
+    # are all identical and unflagged, and there is at least one. Names are read,
+    # never printed.
+    entries_ok() {
+      awk -F'\t' -v id="$2" '
+        NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next }
+        $k["id"] != id { next }
+        { n++; if ($k["status"] != "identical" || $k["flags"] != "") bad++ }
+        END { exit (n == 0 || bad > 0) }' "$1"
+    }
+    printf 'id\tname\tstatus\tflags\nw\ta.xml\tidentical\t\nw\tb.xml\tidentical\t\n' >"$W/e-ctl.tsv"
+    note "control: entries_ok accepts rows all identical and unflagged" "$(is entries_ok "$W/e-ctl.tsv" w)"
+    sed 's/b.xml\tidentical\t$/b.xml\tidentical\tdescriptor/' "$W/e-ctl.tsv" >"$W/e-flag.tsv"
+    note "control: entries_ok refuses an identical row that carries a flag" "$(isnot entries_ok "$W/e-flag.tsv" w)"
+    sed 's/b.xml\tidentical\t$/b.xml\tchanged\t/' "$W/e-ctl.tsv" >"$W/e-changed.tsv"
+    note "control: entries_ok refuses a changed row" "$(isnot entries_ok "$W/e-changed.tsv" w)"
+    note "control: entries_ok refuses an id with no rows" "$(isnot entries_ok "$W/e-ctl.tsv" nosuchid)"
+    
+    echo
+    echo "## settings"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,"
+    echo "  input and copy each); image $LO_IMAGE; --tool-arg $EDIT"
+    echo "  out directory: <corpus>/runs/$RUN"
+    echo "  record stem: $STEM"
+    # The debug binaries gate.log built and hashed (header change 1), each
+    # compared with the hash that log printed, read out of it by command.
+    GATE_LOG=records/logs/m1p5-p1/gate.log
+    echo "command: read the four debug hashes from $GATE_LOG (sha256 $(sha256sum <"$GATE_LOG" | cut -d' ' -f1))"
+    gate_hash() { sed -n "s#^  $1: sha256 \([0-9a-f]\{64\}\), bytes [0-9]*\$#\1#p" "$GATE_LOG"; }
+    for b in target/debug/emend-copy target/debug/xlsx-diff \
+             target/i686-unknown-linux-musl/debug/emend-copy \
+             target/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        now=$(sha256sum <"$b" | cut -d' ' -f1)
+        gated=$(gate_hash "$b")
+        echo "  $b: sha256 $now; gate.log printed ${gated:-nothing}"
+        note "$b is the binary gate.log hashed" "$(is [ "$now" = "$gated" ])"
+      else
+        echo "  $b: MISSING"; fail=1
+      fi
+    done
+    note "control: the same reader finds no hash for a binary gate.log does not name" \
+      "$(is [ -z "$(gate_hash target/debug/no-such-binary)" ])"
+    echo "  (nothing is rebuilt here)"
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows"
+    note "the corpus holds its 27 workbooks" "$(is [ "$manifest_rows" = 27 ])"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then
+        PT=target/debug/emend-copy
+        XD=target/debug/xlsx-diff
+      else
+        PT=target/i686-unknown-linux-musl/debug/emend-copy
+        XD=target/i686-unknown-linux-musl/debug/xlsx-diff
+      fi
+      echo
+      echo "## $label run, --tool-arg $EDIT"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough $PT --xlsx-diff $XD --out <corpus>/runs/$RUN --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $EDIT"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$EDIT" \
+        >"$W/run-$label.stdout" 2>"$W/run-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$W/run-$label.stderr")"
+      hide <"$W/run-$label.stdout" | sed 's/^/    /'
+      if [ -s "$W/run-$label.stderr" ]; then hide <"$W/run-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the run's stderr is empty" "$(is [ "$(wc -c <"$W/run-$label.stderr")" -eq 0 ])"
+    
+      SUM=$OUT/summary.$label.tsv
+      ENT=$OUT/entries.$label.tsv
+      if [ ! -f "$SUM" ] || [ ! -f "$ENT" ]; then
+        echo "  the run wrote no summary or entries file"; fail=1; continue
+      fi
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      noleft=$(count_where "$SUM" leftover no)
+      order=$(count_where "$SUM" order_preserved yes)
+      comment=$(count_where "$SUM" comment_equal yes)
+      fid_yes=$(count_where "$SUM" files_identical yes)
+      echo "  summary rows: $rows; outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in; leftover no: $noleft"
+      echo "  order_preserved yes: $order; comment_equal yes: $comment; files_identical yes: $fid_yes"
+      echo "  entry totals from the summary: identical $(sum_col "$SUM" identical), recompressed $(sum_col "$SUM" recompressed), changed $(sum_col "$SUM" changed), dropped $(sum_col "$SUM" dropped), added $(sum_col "$SUM" added), flagged $(sum_col "$SUM" flagged)"
+      note "$label every manifest workbook produced a summary row" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      note "$label no tool left a temporary behind" "$(is [ "$noleft" = "$rows" ])"
+      note "$label order is preserved in every file" "$(is [ "$order" = "$rows" ])"
+      note "$label the archive comment is unchanged in every file" "$(is [ "$comment" = "$rows" ])"
+      note "$label files_identical is yes in all 27" "$(is [ "$fid_yes" = 27 ])"
+      no_entry_moved() {
+        [ "$(sum_col "$SUM" recompressed)$(sum_col "$SUM" changed)$(sum_col "$SUM" dropped)" = 000 ] || return 1
+        [ "$(sum_col "$SUM" added)$(sum_col "$SUM" flagged)" = 00 ]
+      }
+      note "$label nothing recompressed, changed, dropped, added or flagged" "$(is no_entry_moved)"
+    
+      echo "  the entries header, as the runner wrote it:"
+      echo "    $(head -1 "$ENT")"
+      note "$label every column the entry form indexes is in that header" \
+        "$(is columns_resolve "$ENT" "$COLUMNS_USED")"
+    
+      echo "  per workbook: id, the tool's styles line, the count's line (counts only)"
+      : >"$W/styles-$label"
+      nwb=0; nagree=0; nentries_ok=0; nsame=0; ndated_wb=0
+      t_xfs=0; t_nf=0; t_custom=0; t_dated=0; t_1904=0
+      c_xfs=0; c_nf=0; c_custom=0; c_dated=0; c_1904=0
+      while IFS=$'\t' read -r id ext; do
+        nwb=$((nwb + 1))
+        in_file=$CORPUS/corpus/$id.$ext
+        out_file=$OUT/$id/out.$label.$ext
+        e=$(cat "$OUT/$id/stdout.$label.txt" 2>/dev/null)
+        printf '%s\t%s\n' "$id" "$e" >>"$W/styles-$label"
+        c=$(count_line "$in_file")
+        printf '    %s %s\n' "$id" "$(printf '%s' "$e" | tr '\t' ' ')"
+        printf '    %s count %s\n' "$id" "$c"
+        if agree "$e" "$c"; then nagree=$((nagree + 1)); else echo "    $id: THE TOOL AND THE COUNT DISAGREE"; fi
+        if entries_ok "$ENT" "$id"; then nentries_ok=$((nentries_ok + 1)); else echo "    $id: an entry row is not identical and unflagged"; fi
+        if cmp -s "$in_file" "$out_file"; then nsame=$((nsame + 1)); else echo "    $id: the output is not the input's bytes"; fi
+        if [ "$(kvn "$e" dated)" -gt 0 ]; then ndated_wb=$((ndated_wb + 1)); fi
+        t_xfs=$((t_xfs + $(kvn "$e" xfs))); c_xfs=$((c_xfs + $(kvn "$c" xfs)))
+        t_nf=$((t_nf + $(kvn "$e" num_fmts))); c_nf=$((c_nf + $(kvn "$c" num_fmts)))
+        t_custom=$((t_custom + $(kvn "$e" custom))); c_custom=$((c_custom + $(kvn "$c" custom)))
+        t_dated=$((t_dated + $(kvn "$e" dated))); c_dated=$((c_dated + $(kvn "$c" dated)))
+        t_1904=$((t_1904 + $(kvn "$e" date1904))); c_1904=$((c_1904 + $(kvn "$c" date1904)))
+      done < <(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next } { print $k["id"] "\t" $k["ext"] }' "$CORPUS/manifest.tsv")
+      echo "  workbooks: $nwb; the tool and the count agree on every key: $nagree; entry rows all identical and unflagged: $nentries_ok; outputs the input's bytes: $nsame"
+      echo "  $label totals from the tool's lines: xfs $t_xfs; num_fmts $t_nf; custom $t_custom; dated $t_dated; date1904 $t_1904; workbooks with dated above 0: $ndated_wb"
+      echo "  $label totals from the count:        xfs $c_xfs; num_fmts $c_nf; custom $c_custom; dated $c_dated; date1904 $c_1904"
+      note "$label the tool and the count agree on every key in all 27" "$(is [ "$nagree" = 27 ])"
+      note "$label every entry of every workbook is identical and unflagged" "$(is [ "$nentries_ok" = 27 ])"
+      note "$label every output is the input's bytes" "$(is [ "$nsame" = 27 ])"
+      totals_as_spec() {
+        [ "$t_xfs" = 992 ] && [ "$t_nf" = 109 ] && [ "$t_custom" = 100 ] &&
+          [ "$t_dated" = 106 ] && [ "$t_1904" = 2 ]
+      }
+      note "$label the tool's lines sum to xfs 992, num_fmts 109, custom 100, dated 106, date1904 2" \
+        "$(is totals_as_spec)"
+      note "$label 18 workbooks have dated above 0" "$(is [ "$ndated_wb" = 18 ])"
+      counts_as_tool() {
+        [ "$c_xfs" = "$t_xfs" ] && [ "$c_nf" = "$t_nf" ] && [ "$c_custom" = "$t_custom" ] &&
+          [ "$c_dated" = "$t_dated" ] && [ "$c_1904" = "$t_1904" ]
+      }
+      note "$label the count's totals are the tool's" "$(is counts_as_tool)"
+    
+      # The planted difference on a REAL line: the first workbook's line with
+      # dated raised by one must not agree with its count.
+      first=$(awk -F'\t' 'NR == 1 { print $1; exit }' "$W/styles-$label")
+      first_ext=$(awk -F'\t' -v id="$first" 'NR > 1 && $1 == id { print $4 }' "$CORPUS/manifest.tsv")
+      e1=$(awk -F'\t' -v id="$first" '$1 == id { sub(/^[^\t]*\t/, ""); print }' "$W/styles-$label")
+      c1=$(count_line "$CORPUS/corpus/$first.$first_ext")
+      d1=$(kv "$e1" dated)
+      e1_plant=$(printf '%s' "$e1" | sed "s/	dated=$d1	/	dated=$((d1 + 1))	/")
+      note "$label control: the first workbook's line agrees with its count as run" "$(is agree "$e1" "$c1")"
+      note "$label control: the same line with dated raised by one does not" "$(isnot agree "$e1_plant" "$c1")"
+    done
+    echo
+    echo "## the two labels agree"
+    for label in host i686; do
+      awk -F'\t' '
+        NR == 1 { for (i = 1; i <= NF; i++) idx[$i] = i; next }
+        { print $idx["id"] "\t" $idx["name"] "\t" $idx["status"] "\t" $idx["flags"] }' \
+        "$OUT/entries.$label.tsv" | sort >"$W/classes-$label"
+      sort "$W/styles-$label" >"$W/styles-sorted-$label"
+    done
+    note "both targets classified every entry the same way" "$(is cmp -s "$W/classes-host" "$W/classes-i686")"
+    note "both targets printed the same styles line for every workbook" \
+      "$(is cmp -s "$W/styles-sorted-host" "$W/styles-sorted-i686")"
+    note "control: the same comparison finds the host's lines differ from the i686 classes" \
+      "$(isnot cmp -s "$W/styles-sorted-host" "$W/classes-i686")"
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                           k && NR == 2 { print $k }' "$R")
+        echo "  run.$label.tsv tool_args: [$args]"
+        note "$label the run row records the operation" "$(is [ "$args" = "$EDIT" ])"
+      else
+        echo "  run.$label.tsv: MISSING"; fail=1
+      fi
+    done
+    
+    echo
+    echo "## the record pair"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$RUN --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --stem "$STEM" >"$W/record.out" 2>&1
+    rrc=$?
+    hide <"$W/record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  $f: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  $f: MISSING"; fail=1
+      fi
+    done
+    both_halves() {
+      [ -f "records/$STEM.md" ] || return 1
+      [ -f "records/$STEM.txt" ] || return 1
+    }
+    note "both halves of the record pair were written" "$(is both_halves)"
+    nargs=$(count_matches -F "$EDIT" "records/$STEM.md")
+    echo "  lines of the record naming the operation: $nargs"
+    note "the record names the operation it was run with" "$(is [ "$nargs" -ge 1 ])"
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=records/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$f")
+      echo "  $f: lines naming a home, mount or corpus path: $n"
+      note "$f carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    # The planted path is assembled at run time (P2 verification ruling 4), so
+    # this script's own text carries no home-shaped path.
+    printf '%s%s%s\n' '/ho' 'me/someone/' 'emend-testing/corpus/x.xlsx' >"$W/path-control"
+    nctl=$(count_matches -E '(/home/|/mnt/|/Users/|emend-testing)' "$W/path-control")
+    note "control: the path form finds a planted path ($nctl)" "$(is [ "$nctl" = 1 ])"
+    
+    
+    echo
+    echo "## status after the runs"
+    st_all=$(run_lines git status --porcelain)
+    st_log=$(run_matches -E '^(\?\?| ?[MARCD]) (records/logs/m1p5-p1|records/'"$STEM"')' git status --porcelain)
+    echo "status lines: $st_all; of them under the phase log directory or the record pair: $st_log"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_log" != error ] && [ "$st_all" = "$st_log" ]
+    }
+    note "every change in the working tree is a log or the record pair" "$(is status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the count this log runs (python3, zipfile and ElementTree)
+    """The run log's own count of --styles' figures (specs/0012, "Harness runs").
+    
+    Usage: count.py <archive>
+    
+    Reads the package with zipfile and xml.etree.ElementTree, sharing no code
+    with the library or the tool: the officeDocument relationship names the
+    workbook part, whose relationships name the styles part (Type ending in
+    /styles). It prints ONE line, the tool's five keys in the tool's order:
+    
+      xfs       the xf children of the root's cellXfs child
+      num_fmts  the numFmt children of the root's numFmts child
+      custom    of those, the ones whose numFmtId is 164 or more
+      dated     the xfs whose number format is a date: the numFmt with the xf's
+                numFmtId (0 when absent) when the part defines one, judged by
+                its code; else the built-in id, a date when it is 14 to 22, 27 to
+                36, 45 to 47 or 50 to 58
+      date1904  1 when the workbook's workbookPr child has date1904 "1" or
+                "true", else 0
+    
+    A code is a date when a letter among d m h y s, in either case, is left
+    after every quoted run, every bracketed run and every backslash escape is
+    removed (specs/0012, P1 ruling 1). A run is removed only when its closing
+    character follows: an unclosed quote or bracket is left in place.
+    
+    It prints counts only: no code, no name.
+    """
+    import posixpath
+    import sys
+    import xml.etree.ElementTree as ET
+    import zipfile
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
+    DATE_IDS = set(range(14, 23)) | set(range(27, 37)) | set(range(45, 48)) | set(range(50, 59))
+    
+    
+    def local(tag):
+        ns, _, name = tag[1:].partition("}") if tag.startswith("{") else ("", "", tag)
+        return name if ns in MAIN else None
+    
+    
+    def rels_of(z, part):
+        d, base = posixpath.split(part)
+        name = posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+        if name not in z.namelist():
+            return []
+        out = []
+        for rel in ET.fromstring(z.read(name)).iter(RELS):
+            if rel.get("TargetMode") == "External":
+                continue
+            target = rel.get("Target", "")
+            resolved = (target[1:] if target.startswith("/")
+                        else posixpath.normpath(posixpath.join(d, target)))
+            out.append((rel.get("Type", ""), resolved))
+        return out
+    
+    
+    def is_date_code(code):
+        kept = []
+        at = 0
+        while at < len(code):
+            c = code[at]
+            if c in "\"[":
+                close = code.find('"' if c == '"' else "]", at + 1)
+                if close != -1:
+                    at = close + 1
+                    continue
+            if c == "\\" and at + 1 < len(code):
+                at += 2
+                continue
+            kept.append(c)
+            at += 1
+        return any(ch in "dmhysDMHYS" for ch in kept)
+    
+    
+    def count(path):
+        z = zipfile.ZipFile(path)
+        office = [t for (ty, t) in rels_of(z, "") if ty.endswith("/officeDocument")]
+        workbook = office[0]
+        date1904 = 0
+        for child in ET.fromstring(z.read(workbook)):
+            if local(child.tag) == "workbookPr":
+                date1904 = int(child.get("date1904") in ("1", "true"))
+                break
+        styles = [t for (ty, t) in rels_of(z, workbook) if ty.endswith("/styles")][0]
+        root = ET.fromstring(z.read(styles))
+        codes = {}
+        xfs = []
+        for child in root:
+            if local(child.tag) == "numFmts":
+                for nf in child:
+                    if local(nf.tag) == "numFmt":
+                        codes[int(nf.get("numFmtId"))] = nf.get("formatCode")
+            elif local(child.tag) == "cellXfs":
+                xfs = [xf for xf in child if local(xf.tag) == "xf"]
+        dated = 0
+        for xf in xfs:
+            fid = int(xf.get("numFmtId", "0"))
+            if fid in codes:
+                dated += is_date_code(codes[fid])
+            else:
+                dated += fid in DATE_IDS
+        nfs = sum(1 for child in root if local(child.tag) == "numFmts" for nf in child
+                  if local(nf.tag) == "numFmt")
+        return "xfs=%d num_fmts=%d custom=%d dated=%d date1904=%d" % (
+            len(xfs), nfs, sum(1 for i in codes if i >= 164), dated, date1904)
+    
+    
+    print(count(sys.argv[1]))
+
+## the count's own controls, on generated packages
+  the sound package: xfs=9 num_fmts=7 custom=6 dated=3 date1904=1
+  by hand:           xfs=9 num_fmts=7 custom=6 dated=3 date1904=1
+  the count reports the sound package exactly: as-expected
+  planted 1900: xfs=9 num_fmts=7 custom=6 dated=3 date1904=0
+  the count reports the planted 1900 fault (date1904=0): as-expected
+  planted brackets: xfs=9 num_fmts=7 custom=6 dated=4 date1904=1
+  the count reports the planted brackets fault (dated=4): as-expected
+  planted closed: xfs=9 num_fmts=7 custom=6 dated=2 date1904=1
+  the count reports the planted closed fault (dated=2): as-expected
+  planted spelled: xfs=9 num_fmts=6 custom=6 dated=4 date1904=1
+  the count reports the planted spelled fault (dated=4): as-expected
+  planted custom: xfs=9 num_fmts=8 custom=6 dated=3 date1904=1
+  the count reports the planted custom fault (custom=6): as-expected
+  control: the custom fault leaves num_fmts one higher: as-expected
+command: emend-copy <scratch>/c-sound.xlsx <scratch>/c-sound-out.xlsx --styles
+  exit 0; the tool's line: styles xfs=9 num_fmts=7 custom=6 dated=3 date1904=1
+  the tool and the count agree on the sound package: as-expected
+  control: agree refuses the same line against a count with dated off by one: as-expected
+  control: agree refuses a line with a key missing: as-expected
+  control: agree refuses a line whose keys are out of order: as-expected
+
+## the column guard's own controls
+  columns_resolve accepts a header holding every column it indexes: as-expected
+  columns_resolve refuses a header missing some of them: as-expected
+  columns_resolve refuses an empty file: as-expected
+  control: entries_ok accepts rows all identical and unflagged: as-expected
+  control: entries_ok refuses an identical row that carries a flag: as-expected
+  control: entries_ok refuses a changed row: as-expected
+  control: entries_ok refuses an id with no rows: as-expected
+
+## settings
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion,
+  input and copy each); image localhost/emend-lo:25.2.3-2-deb13u6; --tool-arg --styles
+  out directory: <corpus>/runs/2026-09-22-abf2618-b
+  record stem: m1p5-p1-2026-09-22-abf2618
+command: read the four debug hashes from records/logs/m1p5-p1/gate.log (sha256 7a7444e2a82c4dfc4c4e3bb9dee3a45e8f5bee9d9382847e5e4972ed6782b02c)
+  target/debug/emend-copy: sha256 a88fb7b9492dce222d78a75aca3ff878cb4045c163801c672361a9c5f5dbf1ac; gate.log printed a88fb7b9492dce222d78a75aca3ff878cb4045c163801c672361a9c5f5dbf1ac
+  target/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/debug/xlsx-diff: sha256 a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e; gate.log printed a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e
+  target/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/emend-copy: sha256 a22bc4aaef3218ec5374cafb51f0e58f2105654e178cf1a3af7f4645f9a8a763; gate.log printed a22bc4aaef3218ec5374cafb51f0e58f2105654e178cf1a3af7f4645f9a8a763
+  target/i686-unknown-linux-musl/debug/emend-copy is the binary gate.log hashed: as-expected
+  target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db; gate.log printed 3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db
+  target/i686-unknown-linux-musl/debug/xlsx-diff is the binary gate.log hashed: as-expected
+  control: the same reader finds no hash for a binary gate.log does not name: as-expected
+  (nothing is rebuilt here)
+  corpus manifest rows: 27
+  the corpus holds its 27 workbooks: as-expected
+
+## host run, --tool-arg --styles
+command: scripts/passthrough-run.sh --label host --passthrough target/debug/emend-copy --xlsx-diff target/debug/xlsx-diff --out <corpus>/runs/2026-09-22-abf2618-b --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --styles
+  started 2026-09-22T17:24:17Z; ended 2026-09-22T17:27:38Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 0 0.10 7796
+    f56906d42e0a host ok 0 0.10 7636
+    0fbf4e5e3be9 host ok 0 0.10 7616
+    bdfe649d5b97 host ok 0 0.10 7580
+    ae7e17525a35 host ok 0 0.10 7872
+    63e820d98612 host ok 0 0.10 7856
+    054df34b1472 host ok 0 0.10 7884
+    9132ce5303d8 host ok 0 0.10 7800
+    ed2fbd304d51 host ok 0 0.10 7580
+    80adab651c77 host ok 0 0.10 7684
+    9ada43d71c80 host ok 0 0.10 7716
+    885819a9642e host ok 0 0.10 7876
+    f2ba081da509 host ok 0 0.10 7912
+    16c3be622455 host ok 0 0.10 7752
+    a72460f992a8 host ok 0 0.10 7748
+    f8459281d739 host ok 0 0.10 7716
+    ab0e6a529465 host ok 0 0.10 7628
+    f9efcac9808f host ok 0 0.10 8008
+    8aaebea134fb host ok 0 0.10 7796
+    6778a242d1f9 host ok 0 0.10 7604
+    75387404b8af host ok 0 0.10 7672
+    40d747fb5d9e host ok 0 0.10 7772
+    3084c0591814 host ok 0 0.10 7884
+    f3a462783621 host ok 0 0.10 7396
+    ed4c55f07c69 host ok 0 0.10 7576
+    7935c5119065 host ok 0 0.10 7888
+    18d1e8ba72b5 host ok 0 0.10 7664
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the run exits 0: as-expected
+  host the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical yes: 27
+  entry totals from the summary: identical 870, recompressed 0, changed 0, dropped 0, added 0, flagged 0
+  host every manifest workbook produced a summary row: as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host no tool left a temporary behind: as-expected
+  host order is preserved in every file: as-expected
+  host the archive comment is unchanged in every file: as-expected
+  host files_identical is yes in all 27: as-expected
+  host nothing recompressed, changed, dropped, added or flagged: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  host every column the entry form indexes is in that header: as-expected
+  per workbook: id, the tool's styles line, the count's line (counts only)
+    d8245b84086f styles xfs=15 num_fmts=10 custom=10 dated=1 date1904=0
+    d8245b84086f count xfs=15 num_fmts=10 custom=10 dated=1 date1904=0
+    f56906d42e0a styles xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    f56906d42e0a count xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    0fbf4e5e3be9 styles xfs=4 num_fmts=2 custom=2 dated=0 date1904=0
+    0fbf4e5e3be9 count xfs=4 num_fmts=2 custom=2 dated=0 date1904=0
+    bdfe649d5b97 styles xfs=16 num_fmts=4 custom=4 dated=2 date1904=0
+    bdfe649d5b97 count xfs=16 num_fmts=4 custom=4 dated=2 date1904=0
+    ae7e17525a35 styles xfs=9 num_fmts=3 custom=3 dated=0 date1904=0
+    ae7e17525a35 count xfs=9 num_fmts=3 custom=3 dated=0 date1904=0
+    63e820d98612 styles xfs=9 num_fmts=8 custom=8 dated=5 date1904=1
+    63e820d98612 count xfs=9 num_fmts=8 custom=8 dated=5 date1904=1
+    054df34b1472 styles xfs=10 num_fmts=4 custom=4 dated=1 date1904=0
+    054df34b1472 count xfs=10 num_fmts=4 custom=4 dated=1 date1904=0
+    9132ce5303d8 styles xfs=4 num_fmts=3 custom=3 dated=1 date1904=0
+    9132ce5303d8 count xfs=4 num_fmts=3 custom=3 dated=1 date1904=0
+    ed2fbd304d51 styles xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    ed2fbd304d51 count xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    80adab651c77 styles xfs=16 num_fmts=10 custom=10 dated=1 date1904=0
+    80adab651c77 count xfs=16 num_fmts=10 custom=10 dated=1 date1904=0
+    9ada43d71c80 styles xfs=11 num_fmts=2 custom=2 dated=1 date1904=0
+    9ada43d71c80 count xfs=11 num_fmts=2 custom=2 dated=1 date1904=0
+    885819a9642e styles xfs=5 num_fmts=2 custom=2 dated=0 date1904=0
+    885819a9642e count xfs=5 num_fmts=2 custom=2 dated=0 date1904=0
+    f2ba081da509 styles xfs=17 num_fmts=4 custom=4 dated=2 date1904=0
+    f2ba081da509 count xfs=17 num_fmts=4 custom=4 dated=2 date1904=0
+    16c3be622455 styles xfs=10 num_fmts=3 custom=3 dated=0 date1904=0
+    16c3be622455 count xfs=10 num_fmts=3 custom=3 dated=0 date1904=0
+    a72460f992a8 styles xfs=10 num_fmts=8 custom=8 dated=5 date1904=1
+    a72460f992a8 count xfs=10 num_fmts=8 custom=8 dated=5 date1904=1
+    f8459281d739 styles xfs=11 num_fmts=4 custom=4 dated=1 date1904=0
+    f8459281d739 count xfs=11 num_fmts=4 custom=4 dated=1 date1904=0
+    ab0e6a529465 styles xfs=5 num_fmts=3 custom=3 dated=1 date1904=0
+    ab0e6a529465 count xfs=5 num_fmts=3 custom=3 dated=1 date1904=0
+    f9efcac9808f styles xfs=128 num_fmts=5 custom=3 dated=8 date1904=0
+    f9efcac9808f count xfs=128 num_fmts=5 custom=3 dated=8 date1904=0
+    8aaebea134fb styles xfs=104 num_fmts=9 custom=6 dated=0 date1904=0
+    8aaebea134fb count xfs=104 num_fmts=9 custom=6 dated=0 date1904=0
+    6778a242d1f9 styles xfs=21 num_fmts=5 custom=3 dated=0 date1904=0
+    6778a242d1f9 count xfs=21 num_fmts=5 custom=3 dated=0 date1904=0
+    75387404b8af styles xfs=142 num_fmts=4 custom=4 dated=30 date1904=0
+    75387404b8af count xfs=142 num_fmts=4 custom=4 dated=30 date1904=0
+    40d747fb5d9e styles xfs=23 num_fmts=1 custom=1 dated=0 date1904=0
+    40d747fb5d9e count xfs=23 num_fmts=1 custom=1 dated=0 date1904=0
+    3084c0591814 styles xfs=77 num_fmts=4 custom=4 dated=5 date1904=0
+    3084c0591814 count xfs=77 num_fmts=4 custom=4 dated=5 date1904=0
+    f3a462783621 styles xfs=88 num_fmts=2 custom=1 dated=0 date1904=0
+    f3a462783621 count xfs=88 num_fmts=2 custom=1 dated=0 date1904=0
+    ed4c55f07c69 styles xfs=141 num_fmts=1 custom=1 dated=39 date1904=0
+    ed4c55f07c69 count xfs=141 num_fmts=1 custom=1 dated=39 date1904=0
+    7935c5119065 styles xfs=75 num_fmts=3 custom=2 dated=0 date1904=0
+    7935c5119065 count xfs=75 num_fmts=3 custom=2 dated=0 date1904=0
+    18d1e8ba72b5 styles xfs=21 num_fmts=1 custom=1 dated=1 date1904=0
+    18d1e8ba72b5 count xfs=21 num_fmts=1 custom=1 dated=1 date1904=0
+  workbooks: 27; the tool and the count agree on every key: 27; entry rows all identical and unflagged: 27; outputs the input's bytes: 27
+  host totals from the tool's lines: xfs 992; num_fmts 109; custom 100; dated 106; date1904 2; workbooks with dated above 0: 18
+  host totals from the count:        xfs 992; num_fmts 109; custom 100; dated 106; date1904 2
+  host the tool and the count agree on every key in all 27: as-expected
+  host every entry of every workbook is identical and unflagged: as-expected
+  host every output is the input's bytes: as-expected
+  host the tool's lines sum to xfs 992, num_fmts 109, custom 100, dated 106, date1904 2: as-expected
+  host 18 workbooks have dated above 0: as-expected
+  host the count's totals are the tool's: as-expected
+  host control: the first workbook's line agrees with its count as run: as-expected
+  host control: the same line with dated raised by one does not: as-expected
+
+## i686 run, --tool-arg --styles
+command: scripts/passthrough-run.sh --label i686 --passthrough target/i686-unknown-linux-musl/debug/emend-copy --xlsx-diff target/i686-unknown-linux-musl/debug/xlsx-diff --out <corpus>/runs/2026-09-22-abf2618-b --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --styles
+  started 2026-09-22T17:27:46Z; ended 2026-09-22T17:31:13Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 0 0.10 7736
+    f56906d42e0a i686 ok 0 0.10 7820
+    0fbf4e5e3be9 i686 ok 0 0.10 7504
+    bdfe649d5b97 i686 ok 0 0.10 7828
+    ae7e17525a35 i686 ok 0 0.10 7600
+    63e820d98612 i686 ok 0 0.10 7588
+    054df34b1472 i686 ok 0 0.10 7716
+    9132ce5303d8 i686 ok 0 0.10 7636
+    ed2fbd304d51 i686 ok 0 0.10 7876
+    80adab651c77 i686 ok 0 0.10 7732
+    9ada43d71c80 i686 ok 0 0.10 7644
+    885819a9642e i686 ok 0 0.10 7812
+    f2ba081da509 i686 ok 0 0.10 7572
+    16c3be622455 i686 ok 0 0.10 7784
+    a72460f992a8 i686 ok 0 0.10 7660
+    f8459281d739 i686 ok 0 0.10 7836
+    ab0e6a529465 i686 ok 0 0.10 7728
+    f9efcac9808f i686 ok 0 0.10 7800
+    8aaebea134fb i686 ok 0 0.10 7676
+    6778a242d1f9 i686 ok 0 0.10 7784
+    75387404b8af i686 ok 0 0.11 7868
+    40d747fb5d9e i686 ok 0 0.10 7524
+    3084c0591814 i686 ok 0 0.10 7496
+    f3a462783621 i686 ok 0 0.10 7504
+    ed4c55f07c69 i686 ok 0 0.10 7948
+    7935c5119065 i686 ok 0 0.10 7884
+    18d1e8ba72b5 i686 ok 0 0.10 7564
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the run exits 0: as-expected
+  i686 the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27; leftover no: 27
+  order_preserved yes: 27; comment_equal yes: 27; files_identical yes: 27
+  entry totals from the summary: identical 870, recompressed 0, changed 0, dropped 0, added 0, flagged 0
+  i686 every manifest workbook produced a summary row: as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 no tool left a temporary behind: as-expected
+  i686 order is preserved in every file: as-expected
+  i686 the archive comment is unchanged in every file: as-expected
+  i686 files_identical is yes in all 27: as-expected
+  i686 nothing recompressed, changed, dropped, added or flagged: as-expected
+  the entries header, as the runner wrote it:
+    id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+  i686 every column the entry form indexes is in that header: as-expected
+  per workbook: id, the tool's styles line, the count's line (counts only)
+    d8245b84086f styles xfs=15 num_fmts=10 custom=10 dated=1 date1904=0
+    d8245b84086f count xfs=15 num_fmts=10 custom=10 dated=1 date1904=0
+    f56906d42e0a styles xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    f56906d42e0a count xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    0fbf4e5e3be9 styles xfs=4 num_fmts=2 custom=2 dated=0 date1904=0
+    0fbf4e5e3be9 count xfs=4 num_fmts=2 custom=2 dated=0 date1904=0
+    bdfe649d5b97 styles xfs=16 num_fmts=4 custom=4 dated=2 date1904=0
+    bdfe649d5b97 count xfs=16 num_fmts=4 custom=4 dated=2 date1904=0
+    ae7e17525a35 styles xfs=9 num_fmts=3 custom=3 dated=0 date1904=0
+    ae7e17525a35 count xfs=9 num_fmts=3 custom=3 dated=0 date1904=0
+    63e820d98612 styles xfs=9 num_fmts=8 custom=8 dated=5 date1904=1
+    63e820d98612 count xfs=9 num_fmts=8 custom=8 dated=5 date1904=1
+    054df34b1472 styles xfs=10 num_fmts=4 custom=4 dated=1 date1904=0
+    054df34b1472 count xfs=10 num_fmts=4 custom=4 dated=1 date1904=0
+    9132ce5303d8 styles xfs=4 num_fmts=3 custom=3 dated=1 date1904=0
+    9132ce5303d8 count xfs=4 num_fmts=3 custom=3 dated=1 date1904=0
+    ed2fbd304d51 styles xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    ed2fbd304d51 count xfs=10 num_fmts=2 custom=2 dated=1 date1904=0
+    80adab651c77 styles xfs=16 num_fmts=10 custom=10 dated=1 date1904=0
+    80adab651c77 count xfs=16 num_fmts=10 custom=10 dated=1 date1904=0
+    9ada43d71c80 styles xfs=11 num_fmts=2 custom=2 dated=1 date1904=0
+    9ada43d71c80 count xfs=11 num_fmts=2 custom=2 dated=1 date1904=0
+    885819a9642e styles xfs=5 num_fmts=2 custom=2 dated=0 date1904=0
+    885819a9642e count xfs=5 num_fmts=2 custom=2 dated=0 date1904=0
+    f2ba081da509 styles xfs=17 num_fmts=4 custom=4 dated=2 date1904=0
+    f2ba081da509 count xfs=17 num_fmts=4 custom=4 dated=2 date1904=0
+    16c3be622455 styles xfs=10 num_fmts=3 custom=3 dated=0 date1904=0
+    16c3be622455 count xfs=10 num_fmts=3 custom=3 dated=0 date1904=0
+    a72460f992a8 styles xfs=10 num_fmts=8 custom=8 dated=5 date1904=1
+    a72460f992a8 count xfs=10 num_fmts=8 custom=8 dated=5 date1904=1
+    f8459281d739 styles xfs=11 num_fmts=4 custom=4 dated=1 date1904=0
+    f8459281d739 count xfs=11 num_fmts=4 custom=4 dated=1 date1904=0
+    ab0e6a529465 styles xfs=5 num_fmts=3 custom=3 dated=1 date1904=0
+    ab0e6a529465 count xfs=5 num_fmts=3 custom=3 dated=1 date1904=0
+    f9efcac9808f styles xfs=128 num_fmts=5 custom=3 dated=8 date1904=0
+    f9efcac9808f count xfs=128 num_fmts=5 custom=3 dated=8 date1904=0
+    8aaebea134fb styles xfs=104 num_fmts=9 custom=6 dated=0 date1904=0
+    8aaebea134fb count xfs=104 num_fmts=9 custom=6 dated=0 date1904=0
+    6778a242d1f9 styles xfs=21 num_fmts=5 custom=3 dated=0 date1904=0
+    6778a242d1f9 count xfs=21 num_fmts=5 custom=3 dated=0 date1904=0
+    75387404b8af styles xfs=142 num_fmts=4 custom=4 dated=30 date1904=0
+    75387404b8af count xfs=142 num_fmts=4 custom=4 dated=30 date1904=0
+    40d747fb5d9e styles xfs=23 num_fmts=1 custom=1 dated=0 date1904=0
+    40d747fb5d9e count xfs=23 num_fmts=1 custom=1 dated=0 date1904=0
+    3084c0591814 styles xfs=77 num_fmts=4 custom=4 dated=5 date1904=0
+    3084c0591814 count xfs=77 num_fmts=4 custom=4 dated=5 date1904=0
+    f3a462783621 styles xfs=88 num_fmts=2 custom=1 dated=0 date1904=0
+    f3a462783621 count xfs=88 num_fmts=2 custom=1 dated=0 date1904=0
+    ed4c55f07c69 styles xfs=141 num_fmts=1 custom=1 dated=39 date1904=0
+    ed4c55f07c69 count xfs=141 num_fmts=1 custom=1 dated=39 date1904=0
+    7935c5119065 styles xfs=75 num_fmts=3 custom=2 dated=0 date1904=0
+    7935c5119065 count xfs=75 num_fmts=3 custom=2 dated=0 date1904=0
+    18d1e8ba72b5 styles xfs=21 num_fmts=1 custom=1 dated=1 date1904=0
+    18d1e8ba72b5 count xfs=21 num_fmts=1 custom=1 dated=1 date1904=0
+  workbooks: 27; the tool and the count agree on every key: 27; entry rows all identical and unflagged: 27; outputs the input's bytes: 27
+  i686 totals from the tool's lines: xfs 992; num_fmts 109; custom 100; dated 106; date1904 2; workbooks with dated above 0: 18
+  i686 totals from the count:        xfs 992; num_fmts 109; custom 100; dated 106; date1904 2
+  i686 the tool and the count agree on every key in all 27: as-expected
+  i686 every entry of every workbook is identical and unflagged: as-expected
+  i686 every output is the input's bytes: as-expected
+  i686 the tool's lines sum to xfs 992, num_fmts 109, custom 100, dated 106, date1904 2: as-expected
+  i686 18 workbooks have dated above 0: as-expected
+  i686 the count's totals are the tool's: as-expected
+  i686 control: the first workbook's line agrees with its count as run: as-expected
+  i686 control: the same line with dated raised by one does not: as-expected
+
+## the two labels agree
+  both targets classified every entry the same way: as-expected
+  both targets printed the same styles line for every workbook: as-expected
+  control: the same comparison finds the host's lines differ from the i686 classes: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: abf2618530548627b659c0b6fce93d4370c4e6f7	2026-09-22T17:24:17Z	2026-09-22T17:27:38Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	a88fb7b9492dce222d78a75aca3ff878cb4045c163801c672361a9c5f5dbf1ac	a718bb291e7649274a635c97fa4d6959e3130987d0978c57e3db1c5994629f5e	27	--styles
+  run.host.tsv tool_args: [--styles]
+  host the run row records the operation: as-expected
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: abf2618530548627b659c0b6fce93d4370c4e6f7	2026-09-22T17:27:46Z	2026-09-22T17:31:13Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	a22bc4aaef3218ec5374cafb51f0e58f2105654e178cf1a3af7f4645f9a8a763	3830dc06b1c1684267d77a49fb4fd3e14034bc93f63c3d12261f5815580103db	27	--styles
+  run.i686.tsv tool_args: [--styles]
+  i686 the run row records the operation: as-expected
+
+## the record pair
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-22-abf2618-b --stem m1p5-p1-2026-09-22-abf2618
+    wrote m1p5-p1-2026-09-22-abf2618.txt and m1p5-p1-2026-09-22-abf2618.md: labels host,i686; files 27,27; entry rows 870,870
+  the record script exits 0: as-expected
+  records/m1p5-p1-2026-09-22-abf2618.md: 5650 bytes, sha256 93cb2240715d8d3131be67de4efeb4aef08a30b90ab38fabce00978a2b84abde
+  records/m1p5-p1-2026-09-22-abf2618.txt: 198280 bytes, sha256 08e33db563f68b7e322d68c05abc87ae84292e81df4ede95c5c38ff3e71ac0fb
+  both halves of the record pair were written: as-expected
+  lines of the record naming the operation: 1
+  the record names the operation it was run with: as-expected
+
+## the record pair holds no corpus path and no absolute path
+  records/m1p5-p1-2026-09-22-abf2618.md: lines naming a home, mount or corpus path: 0
+  records/m1p5-p1-2026-09-22-abf2618.md carries no such path: as-expected
+  records/m1p5-p1-2026-09-22-abf2618.txt: lines naming a home, mount or corpus path: 0
+  records/m1p5-p1-2026-09-22-abf2618.txt carries no such path: as-expected
+  control: the path form finds a planted path (1): as-expected
+
+## status after the runs
+status lines: 3; of them under the phase log directory or the record pair: 3
+  every change in the working tree is a log or the record pair: as-expected
+run ended at 2026-09-22T17:31:21Z
+run log checks all as expected: yes
