@@ -1,0 +1,128 @@
+command: git rev-parse HEAD -> c824d8707651456f64abaa16872412e0b8e4e0d3
+phase: Milestone 1 part 3 close-out (specs/0010-reading-cells.md "Close-out push (after P3)") push.log part 2, steps 3 and 4; assembled at 2026-09-22T11:55:08Z
+rerun: superseded attempts of this wrapper, none committed, hashed by the command below
+    f1612465092a41933ca7252a9b53c06256cbe36ec83354f4af8f71004666d8f3  5525 bytes  push2-1.out
+    126b62467a2e01cd7177a4f4bfa739bf584770de7fd56b77f8795ce64509d3d8  5793 bytes  push2-2.out
+  push2-1.out read "no" on the script comparison because of the log's
+  trailing empty line (see the script's comment); push2-2.out was correct
+  but its comment named attempt 1 with no hash line, which this run adds.
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 1 part 3 close-out push-part2.log: push.log part 2 (steps 3 and 4,
+    # the push), in a file of its own because push.log part 1 was committed in the
+    # record commit before the push and a committed log is never edited
+    # (specs/0001 "Rules for every phase"). Planning accepted the split record.
+    #
+    # The push ran as `m1p3close-push.sh push <base>`, the same script push.log
+    # prints, with stdout to a scratch file kept at the moment it finished. This
+    # wrapper does not re-run the push: it proves the script that ran is the one
+    # push.log prints, hashes the kept output, and copies it verbatim below.
+    #
+    # Usage: M1CLOSE_LIB=<lib> m1p3close-push2.sh <push script> <kept output> <kept stderr>
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    SCRIPT=${1:?push script}; OUT=${2:?kept output}; ERR=${3:?kept stderr}
+    LIB=${M1CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    echo "command: git rev-parse HEAD -> $(git rev-parse HEAD)"
+    echo "phase: Milestone 1 part 3 close-out (specs/0010-reading-cells.md \"Close-out push (after P3)\") push.log part 2, steps 3 and 4; assembled at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_FILES:-}" ]; then
+      echo "rerun: superseded attempts of this wrapper, none committed, hashed by the command below"
+      for sf in $RERUN_FILES; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum < "$sf" | cut -d' ' -f1)" "$(wc -c < "$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      echo "  push2-1.out read \"no\" on the script comparison because of the log's"
+      echo "  trailing empty line (see the script's comment); push2-2.out was correct"
+      echo "  but its comment named attempt 1 with no hash line, which this run adds."
+    fi
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the push script that ran is the one push.log prints"
+    awk '/^## script that wrote this log/ { on = 1; next } /^## / { on = 0 } on' records/logs/m1p3-close/push.log | sed 's/^    //; s/^ *$//' > "$T/printed"
+    # The log writes one empty line after every printed script, before the next
+    # heading, so the script that ran gets that same line before the comparison.
+    # (Attempt 1 of this wrapper compared without it and read "no" on that line
+    # alone.)
+    { sed 's/^ *$//' "$SCRIPT"; echo; } > "$T/ran"
+    echo "  sha256 of the script printed in push.log (indent removed): $(sha256sum < "$T/printed" | cut -d' ' -f1)"
+    echo "  sha256 of the script that ran (same normalisation):        $(sha256sum < "$T/ran" | cut -d' ' -f1)"
+    check "the push ran the script push.log prints" "$(yn cmp -s "$T/printed" "$T/ran")"
+    echo "command: sha256sum and wc -c over the kept output and stderr"
+    printf '    %s  %s bytes  stdout\n' "$(sha256sum < "$OUT" | cut -d' ' -f1)" "$(wc -c < "$OUT")"
+    printf '    %s  %s bytes  stderr\n' "$(sha256sum < "$ERR" | cut -d' ' -f1)" "$(wc -c < "$ERR")"
+    check "the push script wrote nothing on stderr" "$(yn [ "$(count_bytes '\000-\377' "$ERR")" = 0 ])"
+    n=$(count_matches -F 'part 2 checks all as expected: yes' "$OUT")
+    check "the kept output ends its checks all as expected: $n line(s)" "$(yn [ "$n" = 1 ])"
+    echo
+    echo "## the push script's output, verbatim"
+    cat "$OUT"
+    echo
+    echo "wrapper checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the push script that ran is the one push.log prints
+  sha256 of the script printed in push.log (indent removed): 9fad957735b3f66d657854381c72dc31d95b3d0e54eca9f57a7b4574769dd32b
+  sha256 of the script that ran (same normalisation):        9fad957735b3f66d657854381c72dc31d95b3d0e54eca9f57a7b4574769dd32b
+the push ran the script push.log prints: yes
+command: sha256sum and wc -c over the kept output and stderr
+    bc5e58b1033ef9efddc829b0d57ec70543475c2c325d6b1cb79784088a76a567  1692 bytes  stdout
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  0 bytes  stderr
+the push script wrote nothing on stderr: yes
+the kept output ends its checks all as expected: 1 line(s): yes
+
+## the push script's output, verbatim
+
+# push.log part 2, steps 3 and 4; run at 2026-09-22T01:15:33Z
+command: git rev-parse HEAD -> c824d8707651456f64abaa16872412e0b8e4e0d3
+EMEND_PRIVATE_DENYLIST unset, core.hooksPath empty, and origin/main still the recorded base (the script refuses otherwise)
+main is c824d8707651456f64abaa16872412e0b8e4e0d3; base (recorded in part 1) is f4f48e8e83045c8e1c4813ac0e9e31fa9f801bd0; commits in base..main: 23
+
+## step 3: push
+command: git push origin main
+stdout:
+    pre-push: scripts/privacy.sh --range f4f48e8e83045c8e1c4813ac0e9e31fa9f801bd0..c824d8707651456f64abaa16872412e0b8e4e0d3 (refs/heads/main)
+    PASS privacy
+stderr:
+    privacy: 23 commit(s), 406 blob(s) scanned, 0 finding(s)
+    To https://github.com/thekeoni1/emend.git
+       f4f48e8..c824d87  main -> main
+exit: 0
+push exit is 0: yes
+the hook printed PASS privacy: yes
+the hook's range is f4f48e8e83045c8e1c4813ac0e9e31fa9f801bd0..c824d8707651456f64abaa16872412e0b8e4e0d3 (the base recorded in part 1): yes
+the hook scanned 23 commits with 0 findings: yes
+git reported f4f48e8..c824d87 for main: yes
+push output control bytes: 0 (expect 0): yes
+
+## step 4: remote main equals local main, repository still private
+command: git ls-remote origin refs/heads/main
+stdout:
+    c824d8707651456f64abaa16872412e0b8e4e0d3	refs/heads/main
+stderr:
+exit: 0
+ls-remote exit is 0: yes
+command: git rev-parse main -> c824d8707651456f64abaa16872412e0b8e4e0d3
+remote main equals local main: yes
+command: gh repo view thekeoni1/emend --json visibility
+stdout:
+    {"visibility":"PRIVATE"}
+stderr:
+exit: 0
+gh exit is 0: yes
+still PRIVATE: yes
+command: git status --porcelain -> 0 line(s)
+working tree clean: yes
+part 2 checks all as expected: yes
+
+wrapper checks all as expected: yes
