@@ -674,6 +674,66 @@ Findings and rulings:
    planning's word and the maintainer's authorisation typed in the
    implementing session.
 
+## Planning verification and rulings on the close-out (2026-09-22)
+
+Verified from primaries by planning, not from the report: `git fetch`
+and `git ls-remote` show origin/main at c824d87, equal to local main
+at the push; `gh repo view` says PRIVATE; `gh run view 35675112635`
+reads head c824d87, event push, branch main, conclusion success, all
+six steps success; the record commit b58e894 touches exactly
+records/logs/m1p3-close/push-part2.log, ci-run.log and scan-2.log,
+whose sha256 prefixes f9a673ff, 65a030de and a94eb7a6 match the
+report, with push.log (5c8ad231) and scan.log (304ac8de) unchanged
+from c824d87; the four superseded attempts named in the two headers
+(push2-1.out, push2-2.out, ci-1.out, ci-2.out) exist in the
+implementing scratch at the hashes and byte counts printed; the kept
+push output (bc5e58b1, 1692 bytes) exists at that hash; the push
+script printed in push.log rehashes to 9fad9577 as push-part2.log
+states; the 24 messages f4f48e8..b58e894 are ASCII with the
+Co-Authored-By line alone and no session link; the three new logs
+hold no non-ASCII byte; planning's own `scripts/privacy.sh --range
+f4f48e8..b58e894` reads 24 commits, 409 blobs, 0 findings, PASS.
+
+Findings: none. Rulings:
+
+1. The split record is accepted for this close-out: part 1 (push.log
+   and scan.log, c824d87) committed before the push by the
+   maintainer's choice (2026-09-21), part 2 (b58e894) after it. Part 2
+   lives in push-part2.log rather than an edited push.log because a
+   committed log is never edited (specs/0001); the wrapper's proof
+   that the script that ran is the one push.log prints, by hash and
+   cmp with a control, is the link between the halves.
+2. c824d87 sits inside the pushed range and no committed scan ran over
+   it before the push. Cover: the pre-push hook's range scan printed
+   in push-part2.log (23 commits, 406 blobs, 0 findings), scan-2.log
+   after the push over the same range (54 files, 23 messages, PASS)
+   and planning's scan above. Accepted for this close-out. The next
+   close-out follows its spec as written (one record commit after the
+   push) unless the maintainer chooses otherwise again; either way the
+   scan rerun last after the push is required.
+3. ci-run.log's three departures from part 2's script are accepted:
+   the HEAD comparison with two controls (specs/0001, part 3 P1 ruling
+   11); the per-job log through `gh api .../actions/jobs/<id>/logs`
+   because `gh run view --log` (gh 2.46.0) returned 0 bytes, which
+   later close-outs may use without a further ruling; the clean-tree
+   check allowing exactly " M CLAUDE.md", the maintainer's own edit,
+   by the maintainer's ruling typed in the implementing session.
+4. CLAUDE.md: the maintainer's fix of line 1 (the stray prefix
+   committed in 95b93f4) is verified by planning as a one-line diff
+   and goes in part 4's first doc commit, unedited by either session.
+   The maintainer's rewording of the independent-check paragraph (a
+   check "before reporting a final product/output for maintainer to
+   verify") stands as written; specs/0001's per-phase independent
+   check is the more specific rule and still binds every phase.
+5. scan-2.log: the rerun named the superseded scan by hash, ran last,
+   and lowered the printed-script minimum to 40 lines because the
+   wrapper is 63 lines; accepted. Its "phase:" line ending "scan.log"
+   is cosmetic and is not a finding.
+6. b58e894 stays local and goes with the next push, as part 2's
+   record commit 7702f6e went with this one.
+7. Milestone 1 part 3 is DONE. Part 4 (writing cells) is next and
+   starts with its spec, for the maintainer's approval.
+
 ## Out of scope
 
 - Writing a cell, a row or a sheet: part 4.

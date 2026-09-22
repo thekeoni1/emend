@@ -1,4 +1,4 @@
-c/0c0c# CLAUDE.md: working rules for emend
+# CLAUDE.md: working rules for emend
 
 > **What this file is.** The instruction set the AI builder operates
 > under in this repository. Read it before acting. When in doubt, stop

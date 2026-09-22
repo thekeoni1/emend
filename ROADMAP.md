@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (part 1 DONE 2026-09-17; part 2 DONE and PUSHED 2026-09-18; parts 3 to 8 PROPOSED)
+## Milestone 1: greenfield core (parts 1 to 3 DONE and PUSHED; part 4 APPROVED 2026-09-22; parts 5 to 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -222,7 +222,32 @@ close-out push follows P3 and carries the local commits 9bd9102 and
 | P1 | the items part 2 carried (the `xml.rs` count and the set-equality test, the `Default`-spelling test, `--drop-calc-chain` reading content types first, the rewrapped comments, the run and self-test script forms); `SharedStrings`, `Package::shared_strings`, `--shared-strings`; the corpus run: 110582 items, per file equal to an independent count | DONE 2026-09-18 (d1ebf1c, local; verified by planning from primaries; planning's finding P1-F1, carriage returns kept in text, ruled for P2's first commit with CDATA, nested elements and a missing target; `specs/0010` "Planning verification and rulings on P1") |
 | P2 | first commit: the P1 rulings (line ends, CDATA, nested elements, a missing target, the `--shared-strings` test, the rename); then `cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind}`, `Package::cells`, `resolve`, `--cells`; the corpus run with every count asserted by name, `bytes` 1497091 | DONE 2026-09-18 (9339dca, local; verified by planning from primaries and its own expat count; finding P2-F1 resolved against planning's survey, `values` 2089191 and `empty` 5410; `specs/0010` "Planning verification and rulings on P2") |
 | P3 | first commit: the P2 rulings (decimal `u32` digits only, row 0 refused; the strict namespace named by bytes); then `number`, `boolean`, `error`; the catalogue and limits; `probe-emend-cells-xml` with the float-parser variant; the size record against the checkpoint ruling; the negative log through the binary | DONE 2026-09-18 (13fe4a4, records 8e9d468, local; verified by planning from primaries, its own gate, tests and corpus run; budget 247348 section bytes, 145868 under the 393216 ceiling; findings P3-F1 closed and P3-F2 ruled; `specs/0010` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, as part 2's, carrying 9bd9102 and 7702f6e | PAUSED 2026-09-18 at the maintainer's request after P3's verification; the doc commit is made so the tree is clean; the rest waits for planning's word and the maintainer's authorisation in the implementing session |
+| Close | close-out push after P3, as part 2's, carrying 9bd9102 and 7702f6e | DONE 2026-09-22 (pushed c824d87, 23 commits, 406 blobs, 0 findings; CI run 35675112635 success; doc 8e365a8 and CLAUDE.md 95b93f4 pushed; record split by the maintainer's choice, c824d87 pushed and b58e894 local; ruled in `specs/0010` "Planning verification and rulings on the close-out") |
+
+### Part 4: editing cells (`specs/0011-editing-cells.md`)
+
+Approved by the maintainer 2026-09-22 and sent to implementation,
+the three decisions taken as planning recommended (inline strings;
+formula cells overwritable with the chain dropped; `<dimension>` left
+alone). `Value` (number, text,
+boolean); `Package::set_cell`, `clear_cell` and `drop_calc_chain`
+(the part 2 recipe moved into the crate); `write_to` rewrites an
+edited worksheet by streaming, copying every untouched token raw,
+replacing edited cells and inserting new cells and rows in order;
+edits to shared and array formula cells refused; a removed formula
+drops the calculation chain. Acceptance: over the corpus a four-cell
+sample edit leaves every other entry byte-identical and the edited
+part identical outside the four cells, by an independent parser in
+the run script; every output opens in LibreOffice; the values read
+back. No push during the part; the close-out push follows P3 and
+carries the local commit b58e894.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `drop_calc_chain` in the crate with `--drop-calc-chain` calling it; `Value`, `set_cell`, `clear_cell`, the worksheet rewrite in `write_to`, the seven messages; the corpus run `--drop-calc-chain` against part 2 P3's expectations | PROPOSED |
+| P2 | `--edit-sample`; the corpus run with the run log's `expat` cell comparison | PROPOSED |
+| P3 | `--edit-formula-sample`; the catalogue and Limits; `probe-emend-cells-write-xml` and the size record against the ceiling; the negative log through the binary | PROPOSED |
+| Close | close-out push after P3, as part 3's, carrying b58e894 | PROPOSED |
 
 ## Unscoped
 
