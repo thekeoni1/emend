@@ -1,4 +1,4 @@
-# CLAUDE.md: working rules for emend
+c/0c0c# CLAUDE.md: working rules for emend
 
 > **What this file is.** The instruction set the AI builder operates
 > under in this repository. Read it before acting. When in doubt, stop
@@ -95,7 +95,7 @@ Excel" alone:
 
 ## Independent check before reporting
 
-Before reporting a phase to planning, the implementing session runs an
+Before reporting a final product/output for maintainer to verify, the implementing session runs an
 independent check: a fresh subagent that is given only the spec, the
 diff, draft report, and the gate and scan logs, never the conversation, and answers
 three questions in writing: does the diff do what the spec says and
