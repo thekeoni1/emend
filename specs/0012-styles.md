@@ -103,8 +103,11 @@ styles-part rewrite and a worksheet start-tag rewrite in `write_to`,
 `Workbook::date1904`, and the `dates` module behind the Cargo feature
 `dates`, off by default, with no dependency of its own. `lib.rs`
 re-exports `Styles`, `Xf`, `NumFmt`, `NumberFormat` and, under the
-feature, `dates::{DateTime, Epoch}`. Every index and id is `u32`,
-every byte position `u64`, as before.
+feature, `dates::{DateTime, Epoch}`. `Styles` and `Xf` each carry a
+private field (the `xf` bytes; whether the part has a `numFmts`), so
+neither is built by a struct literal outside the crate (P1
+verification ruling 3). Every index and id is `u32`, every byte
+position `u64`, as before.
 
 ### Module `styles`: what is read
 
@@ -189,7 +192,10 @@ a new id, the largest of 164, one more than the largest id in
 `num_fmts` and one more than the largest id recorded earlier; the
 new `(id, code)` is recorded. Two additions with equal codes share
 one id; two additions with an equal base and format are two `xf`s
-(nothing is deduplicated at the `xf` level, and the doc says so).
+(nothing is deduplicated at the `xf` level, and the doc says so). An
+id or an index that cannot be allocated (a `numFmt` id at `u32::MAX`,
+or `u32::MAX` cell formats) is refused with "a style index is out of
+range" (P1 verification ruling 1); no part is near either bound.
 
 The new `xf`'s bytes, composed at the call from the base's own bytes
 and held with the record:
@@ -254,9 +260,12 @@ rewritten:
   ("a style attribute is not a number"). When the part has no
   `numFmts` and a code is added, `<numFmts count="k">`, the elements
   and `</numFmts>` are written immediately before the start tag of
-  the first root child among `fonts`, `fills`, `borders`,
-  `cellStyleXfs` and `cellXfs` in that order, the schema's order;
-  `cellXfs` is present by the refusal above. Immediately before
+  the first root child, in the part's own order, that is one of
+  `fonts`, `fills`, `borders`, `cellStyleXfs` and `cellXfs`: the
+  schema's position for a part whose children are in schema order,
+  and for a part that is not, before whichever of the five comes
+  first (P1 verification ruling 5); `cellXfs` is present by the
+  refusal above. Immediately before
   `</cellXfs>` the recorded `xf`s are written in record order, and
   the `cellXfs` start tag has its `count` treated as `numFmts`'s. An
   empty `<numFmts/>` or `<cellXfs/>` is opened up as part 2 opens an
@@ -270,7 +279,8 @@ rewritten:
   `Value::element` takes the edit's style when there is one (`Some(i)`
   as `s="i"`, `None` as no `s`) and the existing cell's `s` bytes
   otherwise, as part 4. A clear with a style edit `Some(i)` leaves
-  `<c r="A1" s="i"/>`; a clear with `None` removes the cell as an
+  `<c r="A1" s="i"/>`, whether or not the cell existed (P1
+  verification ruling 2); a clear with `None` removes the cell as an
   unstyled clear does. A style edit alone on an existing cell writes
   its start tag anew, `<c r="A1" s="i" t="..."/>` from the cell's own
   `r` and `t` (when it had one) and the edit's style, `/>` when the
@@ -569,7 +579,10 @@ targets, recorded as `records/m1p5-p1-<utc-date>-<shortsha>.md` and
 
 ### P2: the style sample over the corpus
 
-P2's first code commit carries the P1 verification rulings. Then
+P2's first code commit carries the P1 verification rulings: the
+clear-alone-on-an-absent-cell case added to the test
+`a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing`
+(ruling 8). Then
 `--style-sample` with an integration test on a fictional workbook
 (the tool's existing fixtures), and the run log's `ElementTree` and
 byte-span check with a control that reports a planted difference per
@@ -690,6 +703,66 @@ message is what `specs/0001` allows; disclosed, accepted).
 5. The `xf` template keeps each attribute's own quote character, so
    a single-quoted value holding a double quote stays well-formed;
    one test pins it. The corpus has no single-quoted attribute.
+
+## Planning verification and rulings on P1 (2026-09-22)
+
+Verified by planning from primaries at c3d1adb (doc 489d4e2, cbc691b;
+code 35cd499, abf2618; record c3d1adb): its own gate at HEAD (nine
+PASS), its own tests on both targets (441 passed, 2 ignored, each),
+its own privacy scan over 7cc4f13..c3d1adb (5 commits, 418 blobs, 0
+findings), the nine committed files at the hashes the report gives
+and the scan's own table, the run directory's tool line for every
+workbook on both targets against planning's own `ElementTree` count
+(54 of 54 agree on every key; totals 992, 109, 100, 106, 2), no
+forbidden check shape in the five logs, the commits in gate order.
+The report's six items and two offers, and one matter of its own:
+
+1. An id or index that cannot be allocated is refused with "a style
+   index is out of range"; "what can be added" says so. No message
+   of its own: nothing reaches it.
+2. A clear with `Some(i)` on a cell that does not exist writes
+   `<c r="A1" s="i"/>`, as the rule "a cleared cell survives only
+   with a style" reads; "Module `package`" says so.
+3. `cells::forbidden_in_xml` is `pub(crate)`, and `Styles` carries
+   a private `has_num_fmts` read through a `pub(crate)` method, so
+   `Styles`, like `Xf`, is not built by a struct literal outside the
+   crate; "Crate" says so. No public item changed between the two
+   code commits in a way any consumer saw.
+4. The Limits prose and `write_to`'s consequences written with the
+   code in the second commit stand; P3 completes the catalogue and
+   the Limits for the part as "P3" says, and does not move them.
+5. A created `<numFmts>` goes before the first, in the part's own
+   order, of the five elements named; "Module `package`" now says so
+   and what a part out of schema order gets.
+6. `ROADMAP.md`'s P1 row said nine messages; planning corrected it
+   to ten (ruling 4 of the P1 rulings) in its working tree, for P2's
+   first doc commit. The report's "51 in all" is its own sum of the
+   negative log's 35 and 16, recomputed by planning; no log prints
+   it and none needs to.
+7. The first attempt of run.log stays in the implementing session's
+   scratch, hashed in the rerun header as every superseded attempt
+   is; it is not committed. Its host totals are cited by the report
+   from that file and by nothing committed; the committed attempt
+   measures the same thing on both targets.
+8. Check 2's suggestion is taken in P2's first code commit: the
+   clear-alone-on-an-absent-cell case joins
+   `a_style_edit_alone_on_an_absent_cell_writes_it_or_nothing`, so a
+   phase diff shows it. No P1 amendment.
+9. The one substitution in each check answer (the working copy's
+   absolute path to `CLAUDE.md`, quoted by the checker's own
+   disclosure sentence, written as `<repo>/CLAUDE.md`) is the
+   exception `specs/0001` already allows for an absolute machine
+   path a checker quoted; the declaration sits in each file's header
+   with the offset, the byte counts and the sha256 of the answer as
+   returned, which serves the rule's purpose as a bracketed note at
+   the place would. The answers stand; scan attempts 2 (FAIL) and 3
+   (PASS) are both hashed. Planning notes for the harness, not for
+   this project to fix: a checker's context carried the project
+   instruction file as a system reminder, which each checker
+   disclosed and did not use.
+10. P1 is DONE. P2 is READY: its first doc commit carries this spec
+    and `ROADMAP.md` unedited, then the first code commit with
+    ruling 8's test, then `--style-sample` as "P2" says.
 
 ## Out of scope
 
