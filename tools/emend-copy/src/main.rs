@@ -87,6 +87,17 @@
 //!   printed. `xfs_after` and `cells_after` are asserted against what the
 //!   edits imply; either failing is exit 2 with the message and no output,
 //!   as `--edit-sample`'s count assertion is.
+//! - `--date-sample`: the sample dated cell of `specs/0012-styles.md`,
+//!   "Harness runs", `--style-sample`'s new cell alone: one cell format is
+//!   added over no base with the built-in id 22, and a new cell one row past
+//!   the last takes the serial of 2024-02-29 12:00:00.000 in the workbook's
+//!   own epoch with that format. One line goes to stdout: the word `edit`
+//!   then `date1904`, `serial`, `added`, `xfs_before`, `xfs_after`,
+//!   `cells_before`, `cells_after` and `read_back` ("Planning rulings during
+//!   P3", ruling 5). The serial is this tool's own constant written, 45351.5
+//!   or 43889.5, never a number read from the workbook. `xfs_after` and
+//!   `cells_after` are asserted as `--style-sample`'s are. The tool enables
+//!   the crate's `dates` feature for this operation.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -108,6 +119,7 @@ use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
 use emend::cells::{CellRef, FormulaKind, Kind, Value};
+use emend::dates::{DateTime, Epoch};
 use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
 use emend::styles::NumberFormat;
 use emend::xml::{BYTE_ORDER_MARK, Stream};
@@ -115,7 +127,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample]";
+| --style-sample | --date-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -143,6 +155,8 @@ enum Operation {
     Styles,
     /// The sample style edit, and its counts on stdout.
     StyleSample,
+    /// The sample dated cell, and its counts on stdout.
+    DateSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -243,6 +257,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--style-sample" => {
             run(Path::new(input), Path::new(output), Operation::StyleSample)
         }
+        [input, output, flag] if flag == "--date-sample" => {
+            run(Path::new(input), Path::new(output), Operation::DateSample)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -279,6 +296,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::StyleSample) {
         return style_sample(input, output);
     }
+    if matches!(operation, Operation::DateSample) {
+        return date_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -304,6 +324,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::EditSample => unreachable!("the sample edit has its own path"),
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
         Operation::StyleSample => unreachable!("the style sample has its own path"),
+        Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -889,6 +910,146 @@ fn style_read_back(
     Ok((xfs_after, formats_after, cells_after, read_back))
 }
 
+/// The date and time the date sample writes: its serial is 45351.5 in the
+/// 1900 system and 43889.5 in the 1904 system (`specs/0012-styles.md`,
+/// "Module `dates`", the pinned values plus noon).
+const SAMPLE_DATE: DateTime = DateTime {
+    year: 2024,
+    month: 2,
+    day: 29,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+};
+
+/// The sample dated cell of `specs/0012-styles.md`, "Harness runs":
+/// `--style-sample`'s new cell alone.
+///
+/// The first sheet of kind `Worksheet` in workbook order is read once for M
+/// ([`Sampled`]); one cell format is added over no base with the built-in
+/// id 22, and `(M + 1, 1)` is set to `Number` of [`SAMPLE_DATE`]'s serial in
+/// the workbook's epoch with that format. The output is written, reopened,
+/// and its styles part and the same sheet read back. `xfs_after` is asserted
+/// equal to X + 1 and `cells_after` to `cells_before + 1`; either failing
+/// removes the output, as the style sample's assertion does. The line
+/// carries the serial, which is this tool's constant and no workbook's
+/// content, and counts.
+fn date_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let epoch = Epoch::of(workbook);
+    let part = workbook
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let xfs_before = package.styles()?.cell_xfs.len() as u64;
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let new_cell = CellRef {
+        row: new_row,
+        col: 1,
+    };
+    let serial = SAMPLE_DATE
+        .serial(epoch)
+        .expect("2024-02-29 12:00 is a date in both epochs");
+
+    let dated = package.add_cell_style(None, NumberFormat::BuiltIn(22))?;
+    package.set_cell(&part, new_cell, Value::Number(serial));
+    package.set_cell_style(&part, new_cell, Some(dated));
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it, as
+    // `style_sample`'s assertion does.
+    let checked = date_read_back(
+        output,
+        &part,
+        new_cell,
+        (epoch, serial, dated),
+        (xfs_before + 1, before.cells + 1),
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (xfs_after, cells_after, read_back) = checked?;
+    let mut line = format!(
+        "edit\tdate1904={}\tserial={serial}",
+        u8::from(epoch == Epoch::Y1904)
+    );
+    for (key, value) in [
+        ("added", 1),
+        ("xfs_before", xfs_before),
+        ("xfs_after", xfs_after),
+        ("cells_before", before.cells),
+        ("cells_after", cells_after),
+        ("read_back", read_back),
+    ] {
+        line.push_str(&format!("\t{key}={value}"));
+    }
+    print_line(&line)
+}
+
+/// Reopens the output for the date sample's line: the styles part's cell
+/// format count, asserted equal to `expected.0`; the edited sheet's cell
+/// count, asserted equal to `expected.1`; and the read-back, 1 when the new
+/// cell holds the serial written with `s` the new format and the serial
+/// reads back through [`DateTime::from_serial`] in the same epoch as
+/// [`SAMPLE_DATE`], else 0.
+fn date_read_back(
+    output: &Path,
+    part: &[u8],
+    new_cell: CellRef,
+    written: (Epoch, f64, u32),
+    expected: (u64, u64),
+) -> Result<(u64, u64, u64), Error> {
+    let (epoch, serial, dated) = written;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let xfs_after = package.styles()?.cell_xfs.len() as u64;
+    if xfs_after != expected.0 {
+        return Err(Error::XfsAfter {
+            expected: expected.0,
+            found: xfs_after,
+        });
+    }
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in package.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        if cell.reference == new_cell
+            && cell.number() == Some(serial)
+            && cell.style == Some(dated)
+            && cell.number().and_then(|n| DateTime::from_serial(epoch, n)) == Some(SAMPLE_DATE)
+        {
+            read_back = 1;
+        }
+    }
+    if cells_after != expected.1 {
+        return Err(Error::CellsAfter {
+            expected: expected.1,
+            found: cells_after,
+        });
+    }
+    Ok((xfs_after, cells_after, read_back))
+}
+
 /// Prints one `edit` line: the word, then tab-separated `key=value`.
 fn edit_line(pairs: &[(&str, u64)]) -> Result<(), Error> {
     let mut line = String::from("edit");
@@ -898,6 +1059,12 @@ fn edit_line(pairs: &[(&str, u64)]) -> Result<(), Error> {
         line.push('=');
         line.push_str(&value.to_string());
     }
+    print_line(&line)
+}
+
+/// Prints `line` and a line feed on stdout, reporting a failure to write or
+/// to flush.
+fn print_line(line: &str) -> Result<(), Error> {
     let mut out = io::stdout().lock();
     writeln!(out, "{line}").map_err(|e| Error::Report(e.kind()))?;
     out.flush().map_err(|e| Error::Report(e.kind()))

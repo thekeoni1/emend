@@ -551,6 +551,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--style-sample", "--styles"],
         vec!["--styles", "--style-sample"],
         vec!["--style-sample", "[Content_Types].xml"],
+        // And with part 5 P3's.
+        vec!["--date-sample", "--style-sample"],
+        vec!["--style-sample", "--date-sample"],
+        vec!["--date-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1657,13 +1661,20 @@ fn styled_specs(sheet_data: &str, styles: &str) -> Vec<Spec> {
 /// in and that the two parts kept their stored method.
 #[track_caller]
 fn style_sample(label: &str, specs: &[Spec]) -> (String, String, String) {
+    styled_run(label, specs, "--style-sample")
+}
+
+/// Runs `flag`, `--style-sample` or `--date-sample`, on `specs`, as
+/// [`style_sample`] describes.
+#[track_caller]
+fn styled_run(label: &str, specs: &[Spec], flag: &str) -> (String, String, String) {
     let dir = TempDir::new(label);
     let input = dir.path("in.xlsx");
     let output = dir.path("out.xlsx");
     let bytes = build(specs);
     fs::write(&input, &bytes).expect("write the input");
 
-    let ran = emend_copy_with(&input, &output, &["--style-sample"]);
+    let ran = emend_copy_with(&input, &output, &[flag]);
     assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
     assert_eq!(
         dir.names(),
@@ -1812,12 +1823,19 @@ fn the_style_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone() {
 /// message, that no line was printed and that no file was left.
 #[track_caller]
 fn style_sample_refused(label: &str, specs: &[Spec], message: &str) {
+    styled_run_refused(label, specs, message, "--style-sample");
+}
+
+/// Runs `flag` on a package that must refuse it, as [`style_sample_refused`]
+/// describes.
+#[track_caller]
+fn styled_run_refused(label: &str, specs: &[Spec], message: &str, flag: &str) {
     let dir = TempDir::new(label);
     let input = dir.path("in.xlsx");
     let output = dir.path("out.xlsx");
     fs::write(&input, build(specs)).expect("write the input");
 
-    let ran = emend_copy_with(&input, &output, &["--style-sample"]);
+    let ran = emend_copy_with(&input, &output, &[flag]);
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(ran.stderr, format!("error: {message}\n"), "the message");
     assert_eq!(ran.stdout, "", "a line was printed");
@@ -1845,5 +1863,131 @@ fn the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
         "style-sample-refused",
         &styled_specs(A_CELL, "<styleSheet/>"),
         "the styles part's root is not styleSheet",
+    );
+}
+
+// --------------------------------------------------------- --date-sample
+
+/// The `xf` the date sample adds: over no base, with the built-in id 22.
+const ADDED_DATE_TIME_XF: &str = "<xf numFmtId=\"22\" fontId=\"0\" fillId=\"0\" borderId=\"0\" \
+                                  xfId=\"0\" applyNumberFormat=\"1\"/>";
+
+/// The sample fixture's styles part with one `xf` added to `cellXfs` and
+/// `numFmts` as it was.
+fn date_styled_part() -> String {
+    styled_part(
+        "<numFmt numFmtId=\"164\" formatCode=\"0.00\"/>",
+        1,
+        &format!(
+            "<xf numFmtId=\"0\"/><xf numFmtId=\"164\" fontId=\"0\"/><xf/>{ADDED_DATE_TIME_XF}"
+        ),
+        4,
+    )
+}
+
+/// `style_sample_specs` with the workbook's `<workbookPr date1904="1"/>`.
+fn date1904_specs(sheet_data: &str) -> Vec<Spec> {
+    let mut specs = style_sample_specs(sheet_data);
+    for spec in &mut specs {
+        if spec.name == b"xl/workbook.xml" {
+            let text = String::from_utf8(spec.data.clone()).expect("UTF-8");
+            let text = text.replace("<sheets>", "<workbookPr date1904=\"1\"/><sheets>");
+            *spec = Spec::deflated(b"xl/workbook.xml", text.as_bytes());
+        }
+    }
+    specs
+}
+
+/// The rows the date sample tests start from: A1 a styled number, B1 a
+/// shared string, A2 a formula, so M is 2 and the new cell goes to A3.
+const DATE_ROWS: &str = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c>\
+                         <c r=\"B1\" t=\"s\"><v>1</v></c></row>\
+                         <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>";
+
+#[test]
+fn the_date_sample_writes_a_dated_cell_in_the_1900_system() {
+    // `specs/0012-styles.md`, "Harness runs" P3 and "Planning rulings during
+    // P3" ruling 5: one `xf` over no base with the built-in 22 is added as
+    // index 3, no `numFmt` is added, and A3 takes 45351.5, the serial of
+    // 2024-02-29 12:00 in the 1900 system, with `s` 3. No other cell moves.
+    let (line, styles, sheet) = styled_run(
+        "date-sample",
+        &style_sample_specs(&format!("<sheetData>{DATE_ROWS}</sheetData>")),
+        "--date-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tdate1904=0\tserial=45351.5\tadded=1\txfs_before=3\txfs_after=4\tcells_before=3\
+         \tcells_after=4\tread_back=1\n",
+        "the edit line"
+    );
+    assert_eq!(styles, date_styled_part(), "the styles part");
+    assert_eq!(
+        sheet,
+        edited(&format!(
+            "<sheetData>{DATE_ROWS}<row r=\"3\"><c r=\"A3\" s=\"3\"><v>45351.5</v></c></row>\
+             </sheetData>"
+        )),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_date_sample_writes_a_dated_cell_in_the_1904_system() {
+    // The same workbook with `date1904` set: the serial of the same date and
+    // time is 43889.5, and the line says `date1904=1`.
+    let (line, styles, sheet) = styled_run(
+        "date-sample-1904",
+        &date1904_specs(&format!("<sheetData>{DATE_ROWS}</sheetData>")),
+        "--date-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tdate1904=1\tserial=43889.5\tadded=1\txfs_before=3\txfs_after=4\tcells_before=3\
+         \tcells_after=4\tread_back=1\n",
+        "the edit line"
+    );
+    assert_eq!(styles, date_styled_part(), "the styles part");
+    assert_eq!(
+        sheet,
+        edited(&format!(
+            "<sheetData>{DATE_ROWS}<row r=\"3\"><c r=\"A3\" s=\"3\"><v>43889.5</v></c></row>\
+             </sheetData>"
+        )),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_date_sample_on_a_sheet_with_no_cells_writes_a1() {
+    // M is 0, so the new cell is A1 and the row is created.
+    let (line, styles, sheet) = styled_run(
+        "date-sample-empty",
+        &style_sample_specs("<sheetData/>"),
+        "--date-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tdate1904=0\tserial=45351.5\tadded=1\txfs_before=3\txfs_after=4\tcells_before=0\
+         \tcells_after=1\tread_back=1\n",
+        "the edit line"
+    );
+    assert_eq!(styles, date_styled_part(), "the styles part");
+    assert_eq!(
+        sheet,
+        edited("<sheetData><row r=\"1\"><c r=\"A1\" s=\"3\"><v>45351.5</v></c></row></sheetData>"),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_date_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing() {
+    // As the style sample: the styles read refuses before any output file
+    // exists.
+    styled_run_refused(
+        "date-sample-no-part",
+        &edit_specs(A_CELL),
+        "the workbook has no styles part",
+        "--date-sample",
     );
 }

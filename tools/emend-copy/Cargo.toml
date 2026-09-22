@@ -9,5 +9,8 @@ publish = false
 # through scripts/passthrough-run.sh unchanged (specs/0008-zip-layer.md,
 # "Harness runs"). It links the core and nothing else: the zip crate arrives
 # transitively, so the tool adds no dependency of its own.
+#
+# It enables the core's `dates` feature for --date-sample
+# (specs/0012-styles.md, "Harness runs"); the feature has no dependency.
 [dependencies]
-emend = { path = "../../crates/emend" }
+emend = { path = "../../crates/emend", features = ["dates"] }
