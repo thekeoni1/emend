@@ -871,6 +871,59 @@ impl<R: Read + Seek> Package<R> {
         self.edits.part_additions.push((name.to_vec(), replacement));
     }
 
+    /// Records the removal of the workbook's calculation chain, and says
+    /// whether there was one.
+    ///
+    /// The recipe of `specs/0009-package-layer.md`, "Module `package`", moved
+    /// here from `tools/emend-copy` (`specs/0011-editing-cells.md`, "Module
+    /// `package`"): when the workbook has a `calcChain` relationship, the
+    /// three removals in the order the recipe gives them, each only when its
+    /// subject is there: the relationship, the `Override` for its target
+    /// when the content types part has one, and the entry when the package
+    /// has one. The `Override` is matched as the package writes it, leading
+    /// slash and all, and removed by those same bytes. With no `calcChain`
+    /// relationship nothing is recorded and the answer is `false`.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::workbook`] refuses, and, when there is a chain,
+    /// whatever [`Package::content_types`] and [`Relationships::target_part`]
+    /// refuse. Nothing is recorded when this fails.
+    pub fn drop_calc_chain(&mut self) -> Result<bool, Error> {
+        let workbook = self.workbook()?.part.clone();
+        // Read everything the three removals need before recording any of
+        // them: each read borrows the package, and recording takes it
+        // mutably.
+        let (id, part) = {
+            let rels = self.relationships(&workbook)?;
+            match rels.first_of(CALC_CHAIN) {
+                Some(rel) => (rel.id.clone(), rels.target_part(rel)?),
+                None => return Ok(false),
+            }
+        };
+        let over = self
+            .content_types()?
+            .overrides()
+            .iter()
+            .find(|over| {
+                over.part_name
+                    .strip_prefix(b"/".as_slice())
+                    .unwrap_or(&over.part_name)
+                    == part.as_slice()
+            })
+            .map(|over| over.part_name.clone());
+        let entry = self.part(&part).is_some();
+
+        self.remove_relationship(&workbook, &id);
+        if let Some(over) = over {
+            self.remove_override(&over);
+        }
+        if entry {
+            self.remove_part(&part);
+        }
+        Ok(true)
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then

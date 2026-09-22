@@ -1981,6 +1981,142 @@ fn a_package_with_no_chain_comes_back_byte_for_byte() {
     assert_eq!(output, input, "an empty set of edits changed the bytes");
 }
 
+/// The recipe as `tools/emend-copy` recorded it before
+/// `specs/0011-editing-cells.md` moved it into the crate: each removal its own
+/// call, each only when its subject is there, read in full before any is
+/// recorded. Kept here so the method is compared with the code it replaced.
+fn the_tools_recipe(package: &mut Package<Cursor<Vec<u8>>>) {
+    let workbook = package.workbook().expect("the workbook").part.clone();
+    package.content_types().expect("the content types");
+    let chain = {
+        let rels = package.relationships(&workbook).expect("the rels");
+        rels.first_of(CALC_CHAIN)
+            .map(|rel| (rel.id.clone(), rels.target_part(rel).expect("a target")))
+    };
+    if let Some((id, part)) = chain {
+        let over = package
+            .content_types()
+            .expect("the content types")
+            .overrides()
+            .iter()
+            .find(|over| {
+                over.part_name
+                    .strip_prefix(b"/".as_slice())
+                    .unwrap_or(&over.part_name)
+                    == part.as_slice()
+            })
+            .map(|over| over.part_name.clone());
+        let entry = package.part(&part).is_some();
+        package.remove_relationship(&workbook, &id);
+        if let Some(over) = over {
+            package.remove_override(&over);
+        }
+        if entry {
+            package.remove_part(&part);
+        }
+    }
+}
+
+/// The three kinds of removal a package has recorded, for comparison.
+type Removals = (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>, Vec<Vec<u8>>);
+
+fn removals(package: &Package<Cursor<Vec<u8>>>) -> Removals {
+    let edits = &package.edits;
+    // The recipe records removals only, so every other kind must be empty.
+    assert!(edits.rel_additions.is_empty(), "a relationship was added");
+    assert!(edits.override_additions.is_empty(), "an override was added");
+    assert!(edits.part_replacements.is_empty(), "a part was replaced");
+    assert!(edits.part_additions.is_empty(), "a part was added");
+    (
+        edits.rel_removals.clone(),
+        edits.override_removals.clone(),
+        edits.part_removals.clone(),
+    )
+}
+
+#[test]
+fn the_method_records_what_the_tools_recipe_recorded() {
+    // specs/0011, P1's first code commit: the tool's recipe and the method
+    // record the same edits on a package with a chain and none on one without.
+    // Two more shapes the recipe handles: a chain with no Override, and a
+    // chain whose entry is missing. Each is checked against a typed
+    // expectation too, so the two cannot agree on an empty answer by accident.
+    let full = with_a_calc_chain();
+    let mut no_override = with_a_calc_chain();
+    set(
+        &mut no_override,
+        b"[Content_Types].xml",
+        types(&format!(
+            "<Default Extension=\"rels\" \
+             ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
+             <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+             <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+             <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{WORKSHEET_TYPE}\"/>"
+        )),
+    );
+    let mut no_entry = with_a_calc_chain();
+    drop_part(&mut no_entry, b"xl/calcChain.xml");
+    let rel = (b"xl/workbook.xml".to_vec(), b"rId3".to_vec());
+    let over = b"/xl/calcChain.xml".to_vec();
+    let entry = b"xl/calcChain.xml".to_vec();
+    let cases: [(&str, Parts, bool, Removals); 4] = [
+        (
+            "a chain",
+            full,
+            true,
+            (vec![rel.clone()], vec![over.clone()], vec![entry.clone()]),
+        ),
+        (
+            "a chain with no Override",
+            no_override,
+            true,
+            (vec![rel.clone()], vec![], vec![entry]),
+        ),
+        (
+            "a chain with no entry",
+            no_entry,
+            true,
+            (vec![rel], vec![over], vec![]),
+        ),
+        ("no chain", smallest(), false, (vec![], vec![], vec![])),
+    ];
+    for (label, parts, had, expected) in cases {
+        let (_, mut by_tool) = opened(parts.clone());
+        the_tools_recipe(&mut by_tool);
+        let (_, mut by_method) = opened(parts);
+        let answer = by_method.drop_calc_chain().expect("the recipe applies");
+        assert_eq!(answer, had, "{label}: the method's answer");
+        assert_eq!(
+            removals(&by_method),
+            removals(&by_tool),
+            "{label}: method against tool"
+        );
+        assert_eq!(removals(&by_method), expected, "{label}: the removals");
+        if !had {
+            assert!(by_method.edits.is_empty(), "{label}: nothing recorded");
+        }
+    }
+}
+
+#[test]
+fn the_method_records_nothing_when_the_workbook_is_refused() {
+    // It reads the workbook first, so it fails as workbook() does, and a
+    // failure records nothing.
+    let mut parts = with_a_calc_chain();
+    drop_part(&mut parts, b"_rels/.rels");
+    let (_, mut package) = opened(parts);
+    assert_package(
+        package
+            .drop_calc_chain()
+            .expect_err("no officeDocument relationship"),
+        "no officeDocument relationship",
+    );
+    assert!(
+        package.edits.is_empty(),
+        "a refused recipe recorded an edit"
+    );
+}
+
 /// Asserts that `error` is [`Error::Xml`] naming exactly that entry.
 #[track_caller]
 fn assert_xml_index(error: Error, index: usize) {

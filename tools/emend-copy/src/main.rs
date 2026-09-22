@@ -17,16 +17,16 @@
 //!   rewrite is the identity, so this is what proves the token stream loses
 //!   nothing across the corpus.
 //! - `--drop-calc-chain`: the recipe of `specs/0009-package-layer.md`,
-//!   "Module `package`", applied through the package layer: the workbook's
-//!   `calcChain` relationship, the `Override` for its target when the package
-//!   has one, and the entry when the package has one, each its own call and
-//!   nothing implicit. A VALID package with no chain records no edit, so its
-//!   output must be byte-identical to its input; a package with one must come
-//!   back with those three gone, the two rewritten parts `changed` and every
-//!   other entry `identical` and unflagged. The content types part is read
-//!   before the chain is looked for, so a package without one is refused here
-//!   as `--survey` refuses it, whether or not its edit would be empty (part 2
-//!   P3 verification ruling 6).
+//!   "Module `package`", recorded by `Package::drop_calc_chain`: the
+//!   workbook's `calcChain` relationship, the `Override` for its target when
+//!   the package has one, and the entry when the package has one, each its own
+//!   removal and nothing implicit. A VALID package with no chain records no
+//!   edit, so its output must be byte-identical to its input; a package with
+//!   one must come back with those three gone, the two rewritten parts
+//!   `changed` and every other entry `identical` and unflagged. The content
+//!   types part is read before the chain is looked for, so a package without
+//!   one is refused here as `--survey` refuses it, whether or not its edit
+//!   would be empty (part 2 P3 verification ruling 6).
 //! - `--survey`: no edit either, so the output must be byte-identical again,
 //!   and one line goes to stdout: the word `survey` then tab-separated
 //!   `key=value` pairs, COUNTS ONLY. The package layer's whole map is walked
@@ -71,7 +71,7 @@ use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
 use emend::cells::{FormulaKind, Kind};
-use emend::package::{CALC_CHAIN, CONTENT_TYPES_PART, Package, rels_part_source};
+use emend::package::{CONTENT_TYPES_PART, Package, rels_part_source};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
@@ -336,65 +336,33 @@ impl Survey {
 
 /// Drops the calculation chain, through the package layer.
 ///
-/// The recipe of `specs/0009-package-layer.md`, "Module `package`", in the
-/// order it gives: the workbook's `calcChain` relationship, the `Override`
-/// for its target when there is one, the entry when there is one. Each is its
-/// own call, so the harness sees exactly the three changes the recipe asked
-/// for; a package with a chain but no `Override` and no entry records only
-/// what is there, and a valid package with no chain at all records nothing
-/// and comes back byte for byte, which is the control for this operation.
+/// [`Package::drop_calc_chain`] records the recipe of
+/// `specs/0009-package-layer.md`, "Module `package`": the workbook's
+/// `calcChain` relationship, the `Override` for its target when there is one,
+/// the entry when there is one, each only when its subject is there. The
+/// recipe lived here until `specs/0011-editing-cells.md` moved it into the
+/// crate; the harness sees exactly the three changes it asks for, and a valid
+/// package with no chain records nothing and comes back byte for byte, which
+/// is the control for this operation.
 ///
-/// The content types part is read before the chain is looked for, so a
-/// package without one is refused whether or not it has a chain. Part 2 P3
-/// measured the other order: with no chain the recipe recorded no edit,
-/// `write_to` returned from `validate` at once, and a package with no
-/// `[Content_Types].xml` was copied byte for byte while `--survey` refused
-/// it. Planning ruled (part 2 P3 verification ruling 6) that an operation
-/// which would refuse a package should refuse it whether or not its edit
-/// turns out to be empty, so the two operations answer the same question the
-/// same way.
+/// The workbook and then the content types part are read before the chain is
+/// looked for, so a package without a content types part is refused whether
+/// or not it has a chain. Part 2 P3 measured the other order: with no chain
+/// the recipe recorded no edit, `write_to` returned from `validate` at once,
+/// and a package with no `[Content_Types].xml` was copied byte for byte while
+/// `--survey` refused it. Planning ruled (part 2 P3 verification ruling 6)
+/// that an operation which would refuse a package should refuse it whether or
+/// not its edit turns out to be empty, so the two operations answer the same
+/// question the same way. The method reads the content types part only when
+/// there is a chain, so that read stays here.
 fn drop_calc_chain(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
-    let workbook = package.workbook()?.part.clone();
-    // Read for the refusal, not for a value: the answer is cached, so the
-    // `content_types()` call below this costs nothing extra.
+    // Read for the refusals, in the order the recipe met them before it moved:
+    // the answers are cached, so the method's own reads cost nothing extra.
+    package.workbook()?;
     package.content_types()?;
-
-    // Read everything the three calls need before recording any of them: each
-    // read borrows the package, and `remove_*` takes it mutably.
-    let chain = {
-        let rels = package.relationships(&workbook)?;
-        match rels.first_of(CALC_CHAIN) {
-            Some(rel) => Some((rel.id.clone(), rels.target_part(rel)?)),
-            None => None,
-        }
-    };
-    if let Some((id, part)) = chain {
-        // The Override is matched as the package writes it, leading slash and
-        // all, and removed by those same bytes: the survey's own rule for a
-        // PartName (`overrides_unresolved`), not a name built here.
-        let over = package
-            .content_types()?
-            .overrides()
-            .iter()
-            .find(|over| {
-                over.part_name
-                    .strip_prefix(b"/".as_slice())
-                    .unwrap_or(&over.part_name)
-                    == part.as_slice()
-            })
-            .map(|over| over.part_name.clone());
-        let entry = package.part(&part).is_some();
-
-        package.remove_relationship(&workbook, &id);
-        if let Some(over) = over {
-            package.remove_override(&over);
-        }
-        if entry {
-            package.remove_part(&part);
-        }
-    }
+    package.drop_calc_chain()?;
 
     let temporary = temporary_path(output, "")?;
     let file = OpenOptions::new()
