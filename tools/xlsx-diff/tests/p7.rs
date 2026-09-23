@@ -194,6 +194,26 @@ fn spellings_that_mean_the_same_compare_equal() {
             "<a>x\ny</a>".to_string(),
         ),
         (
+            "a byte order mark on one side",
+            "\u{feff}<a b=\"1\">x</a>".to_string(),
+            r#"<a b="1">x</a>"#.to_string(),
+        ),
+        (
+            "an xml:space attribute, the xml prefix bound without a declaration",
+            r#"<a xml:space="preserve"> x </a>"#.to_string(),
+            r#"<a xml:space="preserve"> x </a><!--c-->"#.to_string(),
+        ),
+        (
+            "a CR, a comment, an LF against two LFs",
+            "<a>x\r<!--c-->\ny</a>".to_string(),
+            "<a>x\n\ny</a>".to_string(),
+        ),
+        (
+            "a CR ending a CDATA section, then an LF, against two LFs",
+            "<a><![CDATA[x\r]]>\ny</a>".to_string(),
+            "<a>x\n\ny</a>".to_string(),
+        ),
+        (
             "an empty-element tag against a start and end tag",
             r#"<a><b c="1"/></a>"#.to_string(),
             r#"<a><b c="1"></b></a>"#.to_string(),
@@ -229,6 +249,44 @@ fn a_raw_cr_against_a_cr_reference_differs() {
         equal_names("a.xml", ["1", "1", "1", "1"])
     );
     assert_eq!(xml_archive(&result.stdout), ["1", "0", "1", "0"]);
+}
+
+#[test]
+fn a_cr_and_an_lf_either_side_of_markup_are_two_line_ends() {
+    // Adjacent, a CR LF pair is one line end; with a comment between them
+    // they are two, so the text differs from one with a single LF.
+    let result = one(
+        "CR comment LF",
+        "a.xml",
+        "<a>x\r<!--c-->\ny</a>",
+        "<a>x\ny</a>",
+    );
+    assert_eq!(
+        xml_rows(&result.stdout),
+        equal_names("a.xml", ["1", "1", "1", "1"])
+    );
+}
+
+#[test]
+fn the_xml_prefix_resolves_to_its_namespace() {
+    let result = one(
+        "xml:space",
+        "a.xml",
+        r#"<a xml:space="preserve">x</a>"#,
+        r#"<a>x</a>"#,
+    );
+    assert_eq!(
+        xml_rows(&result.stdout),
+        [
+            row("a.xml", "parse", &["ok", "ok", "", "0", "0"]),
+            row(
+                "a.xml",
+                "attribute",
+                &["{}a@{http://www.w3.org/XML/1998/namespace}space", "1", "0"]
+            ),
+            row("a.xml", "values", &["2", "1", "1", "0"]),
+        ]
+    );
 }
 
 #[test]
@@ -272,6 +330,10 @@ fn parse_errors_end_the_entry_at_its_parse_row() {
     // ends at byte 9. An element still open at the end of input is at the
     // end: 7 bytes. An unclosed tag at the end of input is a syntax error at
     // the `<` that opens it (`error_position()`'s documentation): byte 3.
+    // An unknown attribute prefix is at the end of its tag: `<a>` and
+    // `<b p:c="1"/>` are 3 and 12 bytes, so 15. The raw reference case:
+    // `<a>` (3), `&fictional;` (11) and `<b/>` (4) end at 18, where the
+    // input ends with `a` still open.
     let cases: Vec<(&str, &str, &str, [&str; 5])> = vec![
         (
             "unknown prefix on the input",
@@ -430,6 +492,7 @@ fn archive_rows_with_two_compared_entries_one_failing() {
             entry("a.xml", "<a>y</a>"),
             entry("b.xml", "<a>x</b>"),
             entry("c.txt", "y"),
+            entry("d.txt", "added"),
         ],
     );
     let result = run(&a, &b);
@@ -448,6 +511,9 @@ fn archive_rows_with_two_compared_entries_one_failing() {
         .collect();
     let first_xml = kinds.iter().position(|k| *k == "xml").expect("an xml row");
     assert!(kinds[..first_xml].iter().all(|k| *k == "entry"));
+    // Every entry row, the added one last, stands before the first xml row.
+    assert_eq!(first_xml, 4);
+    assert_eq!(rows(&result.stdout, "entry")[3][1..3], ["d.txt", "added"]);
     assert!(kinds[first_xml..first_xml + 3].iter().all(|k| *k == "xml"));
     assert!(kinds[first_xml + 3..].iter().all(|k| *k == "archive"));
 }

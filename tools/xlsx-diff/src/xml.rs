@@ -26,7 +26,9 @@
 //!   document type declaration are ignored.
 //! - Line ends: `quick-xml` hands text over as written, so a CR LF pair and
 //!   a lone CR in text or CDATA become one LF here (XML 1.0 section 2.11). A
-//!   CR written as `&#13;` stays a CR, so it differs from a raw one. Attribute
+//!   CR written as `&#13;` stays a CR, so it differs from a raw one. A CR and
+//!   an LF with a comment, a processing instruction or a CDATA delimiter
+//!   between them are not adjacent, so they are two line ends. Attribute
 //!   values go through `normalized_value` for XML 1.0, which normalises
 //!   their whitespace as XML 1.0 section 3.3.3 says.
 //! - Text references: the five XML predefines and character references are
@@ -51,7 +53,9 @@
 //!   never printed, since `quick-xml` quotes the bytes it did not expect. The
 //!   tool does not check that a root element exists or that nothing stands
 //!   outside it. A side that fails prints no name or value rows for either
-//!   side; its raw-value count counts up to the failure.
+//!   side; its raw-value count counts up to the failure. A text node the
+//!   error interrupts was never hashed, so a raw reference in it is not
+//!   counted.
 //! - An I/O error while reading an entry (a failed decompression or CRC-32)
 //!   is not a parse error: the comparison stops with exit status 2.
 
@@ -164,6 +168,14 @@ impl Text {
                 }
             }
         }
+    }
+
+    /// Records markup inside the node (a comment, a processing instruction
+    /// or a CDATA delimiter): the characters either side of it are not
+    /// adjacent in the document, so a CR before it and an LF after it are
+    /// two line ends (XML 1.0 section 2.11 applies to adjacent characters).
+    fn markup(&mut self) {
+        self.after_cr = false;
     }
 
     /// Appends a character a reference stands for. It is not half of a
@@ -335,12 +347,21 @@ pub(crate) fn read_side<R: BufRead>(source: R) -> Result<Read, Io> {
                 state.open.pop();
             }
             Event::Text(ref chunk) => state.text.push_literal(chunk),
-            Event::CData(ref chunk) => state.text.push_literal(chunk),
+            // A CDATA section's delimiters are markup, so a CR before or
+            // after one is not half of a pair across it.
+            Event::CData(ref chunk) => {
+                state.text.markup();
+                state.text.push_literal(chunk);
+                state.text.markup();
+            }
             Event::GeneralRef(ref reference) => match expand(reference) {
                 Some(character) => state.text.push_reference(character),
                 None => state.text.push_unresolved(reference),
             },
-            Event::Comment(_) | Event::PI(_) | Event::Decl(_) | Event::DocType(_) => {}
+            // Transparent to the text node, but markup: a CR before one and
+            // an LF after it are two line ends.
+            Event::Comment(_) | Event::PI(_) => state.text.markup(),
+            Event::Decl(_) | Event::DocType(_) => {}
             Event::Eof => {
                 state.flush_text();
                 if !state.open.is_empty() {
