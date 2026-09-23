@@ -177,9 +177,10 @@ value vectors are the one allocation proportional to the data: 8
 bytes per value, about 61 MB per side on the largest corpus entry;
 the tool reads one side to its end, then the other, then sorts and
 merges, and frees both before the next entry. An entry the vectors
-cannot fit is an allocation failure the process reports as an error
-on stderr with exit 2, as any other; none is expected on the corpus
-and the runner's 2048 MiB.
+cannot fit is an allocation failure that aborts the process as `std`
+does, which the runner records as it records any killed process (P1
+verification ruling 1); none is expected on the corpus and the
+runner's 2048 MiB.
 
 ### Harness runs
 
@@ -372,6 +373,85 @@ the tool's test helpers, and rules:
 9. This section goes in a second doc commit before any code, as
    part 6's 81991c3 did, carrying this spec alone, unedited, at the
    hash planning's message gives.
+
+## Planning verification and rulings on P1 (2026-09-23)
+
+Verified from primaries by planning, not from the report: the five
+commits 03669ca..5fa6c8f ASCII with the Co-Authored-By line alone
+and no session link; the second doc commit b45c524 carrying this
+spec at the hash planning sent; the record commit 5fa6c8f touching
+exactly the six logs at the sha256 and byte counts the report
+prints; planning's own gate (nine PASS), `cargo test --workspace` on
+both targets (508 passed, 0 failed, 2 ignored on each), the crate
+with the `dates` feature off and on, and clippy, all at 5fa6c8f;
+planning's own `scripts/privacy.sh --range 03669ca..HEAD` reading 5
+commits, 486 blobs, 0 findings, PASS; `xml.rs` and the `lib.rs`
+change read in full against "What is compared", "Output" and
+rulings 1 to 7; `cargo tree` of `xlsx-diff` built in planning's own
+target directory showing `zip` and `quick-xml` and no `emend`;
+planning's own no-leak run of that binary on two fictional archives
+with sentinel values in an attribute, a text node and a CDATA
+section on each side, the sentinels absent from stdout and stderr
+and the rows as "Output" says; and planning's own run of that
+binary over the 27 corpus inputs against part 6 P3's outputs, with
+expectations derived from each input: on the 8 without an A no
+`xml` row and exit 0; on the 19 the worksheet's `element` deltas
+exactly `c` +2, `f` +2, `row` +1 where row `M + 1` was new and `v`
+-1 where F exists, the `attribute` deltas exactly the new cells'
+and row's `r`, A's and F's lost `t` and each attribute F's `<f>`
+carried, the `values` counts equal to the derivation, the workbook
+part's one `attribute` row and `values` 0 and 1, the content types
+and workbook relationships on the 3 chained workbooks with one
+element each fewer and `in_only` equal to the removed element's
+attributes, every `parse` row ok with 0 raw values, and the four
+`archive` rows as expected.
+
+Findings:
+
+- F1 (planning, on the spec, not the code): planning's first
+  derivation missed the attributes a replaced formula's `<f>`
+  carries (`aca` on the LibreOffice-produced files) and the `t` the
+  producers write on every cell; the tool was right on all 27 once
+  the derivation counted them. "Harness runs" is amended for P2: the
+  worksheet's expected `attribute` rows are the new cells' and the
+  new row's `r`, A's lost `t` when it had one, F's lost `t` when it
+  had one, and each attribute F's `<f>` carried, all read from the
+  input; `in_only` and `out_only` are derived from the same reading.
+
+Rulings:
+
+1. R1 (G1): the Limits wording stands and the spec is corrected:
+   "32-bit and streaming" no longer claims an allocation failure
+   exits 2. A vector that cannot grow aborts the process as `std`
+   does, the runner records the outcome as it records any killed
+   process, and no corpus entry approaches the bound. No
+   `try_reserve`; no code change.
+2. R2 (G6): the negative cases running the built binary on fixtures
+   in a made scratch directory need no worktree or clone; planning's
+   word is given for this phase and the ones that follow, and the
+   departure line is no longer needed.
+3. R3 (G7): from P2, every root a log uses has its own root line,
+   `<scratch>/p1`-style script-and-build roots included.
+4. R4 (G5): the two hash values in M9's failing assertion on i686
+   are a fictional fixture's and a test's output quoted by a log;
+   accepted, and ruling 7 is read as naming the source of the pin.
+   No filtering.
+5. R5 (F4): a text node a parse error interrupts is not hashed and
+   its raw reference not counted, as the Limits say. Accepted.
+6. R6 (G3): two fixtures join P2's first code commit: a carriage
+   return and line feed inside an attribute value against a line
+   feed (equal after attribute-value normalisation, as XML 1.0
+   3.3.3 says, and the test asserts what quick-xml does) and an
+   entry starting with a UTF-16 byte order mark (a `parse` row with
+   `error`, since the tool reads UTF-8 only, which the Limits then
+   say; the corpus has no such entry, "Facts").
+7. R7 (G4): the case map pairs the spec's parenthetical with the
+   single-attribute-change fixture and lists the four-at-once
+   fixture as its own case; corrected in P2's test.log script.
+8. P1 is DONE. P2 is next: its first doc commit carries this spec
+   and `ROADMAP.md` unedited, as part 6's 463ccad did; then ruling
+   6's fixtures, the record script and the corpus run as "### P2"
+   and the amended "Harness runs" say.
 
 ## Out of scope
 

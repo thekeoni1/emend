@@ -328,7 +328,7 @@ close-out push follows P2 and carries the local commit 03669ca.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | `quick-xml` in `xlsx-diff`; the comparison, the `xml` rows and the four `archive` rows; the Limits; the fixture tests and the no-leak test; the negative log | PLANNED |
+| P1 | `quick-xml` in `xlsx-diff`; the comparison, the `xml` rows and the four `archive` rows; the Limits; the fixture tests and the no-leak test; the negative log | DONE 2026-09-23 (43731f2, records 5fa6c8f, local; nine P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan, its own no-leak run and its own run of the built tool over the 27 corpus pairs of part 6 P3 with derived expectations agreeing on all 27; `specs/0014` "Planning verification and rulings on P1") |
 | P2 | the record script's table and `.txt` rows with its test; the corpus run `--formula-sample` with the new tool, the run log asserting the rows against its own derivation; the entry statuses compared with part 6 P3's record | PLANNED |
 | Close | close-out push after P2, as part 6's, carrying 03669ca | PLANNED |
 
