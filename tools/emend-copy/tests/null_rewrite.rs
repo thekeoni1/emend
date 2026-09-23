@@ -1823,18 +1823,19 @@ fn the_part6_formula_sample_writes_a_and_f_and_drops_the_chain() {
 
 #[test]
 fn the_part6_formula_sample_with_a_and_no_f_adds_the_row_alone() {
-    // A is B2, no cell has a normal formula, and there is no chain: A takes
-    // 21, row 3 takes B2*2 and 1+1, and only the sheet and the workbook part
-    // change.
+    // A is C2: the shared string at B2 comes first but is not a number. No
+    // cell has a normal formula and there is no chain: A takes 21, row 3
+    // takes C2*2 and 1+1, and only the sheet and the workbook part change.
     let specs = part6_sample_specs(
-        "<row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\"><v>7</v></c></row>",
+        "<row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\" t=\"s\"><v>0</v></c>\
+         <c r=\"C2\"><v>7</v></c></row>",
         false,
     );
     let (line, entries, _) = part6_sample("part6-sample-a", &specs);
     assert_eq!(
         line,
         "formula\tadded=2\treplaced=0\tchain_before=0\tchain_after=0\tfull_calc_before=0\t\
-         full_calc_after=1\tcells_before=2\tcells_after=4\tread_back=2\n",
+         full_calc_after=1\tcells_before=3\tcells_after=5\tread_back=2\n",
         "the line"
     );
     assert_eq!(
@@ -1845,9 +1846,9 @@ fn the_part6_formula_sample_with_a_and_no_f_adds_the_row_alone() {
         )
         .expect("UTF-8"),
         edited(
-            "<sheetData><row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\"><v>21</v></c>\
-             </row><row r=\"3\"><c r=\"A3\"><f>B2*2</f></c><c r=\"B3\"><f>1+1</f></c></row>\
-             </sheetData>"
+            "<sheetData><row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\" t=\"s\">\
+             <v>0</v></c><c r=\"C2\"><v>21</v></c></row><row r=\"3\"><c r=\"A3\"><f>C2*2</f>\
+             </c><c r=\"B3\"><f>1+1</f></c></row></sheetData>"
         ),
         "the sheet"
     );
