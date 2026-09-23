@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (parts 1 to 4 DONE and PUSHED; part 5 APPROVED 2026-09-22; parts 6 to 8 PROPOSED)
+## Milestone 1: greenfield core (parts 1 to 5 DONE and PUSHED; part 6 APPROVED 2026-09-23; parts 7 and 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -276,7 +276,37 @@ follows P3 and carries the local commit 7cc4f13.
 | P1 | `Workbook::date1904`; the `styles` module read (`Styles`, `NumFmt`, `Xf`, `NumberFormat`); `--styles`; `add_cell_style`, `set_cell_style`, the styles rewrite and the worksheet start-tag rewrite in `write_to`, the ten messages; the corpus run `--styles` against planning's survey | DONE 2026-09-22 (abf2618, records c3d1adb, local; five P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan and per-workbook `ElementTree` count agreeing on all 27 on both targets; `specs/0012` "Planning verification and rulings on P1") |
 | P2 | `--style-sample`; the corpus run with the run log's independent XML reader and byte-span check | DONE 2026-09-22 (7c96575, records 747a96e, local; eight P2 rulings after check 1, run and negative logs rerun; verified by planning from primaries, its own gate, tests, privacy scan and its own comparison over the run directory agreeing on all 27 on both targets; `specs/0012` "Planning verification and rulings on P2") |
 | P3 | the `dates` feature; `--date-sample`; the catalogue and Limits; `probe-emend-styles-write-xml` and `probe-emend-dates-write-xml` with the size record against the ceiling; the negative log through the binary | DONE 2026-09-22 (f565868, records 39baf23, local; seven P3 rulings before code; verified by planning from primaries, its own gate, tests with the feature off and on, privacy scan, its own rebuild of four probes reproducing the size log's hashes, and its own comparison over the run directory agreeing on all 27 on both targets; budget figure 304412 of 393216; `specs/0012` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, as part 4's, carrying 7cc4f13 | READY (needs the maintainer's authorisation typed in the implementing session) |
+| Close | close-out push after P3, as part 4's, carrying 7cc4f13 | DONE 2026-09-23 (pushed 35e38a5..77d2b50, CI run 35884307712 success; record b0c21ef local, goes with the next push) |
+
+### Part 6: formulas and the calculation chain (`specs/0013-formulas.md`)
+
+Approved by the maintainer 2026-09-23 and sent to implementation,
+the four decisions taken as planning recommended (no cached value
+beside a written formula; `fullCalcOnLoad="1"` set by the
+formula-change rule and offered as `recalculate_on_open`; a formula
+text starting with `=` refused; acceptance on the LibreOffice
+computation check, the Excel check pending the desktop machine).
+`Value::Formula` writes `<f>` with no `<v>`; a write that adds,
+replaces or removes a normal formula drops the calculation chain
+(part 4's recipe) and asks the workbook for a full calculation on
+load, one attribute rewritten on `calcPr` with every other byte of
+the workbook part copied raw; `Workbook::full_calc_on_load` reads
+the flag back. Acceptance: over the corpus a sample that writes two
+formulas and replaces one leaves every other entry byte-identical,
+the worksheet identical outside the three cells and the workbook
+part outside its `calcPr` tag, the chain gone on the 9 workbooks
+that have one, by an independent parser in the run script; every
+output opens in LibreOffice, which computes the written formulas to
+the expected values in a second conversion; the formulas and the
+flag read back. No push during the part; the close-out push follows
+P3 and carries the local commit b0c21ef.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `Value::Formula` and its refusals; the formula-change rule for a written formula; `Package::recalculate_on_open`, the `calcPr` rewrite, `Workbook::full_calc_on_load`; `--calc`; the corpus run `--calc` against planning's survey (`chain` 9, `full_calc` 0) | PLANNED |
+| P2 | `--formula-sample`; the corpus run with the run log's independent XML comparison and the LibreOffice computation check | PLANNED |
+| P3 | the catalogue and Limits; `probe-emend-formulas-write-xml` and the size record against the ceiling; the negative log through the binary; the corpus run again with the release binaries | PLANNED |
+| Close | close-out push after P3, as part 5's, carrying b0c21ef | PLANNED |
 
 ## Unscoped
 

@@ -1028,6 +1028,48 @@ host and i686 outputs are byte-identical. Totals on both targets:
    rerun last, the `ANTHROPIC_API_KEY` check, as "Close-out push"
    says.
 
+## Planning verification and rulings on the close-out (2026-09-23)
+
+Verified from primaries by planning, not from the report: `git
+fetch` and `git ls-remote` show origin/main at 77d2b50, equal to
+local main at the push; `gh repo view` says PRIVATE; `gh run view
+35884307712` reads head 77d2b50, event push, branch main, conclusion
+success, every step success, the only ci.yml run on that commit; the
+record commit b0c21ef touches exactly records/logs/m1p5-close/
+push.log, ci-run.log and scan.log at the sha256 the report prints,
+with the scan hashing both siblings at those values and naming the
+superseded pre-push scan by hash, which planning found in the
+implementing scratch at that hash and byte count; the 19 messages
+7cc4f13..77d2b50 ASCII, 9 ending with the Opus 5 Co-Authored-By
+line and 10 with the Opus 5.5 line, no session link in any; the
+only home-shaped strings in the three logs are the path form's own
+regex and the scan's run-time control fixture; denylist entries
+counted in the three logs: 0; planning's own `scripts/privacy.sh
+--range 35e38a5..77d2b50` reads 19 commits, 464 blobs, 0 findings,
+PASS, and over 77d2b50..b0c21ef 1 commit, 435 blobs, 0 findings,
+PASS. Planning diffed each printed script against part 4's: the
+push and CI scripts differ only in comments, names, the spec and
+the base; the scan script differs in those and in the two-line
+check the report declares. The maintainer's authorisation was typed
+in the implementing session and the record is the single commit
+after the push, as "Close-out push (after P3)" says.
+
+Findings: none. Rulings:
+
+1. The close-out's script changes are accepted: the base resolved
+   as part 4's close-out doc commit by subject; the derivation notes
+   condensed; and, in the scan, the Co-Authored-By check holding
+   each message to one of the two lines the range carries, with the
+   line printed per message, a count per line, the two counts
+   summed against the messages scanned, and four controls (each
+   line accepted; a similar third line and a session trailer
+   refused). A later range with a third line adds it the same way,
+   with its control, and never widens the check to a pattern.
+2. b0c21ef stays local and goes with the next push, as 7cc4f13 went
+   with this one.
+3. Milestone 1 part 5 is DONE and PUSHED. Part 6 (formulas) is next
+   and starts with its spec, for the maintainer's approval.
+
 ## Out of scope
 
 - New fonts, fills, borders, alignments, protection and named cell
