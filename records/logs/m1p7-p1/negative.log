@@ -1,0 +1,1669 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p1/m1p7-p1-negative.sh 43731f229d8a202f9de2d63e558306997a3c506c <scratch>/p1/out/gate.log <scratch>/p1/target
+about: M1 part 7 P1 phase commit 43731f229d8a202f9de2d63e558306997a3c506c; HEAD at run: 43731f229d8a202f9de2d63e558306997a3c506c
+
+## the three shape greps over this script's own file
+command: sha256sum <scratch>/p1/m1p7-p1-negative.sh
+  6edb0789b2a54434e1ce33a582fb69a0d7339c46e2a440bb1bb6a5ed42e059a3  28620 bytes
+command: count_matches -E <the chain pattern> over <scratch>/p1/m1p7-p1-negative.sh, and over a control fixture holding the chain shape
+  the chain pattern: [$][(](yn|is|isnot) .*(&&|[|][|])
+  hits on this script: 0; hits on the control: 1
+  the chain shape: no hit on this script: as-expected
+  control: the chain pattern finds its shape in the fixture, through the same form: as-expected
+command: count_matches -E <the bang pattern> over <scratch>/p1/m1p7-p1-negative.sh, and over a control fixture holding the bang shape
+  the bang pattern: [$][(](yn|is|isnot) [!]
+  hits on this script: 0; hits on the control: 1
+  the bang shape: no hit on this script: as-expected
+  control: the bang pattern finds its shape in the fixture, through the same form: as-expected
+command: count_matches -E <the assign pattern> over <scratch>/p1/m1p7-p1-negative.sh, and over a control fixture holding the assign shape
+  the assign pattern: [$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*=
+  hits on this script: 0; hits on the control: 1
+  the assign shape: no hit on this script: as-expected
+  control: the assign pattern finds its shape in the fixture, through the same form: as-expected
+
+## the phase's commits, by role, read from git
+command: git log --reverse --format='%H %s' --grep='^M1 part 7 P1: ' (planning doc commits printed and set apart)
+    planning doc commit: 3c4e7de6ef7e08c3fc6134ec1eade68f58042670 M1 part 7 P1: commit planning docs (the part 6 close-out rulings, the part 7 spec)
+    planning doc commit: b45c5247df7cfdac0fba3762e743372e9e4eecb4 M1 part 7 P1: commit planning docs (the P1 rulings before code)
+    code commit 1: b315caf18e1f8ccd25c14088c9f1414fcdf66b15 M1 part 7 P1: the names-only XML comparison in xlsx-diff
+    code commit 2: 43731f229d8a202f9de2d63e558306997a3c506c M1 part 7 P1: line ends across markup, and the fixtures check 1 asked for
+  code commits: 2; the last: 43731f229d8a202f9de2d63e558306997a3c506c
+  the phase has at least one code commit: as-expected
+  the last code commit, read from git, is the phase commit given to this script: as-expected
+  control: the first planning doc commit is not the phase commit: as-expected
+
+phase: Milestone 1 part 7 P1 (specs/0014-xml-comparison.md) negative.log; run at 2026-09-23T23:31:04Z
+rerun: at the new phase commit 43731f2 (a second code commit after independent check 1). It replaces the b315caf attempt 2, negative.log c70ce532... (its script 9ce3afe7...), committed nowhere, superseded because the phase gained a code commit after check 1; that attempt in turn replaced the b315caf attempt 1 (log 15a16b20..., script f66b4a19..., four UNEXPECTED from the script's own reader). Every superseded file's sha256 is printed directly below. Changes: the phase commit and gate log; the departure line (check 1 F9); these hash lines (F12); the case N10 (the F1 fix through the binary)
+command: sha256sum and wc -c over each superseded attempt the rerun line names (the hashes it points at, printed here directly under it)
+    c70ce532d7226464eebc2919b9a4ab1c9b02fddf09f977dd0c54e4e13271865b  76486 bytes  negative.log
+    9ce3afe76464cad787c8cd324be657c9b97ea052cb959a2f6ee9566aad7c942c  26081 bytes  m1p7-p1-negative.sh
+    15a16b20345ff20f84bb43429c0483914ac4d7d24528320a68e1be29c981b593  75162 bytes  negative-attempt-1.log
+    f66b4a19f7426c4fbec0d9fb496aa5d7360cc4ccc9291879d8e7dcaf510821f0  25412 bytes  m1p7-p1-negative-attempt-1.sh
+SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo processes at entry: 0; rustc processes at entry: 0
+  no cargo or rustc process was running at entry: as-expected
+root: <scratch>/w stands for this run's working directory (the fixtures, the outputs and the binaries' copies), created fresh by mkdir (refused if present) and removed at exit
+root: <scratch>/p1/target stands for the build directory the gate built the two xlsx-diff binaries in
+  the working directory and the build directory are distinct, neither inside the other: as-expected
+  control: apart refuses a directory inside another: as-expected
+ANTHROPIC_API_KEY set in this shell: no
+every fixture is generated; no corpus file is copied or read
+departure (specs/0001 "How this task runs": a negative runs in a git worktree or a clone outside the repo): the cases run in <scratch>/w, a directory made by mkdir, with the gate's two binaries copied in, not in a git worktree or clone, because the cases need no repository file, only the two binaries and the fixtures this script builds; specs/0013 P2 verification ruling 5 permits <scratch>/w as a stated root (independent check 1, F9)
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison against the null commit says no: as-expected
+  control: the same comparison against a short sha of the real commit says no: as-expected
+  control: isnot reports UNEXPECTED on a passing command: as-expected
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 part 7 P1 negative.log (specs/0014-xml-comparison.md, "### P1";
+    # the negative log specs/0001 asks each phase for). "### P1" asks for "the
+    # tool on a malformed entry, an unknown prefix and a non-zip through the
+    # built binary on both targets, the rows and the exit status printed."
+    #
+    # The log opens as specs/0001 asks: line 1 the command, line 2 the
+    # invocation, line 3 the about line naming the phase commit and HEAD. The
+    # first block after them runs the three shape greps specs/0001 forbids over
+    # this script's own file, each with a positive control through the same
+    # command form. The next prints the phase's commits by role, read from git
+    # by subject; no commit id is typed here.
+    #
+    # The build directory is named once, as <scratch>/p1/target: the gate built
+    # the two debug xlsx-diff binaries there (host and i686 musl). They are
+    # copied into this run's working directory and each sha256 is compared with
+    # the one gate.log printed, read by command. Nothing is rebuilt. Every
+    # fixture is GENERATED by python3's zipfile from fictional XML (the
+    # generator is printed below); no corpus file is copied or read.
+    #
+    # The cases, each run through BOTH binaries, stdout, stderr and the exit
+    # status printed in full (the rows carry names and counts only):
+    #  N0  control: a changed entry that parses on both sides (exit 1, a parse
+    #      row ok ok, a values row), so the error cases' assertions can differ.
+    #  N1  the output entry malformed, a tag left unclosed at the end of input.
+    #  N2  an unknown element prefix on the input side.
+    #  N3  the output file not a zip archive (exit 2).
+    #  N4  a mismatched end tag on the output side.
+    #  N5  an unknown attribute prefix on the output side.
+    #  N6  both sides fail: the offset column is the input's (P1 ruling 2).
+    #  N7  no value through the binary: a fictional sentinel, built from pieces
+    #      by the generator and never written whole here, in text, an attribute
+    #      and CDATA on each side; one pair with a malformed side, one where both
+    #      parse; the sentinel and its hex are absent from stdout and stderr,
+    #      with a control that the same form finds a planted copy.
+    #  N8  every parse row's width and column order, the width read from
+    #      specs/0014's "Output" table at the phase commit.
+    #  N9  host and i686 stdout identical for every case.
+    #  N10 a CR, a comment, then an LF in the output's text against two LFs in
+    #      the input: equal values through the binary (independent check 1's
+    #      F1, fixed in the phase's second code commit): the CR and the LF are
+    #      not adjacent, so they are two line ends.
+    # Every expected offset is derived by the generator from the fixture's own
+    # bytes, by the rule specs/0014 P1 ruling 4 and the module's Limits state:
+    # a syntax error at the `<` that opens the markup (quick-xml's
+    # error_position), an unknown prefix at the end of its tag, the end of input
+    # with an element open at the end of input. Every expected message is read
+    # from the source at the phase commit.
+    #
+    # WRITTEN FOR M1 part 7 P1 from part 6 P3's negative script
+    # (records/logs/m1p6-p3/negative.log). What differs from it:
+    #  1. The phase, the gate log and the log directory are part 7 P1's. The
+    #     gate log is the second argument (read for the binaries' hashes; its
+    #     about line must name the phase commit, with part 6 P3's committed gate
+    #     log as the control). The third argument is the build directory,
+    #     written <scratch>/p1/target.
+    #  2. Every emend-copy, probe and core case family (L, N-parsing, H, K, F,
+    #     W, A, Z, Y, S, T, U, D, E, X, R, G, C) is dropped: part 7 changes
+    #     xlsx-diff alone, and the core is untouched (the gate log's code-commit
+    #     paths). The N family here is new and names xlsx-diff cases.
+    #  3. Two binaries are copied, not four; no scratch clone is needed, since
+    #     nothing runs cargo.
+    #  4. The commits by role: the planning doc commits and the code commit are
+    #     read by the subject prefix "M1 part 7 P1: "; the last code commit must
+    #     be the phase commit.
+    #  5. The main-tree check expects a clean tree: nothing of this phase is
+    #     installed under records/ while its logs run.
+    #  6. Two roots, as before: <scratch>/w (this run's working directory, made
+    #     fresh by mkdir and removed at exit) and the build directory
+    #     <scratch>/p1/target; the header prints one line per root and checks
+    #     they are distinct.
+    #  7. None of the three shapes specs/0001 forbids appears here; the shapes
+    #     are described rather than written out, and the first block checks it.
+    #
+    # RERUN AT A NEW PHASE COMMIT (after independent check 1): the phase gained
+    # a second code commit, so this log runs again at it, against the gate log
+    # the gate rerun wrote there and the binaries that rerun rebuilt. The log it
+    # replaces, the b315caf attempt 2, was committed nowhere; it and its script
+    # are kept and hashed on the rerun lines. Changes for check 1: F9, a
+    # departure line in the header (the cases run in a mkdir scratch directory
+    # with the gate's binaries copied in, not a git worktree or clone); F12,
+    # every superseded attempt's sha256 printed directly under the rerun line;
+    # the case N10 (check 1's F1 fix, through the binary).
+    #
+    # RERUN (attempt 2 at b315caf): attempt 1 (its log and script hashed on the rerun line
+    # below) printed four UNEXPECTED, all on the parse-row check of the two
+    # cases whose offset is empty (N0 and N7b, both targets): the expectations
+    # file carried the empty offset as an empty tab-separated field, and bash's
+    # read merges consecutive tabs, so the case's kind was read as its offset.
+    # The tool's rows were right; the script's reader was wrong. The file now
+    # writes "-" for an empty offset and the reader maps it back.
+    #
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    GATE_ARG=${2:?gate log required}
+    BIN_ARG=${3:?build directory required}
+    SROOT=$(cd "$(dirname "$0")/.." && pwd)
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    B="$SROOT/w"
+    mkdir "$B" || { echo "refused: $B exists" >&2; exit 2; }
+    BSHOWN="<scratch>/w"
+    trap 'rm -rf "$B"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # Negation goes through a helper, never by passing the shell's negation
+    # keyword as the first argument of `is` (specs/0001).
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$B#$BSHOWN#g; s#$SROOT#<scratch>#g; s#$MAIN#<repo>#g"; }
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { LC_ALL=C printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if ! full_sha "$C"; then echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if ! head_is "$C"; then echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    
+    echo "command: git rev-parse HEAD"
+    inv_path=$0
+    case "$inv_path" in
+      "$MAIN"/*) inv_path="<repo>/${inv_path#"$MAIN"/}" ;;
+      "$SROOT"/*) inv_path="<scratch>/${inv_path#"$SROOT"/}" ;;
+      /*) inv_path="<scratch>/$(basename "$inv_path")" ;;
+    esac
+    inv_args=""
+    for a in "$@"; do
+      case "$a" in
+        "$MAIN"/*) a="<repo>/${a#"$MAIN"/}" ;;
+        "$SROOT"/*) a="<scratch>/${a#"$SROOT"/}" ;;
+        /*) a="<scratch>/$(basename "$a")" ;;
+      esac
+      [ -n "$a" ] || a="''"
+      inv_args="$inv_args $a"
+    done
+    echo "invocation: bash $inv_path$inv_args"
+    echo "about: M1 part 7 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    
+    echo
+    echo "## the three shape greps over this script's own file"
+    echo "command: sha256sum $inv_path"
+    echo "  $(sha256sum <"$0" | cut -d' ' -f1)  $(wc -c <"$0") bytes"
+    SHAPE_CHAIN='[$][(](yn|is|isnot) .*(&&|[|][|])'
+    SHAPE_BANG='[$][(](yn|is|isnot) [!]'
+    SHAPE_ASSIGN='[$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*='
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$B/shape-chain"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$B/shape-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$B/shape-assign"
+    shape_hits_self=0
+    for pair in chain:SHAPE_CHAIN bang:SHAPE_BANG assign:SHAPE_ASSIGN; do
+      kind=${pair%%:*}
+      pat_name=${pair#*:}
+      pat=${!pat_name}
+      n_self=$(count_matches -E "$pat" "$0")
+      n_ctl=$(count_matches -E "$pat" "$B/shape-$kind")
+      echo "command: count_matches -E <the $kind pattern> over $inv_path, and over a control fixture holding the $kind shape"
+      echo "  the $kind pattern: $pat"
+      echo "  hits on this script: $n_self; hits on the control: $n_ctl"
+      note "the $kind shape: no hit on this script" "$(is [ "$n_self" = 0 ])"
+      note "control: the $kind pattern finds its shape in the fixture, through the same form" "$(is [ "$n_ctl" = 1 ])"
+      if [ "$n_self" != 0 ]; then shape_hits_self=1; fi
+    done
+    if [ "$shape_hits_self" != 0 ]; then echo "a forbidden shape is in this script; stopping before any case" >&2; exit 2; fi
+    
+    echo
+    echo "## the phase's commits, by role, read from git"
+    echo "command: git log --reverse --format='%H %s' --grep='^M1 part 7 P1: ' (planning doc commits printed and set apart)"
+    git log --reverse --format='%H %s' --grep='^M1 part 7 P1: ' >"$B/phase-commits"
+    LC_ALL=C "$G" -F 'commit planning docs' "$B/phase-commits" | sed 's/^/    planning doc commit: /'
+    LC_ALL=C "$G" -v -F 'commit planning docs' "$B/phase-commits" >"$B/code-commits"
+    awk '{ printf "    code commit %d: %s\n", NR, $0 }' "$B/code-commits"
+    ncode=$(count_lines "$B/code-commits")
+    last_code=$(tail -n 1 "$B/code-commits" | cut -d' ' -f1)
+    echo "  code commits: $ncode; the last: $last_code"
+    some_code() { [ "$ncode" != error ] && [ "$ncode" -ge 1 ]; }
+    note "the phase has at least one code commit" "$(is some_code)"
+    last_is_phase() { [ -n "$last_code" ] && [ "$last_code" = "$C" ]; }
+    note "the last code commit, read from git, is the phase commit given to this script" "$(is last_is_phase)"
+    first_doc=$(LC_ALL=C "$G" -F 'commit planning docs' "$B/phase-commits" | head -n 1 | cut -d' ' -f1)
+    doc_is_phase() { [ -n "$first_doc" ] && [ "$first_doc" = "$C" ]; }
+    note "control: the first planning doc commit is not the phase commit" "$(isnot doc_is_phase)"
+    
+    echo
+    echo "phase: Milestone 1 part 7 P1 (specs/0014-xml-comparison.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt the rerun line names (the hashes it points at, printed here directly under it)"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc"
+    note "no cargo or rustc process was running at entry" "$(is [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "root: $BSHOWN stands for this run's working directory (the fixtures, the outputs and the binaries' copies), created fresh by mkdir (refused if present) and removed at exit"
+    echo "root: <scratch>/p1/target stands for the build directory the gate built the two xlsx-diff binaries in"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    note "the working directory and the build directory are distinct, neither inside the other" "$(is apart "$B" "$BIN_ARG")"
+    apart_ctl() { if apart "$SROOT/p1" "$SROOT"; then return 1; else return 0; fi; }
+    note "control: apart refuses a directory inside another" "$(is apart_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "every fixture is generated; no corpus file is copied or read"
+    echo "departure (specs/0001 \"How this task runs\": a negative runs in a git worktree or a clone outside the repo): the cases run in <scratch>/w, a directory made by mkdir, with the gate's two binaries copied in, not in a git worktree or clone, because the cases need no repository file, only the two binaries and the fixtures this script builds; specs/0013 P2 verification ruling 5 permits <scratch>/w as a stated root (independent check 1, F9)"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is head_is "$C")"
+    note "control: the same comparison against the null commit says no" "$(isnot head_is "$NULL_SHA")"
+    note "control: the same comparison against a short sha of the real commit says no" \
+      "$(isnot head_is "$(printf '%s' "$C" | cut -c1-7)")"
+    isnot_says_unexpected() { [ "$(isnot true)" = UNEXPECTED ]; }
+    note "control: isnot reports UNEXPECTED on a passing command" "$(is isnot_says_unexpected)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the gate's binaries"
+    BIN_SHOWN="<scratch>/${BIN_ARG#"$SROOT"/}"
+    GATE_SHOWN="<scratch>/${GATE_ARG#"$SROOT"/}"
+    mkdir -p "$B/bin"
+    declare -A XD
+    bins_ok=yes
+    for t in host i686; do
+      case $t in
+        host) rel=debug/xlsx-diff ;;
+        i686) rel=i686-unknown-linux-musl/debug/xlsx-diff ;;
+      esac
+      if cp "$BIN_ARG/$rel" "$B/bin/xlsx-diff-$t" 2>/dev/null; then
+        echo "  copied $BIN_SHOWN/$rel: sha256 $(sha256sum <"$B/bin/xlsx-diff-$t" | cut -d' ' -f1), bytes $(wc -c <"$B/bin/xlsx-diff-$t")"
+      else
+        echo "  copied $BIN_SHOWN/$rel: FAILED"
+        bins_ok=no
+      fi
+      XD[$t]=$B/bin/xlsx-diff-$t
+    done
+    both_executable() {
+      [ "$bins_ok" = yes ] || return 1
+      [ -x "${XD[host]}" ] || return 1
+      [ -x "${XD[i686]}" ] || return 1
+      return 0
+    }
+    note "both binaries were copied in and both are executable" "$(is both_executable)"
+    echo "command: read the two xlsx-diff hashes from $GATE_SHOWN (sha256 $(sha256sum <"$GATE_ARG" | cut -d' ' -f1), $(wc -c <"$GATE_ARG") bytes)"
+    gate_is_phase() { [ "$(count_matches -E "^about: M1 part 7 P1 .*$C" "$GATE_ARG")" = 1 ]; }
+    note "the gate log read is part 7 P1's and names this phase commit on its about line" "$(is gate_is_phase)"
+    gate_is_other() { [ "$(count_matches -E "^about: M1 part 7 P1 .*$C" "$MAIN/records/logs/m1p6-p3/gate.log")" = 1 ]; }
+    note "control: the same check on part 6 P3's committed gate log says no" "$(isnot gate_is_other)"
+    gate_hash() { sed -n "s#^  <scratch>/p1/target/$1: sha256 \([0-9a-f]\{64\}\), bytes [0-9]*\$#\1#p" "$GATE_ARG"; }
+    nsame_gate=0
+    for t in host i686; do
+      case $t in
+        host) rel=debug/xlsx-diff ;;
+        i686) rel=i686-unknown-linux-musl/debug/xlsx-diff ;;
+      esac
+      want=$(gate_hash "$rel")
+      got=$(sha256sum <"${XD[$t]}" | cut -d' ' -f1)
+      echo "  $BIN_SHOWN/$rel: gate.log $want; copied $got"
+      if [ -n "$want" ] && [ "$want" = "$got" ]; then nsame_gate=$((nsame_gate + 1)); fi
+    done
+    note "both copied binaries are the ones gate.log hashed" "$(is [ "$nsame_gate" = 2 ])"
+    note "control: the same reader finds no hash for a binary gate.log does not name" \
+      "$(is [ -z "$(gate_hash debug/no-such-binary)" ])"
+    echo "  (nothing is rebuilt here)"
+    
+    echo
+    echo "## what the spec and the source say, read at the phase commit"
+    echo "command: git show $C:specs/0014-xml-comparison.md | grep the parse row of the Output table, the archive keys and the P1 negative-log sentence"
+    git show "$C:specs/0014-xml-comparison.md" >"$B/spec.md"
+    parse_line=$(LC_ALL=C "$G" -F '| `parse` |' "$B/spec.md")
+    echo "    $parse_line"
+    neg_line=$(LC_ALL=C "$G" -n -F 'malformed entry, an unknown prefix and a non-zip' "$B/spec.md")
+    echo "    $neg_line"
+    keys_line=$(LC_ALL=C "$G" -F '`xml_compared` (the' "$B/spec.md")
+    echo "    $keys_line"
+    spec_found() { [ -n "$parse_line" ] && [ -n "$neg_line" ] && [ -n "$keys_line" ]; }
+    note "the three spec lines are found, non-empty" "$(is spec_found)"
+    # The parse row's width: xml, the name and the kind word, then the columns the
+    # table lists after the kind, separated by semicolons.
+    parse_cols=$(printf '%s\n' "$parse_line" | awk -F'|' '{ print $3 }' | awk -F';' '{ print NF }')
+    PARSE_WIDTH=$((3 + parse_cols))
+    echo "  columns after the kind word, read from the table: $parse_cols; so a parse row is $PARSE_WIDTH columns wide"
+    note "the table gives five columns after the kind word (two statuses, the offset, two raw counts)" "$(is [ "$parse_cols" = 5 ])"
+    echo "command: git show $C:tools/xlsx-diff/src/lib.rs | grep the not-a-zip message"
+    git show "$C:tools/xlsx-diff/src/lib.rs" >"$B/lib.rs"
+    nz_src=$(LC_ALL=C "$G" -o -E '"the \{side\} file is not a readable zip archive"' "$B/lib.rs" | head -n 1)
+    echo "    $nz_src"
+    NOTZIP_MSG="error: $(printf '%s' "$nz_src" | sed 's/^"//; s/"$//; s/{side}/output/')"
+    echo "  expected stderr for N3: $NOTZIP_MSG"
+    note "the message is read from the source, non-empty" "$(is [ -n "$nz_src" ])"
+    
+    echo
+    echo "## the generated fixtures"
+    cat >"$B/gen.py" <<'GEN_PY'
+    import os, sys, zipfile
+    
+    base = sys.argv[1]
+    NS = "urn:example:fictional"
+    NAME = "xl/worksheets/sheet1.xml"
+    
+    
+    def archive(path, data):
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", b"<Types/>", zipfile.ZIP_STORED)
+            z.writestr(NAME, data, zipfile.ZIP_DEFLATED)
+    
+    
+    # The sentinel, from pieces, so the whole string is in no source.
+    sentinel = "".join(["zq", "-sent", "inel-", "m1p7", "-neg"])
+    
+    good = ('<a xmlns="%s"><b c="1">x</b></a>' % NS).encode()
+    other = ('<a xmlns="%s"><b c="2">x</b></a>' % NS).encode()
+    
+    
+    def lt_of_unclosed(doc):
+        """A syntax error at the end of input inside markup is at the `<` that
+        opens that markup: the last `<` of the document."""
+        return doc.rfind(b"<")
+    
+    
+    def end_of(doc, tag):
+        """An unknown prefix is at the end of the tag that holds it."""
+        return doc.index(tag) + len(tag)
+    
+    
+    def lt_of(doc, markup):
+        """A mismatched end tag is at its `<`."""
+        return doc.index(markup)
+    
+    
+    def leak(s):
+        return ('<a xmlns="%s" v="%s"><t>%s</t><u><![CDATA[%s]]></u></a>'
+                % (NS, s, s, s)).encode()
+    
+    
+    cases = []
+    # (case, input, output, in status, out status, offset or "", kind)
+    cases.append(("N0", good, other, "ok", "ok", "", "parsed"))
+    malformed = b"<a><b"
+    cases.append(("N1", good, malformed, "ok", "error", str(lt_of_unclosed(malformed)), "error"))
+    prefixed = b"<a><p:b/></a>"
+    cases.append(("N2", prefixed, good, "error", "ok", str(end_of(prefixed, b"<p:b/>")), "error"))
+    mismatched = b"<a>x</b>"
+    cases.append(("N4", good, mismatched, "ok", "error", str(lt_of(mismatched, b"</b")), "error"))
+    attr = b'<a><b p:c="1"/></a>'
+    cases.append(("N5", good, attr, "ok", "error", str(end_of(attr, b'<b p:c="1"/>')), "error"))
+    open_in = b"<a><b>x"
+    # Both sides fail: the input's offset (ruling 2). The input's element is
+    # open at the end of input, so its offset is the input's length.
+    cases.append(("N6", open_in, malformed, "error", "error", str(len(open_in)), "error"))
+    leak_bad = leak(sentinel)[:-2]  # ends inside the end tag markup
+    cases.append(("N7a", leak(sentinel), leak_bad, "ok", "error", str(lt_of_unclosed(leak_bad)), "error"))
+    cases.append(("N7b", leak(sentinel), leak(sentinel + "-2"), "ok", "ok", "", "parsed"))
+    # N10: a CR, a comment, then an LF are two line ends, as two LFs are.
+    cases.append(("N10", b"<a>x\n\ny</a>", b"<a>x\r<!--c-->\ny</a>", "ok", "ok", "", "equal"))
+    
+    with open(os.path.join(base, "expected.tsv"), "w") as handle:
+        for case, a, b, si, so, off, kind in cases:
+            d = os.path.join(base, case)
+            os.makedirs(d)
+            archive(os.path.join(d, "in.zip"), a)
+            archive(os.path.join(d, "out.zip"), b)
+            # "-" stands for an empty offset: read splits on tabs and would
+            # merge an empty field with its neighbour.
+            handle.write("\t".join([case, si, so, off or "-", kind]) + "\n")
+    
+    # N3: the output is not a zip archive.
+    d = os.path.join(base, "N3")
+    os.makedirs(d)
+    archive(os.path.join(d, "in.zip"), good)
+    with open(os.path.join(d, "out.zip"), "wb") as handle:
+        handle.write(b"fictional bytes, not a zip archive\n")
+    
+    # The sentinel and its hex, one per line, for grep -f, never printed; and a
+    # planted copy for the control.
+    with open(os.path.join(base, "sentinel.pat"), "w") as handle:
+        handle.write(sentinel + "\n" + sentinel.encode().hex() + "\n")
+    with open(os.path.join(base, "planted.txt"), "w") as handle:
+        handle.write("xml\tplanted\t" + sentinel + "\n")
+    GEN_PY
+    sed 's/^/    /' "$B/gen.py"
+    echo "command: python3 <scratch>/w/gen.py <scratch>/w/cases  (python3 $(python3 -c 'import sys; print(sys.version.split()[0])'))"
+    mkdir "$B/cases"
+    python3 "$B/gen.py" "$B/cases" 2>&1 | hide | sed 's/^/    /'
+    echo "  expected, as the generator derived them from the fixtures (case, input, output, offset, kind):"
+    sed 's/^/    /' "$B/cases/expected.tsv"
+    note "the generator wrote nine expectations" "$(is [ "$(count_lines "$B/cases/expected.tsv")" = 9 ])"
+    
+    # Runs one case through one binary; keeps stdout, stderr and the status.
+    run_case() {
+      local case=$1 t=$2 d=$B/cases/$1
+      "${XD[$t]}" "$d/in.zip" "$d/out.zip" >"$d/stdout.$t" 2>"$d/stderr.$t"
+      echo $? >"$d/status.$t"
+    }
+    show_case() {
+      local d=$B/cases/$1 t=$2
+      echo "  [$1 $t] exit status: $(cat "$d/status.$t")"
+      echo "  [$1 $t] stdout:"
+      sed 's/^/      /' "$d/stdout.$t"
+      echo "  [$1 $t] stderr:"
+      sed 's/^/      /' "$d/stderr.$t" | hide
+    }
+    # Assertions over one parsed-or-failed case's rows.
+    xml_count() { awk -F'\t' -v k="$2" '$1 == "xml" && $3 == k' "$1" | wc -l; }
+    xml_other() { awk -F'\t' '$1 == "xml" && $3 != "parse"' "$1" | wc -l; }
+    arch() { awk -F'\t' -v k="$2" '$1 == "archive" && $2 == k { print $3 }' "$1"; }
+    parse_is() {
+      local f=$1 want=$2 got
+      got=$(awk -F'\t' '$1 == "xml" && $3 == "parse" { print $4 "\t" $5 "\t" $6 }' "$f")
+      [ "$got" = "$want" ]
+    }
+    entry_changed() { [ "$(awk -F'\t' -v n="$2" '$1 == "entry" && $2 == n { print $3 }' "$1")" = changed ]; }
+    error_archive() {
+      local f=$1
+      [ "$(arch "$f" xml_compared)" = 1 ] && [ "$(arch "$f" xml_parse_errors)" = 1 ] \
+        && [ "$(arch "$f" xml_names_equal)" = 0 ] && [ "$(arch "$f" xml_values_equal)" = 0 ]
+    }
+    parsed_archive() {
+      local f=$1
+      [ "$(arch "$f" xml_compared)" = 1 ] && [ "$(arch "$f" xml_parse_errors)" = 0 ] \
+        && [ "$(arch "$f" xml_names_equal)" = 1 ] && [ "$(arch "$f" xml_values_equal)" = 0 ]
+    }
+    equal_archive() {
+      local f=$1
+      [ "$(arch "$f" xml_compared)" = 1 ] && [ "$(arch "$f" xml_parse_errors)" = 0 ] \
+        && [ "$(arch "$f" xml_names_equal)" = 1 ] && [ "$(arch "$f" xml_values_equal)" = 1 ]
+    }
+    values_equal_row() {
+      [ "$(awk -F'\t' '$1 == "xml" && $3 == "values" { print $6 "\t" $7 }' "$1")" = "0$TAB""0" ]
+    }
+    stderr_empty() { [ ! -s "$1" ]; }
+    TAB=$(printf '\t')
+    
+    echo
+    echo "## N0 to N7: the cases, through both binaries"
+    while IFS="$TAB" read -r case si so off kind; do
+      [ "$off" = - ] && off=""
+      for t in host i686; do
+        run_case "$case" "$t"
+        show_case "$case" "$t"
+        d=$B/cases/$case
+        note "[$case $t] exit status 1" "$(is [ "$(cat "$d/status.$t")" = 1 ])"
+        note "[$case $t] stderr empty" "$(is stderr_empty "$d/stderr.$t")"
+        note "[$case $t] the entry row says changed" "$(is entry_changed "$d/stdout.$t" xl/worksheets/sheet1.xml)"
+        note "[$case $t] one parse row, reading $si $so and offset '$off' as derived" \
+          "$(is parse_is "$d/stdout.$t" "$si$TAB$so$TAB$off")"
+        note "[$case $t] exactly one parse row" "$(is [ "$(xml_count "$d/stdout.$t" parse)" = 1 ])"
+        if [ "$kind" = error ]; then
+          note "[$case $t] no element, attribute or values row after a parse error" "$(is [ "$(xml_other "$d/stdout.$t")" = 0 ])"
+          note "[$case $t] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0" "$(is error_archive "$d/stdout.$t")"
+        elif [ "$kind" = equal ]; then
+          note "[$case $t] one values row" "$(is [ "$(xml_count "$d/stdout.$t" values)" = 1 ])"
+          note "[$case $t] the values row has in_only 0 and out_only 0" "$(is values_equal_row "$d/stdout.$t")"
+          note "[$case $t] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 1" "$(is equal_archive "$d/stdout.$t")"
+        else
+          note "[$case $t] one values row" "$(is [ "$(xml_count "$d/stdout.$t" values)" = 1 ])"
+          note "[$case $t] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 0" "$(is parsed_archive "$d/stdout.$t")"
+        fi
+      done
+    done <"$B/cases/expected.tsv"
+    # A control on the assertion form: N0's parse row does not read as N1's.
+    note "control: parse_is says no to N1's expectation on N0's rows" \
+      "$(isnot parse_is "$B/cases/N0/stdout.host" "ok${TAB}error${TAB}3")"
+    note "control: error_archive says no on N0's rows" "$(isnot error_archive "$B/cases/N0/stdout.host")"
+    note "control: values_equal_row says no on N0's rows, whose values differ" "$(isnot values_equal_row "$B/cases/N0/stdout.host")"
+    note "control: equal_archive says no on N0's rows" "$(isnot equal_archive "$B/cases/N0/stdout.host")"
+    
+    echo
+    echo "## N3: the output file is not a zip archive"
+    for t in host i686; do
+      run_case N3 "$t"
+      show_case N3 "$t"
+      d=$B/cases/N3
+      note "[N3 $t] exit status 2" "$(is [ "$(cat "$d/status.$t")" = 2 ])"
+      note "[N3 $t] stdout empty" "$(is stderr_empty "$d/stdout.$t")"
+      note "[N3 $t] stderr is exactly the message read from the source" "$(is [ "$(cat "$d/stderr.$t")" = "$NOTZIP_MSG" ])"
+    done
+    
+    echo
+    echo "## N7: no value reaches stdout or stderr"
+    echo "command: count_from_file -F <the sentinel and its hex, one per line, never printed> over every case's stdout and stderr, both targets"
+    outs=$(ls "$B"/cases/*/stdout.* "$B"/cases/*/stderr.*)
+    nfiles=$(printf '%s\n' "$outs" | wc -l)
+    # shellcheck disable=SC2086
+    nleak=$(count_from_file -F "$B/cases/sentinel.pat" $outs)
+    nplant=$(count_from_file -F "$B/cases/sentinel.pat" "$B/cases/planted.txt")
+    echo "  files scanned: $nfiles; lines holding a sentinel form: $nleak; control, the planted copy: $nplant"
+    note "no sentinel form in any stdout or stderr" "$(is [ "$nleak" = 0 ])"
+    note "control: the same form finds the planted copy" "$(is [ "$nplant" = 1 ])"
+    note "every case wrote its two streams on both targets (ten cases, two streams, two targets)" "$(is [ "$nfiles" = 40 ])"
+    
+    echo
+    echo "## N8: every parse row's width and column order"
+    echo "command: awk over every case's stdout, both targets: kind word parse, statuses ok or error, offset digits or empty, two raw counts in digits, width $PARSE_WIDTH"
+    bad_rows=$(cat "$B"/cases/*/stdout.* | awk -F'\t' -v w="$PARSE_WIDTH" '
+      $1 == "xml" && $3 == "parse" {
+        n++
+        if (NF != w || ($4 != "ok" && $4 != "error") || ($5 != "ok" && $5 != "error") \
+            || $6 !~ /^[0-9]*$/ || $7 !~ /^[0-9]+$/ || $8 !~ /^[0-9]+$/) bad++
+      }
+      END { print n + 0, bad + 0 }')
+    echo "  parse rows, and rows out of shape: $bad_rows"
+    note "eighteen parse rows (nine cases, two targets), none out of shape" "$(is [ "$bad_rows" = "18 0" ])"
+    printf 'xml\ta.xml\tparse\tok\tfine\t\t0\t0\n' >"$B/bad-row"
+    bad_ctl=$(awk -F'\t' -v w="$PARSE_WIDTH" '
+      $1 == "xml" && $3 == "parse" {
+        n++
+        if (NF != w || ($4 != "ok" && $4 != "error") || ($5 != "ok" && $5 != "error") \
+            || $6 !~ /^[0-9]*$/ || $7 !~ /^[0-9]+$/ || $8 !~ /^[0-9]+$/) bad++
+      }
+      END { print n + 0, bad + 0 }' "$B/bad-row")
+    note "control: the same awk reports a row whose output status is neither ok nor error" "$(is [ "$bad_ctl" = "1 1" ])"
+    
+    echo
+    echo "## N9: host and i686 print the same bytes"
+    nsame=0 ncases=0
+    for d in "$B"/cases/N*; do
+      ncases=$((ncases + 1))
+      if cmp -s "$d/stdout.host" "$d/stdout.i686" && cmp -s "$d/stderr.host" "$d/stderr.i686" \
+         && cmp -s "$d/status.host" "$d/status.i686"; then
+        nsame=$((nsame + 1))
+      else
+        echo "  $(basename "$d"): differs between the targets"
+      fi
+    done
+    echo "  cases: $ncases; identical on both targets (stdout, stderr, status): $nsame"
+    note "every case identical on both targets" "$(is [ "$nsame" = "$ncases" ])"
+    note "ten cases compared" "$(is [ "$ncases" = 10 ])"
+    cmp_ctl() { cmp -s "$B/cases/N0/stdout.host" "$B/cases/N1/stdout.host"; }
+    note "control: cmp says no on two cases' different stdout" "$(isnot cmp_ctl)"
+    
+    echo
+    echo "## the main working tree was never used"
+    echo "command: git -C <repo> status --porcelain"
+    st_all=$(run_lines git -C "$MAIN" status --porcelain)
+    echo "status lines in the main tree: $st_all"
+    note "the main working tree is clean" "$(is [ "$st_all" = 0 ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the gate's binaries
+  copied <scratch>/p1/target/debug/xlsx-diff: sha256 87bb476439b84644e54f14eed1d3f68c66df71ba83ff6024d4f6fe4042ca4f3f, bytes 12915936
+  copied <scratch>/p1/target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 cdb759888f6653f6bd86dc954a781c08def11f15b5561fe105d53f84e1ea81b5, bytes 11454888
+  both binaries were copied in and both are executable: as-expected
+command: read the two xlsx-diff hashes from <scratch>/p1/out/gate.log (sha256 9c9c5551bcd96354fd1437ba016ae46ff41ad2ecd70e0061cba84ee5b901520a, 96940 bytes)
+  the gate log read is part 7 P1's and names this phase commit on its about line: as-expected
+  control: the same check on part 6 P3's committed gate log says no: as-expected
+  <scratch>/p1/target/debug/xlsx-diff: gate.log 87bb476439b84644e54f14eed1d3f68c66df71ba83ff6024d4f6fe4042ca4f3f; copied 87bb476439b84644e54f14eed1d3f68c66df71ba83ff6024d4f6fe4042ca4f3f
+  <scratch>/p1/target/i686-unknown-linux-musl/debug/xlsx-diff: gate.log cdb759888f6653f6bd86dc954a781c08def11f15b5561fe105d53f84e1ea81b5; copied cdb759888f6653f6bd86dc954a781c08def11f15b5561fe105d53f84e1ea81b5
+  both copied binaries are the ones gate.log hashed: as-expected
+  control: the same reader finds no hash for a binary gate.log does not name: as-expected
+  (nothing is rebuilt here)
+
+## what the spec and the source say, read at the phase commit
+command: git show 43731f229d8a202f9de2d63e558306997a3c506c:specs/0014-xml-comparison.md | grep the parse row of the Output table, the archive keys and the P1 negative-log sentence
+    | `parse` | `ok` or `error` for the input; the same for the output; the byte offset of the error, empty when none; the count of values hashed raw on the input; on the output |
+    273:malformed entry, an unknown prefix and a non-zip through the built
+    New `archive` rows, after `files_identical`: `xml_compared` (the
+  the three spec lines are found, non-empty: as-expected
+  columns after the kind word, read from the table: 5; so a parse row is 8 columns wide
+  the table gives five columns after the kind word (two statuses, the offset, two raw counts): as-expected
+command: git show 43731f229d8a202f9de2d63e558306997a3c506c:tools/xlsx-diff/src/lib.rs | grep the not-a-zip message
+    "the {side} file is not a readable zip archive"
+  expected stderr for N3: error: the output file is not a readable zip archive
+  the message is read from the source, non-empty: as-expected
+
+## the generated fixtures
+    import os, sys, zipfile
+    
+    base = sys.argv[1]
+    NS = "urn:example:fictional"
+    NAME = "xl/worksheets/sheet1.xml"
+    
+    
+    def archive(path, data):
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", b"<Types/>", zipfile.ZIP_STORED)
+            z.writestr(NAME, data, zipfile.ZIP_DEFLATED)
+    
+    
+    # The sentinel, from pieces, so the whole string is in no source.
+    sentinel = "".join(["zq", "-sent", "inel-", "m1p7", "-neg"])
+    
+    good = ('<a xmlns="%s"><b c="1">x</b></a>' % NS).encode()
+    other = ('<a xmlns="%s"><b c="2">x</b></a>' % NS).encode()
+    
+    
+    def lt_of_unclosed(doc):
+        """A syntax error at the end of input inside markup is at the `<` that
+        opens that markup: the last `<` of the document."""
+        return doc.rfind(b"<")
+    
+    
+    def end_of(doc, tag):
+        """An unknown prefix is at the end of the tag that holds it."""
+        return doc.index(tag) + len(tag)
+    
+    
+    def lt_of(doc, markup):
+        """A mismatched end tag is at its `<`."""
+        return doc.index(markup)
+    
+    
+    def leak(s):
+        return ('<a xmlns="%s" v="%s"><t>%s</t><u><![CDATA[%s]]></u></a>'
+                % (NS, s, s, s)).encode()
+    
+    
+    cases = []
+    # (case, input, output, in status, out status, offset or "", kind)
+    cases.append(("N0", good, other, "ok", "ok", "", "parsed"))
+    malformed = b"<a><b"
+    cases.append(("N1", good, malformed, "ok", "error", str(lt_of_unclosed(malformed)), "error"))
+    prefixed = b"<a><p:b/></a>"
+    cases.append(("N2", prefixed, good, "error", "ok", str(end_of(prefixed, b"<p:b/>")), "error"))
+    mismatched = b"<a>x</b>"
+    cases.append(("N4", good, mismatched, "ok", "error", str(lt_of(mismatched, b"</b")), "error"))
+    attr = b'<a><b p:c="1"/></a>'
+    cases.append(("N5", good, attr, "ok", "error", str(end_of(attr, b'<b p:c="1"/>')), "error"))
+    open_in = b"<a><b>x"
+    # Both sides fail: the input's offset (ruling 2). The input's element is
+    # open at the end of input, so its offset is the input's length.
+    cases.append(("N6", open_in, malformed, "error", "error", str(len(open_in)), "error"))
+    leak_bad = leak(sentinel)[:-2]  # ends inside the end tag markup
+    cases.append(("N7a", leak(sentinel), leak_bad, "ok", "error", str(lt_of_unclosed(leak_bad)), "error"))
+    cases.append(("N7b", leak(sentinel), leak(sentinel + "-2"), "ok", "ok", "", "parsed"))
+    # N10: a CR, a comment, then an LF are two line ends, as two LFs are.
+    cases.append(("N10", b"<a>x\n\ny</a>", b"<a>x\r<!--c-->\ny</a>", "ok", "ok", "", "equal"))
+    
+    with open(os.path.join(base, "expected.tsv"), "w") as handle:
+        for case, a, b, si, so, off, kind in cases:
+            d = os.path.join(base, case)
+            os.makedirs(d)
+            archive(os.path.join(d, "in.zip"), a)
+            archive(os.path.join(d, "out.zip"), b)
+            # "-" stands for an empty offset: read splits on tabs and would
+            # merge an empty field with its neighbour.
+            handle.write("\t".join([case, si, so, off or "-", kind]) + "\n")
+    
+    # N3: the output is not a zip archive.
+    d = os.path.join(base, "N3")
+    os.makedirs(d)
+    archive(os.path.join(d, "in.zip"), good)
+    with open(os.path.join(d, "out.zip"), "wb") as handle:
+        handle.write(b"fictional bytes, not a zip archive\n")
+    
+    # The sentinel and its hex, one per line, for grep -f, never printed; and a
+    # planted copy for the control.
+    with open(os.path.join(base, "sentinel.pat"), "w") as handle:
+        handle.write(sentinel + "\n" + sentinel.encode().hex() + "\n")
+    with open(os.path.join(base, "planted.txt"), "w") as handle:
+        handle.write("xml\tplanted\t" + sentinel + "\n")
+command: python3 <scratch>/w/gen.py <scratch>/w/cases  (python3 3.14.4)
+  expected, as the generator derived them from the fixtures (case, input, output, offset, kind):
+    N0	ok	ok	-	parsed
+    N1	ok	error	3	error
+    N2	error	ok	9	error
+    N4	ok	error	4	error
+    N5	ok	error	15	error
+    N6	error	error	7	error
+    N7a	ok	error	124	error
+    N7b	ok	ok	-	parsed
+    N10	ok	ok	-	equal
+  the generator wrote nine expectations: as-expected
+
+## N0 to N7: the cases, through both binaries
+  [N0 host] exit status: 1
+  [N0 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	51	53	53	5ccca46b	2b52769b	39	1	39	
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	2	2	1	1
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	164
+      archive	uncompressed_in	59
+      archive	uncompressed_out	59
+      archive	compressed_in	61
+      archive	compressed_out	61
+      archive	bytes_in	321
+      archive	bytes_out	321
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	0
+  [N0 host] stderr:
+  [N0 host] exit status 1: as-expected
+  [N0 host] stderr empty: as-expected
+  [N0 host] the entry row says changed: as-expected
+  [N0 host] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N0 host] exactly one parse row: as-expected
+  [N0 host] one values row: as-expected
+  [N0 host] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 0: as-expected
+  [N0 i686] exit status: 1
+  [N0 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	51	53	53	5ccca46b	2b52769b	39	1	39	
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	2	2	1	1
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	164
+      archive	uncompressed_in	59
+      archive	uncompressed_out	59
+      archive	compressed_in	61
+      archive	compressed_out	61
+      archive	bytes_in	321
+      archive	bytes_out	321
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	0
+  [N0 i686] stderr:
+  [N0 i686] exit status 1: as-expected
+  [N0 i686] stderr empty: as-expected
+  [N0 i686] the entry row says changed: as-expected
+  [N0 i686] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N0 i686] exactly one parse row: as-expected
+  [N0 i686] one values row: as-expected
+  [N0 i686] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 0: as-expected
+  [N1 host] exit status: 1
+  [N1 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	5	53	7	5ccca46b	dfd383ed	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	3	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	118
+      archive	uncompressed_in	59
+      archive	uncompressed_out	13
+      archive	compressed_in	61
+      archive	compressed_out	15
+      archive	bytes_in	321
+      archive	bytes_out	275
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N1 host] stderr:
+  [N1 host] exit status 1: as-expected
+  [N1 host] stderr empty: as-expected
+  [N1 host] the entry row says changed: as-expected
+  [N1 host] one parse row, reading ok error and offset '3' as derived: as-expected
+  [N1 host] exactly one parse row: as-expected
+  [N1 host] no element, attribute or values row after a parse error: as-expected
+  [N1 host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N1 i686] exit status: 1
+  [N1 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	5	53	7	5ccca46b	dfd383ed	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	3	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	118
+      archive	uncompressed_in	59
+      archive	uncompressed_out	13
+      archive	compressed_in	61
+      archive	compressed_out	15
+      archive	bytes_in	321
+      archive	bytes_out	275
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N1 i686] stderr:
+  [N1 i686] exit status 1: as-expected
+  [N1 i686] stderr empty: as-expected
+  [N1 i686] the entry row says changed: as-expected
+  [N1 i686] one parse row, reading ok error and offset '3' as derived: as-expected
+  [N1 i686] exactly one parse row: as-expected
+  [N1 i686] no element, attribute or values row after a parse error: as-expected
+  [N1 i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N2 host] exit status: 1
+  [N2 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	13	51	15	53	0d9451bc	5ccca46b	2			
+      xml	xl/worksheets/sheet1.xml	parse	error	ok	9	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	126
+      archive	central_start_out	164
+      archive	uncompressed_in	21
+      archive	uncompressed_out	59
+      archive	compressed_in	23
+      archive	compressed_out	61
+      archive	bytes_in	283
+      archive	bytes_out	321
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N2 host] stderr:
+  [N2 host] exit status 1: as-expected
+  [N2 host] stderr empty: as-expected
+  [N2 host] the entry row says changed: as-expected
+  [N2 host] one parse row, reading error ok and offset '9' as derived: as-expected
+  [N2 host] exactly one parse row: as-expected
+  [N2 host] no element, attribute or values row after a parse error: as-expected
+  [N2 host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N2 i686] exit status: 1
+  [N2 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	13	51	15	53	0d9451bc	5ccca46b	2			
+      xml	xl/worksheets/sheet1.xml	parse	error	ok	9	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	126
+      archive	central_start_out	164
+      archive	uncompressed_in	21
+      archive	uncompressed_out	59
+      archive	compressed_in	23
+      archive	compressed_out	61
+      archive	bytes_in	283
+      archive	bytes_out	321
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N2 i686] stderr:
+  [N2 i686] exit status 1: as-expected
+  [N2 i686] stderr empty: as-expected
+  [N2 i686] the entry row says changed: as-expected
+  [N2 i686] one parse row, reading error ok and offset '9' as derived: as-expected
+  [N2 i686] exactly one parse row: as-expected
+  [N2 i686] no element, attribute or values row after a parse error: as-expected
+  [N2 i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N4 host] exit status: 1
+  [N4 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	8	53	10	5ccca46b	72154193	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	4	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	121
+      archive	uncompressed_in	59
+      archive	uncompressed_out	16
+      archive	compressed_in	61
+      archive	compressed_out	18
+      archive	bytes_in	321
+      archive	bytes_out	278
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N4 host] stderr:
+  [N4 host] exit status 1: as-expected
+  [N4 host] stderr empty: as-expected
+  [N4 host] the entry row says changed: as-expected
+  [N4 host] one parse row, reading ok error and offset '4' as derived: as-expected
+  [N4 host] exactly one parse row: as-expected
+  [N4 host] no element, attribute or values row after a parse error: as-expected
+  [N4 host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N4 i686] exit status: 1
+  [N4 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	8	53	10	5ccca46b	72154193	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	4	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	121
+      archive	uncompressed_in	59
+      archive	uncompressed_out	16
+      archive	compressed_in	61
+      archive	compressed_out	18
+      archive	bytes_in	321
+      archive	bytes_out	278
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N4 i686] stderr:
+  [N4 i686] exit status 1: as-expected
+  [N4 i686] stderr empty: as-expected
+  [N4 i686] the entry row says changed: as-expected
+  [N4 i686] one parse row, reading ok error and offset '4' as derived: as-expected
+  [N4 i686] exactly one parse row: as-expected
+  [N4 i686] no element, attribute or values row after a parse error: as-expected
+  [N4 i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N5 host] exit status: 1
+  [N5 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	19	53	21	5ccca46b	7fbd9999	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	15	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	132
+      archive	uncompressed_in	59
+      archive	uncompressed_out	27
+      archive	compressed_in	61
+      archive	compressed_out	29
+      archive	bytes_in	321
+      archive	bytes_out	289
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N5 host] stderr:
+  [N5 host] exit status 1: as-expected
+  [N5 host] stderr empty: as-expected
+  [N5 host] the entry row says changed: as-expected
+  [N5 host] one parse row, reading ok error and offset '15' as derived: as-expected
+  [N5 host] exactly one parse row: as-expected
+  [N5 host] no element, attribute or values row after a parse error: as-expected
+  [N5 host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N5 i686] exit status: 1
+  [N5 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	51	19	53	21	5ccca46b	7fbd9999	2			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	15	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	164
+      archive	central_start_out	132
+      archive	uncompressed_in	59
+      archive	uncompressed_out	27
+      archive	compressed_in	61
+      archive	compressed_out	29
+      archive	bytes_in	321
+      archive	bytes_out	289
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N5 i686] stderr:
+  [N5 i686] exit status 1: as-expected
+  [N5 i686] stderr empty: as-expected
+  [N5 i686] the entry row says changed: as-expected
+  [N5 i686] one parse row, reading ok error and offset '15' as derived: as-expected
+  [N5 i686] exactly one parse row: as-expected
+  [N5 i686] no element, attribute or values row after a parse error: as-expected
+  [N5 i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N6 host] exit status: 1
+  [N6 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	7	5	9	7	c1a37064	dfd383ed	5			
+      xml	xl/worksheets/sheet1.xml	parse	error	error	7	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	120
+      archive	central_start_out	118
+      archive	uncompressed_in	15
+      archive	uncompressed_out	13
+      archive	compressed_in	17
+      archive	compressed_out	15
+      archive	bytes_in	277
+      archive	bytes_out	275
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N6 host] stderr:
+  [N6 host] exit status 1: as-expected
+  [N6 host] stderr empty: as-expected
+  [N6 host] the entry row says changed: as-expected
+  [N6 host] one parse row, reading error error and offset '7' as derived: as-expected
+  [N6 host] exactly one parse row: as-expected
+  [N6 host] no element, attribute or values row after a parse error: as-expected
+  [N6 host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N6 i686] exit status: 1
+  [N6 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	7	5	9	7	c1a37064	dfd383ed	5			
+      xml	xl/worksheets/sheet1.xml	parse	error	error	7	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	120
+      archive	central_start_out	118
+      archive	uncompressed_in	15
+      archive	uncompressed_out	13
+      archive	compressed_in	17
+      archive	compressed_out	15
+      archive	bytes_in	277
+      archive	bytes_out	275
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N6 i686] stderr:
+  [N6 i686] exit status 1: as-expected
+  [N6 i686] stderr empty: as-expected
+  [N6 i686] the entry row says changed: as-expected
+  [N6 i686] one parse row, reading error error and offset '7' as derived: as-expected
+  [N6 i686] exactly one parse row: as-expected
+  [N6 i686] no element, attribute or values row after a parse error: as-expected
+  [N6 i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N7a host] exit status: 1
+  [N7a host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	128	126	93	91	59aafbc0	cf025198	126			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	124	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	204
+      archive	central_start_out	202
+      archive	uncompressed_in	136
+      archive	uncompressed_out	134
+      archive	compressed_in	101
+      archive	compressed_out	99
+      archive	bytes_in	361
+      archive	bytes_out	359
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N7a host] stderr:
+  [N7a host] exit status 1: as-expected
+  [N7a host] stderr empty: as-expected
+  [N7a host] the entry row says changed: as-expected
+  [N7a host] one parse row, reading ok error and offset '124' as derived: as-expected
+  [N7a host] exactly one parse row: as-expected
+  [N7a host] no element, attribute or values row after a parse error: as-expected
+  [N7a host] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N7a i686] exit status: 1
+  [N7a i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	128	126	93	91	59aafbc0	cf025198	126			
+      xml	xl/worksheets/sheet1.xml	parse	ok	error	124	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	204
+      archive	central_start_out	202
+      archive	uncompressed_in	136
+      archive	uncompressed_out	134
+      archive	compressed_in	101
+      archive	compressed_out	99
+      archive	bytes_in	361
+      archive	bytes_out	359
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	1
+      archive	xml_names_equal	0
+      archive	xml_values_equal	0
+  [N7a i686] stderr:
+  [N7a i686] exit status 1: as-expected
+  [N7a i686] stderr empty: as-expected
+  [N7a i686] the entry row says changed: as-expected
+  [N7a i686] one parse row, reading ok error and offset '124' as derived: as-expected
+  [N7a i686] exactly one parse row: as-expected
+  [N7a i686] no element, attribute or values row after a parse error: as-expected
+  [N7a i686] archive: xml_compared 1, xml_parse_errors 1, xml_names_equal 0, xml_values_equal 0: as-expected
+  [N7b host] exit status: 1
+  [N7b host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	128	134	93	95	59aafbc0	e64fa58b	56			
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	3	3	3	3
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	204
+      archive	central_start_out	206
+      archive	uncompressed_in	136
+      archive	uncompressed_out	142
+      archive	compressed_in	101
+      archive	compressed_out	103
+      archive	bytes_in	361
+      archive	bytes_out	363
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	0
+  [N7b host] stderr:
+  [N7b host] exit status 1: as-expected
+  [N7b host] stderr empty: as-expected
+  [N7b host] the entry row says changed: as-expected
+  [N7b host] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N7b host] exactly one parse row: as-expected
+  [N7b host] one values row: as-expected
+  [N7b host] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 0: as-expected
+  [N7b i686] exit status: 1
+  [N7b i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	128	134	93	95	59aafbc0	e64fa58b	56			
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	3	3	3	3
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	204
+      archive	central_start_out	206
+      archive	uncompressed_in	136
+      archive	uncompressed_out	142
+      archive	compressed_in	101
+      archive	compressed_out	103
+      archive	bytes_in	361
+      archive	bytes_out	363
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	0
+  [N7b i686] stderr:
+  [N7b i686] exit status 1: as-expected
+  [N7b i686] stderr empty: as-expected
+  [N7b i686] the entry row says changed: as-expected
+  [N7b i686] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N7b i686] exactly one parse row: as-expected
+  [N7b i686] one values row: as-expected
+  [N7b i686] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 0: as-expected
+  [N10 host] exit status: 1
+  [N10 host] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	11	19	13	21	2bd66903	b91d6b9d	4			
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	1	1	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	124
+      archive	central_start_out	132
+      archive	uncompressed_in	19
+      archive	uncompressed_out	27
+      archive	compressed_in	21
+      archive	compressed_out	29
+      archive	bytes_in	281
+      archive	bytes_out	289
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	1
+  [N10 host] stderr:
+  [N10 host] exit status 1: as-expected
+  [N10 host] stderr empty: as-expected
+  [N10 host] the entry row says changed: as-expected
+  [N10 host] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N10 host] exactly one parse row: as-expected
+  [N10 host] one values row: as-expected
+  [N10 host] the values row has in_only 0 and out_only 0: as-expected
+  [N10 host] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 1: as-expected
+  [N10 i686] exit status: 1
+  [N10 i686] stdout:
+      entry	[Content_Types].xml	identical	0	0	0	0	8	8	8	8	3c171cc7	3c171cc7				
+      entry	xl/worksheets/sheet1.xml	changed	1	1	8	8	11	19	13	21	2bd66903	b91d6b9d	4			
+      xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+      xml	xl/worksheets/sheet1.xml	values	1	1	0	0
+      archive	entries_in	2
+      archive	entries_out	2
+      archive	identical	1
+      archive	recompressed	0
+      archive	changed	1
+      archive	dropped	0
+      archive	added	0
+      archive	flagged	0
+      archive	order_preserved	yes
+      archive	comment_equal	yes
+      archive	prefix_in	0
+      archive	prefix_out	0
+      archive	central_start_in	124
+      archive	central_start_out	132
+      archive	uncompressed_in	19
+      archive	uncompressed_out	27
+      archive	compressed_in	21
+      archive	compressed_out	29
+      archive	bytes_in	281
+      archive	bytes_out	289
+      archive	files_identical	no
+      archive	xml_compared	1
+      archive	xml_parse_errors	0
+      archive	xml_names_equal	1
+      archive	xml_values_equal	1
+  [N10 i686] stderr:
+  [N10 i686] exit status 1: as-expected
+  [N10 i686] stderr empty: as-expected
+  [N10 i686] the entry row says changed: as-expected
+  [N10 i686] one parse row, reading ok ok and offset '' as derived: as-expected
+  [N10 i686] exactly one parse row: as-expected
+  [N10 i686] one values row: as-expected
+  [N10 i686] the values row has in_only 0 and out_only 0: as-expected
+  [N10 i686] archive: xml_compared 1, xml_parse_errors 0, xml_names_equal 1, xml_values_equal 1: as-expected
+  control: parse_is says no to N1's expectation on N0's rows: as-expected
+  control: error_archive says no on N0's rows: as-expected
+  control: values_equal_row says no on N0's rows, whose values differ: as-expected
+  control: equal_archive says no on N0's rows: as-expected
+
+## N3: the output file is not a zip archive
+  [N3 host] exit status: 2
+  [N3 host] stdout:
+  [N3 host] stderr:
+      error: the output file is not a readable zip archive
+  [N3 host] exit status 2: as-expected
+  [N3 host] stdout empty: as-expected
+  [N3 host] stderr is exactly the message read from the source: as-expected
+  [N3 i686] exit status: 2
+  [N3 i686] stdout:
+  [N3 i686] stderr:
+      error: the output file is not a readable zip archive
+  [N3 i686] exit status 2: as-expected
+  [N3 i686] stdout empty: as-expected
+  [N3 i686] stderr is exactly the message read from the source: as-expected
+
+## N7: no value reaches stdout or stderr
+command: count_from_file -F <the sentinel and its hex, one per line, never printed> over every case's stdout and stderr, both targets
+  files scanned: 40; lines holding a sentinel form: 0; control, the planted copy: 1
+  no sentinel form in any stdout or stderr: as-expected
+  control: the same form finds the planted copy: as-expected
+  every case wrote its two streams on both targets (ten cases, two streams, two targets): as-expected
+
+## N8: every parse row's width and column order
+command: awk over every case's stdout, both targets: kind word parse, statuses ok or error, offset digits or empty, two raw counts in digits, width 8
+  parse rows, and rows out of shape: 18 0
+  eighteen parse rows (nine cases, two targets), none out of shape: as-expected
+  control: the same awk reports a row whose output status is neither ok nor error: as-expected
+
+## N9: host and i686 print the same bytes
+  cases: 10; identical on both targets (stdout, stderr, status): 10
+  every case identical on both targets: as-expected
+  ten cases compared: as-expected
+  control: cmp says no on two cases' different stdout: as-expected
+
+## the main working tree was never used
+command: git -C <repo> status --porcelain
+status lines in the main tree: 0
+  the main working tree is clean: as-expected
+run ended at 2026-09-23T23:31:05Z
+negative log checks all as expected: yes
