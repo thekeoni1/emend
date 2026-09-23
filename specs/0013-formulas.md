@@ -791,6 +791,48 @@ Findings: none of planning's own. Rulings:
     each message to the Co-Authored-By lines the range carries as
     `specs/0012` close-out ruling 1 says.
 
+## Planning verification and rulings on the close-out (2026-09-23)
+
+Verified from primaries by planning, not from the report: `git
+fetch` and `git ls-remote` show origin/main at 6d2dc62, equal to
+local main at the push; `gh repo view` says PRIVATE; `gh run view
+35924910390` reads head 6d2dc62, event push, branch main, conclusion
+success, no step concluding other than success or skipped, the only
+run on that commit; the doc commit 6d2dc62 carries this spec and
+`ROADMAP.md` at the hashes planning sent; the record commit 03669ca
+touches exactly records/logs/m1p6-close/push.log, ci-run.log and
+scan.log at the sha256 the scan prints for its siblings, the scan
+naming the superseded pre-push run by hash, which planning found in
+the implementing scratch at that hash; the 17 messages
+b0c21ef..6d2dc62 ASCII, each ending with the Opus 5.5
+Co-Authored-By line, no session link in any; the only home-shaped
+strings in the three logs are the path form's own regex and the
+scan's run-time control fixture; denylist entries counted in the
+three logs: 0; planning's own `scripts/privacy.sh --range
+77d2b50..6d2dc62` reads 17 commits, 492 blobs, 0 findings, PASS,
+and over 6d2dc62..03669ca 1 commit, 469 blobs, 0 findings, PASS;
+planning diffed each printed script against part 5's: the push and
+CI scripts differ only in comments, names, the spec and the base,
+and the scan script in those and the single-line Co-Authored-By
+check the report declares, with the Opus 5 line as a refusal
+control. The maintainer's authorisation was typed in the
+implementing session and the record is the single commit after the
+push, as "Close-out push (after P3)" says.
+
+Findings: none. Rulings:
+
+1. The close-out's script changes are accepted: the base resolved as
+   part 5's close-out doc commit by subject, and the scan's
+   Co-Authored-By check holding every message to the one line the
+   range carries, with the other line, a similar third line and a
+   session trailer refused, as `specs/0012` close-out ruling 1 set
+   the form.
+2. 03669ca stays local and goes with the next push, as b0c21ef went
+   with this one.
+3. Milestone 1 part 6 is DONE and PUSHED. Part 7 (the names-only XML
+   comparison, formerly T4, in the harness) is next and starts with
+   its spec, for the maintainer's approval.
+
 ## Out of scope
 
 - Writing shared, array or data table formulas, or extending a

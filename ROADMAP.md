@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (parts 1 to 5 DONE and PUSHED; part 6 APPROVED 2026-09-23; parts 7 and 8 PROPOSED)
+## Milestone 1: greenfield core (parts 1 to 6 DONE and PUSHED; part 7 APPROVED 2026-09-23; part 8 PROPOSED)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -306,7 +306,31 @@ P3 and carries the local commit b0c21ef.
 | P1 | `Value::Formula` and its refusals; the formula-change rule for a written formula; `Package::recalculate_on_open`, the `calcPr` rewrite, `Workbook::full_calc_on_load`; `--calc`; the corpus run `--calc` against planning's survey (`chain` 9, `full_calc` 0) | DONE 2026-09-23 (da8794b, records 6d85828, local; six P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan and its own `--calc` run agreeing on all 27; `specs/0013` "Planning verification and rulings on P1") |
 | P2 | `--formula-sample`; the corpus run with the run log's independent XML comparison and the LibreOffice computation check | DONE 2026-09-23 (71e643b, records a29c3f9, local; the spec's expected `chain_after` corrected mid-phase to the chained workbooks without an A, `specs/0013` P2 ruling 1; the record pair's expectation column is the runner's generic one; verified by planning from primaries, its own gate, tests, privacy scan, its own comparison over the run directory agreeing on all 27 on both targets and its own LibreOffice second conversion computing all 53 written cells; `specs/0013` "Planning verification and rulings on P2") |
 | P3 | the catalogue and Limits; `probe-emend-formulas-write-xml` and the size record against the ceiling; the negative log through the binary; the corpus run again with the release binaries | DONE 2026-09-23 (e0a7b95, records 7e623de, local; verified by planning from primaries, its own gate, tests, privacy scan, its own rebuild of five probes reproducing the size log's hashes, and its own comparison over the run directory agreeing on all 27 on both targets; budget figure 312812 of 393216, part 6's cost to the budget 8400 (968 over the styles probe plus 7432 of that probe's drift), the `dates` feature 4980 outside it; `specs/0013` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, as part 5's, carrying b0c21ef | READY (needs the maintainer's authorisation typed in the implementing session) |
+| Close | close-out push after P3, as part 5's, carrying b0c21ef | DONE 2026-09-23 (pushed 77d2b50..6d2dc62, CI run 35924910390 success; record 03669ca local, goes with the next push) |
+
+### Part 7: the names-only XML comparison (`specs/0014-xml-comparison.md`)
+
+Approved by the maintainer 2026-09-23 and sent to implementation,
+the four decisions taken as planning recommended (values as
+multisets of hashes with two one-sided counts; names printed for
+every family; two phases and no size record; `quick-xml` in
+`xlsx-diff`, which never links `emend`). For every changed `.xml`,
+`.rels` or `.vml` entry, `xlsx-diff` prints `xml` rows: a `parse`
+row per side, an `element` or `attribute` row for each resolved
+name whose counts differ, and a `values` row with the two one-sided
+counts of value hashes that have no match; four `archive` rows
+summarise them. Names and counts only; no value, hash or sample of
+one is ever printed. The record script gains a table by family.
+Acceptance: the no-leak test, and part 6's `--formula-sample` rerun
+over the corpus with the run log asserting the tool's rows against
+deltas it derives from the input. No push during the part; the
+close-out push follows P2 and carries the local commit 03669ca.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `quick-xml` in `xlsx-diff`; the comparison, the `xml` rows and the four `archive` rows; the Limits; the fixture tests and the no-leak test; the negative log | PLANNED |
+| P2 | the record script's table and `.txt` rows with its test; the corpus run `--formula-sample` with the new tool, the run log asserting the rows against its own derivation; the entry statuses compared with part 6 P3's record | PLANNED |
+| Close | close-out push after P2, as part 6's, carrying 03669ca | PLANNED |
 
 ## Unscoped
 
