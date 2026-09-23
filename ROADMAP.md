@@ -304,7 +304,7 @@ P3 and carries the local commit b0c21ef.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `Value::Formula` and its refusals; the formula-change rule for a written formula; `Package::recalculate_on_open`, the `calcPr` rewrite, `Workbook::full_calc_on_load`; `--calc`; the corpus run `--calc` against planning's survey (`chain` 9, `full_calc` 0) | DONE 2026-09-23 (da8794b, records 6d85828, local; six P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan and its own `--calc` run agreeing on all 27; `specs/0013` "Planning verification and rulings on P1") |
-| P2 | `--formula-sample`; the corpus run with the run log's independent XML comparison and the LibreOffice computation check | PLANNED |
+| P2 | `--formula-sample`; the corpus run with the run log's independent XML comparison and the LibreOffice computation check | DONE 2026-09-23 (71e643b, records a29c3f9, local; the spec's expected `chain_after` corrected mid-phase to the chained workbooks without an A, `specs/0013` P2 ruling 1; the record pair's expectation column is the runner's generic one; verified by planning from primaries, its own gate, tests, privacy scan, its own comparison over the run directory agreeing on all 27 on both targets and its own LibreOffice second conversion computing all 53 written cells; `specs/0013` "Planning verification and rulings on P2") |
 | P3 | the catalogue and Limits; `probe-emend-formulas-write-xml` and the size record against the ceiling; the negative log through the binary; the corpus run again with the release binaries | PLANNED |
 | Close | close-out push after P3, as part 5's, carrying b0c21ef | PLANNED |
 

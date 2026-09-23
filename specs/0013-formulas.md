@@ -581,6 +581,125 @@ Rulings:
     ruling 3's assertion and finding F2's comment, then the sample
     as "### P2" and "Harness runs" say.
 
+## Planning rulings during P2 (2026-09-23)
+
+The doc commit 463ccad carries the two files at the hashes planning
+sent. The implementing session's corpus run measured `chain_after`
+6 against the expected 0 and held. Planning counted the corpus
+itself, by the sample's own definitions over each workbook's first
+worksheet with Python's `zipfile` and regular expressions: 19
+workbooks have an A (a `Number` cell with a value and no formula),
+15 of those also have an F (a normal formula), and of the 9 chained
+workbooks only 3 have an A. The expectation, not the tool, was
+wrong: "Harness runs" assumed every chained workbook has an A.
+
+1. The expected results are corrected. `chain_after` is expected
+   equal to `chain_before` minus the number of chained workbooks
+   with an A, and `full_calc_after` equal to the number of workbooks
+   with an A, both derived by the run log's own independent read of
+   the inputs (a `Number` cell with a value and no formula in the
+   first worksheet; a `calcChain` relationship) and never typed; on
+   this corpus 6 and 19. `replaced` is expected equal to the number
+   of workbooks with an A and an F, derived the same way; here 15.
+   `added` is expected 2 on each workbook with an A; here 38 in
+   all. The content types, the workbook relationships and the chain
+   entry change or go only on the chained workbooks with an A (here
+   3); `workbook.xml` and the first worksheet change only on the
+   workbooks with an A (here 19); the 8 without an A are
+   byte-identical throughout, `files_identical` yes on exactly
+   those. The run log asserts each expectation against its own
+   count, with a control per assertion.
+2. "Harness runs" is amended: the worksheet's cells are identical
+   except at four references, A, F and the two new cells (three when
+   F is absent), since the tool sets A to `Number(21)` for the
+   computation. The comparison follows the tool, as written.
+3. Report items (a) to (e) are accepted as findings and notes: (a) a
+   worksheet with two `<sheetData>` elements is edited in the first
+   and the second copied raw; stated in P3's Limits, not refused; (b)
+   M13 shows the read-back guards the library, not the tool's own
+   text, said in the report; (c) M9 as measured; (d) the row 2^32 - 1
+   case as measured; (e) the overlapped run attempt superseded and
+   the run rerun alone.
+4. The rerun asserts ruling 1's expectations; the record and the
+   report state the corrected figures with this ruling as their
+   source. This section goes in P3's first doc commit, as part 5's
+   6256267 carried the P2 rulings.
+
+## Planning verification and rulings on P2 (2026-09-23)
+
+Verified from primaries by planning, not from the report: the five
+commits 6d85828..a29c3f9 ASCII with the Co-Authored-By line alone
+and no session link; the doc commit 463ccad carrying the two files
+at the hashes planning sent; the record commit a29c3f9 touching
+exactly the seven logs and the record pair at the sha256 and byte
+counts the report prints; planning's own gate (nine PASS), `cargo
+test --workspace` on both targets (492 passed, 0 failed, 2 ignored
+on each), the crate with the `dates` feature off and on on both
+targets, and clippy, all at a29c3f9; planning's own `scripts/
+privacy.sh --range 6d85828..HEAD` reading 5 commits, 459 blobs, 0
+findings, PASS; C1 and C2 read in full against "Harness runs" and
+the P2 rulings; planning's own comparison over the run directory
+with `ElementTree` and byte spans, independent of the run log's,
+agreeing on all 27 workbooks on both targets: on the 8 without an A
+the output byte-identical; on the 19 with an A the changed cells
+exactly A, F and the two new cells, A a number 21 with its style
+kept, the two new cells and F carrying the composed texts with no
+`<v>` and no `t`, `workbook.xml` byte-identical outside the `calcPr`
+start tag and that tag the input's with the attribute appended,
+every untouched entry identical, the chain entry and its override
+gone on exactly the 3 chained workbooks with an A and the content
+types and relationships identical on the other 16; planning's own
+second conversion of the 19 host outputs through the pinned image,
+reading 42, 2 and, where F exists, 5 at the 53 written cells, all
+as expected; the run log's expectations derived from its own read
+and matching planning's count (19, 15, 9, 3).
+
+Findings: none of planning's own. Rulings on the report's items:
+
+1. G2: ruling 4 is met by run.log and the report. The record script
+   is unchanged, as "Harness runs" requires, so the record pair's
+   "differs from the expectation" column states the runner's generic
+   expectation (an unchanged file), not ruling 1's; it lists the 19
+   workbooks with an A for that reason, and the totals with their
+   source are in run.log. `ROADMAP.md`'s P2 row says so; P3 changes
+   nothing about the record script.
+2. G3: as P1 ruling 10, disclosure accepted: C3's message says M11
+   did not bite at C2, a measurement only the superseded second test
+   attempt holds, named by hash in test.log's header; the committed
+   test.log shows M11 biting at C3. From P3 a commit message that
+   states a measurement no committed log prints says so in the
+   message itself.
+3. G4: ruling 3 is met. The library refuses a second recording of
+   the recipe before any assertion can see it ("two changes for one
+   entry"), so the post-write assertions can only check the net
+   result; that and the direct-call assertion together are the
+   test the ruling asked for, and no mutation is claimed to bite
+   on them.
+4. G8: ruling 9's substance is met; the four P1 directories were
+   removed by the superseded first run attempt, quoted in run.log's
+   body from that attempt's log at its hash. P2's own superseded run
+   directories (`2026-09-23-71e643b` and `-71e643b-b`) are removed
+   before P3's run, and P3's run.log header prints the removal by
+   its own command. From here on, superseded run directories are
+   removed before the next phase's run the same way.
+5. `<scratch>` for two roots (check 1 F7, check 2 G1): ruling 6
+   stands for the build directory. A log that uses a second root (a
+   `mktemp` directory, a clone) states in its header, one line per
+   root, which spelled path under `<scratch>` stands for it and
+   that the roots are distinct directories; the placeholder set is
+   unchanged.
+6. The 30 `descriptor` flags (a workbook part and a worksheet on
+   each of the 15 LibreOffice-produced workbooks with an A) are the
+   streaming rewrite's descriptor form on parts those producers
+   wrote with data descriptors, as earlier parts recorded; the entry
+   check allowing that flag alone is right. From P3 a log's
+   SERIALIZED line carries the process count or is not printed.
+7. P2 is DONE. P3 is next: its first doc commit carries this spec
+   (the P2 rulings and this section) and `ROADMAP.md` unedited, as
+   part 5's 6256267 did; then P3 as "### P3" says, with rulings 4
+   and 6 above, P1 verification ruling 4 and P2 ruling 3(a) in the
+   Limits and the module comment.
+
 ## Out of scope
 
 - Writing shared, array or data table formulas, or extending a
