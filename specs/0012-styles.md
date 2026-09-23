@@ -955,6 +955,79 @@ commit, as P1's cbc691b did.
    build command, so no probe is unified with another's features;
    the size log's nine earlier probes are part 4's nine.
 
+## Planning verification and rulings on P3 (2026-09-22)
+
+Verified by planning from primaries at 39baf23 (doc 6256267, 130f7ff;
+code 805526d, c08bf76, b2bf6e3, 478da97, f565868; record 39baf23):
+its own gate at HEAD (nine PASS); its own workspace tests on both
+targets (463 passed, 2 ignored, each) and the crate's tests with the
+feature off (347, no `dates` test) and on (361, fourteen `dates`
+tests) on both targets, with clippy on the crate with the feature off;
+its own privacy scan over 747a96e..39baf23 (8 commits, 443 blobs, 0
+findings); every committed file at the hash the report gives; the two
+doc commits' blobs at the hashes planning gave; the eight commits in
+gate order with the Co-Authored-By line only; `dates.rs` and its tests
+read against "Module `dates`" and rulings 2 and 3, with the pinned
+serials and both end-of-range serials recomputed from Python's `date`
+ordinals and agreeing; `--date-sample` and both probes read against
+"Harness runs" P3 and "Size". Planning rebuilt `probe-zip-xml`,
+`probe-emend-cells-write-xml`, `probe-emend-styles-write-xml` and
+`probe-emend-dates-write-xml` in the `size` profile on i686 musl with
+the size log's commands: each reproduced the size log's file bytes,
+section bytes, `.text` bytes and sha256 exactly, so the budget figure
+304412, part 5's own cost 4224, the whole growth 26348 and the
+feature's cost 4980 are planning's measurements as well as the log's.
+Planning's own comparison over the attempt-2 run directory, written
+without reading the run log's: on all 27 workbooks and both targets
+every entry but the styles part and the first worksheet is
+byte-identical, the styles part differs only by one `xf` of the exact
+bytes "Harness runs" P3 gives with `count` up by one, `numFmts` is
+untouched, the worksheet differs only by the one added cell at
+(M + 1, 1) holding the serial the line prints with `s` equal to X,
+`date1904` matches `workbookPr`, the serial is paired with it, the
+eight keys stand in ruling 5's order, the arithmetic holds, and the
+host and i686 outputs are byte-identical. Totals on both targets:
+`xfs_after` 1019, `date1904` 2, `read_back` 27.
+
+1. Finding 1: the feature's cost, 4980 section bytes, exceeds
+   planning's expectation of 4000 by 980. The expectation was an
+   estimate and "Size" calls it one; the measurement stands, the
+   figure is outside the budget as decision 2 places it, and no
+   change is asked. The record's reading is the record.
+2. Findings 2 to 4 are accepted: the negative log finds the raise
+   sites by grep; the size log's generated fixture carries one `xf`
+   and a `date1904` variant, the reason stated as the implementer's
+   unlogged observation; the two record stems carry the UTC dates
+   their runs fell on.
+3. Finding 5, the two chained checks in the test script that the
+   pre-check scan caught, is the implementer's own defect, found by
+   the project's own gate before any checker and fixed with a
+   refusing control for each. Recorded; the shape grep runs over a
+   script before its log does, from part 6 on.
+4. Findings 6 and 7 are accepted: every superseded attempt is hashed
+   in its successor's header, and the run log's attempt 2 changed
+   header text alone, with the identity of its figures the
+   implementer's statement.
+5. Finding 8: the two commit messages with small inaccuracies (C3's
+   "no log prints a count at" it; C4's "ten styles messages") stand
+   unamended, since the logs cite their hashes; this section records
+   the corrections.
+6. Check 2's note that no P3 log compares a file with a hash
+   planning gave is right: P3's doc commits were verified by planning
+   from the blobs, and P2 verification ruling 2's label had nothing
+   to attach to. It attaches when a later phase's log makes such a
+   comparison.
+7. The prose commit 478da97 was read: the catalogue and Limits say
+   what "Module `dates`", "Decisions for the maintainer" and the
+   rulings say, and nothing else.
+8. P3 is DONE. Part 5's close-out is READY: a doc commit carrying
+   this file and `ROADMAP.md` unedited, as part 4's 35e38a5 did; then
+   the push of 7cc4f13 and part 5's commits on planning's word, given
+   here, AND the maintainer's authorisation typed in the implementing
+   session; then the close-out record commit after the push, the scan
+   rerun last, the `ANTHROPIC_API_KEY` check, as "Close-out push"
+   says.
+
 ## Out of scope
 
 - New fonts, fills, borders, alignments, protection and named cell
