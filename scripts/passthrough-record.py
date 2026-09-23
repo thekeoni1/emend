@@ -188,6 +188,8 @@ def read_xml_rows(run_dir, label, row):
     for number, line in enumerate(lines, start=1):
         cells = line.split("\t")
         if cells[0] == "archive" and len(cells) == 3 and cells[1] in XML_ARCHIVE:
+            if cells[1] in archive:
+                raise Failure("%s does not hold the four xml archive rows once each" % what)
             archive[cells[1]] = cells[2]
         if cells[0] != "xml":
             continue
