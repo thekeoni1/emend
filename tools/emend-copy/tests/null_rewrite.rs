@@ -559,6 +559,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--calc", "--styles"],
         vec!["--styles", "--calc"],
         vec!["--calc", "[Content_Types].xml"],
+        // And with part 6 P2's.
+        vec!["--formula-sample", "--calc"],
+        vec!["--calc", "--formula-sample"],
+        vec!["--formula-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1719,6 +1723,172 @@ fn calc_refuses_a_workbook_it_cannot_read_and_leaves_nothing() {
     );
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+// ------------------------------------------------------ --formula-sample
+
+/// `package_specs_with_a_chain()` when `chain`, else `package_specs()`, with
+/// `sheet_data` as the worksheet, STORED so the rewritten part is compared
+/// by its bytes.
+fn part6_sample_specs(sheet_data: &str, chain: bool) -> Vec<Spec> {
+    let sheet = edited(&format!("<sheetData>{sheet_data}</sheetData>"));
+    let mut specs = if chain {
+        package_specs_with_a_chain()
+    } else {
+        package_specs()
+    };
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+/// Runs `--formula-sample` on `specs` and returns the line and the output's
+/// entries, asserting exit 0 and that no temporary was left.
+#[track_caller]
+fn part6_sample(label: &str, specs: &[Spec]) -> (String, Vec<OutEntry>, Vec<u8>) {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--formula-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    let bytes = fs::read(&output).expect("read the output");
+    (ran.stdout, parse_independently(&bytes), bytes)
+}
+
+#[test]
+fn the_part6_formula_sample_writes_a_and_f_and_drops_the_chain() {
+    // `specs/0013-formulas.md`, "Harness runs": A is A1 (the first number
+    // with no formula), F is C2 (the shared master and follower are not
+    // normal), M is 2. A takes 21, row 3 takes A1*2 and 1+1, C2 takes 2+3
+    // with its value gone and its `s` kept; the chain goes and the workbook
+    // part asks for a full calculation on load.
+    let specs = part6_sample_specs(FORMULA_ROWS, true);
+    let (line, entries, _) = part6_sample("part6-sample-a-f", &specs);
+    assert_eq!(
+        line,
+        "formula\tadded=2\treplaced=1\tchain_before=1\tchain_after=0\tfull_calc_before=0\t\
+         full_calc_after=1\tcells_before=5\tcells_after=7\tread_back=3\n",
+        "the line"
+    );
+    let rows = FORMULA_ROWS
+        .replace(
+            "<c r=\"A1\" s=\"1\"><v>2</v></c>",
+            "<c r=\"A1\" s=\"1\"><v>21</v></c>",
+        )
+        .replace(
+            "<c r=\"C2\" s=\"3\"><f>A1+1</f><v>3</v></c>",
+            "<c r=\"C2\" s=\"3\"><f>2+3</f></c>",
+        );
+    assert_eq!(
+        String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone()
+        )
+        .expect("UTF-8"),
+        edited(&format!(
+            "<sheetData>{rows}<row r=\"3\"><c r=\"A3\"><f>A1*2</f></c>\
+             <c r=\"B3\"><f>1+1</f></c></row></sheetData>"
+        )),
+        "the sheet"
+    );
+    assert!(
+        entries
+            .iter()
+            .all(|entry| entry.name != b"xl/calcChain.xml"),
+        "the chain's entry is gone"
+    );
+    workbook_flagged(&entries, &specs);
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"[Content_Types].xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"xl/worksheets/sheet1.xml",
+            b"xl/calcChain.xml",
+            b"xl/workbook.xml",
+        ],
+    );
+}
+
+#[test]
+fn the_part6_formula_sample_with_a_and_no_f_adds_the_row_alone() {
+    // A is B2, no cell has a normal formula, and there is no chain: A takes
+    // 21, row 3 takes B2*2 and 1+1, and only the sheet and the workbook part
+    // change.
+    let specs = part6_sample_specs(
+        "<row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\"><v>7</v></c></row>",
+        false,
+    );
+    let (line, entries, _) = part6_sample("part6-sample-a", &specs);
+    assert_eq!(
+        line,
+        "formula\tadded=2\treplaced=0\tchain_before=0\tchain_after=0\tfull_calc_before=0\t\
+         full_calc_after=1\tcells_before=2\tcells_after=4\tread_back=2\n",
+        "the line"
+    );
+    assert_eq!(
+        String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone()
+        )
+        .expect("UTF-8"),
+        edited(
+            "<sheetData><row r=\"2\"><c r=\"A2\" t=\"b\"><v>1</v></c><c r=\"B2\"><v>21</v></c>\
+             </row><row r=\"3\"><c r=\"A3\"><f>B2*2</f></c><c r=\"B3\"><f>1+1</f></c></row>\
+             </sheetData>"
+        ),
+        "the sheet"
+    );
+    workbook_flagged(&entries, &specs);
+    untouched_but(
+        &entries,
+        &specs,
+        &[b"xl/worksheets/sheet1.xml", b"xl/workbook.xml"],
+    );
+}
+
+#[test]
+fn the_part6_formula_sample_with_neither_is_byte_identical() {
+    // No number cell and no normal formula: nothing is recorded, the output
+    // is the input, and the line carries the counts as read. A sheet with a
+    // normal formula and no number is the same: F alone records nothing.
+    for (label, rows, cells) in [
+        (
+            "part6-sample-neither",
+            "<row r=\"1\"><c r=\"A1\" t=\"b\"><v>1</v></c></row>",
+            1,
+        ),
+        (
+            "part6-sample-f-alone",
+            "<row r=\"1\"><c r=\"A1\"><f>1+1</f><v>2</v></c></row>",
+            1,
+        ),
+    ] {
+        let specs = part6_sample_specs(rows, true);
+        let (line, _, bytes) = part6_sample(label, &specs);
+        assert_eq!(
+            line,
+            format!(
+                "formula\tadded=0\treplaced=0\tchain_before=1\tchain_after=1\t\
+                 full_calc_before=0\tfull_calc_after=0\tcells_before={cells}\t\
+                 cells_after={cells}\tread_back=0\n"
+            ),
+            "{label}: the line"
+        );
+        assert_eq!(bytes, build(&specs), "{label}: the output is the input");
+    }
 }
 
 // -------------------------------------------------------- --style-sample

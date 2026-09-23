@@ -84,6 +84,21 @@
 //!   else 0), the keys `specs/0013-formulas.md`, "Harness runs", lists. Two
 //!   flags and nothing else. A workbook the layer cannot read is exit 2 with
 //!   the message.
+//! - `--formula-sample`: the formula sample of `specs/0013-formulas.md`,
+//!   "Harness runs", on the first sheet of kind `Worksheet`: A, its first
+//!   `Number` cell with a value and no formula, is set to `Number(21)`; a new
+//!   row after the last takes the formula of A's reference followed by `*2`
+//!   in column 1 and `1+1` in column 2; and F, its first cell with a normal
+//!   formula, when there is one, takes `2+3`. The write's rule drops the
+//!   calculation chain and asks for a full calculation on load. One line goes
+//!   to stdout: the word `formula` then tab-separated `added`, `replaced`,
+//!   `chain_before`, `chain_after`, `full_calc_before`, `full_calc_after`,
+//!   `cells_before`, `cells_after` and `read_back`. COUNTS ONLY: the formula
+//!   texts are this tool's own constants and A's reference, and none reaches
+//!   the line or a message. `cells_after` and `read_back` are asserted
+//!   against what the edits imply; either failing is exit 2 with the message
+//!   and no output. With no A nothing is recorded, so the output is
+//!   byte-identical and `added` and `replaced` are 0.
 //! - `--style-sample`: the sample style edit of `specs/0012-styles.md`,
 //!   "Harness runs": two cell formats are added, one over the first sampled
 //!   cell's own format with the code `0.000` and one over no base with the
@@ -136,7 +151,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample | --date-sample | --calc]";
+| --style-sample | --date-sample | --calc | --formula-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -168,6 +183,8 @@ enum Operation {
     DateSample,
     /// No edits, and the workbook's two calculation flags on stdout.
     Calc,
+    /// The formula sample of part 6, and its counts on stdout.
+    FormulaSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -191,6 +208,7 @@ enum Error {
     NoNewRow,
     CellsAfter { expected: u64, found: u64 },
     XfsAfter { expected: u64, found: u64 },
+    ReadBack { expected: u64, found: u64 },
 }
 
 impl fmt::Display for Error {
@@ -219,6 +237,11 @@ impl fmt::Display for Error {
             Error::XfsAfter { expected, found } => write!(
                 f,
                 "the output's styles part holds {found} cell format(s) and the edits imply \
+                 {expected}"
+            ),
+            Error::ReadBack { expected, found } => write!(
+                f,
+                "the output's sheet reads back {found} written formula(s) and the edits imply \
                  {expected}"
             ),
         }
@@ -274,6 +297,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--calc" => {
             run(Path::new(input), Path::new(output), Operation::Calc)
         }
+        [input, output, flag] if flag == "--formula-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::FormulaSample,
+        ),
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -313,6 +341,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::DateSample) {
         return date_sample(input, output);
     }
+    if matches!(operation, Operation::FormulaSample) {
+        return formula_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -340,6 +371,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
         Operation::StyleSample => unreachable!("the style sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
+        Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -780,6 +812,174 @@ fn formula_read_back(
         });
     }
     Ok((chain_after, cells_after, read_back))
+}
+
+/// What the first read of the part 6 formula sample's sheet finds.
+struct FormulaSampled {
+    /// A: the first `Number` cell with a value and no formula.
+    number: Option<CellRef>,
+    /// F: the first cell with a formula of kind `Normal`.
+    normal: Option<CellRef>,
+    /// M: the largest row number, 0 for a sheet with no cells.
+    max_row: u32,
+    cells: u64,
+}
+
+/// The formula sample of `specs/0013-formulas.md`, "Harness runs".
+///
+/// The first sheet of kind `Worksheet` in workbook order is read once for A,
+/// F and M ([`FormulaSampled`]). With A, A is set to `Number(21)`, `(M + 1,
+/// 1)` to the formula of A's reference followed by `*2`, `(M + 1, 2)` to
+/// `1+1`, and F, when it exists, to `2+3`; the package is written, so the
+/// write's rule drops the chain and records the flag. Without A nothing is
+/// recorded and the write is the verbatim copy. The output is reopened and
+/// its workbook and the same sheet read for the line; `cells_after` is
+/// asserted equal to `cells_before` plus the cells added, and `read_back`,
+/// the written formulas reading back as `Normal` with the text written and
+/// no value, to `added + replaced`. Either failing removes the output, as
+/// `edit_sample`'s assertion does. No reference or formula text reaches the
+/// line or a message.
+fn formula_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let chain_before = workbook.calc_chain.is_some();
+    let full_calc_before = workbook.full_calc_on_load;
+    let part = workbook
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let mut before = FormulaSampled {
+        number: None,
+        normal: None,
+        max_row: 0,
+        cells: 0,
+    };
+    for cell in package.cells(&part)? {
+        let cell = cell?;
+        before.cells += 1;
+        before.max_row = before.max_row.max(cell.reference.row);
+        let number = cell.kind == Kind::Number && cell.value.is_some() && cell.formula.is_none();
+        if number && before.number.is_none() {
+            before.number = Some(cell.reference);
+        }
+        let normal = cell
+            .formula
+            .as_ref()
+            .is_some_and(|formula| formula.kind == FormulaKind::Normal);
+        if normal && before.normal.is_none() {
+            before.normal = Some(cell.reference);
+        }
+    }
+
+    // The formulas written, each with its reference and text, for the
+    // read-back; empty without A.
+    let mut written: Vec<(CellRef, String)> = Vec::new();
+    if let Some(number) = before.number {
+        let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+        package.set_cell(&part, number, Value::Number(21.0));
+        written.push((
+            CellRef {
+                row: new_row,
+                col: 1,
+            },
+            format!("{}*2", number.a1()),
+        ));
+        written.push((
+            CellRef {
+                row: new_row,
+                col: 2,
+            },
+            "1+1".to_string(),
+        ));
+        if let Some(normal) = before.normal {
+            written.push((normal, "2+3".to_string()));
+        }
+        for (reference, text) in &written {
+            package.set_cell(&part, *reference, Value::Formula(text.clone()));
+        }
+    }
+    let added = if before.number.is_some() { 2 } else { 0 };
+    let replaced = u64::from(before.number.is_some() && before.normal.is_some());
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it, as in
+    // `edit_sample`.
+    let expected = (before.cells + added, added + replaced);
+    let checked = formula_sample_read_back(output, &part, &written, expected);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (chain_after, full_calc_after, cells_after, read_back) = checked?;
+    print_line(&format!(
+        "formula\tadded={added}\treplaced={replaced}\tchain_before={}\tchain_after={}\t\
+         full_calc_before={}\tfull_calc_after={}\tcells_before={}\tcells_after={cells_after}\t\
+         read_back={read_back}",
+        u64::from(chain_before),
+        u64::from(chain_after),
+        u64::from(full_calc_before),
+        u64::from(full_calc_after),
+        before.cells,
+    ))
+}
+
+/// Reopens the output for the part 6 formula sample's line: the workbook's
+/// two flags, the sheet's cell count, asserted equal to `expected.0`, and how
+/// many of the written formulas read back as `Normal` with the text written
+/// and no value, asserted equal to `expected.1`.
+fn formula_sample_read_back(
+    output: &Path,
+    part: &[u8],
+    written: &[(CellRef, String)],
+    expected: (u64, u64),
+) -> Result<(bool, bool, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let chain_after = workbook.calc_chain.is_some();
+    let full_calc_after = workbook.full_calc_on_load;
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in package.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let as_written = written.iter().any(|(reference, text)| {
+            cell.reference == *reference
+                && cell.value.is_none()
+                && cell.formula.as_ref().is_some_and(|formula| {
+                    formula.kind == FormulaKind::Normal && formula.text == *text
+                })
+        });
+        read_back += u64::from(as_written);
+    }
+    if cells_after != expected.0 {
+        return Err(Error::CellsAfter {
+            expected: expected.0,
+            found: cells_after,
+        });
+    }
+    if read_back != expected.1 {
+        return Err(Error::ReadBack {
+            expected: expected.1,
+            found: read_back,
+        });
+    }
+    Ok((chain_after, full_calc_after, cells_after, read_back))
 }
 
 /// The sample style edit of `specs/0012-styles.md`, "Harness runs".
