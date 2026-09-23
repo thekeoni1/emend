@@ -700,6 +700,97 @@ Findings: none of planning's own. Rulings on the report's items:
    and 6 above, P1 verification ruling 4 and P2 ruling 3(a) in the
    Limits and the module comment.
 
+## Planning verification and rulings on P3 (2026-09-23)
+
+Verified from primaries by planning, not from the report: the four
+commits a29c3f9..7e623de ASCII with the Co-Authored-By line alone
+and no session link; the doc commit 92dd877 carrying the two files
+at the hashes planning sent; the record commit 7e623de touching
+exactly the eight logs, the size record and the record pair at the
+sha256 and byte counts the report prints; planning's own gate (nine
+PASS), `cargo test --workspace` on both targets (492 passed, 0
+failed, 2 ignored on each), the crate with the `dates` feature off
+and on on both targets, and clippy, all at 7e623de; planning's own
+`scripts/privacy.sh --range a29c3f9..HEAD` reading 4 commits, 469
+blobs, 0 findings, PASS; C1 and C2 read in full against "### P3",
+"Size" and the rulings they cite; planning's own rebuild of
+`probe-zip-xml`, `probe-zip-xml-write`, `probe-emend-styles-write-
+xml`, `probe-emend-formulas-write-xml` and `probe-emend-dates-write-
+xml` in the `size` profile on i686 musl reproducing size.log's
+sha256, file, section and `.text` bytes for all five exactly, so the
+budget figure 312812, part 6's own cost 968, the whole growth 8400
+and the feature's 4980 are planning's numbers too; the P3 run
+directory's 54 outputs byte-identical to P2's on both targets, so
+P2's verification (planning's comparison on all 27 and its
+LibreOffice second conversion of the 19) carries over, and
+planning's comparison run again over the P3 directory agreeing on
+all 27; the five messages reached by a binary in negative.log; the
+two P2 run directories removed by run.log's own printed command
+with the cited one standing; the scan PASS with 0 hits.
+
+Findings: none of planning's own. Rulings:
+
+1. The doc commit: P2 verification ruling 7 binds, and "### P3"'s
+   "first code commit carries the P2 verification rulings" means
+   the phase's first commit, a doc commit, as part 5's 6256267 was
+   and as 92dd877 is. The same reading applies to "### P2"'s
+   sentence. No commit changes.
+2. G5: the catalogue is `package`'s, for every message a write
+   raises, including the three `cells.rs` raises through
+   `Value::check` when the write calls it; `cells`'s Limits name the
+   three refusals, which is what "in `package`'s and `cells`'s
+   module headers" asked. No cells-side catalogue entry.
+3. G4 and F5: "a reader counts cells in both" is supported by P3's
+   own negative.log (the H13 case); the sentence stands.
+4. G6 and F7: the probe calls `drop_calc_chain` itself before the
+   formula, as the styles probe did, so the rule's drop takes its
+   already-recorded branch; the rule still runs and sets the flag,
+   which the probe reads back, and "Size" asked no more. The size
+   record's description is accurate as read.
+5. G10: `<scratch>/w` naming a `mktemp` directory in four logs and
+   a real subdirectory in one is what P2 verification ruling 5
+   permits, each log stating its roots. No change.
+6. The test copy of run.log's script that ran alone, stopped before
+   the corpus run and wrote no log, was not an attempt of run.log
+   and did not have to be named in its header; the report's
+   disclosure with its hash is enough. A dry run that writes any
+   part of a log's output is an attempt and is named.
+7. RERUN_NOTE prose may type the short id of a commit the log
+   resolves elsewhere by subject, and gate.log's "61a7d53" is C1, as
+   planning read from git. Not a defect; no rerun at the close-out.
+8. The deleted release binaries: negative.log's three hash matches
+   after the rebuild by size.log's printed commands are a committed
+   measurement, and planning's own rebuild reproduces the same
+   hashes, so run.log's binaries are size.log's. A gate rerun does
+   not clean a directory another log's hashed binaries live in,
+   from the close-out on.
+9. Size. The budget figure is 312812 section bytes, 80404 under the
+   ceiling. Part 6's own cost as "Size" defined it is 968; the
+   budget figure's whole growth since part 5's record is 8400, of
+   which 7432 is the styles probe's drift from part 6's five crate
+   commits, so 8400 is what part 6 cost the budget and planning's
+   "under 6000" expectation was missed by 2400. Accepted, with the
+   headroom stated. From part 7 a spec's "own cost" is the whole
+   growth of the budget figure since the previous record, with the
+   drift classification beside it, so the expectation and the
+   measurement mean the same thing.
+10. PM3 not biting is a finding as recorded: a written formula has
+    no `<v>`, so the read-back's value condition is redundant and
+    stays as documentation of the invariant.
+11. The notes left as they stand (F4, F8, F5 and G12, F6 and G13)
+    are accepted as notes; F8's 0-byte second output on a refused
+    probe write is the probe's, not the library's, which leaves no
+    output.
+12. P3 is DONE. Part 6's close-out is READY: a doc commit carrying
+    this file and `ROADMAP.md` unedited, as part 5's 77d2b50 did;
+    then the push of b0c21ef and part 6's commits on planning's
+    word, given here, AND the maintainer's authorisation typed in
+    the implementing session; then the close-out record commit
+    after the push, the scan rerun last, the `ANTHROPIC_API_KEY`
+    check, as "Close-out push (after P3)" says, the scan holding
+    each message to the Co-Authored-By lines the range carries as
+    `specs/0012` close-out ruling 1 says.
+
 ## Out of scope
 
 - Writing shared, array or data table formulas, or extending a
