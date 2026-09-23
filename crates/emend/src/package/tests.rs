@@ -2468,6 +2468,19 @@ fn sheet_with(rows: &str) -> String {
     worksheet(&format!("<sheetData>{rows}</sheetData>"))
 }
 
+const WORKBOOK: &[u8] = b"xl/workbook.xml";
+
+/// The smallest package's workbook part as a write that asks for a full
+/// calculation on load leaves it: `<calcPr fullCalcOnLoad="1"/>` right after
+/// `</sheets>`, its last child (`specs/0013-formulas.md`, P1 ruling 1).
+fn flagged_workbook() -> String {
+    format!(
+        "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+         <sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>\
+         <calcPr fullCalcOnLoad=\"1\"/></workbook>"
+    )
+}
+
 /// The error a write refuses `rows` with after `edit`.
 #[track_caller]
 fn refused_edit(rows: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Error {
@@ -2709,17 +2722,24 @@ fn clearing_a_cell_that_is_not_there_changes_nothing() {
 fn a_cleared_cell_keeps_its_style_or_goes_with_its_own_bytes() {
     let rows = "<row r=\"1\">\n  <c r=\"A1\" s=\"4\" t=\"s\"><f>1+1</f><v>2</v></c>\n  \
                 <c r=\"B1\"><v>1</v></c>\n  <c r=\"C1\"/>\n</row>";
-    let got = edited_sheet(rows, |p| {
+    let parts = with_rows(rows);
+    let output = edited_output(parts.clone(), |p| {
         p.clear_cell(SHEET, at("A1"));
         p.clear_cell(SHEET, at("B1"));
         p.clear_cell(SHEET, at("C1"));
     });
     // A row left with no cells but its style-kept one stays, attributes and
     // the whitespace around the dropped cells included.
-    assert_eq!(
-        got,
-        sheet_with("<row r=\"1\">\n  <c r=\"A1\" s=\"4\"/>\n  \n  \n</row>")
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with("<row r=\"1\">\n  <c r=\"A1\" s=\"4\"/>\n  \n  \n</row>"),
     );
+    // A1's normal formula went, so the formula-change rule asks for a full
+    // calculation on load (`specs/0013-formulas.md`, P1 ruling 4); nothing
+    // else changes.
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+    assert_untouched(&output, &parts, &[SHEET, WORKBOOK]);
 }
 
 #[test]
@@ -2912,6 +2932,9 @@ fn replacing_a_normal_formula_drops_the_chain_in_the_same_write() {
                 "<row r=\"1\">{cell}<c r=\"B1\"><v>2</v></c></row>"
             )),
         );
+        // The removed formula also asks for a full calculation on load
+        // (`specs/0013-formulas.md`, P1 ruling 4).
+        assert_part(&output, WORKBOOK, &flagged_workbook());
         assert_untouched(
             &output,
             &parts,
@@ -2920,6 +2943,7 @@ fn replacing_a_normal_formula_drops_the_chain_in_the_same_write() {
                 b"xl/_rels/workbook.xml.rels",
                 b"xl/calcChain.xml",
                 SHEET,
+                WORKBOOK,
             ],
         );
         // The output reads as a package: the survey's own questions.
@@ -2936,12 +2960,17 @@ fn replacing_a_normal_formula_drops_the_chain_in_the_same_write() {
 }
 
 #[test]
-fn replacing_a_formula_without_a_chain_changes_the_sheet_alone() {
+fn replacing_a_formula_without_a_chain_changes_the_sheet_and_the_flag_alone() {
+    // Part 4's `replacing_a_formula_without_a_chain_changes_the_sheet_alone`,
+    // renamed: the formula-change rule now asks for a full calculation on
+    // load whether or not there is a chain (`specs/0013-formulas.md`, P1
+    // ruling 4), so the workbook part changes too, and nothing else.
     let mut parts = with_rows("<row r=\"1\"><c r=\"A1\"><f>1+1</f><v>2</v></c></row>");
     let output = edited_output(parts.clone(), |p| {
         p.set_cell(SHEET, at("A1"), Value::Number(3.0))
     });
-    assert_untouched(&output, &parts, &[SHEET]);
+    assert_untouched(&output, &parts, &[SHEET, WORKBOOK]);
+    assert_part(&output, WORKBOOK, &flagged_workbook());
     set(
         &mut parts,
         SHEET,
@@ -3895,4 +3924,551 @@ fn the_sample_reads_back_through_styles_and_cells() {
         (cells[1].reference, cells[1].style, cells[1].number()),
         (at("A2"), Some(3), Some(45000.5))
     );
+}
+
+// ---------------------------------------------------------------- formulas
+//
+// `specs/0013-formulas.md`, "P1": a written formula, the formula-change rule
+// and the workbook's `calcPr`, on byte-built packages, the output's parts
+// compared with bytes each test writes out by hand.
+
+/// The smallest package's `<sheets>`, which most workbook fixtures below keep.
+const SHEETS: &str = "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>";
+
+/// A workbook part in the main namespace with `body` between its root tags.
+fn workbook_part(body: &str) -> String {
+    format!("{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">{body}</workbook>")
+}
+
+/// The worksheet after `edit` on a package whose sheet holds `rows`, with the
+/// workbook part asserted flagged and every other part untouched: the
+/// smallest package has no chain, so a formula write changes those two alone.
+#[track_caller]
+fn formula_sheet(rows: &str, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> String {
+    let parts = with_rows(rows);
+    let output = edited_output(parts.clone(), edit);
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+    assert_untouched(&output, &parts, &[SHEET, WORKBOOK]);
+    String::from_utf8(stored_data(&output, SHEET)).expect("the part is UTF-8")
+}
+
+/// The workbook part after [`Package::recalculate_on_open`] alone on a
+/// package whose workbook part is `workbook`; every other part is asserted
+/// untouched.
+#[track_caller]
+fn flagged_part(workbook: &str) -> String {
+    let mut parts = smallest();
+    set(&mut parts, WORKBOOK, workbook.to_string());
+    let output = edited_output(parts.clone(), |p| p.recalculate_on_open());
+    assert_untouched(&output, &parts, &[WORKBOOK]);
+    String::from_utf8(stored_data(&output, WORKBOOK)).expect("the part is UTF-8")
+}
+
+/// Every cell of the output's worksheet, read back through `Package::cells`.
+#[track_caller]
+fn cells_of(output: Vec<u8>) -> Vec<crate::cells::Cell> {
+    let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+    package
+        .cells(SHEET)
+        .expect("the sheet")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("the cells read")
+}
+
+#[test]
+fn a_formula_is_written_to_an_absent_cell_in_an_existing_row_and_in_a_new_row() {
+    let got = formula_sheet("<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>", |p| {
+        p.set_cell(SHEET, at("B1"), Value::Formula("A1*2".to_string()));
+        p.set_cell(SHEET, at("A3"), Value::Formula("1+1".to_string()));
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\"><f>A1*2</f></c></row>\
+             <row r=\"3\"><c r=\"A3\"><f>1+1</f></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_formula_on_an_empty_styled_cell_keeps_the_style() {
+    let got = formula_sheet("<row r=\"1\"><c r=\"A1\" s=\"3\"/></row>", |p| {
+        p.set_cell(SHEET, at("A1"), Value::Formula("1+1".to_string()))
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\" s=\"3\"><f>1+1</f></c></row>")
+    );
+}
+
+#[test]
+fn a_formula_over_a_value_loses_the_type_and_the_value() {
+    // A number, an inline string, a shared string and a boolean.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c>\
+                <c r=\"B1\" t=\"inlineStr\"><is><t>x</t></is></c>\
+                <c r=\"C1\" t=\"s\"><v>0</v></c><c r=\"D1\" t=\"b\"><v>1</v></c></row>";
+    let got = formula_sheet(rows, |p| {
+        for cell in ["A1", "B1", "C1", "D1"] {
+            p.set_cell(SHEET, at(cell), Value::Formula("1+1".to_string()));
+        }
+    });
+    assert_eq!(
+        got,
+        sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"1\"><f>1+1</f></c><c r=\"B1\"><f>1+1</f></c>\
+             <c r=\"C1\"><f>1+1</f></c><c r=\"D1\"><f>1+1</f></c></row>"
+        )
+    );
+}
+
+#[test]
+fn a_formula_over_a_normal_formula_loses_its_value_and_ca() {
+    let rows = "<row r=\"1\"><c r=\"A1\"><f>1+2</f><v>3</v></c>\
+                <c r=\"B1\" t=\"str\"><f ca=\"1\">NOW()</f><v>x</v></c></row>";
+    let got = formula_sheet(rows, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Formula("2+3".to_string()));
+        p.set_cell(SHEET, at("B1"), Value::Formula("4+5".to_string()));
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\"><f>2+3</f></c><c r=\"B1\"><f>4+5</f></c></row>")
+    );
+}
+
+#[test]
+fn a_formula_in_a_shared_group_an_array_or_a_data_table_is_refused() {
+    let formula = || Value::Formula("1+1".to_string());
+    for cell in ["A1", "B1", "A2", "B2", "B3"] {
+        let error = refused_edit(FORMULAS, |p| p.set_cell(SHEET, at(cell), formula()));
+        assert_package(
+            error,
+            "a cell in a shared, array or data table formula cannot be edited",
+        );
+    }
+    let table = "<row r=\"1\"><c r=\"A1\"><f t=\"dataTable\" ref=\"B1:C2\" dt2D=\"0\" dtr=\"0\" \
+                 r1=\"Z1\"/><v>1</v></c><c r=\"B1\"><v>2</v></c></row>";
+    for cell in ["A1", "B1", "C2"] {
+        let error = refused_edit(table, |p| p.set_cell(SHEET, at(cell), formula()));
+        assert_package(
+            error,
+            "a cell in a shared, array or data table formula cannot be edited",
+        );
+    }
+}
+
+#[test]
+fn a_formula_text_is_escaped_and_reads_back_equal() {
+    // `&`, `<`, `>`, quoted strings with both quote characters, a carriage
+    // return and a tab (P1 ruling 2: quotes stay literal).
+    let text = "IF(A1<1,\"a&b\",\">\")&\"'q'\"&\"c\r\td\"";
+    let parts = with_rows("<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>");
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("B1"), Value::Formula(text.to_string()))
+    });
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with(
+            "<row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\"><f>IF(A1&lt;1,\"a&amp;b\",\"&gt;\")\
+             &amp;\"'q'\"&amp;\"c&#13;\td\"</f></c></row>",
+        ),
+    );
+    assert_untouched(&output, &parts, &[SHEET, WORKBOOK]);
+    let cells = cells_of(output);
+    let written = &cells[1];
+    assert_eq!(written.reference, at("B1"));
+    assert_eq!(written.kind, crate::cells::Kind::Number);
+    assert_eq!(written.value, None, "no cached value");
+    assert_eq!(
+        written.formula,
+        Some(crate::cells::Formula {
+            text: text.to_string(),
+            kind: crate::cells::FormulaKind::Normal,
+            reference: None,
+        })
+    );
+}
+
+#[test]
+fn an_empty_formula_text_is_refused() {
+    let error = refused_edit("<row r=\"1\"></row>", |p| {
+        p.set_cell(SHEET, at("A1"), Value::Formula(String::new()))
+    });
+    assert_package(error, "a formula text is empty");
+}
+
+#[test]
+fn a_formula_text_starting_with_an_equals_sign_is_refused() {
+    for text in ["=1+1", "==1"] {
+        let error = refused_edit("<row r=\"1\"></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Formula(text.to_string()))
+        });
+        assert_package(error, "a formula text starts with an equals sign");
+    }
+    // An equals sign after the first character is the formula's own.
+    let got = formula_sheet("<row r=\"1\"></row>", |p| {
+        p.set_cell(SHEET, at("A1"), Value::Formula("1=1".to_string()))
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\"><f>1=1</f></c></row>")
+    );
+}
+
+#[test]
+fn a_formula_text_with_a_character_xml_forbids_is_refused() {
+    for bad in [
+        "\u{1}", "1+\u{8}", "\u{B}", "\u{1F}", "\u{FFFE}", "\u{FFFF}",
+    ] {
+        let error = refused_edit("<row r=\"1\"></row>", |p| {
+            p.set_cell(SHEET, at("A1"), Value::Formula(bad.to_string()))
+        });
+        assert_package(error, "a formula text holds a character XML cannot carry");
+    }
+}
+
+#[test]
+fn a_formula_overridden_by_a_number_leaves_the_chain_and_calc_pr() {
+    // The last value edit for B1 is a number, so the write changes no
+    // formula: the chain, its override, its relationship and the workbook
+    // part all stay.
+    let parts = chain_with_formula();
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("C1"), Value::Formula("1+1".to_string()));
+        p.set_cell(SHEET, at("C1"), Value::Number(3.0));
+    });
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"1\"><f>B1*2</f><v>4</v></c><c r=\"B1\"><v>2</v></c>\
+             <c r=\"C1\"><v>3</v></c></row>",
+        ),
+    );
+    assert_untouched(&output, &parts, &[SHEET]);
+    assert_names(&output, &part_names(&parts));
+}
+
+#[test]
+fn a_formula_and_a_style_edit_on_one_cell_both_apply() {
+    let parts = styled(
+        "<cellXfs count=\"2\"><xf/><xf/></cellXfs>",
+        "<row r=\"1\"><c r=\"A1\" s=\"0\"><v>1</v></c></row>",
+    );
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("A1"), Value::Formula("1+1".to_string()));
+        p.set_cell_style(SHEET, at("A1"), Some(1));
+    });
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with("<row r=\"1\"><c r=\"A1\" s=\"1\"><f>1+1</f></c></row>"),
+    );
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+    assert_untouched(&output, &parts, &[SHEET, WORKBOOK]);
+}
+
+#[test]
+fn a_written_formula_drops_the_chain_and_sets_the_flag() {
+    let parts = chain_with_formula();
+    let output = edited_output(parts.clone(), |p| {
+        p.set_cell(SHEET, at("C1"), Value::Formula("B1+1".to_string()))
+    });
+    assert_chain_gone(&output);
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+    assert_part(
+        &output,
+        SHEET,
+        &sheet_with(
+            "<row r=\"1\"><c r=\"A1\" s=\"1\"><f>B1*2</f><v>4</v></c><c r=\"B1\"><v>2</v></c>\
+             <c r=\"C1\"><f>B1+1</f></c></row>",
+        ),
+    );
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"[Content_Types].xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"xl/calcChain.xml",
+            SHEET,
+            WORKBOOK,
+        ],
+    );
+    let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+    let workbook = package.workbook().expect("the workbook");
+    assert!(workbook.calc_chain.is_none());
+    assert!(workbook.full_calc_on_load);
+}
+
+#[test]
+fn the_callers_drop_then_a_written_formula_records_the_recipe_once() {
+    let (_, mut package) = opened(chain_with_formula());
+    assert!(package.drop_calc_chain().expect("the recipe"));
+    package.set_cell(SHEET, at("C1"), Value::Formula("1+1".to_string()));
+    package.formula_change_rule().expect("the rule");
+    assert_eq!(removals_recorded(&package), (1, 1, 1), "after the rule");
+    let output = written(package);
+    assert_chain_gone(&output);
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+}
+
+#[test]
+fn recalculate_on_open_then_a_written_formula_writes_the_attribute_once() {
+    let got = formula_sheet("<row r=\"1\"></row>", |p| {
+        p.recalculate_on_open();
+        p.recalculate_on_open();
+        p.set_cell(SHEET, at("A1"), Value::Formula("1+1".to_string()));
+    });
+    assert_eq!(
+        got,
+        sheet_with("<row r=\"1\"><c r=\"A1\"><f>1+1</f></c></row>")
+    );
+}
+
+#[test]
+fn recalculate_on_open_without_a_chain_changes_the_workbook_part_alone() {
+    let parts = smallest();
+    let output = edited_output(parts.clone(), |p| p.recalculate_on_open());
+    assert_names(&output, &part_names(&parts));
+    assert_part(&output, WORKBOOK, &flagged_workbook());
+    assert_untouched(&output, &parts, &[WORKBOOK]);
+}
+
+#[test]
+fn a_present_calc_pr_gains_or_takes_the_attribute_and_keeps_every_other_byte() {
+    // (input tag, output tag): calcId alone, the four LibreOffice
+    // attributes, the attribute at 0, at 1 in single quotes (kept), at true,
+    // a start tag with an end tag (kept a pair), whitespace before `/>`, and
+    // no attributes at all (P1 ruling 5).
+    let cases = [
+        (
+            "<calcPr calcId=\"191029\"/>",
+            "<calcPr calcId=\"191029\" fullCalcOnLoad=\"1\"/>",
+        ),
+        (
+            "<calcPr iterateCount=\"100\" refMode=\"A1\" iterate=\"false\" iterateDelta=\"0.001\"/>",
+            "<calcPr iterateCount=\"100\" refMode=\"A1\" iterate=\"false\" iterateDelta=\"0.001\" \
+             fullCalcOnLoad=\"1\"/>",
+        ),
+        (
+            "<calcPr calcId=\"1\" fullCalcOnLoad=\"0\"/>",
+            "<calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>",
+        ),
+        (
+            "<calcPr fullCalcOnLoad='1' calcId=\"1\"/>",
+            "<calcPr fullCalcOnLoad='1' calcId=\"1\"/>",
+        ),
+        (
+            "<calcPr fullCalcOnLoad='true'/>",
+            "<calcPr fullCalcOnLoad='1'/>",
+        ),
+        (
+            "<calcPr calcId=\"1\"></calcPr>",
+            "<calcPr calcId=\"1\" fullCalcOnLoad=\"1\"></calcPr>",
+        ),
+        (
+            "<calcPr calcId=\"1\" />",
+            "<calcPr calcId=\"1\" fullCalcOnLoad=\"1\" />",
+        ),
+        ("<calcPr/>", "<calcPr fullCalcOnLoad=\"1\"/>"),
+    ];
+    for (tag, want) in cases {
+        let got = flagged_part(&workbook_part(&format!("{SHEETS}{tag}<extLst/>")));
+        assert_eq!(
+            got,
+            workbook_part(&format!("{SHEETS}{want}<extLst/>")),
+            "{tag}"
+        );
+    }
+}
+
+#[test]
+fn an_absent_calc_pr_goes_after_the_last_of_the_nine() {
+    // P1 ruling 1: after `definedNames`, after `sheets` alone, after
+    // `workbookPr` alone with no `sheets`, before whitespace and comments
+    // that follow, and past another namespace's children between the nine.
+    let new = "<calcPr fullCalcOnLoad=\"1\"/>";
+    let cases = [
+        (
+            format!(
+                "{SHEETS}\n<definedNames><definedName name=\"a\">1</definedName></definedNames>\n<extLst/>"
+            ),
+            format!(
+                "{SHEETS}\n<definedNames><definedName name=\"a\">1</definedName></definedNames>{new}\n<extLst/>"
+            ),
+        ),
+        (
+            format!("<bookViews/>{SHEETS}\n  <oleSize ref=\"A1\"/>"),
+            format!("<bookViews/>{SHEETS}{new}\n  <oleSize ref=\"A1\"/>"),
+        ),
+        (
+            "<workbookPr date1904=\"0\"/>\n".to_string(),
+            format!("<workbookPr date1904=\"0\"/>{new}\n"),
+        ),
+        (
+            format!("{SHEETS}<!-- c --><definedNames/><!-- d -->"),
+            format!("{SHEETS}<!-- c --><definedNames/>{new}<!-- d -->"),
+        ),
+        (
+            format!(
+                "<workbookPr/>\n<mc:AlternateContent xmlns:mc=\"urn:mc\"><mc:Choice/></mc:AlternateContent>\n\
+                 <bookViews/>{SHEETS}<q:x xmlns:q=\"urn:q\"/>\n<fileRecoveryPr/>"
+            ),
+            format!(
+                "<workbookPr/>\n<mc:AlternateContent xmlns:mc=\"urn:mc\"><mc:Choice/></mc:AlternateContent>\n\
+                 <bookViews/>{SHEETS}{new}<q:x xmlns:q=\"urn:q\"/>\n<fileRecoveryPr/>"
+            ),
+        ),
+    ];
+    for (body, want) in cases {
+        assert_eq!(
+            flagged_part(&workbook_part(&body)),
+            workbook_part(&want),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn an_absent_calc_pr_in_a_root_with_no_children_goes_inside_it() {
+    let new = "<calcPr fullCalcOnLoad=\"1\"/>";
+    assert_eq!(flagged_part(&workbook_part("")), workbook_part(new));
+    let empty = format!("{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"/>");
+    assert_eq!(flagged_part(&empty), workbook_part(new));
+}
+
+#[test]
+fn a_calc_pr_in_a_prefixed_workbook_takes_the_prefix() {
+    let prefixed = |body: &str| {
+        format!(
+            "{DECLARATION}\n<x:workbook xmlns:x=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <x:sheets><x:sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></x:sheets>{body}\
+             </x:workbook>"
+        )
+    };
+    assert_eq!(
+        flagged_part(&prefixed("")),
+        prefixed("<x:calcPr fullCalcOnLoad=\"1\"/>")
+    );
+    assert_eq!(
+        flagged_part(&prefixed("<x:calcPr calcId=\"1\"/>")),
+        prefixed("<x:calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>")
+    );
+}
+
+#[test]
+fn a_workbook_with_two_calc_prs_is_refused_at_write_with_no_output() {
+    let two = workbook_part(&format!("{SHEETS}<calcPr calcId=\"1\"/><calcPr/>"));
+    let with_two = |rows: &str| {
+        let mut parts = with_rows(rows);
+        set(&mut parts, WORKBOOK, two.clone());
+        parts
+    };
+    // Reading does not refuse, and the first is the one read.
+    let (_, mut package) = opened(with_two(""));
+    assert!(!package.workbook().expect("the workbook").full_calc_on_load);
+    // The flag recorded, a written formula, and a removed formula (the
+    // rule's second validation), each refused before any output.
+    let (_, mut package) = opened(with_two(""));
+    package.recalculate_on_open();
+    assert_package(refused(package), "a workbook has two calcPr elements");
+    let (_, mut package) = opened(with_two("<row r=\"1\"></row>"));
+    package.set_cell(SHEET, at("A1"), Value::Formula("1+1".to_string()));
+    assert_package(refused(package), "a workbook has two calcPr elements");
+    let (_, mut package) = opened(with_two(
+        "<row r=\"1\"><c r=\"A1\"><f>1</f><v>1</v></c></row>",
+    ));
+    package.clear_cell(SHEET, at("A1"));
+    assert_package(refused(package), "a workbook has two calcPr elements");
+    // A write that changes no formula does not read the count.
+    let (_, mut package) = opened(with_two("<row r=\"1\"></row>"));
+    package.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    written(package);
+}
+
+#[test]
+fn the_calc_pr_rewrite_refuses_a_second_calc_pr_itself() {
+    // The backstop of P1 ruling 3, called directly: validation refuses first
+    // on every path through `write_to`.
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        WORKBOOK,
+        workbook_part(&format!("{SHEETS}<calcPr/><calcPr/>")),
+    );
+    let (_, mut package) = opened(parts);
+    let index = package.part(WORKBOOK).expect("the workbook part");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    match rewrite_workbook(&mut package.archive, index, true) {
+        Ok(_) => panic!("the rewrite took two calcPr elements"),
+        Err(error) => assert_package(error, "a workbook has two calcPr elements"),
+    }
+}
+
+#[test]
+fn every_byte_outside_the_calc_pr_tag_is_kept() {
+    let body = |calc_pr: &str| {
+        format!(
+            "<fileVersion appName=\"xl\"/>\r\n<workbookPr date1904=\"1\"/>\n\
+             <bookViews><workbookView xWindow=\"0\"/></bookViews>{SHEETS}\
+             <definedNames><definedName name=\"a\">Sheet1!$A$1</definedName></definedNames>\t\
+             {calc_pr}  <pivotCaches><pivotCache cacheId=\"1\" r:id=\"rId9\"/></pivotCaches>\
+             <extLst><ext uri=\"{{x}}\"><y/></ext></extLst>"
+        )
+    };
+    let with_mark = |calc_pr: &str| {
+        let mut bytes = String::from("\u{FEFF}");
+        bytes.push_str(&workbook_part(&body(calc_pr)));
+        bytes
+    };
+    assert_eq!(
+        flagged_part(&with_mark("<calcPr calcId=\"191029\"/>")),
+        with_mark("<calcPr calcId=\"191029\" fullCalcOnLoad=\"1\"/>")
+    );
+}
+
+#[test]
+fn full_calc_on_load_is_read_from_the_first_calc_pr() {
+    let read = |tags: &str| {
+        let mut parts = smallest();
+        set(
+            &mut parts,
+            WORKBOOK,
+            workbook_part(&format!("{SHEETS}{tags}")),
+        );
+        let (_, mut package) = opened(parts);
+        package.workbook().expect("the workbook").full_calc_on_load
+    };
+    assert!(read("<calcPr fullCalcOnLoad=\"1\"/>"));
+    assert!(read("<calcPr fullCalcOnLoad=\"true\"/>"));
+    assert!(!read("<calcPr fullCalcOnLoad=\"0\"/>"));
+    assert!(!read("<calcPr fullCalcOnLoad=\"false\"/>"));
+    assert!(!read("<calcPr calcId=\"1\"/>"));
+    assert!(!read(""));
+    assert!(!read("<calcPr/><calcPr fullCalcOnLoad=\"1\"/>"));
+    assert!(read("<calcPr fullCalcOnLoad=\"1\"/><calcPr/>"));
+}
+
+#[test]
+fn a_workbook_part_replaced_or_removed_refuses_the_flag() {
+    let message = "the workbook part cannot be edited in a package that replaces or removes it";
+    let replacement = || replacement_from_reader(Cursor::new(workbook_part(SHEETS).into_bytes()));
+    let (_, mut package) = opened(smallest());
+    package.replace_part(WORKBOOK, replacement());
+    package.recalculate_on_open();
+    assert_package(refused(package), message);
+    let (_, mut package) = opened(smallest());
+    package.remove_part(WORKBOOK);
+    package.recalculate_on_open();
+    assert_package(refused(package), message);
+    // The rule's own case: a written formula.
+    let (_, mut package) = opened(with_rows("<row r=\"1\"></row>"));
+    package.replace_part(WORKBOOK, replacement());
+    package.set_cell(SHEET, at("A1"), Value::Formula("1+1".to_string()));
+    assert_package(refused(package), message);
+    // The control: the replacement alone is written.
+    let (_, mut package) = opened(smallest());
+    package.replace_part(WORKBOOK, replacement());
+    written(package);
 }

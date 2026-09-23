@@ -135,6 +135,21 @@
 //! - "a styles part without cellXfs cannot take a style"
 //!   (`a_part_without_cell_xfs_is_refused_at_write_with_no_output`).
 //!
+//! Formulas and the workbook's `calcPr` add five (`specs/0013-formulas.md`,
+//! "Errors"); the first three are raised by [`Value`] in `cells` and reported
+//! by [`Package::write_to`], the last two by `write_to` itself:
+//!
+//! - "a formula text is empty" (`an_empty_formula_text_is_refused`).
+//! - "a formula text starts with an equals sign"
+//!   (`a_formula_text_starting_with_an_equals_sign_is_refused`).
+//! - "a formula text holds a character XML cannot carry"
+//!   (`a_formula_text_with_a_character_xml_forbids_is_refused`).
+//! - "a workbook has two calcPr elements"
+//!   (`a_workbook_with_two_calc_prs_is_refused_at_write_with_no_output`,
+//!   `the_calc_pr_rewrite_refuses_a_second_calc_pr_itself`).
+//! - "the workbook part cannot be edited in a package that replaces or removes it"
+//!   (`a_workbook_part_replaced_or_removed_refuses_the_flag`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -313,7 +328,7 @@ use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
 use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
-use crate::styles::{NewXf, NumberFormat, Styles, counted, num_fmt_element};
+use crate::styles::{NewXf, NumberFormat, Styles, counted, num_fmt_element, scan_start_tag};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -620,6 +635,12 @@ pub struct Workbook {
     /// (`specs/0012-styles.md`, "Module `dates`"). The first `<workbookPr>`
     /// among the root's children is the one read.
     pub date1904: bool,
+    /// Whether the workbook asks for a full calculation on load: `<calcPr>`'s
+    /// `fullCalcOnLoad` written as `1` or `true`, and `false` for any other
+    /// value, when the attribute is absent and when `<calcPr>` is
+    /// (`specs/0013-formulas.md`, "Module `package`"). The first `<calcPr>`
+    /// among the root's children is the one read, as for `date1904`.
+    pub full_calc_on_load: bool,
 }
 
 impl Workbook {
@@ -640,6 +661,10 @@ pub struct Package<R: Read + Seek> {
     /// Parsed relationships by source, the package's own under an empty name.
     relationships: Vec<Relationships>,
     workbook: Option<Workbook>,
+    /// How many `<calcPr>` elements the workbook part has among its root's
+    /// children, counted by the read that fills `workbook`; a write that
+    /// rewrites the part refuses two (`specs/0013-formulas.md`, P1 ruling 3).
+    calc_prs: usize,
     styles: Option<Styles>,
     /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
     ///
@@ -677,6 +702,10 @@ struct Recorded {
     /// `(id, code)`: the number formats those additions need that the part
     /// does not define, in record order.
     num_fmt_additions: Vec<(u32, String)>,
+    /// Whether the workbook part gets `fullCalcOnLoad="1"`: recorded by
+    /// [`Package::recalculate_on_open`], or by the formula-change rule of
+    /// [`Package::write_to`] (`specs/0013-formulas.md`).
+    recalculate: bool,
 }
 
 /// What one reference's edits in one write ask for: a value edit, a style
@@ -720,6 +749,19 @@ impl Recorded {
             && self.cell_edits.is_empty()
             && self.style_edits.is_empty()
             && self.xf_additions.is_empty()
+            && !self.recalculate
+    }
+
+    /// Whether the last value edit recorded for some reference writes a
+    /// [`Value::Formula`], which is one half of the formula-change rule; the
+    /// other half, a removed normal formula, is known only once a worksheet
+    /// has been streamed.
+    fn writes_formula(&self) -> bool {
+        self.cell_parts().iter().any(|part| {
+            self.cell_edits_of(part)
+                .iter()
+                .any(|(_, edit)| matches!(edit.value, Some(Some(Value::Formula(_)))))
+        })
     }
 
     /// Every worksheet part with a cell edit, a value edit or a style edit,
@@ -787,6 +829,7 @@ impl<R: Read + Seek> Package<R> {
             content_types: None,
             relationships: Vec::new(),
             workbook: None,
+            calc_prs: 0,
             styles: None,
             edits: Recorded::default(),
         })
@@ -971,10 +1014,11 @@ impl<R: Read + Seek> Package<R> {
         let index = self.archive.index_of(&part).ok_or(Error::Package(
             "the officeDocument relationship names no entry",
         ))?;
-        let (raw, date1904) = parse_workbook_sheets(&mut self.archive, index)?;
+        let read = parse_workbook_sheets(&mut self.archive, index)?;
+        self.calc_prs = read.calc_prs;
         let rels = self.relationships(&part)?;
-        let mut sheets = Vec::with_capacity(raw.len());
-        for sheet in raw {
+        let mut sheets = Vec::with_capacity(read.sheets.len());
+        for sheet in read.sheets {
             let rel = rels
                 .by_id(&sheet.rel_id)
                 .ok_or(Error::Package("a sheet's relationship is missing"))?;
@@ -994,7 +1038,8 @@ impl<R: Read + Seek> Package<R> {
             styles: resolved_first(rels, STYLES)?,
             calc_chain: resolved_first(rels, CALC_CHAIN)?,
             theme: resolved_first(rels, THEME)?,
-            date1904,
+            date1904: read.date1904,
+            full_calc_on_load: read.full_calc_on_load,
         })
     }
 
@@ -1315,16 +1360,37 @@ impl<R: Read + Seek> Package<R> {
             .push((part.to_vec(), reference, style));
     }
 
+    /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
+    /// `<calcPr>`, asking an application to recalculate every formula when
+    /// it opens the file.
+    ///
+    /// `specs/0013-formulas.md`, "Module `package`". Nothing is read and
+    /// nothing can fail here, and recording it twice records it once.
+    /// [`Package::write_to`] records it itself for a write that changes a
+    /// formula; a caller whose edits changed an input of existing formulas
+    /// and no formula calls this, since emend cannot know which formulas
+    /// depend on which cells. Whether an application honours the request is
+    /// the application's: nothing is evaluated here.
+    pub fn recalculate_on_open(&mut self) {
+        self.edits.recalculate = true;
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
     /// each worksheet with cell edits is streamed into a temporary file once,
     /// with all of its edits, as `specs/0011-editing-cells.md`, "Module
     /// `package`", describes; a refusal found while a part streams also
-    /// writes nothing. When an edit replaced or cleared a cell whose formula
-    /// was a normal one, the calculation chain is dropped in the same write
-    /// through [`Package::drop_calc_chain`], unless its relationship is
-    /// already recorded for removal, and the set is validated again. Then
+    /// writes nothing. When the write changes formulas (the last value edit
+    /// for some reference is a [`Value::Formula`], or an edit replaced or
+    /// cleared a cell whose formula was a normal one), the calculation chain
+    /// is dropped in the same write through [`Package::drop_calc_chain`],
+    /// unless its relationship is already recorded for removal, a full
+    /// calculation on load is recorded as [`Package::recalculate_on_open`]
+    /// records it, and the set is validated again (`specs/0013-formulas.md`).
+    /// The styles part is rewritten when a cell format was added, and the
+    /// workbook part when the full calculation is recorded, its `calcPr`
+    /// start tag alone changing. Then
     /// `[Content_Types].xml` and each rels part with edits are read through
     /// [`Stream`] and rewritten into a temporary file: every token's `raw` is
     /// copied except a removed element's own bytes, so the whitespace around
@@ -1359,7 +1425,12 @@ impl<R: Read + Seek> Package<R> {
     /// workbook has no styles part" and whatever else reading the styles
     /// part refuses, "a style addition to a part this write replaces", "a
     /// styles part without cellXfs cannot take a style" and, for a `count`
-    /// it rewrites, "a style attribute is not a number".
+    /// it rewrites, "a style attribute is not a number". For a formula
+    /// (`specs/0013-formulas.md`): "a formula text is empty", "a formula
+    /// text starts with an equals sign", "a formula text holds a character
+    /// XML cannot carry", and for the workbook rewrite "a workbook has two
+    /// calcPr elements" and "the workbook part cannot be edited in a package
+    /// that replaces or removes it".
     /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
     /// the index of the part the value would have been written into.
     /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
@@ -1375,18 +1446,18 @@ impl<R: Read + Seek> Package<R> {
         // its edits, because a removed formula adds the chain's three
         // removals, which the content types and rels rewrites below apply
         // (`specs/0011-editing-cells.md`, "Module `package`").
-        let mut removed_formula = false;
+        let mut changed_formula = self.edits.writes_formula();
         for part in self.edits.cell_parts() {
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let sorted = self.edits.cell_edits_of(&part);
             let (temp, replacement, removed) =
                 rewrite_worksheet(&mut self.archive, index, &sorted)?;
-            removed_formula |= removed;
+            changed_formula |= removed;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
-        if removed_formula {
-            self.drop_calc_chain_once()?;
+        if changed_formula {
+            self.formula_change_rule()?;
         }
 
         // The styles part, rewritten once when a cell format was added
@@ -1410,6 +1481,19 @@ impl<R: Read + Seek> Package<R> {
                 &codes,
                 &self.edits.xf_additions,
             )?;
+            temporaries.push(temp);
+            edits.replace(index, replacement);
+        }
+
+        // The workbook part, rewritten once when a full calculation on load
+        // was asked for (`specs/0013-formulas.md`, "Module `package`").
+        // `validate` has read the workbook, so its part and its `calcPr`
+        // count are cached.
+        if self.edits.recalculate {
+            let part = self.workbook()?.part.clone();
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            let (temp, replacement) =
+                rewrite_workbook(&mut self.archive, index, self.calc_prs > 0)?;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
@@ -1498,17 +1582,29 @@ impl<R: Read + Seek> Package<R> {
         result
     }
 
-    /// The chain rule of [`Package::write_to`], for a write whose cell edits
-    /// removed a formula.
+    /// The formula-change rule of [`Package::write_to`], for a write whose
+    /// cell edits wrote a formula or removed a normal one
+    /// (`specs/0013-formulas.md`, "Module `package`", and P1 ruling 4).
     ///
-    /// The chain lists the cell whose formula went, and Excel repairs a
-    /// workbook whose chain names a cell with no formula. Unless the caller
-    /// has already recorded the chain's relationship for removal, the recipe
-    /// is applied here, and the whole set is validated again with its three
-    /// removals in it.
+    /// The chain lists cells by their formulas, and Excel repairs a workbook
+    /// whose chain names a cell with no formula, so unless the caller has
+    /// already recorded the chain's relationship for removal the recipe is
+    /// applied here; and the full calculation on load is recorded, whether
+    /// or not there was a chain, since no cached value was written. The
+    /// whole set is then validated again with both in it, which is where a
+    /// workbook part that cannot be rewritten is refused for this case.
+    fn formula_change_rule(&mut self) -> Result<(), Error> {
+        self.drop_calc_chain_once()?;
+        self.edits.recalculate = true;
+        self.validate()
+    }
+
+    /// The chain half of the formula-change rule: the recipe of
+    /// [`Package::drop_calc_chain`], unless the caller has already recorded
+    /// the chain's relationship for removal, so it is recorded once.
     fn drop_calc_chain_once(&mut self) -> Result<(), Error> {
-        if !self.calc_chain_pending()? && self.drop_calc_chain()? {
-            self.validate()?;
+        if !self.calc_chain_pending()? {
+            self.drop_calc_chain()?;
         }
         Ok(())
     }
@@ -1675,6 +1771,27 @@ impl<R: Read + Seek> Package<R> {
                 .any(|(name, _)| *name == part)
             {
                 return Err(STYLE_ADDITION_REPLACED);
+            }
+        }
+
+        // A write that will rewrite the workbook part, for the flag recorded
+        // or for the formula-change rule a written formula fires, rewrites a
+        // part this write neither removes nor replaces and that has at most
+        // one `calcPr` (`specs/0013-formulas.md`, P1 ruling 3). A rule fired
+        // by a removed formula is checked when the rule validates again.
+        if self.edits.recalculate || self.edits.writes_formula() {
+            let part = self.workbook()?.part.clone();
+            if is_removed(&part)
+                || self
+                    .edits
+                    .part_replacements
+                    .iter()
+                    .any(|(name, _)| *name == part)
+            {
+                return Err(WORKBOOK_REPLACED);
+            }
+            if self.calc_prs > 1 {
+                return Err(TWO_CALC_PRS);
             }
         }
         Ok(())
@@ -1873,6 +1990,13 @@ const CODE_REFUSED: Error =
 const STYLE_ADDITION_REPLACED: Error =
     Error::Package("a style addition to a part this write replaces");
 const NO_CELL_XFS: Error = Error::Package("a styles part without cellXfs cannot take a style");
+
+/// What [`Package::write_to`] refuses a workbook rewrite with
+/// (`specs/0013-formulas.md`, "Errors"); the three about a formula's text are
+/// raised by [`Value`] itself, in `cells`.
+const TWO_CALC_PRS: Error = Error::Package("a workbook has two calcPr elements");
+const WORKBOOK_REPLACED: Error =
+    Error::Package("the workbook part cannot be edited in a package that replaces or removes it");
 
 /// The value of the unprefixed attribute `name`, bytes as written.
 ///
@@ -2226,6 +2350,164 @@ fn rewrite_styles<R: Read + Seek>(
         return Err(NO_CELL_XFS);
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// Rewrites the workbook part with `fullCalcOnLoad="1"` into a temporary
+/// file.
+///
+/// `specs/0013-formulas.md`, "Module `package`", and P1 rulings 1, 3 and 5:
+/// every token's `raw` is copied, the mark included, except the start tag of
+/// the one `<calcPr>` among the root's children, which keeps every byte but
+/// the value of an unprefixed `fullCalcOnLoad` (now `1`, in its own quotes)
+/// or gains ` fullCalcOnLoad="1"` right after its last attribute. With no
+/// `<calcPr>` (`has_calc_pr` false, from the read), `<calcPr
+/// fullCalcOnLoad="1"/>` with the root's prefix goes immediately after the
+/// end of the last root child among [`BEFORE_CALC_PR`], or after the root
+/// start tag when there is none: the tokens that follow such an end at the
+/// root's level are held back until the next child of the root in the main
+/// namespace shows whether it is one of those. A second `<calcPr>` is
+/// refused, leaving no output.
+fn rewrite_workbook<R: Read + Seek>(
+    archive: &mut Archive<R>,
+    index: usize,
+    has_calc_pr: bool,
+) -> Result<(TempFile, Replacement), Error> {
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root_prefix: Vec<u8> = Vec::new();
+    let mut calc_prs = 0usize;
+    // Whether the new `<calcPr>` is still to be written, and the bytes held
+    // back since the last point it could go.
+    let mut inserting = !has_calc_pr;
+    let mut held: Vec<u8> = Vec::new();
+    let new_calc_pr =
+        |prefix: &[u8]| [b"<".as_slice(), prefix, b"calcPr fullCalcOnLoad=\"1\"/>"].concat();
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 1 {
+                    root_prefix = prefix_of(start);
+                    if inserting && empty {
+                        // A root with no children at all: opened up as part 2
+                        // opens an empty root, with the new element inside.
+                        out.write_all(&opened_up(token.raw, index)?)?;
+                        out.write_all(&new_calc_pr(&root_prefix))?;
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                        inserting = false;
+                    } else {
+                        out.write_all(token.raw)?;
+                    }
+                } else if depth == 2 && ours && local == b"calcPr" {
+                    calc_prs += 1;
+                    if calc_prs > 1 {
+                        return Err(TWO_CALC_PRS);
+                    }
+                    out.write_all(&held)?;
+                    held.clear();
+                    out.write_all(&full_calc_tag(token.raw, index)?)?;
+                } else if depth == 2 && inserting && ours {
+                    if !BEFORE_CALC_PR.contains(&local) {
+                        out.write_all(&new_calc_pr(&root_prefix))?;
+                        inserting = false;
+                    }
+                    out.write_all(&held)?;
+                    held.clear();
+                    out.write_all(token.raw)?;
+                } else if depth >= 2 && inserting && !held.is_empty() {
+                    held.extend_from_slice(token.raw);
+                } else if depth == 2 && inserting && !ours {
+                    // Another namespace's child of the root is held with what
+                    // follows it, since a child among the nine may come after.
+                    held.extend_from_slice(token.raw);
+                } else {
+                    out.write_all(token.raw)?;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 1 && inserting {
+                    out.write_all(&new_calc_pr(&root_prefix))?;
+                    inserting = false;
+                    out.write_all(&held)?;
+                    held.clear();
+                    out.write_all(token.raw)?;
+                } else if inserting && !held.is_empty() {
+                    held.extend_from_slice(token.raw);
+                } else {
+                    out.write_all(token.raw)?;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {
+                // Between the root's children, or inside a held child.
+                if inserting && (depth == 1 || !held.is_empty()) {
+                    held.extend_from_slice(token.raw);
+                } else {
+                    out.write_all(token.raw)?;
+                }
+            }
+        }
+    }
+    written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// The root children ECMA-376 Part 1, 18.2.27 orders before `calcPr`
+/// (`specs/0013-formulas.md`, P1 ruling 1).
+const BEFORE_CALC_PR: [&[u8]; 9] = [
+    b"fileVersion",
+    b"fileSharing",
+    b"workbookPr",
+    b"workbookProtection",
+    b"bookViews",
+    b"sheets",
+    b"functionGroups",
+    b"externalReferences",
+    b"definedNames",
+];
+
+/// A `<calcPr>` start tag's bytes with `fullCalcOnLoad` set to `1`: an
+/// unprefixed one present has its value replaced between its own quotes,
+/// else ` fullCalcOnLoad="1"` goes right after the last attribute's closing
+/// quote, or after the name when there is none, so every other byte of the
+/// tag is kept (`specs/0013-formulas.md`, P1 ruling 5).
+fn full_calc_tag(raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    if let Some(present) = tag
+        .attributes
+        .iter()
+        .find(|attribute| &raw[attribute.name.clone()] == b"fullCalcOnLoad")
+    {
+        let mut out = raw[..present.value.start].to_vec();
+        out.push(b'1');
+        out.extend_from_slice(&raw[present.value.end..]);
+        return Ok(out);
+    }
+    let at = match tag.attributes.last() {
+        // The closing quote follows the value.
+        Some(last) => last.value.end + 1,
+        None => tag.name_end,
+    };
+    let mut out = raw[..at].to_vec();
+    out.extend_from_slice(b" fullCalcOnLoad=\"1\"");
+    out.extend_from_slice(&raw[at..]);
+    Ok(out)
 }
 
 /// A rectangle of cells, both corners included: an array formula's `ref`.
@@ -2975,12 +3257,22 @@ struct RawSheet {
     state: Option<Vec<u8>>,
 }
 
-/// Reads the workbook part's `<sheets>` and its first `<workbookPr>`'s
-/// `date1904`, skipping everything else.
+/// What [`parse_workbook_sheets`] reads from the workbook part.
+struct RawWorkbook {
+    sheets: Vec<RawSheet>,
+    date1904: bool,
+    full_calc_on_load: bool,
+    /// The `<calcPr>` elements among the root's children, counted.
+    calc_prs: usize,
+}
+
+/// Reads the workbook part's `<sheets>`, its first `<workbookPr>`'s
+/// `date1904` and its first `<calcPr>`'s `fullCalcOnLoad`, and counts its
+/// `<calcPr>` elements, skipping everything else.
 fn parse_workbook_sheets<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
-) -> Result<(Vec<RawSheet>, bool), Error> {
+) -> Result<RawWorkbook, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
     let mut root = false;
@@ -2991,6 +3283,9 @@ fn parse_workbook_sheets<R: Read + Seek>(
     let mut out = Vec::new();
     // `None` until the first `<workbookPr>` is read.
     let mut date1904: Option<bool> = None;
+    // `None` until the first `<calcPr>` is read.
+    let mut full_calc_on_load: Option<bool> = None;
+    let mut calc_prs = 0usize;
     while let Some(token) = stream.next()? {
         let (start, empty) = match token.event {
             Event::Start(ref start) => (start, false),
@@ -3021,6 +3316,12 @@ fn parse_workbook_sheets<R: Read + Seek>(
         } else if ours && local == b"workbookPr" && depth == ROOT_DEPTH + 1 && date1904.is_none() {
             let value = written_attribute(start, b"date1904", index)?;
             date1904 = Some(matches!(value.as_deref(), Some(b"1") | Some(b"true")));
+        } else if ours && local == b"calcPr" && depth == ROOT_DEPTH + 1 {
+            calc_prs += 1;
+            if full_calc_on_load.is_none() {
+                let value = written_attribute(start, b"fullCalcOnLoad", index)?;
+                full_calc_on_load = Some(matches!(value.as_deref(), Some(b"1") | Some(b"true")));
+            }
         }
         if empty {
             scope.end();
@@ -3030,7 +3331,12 @@ fn parse_workbook_sheets<R: Read + Seek>(
             depth = depth.saturating_sub(1);
         }
     }
-    Ok((out, date1904.unwrap_or(false)))
+    Ok(RawWorkbook {
+        sheets: out,
+        date1904: date1904.unwrap_or(false),
+        full_calc_on_load: full_calc_on_load.unwrap_or(false),
+        calc_prs,
+    })
 }
 
 /// Reads one `<sheet>` element's attributes.

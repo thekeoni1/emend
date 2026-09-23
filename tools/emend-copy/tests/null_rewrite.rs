@@ -555,6 +555,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--date-sample", "--style-sample"],
         vec!["--style-sample", "--date-sample"],
         vec!["--date-sample", "[Content_Types].xml"],
+        // And with part 6 P1's.
+        vec!["--calc", "--styles"],
+        vec!["--styles", "--calc"],
+        vec!["--calc", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -1324,6 +1328,39 @@ fn formula_sample(label: &str, specs: &[Spec]) -> (String, Vec<u8>) {
     (ran.stdout, fs::read(&output).expect("read the output"))
 }
 
+/// Asserts that the output's workbook part is the input's with `<calcPr
+/// fullCalcOnLoad="1"/>` after `</sheets>`, its last child: the formula
+/// sample changes a formula, so the write asks for a full calculation on
+/// load (`specs/0013-formulas.md`, P1 ruling 4). The part is deflated, as
+/// the input's is, so it is compared by its CRC-32 and size, both computed
+/// here from the expected bytes.
+#[track_caller]
+fn workbook_flagged(entries: &[OutEntry], specs: &[Spec]) {
+    let input = specs
+        .iter()
+        .find(|spec| spec.name == b"xl/workbook.xml")
+        .expect("the input has a workbook part");
+    let text = String::from_utf8(input.data.clone()).expect("UTF-8");
+    assert!(
+        text.ends_with("</sheets></workbook>"),
+        "the fixture's shape"
+    );
+    let expected = text.replace(
+        "</sheets></workbook>",
+        "</sheets><calcPr fullCalcOnLoad=\"1\"/></workbook>",
+    );
+    let entry = entry_named(entries, b"xl/workbook.xml");
+    assert_eq!(
+        (entry.method, entry.crc32, entry.uncompressed_size),
+        (
+            input.method,
+            crc32(expected.as_bytes()),
+            expected.len() as u64
+        ),
+        "the workbook part"
+    );
+}
+
 /// Asserts that every entry of `specs` not in `changed` came back with the
 /// bytes it went in with.
 #[track_caller]
@@ -1404,6 +1441,7 @@ fn the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain() {
             String::from_utf8_lossy(name)
         );
     }
+    workbook_flagged(&entries, &specs);
     untouched_but(
         &entries,
         &specs,
@@ -1412,6 +1450,7 @@ fn the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain() {
             b"xl/_rels/workbook.xml.rels",
             b"xl/worksheets/sheet1.xml",
             b"xl/calcChain.xml",
+            b"xl/workbook.xml",
         ],
     );
 }
@@ -1419,7 +1458,8 @@ fn the_formula_sample_replaces_the_first_normal_formula_and_drops_the_chain() {
 #[test]
 fn the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain() {
     // The first worksheet has only a shared formula, so the second is
-    // edited; there is no chain, so it alone changes and chain_dropped is 0.
+    // edited; there is no chain, so it and the workbook part's calcPr alone
+    // change (`specs/0013-formulas.md`, P1 ruling 4) and chain_dropped is 0.
     // The first sheet's count is not the one the line carries: the second
     // sheet's is.
     let second = edited(&format!("<sheetData>{FORMULA_ROWS}</sheetData>"));
@@ -1461,7 +1501,12 @@ fn the_formula_sample_reads_on_to_a_later_worksheet_and_keeps_an_absent_chain() 
         edited(&format!("<sheetData>{}</sheetData>", formula_rows_edited())).into_bytes(),
         "the second sheet"
     );
-    untouched_but(&entries, &specs, &[b"xl/worksheets/sheet2.xml"]);
+    workbook_flagged(&entries, &specs);
+    untouched_but(
+        &entries,
+        &specs,
+        &[b"xl/worksheets/sheet2.xml", b"xl/workbook.xml"],
+    );
 }
 
 #[test]
@@ -1586,6 +1631,90 @@ fn styles_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(
         ran.stderr, "error: the styles part's root is not styleSheet\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+// ---------------------------------------------------------------- --calc
+
+/// Runs `--calc` on `specs`, asserting exit 0, an output byte-identical to
+/// the input and no temporary left, and returns the line.
+#[track_caller]
+fn calc_line(label: &str, specs: &[Spec]) -> String {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(specs);
+    fs::write(&input, &bytes).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--calc"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        fs::read(&output).expect("read the output"),
+        bytes,
+        "--calc edits nothing"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    ran.stdout
+}
+
+#[test]
+fn calc_prints_the_two_flags_and_edits_nothing() {
+    // `specs/0013-formulas.md`, "Harness runs": one line, `calc` then
+    // `chain` and `full_calc`, tab-separated. A chain and no calcPr; no
+    // chain and a calcPr asking for a full calculation; neither.
+    assert_eq!(
+        calc_line("calc-chain", &package_specs_with_a_chain()),
+        "calc\tchain=1\tfull_calc=0\n"
+    );
+    let mut specs = package_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/workbook.xml" {
+            let text = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace(
+                    "</sheets>",
+                    "</sheets><calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>",
+                );
+            *spec = Spec::deflated(b"xl/workbook.xml", text.as_bytes());
+        }
+    }
+    assert_eq!(
+        calc_line("calc-full", &specs),
+        "calc\tchain=0\tfull_calc=1\n"
+    );
+    assert_eq!(
+        calc_line("calc-neither", &package_specs()),
+        "calc\tchain=0\tfull_calc=0\n"
+    );
+}
+
+#[test]
+fn calc_refuses_a_workbook_it_cannot_read_and_leaves_nothing() {
+    // The package's own relationships name no officeDocument: exit 2, the
+    // message, no line, no file.
+    let mut specs = package_specs();
+    for spec in &mut specs {
+        if spec.name == b"_rels/.rels" {
+            let text = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("/officeDocument\"", "/other\"");
+            *spec = Spec::stored(b"_rels/.rels", text.as_bytes());
+        }
+    }
+    let dir = TempDir::new("calc-refused");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--calc"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: no officeDocument relationship\n",
         "the message"
     );
     assert_eq!(ran.stdout, "", "a line was printed");

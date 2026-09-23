@@ -276,6 +276,7 @@ fn the_epoch_is_the_workbooks_date1904() {
         calc_chain: None,
         theme: None,
         date1904,
+        full_calc_on_load: false,
     };
     assert_eq!(Epoch::of(&workbook(false)), Epoch::Y1900);
     assert_eq!(Epoch::of(&workbook(true)), Epoch::Y1904);

@@ -554,11 +554,11 @@ impl Cell {
 /// What a cell can be set to (`specs/0011-editing-cells.md`, "Module
 /// `cells`: what can be written").
 ///
-/// Nothing else in this part: a formula is part 6's, a date is part 5's (a
-/// number with a date style is written as the number it is), and an error
-/// value has no use a caller has asked for. A value is checked when the
-/// package is written, not when it is made: see [`Value::Number`] and
-/// [`Value::Text`] for what is refused.
+/// A date is part 5's (a number with a date style is written as the number it
+/// is), a formula part 6's (`specs/0013-formulas.md`, "Module `cells`"), and
+/// an error value has no use a caller has asked for. A value is checked when
+/// the package is written, not when it is made: see [`Value::Number`],
+/// [`Value::Text`] and [`Value::Formula`] for what is refused.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// A number, written as a cell with no `t`.
@@ -580,6 +580,18 @@ pub enum Value {
     Text(String),
     /// A boolean, written as `t="b"` with `1` or `0`.
     Boolean(bool),
+    /// A normal formula, written as `<c r="..."><f>text</f></c>`: no `t`, no
+    /// `<v>`, no `ca`, `ref` or `si`, so the cell has no cached value until
+    /// an application computes it. emend never evaluates it.
+    ///
+    /// The text is what [`Formula::text`] reads back, without a leading `=`.
+    /// It is escaped with `quick_xml`'s `partial_escape`: `&`, `<` and `>`,
+    /// and a carriage return as `&#13;`, so quotes stay literal as openpyxl
+    /// writes them (`specs/0013-formulas.md`, P1 ruling 2). A text that is
+    /// empty, that starts with `=`, or that holds a character XML 1.0
+    /// forbids (the set [`Value::Text`] lists) is refused. Nothing else is
+    /// checked: emend does not parse formulas.
+    Formula(String),
 }
 
 impl Value {
@@ -593,6 +605,15 @@ impl Value {
             Value::Text(text) if text.chars().any(forbidden_in_xml) => {
                 Err(Error::Package("a text holds a character XML cannot carry"))
             }
+            Value::Formula(text) if text.is_empty() => {
+                Err(Error::Package("a formula text is empty"))
+            }
+            Value::Formula(text) if text.starts_with('=') => {
+                Err(Error::Package("a formula text starts with an equals sign"))
+            }
+            Value::Formula(text) if text.chars().any(forbidden_in_xml) => Err(Error::Package(
+                "a formula text holds a character XML cannot carry",
+            )),
             _ => Ok(()),
         }
     }
@@ -662,6 +683,12 @@ impl Value {
                     ]
                     .concat(),
                 );
+            }
+            Value::Formula(text) => {
+                out.extend_from_slice(&[b"><".as_slice(), p, b"f>"].concat());
+                let escaped = quick_xml::escape::partial_escape(text.as_str());
+                out.extend_from_slice(escaped.as_bytes());
+                out.extend_from_slice(&[b"</".as_slice(), p, b"f></", p, b"c>"].concat());
             }
         }
         out

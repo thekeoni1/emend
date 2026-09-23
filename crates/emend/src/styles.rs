@@ -433,18 +433,20 @@ pub(crate) fn counted(raw: &[u8], count: u64, index: usize) -> Result<Vec<u8>, E
 }
 
 /// One attribute of a scanned start tag, as positions in its bytes.
-struct ScannedAttribute {
+pub(crate) struct ScannedAttribute {
     /// The qualified name.
-    name: std::ops::Range<usize>,
+    pub(crate) name: std::ops::Range<usize>,
     /// `"` or `'`.
     quote: u8,
     /// The value between the quotes, still escaped.
-    value: std::ops::Range<usize>,
+    pub(crate) value: std::ops::Range<usize>,
 }
 
 /// A scanned start tag or empty-element tag.
-struct ScannedTag {
-    attributes: Vec<ScannedAttribute>,
+pub(crate) struct ScannedTag {
+    /// The position after the element's name, where its attributes begin.
+    pub(crate) name_end: usize,
+    pub(crate) attributes: Vec<ScannedAttribute>,
     /// The position after the tag's closing `>`.
     end: usize,
     /// Whether it closed with `/>`.
@@ -456,8 +458,9 @@ struct ScannedTag {
 ///
 /// The tag has already been parsed by `quick-xml`, so this only has to find
 /// positions in well-formed bytes, which the parser's own attribute iterator
-/// does not report; `None` for bytes that are not a start tag.
-fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
+/// does not report; `None` for bytes that are not a start tag. The workbook
+/// rewrite of `package` uses it for `calcPr` (`specs/0013-formulas.md`).
+pub(crate) fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
     let space = |byte: u8| matches!(byte, b' ' | b'\t' | b'\n' | b'\r');
     if raw.first() != Some(&b'<') {
         return None;
@@ -466,6 +469,7 @@ fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
     while at < raw.len() && !space(raw[at]) && raw[at] != b'/' && raw[at] != b'>' {
         at += 1;
     }
+    let name_end = at;
     let mut attributes = Vec::new();
     loop {
         while at < raw.len() && space(raw[at]) {
@@ -474,6 +478,7 @@ fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
         match *raw.get(at)? {
             b'>' => {
                 return Some(ScannedTag {
+                    name_end,
                     attributes,
                     end: at + 1,
                     empty: false,
@@ -481,6 +486,7 @@ fn scan_start_tag(raw: &[u8]) -> Option<ScannedTag> {
             }
             b'/' => {
                 return (raw.get(at + 1) == Some(&b'>')).then_some(ScannedTag {
+                    name_end,
                     attributes,
                     end: at + 2,
                     empty: true,

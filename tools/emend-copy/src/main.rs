@@ -67,7 +67,9 @@
 //!   `cells_after` and `read_back`, COUNTS ONLY. A cell count after the
 //!   write other than the one before is exit 2. A workbook with no normal
 //!   formula gets no edit, so its output is byte-identical, and every key of
-//!   its line is 0.
+//!   its line is 0. From part 6 the same write also asks for a full
+//!   calculation on load, so the workbook part's `calcPr` changes too
+//!   (`specs/0013-formulas.md`, P1 ruling 4); the line is unchanged.
 //! - `--styles`: no edit, so the output must be byte-identical again, and one
 //!   line goes to stdout: the word `styles` then tab-separated `key=value`,
 //!   `xfs`, `num_fmts`, `custom`, `dated` and `date1904`, the keys
@@ -75,6 +77,13 @@
 //!   code is content, so no code, no font name and no length of either is
 //!   printed. A workbook whose styles part the layer cannot read is exit 2
 //!   with the message.
+//! - `--calc`: no edit, so the output must be byte-identical again, and one
+//!   line goes to stdout: the word `calc` then tab-separated `key=value`,
+//!   `chain` (1 when the workbook has a `calcChain` relationship, else 0) and
+//!   `full_calc` (1 when its `calcPr` asks for a full calculation on load,
+//!   else 0), the keys `specs/0013-formulas.md`, "Harness runs", lists. Two
+//!   flags and nothing else. A workbook the layer cannot read is exit 2 with
+//!   the message.
 //! - `--style-sample`: the sample style edit of `specs/0012-styles.md`,
 //!   "Harness runs": two cell formats are added, one over the first sampled
 //!   cell's own format with the code `0.000` and one over no base with the
@@ -127,7 +136,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample | --date-sample]";
+| --style-sample | --date-sample | --calc]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -157,6 +166,8 @@ enum Operation {
     StyleSample,
     /// The sample dated cell, and its counts on stdout.
     DateSample,
+    /// No edits, and the workbook's two calculation flags on stdout.
+    Calc,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -260,6 +271,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
+        [input, output, flag] if flag == "--calc" => {
+            run(Path::new(input), Path::new(output), Operation::Calc)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -308,6 +322,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::SharedStrings => Some(shared_strings_line(input)?),
         Operation::Cells => Some(cells_line(input)?),
         Operation::Styles => Some(styles_line(input)?),
+        Operation::Calc => Some(calc_line(input)?),
         _ => None,
     };
 
@@ -329,7 +344,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         | Operation::Survey
         | Operation::SharedStrings
         | Operation::Cells
-        | Operation::Styles => Vec::new(),
+        | Operation::Styles
+        | Operation::Calc => Vec::new(),
         Operation::Replace(name) => {
             let index = archive.index_of(&name).ok_or(Error::NoSuchName)?;
             let (mut file, guard) = temporary(output, "-entry")?;
@@ -1311,6 +1327,17 @@ fn styles_line(input: &Path) -> Result<String, Error> {
     Ok(format!(
         "styles\txfs={xfs}\tnum_fmts={num_fmts}\tcustom={custom}\tdated={dated}\tdate1904={date1904}"
     ))
+}
+
+/// The `--calc` line: whether the workbook names a calculation chain, and
+/// whether its `calcPr` asks for a full calculation on load.
+fn calc_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let chain = u64::from(workbook.calc_chain.is_some());
+    let full_calc = u64::from(workbook.full_calc_on_load);
+    Ok(format!("calc\tchain={chain}\tfull_calc={full_calc}"))
 }
 
 /// Whether a number format shows a date or a time, by the survey's test.
