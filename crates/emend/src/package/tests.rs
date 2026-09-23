@@ -4203,7 +4203,8 @@ fn a_written_formula_drops_the_chain_and_sets_the_flag() {
 
 #[test]
 fn the_callers_drop_then_a_written_formula_records_the_recipe_once() {
-    let (_, mut package) = opened(chain_with_formula());
+    let parts = chain_with_formula();
+    let (_, mut package) = opened(parts.clone());
     assert!(package.drop_calc_chain().expect("the recipe"));
     package.set_cell(SHEET, at("C1"), Value::Formula("1+1".to_string()));
     package.formula_change_rule().expect("the rule");
@@ -4211,6 +4212,34 @@ fn the_callers_drop_then_a_written_formula_records_the_recipe_once() {
     let output = written(package);
     assert_chain_gone(&output);
     assert_part(&output, WORKBOOK, &flagged_workbook());
+    // After `write_to`'s own pass of the rule (P1 verification ruling 3):
+    // the input names the chain once in each of the three places and the
+    // output in none, so each removal is applied once; a second recording
+    // of the recipe fails the write itself.
+    let count =
+        |data: Vec<u8>, needle: &[u8]| data.windows(needle.len()).filter(|w| *w == needle).count();
+    let input = |name: &[u8]| {
+        let found = parts.iter().find(|(n, _)| n.as_slice() == name);
+        found.expect("the input part").1.clone()
+    };
+    // The override by its part name, the relationship by its target.
+    for (part, needle) in [
+        (
+            b"[Content_Types].xml".as_slice(),
+            b"PartName=\"/xl/calcChain.xml\"".as_slice(),
+        ),
+        (b"xl/_rels/workbook.xml.rels", b"Target=\"calcChain.xml\""),
+    ] {
+        let what = String::from_utf8_lossy(part);
+        assert_eq!(count(input(part), needle), 1, "the input's {what}");
+        assert_eq!(
+            count(stored_data(&output, part), needle),
+            0,
+            "the output's {what}"
+        );
+    }
+    let entries = names(&parse_independently(&output));
+    assert_eq!(entries.len(), parts.len() - 1, "one entry removed");
 }
 
 #[test]

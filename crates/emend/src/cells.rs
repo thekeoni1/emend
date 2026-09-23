@@ -658,9 +658,11 @@ impl Value {
                     ]
                     .concat(),
                 );
-                // `escape` leaves a carriage return as it is, and a reader
-                // normalises a raw one away (part 3 P1 finding P1-F1), so it
-                // goes out as a character reference.
+                // A reader normalises a raw carriage return away (part 3 P1
+                // finding P1-F1), so it goes out as a character reference.
+                // quick-xml 0.42.0's `escape` already writes it as `&#13;`;
+                // the `replace` is a no-op kept in case a later version
+                // leaves it raw.
                 let escaped = quick_xml::escape::escape(text.as_str());
                 out.extend_from_slice(escaped.replace('\r', "&#13;").as_bytes());
                 out.extend_from_slice(
