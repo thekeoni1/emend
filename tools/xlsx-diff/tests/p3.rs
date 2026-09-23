@@ -61,6 +61,10 @@ fn every_archive_row_in_order() {
         ("bytes_in", len.clone()),
         ("bytes_out", len),
         ("files_identical", "yes".to_string()),
+        ("xml_compared", "0".to_string()),
+        ("xml_parse_errors", "0".to_string()),
+        ("xml_names_equal", "0".to_string()),
+        ("xml_values_equal", "0".to_string()),
     ]
     .iter()
     .map(|(k, v)| format!("{k}={v}"))

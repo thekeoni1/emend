@@ -12,7 +12,12 @@
 //! internal attributes and disk number start to `attrs`, and adds the bytes
 //! after each entry's data to `descriptor`. T1 P6 adds raw central method,
 //! CRC-32 and size bytes that decode to equal values to `attrs`, and the
-//! order by local header offset to `order_preserved`.
+//! order by local header offset to `order_preserved`. Milestone 1 part 7
+//! adds the names-only XML comparison of changed `.xml`, `.rels` and `.vml`
+//! entries (`specs/0014-xml-comparison.md`, module `xml`): its `xml` rows
+//! print names and counts, never a value.
+
+mod xml;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -787,6 +792,114 @@ fn files_identical(input: &Path, output: &Path, len_in: u64, len_out: u64) -> Re
     }
 }
 
+/// The four `archive` counts of the XML comparison.
+#[derive(Default)]
+struct XmlCounts {
+    compared: u64,
+    parse_errors: u64,
+    names_equal: u64,
+    values_equal: u64,
+}
+
+/// Reads one side of a compared entry through a 64 KiB buffer.
+fn read_xml(archive: &mut Archive, index: usize) -> Result<xml::Read, Error> {
+    let side = archive.side;
+    let name = archive.entries[index].name().to_vec();
+    let entry = archive
+        .zip
+        .by_index(index)
+        .map_err(|e| entry_error(side, name.clone(), e))?;
+    xml::read_side(BufReader::with_capacity(CHUNK, entry))
+        .map_err(|xml::Io| Error::Data(side, name))
+}
+
+/// Writes one `xml` row: the kind word and its columns after the escaped
+/// entry name.
+fn write_xml(
+    out: &mut dyn Write,
+    name: &[u8],
+    kind: &str,
+    columns: &[String],
+) -> Result<(), Error> {
+    let mut line = format!("xml\t{}\t{kind}", escape_name(name));
+    for column in columns {
+        line.push('\t');
+        line.push_str(column);
+    }
+    writeln!(out, "{line}").map_err(|e| Error::Write(e.kind()))
+}
+
+/// Compares one changed XML entry and writes its `xml` rows: a `parse` row,
+/// then, when both sides parsed, an `element` or `attribute` row for each
+/// name whose counts differ and one `values` row.
+fn compare_xml(
+    input: &mut Archive,
+    i: usize,
+    output: &mut Archive,
+    j: usize,
+    out: &mut dyn Write,
+    counts: &mut XmlCounts,
+) -> Result<(), Error> {
+    let name = input.entries[i].name().to_vec();
+    let mut a = read_xml(input, i)?;
+    let mut b = read_xml(output, j)?;
+    counts.compared += 1;
+    let status = |read: &xml::Read| if read.error.is_some() { "error" } else { "ok" };
+    let offset = a
+        .error
+        .or(b.error)
+        .map(|at| at.to_string())
+        .unwrap_or_default();
+    write_xml(
+        out,
+        &name,
+        "parse",
+        &[
+            status(&a).to_string(),
+            status(&b).to_string(),
+            offset,
+            a.raw.to_string(),
+            b.raw.to_string(),
+        ],
+    )?;
+    if a.error.is_some() || b.error.is_some() {
+        counts.parse_errors += 1;
+        return Ok(());
+    }
+    let elements = xml::differing(&a.elements, &b.elements);
+    let attributes = xml::differing(&a.attributes, &b.attributes);
+    for (kind, rows) in [("element", &elements), ("attribute", &attributes)] {
+        for (key, x, y) in rows.iter() {
+            write_xml(
+                out,
+                &name,
+                kind,
+                &[escape_name(key), x.to_string(), y.to_string()],
+            )?;
+        }
+    }
+    if elements.is_empty() && attributes.is_empty() {
+        counts.names_equal += 1;
+    }
+    let (values_in, values_out) = (a.values.len() as u64, b.values.len() as u64);
+    let (in_only, out_only) = xml::one_sided(&mut a.values, &mut b.values);
+    write_xml(
+        out,
+        &name,
+        "values",
+        &[
+            values_in.to_string(),
+            values_out.to_string(),
+            in_only.to_string(),
+            out_only.to_string(),
+        ],
+    )?;
+    if in_only == 0 && out_only == 0 {
+        counts.values_equal += 1;
+    }
+    Ok(())
+}
+
 /// Compares the two archives and writes every row. Returns whether the exit
 /// status is 0: every entry `identical` with no flags, the order preserved
 /// and the archive comments equal.
@@ -807,6 +920,7 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
     let mut order_preserved = true;
     let mut previous: Option<usize> = None;
     let mut common: Vec<(usize, usize)> = Vec::new();
+    let mut compared: Vec<(usize, usize)> = Vec::new();
     for i in 0..a.entries.len() {
         match out_index.get(a.entries[i].name()).copied() {
             Some(j) => {
@@ -832,6 +946,9 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
                         ("recompressed", None)
                     } else {
                         counts.changed += 1;
+                        if xml::is_xml_name(a.entries[i].name()) {
+                            compared.push((i, j));
+                        }
                         ("changed", Some(found))
                     }
                 };
@@ -863,6 +980,11 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
             counts.added += 1;
             write_entry(out, eb.name(), "added", None, Some((j, eb)), None, "")?;
         }
+    }
+
+    let mut xml_counts = XmlCounts::default();
+    for &(i, j) in &compared {
+        compare_xml(&mut a, i, &mut b, j, out, &mut xml_counts)?;
     }
 
     // The common entries must also stand in the same relative order by local
@@ -908,6 +1030,10 @@ fn compare(input: &Path, output: &Path, out: &mut dyn Write) -> Result<bool, Err
     write_archive(out, "bytes_in", a.bytes)?;
     write_archive(out, "bytes_out", b.bytes)?;
     write_archive(out, "files_identical", yes_no(same_files))?;
+    write_archive(out, "xml_compared", xml_counts.compared)?;
+    write_archive(out, "xml_parse_errors", xml_counts.parse_errors)?;
+    write_archive(out, "xml_names_equal", xml_counts.names_equal)?;
+    write_archive(out, "xml_values_equal", xml_counts.values_equal)?;
 
     let every_entry_identical = counts.recompressed == 0
         && counts.changed == 0

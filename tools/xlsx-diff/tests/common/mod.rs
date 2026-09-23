@@ -120,7 +120,8 @@ pub fn run(input: &Path, output: &Path) -> Outcome {
 }
 
 /// The rows of one kind, split into columns. Every line must be an `entry`
-/// row of 17 columns or an `archive` row of 3.
+/// row of 17 columns, an `archive` row of 3, or an `xml` row of the width
+/// its kind word gives (`specs/0014-xml-comparison.md`, "Output").
 pub fn rows<'a>(stdout: &'a str, kind: &str) -> Vec<Vec<&'a str>> {
     let mut selected = Vec::new();
     for line in stdout.lines() {
@@ -128,6 +129,15 @@ pub fn rows<'a>(stdout: &'a str, kind: &str) -> Vec<Vec<&'a str>> {
         match columns[0] {
             "entry" => assert_eq!(columns.len(), 17, "entry row width: {line}"),
             "archive" => assert_eq!(columns.len(), 3, "archive row width: {line}"),
+            "xml" => {
+                let width = match columns.get(2).copied() {
+                    Some("parse") => 8,
+                    Some("element") | Some("attribute") => 6,
+                    Some("values") => 7,
+                    other => panic!("unexpected xml row kind {other:?}"),
+                };
+                assert_eq!(columns.len(), width, "xml row width: {line}");
+            }
             other => panic!("unexpected row kind {other}"),
         }
         if columns[0] == kind {
@@ -138,7 +148,7 @@ pub fn rows<'a>(stdout: &'a str, kind: &str) -> Vec<Vec<&'a str>> {
 }
 
 /// Every `archive` key, in the spec's order.
-pub const ARCHIVE_KEYS: [&str; 21] = [
+pub const ARCHIVE_KEYS: [&str; 25] = [
     "entries_in",
     "entries_out",
     "identical",
@@ -160,6 +170,10 @@ pub const ARCHIVE_KEYS: [&str; 21] = [
     "bytes_in",
     "bytes_out",
     "files_identical",
+    "xml_compared",
+    "xml_parse_errors",
+    "xml_names_equal",
+    "xml_values_equal",
 ];
 
 /// The `archive` rows as `key=value` strings, in order.

@@ -7,3 +7,6 @@ publish = false
 
 [dependencies]
 zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# The XML comparison of specs/0014-xml-comparison.md, pinned and featured as
+# the core pins it. xlsx-diff never depends on emend.
+quick-xml = { version = "=0.42.0", default-features = false }

@@ -105,6 +105,7 @@ checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 name = "xlsx-diff"
 version = "0.1.0"
 dependencies = [
+ "quick-xml",
  "zip",
 ]
 
