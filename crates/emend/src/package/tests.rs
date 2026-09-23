@@ -4129,7 +4129,7 @@ fn a_formula_text_with_a_character_xml_forbids_is_refused() {
 
 #[test]
 fn a_formula_overridden_by_a_number_leaves_the_chain_and_calc_pr() {
-    // The last value edit for B1 is a number, so the write changes no
+    // The last value edit for C1 is a number, so the write changes no
     // formula: the chain, its override, its relationship and the workbook
     // part all stay.
     let parts = chain_with_formula();
@@ -4224,6 +4224,13 @@ fn recalculate_on_open_then_a_written_formula_writes_the_attribute_once() {
         got,
         sheet_with("<row r=\"1\"><c r=\"A1\"><f>1+1</f></c></row>")
     );
+    // On a workbook with a chain: the chain dropped, the attribute once.
+    let (_, mut package) = opened(chain_with_formula());
+    package.recalculate_on_open();
+    package.set_cell(SHEET, at("C1"), Value::Formula("1+1".to_string()));
+    let output = written(package);
+    assert_chain_gone(&output);
+    assert_part(&output, WORKBOOK, &flagged_workbook());
 }
 
 #[test]
