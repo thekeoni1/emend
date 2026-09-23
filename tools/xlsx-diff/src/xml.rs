@@ -56,6 +56,10 @@
 //!   side; its raw-value count counts up to the failure. A text node the
 //!   error interrupts was never hashed, so a raw reference in it is not
 //!   counted.
+//! - Encoding: the tool reads UTF-8 only, since `quick-xml` is built
+//!   without its encoding feature. An entry in another encoding, such as
+//!   one starting with a UTF-16 byte order mark, is a parse error for that
+//!   side; the corpus holds none (`specs/0014-xml-comparison.md`, "Facts").
 //! - An I/O error while reading an entry (a failed decompression or CRC-32)
 //!   is not a parse error: the comparison stops with exit status 2.
 

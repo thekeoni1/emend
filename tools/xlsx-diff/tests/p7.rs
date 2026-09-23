@@ -268,6 +268,48 @@ fn a_cr_and_an_lf_either_side_of_markup_are_two_line_ends() {
 }
 
 #[test]
+fn an_attribute_cr_lf_against_an_lf_compares_equal() {
+    // A literal CR LF in an attribute value is one line end (XML 1.0
+    // section 2.11), then a space (section 3.3.3), as a literal LF is;
+    // this asserts that `normalized_value` does so (P1 verification
+    // ruling 6).
+    let result = one(
+        "attribute CR LF",
+        "a.xml",
+        "<a b=\"x\r\ny\"/>",
+        "<a b=\"x\ny\"/>",
+    );
+    assert_eq!(
+        xml_rows(&result.stdout),
+        equal_names("a.xml", ["1", "1", "0", "0"])
+    );
+}
+
+#[test]
+fn a_utf16_entry_is_a_parse_error() {
+    // The tool reads UTF-8 only (the Limits; P1 verification ruling 6).
+    // `quick-xml` reports this error at position 0, the start of the entry.
+    let mut utf16 = vec![0xff, 0xfe];
+    for unit in "<a>x</a>".encode_utf16() {
+        utf16.extend_from_slice(&unit.to_le_bytes());
+    }
+    let dir = TempDir::new("utf16");
+    let (a, b) = pair(
+        &dir,
+        &[entry("a.xml", "<a>x</a>")],
+        &[raw_stored("a.xml", &utf16)],
+    );
+    let result = run(&a, &b);
+    assert_eq!(result.status, 1);
+    assert_eq!(result.stderr, "");
+    assert_eq!(
+        xml_rows(&result.stdout),
+        [row("a.xml", "parse", &["ok", "error", "0", "0", "0"])]
+    );
+    assert_eq!(xml_archive(&result.stdout), ["1", "1", "0", "0"]);
+}
+
+#[test]
 fn the_xml_prefix_resolves_to_its_namespace() {
     let result = one(
         "xml:space",
