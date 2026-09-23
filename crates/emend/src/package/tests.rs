@@ -4381,6 +4381,12 @@ fn a_workbook_with_two_calc_prs_is_refused_at_write_with_no_output() {
     ));
     package.clear_cell(SHEET, at("A1"));
     assert_package(refused(package), "a workbook has two calcPr elements");
+    // Validation refuses before any part is rewritten: a formula in a shared
+    // group, which the worksheet rewrite would refuse, gets the count's
+    // message, not the worksheet's (the backstop alone would give the other).
+    let (_, mut package) = opened(with_two(FORMULAS));
+    package.set_cell(SHEET, at("B1"), Value::Formula("1+1".to_string()));
+    assert_package(refused(package), "a workbook has two calcPr elements");
     // A write that changes no formula does not read the count.
     let (_, mut package) = opened(with_two("<row r=\"1\"></row>"));
     package.set_cell(SHEET, at("A1"), Value::Number(1.0));
