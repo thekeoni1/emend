@@ -10,7 +10,13 @@ so a .tsv record could not be committed without widening a privacy gate that
 exists to keep spreadsheet exports out (planning's ruling of 2026-09-16). The
 content is unchanged: the same two tab-separated tables with the same headers.
 The run directory's own summary.<label>.tsv, entries.<label>.tsv and
-run.<label>.tsv keep their names; they are never committed. The stem defaults to
+run.<label>.tsv keep their names; they are never committed.
+
+From Milestone 1 part 7 P2 (specs/0014-xml-comparison.md, "Harness runs") it
+also reads each compared workbook's <id>/diff.<label>.tsv, the tool's own
+stdout, for its xml rows: the .txt gains a third table of them and the .md a
+third table per label, the XML comparison of changed entries by part family.
+The xml rows carry names and counts only; no value reaches them. The stem defaults to
 step0-<run directory name>, the directory to records/ in the repository. A
 run directory with only one label is refused unless --allow-single is given.
 
@@ -57,6 +63,17 @@ ENTRIES_HEADER = [
 # "Planning ruling for Milestone 1 part 1 P2: tool-arg"). Checking the header
 # here is also what refuses a run directory written before the column: records
 # made before it stand as written, but they are not re-read.
+# The xml rows of specs/0014-xml-comparison.md, "Output": the kind word, then
+# the kind's columns. In the .txt they are prefixed by id and label, as the
+# entry rows are, and padded to the widest kind (parse, five columns) so the
+# table has one width; the .md says what each column holds per kind.
+XML_WIDTHS = {"parse": 5, "element": 3, "attribute": 3, "values": 4}
+XML_HEADER = ["id", "label", "row", "name", "kind", "column_1", "column_2",
+              "column_3", "column_4", "column_5"]
+XML_COLUMNS = ("family", "compared", "parse_errors", "names_equal", "values_equal",
+               "in_only", "out_only")
+XML_ARCHIVE = ("xml_compared", "xml_parse_errors", "xml_names_equal", "xml_values_equal")
+
 RUN_HEADER = [
     "commit", "started", "ended", "rustc", "zip", "timeout_s", "lo_timeout_s",
     "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files", "tool_args",
@@ -149,6 +166,78 @@ def read_table(path, header, what):
     return rows
 
 
+def is_count(text):
+    return re.fullmatch(r"0|[1-9][0-9]*", text) is not None
+
+
+def read_xml_rows(run_dir, label, row):
+    """The xml rows of one workbook's diff file, padded to XML_HEADER, and its
+    four xml archive values. Each row's width and counts are checked, and so
+    is the agreement of the archive values with the rows."""
+    what = "%s/diff.%s.tsv" % (row["id"], label)
+    try:
+        with open(os.path.join(run_dir, row["id"], "diff.%s.tsv" % label), encoding="utf-8", newline="\n") as handle:
+            lines = handle.read().split("\n")
+    except OSError as err:
+        raise Failure("cannot read %s: %s" % (what, err.strerror))
+    except UnicodeDecodeError:
+        raise Failure("%s is not UTF-8" % what)
+    if lines and lines[-1] == "":
+        lines.pop()
+    rows, archive = [], {}
+    for number, line in enumerate(lines, start=1):
+        cells = line.split("\t")
+        if cells[0] == "archive" and len(cells) == 3 and cells[1] in XML_ARCHIVE:
+            archive[cells[1]] = cells[2]
+        if cells[0] != "xml":
+            continue
+        kind = cells[2] if len(cells) > 2 else ""
+        if kind not in XML_WIDTHS or len(cells) != 3 + XML_WIDTHS[kind]:
+            raise Failure("%s line %d is not an xml row of a known kind and width" % (what, number))
+        counts = {"parse": cells[6:8], "element": cells[4:6], "attribute": cells[4:6], "values": cells[3:7]}[kind]
+        if not all(is_count(c) for c in counts):
+            raise Failure("%s line %d has a count that is not a decimal number" % (what, number))
+        if kind == "parse" and (cells[3] not in ("ok", "error") or cells[4] not in ("ok", "error")):
+            raise Failure("%s line %d has a parse state other than ok or error" % (what, number))
+        rows.append([row["id"], label] + cells + [""] * (5 - XML_WIDTHS[kind]))
+    if sorted(archive) != sorted(XML_ARCHIVE):
+        raise Failure("%s does not hold the four xml archive rows once each" % what)
+    tally = xml_tally(rows)
+    total = {k: sum(t[k] for t in tally.values()) for k in XML_COLUMNS[1:5]}
+    for key, column in zip(XML_ARCHIVE, XML_COLUMNS[1:5]):
+        if archive[key] != str(total[column]):
+            raise Failure("%s: archive %s disagrees with its xml rows" % (what, key))
+    return rows
+
+
+def xml_tally(rows):
+    """Counts by part family from xml rows (padded, as read_xml_rows gives
+    them): an entry is compared once per parse row; names equal when both
+    sides parsed and no element or attribute row follows; values equal when
+    its values row has both one-sided counts 0."""
+    tally = {}
+    current = None
+    for cells in rows:
+        name, kind = cells[3], cells[4]
+        if kind == "parse":
+            current = tally.setdefault(family(name), dict.fromkeys(XML_COLUMNS[1:], 0))
+            current["compared"] += 1
+            parsed = cells[5] == "ok" and cells[6] == "ok"
+            if not parsed:
+                current["parse_errors"] += 1
+            names_differ = False
+        elif kind in ("element", "attribute"):
+            names_differ = True
+        elif kind == "values":
+            if parsed and not names_differ:
+                current["names_equal"] += 1
+            if cells[7] == "0" and cells[8] == "0":
+                current["values_equal"] += 1
+            current["in_only"] += int(cells[7])
+            current["out_only"] += int(cells[8])
+    return tally
+
+
 def load(run_dir):
     labels = [label for label in LABELS if os.path.exists(os.path.join(run_dir, "summary.%s.tsv" % label))]
     if not labels:
@@ -179,7 +268,12 @@ def load(run_dir):
         for row in entries:
             if row["label"] != label or row["id"] not in seen:
                 raise Failure("entries.%s.tsv holds a row without a summary row" % label)
-        data[label] = (summary, entries, runs)
+        # The tool's rows are trusted only for exit 0 or 1 (specs/0004).
+        xml = []
+        for row in summary:
+            if row["outcome"] == "ok" and row["diff_exit"] in ("0", "1"):
+                xml += read_xml_rows(run_dir, label, row)
+        data[label] = (summary, entries, runs, xml)
     # Runs made with different tool arguments are different runs, so their
     # results are not one run's and must not go into one record
     # (specs/0006-passthrough.md, the P2 tool-arg ruling).
@@ -229,6 +323,10 @@ def write_tsv(path, labels, data):
     lines.append("\t".join(ENTRIES_HEADER))
     for label in labels:
         lines += ["\t".join(row[k] for k in ENTRIES_HEADER) for row in data[label][1]]
+    lines.append("")
+    lines.append("\t".join(XML_HEADER))
+    for label in labels:
+        lines += ["\t".join(cells) for cells in data[label][3]]
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines) + "\n")
 
@@ -247,8 +345,9 @@ def write_md(path, run_name, stem, labels, data):
         "Written by `scripts/passthrough-record.py` from the run directory `%s`"
         " (raw outputs stay under the corpus directory's `runs/`). Workbooks"
         " are cited by id, producer and tags only (`specs/0005-corpus.md`)."
-        " The machine-readable companion to this file is `%s.txt`, the same two"
-        " tab-separated tables; it is written as `.txt` because the hygiene gate"
+        " The machine-readable companion to this file is `%s.txt`, the same"
+        " tab-separated tables and the tool's xml rows (the kind's columns in"
+        " column_1 onward, `specs/0014-xml-comparison.md` \"Output\"); it is written as `.txt` because the hygiene gate"
         " refuses a tracked spreadsheet extension." % (run_name, stem),
         "",
         "- Record written: %s" % datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -298,6 +397,18 @@ def write_md(path, run_name, stem, labels, data):
                 for k in columns[1:]:
                     total[k] += counts[fam][k]
         out.append(md_row(["total"] + [total[k] for k in columns[1:]]))
+
+    for label in labels:
+        tally = xml_tally(data[label][3])
+        total = dict.fromkeys(XML_COLUMNS[1:], 0)
+        out += ["", "## XML comparison of changed entries: %s" % label, "", md_row(XML_COLUMNS),
+                md_row(("---",) * len(XML_COLUMNS))]
+        for fam in FAMILIES:
+            if fam in tally:
+                out.append(md_row([fam] + [tally[fam][k] for k in XML_COLUMNS[1:]]))
+                for k in XML_COLUMNS[1:]:
+                    total[k] += tally[fam][k]
+        out.append(md_row(["total"] + [total[k] for k in XML_COLUMNS[1:]]))
 
     out += [
         "",
@@ -379,10 +490,11 @@ def main(argv):
         raise Failure("the run directory has only the %s label; give --allow-single for a single-label record" % labels[0])
     write_tsv(os.path.join(out_dir, stem + ".txt"), labels, data)
     write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data)
-    print("wrote %s.txt and %s.md: labels %s; files %s; entry rows %s" % (
+    print("wrote %s.txt and %s.md: labels %s; files %s; entry rows %s; xml rows %s" % (
         stem, stem, ",".join(labels),
         ",".join(str(len(data[l][0])) for l in labels),
-        ",".join(str(len(data[l][1])) for l in labels)))
+        ",".join(str(len(data[l][1])) for l in labels),
+        ",".join(str(len(data[l][3])) for l in labels)))
     return 0
 
 
