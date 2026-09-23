@@ -421,6 +421,72 @@ maintainer's authorisation typed in the implementing session.
    part's design is openpyxl's, which Excel handles, and the Excel
    check covers every part at once.
 
+## Planning rulings during P1 (2026-09-23)
+
+The doc commit 0de2507 carries the three files at the hashes
+planning sent. The implementing session asked four questions before
+code; planning checked each against the source (`package.rs`'s
+`parse_workbook_sheets`, `cells.rs`'s `Value::element`, quick-xml
+0.42.0's `escape.rs`) and rules:
+
+1. The insertion point for an absent `calcPr` is corrected. "Module
+   `package`" said the workbook reader requires `<sheets>`; it does
+   not (`parse_workbook_sheets` returns no sheets for a workbook
+   without them, and nothing refuses one), so the sentence "and
+   after `<sheets>` at least" is withdrawn. The rule is: the new
+   `<calcPr fullCalcOnLoad="1"/>` goes immediately after the end of
+   the last root child present among the nine ECMA-376 18.2.27
+   orders before `calcPr` (`fileVersion`, `fileSharing`,
+   `workbookPr`, `workbookProtection`, `bookViews`, `sheets`,
+   `functionGroups`, `externalReferences`, `definedNames`), and with
+   none of them present immediately after the root start tag.
+   "Immediately after" means before any whitespace or comment that
+   follows that end, held back until the next root child shows it is
+   not one of the nine. On every workbook with `<sheets>`, which is
+   every corpus workbook, this is the rule the spec stated. Tests:
+   absent after `definedNames`, after `sheets` alone, after
+   `workbookPr` alone (no `sheets`), and in a root with no children.
+2. A formula text is escaped with `quick_xml::escape::partial_escape`
+   (`&`, `<`, `>`, and a carriage return as `&#13;`): the
+   parenthetical governs, and "as `Text` is" is withdrawn, since
+   `Text` uses `escape`, which also writes `&quot;` and `&apos;`. A
+   formula's quoted strings stay literal, which is openpyxl's form;
+   a reader unescapes both forms to the same text. The test with a
+   quoted string asserts the quotes are literal in the output bytes.
+3. Two `calcPr` elements are counted during the workbook read that
+   reads `date1904`, in the main namespace under either spelling,
+   kept privately in `Package`; `Package::workbook` does not refuse,
+   and `full_calc_on_load` reads the first as `date1904` reads the
+   first `workbookPr`. The write refuses in validation whenever it
+   will rewrite the workbook part (the flag recorded, or the rule
+   firing), before any temporary exists, and the rewrite refuses
+   again as a backstop. Accepted as proposed.
+4. The rule's reading is confirmed: a write changes formulas when
+   the last value edit recorded for some reference is a `Formula`,
+   or the worksheet rewrite removed a normal formula (part 4's
+   flag). The flag is set whether or not a chain exists. The chain is
+   dropped once, the flag recorded, and the whole set validated
+   again, which is where the two workbook messages are raised for
+   the rule's case. Part 4's formula-removal tests and the tool's
+   `--edit-formula-sample` test now expect a changed workbook part;
+   their expected bytes are updated in P1's first code commit, the
+   commit message and the report naming each test so changed. The
+   records of part 4's runs are history and are not rerun.
+5. The defaults stated are accepted: a present `fullCalcOnLoad`
+   keeps its quote character and gets the value `1`, so a present
+   `'1'` or `"1"` leaves the tag byte-identical; a new attribute goes
+   right after the last attribute's closing quote or the element
+   name, so whitespace before `/>` or `>` is kept; a write with the
+   flag recorded always rewrites the workbook part, even one already
+   saying `1` (only a fixture reaches this: no corpus workbook sets
+   the flag); the workbook rewrite runs after the styles rewrite and
+   before the content types and relationships; `--calc` mirrors
+   `--styles`, one line `calc` then `chain=N` and `full_calc=N`,
+   tab-separated, the output byte-identical.
+6. This section goes in a second doc commit before any code, as
+   part 5's cbc691b did, carrying this spec alone, unedited, at the
+   hash planning's message gives.
+
 ## Out of scope
 
 - Writing shared, array or data table formulas, or extending a
