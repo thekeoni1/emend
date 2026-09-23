@@ -317,6 +317,62 @@ maintainer's authorisation typed in the implementing session.
    the core already pins, at the same version, with the same licence
    already checked.
 
+## Planning rulings during P1 (2026-09-23)
+
+The doc commit 3c4e7de carries the three files at the hashes
+planning sent. The implementing session asked eight questions
+before code; planning checked each against quick-xml 0.42.0's
+source (`reader/mod.rs`, `errors.rs`, `events/attributes.rs`) and
+the tool's test helpers, and rules:
+
+1. Row layout confirmed: `xml`, the escaped entry name, the kind
+   word, then the kind's columns; an `attribute` row has one name
+   column, `{ns}local@{ans}attr`. Element and attribute names are
+   escaped as entry names are (`escape_name`), so a tab, a line feed
+   or a byte outside the printable range never breaks a row; `{`,
+   `}` and `@` print as themselves, and no namespace URI holds `}`
+   and no local name holds `@` or `{`.
+2. The `parse` row keeps one offset column: the input's offset when
+   the input failed, else the output's; the two ok-or-error columns
+   say which side. The raw-value counts count up to the failure on
+   a failed side.
+3. `xml_names_equal` and `xml_values_equal` count only entries that
+   parsed on both sides; a parse-error entry counts in
+   `xml_parse_errors` alone. "Output" is read with that correction.
+4. The offset is `error_position()` for an error the reader returns
+   and `buffer_position()` after the event for an unknown prefix, an
+   attribute error and ruling 5's end of input.
+5. quick-xml returns end of input without an error while elements
+   are open (`MissingEndTag` comes only from `read_to_end`), so the
+   tool counts open elements and reports end of input with one open
+   as a parse error at the end position. It does not check that a
+   root exists or that nothing stands outside it; the Limits say so.
+   A fixture with an unclosed element joins the P1 tests.
+6. Text nodes are assembled from contiguous text, CDATA and
+   reference events, with comments and processing instructions
+   transparent (`x<!--c-->y` is one node); the tool normalises CR LF
+   and a lone CR to LF, CDATA included, and `&#13;` stays a carriage
+   return, so the CR test in "### P1" reads: a raw CR against `&#13;`
+   differs, a raw CR LF against a raw LF does not. Attribute values
+   go through `normalized_value` for XML 1.0. Hashed raw means, for
+   an attribute, the value's bytes as written and, for a text node
+   with an unknown or invalid reference, the node with its known
+   references resolved and each unknown one kept as written; each
+   counts once. Two fixtures join the tests: the transparent comment,
+   and CR LF against LF.
+7. The hash feeds `DefaultHasher` with a tag byte, then each part's
+   length as `u64` and its bytes, so the value is the same on both
+   targets. A unit test pins the hash of one fixed value to a
+   constant and runs on both targets, which is the only place a
+   hash is ever written, and it is a test's, not a record's.
+8. The test helpers accept the `xml` kind with per-kind widths and
+   the 25 archive keys; existing tests whose changed `.xml` entry now
+   prints `xml` rows keep their assertions, and the report names any
+   that needed more than the helper change.
+9. This section goes in a second doc commit before any code, as
+   part 6's 81991c3 did, carrying this spec alone, unedited, at the
+   hash planning's message gives.
+
 ## Out of scope
 
 - Comparing values in the clear, or printing any value, hash or
