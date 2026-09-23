@@ -487,6 +487,100 @@ code; planning checked each against the source (`package.rs`'s
    part 5's cbc691b did, carrying this spec alone, unedited, at the
    hash planning's message gives.
 
+## Planning verification and rulings on P1 (2026-09-23)
+
+Verified from primaries by planning, not from the report: the six
+commits b0c21ef..6d85828 ASCII with the Co-Authored-By line alone
+and no session link; the second doc commit 81991c3 carrying this
+spec at the hash planning sent; the record commit 6d85828 touching
+exactly the seven logs and the record pair at the sha256 and byte
+counts the report prints; planning's own gate (nine PASS), `cargo
+test --workspace` on both targets (489 passed, 0 failed, 2 ignored on
+each, the ignored two the zip64 tests), the crate with the `dates`
+feature off and on on both targets, and clippy on the crate, all at
+6d85828; planning's own `scripts/privacy.sh --range b0c21ef..HEAD`
+reading 6 commits, 455 blobs, 0 findings, PASS; planning's own
+`--calc` run with a tool built in its own target directory over the
+27 corpus workbooks agreeing with run.log's line for every workbook
+and summing to `chain` 9 and `full_calc` 0, every output
+byte-identical to its input; C1's `Value::Formula`, the rule, the
+workbook rewrite, `full_calc_tag` and `parse_workbook_sheets` read
+in full against "Module `cells`", "Module `package`" and rulings 1
+to 5; C2 and C3 read in full; check 2's pinned inputs found in the
+implementing scratch at the header's hashes, `specs/0001` at da8794b
+and the combined code diff reproduced by planning's own `git`; the
+superseded attempts the headers name found at their hashes; K9
+reaching the replaced-workbook message; the about line on line 3 of
+every log.
+
+Findings:
+
+- F1 (planning, low): `rewrite_workbook` holds a root child outside
+  the main namespace that follows the last of the nine and writes
+  the inserted `calcPr` before it. Ruling 1 spoke of whitespace and
+  comments; a foreign child is treated the same way, which keeps the
+  new element immediately after the last of the nine. Consistent
+  with the ruling's intent; no corpus workbook lacks `calcPr`; no
+  change, and the module comment names the case in P3.
+- F2 (planning, low): `cells.rs`'s comment on `Value::Text` says
+  quick-xml's `escape` leaves a carriage return as it is; in 0.42.0
+  `escape` writes `&#13;` itself, so the `replace` after it is a
+  no-op kept for safety. A stale comment from part 4, not P1's; it
+  is corrected in P2's first code commit.
+
+Rulings:
+
+1. The three code commits are accepted as P1's: C1 the feature, C2
+   the validation-order assertion that mutation M5 needed, C3 the
+   chained fixture for the `recalculate_on_open` case and the
+   comment. The five tests changed under ruling 4 are named in C1's
+   message and the report.
+2. G7: a check answer's header may type the commit ids it read; its
+   binding part is the sha256 list of the inputs, which planning
+   reproduces. Accepted practice from part 5 P3 on. From P2 the
+   report or the check header states the command that produced each
+   per-commit diff in the check directory, since planning's plain
+   `git show` did not reproduce those four hashes while it did the
+   combined diff and `specs/0001`.
+3. G5: strengthened in P2's first code commit: after `write_to` on
+   the chained fixture, the test asserts the three removals appear
+   once each in the output (no duplicate removal recorded), beside
+   the direct call it already checks.
+4. G6: ruling 3's phrase "before any temporary exists" holds for a
+   refusal validation can see before any rewrite (the flag recorded
+   or a formula written); when the rule fires on a removed formula,
+   found only in the worksheet rewrite, the refusal comes at the
+   rule's re-validation with every temporary removed and no output,
+   as K8 shows. Both are the design; the Limits state the second in
+   P3.
+5. G9: "Two new messages" in C1's message means the two `package`
+   constants, as test.log reads it; five messages in all are P1's.
+   History is not amended.
+6. G8: from P2, a log that names its build directory names it once,
+   as `<scratch>/<phase>/target`, the same in header and body.
+   negative.log's two spellings are a prose defect, not a
+   measurement.
+7. The phase scan's single-trailer form is right for a range that
+   carries one Co-Authored-By line, with the other line as a refusal
+   control; the close-out's two-line form governs the close-out
+   range.
+8. C3's message quoting the spec's case without its backticks, and
+   test.log's comparison with the lines joined and the backticks
+   stripped, are accepted.
+9. Superseded attempts stay outside the repository, named by file
+   and hash in their successors' headers, as recorded. The four
+   stale run directories under `<corpus>/runs` from superseded
+   attempts are removed by the implementing session before P2's
+   run, each name and its removal printed by P2's run.log header.
+10. F11 and G4 are disclosure, accepted: the superseded first test
+    attempt is the only record that M5 did not bite at C1, and the
+    committed M5 block shows the converse at C3.
+11. The Limits prose stays in P3, as the spec places it.
+12. P1 is DONE. P2 (`--formula-sample`) is next: its first code
+    commit carries this section and `ROADMAP.md` unedited, then
+    ruling 3's assertion and finding F2's comment, then the sample
+    as "### P2" and "Harness runs" say.
+
 ## Out of scope
 
 - Writing shared, array or data table formulas, or extending a
