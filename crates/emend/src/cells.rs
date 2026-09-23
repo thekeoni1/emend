@@ -126,9 +126,18 @@
 //! What [`Value`] writes, each a decision of `specs/0011-editing-cells.md`,
 //! "Module `cells`":
 //!
-//! - Three kinds only: a number, a text and a boolean. No formula (part 6),
-//!   no date (part 5: a number with a date style is written as the number it
-//!   is) and no error value.
+//! - Four kinds only: a number, a text, a boolean and, from part 6, a normal
+//!   formula. No date (part 5: a number with a date style is written as the
+//!   number it is) and no error value.
+//! - A formula is written as `<f>` alone: no `t`, no `<v>`, no `ca`, no
+//!   `ref` and no `si`, so no cached value and no shared, array or data
+//!   table formula is ever written (`specs/0013-formulas.md`, "Module
+//!   `cells`"). Its text is escaped for `&`, `<` and `>` with quotes left
+//!   literal and a carriage return as a character reference (P1 ruling 2).
+//!   An empty text, a text starting with `=` and a text holding a character
+//!   XML 1.0 forbids are refused at write; nothing else about the text is
+//!   checked, because emend does not parse formulas, and a text an
+//!   application rejects is the caller's.
 //! - A text is always an inline string, with `xml:space="preserve"` always
 //!   written and a carriage return written as a character reference; never
 //!   a shared string, and never rich text.

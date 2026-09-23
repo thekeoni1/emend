@@ -264,8 +264,9 @@
 //!   strings table, and no rich text run is written.
 //! - Nothing is recomputed. The cached values of formulas that depend on an
 //!   edited cell stay as the producer wrote them, because emend does not
-//!   evaluate; whether the workbook asks for a recalculation on open is part
-//!   6's question.
+//!   evaluate. A write that changes a formula asks for a recalculation on
+//!   open (below); one that changes only values does not, and a caller who
+//!   wants it calls [`Package::recalculate_on_open`].
 //! - When an edit removes a normal formula and the workbook has a
 //!   calculation chain, the chain is dropped in the same write, once, by
 //!   [`Package::drop_calc_chain`]'s recipe: the chain would otherwise name a
@@ -313,6 +314,48 @@
 //!   the serial a date stands for comes from the crate's `dates` feature,
 //!   which is off by default and outside the core's size, and nothing here
 //!   calls it (the same section, 2). A `t="d"` cell's text is not converted.
+//!
+//! Formulas add theirs (`specs/0013-formulas.md`, "Module `package`"; the
+//! refusals are the five messages catalogued above, and the shared, array
+//! and data table refusals of the cell edits apply to a formula as to any
+//! value):
+//!
+//! - Formulas are written, never evaluated. A written formula has no cached
+//!   value, so a reader that shows cached values (emend's own, openpyxl's
+//!   `data_only`) shows nothing for that cell until an application has
+//!   recalculated the file; the cached values of the other formulas are
+//!   unchanged and may be stale.
+//! - That is why a write whose last value edit for some cell is a formula,
+//!   or that removes a normal formula, drops the calculation chain (once, by
+//!   [`Package::drop_calc_chain`]'s recipe, whether or not the caller has
+//!   already recorded it) and sets `fullCalcOnLoad="1"` on the workbook's
+//!   `calcPr`, whether or not there was a chain. The file then computes on
+//!   its next open in an application that honours the flag or that
+//!   recalculates on load anyway. A caller whose edit changed an input of
+//!   existing formulas without touching a formula calls
+//!   [`Package::recalculate_on_open`] itself: emend cannot know the
+//!   dependency graph without the chain it drops. Whether Excel honours the
+//!   flag is not measured by this part; that check is the milestone's.
+//! - The workbook part is rewritten once, copying every byte except the
+//!   `calcPr` start tag: a present `fullCalcOnLoad` takes `1` in its own
+//!   quote character, and an absent one is appended after the last
+//!   attribute. An absent `calcPr` is inserted, prefixed as the root is,
+//!   immediately after the last present of the nine children ECMA-376
+//!   18.2.27 orders before it, or inside the root when none is present.
+//!   Whitespace, comments and any root child outside the main namespace
+//!   that follow the last of the nine are held, so the new element sits
+//!   directly after it (P1 verification finding F1). No other `calcPr`
+//!   attribute is read or written.
+//! - A second `calcPr` in the workbook part is refused, and so is the flag
+//!   on a workbook part the same write replaces or removes. Validation
+//!   refuses both before any part is rewritten when the flag is recorded or
+//!   a formula is written; when the rule fires only because the worksheet
+//!   rewrite found a removed formula, the refusal comes at the rule's
+//!   second validation, after the worksheet temporaries exist, which are
+//!   then removed, and no output is written (P1 verification ruling 4).
+//! - A worksheet with two `<sheetData>` elements is edited in the first and
+//!   the second is copied raw; a reader counts cells in both (P2 ruling
+//!   3(a)).
 
 #[cfg(test)]
 mod tests;
