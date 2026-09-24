@@ -225,6 +225,55 @@ session.
    the samples make together (the formula sample writes a number, a
    formula and a replacement).
 
+## Planning rulings during P1 (2026-09-23)
+
+Asked by the implementing session after the doc commit e566de1
+(verified: parent 9232e61, the three blobs at planning's hashes),
+with figures from an unlogged scratch prototype that the phase logs
+measure again; none of those figures is a primary until a log prints
+it.
+
+1. Q1, tests that write more than once: the pair is named
+   `<test>.<n>.in.xlsx` and `<test>.<n>.out.xlsx`, `n` counting from
+   1 in the order that thread writes (a thread-local counter); a file
+   of the name already there is still refused. The record's test
+   column is `<test>.<n>`. The acceptance line prints three counts:
+   kept pairs, distinct kept tests, and the source count of tests
+   that reach a successful write, and the set of distinct kept names
+   must equal the set the log derives from the source (never a typed
+   list). "Facts" said 29 tests reach `written`; that was the count
+   of call sites, and tests reach it through helpers too. The
+   prototype's 85, 1 and 28 are what the log is to measure.
+2. Q2, the one test that opens bytes without `opened`: accepted.
+   `open_fixture(bytes)` records the bytes and opens them; `opened`
+   calls it and the test at `package/tests.rs` (the no-chain round
+   trip) calls it in place of `Package::open`, the only call site
+   that changes. `written` takes and clears the recorded input and,
+   when a keep is on, panics if none is recorded or if the recorded
+   input's entry names and CRC-32s (read with `parse_independently`)
+   differ from the package's entries.
+3. Q3, setting the variable from a test: the crate forbids unsafe
+   code and `std::env::set_var` is unsafe in edition 2024, and the
+   variable is process-wide. `keep` reads a thread-local override
+   first and the environment variable only when there is no
+   override; the keep tests set the override alone, to a temporary
+   directory or explicitly to none; no test touches the variable.
+   With the variable naming a directory that does not exist, `keep`
+   panics. "P1" is read with this in place of "a test that sets the
+   variable".
+4. Q4, the tool tests: their own keep in `null_rewrite.rs` with the
+   same naming, counter, refusal and override, keeping the input and
+   output paths of a run that exited 0 whose output is a file
+   afterwards, with its own keep tests. So the record tells the two
+   crates apart, the tool's kept names carry the prefix
+   `emend-copy.` before the bare thread name; the crate's carry
+   their dotted module path as they are.
+5. The prototype was a copy of the tree in scratch, never
+   committed; nothing left the machine. Accepted as an unlogged
+   measurement, to be named as such if the report mentions it.
+6. These rulings go in a second doc commit before code, this spec
+   unedited at the hash planning sends.
+
 ## Out of scope
 
 - Any core crate change; the size record.
