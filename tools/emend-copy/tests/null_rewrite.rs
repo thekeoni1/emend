@@ -81,15 +81,104 @@ struct Ran {
     stderr: String,
 }
 
+/// Runs the tool. A run that exits 0 with an output file is kept, the two
+/// paths given first, when a keep directory is named (see [`keep`]).
 fn emend_copy(args: &[&Path]) -> Ran {
     let out = Command::new(env!("CARGO_BIN_EXE_emend-copy"))
         .args(args)
         .output()
         .expect("run emend-copy");
+    if let [input, output, ..] = args
+        && out.status.code() == Some(0)
+        && input.is_file()
+        && output.is_file()
+    {
+        keep(input, output);
+    }
     Ran {
         status: out.status.code().expect("an exit code"),
         stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+    }
+}
+
+// ------------------------------------------------------------------ the keep
+//
+// `specs/0015-open-checks.md`, "The keep" and P1 rulings 1 to 4: the crate's
+// keep, copied here because this crate cannot reach the core's test code,
+// with the same naming, counter, refusal and override, and the names
+// prefixed `emend-copy.` so the record tells the two crates apart.
+
+/// The environment variable that names the keep directory.
+const KEEP_VARIABLE: &str = "EMEND_KEEP_DIR";
+/// Before the thread's name in every kept file's name.
+const KEEP_PREFIX: &str = "emend-copy";
+
+thread_local! {
+    /// The keep tests' override of the variable, for this thread alone:
+    /// `Some(Some(dir))` keeps into `dir`, `Some(None)` keeps nothing, and
+    /// `None` reads the variable, which is process-wide.
+    static KEEP_OVERRIDE: std::cell::RefCell<Option<Option<PathBuf>>> =
+        const { std::cell::RefCell::new(None) };
+    /// How many pairs this thread has kept.
+    static KEEP_COUNT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// Sets this thread's override: `Some(dir)` keeps into `dir`, `None` keeps
+/// nothing whatever the variable says.
+fn override_keep(dir: Option<PathBuf>) {
+    KEEP_OVERRIDE.with(|slot| *slot.borrow_mut() = Some(dir));
+}
+
+/// The directory this thread keeps into, if any; a named directory that is
+/// not there fails the test.
+#[track_caller]
+fn keep_dir() -> Option<PathBuf> {
+    let dir = KEEP_OVERRIDE
+        .with(|slot| slot.borrow().clone())
+        .unwrap_or_else(|| std::env::var_os(KEEP_VARIABLE).map(PathBuf::from))?;
+    assert!(
+        dir.is_dir(),
+        "the keep directory {} is not a directory",
+        dir.display()
+    );
+    Some(dir)
+}
+
+/// Copies `input` and `output` to `emend-copy.<test>.<n>.in.xlsx` and
+/// `.out.xlsx` in the keep directory, `<test>` being this thread's name and
+/// `n` counting this thread's pairs from 1. Nothing when no directory is
+/// named; a name already there is refused before either file is written.
+#[track_caller]
+fn keep(input: &Path, output: &Path) {
+    let Some(dir) = keep_dir() else {
+        return;
+    };
+    let n = KEEP_COUNT.with(|count| {
+        count.set(count.get() + 1);
+        count.get()
+    });
+    let thread = std::thread::current();
+    let test = thread
+        .name()
+        .expect("the keep names a pair after the test's thread")
+        .replace("::", ".");
+    let pair = [
+        (dir.join(format!("{KEEP_PREFIX}.{test}.{n}.in.xlsx")), input),
+        (
+            dir.join(format!("{KEEP_PREFIX}.{test}.{n}.out.xlsx")),
+            output,
+        ),
+    ];
+    for (path, _) in &pair {
+        assert!(
+            !path.exists(),
+            "the keep refuses {}: the name is already there",
+            path.display()
+        );
+    }
+    for (path, from) in &pair {
+        fs::copy(from, path).expect("copy a kept file");
     }
 }
 
@@ -2289,5 +2378,115 @@ fn the_date_sample_refuses_a_workbook_with_no_styles_part_and_leaves_nothing() {
         &edit_specs(A_CELL),
         "the workbook has no styles part",
         "--date-sample",
+    );
+}
+
+// ------------------------------------------------------------------ the keep
+
+/// The panic message of `f`, which must panic.
+fn panic_message(f: impl FnOnce()) -> String {
+    let payload =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).expect_err("the call panicked");
+    match payload.downcast::<String>() {
+        Ok(message) => *message,
+        Err(payload) => (*payload.downcast::<&str>().expect("a message")).to_string(),
+    }
+}
+
+#[test]
+fn a_run_that_writes_is_kept_under_the_test_and_numbered() {
+    let dir = TempDir::new("keep-names");
+    let kept = TempDir::new("keep-names-kept");
+    override_keep(Some(kept.0.clone()));
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let built = build(&specs());
+    fs::write(&input, &built).expect("write the input");
+    assert_eq!(emend_copy_with(&input, &output, &[]).status, 0);
+    let first = fs::read(&output).expect("read the output");
+    fs::remove_file(&output).expect("remove the output");
+    assert_eq!(
+        emend_copy_with(&input, &output, &["--xml-null-rewrite"]).status,
+        0
+    );
+    let second = fs::read(&output).expect("read the output");
+    let test = "emend-copy.a_run_that_writes_is_kept_under_the_test_and_numbered";
+    assert_eq!(
+        kept.names(),
+        [
+            format!("{test}.1.in.xlsx"),
+            format!("{test}.1.out.xlsx"),
+            format!("{test}.2.in.xlsx"),
+            format!("{test}.2.out.xlsx"),
+        ]
+    );
+    let read = |name: String| fs::read(kept.path(&name)).expect("read a kept file");
+    assert_eq!(read(format!("{test}.1.in.xlsx")), built);
+    assert_eq!(read(format!("{test}.1.out.xlsx")), first);
+    assert_eq!(read(format!("{test}.2.in.xlsx")), built);
+    assert_eq!(read(format!("{test}.2.out.xlsx")), second);
+}
+
+#[test]
+fn a_refused_run_is_not_kept() {
+    let dir = TempDir::new("keep-refused");
+    let kept = TempDir::new("keep-refused-kept");
+    override_keep(Some(kept.0.clone()));
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs())).expect("write the input");
+    assert_eq!(emend_copy_with(&input, &output, &["--replace"]).status, 2);
+    assert_eq!(kept.names(), Vec::<String>::new());
+}
+
+#[test]
+fn the_tool_keep_refuses_a_name_already_there_and_writes_neither_file() {
+    let dir = TempDir::new("keep-again");
+    let kept = TempDir::new("keep-again-kept");
+    let test = "emend-copy.the_tool_keep_refuses_a_name_already_there_and_writes_neither_file";
+    fs::write(kept.path(&format!("{test}.1.out.xlsx")), b"earlier").expect("plant");
+    override_keep(Some(kept.0.clone()));
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs())).expect("write the input");
+    let message = panic_message(|| {
+        emend_copy_with(&input, &output, &[]);
+    });
+    assert!(
+        message.contains("the name is already there"),
+        "the message: {message}"
+    );
+    assert_eq!(kept.names(), [format!("{test}.1.out.xlsx")]);
+    assert_eq!(
+        fs::read(kept.path(&format!("{test}.1.out.xlsx"))).expect("read"),
+        b"earlier"
+    );
+}
+
+#[test]
+fn with_no_tool_keep_directory_nothing_is_kept() {
+    let dir = TempDir::new("keep-none");
+    override_keep(None);
+    assert_eq!(keep_dir(), None);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs())).expect("write the input");
+    assert_eq!(emend_copy_with(&input, &output, &[]).status, 0);
+    assert_eq!(dir.names(), ["in.xlsx", "out.xlsx"]);
+}
+
+#[test]
+fn a_tool_keep_directory_that_is_not_there_fails_the_test() {
+    let dir = TempDir::new("keep-missing");
+    override_keep(Some(dir.path("not-there")));
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs())).expect("write the input");
+    let message = panic_message(|| {
+        emend_copy_with(&input, &output, &[]);
+    });
+    assert!(
+        message.contains("is not a directory"),
+        "the message: {message}"
     );
 }
