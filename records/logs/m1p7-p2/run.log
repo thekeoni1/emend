@@ -1,0 +1,1983 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p2/m1p7-p2-run.sh ea37ad786edf2798ced1e603c78aa136289db212
+about: M1 part 7 P2 phase commit ea37ad786edf2798ced1e603c78aa136289db212; HEAD at run: ea37ad786edf2798ced1e603c78aa136289db212
+  the phase commit given to this script: ea37ad786edf2798ced1e603c78aa136289db212
+  git rev-parse HEAD at this run:        ea37ad786edf2798ced1e603c78aa136289db212
+  a fabricated commit for the control (the last hex digit changed): ea37ad786edf2798ced1e603c78aa136289db210
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses a fabricated commit: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+
+## the three shape greps over this script's own file
+command: sha256sum <scratch>/p2/m1p7-p2-run.sh
+  7d8f15be910a0f577b37cdfc6e593d08ff6b249e030c5b855debd645e9e066ae  41086 bytes
+command: count_matches -E <the chain pattern> over <scratch>/p2/m1p7-p2-run.sh, and over a control fixture holding the chain shape
+  the chain pattern: [$][(](yn|is|isnot) .*(&&|[|][|])
+  hits on this script: 0; hits on the control: 1
+  the chain shape: no hit on this script: as-expected
+  control: the chain pattern finds its shape in the fixture, through the same form: as-expected
+command: count_matches -E <the bang pattern> over <scratch>/p2/m1p7-p2-run.sh, and over a control fixture holding the bang shape
+  the bang pattern: [$][(](yn|is|isnot) [!]
+  hits on this script: 0; hits on the control: 1
+  the bang shape: no hit on this script: as-expected
+  control: the bang pattern finds its shape in the fixture, through the same form: as-expected
+command: count_matches -E <the assign pattern> over <scratch>/p2/m1p7-p2-run.sh, and over a control fixture holding the assign shape
+  the assign pattern: [$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*=
+  hits on this script: 0; hits on the control: 1
+  the assign shape: no hit on this script: as-expected
+  control: the assign pattern finds its shape in the fixture, through the same form: as-expected
+
+## the phase's commits, by role, read from git
+command: git log --reverse --format='%H %s' --grep='^M1 part 7 P2: ' (planning doc commits printed and set apart)
+    planning doc commit: 4cb3c6adf887af61dca11bd0cc6c2ed7fbb63536 M1 part 7 P2: commit planning docs (the P1 verification and rulings)
+    code commit 1: bacffa3f1edecc75e7049371a92197b12a1bbc86 M1 part 7 P2: the two fixtures of P1 verification ruling 6
+    code commit 2: 04ba408a31f8bfdd10cf8b583f69b41e14e9e9b9 M1 part 7 P2: the record script's XML comparison table and rows
+    code commit 3: ea37ad786edf2798ced1e603c78aa136289db212 M1 part 7 P2: refuse a repeated xml archive row in the record script
+  code commits: 3; the last: ea37ad786edf2798ced1e603c78aa136289db212
+  the last code commit, read from git, is the phase commit given to this script: as-expected
+  control: the same comparison refuses the fabricated commit: as-expected
+command: git rev-parse --short <the phase commit>
+  ea37ad7
+  run directory: <corpus>/runs/2026-09-24-ea37ad7; record stem: m1p7-p2-2026-09-24-ea37ad7; build directory: <scratch>/p2/target-run
+phase: Milestone 1 part 7 P2 (specs/0014-xml-comparison.md) run.log; run at 2026-09-24T00:39:02Z
+rerun: after independent check 1 at the same phase commit; the predecessor is the run.log attempt at ea37ad7 (sha256 cc6846dcbf27b3d0b3e51ea607868af01324e17854e44fa11241ea795007c739), its script and its record pair, hashed below, committed nowhere; its run directory is removed below as superseded; superseded for check 1 F4 (no removal of superseded run directories) and F7 (a control line ending in a colon); header changes 3 and 9 say what changed
+command: sha256sum and wc -c over each superseded attempt named above (kept in <scratch>/p2/out/superseded)
+    cc6846dcbf27b3d0b3e51ea607868af01324e17854e44fa11241ea795007c739  119022 bytes  run.log
+    1913f63db3a8f142bf0dc0c1856bab4261ef9a924e5b2f1104f80ef8f9479609  36979 bytes  m1p7-p2-run-attempt-1.sh
+    bec8f62d9f998ecf556f5e00c5a5b2709949b421bedbef6f80b8ab8d5ec17c1b  13037 bytes  m1p7-p2-2026-09-24-ea37ad7.md
+    11a9b69cda36e05260b3df07a2f3ba37c1d3e0fa7649283e422cd3f0605a6a98  255627 bytes  m1p7-p2-2026-09-24-ea37ad7.txt
+SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo, rustc, emend-copy, xlsx-diff and podman processes at entry: 0
+  no such process was running at entry: as-expected
+root: <scratch>/p2 stands for the directory holding this script and xmlexpect.py; the record pair is written to <scratch>/p2/out/records
+root: <scratch>/p2/target-run stands for this log's build directory (CARGO_TARGET_DIR), used by no other log, and cleaned by no gate or test rerun
+root: <corpus> stands for the private corpus directory (the inputs under <corpus>/corpus, the manifest, and the run directory <corpus>/runs/2026-09-24-ea37ad7)
+root: <scratch>/p2/w.bSMJZy stands for this run's mktemp -d working directory (the extracted tree, the derived rows, the checks' outputs), created inside <scratch>/p2 and removed at exit
+  the working directory and the build directory are distinct, neither inside the other: as-expected
+  the record directory and the build directory are distinct, neither inside the other: as-expected
+  the corpus and <scratch>/p2 are distinct, neither inside the other: as-expected
+  the run directory is inside the corpus directory: as-expected
+  control: apart refuses a directory inside another: as-expected
+  control: under refuses a directory outside another: as-expected
+ANTHROPIC_API_KEY set in this shell: no
+DETACHED: no interactive call waits on this run; stdout and stderr go
+  to a scratch file, polled from later calls.
+TERMS: this log's two release builds finish before the runner starts;
+  order host then i686; no mid-run tuning, and a copy or conversion that
+  timed out or was killed would be recorded and listed apart, never rerun
+  with a larger value.
+TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child and
+  --lo-timeout 600 per conversion, the figures part 6 P3's corpus run used.
+  Neither is tuned during the run; each workbook's wall time is in the
+  record's summary table (wall_s).
+Workbooks are cited by id only. The corpus directory's PATH is written
+  <corpus> wherever this log prints a path; its NAME appears in the
+  script printed below, in the line that takes the default CLAUDE.md
+  gives. What is private is the corpus's contents and file names.
+
+## script
+command: sed 's/^/    /' <this script>; sha256 7d8f15be910a0f577b37cdfc6e593d08ff6b249e030c5b855debd645e9e066ae, 41086 bytes
+    #!/usr/bin/env bash
+    # Milestone 1 part 7 P2 run.log (specs/0014-xml-comparison.md, "### P2" and
+    # "Harness runs" as "Planning verification and rulings on P1" F1 amends it):
+    # the corpus run of --tool-arg --formula-sample on both targets with this
+    # phase's xlsx-diff, which now prints xml rows for every changed entry; the
+    # log's own derivation of those rows from each input, each assertion with a
+    # control; the record pair, its XML table and xml rows checked against the
+    # diff files; the entry statuses compared with part 6 P3's record.
+    #
+    # WRITTEN FOR M1 part 7 P2 from part 6 P3's run script (its printed copy is
+    # in records/logs/m1p6-p3/run.log), audited against specs/0001 and the
+    # rulings of specs/0013 and specs/0014 before the run. It carries that
+    # script's rules: lines 1 to 3 are the command, the invocation and about:,
+    # then the phase-commit guard, the three shape greps over this file, the
+    # phase's commits by role read from git; no commit id and no count the phase
+    # can grow is typed here. What differs, and why:
+    #  1. THIS LOG BUILDS. P2 has no size log to hash its binaries, so the phase
+    #     commit's tree is extracted with git archive into the working directory
+    #     and emend-copy and xlsx-diff are built from it in the release profile,
+    #     for the host and for i686-unknown-linux-musl, into the build directory
+    #     <scratch>/p2/target-run, which only this log uses and no gate or test
+    #     rerun cleans (part 6 P1 verification ruling 6). The commands and each
+    #     binary's sha256 are printed. The runner's scripts are compared with
+    #     the phase commit's blobs by git show.
+    #  2. The checks are a new helper, xmlexpect.py, printed with its sha256
+    #     below: part 6's p2check.py pick rules restated, and the xml rows
+    #     derived from each input as the amended "Harness runs" says. Part 6's
+    #     comparison and computation checks are not rerun: this phase changes
+    #     the harness, not the library, and the emend-copy outputs are compared
+    #     byte for byte with part 6 P3's run directory's when it still exists.
+    #  3. Superseded run directories are removed before the run and printed
+    #     (specs/0014 "Phases", carrying specs/0013 P3 verification ruling 4;
+    #     independent check 1 F4 on this log's first attempt, which dropped
+    #     it). Every directory under <corpus>/runs whose name is of the
+    #     date-and-commit form and whose commit, read from git, is a part 7
+    #     commit is superseded: part 7 P1 had no corpus run, so each is an
+    #     earlier attempt of this phase. Part 6 P3's hash readers of size.log
+    #     and of P2's committed run.log are gone.
+    #  4. specs/0014 P1 verification ruling 3: a root line for every root this
+    #     log uses: <scratch>/p2 (this script, the helper and the record pair's
+    #     directory <scratch>/p2/out/records), <scratch>/p2/target-run (the
+    #     build), <corpus> (the inputs and the run directory) and the mktemp -d
+    #     working directory, each with the check that holds it apart.
+    #  5. The phase-commit guard gains a control on a fabricated commit (the
+    #     phase commit with its last hex digit changed).
+    #  6. The SERIALIZED line counts cargo, rustc, emend-copy, xlsx-diff and
+    #     podman processes at entry, and the log checks the count is 0.
+    #  7. No typed count the phase can grow: part 6 P3's "P3 has two code
+    #     commits" and "the 9 chains of the spec's Facts" are gone. Every
+    #     expected xml row, count and total is derived by xmlexpect.py from its
+    #     own read of each input; the manifest's rows give the workbook count.
+    #     A disagreement between the tool and the derivation is a finding and
+    #     reads UNEXPECTED; nothing observed is typed back as an expectation.
+    #  9. Rerun after independent check 1 (F4, F7): the removal above, and the
+    #     control line on part 6 P3's diff file no longer ends in a colon.
+    #  8. The status check counts this phase's logs and records
+    #     (records/logs/m1p7-p2/, records/m1p7-p2-*) as the phase's files, and
+    #     specs/0014-xml-comparison.md or ROADMAP.md modified as planning's.
+    #
+    # None of the three shapes specs/0001 forbids appears here: every compound
+    # condition is a named function and every negated one goes through isnot,
+    # whose control is below; the shapes are described rather than written out.
+    #
+    # Workbooks appear as ids only, and the checks print counts and yes/no flags
+    # only: no reference, no cell value, no formula text, no sheet name and no
+    # part name. The derived rows (which carry entry names) are written to the
+    # working directory and compared there, never printed. The corpus directory
+    # is written <corpus>.
+    #
+    # Usage: m1p7-p2-run.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m1p7-p2/run.log. Started detached and polled.
+    set -uo pipefail
+    SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+    P2DIR=$(dirname "$SELF")
+    SCR=$(dirname "$P2DIR")
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    DATE=$(date -u +%Y-%m-%d)
+    REC_DIR=$P2DIR/out/records
+    BT=$P2DIR/target-run
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    EDIT=--formula-sample
+    fail=0
+    
+    nbad=0; nunexp=0
+    note() {
+      echo "  $1: $2"
+      if [ "$2" != as-expected ]; then
+        fail=1; nbad=$((nbad + 1))
+        [ "$2" = UNEXPECTED ] && nunexp=$((nunexp + 1))
+      fi
+    }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    hide() { sed "s#$CORPUS#<corpus>#g; s#$SCR#<scratch>#g; s#$MAIN#<repo>#g; s#$HOME#<home>#g"; }
+    bad() { fail=1; nbad=$((nbad + 1)); }
+    
+    G=/usr/bin/grep
+    TAB=$(printf '\t')
+    mkdir -p "$REC_DIR" || exit 2
+    W=$(mktemp -d "$P2DIR/w.XXXXXX") || exit 2
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    
+    nrows() { awk -F'\t' 'NR > 1 { n++ } END { print n + 0 }' "$1"; }
+    count_where() {
+      awk -F'\t' -v c="$2" -v v="$3" '
+        NR == 1 { for (i = 1; i <= NF; i++) if ($i == c) k = i; next }
+        k && $k == v { n++ } END { print n + 0 }' "$1"
+    }
+    # kv <line> <key>: the value of key=value in a line split on tabs or spaces.
+    kv() { printf '%s\n' "$1" | tr '\t ' '\n\n' | sed -n "s/^$2=//p" | head -1; }
+    kvn() {
+      local v
+      v=$(kv "$1" "$2")
+      case "$v" in '' | *[!0-9]*) echo 0 ;; *) echo "$v" ;; esac
+    }
+    
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    if ! is_head "$C"; then echo "the phase commit must be HEAD as a full sha, not $C" >&2; exit 2; fi
+    
+    echo "command: git rev-parse HEAD"
+    inv_path=$SELF
+    case "$inv_path" in
+      "$MAIN"/*) inv_path="<repo>/${inv_path#"$MAIN"/}" ;;
+      "$SCR"/*) inv_path="<scratch>/${inv_path#"$SCR"/}" ;;
+      /*) inv_path="<scratch>/$(basename "$inv_path")" ;;
+    esac
+    echo "invocation: bash $inv_path $*"
+    echo "about: M1 part 7 P2 phase commit $C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    # A fabricated commit: the phase commit with its last hex digit changed.
+    last_digit=$(printf '%s' "$C" | cut -c40)
+    case "$last_digit" in 0) other_digit=1 ;; *) other_digit=0 ;; esac
+    FABRICATED=$(printf '%s' "$C" | cut -c1-39)$other_digit
+    echo "  a fabricated commit for the control (the last hex digit changed): $FABRICATED"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses a fabricated commit" "$(isnot is_head "$FABRICATED")"
+    note "control: the same comparison refuses the null commit" "$(isnot is_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(isnot is_head "$(printf '%s' "$C" | cut -c1-7)")"
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    
+    # The three shape greps over this script's own file. The patterns are
+    # bracket forms, which do not match themselves; the fixtures are assembled
+    # by printf.
+    SHAPE_CHAIN='[$][(](yn|is|isnot) .*(&&|[|][|])'
+    SHAPE_BANG='[$][(](yn|is|isnot) [!]'
+    SHAPE_ASSIGN='[$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*='
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$W/shape-chain"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$W/shape-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$W/shape-assign"
+    echo
+    echo "## the three shape greps over this script's own file"
+    echo "command: sha256sum <scratch>/p2/$(basename "$SELF")"
+    echo "  $(sha256sum <"$SELF" | cut -d' ' -f1)  $(wc -c <"$SELF") bytes"
+    shape_hit=0
+    for shape in chain bang assign; do
+      case $shape in chain) pat=$SHAPE_CHAIN ;; bang) pat=$SHAPE_BANG ;; assign) pat=$SHAPE_ASSIGN ;; esac
+      echo "command: count_matches -E <the $shape pattern> over <scratch>/p2/$(basename "$SELF"), and over a control fixture holding the $shape shape"
+      echo "  the $shape pattern: $pat"
+      on_self=$(count_matches -E "$pat" "$SELF")
+      on_ctl=$(count_matches -E "$pat" "$W/shape-$shape")
+      echo "  hits on this script: $on_self; hits on the control: $on_ctl"
+      note "the $shape shape: no hit on this script" "$(is [ "$on_self" = 0 ])"
+      note "control: the $shape pattern finds its shape in the fixture, through the same form" "$(is [ "$on_ctl" = 1 ])"
+      [ "$on_self" = 0 ] || shape_hit=1
+    done
+    if [ "$shape_hit" != 0 ]; then
+      echo "a shape grep hit this script (or could not read it): stopping before any case"
+      exit 1
+    fi
+    
+    # code_commits <part>: the code commits of one phase by role, oldest first,
+    # as "<sha> <subject>" lines; the planning doc commits are set apart.
+    code_commits() {
+      git log --reverse --format='%H %s' --grep="^M1 part 7 $1: " | LC_ALL=C "$G" -v -F 'commit planning docs'
+    }
+    echo
+    echo "## the phase's commits, by role, read from git"
+    echo "command: git log --reverse --format='%H %s' --grep='^M1 part 7 P2: ' (planning doc commits printed and set apart)"
+    git log --reverse --format='%H %s' --grep='^M1 part 7 P2: ' >"$W/phase-commits"
+    LC_ALL=C "$G" -F 'commit planning docs' "$W/phase-commits" | sed 's/^/    planning doc commit: /'
+    code_commits P2 >"$W/code-commits"
+    awk '{ printf "    code commit %d: %s\n", NR, $0 }' "$W/code-commits"
+    ncode=$(count_lines "$W/code-commits")
+    last_code=$(tail -n 1 "$W/code-commits" | cut -d' ' -f1)
+    echo "  code commits: $ncode; the last: $last_code"
+    last_is_phase() { [ -n "$last_code" ] && [ "$last_code" = "$C" ]; }
+    note "the last code commit, read from git, is the phase commit given to this script" "$(is last_is_phase)"
+    fabricated_is_last() { [ "$last_code" = "$FABRICATED" ]; }
+    note "control: the same comparison refuses the fabricated commit" "$(isnot fabricated_is_last)"
+    echo "command: git rev-parse --short <the phase commit>"
+    SHORT=$(git rev-parse --short "$C")
+    echo "  $SHORT"
+    RUN_TAG=${RUN_TAG:-}
+    RUN=$DATE-$SHORT$RUN_TAG
+    OUT=$CORPUS/runs/$RUN
+    STEM=m1p7-p2-$DATE-$SHORT
+    echo "  run directory: <corpus>/runs/$RUN; record stem: $STEM; build directory: <scratch>/p2/target-run"
+    
+    echo "phase: Milestone 1 part 7 P2 (specs/0014-xml-comparison.md) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above (kept in <scratch>/p2/out/superseded)"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    n_procs=0
+    for pn in cargo rustc emend-copy xlsx-diff podman; do
+      n_procs=$((n_procs + $(pgrep -x "$pn" | wc -l)))
+    done
+    echo "SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo, rustc, emend-copy, xlsx-diff and podman processes at entry: $n_procs"
+    note "no such process was running at entry" "$(is [ "$n_procs" = 0 ])"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    under() { case "$1/" in "$2"/*) return 0 ;; esac; return 1; }
+    echo "root: <scratch>/p2 stands for the directory holding this script and xmlexpect.py; the record pair is written to <scratch>/p2/out/records"
+    echo "root: <scratch>/p2/target-run stands for this log's build directory (CARGO_TARGET_DIR), used by no other log, and cleaned by no gate or test rerun"
+    echo "root: <corpus> stands for the private corpus directory (the inputs under <corpus>/corpus, the manifest, and the run directory <corpus>/runs/$RUN)"
+    echo "root: <scratch>/p2/$(basename "$W") stands for this run's mktemp -d working directory (the extracted tree, the derived rows, the checks' outputs), created inside <scratch>/p2 and removed at exit"
+    note "the working directory and the build directory are distinct, neither inside the other" "$(is apart "$W" "$BT")"
+    note "the record directory and the build directory are distinct, neither inside the other" "$(is apart "$REC_DIR" "$BT")"
+    note "the corpus and <scratch>/p2 are distinct, neither inside the other" "$(is apart "$CORPUS" "$P2DIR")"
+    note "the run directory is inside the corpus directory" "$(is under "$OUT" "$CORPUS/runs")"
+    note "control: apart refuses a directory inside another" "$(isnot apart "$BT/release" "$BT")"
+    note "control: under refuses a directory outside another" "$(isnot under "$BT" "$CORPUS")"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go"
+    echo "  to a scratch file, polled from later calls."
+    echo "TERMS: this log's two release builds finish before the runner starts;"
+    echo "  order host then i686; no mid-run tuning, and a copy or conversion that"
+    echo "  timed out or was killed would be recorded and listed apart, never rerun"
+    echo "  with a larger value."
+    echo "TIMEOUT CHOSEN BEFORE THE RUN: --timeout 300 for the copy child and"
+    echo "  --lo-timeout 600 per conversion, the figures part 6 P3's corpus run used."
+    echo "  Neither is tuned during the run; each workbook's wall time is in the"
+    echo "  record's summary table (wall_s)."
+    echo "Workbooks are cited by id only. The corpus directory's PATH is written"
+    echo "  <corpus> wherever this log prints a path; its NAME appears in the"
+    echo "  script printed below, in the line that takes the default CLAUDE.md"
+    echo "  gives. What is private is the corpus's contents and file names."
+    
+    echo
+    echo "## script"
+    echo "command: sed 's/^/    /' <this script>; sha256 $(sha256sum <"$SELF" | cut -d' ' -f1), $(wc -c <"$SELF") bytes"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    echo "command: sed 's/^/    /' scripts/counting.sh; sha256 $(sha256sum <scripts/counting.sh | cut -d' ' -f1)"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then
+      echo "  the counting controls did not all hold"
+      bad
+    fi
+    
+    echo
+    echo "## the check this log runs (python3, zipfile and expat), copied once"
+    cp "$P2DIR/xmlexpect.py" "$W/xmlexpect.py" || exit 2
+    echo "command: sed 's/^/    /' <scratch>/p2/xmlexpect.py; sha256 $(sha256sum <"$W/xmlexpect.py" | cut -d' ' -f1), $(wc -c <"$W/xmlexpect.py") bytes"
+    sed 's/^/    /' "$W/xmlexpect.py"
+    XE=$W/xmlexpect.py
+    PLANTS='entries_ok parse_ok sheet_shape_ok sheet_elements_ok sheet_attributes_ok sheet_values_ok wb_ok types_ok rels_ok archive_ok archive_agree'
+    
+    echo
+    echo "## the phase commit's tree, the runner's scripts and this log's own builds"
+    PHASE_FILES='^(\?\?| ?[MARCD]) (records/logs/m1p7-p2/|records/m1p7-p2-)'
+    PLANNING_FILES='^ M (specs/0014-xml-comparison[.]md|ROADMAP[.]md)$'
+    # status_accounted <all> <phase> [<planning>]: every status line is this
+    # phase's logs or records, or planning's file modified.
+    status_accounted() {
+      [ "$1" != error ] && [ "$2" != error ] && [ "${3:-0}" != error ] && [ "$1" = "$(($2 + ${3:-0}))" ]
+    }
+    planning_status() {
+      st_plan=$(run_matches -E "$PLANNING_FILES" git status --porcelain)
+      git status --porcelain | LC_ALL=C "$G" -E "$PLANNING_FILES" | cut -c4- |
+        while IFS= read -r pf; do echo "  planning's file $pf: sha256 $(sha256sum <"$pf" | cut -d' ' -f1)"; done
+    }
+    echo "command: git status --porcelain"
+    st_before=$(run_lines git status --porcelain)
+    st_before_phase=$(run_matches -E "$PHASE_FILES" git status --porcelain)
+    planning_status
+    echo "  status lines before the build: $st_before; of them this phase's logs or records: $st_before_phase; planning's files modified: $st_plan"
+    note "every change in the working tree before the build is this phase's logs or records, or planning's file" \
+      "$(is status_accounted "$st_before" "$st_before_phase" "$st_plan")"
+    printf '?? records/logs/m1p7-p2/\n?? crates/emend/src/x.rs\n' >"$W/status-ctl"
+    st_ctl_all=$(count_lines "$W/status-ctl")
+    st_ctl_phase=$(count_matches -E "$PHASE_FILES" "$W/status-ctl")
+    printf ' M specs/0014-xml-comparison.md\n M specs/0001-bootstrap.md\n' >"$W/status-plan-ctl"
+    st_ctl_plan=$(count_matches -E "$PLANNING_FILES" "$W/status-plan-ctl")
+    note "control: the planning form counts specs/0014 and not another spec ($st_ctl_plan of 2)" \
+      "$(is [ "$st_ctl_plan" = 1 ])"
+    note "control: the same test refuses a status holding a source change" \
+      "$(isnot status_accounted "$st_ctl_all" "$st_ctl_phase")"
+    same_as_commit() { git show "$C:$1" | cmp -s - "$MAIN/$1"; }
+    for s in scripts/passthrough-run.sh scripts/passthrough-record.py scripts/counting.sh; do
+      echo "command: git show <the phase commit>:$s | cmp - $s"
+      echo "  $s: sha256 $(sha256sum <"$MAIN/$s" | cut -d' ' -f1)"
+      note "$s in the working tree is the phase commit's blob" "$(is same_as_commit "$s")"
+    done
+    differs_from_commit() { printf 'x\n' | cmp -s - "$MAIN/scripts/counting.sh"; }
+    note "control: the same comparison refuses a file that differs" "$(isnot differs_from_commit)"
+    SRC=$W/src
+    mkdir -p "$SRC" || exit 2
+    echo "command: git archive <the phase commit> | tar -x -C <scratch>/p2/$(basename "$W")/src"
+    git archive "$C" | tar -x -C "$SRC"
+    arc=$?
+    note "git archive of the phase commit extracts" "$(is [ "$arc" -eq 0 ])"
+    tree_files=$(git ls-tree -r --name-only "$C" | wc -l)
+    src_files=$(cd "$SRC" && find . -type f | wc -l)
+    echo "  files in the phase commit's tree: $tree_files; files extracted: $src_files"
+    note "every file of the phase commit's tree was extracted" "$(is [ "$tree_files" = "$src_files" ])"
+    I686=i686-unknown-linux-musl
+    build() {
+      local label=$1
+      shift
+      echo "command: cargo build --locked --release -p emend-copy -p xlsx-diff $* (in the extracted tree, CARGO_TARGET_DIR=<scratch>/p2/target-run)"
+      (cd "$SRC" && CARGO_TARGET_DIR=$BT cargo build --locked --release -p emend-copy -p xlsx-diff "$@") \
+        >"$W/build-$label.out" 2>"$W/build-$label.err"
+      local rc=$?
+      echo "  exit $rc; the build's last line: $(tail -1 "$W/build-$label.err" | hide | sed 's/ in [0-9.]*s$//')"
+      build_rc=$rc
+    }
+    build host
+    note "the host release build of the phase commit succeeds" "$(is [ "$build_rc" -eq 0 ])"
+    build i686 --target "$I686"
+    note "the i686 release build of the phase commit succeeds" "$(is [ "$build_rc" -eq 0 ])"
+    PT_host=$BT/release/emend-copy
+    XD_host=$BT/release/xlsx-diff
+    PT_i686=$BT/$I686/release/emend-copy
+    XD_i686=$BT/$I686/release/xlsx-diff
+    echo "command: sha256sum and wc -c over the four binaries"
+    nbin=0
+    for b in "$PT_host" "$XD_host" "$PT_i686" "$XD_i686"; do
+      if [ -x "$b" ]; then
+        echo "  hash: <scratch>/${b#"$SCR"/}: sha256 $(sha256sum <"$b" | cut -d' ' -f1), bytes $(wc -c <"$b")"
+        nbin=$((nbin + 1))
+      else
+        echo "  <scratch>/${b#"$SCR"/}: MISSING"
+      fi
+    done
+    note "all four release binaries exist" "$(is [ "$nbin" = 4 ])"
+    newer_than_tree() { [ "$1" -nt "$SRC/Cargo.toml" ]; }
+    for b in "$PT_host" "$XD_host" "$PT_i686" "$XD_i686"; do
+      note "<scratch>/${b#"$SCR"/} was written after this log extracted the tree" "$(is newer_than_tree "$b")"
+    done
+    note "control: the same test refuses a file older than the extraction" "$(isnot newer_than_tree "$MAIN/Cargo.toml")"
+    header_hex() { od -A n -t x1 -j "$2" -N "$3" "$1" | tr -d ' \n'; }
+    is_i686_elf() {
+      [ "$(header_hex "$1" 0 4)" = 7f454c46 ] || return 1
+      [ "$(header_hex "$1" 4 1)" = 01 ] || return 1
+      [ "$(header_hex "$1" 18 2)" = 0300 ]
+    }
+    note "the i686 emend-copy is a 32-bit ELF for i386" "$(is is_i686_elf "$PT_i686")"
+    note "the i686 xlsx-diff is a 32-bit ELF for i386" "$(is is_i686_elf "$XD_i686")"
+    note "control: the same test refuses the host emend-copy" "$(isnot is_i686_elf "$PT_host")"
+    
+    # check_holds <check line>: found, derivation ok, and every flag yes.
+    check_holds() {
+      case "$1" in found=1\ planted=na\ *) ;; *) return 1 ;; esac
+      [ "$(kv "$1" derivation)" = ok ] || return 1
+      [ "$(printf '%s' "$1" | tr ' ' '\n' | LC_ALL=C "$G" -c '=no$')" = 0 ]
+    }
+    # plant_caught <plant line> <flag>: the plant applied and the named flag
+    # reads no. Other flags may read no too; the line is printed.
+    plant_caught() {
+      [ "$(kv "$1" planted)" = yes ] || return 1
+      [ "$(kv "$1" "$2")" = no ]
+    }
+    note "control: check_holds refuses a line with one flag no" \
+      "$(isnot check_holds 'found=1 planted=na a=1 wb_ok=no derivation=ok')"
+    note "control: check_holds refuses a derivation that does not cover the input" \
+      "$(isnot check_holds 'found=1 planted=na a=1 derivation=calcPr_not_one_unflagged')"
+    note "control: check_holds refuses a planted line" \
+      "$(isnot check_holds 'found=1 planted=yes a=1 derivation=ok')"
+    note "control: plant_caught refuses a plant that did not apply" \
+      "$(isnot plant_caught 'found=1 planted=no wb_ok=no' wb_ok)"
+    note "control: plant_caught refuses a plant whose flag still reads yes" \
+      "$(isnot plant_caught 'found=1 planted=yes wb_ok=yes parse_ok=no' wb_ok)"
+    
+    if [ "$fail" -ne 0 ]; then
+      echo "a check before the corpus run failed ($nbad so far): stopping before any run directory is touched"
+      echo "verdict rows other than as-expected: $nbad; of them marked UNEXPECTED: $nunexp"
+      echo "run log checks all as expected: no"
+      exit 1
+    fi
+    
+    echo
+    echo "## superseded run directories of this part, removed before the run"
+    # The names are read from <corpus>/runs; a name's commit is resolved by git
+    # and its subject read, so no commit id and no directory name is typed here.
+    RUNS=$CORPUS/runs
+    # removable <runs dir> <name>: part 6 P3's test, unchanged.
+    removable() {
+      printf '%s' "$2" | LC_ALL=C "$G" -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{7,12}(-[a-z])?$' || return 1
+      [ -d "$1/$2" ] || return 1
+      [ -L "$1/$2" ] && return 1
+      [ "$(cd "$1/$2/.." && pwd -P)" = "$(cd "$1" && pwd -P)" ]
+    }
+    mkdir -p "$W/runs-ctl/2026-01-01-abcdef0" "$W/runs-ctl/not-a-run" "$W/elsewhere"
+    : >"$W/runs-ctl/2026-01-01-abcdef1"
+    ln -s "$W/elsewhere" "$W/runs-ctl/2026-01-01-abcdef2"
+    note "control: removable accepts a directory of the form" "$(is removable "$W/runs-ctl" 2026-01-01-abcdef0)"
+    note "control: removable refuses a file of the form" "$(isnot removable "$W/runs-ctl" 2026-01-01-abcdef1)"
+    note "control: removable refuses a symbolic link of the form" "$(isnot removable "$W/runs-ctl" 2026-01-01-abcdef2)"
+    note "control: removable refuses a directory of another form" "$(isnot removable "$W/runs-ctl" not-a-run)"
+    note "control: removable refuses a path that climbs out" "$(isnot removable "$W/runs-ctl" ../elsewhere)"
+    # part7_run <name>: the name is of the form and its commit, resolved by git,
+    # has a subject starting "M1 part 7 ".
+    part7_run() {
+      local hex subj
+      printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{7,12}(-[a-z])?$' || return 1
+      hex=$(printf '%s' "$1" | cut -d- -f4)
+      subj=$(git log -1 --format=%s "$hex^{commit}" -- 2>/dev/null) || return 1
+      case "$subj" in "M1 part 7 "*) return 0 ;; esac
+      return 1
+    }
+    note "control: part7_run accepts this phase commit's bare run name" "$(is part7_run "$DATE-$SHORT")"
+    note "control: part7_run refuses a run name of part 6 P3's commit" "$(isnot part7_run "2026-01-01-$(git rev-parse --short "$(git log -1 --format=%H --grep='^M1 part 6 P3: ')")")"
+    note "control: part7_run refuses a name of another form" "$(isnot part7_run not-a-run)"
+    echo "command: ls <corpus>/runs, each name of the date-and-commit form tested by part7_run"
+    : >"$W/stale"
+    for d in "$RUNS"/*; do
+      name=$(basename "$d")
+      if [ -d "$d" ] && part7_run "$name"; then printf '%s\n' "$name" >>"$W/stale"; fi
+    done
+    echo "  run directories under <corpus>/runs: $(find "$RUNS" -mindepth 1 -maxdepth 1 -type d | wc -l); of them part 7's, so superseded: $(count_lines "$W/stale")"
+    sed 's/^/    superseded: /' "$W/stale"
+    P6_KEEP=$(sed -n 's/^Written by .* from the run directory `\([^`]*\)`.*/\1/p' "$MAIN/$(git ls-files 'records/m1p6-p3-*.md')")
+    echo "  the run directory part 6 P3's record cites: $P6_KEEP"
+    p6_is_stale() { LC_ALL=C "$G" -qxF -- "$P6_KEEP" "$W/stale"; }
+    note "part 6 P3's cited directory is not among the superseded" "$(isnot p6_is_stale)"
+    while IFS= read -r name; do
+      present() { [ -e "$RUNS/$name" ]; }
+      echo "  before: <corpus>/runs/$name present: $(present && echo yes || echo no); a run directory of the form: $(removable "$RUNS" "$name" && echo yes || echo no)"
+      note "<corpus>/runs/$name is there to remove" "$(is removable "$RUNS" "$name")"
+      if removable "$RUNS" "$name"; then
+        echo "command: rm -rf -- <corpus>/runs/$name"
+        rm -rf -- "${RUNS:?}/$name"
+      fi
+      echo "  after: <corpus>/runs/$name present: $(present && echo yes || echo no)"
+      note "<corpus>/runs/$name removed" "$(isnot present)"
+    done <"$W/stale"
+    p6_kept_there() { removable "$RUNS" "$P6_KEEP"; }
+    note "part 6 P3's cited run directory, <corpus>/runs/$P6_KEEP, still stands" "$(is p6_kept_there)"
+    
+    echo
+    echo "## settings"
+    echo "  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion);"
+    echo "  image $LO_IMAGE; --tool-arg $EDIT"
+    echo "  out directory: <corpus>/runs/$RUN"
+    echo "  record stem: $STEM; record directory: <scratch>/p2/out/records"
+    manifest_rows=$(nrows "$CORPUS/manifest.tsv")
+    echo "  corpus manifest rows: $manifest_rows (every later count of workbooks is compared with this, never with a typed number)"
+    { cat "$CORPUS/manifest.tsv"; printf 'planted\n'; } >"$W/manifest-plus"
+    note "control: the same reader counts one more row on a manifest with one planted" \
+      "$(is [ "$(nrows "$W/manifest-plus")" = "$((manifest_rows + 1))" ])"
+    no_summary() {
+      local f
+      for f in "$1"/summary.*.tsv; do
+        [ -e "$f" ] && return 1
+      done
+      return 0
+    }
+    mkdir -p "$W/ctl-run"
+    note "control: no_summary accepts an empty directory" "$(is no_summary "$W/ctl-run")"
+    : >"$W/ctl-run/summary.host.tsv"
+    note "control: no_summary refuses a directory holding a summary" "$(isnot no_summary "$W/ctl-run")"
+    note "the run directory <corpus>/runs/$RUN holds no summary before the runner" "$(is no_summary "$OUT")"
+    if [ -e "$OUT/summary.host.tsv" ] || [ -e "$OUT/summary.i686.tsv" ]; then
+      echo "  refusing to run over an earlier run's summary"
+      exit 1
+    fi
+    P6_REC=$(git ls-files 'records/m1p6-p3-*.txt')
+    P6_MD=$(git ls-files 'records/m1p6-p3-*.md')
+    P6=$CORPUS/runs/$(sed -n 's/^Written by .* from the run directory `\([^`]*\)`.*/\1/p' "$MAIN/$P6_MD")
+    echo "command: git ls-files 'records/m1p6-p3-*.txt' 'records/m1p6-p3-*.md'; and sed for the run directory the .md cites"
+    echo "  part 6 P3's record: $P6_REC; its run directory: <corpus>/runs/$(basename "$P6")"
+    if [ -d "$P6" ]; then P6_THERE=yes; else P6_THERE=no; fi
+    echo "  part 6 P3's run directory still exists: $P6_THERE"
+    
+    echo
+    echo "## the log's own read of every input (counts only)"
+    awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) k[$i] = i; next } { print $k["id"] "\t" $k["ext"] }' \
+      "$CORPUS/manifest.tsv" >"$W/ids"
+    note "the ids read cover the manifest's rows" "$(is [ "$(count_lines "$W/ids")" = "$manifest_rows" ])"
+    n_expected_rows=0
+    while IFS=$'\t' read -r id ext; do
+      python3 "$XE" expect "$CORPUS/corpus/$id.$ext" "$W/expect-$id"
+      n_expected_rows=$((n_expected_rows + $(count_lines "$W/expect-$id")))
+    done <"$W/ids"
+    echo "  xml rows derived over all inputs: $n_expected_rows (per label)"
+    
+    for label in host i686; do
+      if [ "$label" = host ]; then PT=$PT_host; XD=$XD_host; else PT=$PT_i686; XD=$XD_i686; fi
+      echo
+      echo "## $label run, --tool-arg $EDIT"
+      echo "command: scripts/passthrough-run.sh --label $label --passthrough <scratch>/${PT#"$SCR"/} --xlsx-diff <scratch>/${XD#"$SCR"/} --out <corpus>/runs/$RUN --libreoffice $LO_IMAGE --lo-timeout 600 --timeout 300 --tool-arg $EDIT"
+      started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      scripts/passthrough-run.sh --label "$label" --passthrough "$PT" --xlsx-diff "$XD" \
+        --out "$OUT" --libreoffice "$LO_IMAGE" --lo-timeout 600 --timeout 300 \
+        --tool-arg "$EDIT" \
+        >"$W/run-$label.stdout" 2>"$W/run-$label.stderr"
+      rc=$?
+      ended=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "  started $started; ended $ended; exit $rc; stderr bytes: $(wc -c <"$W/run-$label.stderr")"
+      hide <"$W/run-$label.stdout" | sed 's/^/    /'
+      if [ -s "$W/run-$label.stderr" ]; then hide <"$W/run-$label.stderr" | sed 's/^/    stderr: /'; fi
+      note "$label the run exits 0" "$(is [ "$rc" -eq 0 ])"
+      note "$label the run's stderr is empty" "$(is [ "$(wc -c <"$W/run-$label.stderr")" -eq 0 ])"
+      SUM=$OUT/summary.$label.tsv
+      if [ ! -f "$SUM" ]; then
+        echo "  the run wrote no summary"; bad; continue
+      fi
+      rows=$(nrows "$SUM")
+      ok=$(count_where "$SUM" outcome ok)
+      lo=$(count_where "$SUM" lo ok)
+      lo_in=$(count_where "$SUM" lo_in ok)
+      echo "  summary rows: $rows; outcome ok: $ok; lo ok: $lo; lo_in ok: $lo_in"
+      note "$label every manifest workbook produced a summary row ($rows of $manifest_rows)" "$(is [ "$rows" = "$manifest_rows" ])"
+      note "$label every outcome is ok" "$(is [ "$ok" = "$rows" ])"
+      note "$label lo is ok on every file" "$(is [ "$lo" = "$rows" ])"
+      note "$label lo_in is ok on every file" "$(is [ "$lo_in" = "$rows" ])"
+      awk -F'\t' 'BEGIN { OFS = "\t" } NR == 1 { for (i = 1; i <= NF; i++) if ($i == "outcome") k = i }
+        NR == 2 { $k = "planted" } { print }' "$SUM" >"$W/sum-planted"
+      ok_planted=$(count_where "$W/sum-planted" outcome ok)
+      note "$label control: the same count of outcome ok is one less on a summary with one row planted not ok ($ok_planted)" \
+        "$(is [ "$ok_planted" = "$((ok - 1))" ])"
+    
+      echo "  per workbook: id, then the check's line (counts and yes/no only); the plants on each workbook are counted below"
+      nhold=0; nrows_same=0; nnone=0; n_a=0
+      declare -A CAUGHT=() APPLIED=()
+      while IFS=$'\t' read -r id ext; do
+        D=$OUT/$id/diff.$label.tsv
+        python3 "$XE" check "$CORPUS/corpus/$id.$ext" "$D" --plants >"$W/check-$label-$id"
+        line=$(head -n 1 "$W/check-$label-$id")
+        printf '    %s %s\n' "$id" "$line"
+        if check_holds "$line"; then nhold=$((nhold + 1)); else echo "    $id: THE TOOL'S XML ROWS ARE NOT THE ONES THE LOG'S OWN READ DERIVES"; fi
+        LC_ALL=C "$G" "^xml$TAB" "$D" >"$W/tool-$label-$id"
+        if cmp -s "$W/tool-$label-$id" "$W/expect-$id"; then nrows_same=$((nrows_same + 1)); fi
+        if [ "$(kv "$line" a)" = 1 ]; then
+          n_a=$((n_a + 1))
+        elif [ "$(count_lines "$W/tool-$label-$id")" = 0 ]; then
+          nnone=$((nnone + 1))
+        fi
+        for flag in $PLANTS; do
+          pl=$(sed -n "s/^plant $flag: //p" "$W/check-$label-$id")
+          if [ "$(kv "$pl" planted)" = yes ]; then
+            APPLIED[$flag]=$((${APPLIED[$flag]:-0} + 1))
+            if plant_caught "$pl" "$flag"; then
+              CAUGHT[$flag]=$((${CAUGHT[$flag]:-0} + 1))
+            else
+              echo "    $id plant $flag: applied, and $flag did NOT read no: $pl"
+            fi
+          fi
+        done
+      done <"$W/ids"
+      echo "  workbooks: $manifest_rows; the check holding: $nhold; the tool's xml rows byte-identical to the derived rows: $nrows_same; with A: $n_a; without A and with no xml row: $nnone"
+      note "$label on every workbook the tool's xml rows and archive rows are what the log's own read derives" "$(is [ "$nhold" = "$manifest_rows" ])"
+      note "$label on every workbook the tool's xml rows are byte-identical to the derived rows, in order" "$(is [ "$nrows_same" = "$manifest_rows" ])"
+      note "$label every workbook without A has no xml row" "$(is [ "$nnone" = "$((manifest_rows - n_a))" ])"
+      # caught_every_time <applied> <caught>: applied at least once, caught on
+      # every workbook where it applied.
+      caught_every_time() { [ "$1" -ge 1 ] || return 1; [ "$2" = "$1" ]; }
+      for flag in $PLANTS; do
+        echo "  $label plant $flag: applied on ${APPLIED[$flag]:-0} workbooks, caught on ${CAUGHT[$flag]:-0}"
+        note "$label control: the plant for $flag applied at least once and was caught every time it applied" \
+          "$(is caught_every_time "${APPLIED[$flag]:-0}" "${CAUGHT[$flag]:-0}")"
+      done
+      note "control: caught_every_time refuses a plant that never applied" "$(isnot caught_every_time 0 0)"
+      note "control: caught_every_time refuses a plant missed once" "$(isnot caught_every_time 3 2)"
+      first_a=$(while IFS=$'\t' read -r id ext; do [ -s "$W/expect-$id" ] && echo "$id"; done <"$W/ids" | head -n 1)
+      sed "1s/$TAB[0-9]*\$/${TAB}999999/" "$W/expect-$first_a" >"$W/expect-planted"
+      note "$label control: the byte comparison refuses derived rows with one count changed" \
+        "$(isnot cmp -s "$W/tool-$label-$first_a" "$W/expect-planted")"
+      unset CAUGHT APPLIED
+    done
+    
+    echo
+    echo "## the two labels agree"
+    same_diffs() {
+      local id ext
+      while IFS=$'\t' read -r id ext; do
+        cmp -s "$OUT/$id/diff.host.tsv" "$OUT/$id/diff.i686.tsv" || return 1
+      done <"$W/ids"
+    }
+    note "host and i686 wrote byte-identical diff files for every workbook" "$(is same_diffs)"
+    same_outputs() {
+      local id ext
+      while IFS=$'\t' read -r id ext; do
+        cmp -s "$OUT/$id/out.host.$ext" "$OUT/$id/out.i686.$ext" || return 1
+      done <"$W/ids"
+    }
+    note "host and i686 wrote byte-identical outputs" "$(is same_outputs)"
+    first_id=$(head -n 1 "$W/ids" | cut -f1)
+    sed '1s/^/x/' "$OUT/$first_id/diff.i686.tsv" >"$W/diff-planted"
+    note "control: the same comparison finds one planted diff file differ" \
+      "$(isnot cmp -s "$OUT/$first_id/diff.host.tsv" "$W/diff-planted")"
+    
+    echo
+    echo "## the emend-copy outputs against part 6 P3's run directory"
+    echo "  part 6 P3's run directory still exists: $P6_THERE"
+    same_as_p6() {
+      local id ext label
+      for label in host i686; do
+        while IFS=$'\t' read -r id ext; do
+          cmp -s "$OUT/$id/out.$label.$ext" "$P6/$id/out.$label.$ext" || return 1
+        done <"$W/ids"
+      done
+    }
+    if [ "$P6_THERE" = yes ]; then
+      note "every output of both labels is byte-identical to part 6 P3's" "$(is same_as_p6)"
+      p6_differs() { cmp -s "$OUT/$first_id/diff.host.tsv" "$P6/$first_id/diff.host.tsv"; }
+      echo "  the control below uses the first workbook's diff file, which gained xml and archive rows since part 6 P3"
+      note "control: the same byte comparison refuses a file that changed" "$(isnot p6_differs)"
+    else
+      echo "  not compared: the directory is gone"
+    fi
+    
+    echo
+    echo "## the run rows both labels appended"
+    for label in host i686; do
+      R=$OUT/run.$label.tsv
+      if [ -f "$R" ]; then
+        echo "  run.$label.tsv header: $(head -1 "$R")"
+        echo "  run.$label.tsv row: $(sed -n 2p "$R" | hide)"
+        args=$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "tool_args") k = i; next }
+                           k && NR == 2 { print $k }' "$R")
+        echo "  run.$label.tsv tool_args: [$args]"
+        note "$label the run row records the operation" "$(is [ "$args" = "$EDIT" ])"
+      else
+        echo "  run.$label.tsv: MISSING"; bad
+      fi
+    done
+    
+    echo
+    echo "## the record pair (written to <scratch>/p2/out/records)"
+    echo "command: scripts/passthrough-record.py --run <corpus>/runs/$RUN --out <scratch>/p2/out/records --stem $STEM"
+    scripts/passthrough-record.py --run "$OUT" --out "$REC_DIR" --stem "$STEM" >"$W/record.out" 2>&1
+    rrc=$?
+    hide <"$W/record.out" | sed 's/^/    /'
+    note "the record script exits 0" "$(is [ "$rrc" -eq 0 ])"
+    for ext in md txt; do
+      f=$REC_DIR/$STEM.$ext
+      if [ -f "$f" ]; then
+        echo "  <scratch>/p2/out/records/$STEM.$ext: $(wc -c <"$f") bytes, sha256 $(sha256sum <"$f" | cut -d' ' -f1)"
+      else
+        echo "  <scratch>/p2/out/records/$STEM.$ext: MISSING"; bad
+      fi
+    done
+    MD=$REC_DIR/$STEM.md
+    TXT=$REC_DIR/$STEM.txt
+    # own_totals <label>: family-free totals over the diff files, read here with
+    # awk and not with the record script: compared, parse errors, names equal,
+    # values equal, in_only, out_only.
+    own_totals() {
+      local id ext
+      while IFS=$'\t' read -r id ext; do
+        cat "$OUT/$id/diff.$1.tsv"
+      done <"$W/ids" | awk -F'\t' '
+        $1 != "xml" { next }
+        $3 == "parse" { c++; parsed = ($4 == "ok" && $5 == "ok"); if (!parsed) pe++; names = 1 }
+        $3 == "element" || $3 == "attribute" { names = 0 }
+        $3 == "values" { if (parsed && names) ne++; if ($6 == "0" && $7 == "0") ve++; io += $6; oo += $7 }
+        END { printf "%d %d %d %d %d %d", c, pe, ne, ve, io, oo }'
+    }
+    # md_total <label>: the total row of the .md's XML table for the label.
+    md_total() {
+      awk -v want="## XML comparison of changed entries: $1" '
+        $0 == want { on = 1; next }
+        on && /^## / { on = 0 }
+        on && /^[|] total [|]/ { gsub(/[|]/, " "); print $2 " " $3 " " $4 " " $5 " " $6 " " $7; exit }' "$2"
+    }
+    own_xml_rows() {
+      local id ext label n=0
+      for label in host i686; do
+        while IFS=$'\t' read -r id ext; do
+          n=$((n + $(count_matches -E "^xml$TAB" "$OUT/$id/diff.$label.tsv")))
+        done <"$W/ids"
+      done
+      echo "$n"
+    }
+    # txt_xml_rows: the rows of the .txt's third table, the one whose header
+    # starts with id, label, row, name, kind.
+    txt_xml_rows() {
+      awk -F'\t' '
+        $1 == "id" && $2 == "label" && $3 == "row" && $4 == "name" && $5 == "kind" { on = 1; next }
+        on && NF > 0 { n++ } END { print n + 0 }' "$1"
+    }
+    for label in host i686; do
+      own=$(own_totals "$label")
+      mdt=$(md_total "$label" "$MD")
+      echo "  $label totals from the diff files (compared parse_errors names_equal values_equal in_only out_only): $own; the .md's total row: $mdt"
+      note "$label the .md's XML total row equals the diff files' totals" "$(is [ "$own" = "$mdt" ])"
+    done
+    sed 's/^| total | \([0-9]*\) |/| total | 9\1 |/' "$MD" >"$W/md-planted"
+    note "control: the same reader sees a planted .md total differ" \
+      "$(isnot [ "$(own_totals host)" = "$(md_total host "$W/md-planted")" ])"
+    ownx=$(own_xml_rows)
+    txtx=$(txt_xml_rows "$TXT")
+    echo "  xml rows in the diff files of both labels: $ownx; rows of the .txt's third table: $txtx"
+    note "the .txt's third table holds every xml row of the diff files" "$(is [ "$ownx" = "$txtx" ])"
+    note "the xml rows of both labels are the derived rows twice" "$(is [ "$ownx" = "$((2 * n_expected_rows))" ])"
+    { cat "$TXT"; printf 'planted\trow\n'; } >"$W/txt-planted"
+    note "control: the same reader counts one more row on a .txt with one planted" \
+      "$(is [ "$(txt_xml_rows "$W/txt-planted")" = "$((txtx + 1))" ])"
+    
+    echo
+    echo "## the entry statuses against part 6 P3's record"
+    # statuses <.txt>: id, label, name and status of every row of the entry
+    # table, the one whose header starts with id, label, row, name, status.
+    statuses() {
+      awk -F'\t' '
+        $1 == "id" && $2 == "label" && $3 == "row" && $4 == "name" { on = ($5 == "status"); next }
+        on && NF > 0 { print $1 "\t" $2 "\t" $4 "\t" $5 }' "$1" | sort
+    }
+    statuses "$TXT" >"$W/st-new"
+    statuses "$MAIN/$P6_REC" >"$W/st-p6"
+    echo "  entry rows: this record $(count_lines "$W/st-new"); part 6 P3's $(count_lines "$W/st-p6")"
+    nonempty() { [ -s "$1" ]; }
+    note "the entry table was read from this record" "$(is nonempty "$W/st-new")"
+    note "every entry status equals part 6 P3's record" "$(is cmp -s "$W/st-new" "$W/st-p6")"
+    awk -F'\t' 'BEGIN { OFS = "\t" } NR == 1 { $4 = ($4 == "changed" ? "identical" : "changed") } { print }' "$W/st-p6" >"$W/st-planted"
+    note "control: the same comparison refuses one status flipped" "$(isnot cmp -s "$W/st-new" "$W/st-planted")"
+    
+    echo
+    echo "## the record pair holds no corpus path and no absolute path"
+    for ext in md txt; do
+      f=$REC_DIR/$STEM.$ext
+      [ -f "$f" ] || continue
+      n=$(count_matches -E '(/home/|/mnt/|/Users/|/tmp/|emend-testing)' "$f")
+      echo "  <scratch>/p2/out/records/$STEM.$ext: lines naming a home, mount, temporary or corpus path: $n"
+      note "$STEM.$ext carries no such path" "$(is [ "$n" = 0 ])"
+    done
+    printf '%s%s%s\n' '/ho' 'me/someone/' 'emend-testing/corpus/x.xlsx' >"$W/path-control"
+    nctl=$(count_matches -E '(/home/|/mnt/|/Users/|/tmp/|emend-testing)' "$W/path-control")
+    note "control: the path form finds a planted path ($nctl)" "$(is [ "$nctl" = 1 ])"
+    
+    echo
+    echo "## status after the runs"
+    echo "command: git status --porcelain"
+    st_all=$(run_lines git status --porcelain)
+    st_phase=$(run_matches -E "$PHASE_FILES" git status --porcelain)
+    planning_status
+    echo "status lines: $st_all; of them this phase's logs or record pair: $st_phase; planning's files modified: $st_plan"
+    note "every change in the working tree is this phase's logs or record pair, or planning's file" \
+      "$(is status_accounted "$st_all" "$st_phase" "$st_plan")"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "verdict rows other than as-expected: $nbad; of them marked UNEXPECTED: $nunexp"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exit "$fail"
+
+## the shared counting library this log sources
+command: sed 's/^/    /' scripts/counting.sh; sha256 60a379312a5681cba0c1acfb128402c95fa1ec753158d1b29962bce2320e742c
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the check this log runs (python3, zipfile and expat), copied once
+command: sed 's/^/    /' <scratch>/p2/xmlexpect.py; sha256 0af6982401dd4f8b031860301b4b8577d1d23dfcbe5754741ba620432fdb4147, 24370 bytes
+    """The P2 run log's own derivation of the xml rows (specs/0014, "Harness runs"
+    as P1 verification F1 amends it) and its check of the tool's rows.
+    
+    Usage: xmlexpect.py expect <input> <rows file>
+           xmlexpect.py check <input> <diff file> [--plants]
+    
+    Reads the input package with zipfile and expat, sharing no code with the
+    library or the tool, and makes its own pick of the edit --formula-sample
+    makes (the rules of part 6's p2check.py, restated here): the first sheet whose
+    workbook relationship is of kind worksheet, in <sheets> order, and in it, in
+    document order, A (the first cell whose t is absent or "n", which has a <v> or
+    an <is> and no <f>), F (the first cell with an <f> whose t is absent or
+    "normal") and M (the largest row number among its cells). A cell's reference
+    is its own r, else the column after the previous cell of its row; a row's
+    number is its own r, else the one after the previous row's.
+    
+    From that read alone it derives the xml rows the tool must print. The values
+    the edit removes (X) and writes (Y), as (kind, element, attribute, value)
+    tuples hashed by the tool:
+      X  every element, attribute and text value of A's subtree and of F's;
+      Y  A written as <c r s?><v>21</v></c>, F as <c r s?><f>2+3</f></c> (a
+         replaced cell keeps its own s and nothing else), the two new cells
+         <c r="A{M+1}"><f>{A's reference}*2</f></c> and <c r="B{M+1}"><f>1+1</f></c>,
+         and <row r="{M+1}"> when no row element numbered M+1 exists.
+    The first worksheet's element and attribute rows are the names whose counts
+    X and Y move, with the input's whole-entry count and that count plus the
+    move; its values row is (input values, input values - |X| + |Y|, |X - Y|,
+    |Y - X|) as multisets, since whatever the edit leaves is on both sides. The
+    workbook part gains calcPr@fullCalcOnLoad="1" (one value). A chained
+    workbook's content types lose the calcChain Override and the workbook
+    relationships its Relationship, each with its attributes. Without A nothing
+    changes and no xml row is expected. Every parse row is ok on both sides with
+    0 raw values. The archive's four xml rows follow from those blocks.
+    
+    expect writes the derived rows to a file, never printed by the log (they
+    carry entry names). check prints ONE line of counts and yes/no flags:
+      a, f, row_new, chain       the pick (1 or 0)
+      blocks, rows               the derived compared entries and xml rows
+      entries_ok       the tool's compared entries are exactly the derived ones,
+                       in the input's entry order
+      parse_ok         every parse row of the tool is ok ok, no offset, 0 0 raw
+      sheet_shape_ok   the first worksheet's element deltas are exactly
+                       planning's reading: c +2, f +2, row +1 when row M+1 was
+                       new, v -1 when F exists, and no other (yes with no A)
+      sheet_elements_ok, sheet_attributes_ok, sheet_values_ok
+                       the first worksheet's element, attribute and values rows
+                       equal the derivation (yes with no A)
+      wb_ok            the workbook part's rows equal the derivation and are the
+                       one attribute row calcPr@{}fullCalcOnLoad 0 1, no element
+                       row, values in_only 0 and out_only 1 (yes with no A)
+      types_ok, rels_ok
+                       the content types' and workbook relationships' rows equal
+                       the derivation: Override (Relationship) -1, one attribute
+                       row per attribute the lost element carried, in_only that
+                       count, out_only 0 (yes when neither chained nor with A)
+      archive_ok       the tool's four xml archive rows are the derived counts
+      archive_agree    the tool's four xml archive rows are the tally of its own
+                       xml rows
+      derivation       ok, or the reason the derivation does not cover the input
+    --plants then prints one more line per flag, "plant <flag>: " and the line
+    for a copy of the tool's rows changed in memory so that the named flag should
+    read no; planted=no when the plant cannot apply to the workbook.
+    """
+    import posixpath
+    import re
+    import sys
+    import xml.parsers.expat
+    import zipfile
+    
+    MAIN = ("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+            "http://purl.oclc.org/ooxml/spreadsheetml/main")
+    RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
+    ATTR = ("http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+            "http://purl.oclc.org/ooxml/officeDocument/relationships")
+    WS = " \t\n\r"
+    PLANTS = ("entries_ok", "parse_ok", "sheet_shape_ok", "sheet_elements_ok",
+              "sheet_attributes_ok", "sheet_values_ok", "wb_ok", "types_ok",
+              "rels_ok", "archive_ok", "archive_agree")
+    ARCHIVE = ("xml_compared", "xml_parse_errors", "xml_names_equal", "xml_values_equal")
+    
+    
+    class Uncovered(Exception):
+        pass
+    
+    
+    def resolved(name):
+        """expat's 'uri local' (or bare local) as the tool writes it."""
+        uri, sep, local = name.rpartition(" ")
+        return "{%s}%s" % (uri, local) if sep else "{}" + name
+    
+    
+    def rels_name(part):
+        d, base = posixpath.split(part)
+        return posixpath.join(d, "_rels", base + ".rels") if base else "_rels/.rels"
+    
+    
+    def resolve_target(part, target):
+        if target.startswith("/"):
+            return target[1:]
+        return posixpath.normpath(posixpath.join(posixpath.dirname(part), target))
+    
+    
+    def relationships(z, names, part):
+        """(attrs, resolved target) of every Relationship of part's rels part."""
+        name = rels_name(part)
+        if name not in names:
+            return []
+        found = []
+    
+        def start(tag, attrs):
+            if tag == RELS + " Relationship":
+                found.append(dict(attrs))
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(name), True)
+        out = []
+        for a in found:
+            t = None if a.get("TargetMode") == "External" else resolve_target(part, a.get("Target", ""))
+            out.append((a, t))
+        return out
+    
+    
+    def col_of(ref):
+        m = re.match(r"([A-Za-z]+)", ref or "")
+        n = 0
+        for ch in (m.group(1).upper() if m else ""):
+            n = n * 26 + (ord(ch) - 64)
+        return n
+    
+    
+    def row_of(ref):
+        m = re.search(r"(\d+)$", ref or "")
+        return int(m.group(1)) if m else 0
+    
+    
+    def a1(row, col):
+        name = ""
+        while col > 0:
+            col, rest = divmod(col - 1, 26)
+            name = chr(65 + rest) + name
+        return "%s%d" % (name, row)
+    
+    
+    class Reader:
+        """One streaming pass over an entry: whole-entry counts of element names,
+        attribute names and values, and, for a sheet, each cell's own values."""
+    
+        def __init__(self, sheet):
+            self.sheet = sheet
+            self.elements = {}
+            self.attributes = {}
+            self.values = 0
+            self.stack = []
+            self.text = []
+            self.cell = None
+            self.cell_depth = 0
+            self.row = 0
+            self.col = 0
+            self.rows = set()
+            self.a = self.f = None
+            self.top = 0
+            self.ns = None
+            self.override = []
+            self.relationship = []
+    
+        def local(self, name):
+            uri, sep, local = name.rpartition(" ")
+            return local if sep and uri in MAIN else None
+    
+        def value(self, item):
+            self.values += 1
+            if self.cell is not None:
+                self.cell["items"].append(item)
+    
+        def flush(self, enclosing):
+            text = "".join(self.text)
+            self.text = []
+            if text.strip(WS):
+                self.value(("t", resolved(enclosing) if enclosing else "", "", text))
+    
+        def start(self, name, attrs):
+            self.flush(self.stack[-1] if self.stack else None)
+            el = resolved(name)
+            self.elements[el] = self.elements.get(el, 0) + 1
+            local = self.local(name)
+            parent = self.local(self.stack[-1]) if self.stack else None
+            grand = self.local(self.stack[-2]) if len(self.stack) > 1 else None
+            self.stack.append(name)
+            if self.sheet and local == "sheetData":
+                self.ns = name.rpartition(" ")[0]
+            if self.sheet and local == "row" and parent == "sheetData":
+                r = attrs.get("r")
+                self.row = int(r) if r and r.isdigit() else self.row + 1
+                self.col = 0
+                self.rows.add(self.row)
+            if self.sheet and local == "c" and parent == "row" and grand == "sheetData":
+                ref = attrs.get("r") or a1(self.row, self.col + 1)
+                self.col = col_of(ref)
+                self.cell = {"r": ref, "has_r": "r" in attrs, "s": attrs.get("s"), "t": attrs.get("t"),
+                             "f": False, "ft": None, "value": False, "items": []}
+                self.cell_depth = len(self.stack)
+            elif self.cell is not None and parent == "c" and len(self.stack) == self.cell_depth + 1:
+                if local == "f":
+                    self.cell["f"] = True
+                    self.cell["ft"] = attrs.get("t")
+                elif local in ("v", "is"):
+                    self.cell["value"] = True
+            if self.cell is not None:
+                self.cell["items"].append(("e", el, "", ""))
+            for k, v in attrs.items():
+                an = el + "@" + resolved(k)
+                self.attributes[an] = self.attributes.get(an, 0) + 1
+                self.value(("a", el, resolved(k), v))
+            if name == TYPES + " Override":
+                self.override.append(dict(attrs))
+            if name == RELS + " Relationship":
+                self.relationship.append(dict(attrs))
+    
+        def end(self, name):
+            self.flush(name)
+            self.stack.pop()
+            if self.cell is not None and len(self.stack) == self.cell_depth - 1:
+                c = self.cell
+                self.cell = None
+                self.top = max(self.top, row_of(c["r"]))
+                if self.a is None and c["t"] in (None, "n") and c["value"] and not c["f"]:
+                    self.a = c
+                if self.f is None and c["f"] and c["ft"] in (None, "normal"):
+                    self.f = c
+    
+        def chars(self, data):
+            self.text.append(data)
+    
+        def run(self, stream):
+            p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+            p.StartElementHandler = self.start
+            p.EndElementHandler = self.end
+            p.CharacterDataHandler = self.chars
+            p.buffer_text = True
+            p.ParseFile(stream)
+            self.flush(None)
+            return self
+    
+    
+    def read(z, name, sheet=False):
+        with z.open(name) as stream:
+            return Reader(sheet).run(stream)
+    
+    
+    def delta(items):
+        el, at = {}, {}
+        for kind, e, a, _ in items:
+            if kind == "e":
+                el[e] = el.get(e, 0) + 1
+            elif kind == "a":
+                at[e + "@" + a] = at.get(e + "@" + a, 0) + 1
+        return el, at
+    
+    
+    def one_sided(xs, ys):
+        left = list(xs)
+        extra = 0
+        for y in ys:
+            if y in left:
+                left.remove(y)
+            else:
+                extra += 1
+        return len(left), extra
+    
+    
+    def block(name, rd, x, y):
+        """The tool's rows for one compared entry, from the input's read and the
+        values the edit removes (x) and writes (y)."""
+        ex, ax = delta(x)
+        ey, ay = delta(y)
+        rows = [(name, "parse", "ok", "ok", "", "0", "0")]
+        for kind, bx, by, whole in (("element", ex, ey, rd.elements), ("attribute", ax, ay, rd.attributes)):
+            for key in sorted(set(bx) | set(by), key=lambda s: s.encode("utf-8")):
+                move = by.get(key, 0) - bx.get(key, 0)
+                if move:
+                    n = whole.get(key, 0)
+                    rows.append((name, kind, key, str(n), str(n + move)))
+        x = [i for i in x if i[0] != "e"]
+        y = [i for i in y if i[0] != "e"]
+        in_only, out_only = one_sided(x, y)
+        rows.append((name, "values", str(rd.values), str(rd.values - len(x) + len(y)),
+                     str(in_only), str(out_only)))
+        return rows
+    
+    
+    def derive(path):
+        """(facts, blocks): blocks is [(entry name, role, rows)] in the input's
+        entry order; facts the pick's flags."""
+        z = zipfile.ZipFile(path)
+        names = z.namelist()
+        office = [t for (a, t) in relationships(z, names, "") if a.get("Type", "").endswith("/officeDocument")]
+        if len(office) != 1 or office[0] not in names:
+            raise Uncovered("no_workbook")
+        wb = office[0]
+        wb_rels = relationships(z, names, wb)
+        by_id = {a.get("Id"): (a.get("Type", ""), t) for (a, t) in wb_rels}
+        order = []
+    
+        def start(tag, attrs):
+            uri, _, local = tag.rpartition(" ")
+            if uri in MAIN and local == "sheet":
+                for ns in ATTR:
+                    if ns + " id" in attrs:
+                        order.append(attrs[ns + " id"])
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = start
+        p.Parse(z.read(wb), True)
+        sheet = None
+        for rid in order:
+            ty, t = by_id.get(rid, ("", None))
+            if ty.endswith("/worksheet") and t in names:
+                sheet = t
+                break
+        if sheet is None:
+            raise Uncovered("no_worksheet")
+        chains = [(a, t) for (a, t) in wb_rels if a.get("Type", "").endswith("/calcChain")]
+        sr = read(z, sheet, sheet=True)
+        facts = {"a": int(sr.a is not None), "f": int(sr.f is not None), "row_new": 0,
+                 "chain": int(bool(chains))}
+        if sr.a is None:
+            return facts, []
+        a, f = sr.a, sr.f
+        if not a["has_r"] or (f is not None and not f["has_r"]):
+            raise Uncovered("a_or_f_without_r")
+        if sr.ns is None:
+            raise Uncovered("no_sheetData")
+        c_el, v_el, f_el, row_el = ("{%s}%s" % (sr.ns, n) for n in ("c", "v", "f", "row"))
+        x = list(a["items"])
+        y = [("e", c_el, "", ""), ("a", c_el, "{}r", a["r"])]
+        if a["s"] is not None:
+            y.append(("a", c_el, "{}s", a["s"]))
+        y += [("e", v_el, "", ""), ("t", v_el, "", "21")]
+        if f is not None:
+            x += f["items"]
+            y += [("e", c_el, "", ""), ("a", c_el, "{}r", f["r"])]
+            if f["s"] is not None:
+                y.append(("a", c_el, "{}s", f["s"]))
+            y += [("e", f_el, "", ""), ("t", f_el, "", "2+3")]
+        m = sr.top
+        for col, text in ((1, a["r"] + "*2"), (2, "1+1")):
+            y += [("e", c_el, "", ""), ("a", c_el, "{}r", a1(m + 1, col)),
+                  ("e", f_el, "", ""), ("t", f_el, "", text)]
+        if (m + 1) not in sr.rows:
+            facts["row_new"] = 1
+            y += [("e", row_el, "", ""), ("a", row_el, "{}r", str(m + 1))]
+        blocks = {sheet: ("sheet", block(sheet, sr, x, y))}
+    
+        wr = Reader(False)
+        calc = []
+    
+        def wstart(tag, attrs):
+            wr.start(tag, attrs)
+            uri, _, local = tag.rpartition(" ")
+            if uri in MAIN and local == "calcPr" and len(wr.stack) == 2:
+                calc.append((tag, dict(attrs)))
+        p = xml.parsers.expat.ParserCreate(namespace_separator=" ")
+        p.StartElementHandler = wstart
+        p.EndElementHandler = wr.end
+        p.CharacterDataHandler = wr.chars
+        p.buffer_text = True
+        p.Parse(z.read(wb), True)
+        wr.flush(None)
+        if len(calc) != 1 or "fullCalcOnLoad" in calc[0][1]:
+            raise Uncovered("calcPr_not_one_unflagged")
+        cel = resolved(calc[0][0])
+        blocks[wb] = ("workbook", block(wb, wr, [], [("a", cel, "{}fullCalcOnLoad", "1")]))
+    
+        if chains:
+            if len(chains) != 1:
+                raise Uncovered("chains_not_one")
+            crel, cpart = chains[0]
+            rels = rels_name(wb)
+            rr = read(z, rels)
+            el = "{%s}Relationship" % RELS
+            lost = [("e", el, "", "")] + [("a", el, resolved(k), v) for k, v in crel.items()]
+            blocks[rels] = ("rels", block(rels, rr, lost, []))
+            tr = read(z, "[Content_Types].xml")
+            hits = [o for o in tr.override if o.get("PartName") == "/" + cpart]
+            if len(hits) != 1:
+                raise Uncovered("chain_override_not_one")
+            el = "{%s}Override" % TYPES
+            lost = [("e", el, "", "")] + [("a", el, resolved(k), v) for k, v in hits[0].items()]
+            blocks["[Content_Types].xml"] = ("types", block("[Content_Types].xml", tr, lost, []))
+        for n in blocks:
+            if not re.fullmatch(r"[\x21-\x5b\x5d-\x7e]+", n):
+                raise Uncovered("entry_name_needs_escaping")
+        return facts, [(n, blocks[n][0], blocks[n][1]) for n in names if n in blocks]
+    
+    
+    def tool_rows(diff):
+        rows, archive = [], {}
+        with open(diff, encoding="utf-8", newline="\n") as handle:
+            for line in handle.read().split("\n"):
+                cells = line.split("\t")
+                if cells[0] == "xml":
+                    rows.append(tuple(cells[1:]))
+                elif cells[0] == "archive" and len(cells) == 3 and cells[1] in ARCHIVE:
+                    archive.setdefault(cells[1], []).append(cells[2])
+        return rows, archive
+    
+    
+    def by_entry(rows):
+        out, order = {}, []
+        for r in rows:
+            if r[0] not in out:
+                order.append(r[0])
+                out[r[0]] = []
+            out[r[0]].append(r)
+        return out, order
+    
+    
+    def tally(rows):
+        got, _ = by_entry(rows)
+        t = dict.fromkeys(ARCHIVE, 0)
+        for rs in got.values():
+            t["xml_compared"] += 1
+            parsed = rs[0][1] == "parse" and rs[0][2:4] == ("ok", "ok")
+            if not parsed:
+                t["xml_parse_errors"] += 1
+            vals = [r for r in rs if r[1] == "values"]
+            if parsed and vals and not any(r[1] in ("element", "attribute") for r in rs):
+                t["xml_names_equal"] += 1
+            if vals and vals[0][4:6] == ("0", "0"):
+                t["xml_values_equal"] += 1
+        return t
+    
+    
+    def plant(rows, archive, flag, roles):
+        """Changes the tool's rows in memory; returns applied."""
+        def find(pred):
+            for i, r in enumerate(rows):
+                if pred(r):
+                    return i
+            return None
+        sheet = roles.get("sheet")
+        if flag == "entries_ok":
+            rows += [("planted.xml", "parse", "ok", "ok", "", "0", "0"), ("planted.xml", "values", "1", "1", "0", "0")]
+            return True
+        if flag == "parse_ok" and rows:
+            i = find(lambda r: r[1] == "parse")
+            rows[i] = rows[i][:5] + ("1",) + rows[i][6:]
+            return True
+        if flag == "sheet_shape_ok" and sheet:
+            i = find(lambda r: r[0] == sheet and r[1] == "element" and r[2].endswith("}c"))
+            if i is None:
+                return False
+            rows[i] = rows[i][:4] + (str(int(rows[i][4]) + 1),)
+            return True
+        if flag == "sheet_elements_ok" and sheet:
+            i = find(lambda r: r[0] == sheet and r[1] == "element" and r[2].endswith("}c"))
+            if i is None:
+                return False
+            rows[i] = rows[i][:3] + (str(int(rows[i][3]) + 1), str(int(rows[i][4]) + 1))
+            return True
+        if flag == "sheet_attributes_ok" and sheet:
+            i = find(lambda r: r[0] == sheet and r[1] == "attribute" and r[2].endswith("}c@{}r"))
+            if i is None:
+                return False
+            del rows[i]
+            return True
+        if flag == "sheet_values_ok" and sheet:
+            i = find(lambda r: r[0] == sheet and r[1] == "values")
+            rows[i] = rows[i][:5] + (str(int(rows[i][5]) + 1),)
+            return True
+        if flag == "wb_ok" and roles.get("workbook"):
+            i = find(lambda r: r[0] == roles["workbook"] and r[1] == "attribute")
+            if i is None:
+                return False
+            rows[i] = rows[i][:4] + ("2",)
+            return True
+        if flag in ("types_ok", "rels_ok") and roles.get(flag[:-3]):
+            i = find(lambda r: r[0] == roles[flag[:-3]] and r[1] == "values")
+            rows[i] = rows[i][:4] + (str(int(rows[i][4]) + 1),) + rows[i][5:]
+            return True
+        if flag == "archive_ok":
+            archive["xml_compared"] = [str(int(archive.get("xml_compared", ["0"])[0]) + 1)]
+            return True
+        if flag == "archive_agree":
+            archive["xml_values_equal"] = [str(int(archive.get("xml_values_equal", ["0"])[0]) + 1)]
+            return True
+        return False
+    
+    
+    def main_local(name):
+        """The local name of a resolved name in a main namespace, else the name."""
+        uri, _, local = name[1:].partition("}")
+        return local if name.startswith("{") and uri in MAIN else name
+    
+    
+    def yn(b):
+        return "yes" if b else "no"
+    
+    
+    def evaluate(facts, blocks, rows, archive, planted):
+        """The check line for the tool's rows against the derived blocks."""
+        derivation = "ok"
+        roles = {role: name for (name, role, _) in blocks}
+        got, order = by_entry(rows)
+        want = {name: rs for (name, _, rs) in blocks}
+        entries_ok = order == [name for (name, _, _) in blocks]
+        parse_ok = all(r[2:] == ("ok", "ok", "", "0", "0") for r in rows if r[1] == "parse")
+    
+        def part(name, kinds):
+            return ([r for r in got.get(name, []) if r[1] in kinds],
+                    [r for r in want.get(name, []) if r[1] in kinds])
+        sheet = roles.get("sheet")
+        if sheet:
+            g, w = part(sheet, ("element",))
+            sheet_elements_ok = g == w
+            moves = {main_local(r[2]): int(r[4]) - int(r[3]) for r in g}
+            shape = {"c": 2, "f": 2}
+            if facts["row_new"]:
+                shape["row"] = 1
+            if facts["f"]:
+                shape["v"] = -1
+            sheet_shape_ok = moves == shape and len(g) == len(shape)
+            g, w = part(sheet, ("attribute",))
+            sheet_attributes_ok = g == w
+            g, w = part(sheet, ("values",))
+            sheet_values_ok = g == w
+        else:
+            sheet_shape_ok = sheet_elements_ok = sheet_attributes_ok = sheet_values_ok = True
+        wbn = roles.get("workbook")
+        if wbn:
+            g = got.get(wbn, [])
+            body = [r for r in g if r[1] != "parse"]
+            wb_ok = (g == want[wbn] and len(body) == 2 and body[0][1] == "attribute"
+                     and body[0][2].endswith("}calcPr@{}fullCalcOnLoad")
+                     and body[0][2].partition("}")[0][1:] in MAIN
+                     and body[0][3:] == ("0", "1") and body[1][1] == "values" and body[1][4:] == ("0", "1"))
+        else:
+            wb_ok = True
+        lost_counts = {}
+        for role, local in (("types", "Override"), ("rels", "Relationship")):
+            name = roles.get(role)
+            if not name:
+                lost_counts[role] = True
+                continue
+            g = got.get(name, [])
+            els = [r for r in g if r[1] == "element"]
+            ats = [r for r in g if r[1] == "attribute"]
+            vals = [r for r in g if r[1] == "values"]
+            lost_counts[role] = (g == want[name] and len(els) == 1 and els[0][2].endswith("}" + local)
+                                 and int(els[0][4]) - int(els[0][3]) == -1
+                                 and all(int(r[4]) - int(r[3]) == -1 for r in ats)
+                                 and len(vals) == 1 and vals[0][4:] == (str(len(ats)), "0"))
+        expect_archive = tally([r for (_, _, rs) in blocks for r in rs])
+        once = all(len(archive.get(k, [])) == 1 for k in ARCHIVE)
+        archive_ok = once and all(archive[k][0] == str(expect_archive[k]) for k in ARCHIVE)
+        own = tally(rows)
+        archive_agree = once and all(archive[k][0] == str(own[k]) for k in ARCHIVE)
+        nrows = sum(len(rs) for (_, _, rs) in blocks)
+        return ("found=1 planted=%s a=%d f=%d row_new=%d chain=%d blocks=%d rows=%d tool_rows=%d "
+              "entries_ok=%s parse_ok=%s sheet_shape_ok=%s sheet_elements_ok=%s sheet_attributes_ok=%s "
+              "sheet_values_ok=%s wb_ok=%s types_ok=%s rels_ok=%s archive_ok=%s archive_agree=%s derivation=%s" % (
+                  planted, facts["a"], facts["f"], facts["row_new"], facts["chain"], len(blocks), nrows,
+                  len(rows), yn(entries_ok), yn(parse_ok), yn(sheet_shape_ok), yn(sheet_elements_ok),
+                  yn(sheet_attributes_ok), yn(sheet_values_ok), yn(wb_ok), yn(lost_counts["types"]),
+                  yn(lost_counts["rels"]), yn(archive_ok), yn(archive_agree), derivation))
+    
+    
+    def main_check(path, diff, flags):
+        """The unplanted line, then with flags one line per plant, each on a
+        fresh copy of the tool's rows; the derivation is made once."""
+        try:
+            facts, blocks = derive(path)
+        except Uncovered as err:
+            print("found=1 derivation=%s" % err)
+            return
+        rows, archive = tool_rows(diff)
+        roles = {role: name for (name, role, _) in blocks}
+        print(evaluate(facts, blocks, list(rows), dict(archive), "na"))
+        for flag in flags:
+            r, a = list(rows), {k: list(v) for k, v in archive.items()}
+            applied = plant(r, a, flag, roles)
+            print("plant %s: %s" % (flag, evaluate(facts, blocks, r, a, yn(applied))))
+    
+    
+    def main_expect(path, out):
+        facts, blocks = derive(path)
+        with open(out, "w", encoding="utf-8", newline="\n") as handle:
+            for (_, _, rs) in blocks:
+                for r in rs:
+                    handle.write("xml\t" + "\t".join(r) + "\n")
+    
+    
+    if __name__ == "__main__":
+        if sys.argv[1] == "expect":
+            main_expect(sys.argv[2], sys.argv[3])
+        elif sys.argv[1] == "check":
+            main_check(sys.argv[2], sys.argv[3], PLANTS if "--plants" in sys.argv else ())
+        else:
+            sys.exit(__doc__)
+
+## the phase commit's tree, the runner's scripts and this log's own builds
+command: git status --porcelain
+  status lines before the build: 3; of them this phase's logs or records: 3; planning's files modified: 0
+  every change in the working tree before the build is this phase's logs or records, or planning's file: as-expected
+  control: the planning form counts specs/0014 and not another spec (1 of 2): as-expected
+  control: the same test refuses a status holding a source change: as-expected
+command: git show <the phase commit>:scripts/passthrough-run.sh | cmp - scripts/passthrough-run.sh
+  scripts/passthrough-run.sh: sha256 b191acac6b7f0d264ee901619578a445783ad17a2d58ebfdf81240bdba6ce540
+  scripts/passthrough-run.sh in the working tree is the phase commit's blob: as-expected
+command: git show <the phase commit>:scripts/passthrough-record.py | cmp - scripts/passthrough-record.py
+  scripts/passthrough-record.py: sha256 4c940833380756b5c7e892ea075dc69045d40139e480343a2a79e7dbe29ba094
+  scripts/passthrough-record.py in the working tree is the phase commit's blob: as-expected
+command: git show <the phase commit>:scripts/counting.sh | cmp - scripts/counting.sh
+  scripts/counting.sh: sha256 60a379312a5681cba0c1acfb128402c95fa1ec753158d1b29962bce2320e742c
+  scripts/counting.sh in the working tree is the phase commit's blob: as-expected
+  control: the same comparison refuses a file that differs: as-expected
+command: git archive <the phase commit> | tar -x -C <scratch>/p2/w.bSMJZy/src
+  git archive of the phase commit extracts: as-expected
+  files in the phase commit's tree: 478; files extracted: 478
+  every file of the phase commit's tree was extracted: as-expected
+command: cargo build --locked --release -p emend-copy -p xlsx-diff  (in the extracted tree, CARGO_TARGET_DIR=<scratch>/p2/target-run)
+  exit 0; the build's last line:     Finished `release` profile [optimized] target(s)
+  the host release build of the phase commit succeeds: as-expected
+command: cargo build --locked --release -p emend-copy -p xlsx-diff --target i686-unknown-linux-musl (in the extracted tree, CARGO_TARGET_DIR=<scratch>/p2/target-run)
+  exit 0; the build's last line:     Finished `release` profile [optimized] target(s)
+  the i686 release build of the phase commit succeeds: as-expected
+command: sha256sum and wc -c over the four binaries
+  hash: <scratch>/p2/target-run/release/emend-copy: sha256 3557d94544fa39de2b8cf2f0667b61ebd3fe1989062fad40f15814926255cdcf, bytes 1509280
+  hash: <scratch>/p2/target-run/release/xlsx-diff: sha256 1445523df9522bff56d4f0e03d7bde2ab333bac294020da256de42c01ef71f6b, bytes 897296
+  hash: <scratch>/p2/target-run/i686-unknown-linux-musl/release/emend-copy: sha256 49ef99fec37efdd1996478842d61e27fb9e8da37e2e5a6e987d59feec2bbf789, bytes 1521068
+  hash: <scratch>/p2/target-run/i686-unknown-linux-musl/release/xlsx-diff: sha256 99d1661d92ffe59b1405530bd2b85af8555804f236125055d2a81da282565fd5, bytes 971572
+  all four release binaries exist: as-expected
+  <scratch>/p2/target-run/release/emend-copy was written after this log extracted the tree: as-expected
+  <scratch>/p2/target-run/release/xlsx-diff was written after this log extracted the tree: as-expected
+  <scratch>/p2/target-run/i686-unknown-linux-musl/release/emend-copy was written after this log extracted the tree: as-expected
+  <scratch>/p2/target-run/i686-unknown-linux-musl/release/xlsx-diff was written after this log extracted the tree: as-expected
+  control: the same test refuses a file older than the extraction: as-expected
+  the i686 emend-copy is a 32-bit ELF for i386: as-expected
+  the i686 xlsx-diff is a 32-bit ELF for i386: as-expected
+  control: the same test refuses the host emend-copy: as-expected
+  control: check_holds refuses a line with one flag no: as-expected
+  control: check_holds refuses a derivation that does not cover the input: as-expected
+  control: check_holds refuses a planted line: as-expected
+  control: plant_caught refuses a plant that did not apply: as-expected
+  control: plant_caught refuses a plant whose flag still reads yes: as-expected
+
+## superseded run directories of this part, removed before the run
+  control: removable accepts a directory of the form: as-expected
+  control: removable refuses a file of the form: as-expected
+  control: removable refuses a symbolic link of the form: as-expected
+  control: removable refuses a directory of another form: as-expected
+  control: removable refuses a path that climbs out: as-expected
+  control: part7_run accepts this phase commit's bare run name: as-expected
+  control: part7_run refuses a run name of part 6 P3's commit: as-expected
+  control: part7_run refuses a name of another form: as-expected
+command: ls <corpus>/runs, each name of the date-and-commit form tested by part7_run
+  run directories under <corpus>/runs: 42; of them part 7's, so superseded: 1
+    superseded: 2026-09-24-ea37ad7
+  the run directory part 6 P3's record cites: 2026-09-23-e0a7b95
+  part 6 P3's cited directory is not among the superseded: as-expected
+  before: <corpus>/runs/2026-09-24-ea37ad7 present: yes; a run directory of the form: yes
+  <corpus>/runs/2026-09-24-ea37ad7 is there to remove: as-expected
+command: rm -rf -- <corpus>/runs/2026-09-24-ea37ad7
+  after: <corpus>/runs/2026-09-24-ea37ad7 present: no
+  <corpus>/runs/2026-09-24-ea37ad7 removed: as-expected
+  part 6 P3's cited run directory, <corpus>/runs/2026-09-23-e0a7b95, still stands: as-expected
+
+## settings
+  --timeout 300 (the copy child only); --lo-timeout 600 (per conversion);
+  image localhost/emend-lo:25.2.3-2-deb13u6; --tool-arg --formula-sample
+  out directory: <corpus>/runs/2026-09-24-ea37ad7
+  record stem: m1p7-p2-2026-09-24-ea37ad7; record directory: <scratch>/p2/out/records
+  corpus manifest rows: 27 (every later count of workbooks is compared with this, never with a typed number)
+  control: the same reader counts one more row on a manifest with one planted: as-expected
+  control: no_summary accepts an empty directory: as-expected
+  control: no_summary refuses a directory holding a summary: as-expected
+  the run directory <corpus>/runs/2026-09-24-ea37ad7 holds no summary before the runner: as-expected
+command: git ls-files 'records/m1p6-p3-*.txt' 'records/m1p6-p3-*.md'; and sed for the run directory the .md cites
+  part 6 P3's record: records/m1p6-p3-2026-09-23-e0a7b95.txt; its run directory: <corpus>/runs/2026-09-23-e0a7b95
+  part 6 P3's run directory still exists: yes
+
+## the log's own read of every input (counts only)
+  the ids read cover the manifest's rows: as-expected
+  xml rows derived over all inputs: 262 (per label)
+
+## host run, --tool-arg --formula-sample
+command: scripts/passthrough-run.sh --label host --passthrough <scratch>/p2/target-run/release/emend-copy --xlsx-diff <scratch>/p2/target-run/release/xlsx-diff --out <corpus>/runs/2026-09-24-ea37ad7 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --formula-sample
+  started 2026-09-24T00:39:38Z; ended 2026-09-24T00:42:21Z; exit 0; stderr bytes: 0
+    d8245b84086f host ok 1 0.10 7848
+    f56906d42e0a host ok 1 0.10 7796
+    0fbf4e5e3be9 host ok 1 0.10 7864
+    bdfe649d5b97 host ok 0 0.10 7844
+    ae7e17525a35 host ok 1 0.10 7660
+    63e820d98612 host ok 1 0.10 7752
+    054df34b1472 host ok 1 0.10 7752
+    9132ce5303d8 host ok 1 4.11 7744
+    ed2fbd304d51 host ok 1 0.10 7644
+    80adab651c77 host ok 1 0.10 7680
+    9ada43d71c80 host ok 1 0.10 7760
+    885819a9642e host ok 1 0.10 7680
+    f2ba081da509 host ok 0 0.10 7736
+    16c3be622455 host ok 1 0.10 7608
+    a72460f992a8 host ok 1 0.10 7592
+    f8459281d739 host ok 1 0.10 7768
+    ab0e6a529465 host ok 1 4.10 7860
+    f9efcac9808f host ok 0 0.10 7608
+    8aaebea134fb host ok 0 0.10 7664
+    6778a242d1f9 host ok 1 0.10 7628
+    75387404b8af host ok 1 0.10 7900
+    40d747fb5d9e host ok 0 0.10 7744
+    3084c0591814 host ok 0 0.10 7864
+    f3a462783621 host ok 0 0.10 7848
+    ed4c55f07c69 host ok 1 0.10 7532
+    7935c5119065 host ok 1 0.10 7504
+    18d1e8ba72b5 host ok 0 0.10 7684
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  host the run exits 0: as-expected
+  host the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27
+  host every manifest workbook produced a summary row (27 of 27): as-expected
+  host every outcome is ok: as-expected
+  host lo is ok on every file: as-expected
+  host lo_in is ok on every file: as-expected
+  host control: the same count of outcome ok is one less on a summary with one row planted not ok (26): as-expected
+  per workbook: id, then the check's line (counts and yes/no only); the plants on each workbook are counted below
+    d8245b84086f found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f56906d42e0a found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    0fbf4e5e3be9 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    bdfe649d5b97 found=1 planted=na a=0 f=0 row_new=0 chain=0 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ae7e17525a35 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    63e820d98612 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    054df34b1472 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    9132ce5303d8 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ed2fbd304d51 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    80adab651c77 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    9ada43d71c80 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    885819a9642e found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f2ba081da509 found=1 planted=na a=0 f=0 row_new=0 chain=0 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    16c3be622455 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    a72460f992a8 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f8459281d739 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ab0e6a529465 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f9efcac9808f found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    8aaebea134fb found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    6778a242d1f9 found=1 planted=na a=1 f=1 row_new=1 chain=1 blocks=4 rows=22 tool_rows=22 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    75387404b8af found=1 planted=na a=1 f=1 row_new=0 chain=1 blocks=4 rows=21 tool_rows=21 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    40d747fb5d9e found=1 planted=na a=0 f=1 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    3084c0591814 found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f3a462783621 found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ed4c55f07c69 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=10 tool_rows=10 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    7935c5119065 found=1 planted=na a=1 f=1 row_new=0 chain=1 blocks=4 rows=20 tool_rows=20 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    18d1e8ba72b5 found=1 planted=na a=0 f=1 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+  workbooks: 27; the check holding: 27; the tool's xml rows byte-identical to the derived rows: 27; with A: 19; without A and with no xml row: 8
+  host on every workbook the tool's xml rows and archive rows are what the log's own read derives: as-expected
+  host on every workbook the tool's xml rows are byte-identical to the derived rows, in order: as-expected
+  host every workbook without A has no xml row: as-expected
+  host plant entries_ok: applied on 27 workbooks, caught on 27
+  host control: the plant for entries_ok applied at least once and was caught every time it applied: as-expected
+  host plant parse_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for parse_ok applied at least once and was caught every time it applied: as-expected
+  host plant sheet_shape_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for sheet_shape_ok applied at least once and was caught every time it applied: as-expected
+  host plant sheet_elements_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for sheet_elements_ok applied at least once and was caught every time it applied: as-expected
+  host plant sheet_attributes_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for sheet_attributes_ok applied at least once and was caught every time it applied: as-expected
+  host plant sheet_values_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for sheet_values_ok applied at least once and was caught every time it applied: as-expected
+  host plant wb_ok: applied on 19 workbooks, caught on 19
+  host control: the plant for wb_ok applied at least once and was caught every time it applied: as-expected
+  host plant types_ok: applied on 3 workbooks, caught on 3
+  host control: the plant for types_ok applied at least once and was caught every time it applied: as-expected
+  host plant rels_ok: applied on 3 workbooks, caught on 3
+  host control: the plant for rels_ok applied at least once and was caught every time it applied: as-expected
+  host plant archive_ok: applied on 27 workbooks, caught on 27
+  host control: the plant for archive_ok applied at least once and was caught every time it applied: as-expected
+  host plant archive_agree: applied on 27 workbooks, caught on 27
+  host control: the plant for archive_agree applied at least once and was caught every time it applied: as-expected
+  control: caught_every_time refuses a plant that never applied: as-expected
+  control: caught_every_time refuses a plant missed once: as-expected
+  host control: the byte comparison refuses derived rows with one count changed: as-expected
+
+## i686 run, --tool-arg --formula-sample
+command: scripts/passthrough-run.sh --label i686 --passthrough <scratch>/p2/target-run/i686-unknown-linux-musl/release/emend-copy --xlsx-diff <scratch>/p2/target-run/i686-unknown-linux-musl/release/xlsx-diff --out <corpus>/runs/2026-09-24-ea37ad7 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 600 --timeout 300 --tool-arg --formula-sample
+  started 2026-09-24T00:43:00Z; ended 2026-09-24T00:45:58Z; exit 0; stderr bytes: 0
+    d8245b84086f i686 ok 1 0.10 7756
+    f56906d42e0a i686 ok 1 0.10 7752
+    0fbf4e5e3be9 i686 ok 1 0.10 7752
+    bdfe649d5b97 i686 ok 0 0.10 7688
+    ae7e17525a35 i686 ok 1 0.10 7520
+    63e820d98612 i686 ok 1 0.10 7764
+    054df34b1472 i686 ok 1 0.10 7944
+    9132ce5303d8 i686 ok 1 5.51 7712
+    ed2fbd304d51 i686 ok 1 0.10 7656
+    80adab651c77 i686 ok 1 0.10 7864
+    9ada43d71c80 i686 ok 1 0.10 7736
+    885819a9642e i686 ok 1 0.10 7620
+    f2ba081da509 i686 ok 0 0.10 7508
+    16c3be622455 i686 ok 1 0.10 7944
+    a72460f992a8 i686 ok 1 0.10 7656
+    f8459281d739 i686 ok 1 0.10 7732
+    ab0e6a529465 i686 ok 1 5.51 7504
+    f9efcac9808f i686 ok 0 0.10 7652
+    8aaebea134fb i686 ok 0 0.10 7512
+    6778a242d1f9 i686 ok 1 0.10 7900
+    75387404b8af i686 ok 1 0.10 7776
+    40d747fb5d9e i686 ok 0 0.10 7548
+    3084c0591814 i686 ok 0 0.10 7844
+    f3a462783621 i686 ok 0 0.10 7880
+    ed4c55f07c69 i686 ok 1 0.10 7784
+    7935c5119065 i686 ok 1 0.10 7832
+    18d1e8ba72b5 i686 ok 0 0.10 7676
+    files 27 ok 27 error 0 timeout 0 panic 0 crash 0
+  i686 the run exits 0: as-expected
+  i686 the run's stderr is empty: as-expected
+  summary rows: 27; outcome ok: 27; lo ok: 27; lo_in ok: 27
+  i686 every manifest workbook produced a summary row (27 of 27): as-expected
+  i686 every outcome is ok: as-expected
+  i686 lo is ok on every file: as-expected
+  i686 lo_in is ok on every file: as-expected
+  i686 control: the same count of outcome ok is one less on a summary with one row planted not ok (26): as-expected
+  per workbook: id, then the check's line (counts and yes/no only); the plants on each workbook are counted below
+    d8245b84086f found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f56906d42e0a found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    0fbf4e5e3be9 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    bdfe649d5b97 found=1 planted=na a=0 f=0 row_new=0 chain=0 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ae7e17525a35 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    63e820d98612 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    054df34b1472 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    9132ce5303d8 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ed2fbd304d51 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    80adab651c77 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    9ada43d71c80 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=11 tool_rows=11 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    885819a9642e found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f2ba081da509 found=1 planted=na a=0 f=0 row_new=0 chain=0 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    16c3be622455 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    a72460f992a8 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f8459281d739 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ab0e6a529465 found=1 planted=na a=1 f=1 row_new=1 chain=0 blocks=2 rows=13 tool_rows=13 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f9efcac9808f found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    8aaebea134fb found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    6778a242d1f9 found=1 planted=na a=1 f=1 row_new=1 chain=1 blocks=4 rows=22 tool_rows=22 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    75387404b8af found=1 planted=na a=1 f=1 row_new=0 chain=1 blocks=4 rows=21 tool_rows=21 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    40d747fb5d9e found=1 planted=na a=0 f=1 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    3084c0591814 found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    f3a462783621 found=1 planted=na a=0 f=0 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    ed4c55f07c69 found=1 planted=na a=1 f=0 row_new=1 chain=0 blocks=2 rows=10 tool_rows=10 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    7935c5119065 found=1 planted=na a=1 f=1 row_new=0 chain=1 blocks=4 rows=20 tool_rows=20 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+    18d1e8ba72b5 found=1 planted=na a=0 f=1 row_new=0 chain=1 blocks=0 rows=0 tool_rows=0 entries_ok=yes parse_ok=yes sheet_shape_ok=yes sheet_elements_ok=yes sheet_attributes_ok=yes sheet_values_ok=yes wb_ok=yes types_ok=yes rels_ok=yes archive_ok=yes archive_agree=yes derivation=ok
+  workbooks: 27; the check holding: 27; the tool's xml rows byte-identical to the derived rows: 27; with A: 19; without A and with no xml row: 8
+  i686 on every workbook the tool's xml rows and archive rows are what the log's own read derives: as-expected
+  i686 on every workbook the tool's xml rows are byte-identical to the derived rows, in order: as-expected
+  i686 every workbook without A has no xml row: as-expected
+  i686 plant entries_ok: applied on 27 workbooks, caught on 27
+  i686 control: the plant for entries_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant parse_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for parse_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant sheet_shape_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for sheet_shape_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant sheet_elements_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for sheet_elements_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant sheet_attributes_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for sheet_attributes_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant sheet_values_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for sheet_values_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant wb_ok: applied on 19 workbooks, caught on 19
+  i686 control: the plant for wb_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant types_ok: applied on 3 workbooks, caught on 3
+  i686 control: the plant for types_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant rels_ok: applied on 3 workbooks, caught on 3
+  i686 control: the plant for rels_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant archive_ok: applied on 27 workbooks, caught on 27
+  i686 control: the plant for archive_ok applied at least once and was caught every time it applied: as-expected
+  i686 plant archive_agree: applied on 27 workbooks, caught on 27
+  i686 control: the plant for archive_agree applied at least once and was caught every time it applied: as-expected
+  control: caught_every_time refuses a plant that never applied: as-expected
+  control: caught_every_time refuses a plant missed once: as-expected
+  i686 control: the byte comparison refuses derived rows with one count changed: as-expected
+
+## the two labels agree
+  host and i686 wrote byte-identical diff files for every workbook: as-expected
+  host and i686 wrote byte-identical outputs: as-expected
+  control: the same comparison finds one planted diff file differ: as-expected
+
+## the emend-copy outputs against part 6 P3's run directory
+  part 6 P3's run directory still exists: yes
+  every output of both labels is byte-identical to part 6 P3's: as-expected
+  the control below uses the first workbook's diff file, which gained xml and archive rows since part 6 P3
+  control: the same byte comparison refuses a file that changed: as-expected
+
+## the run rows both labels appended
+  run.host.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.host.tsv row: ea37ad786edf2798ced1e603c78aa136289db212	2026-09-24T00:39:38Z	2026-09-24T00:42:21Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	3557d94544fa39de2b8cf2f0667b61ebd3fe1989062fad40f15814926255cdcf	1445523df9522bff56d4f0e03d7bde2ab333bac294020da256de42c01ef71f6b	27	--formula-sample
+  run.host.tsv tool_args: [--formula-sample]
+  host the run row records the operation: as-expected
+  run.i686.tsv header: commit	started	ended	rustc	zip	timeout_s	lo_timeout_s	memory_mib	passthrough_sha256	xlsx_diff_sha256	files	tool_args
+  run.i686.tsv row: ea37ad786edf2798ced1e603c78aa136289db212	2026-09-24T00:43:00Z	2026-09-24T00:45:58Z	rustc 1.98.1 (48a229cea 2026-09-01)	8.6.0	300	600	2048	49ef99fec37efdd1996478842d61e27fb9e8da37e2e5a6e987d59feec2bbf789	99d1661d92ffe59b1405530bd2b85af8555804f236125055d2a81da282565fd5	27	--formula-sample
+  run.i686.tsv tool_args: [--formula-sample]
+  i686 the run row records the operation: as-expected
+
+## the record pair (written to <scratch>/p2/out/records)
+command: scripts/passthrough-record.py --run <corpus>/runs/2026-09-24-ea37ad7 --out <scratch>/p2/out/records --stem m1p7-p2-2026-09-24-ea37ad7
+    wrote m1p7-p2-2026-09-24-ea37ad7.txt and m1p7-p2-2026-09-24-ea37ad7.md: labels host,i686; files 27,27; entry rows 870,870; xml rows 262,262
+  the record script exits 0: as-expected
+  <scratch>/p2/out/records/m1p7-p2-2026-09-24-ea37ad7.md: 13037 bytes, sha256 5141d65dfdfd9f4aea0ab81f52feab88632ca690c6fcece7ee098d4a0ffed091
+  <scratch>/p2/out/records/m1p7-p2-2026-09-24-ea37ad7.txt: 255627 bytes, sha256 56c311c0bf5df100f8afae508bd8608302d3d05bd934f545afc47c376e79cce4
+  host totals from the diff files (compared parse_errors names_equal values_equal in_only out_only): 44 0 0 0 104 146; the .md's total row: 44 0 0 0 104 146
+  host the .md's XML total row equals the diff files' totals: as-expected
+  i686 totals from the diff files (compared parse_errors names_equal values_equal in_only out_only): 44 0 0 0 104 146; the .md's total row: 44 0 0 0 104 146
+  i686 the .md's XML total row equals the diff files' totals: as-expected
+  control: the same reader sees a planted .md total differ: as-expected
+  xml rows in the diff files of both labels: 524; rows of the .txt's third table: 524
+  the .txt's third table holds every xml row of the diff files: as-expected
+  the xml rows of both labels are the derived rows twice: as-expected
+  control: the same reader counts one more row on a .txt with one planted: as-expected
+
+## the entry statuses against part 6 P3's record
+  entry rows: this record 1740; part 6 P3's 1740
+  the entry table was read from this record: as-expected
+  every entry status equals part 6 P3's record: as-expected
+  control: the same comparison refuses one status flipped: as-expected
+
+## the record pair holds no corpus path and no absolute path
+  <scratch>/p2/out/records/m1p7-p2-2026-09-24-ea37ad7.md: lines naming a home, mount, temporary or corpus path: 0
+  m1p7-p2-2026-09-24-ea37ad7.md carries no such path: as-expected
+  <scratch>/p2/out/records/m1p7-p2-2026-09-24-ea37ad7.txt: lines naming a home, mount, temporary or corpus path: 0
+  m1p7-p2-2026-09-24-ea37ad7.txt carries no such path: as-expected
+  control: the path form finds a planted path (1): as-expected
+
+## status after the runs
+command: git status --porcelain
+status lines: 3; of them this phase's logs or record pair: 3; planning's files modified: 0
+  every change in the working tree is this phase's logs or record pair, or planning's file: as-expected
+run ended at 2026-09-24T00:46:38Z
+verdict rows other than as-expected: 0; of them marked UNEXPECTED: 0
+run log checks all as expected: yes
