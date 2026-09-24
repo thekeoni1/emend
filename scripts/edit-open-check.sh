@@ -86,7 +86,7 @@ verdict() {
   esac
 }
 
-rows=$WORK/rows.tsv
+rows=$WORK/rows.txt
 : >"$rows" || die "cannot write the rows"
 n=0
 for test in "${tests[@]}"; do
