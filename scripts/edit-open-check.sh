@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# emend edit open check (specs/0015-open-checks.md, "The script and the
+# record"). Opens every pair a test run kept (EMEND_KEEP_DIR, "The keep") in
+# the pinned LibreOffice image with the open check of
+# specs/0006-passthrough.md P3, sourced from scripts/lo-check.sh, and writes
+# the record pair <stem>.md and <stem>.txt into --out.
+#
+# The keep directory must hold nothing but pairs: for every <test>.in.xlsx a
+# <test>.out.xlsx and the other way round, <test> made of letters, digits,
+# '_', '.' and '-'. Each pair's input and output are checked, the input as its
+# own reference and the output against its input's sheet count, as the runner
+# checks a corpus copy. The check's reasons go to a scratch directory made
+# for the run and kept; they are never printed. The script prints one line per
+# pair (test, lo_in, lo), a totals line and the reasons directory's path.
+#
+# Exit 0 when no output was refused on an input LibreOffice accepted and no
+# check errored; 1 when an output was so refused (a finding); 2 when any
+# check errored (the check did not run), or on a usage or setup error, which
+# prints one "error: " line and writes no record.
+set -uo pipefail
+umask 077
+
+readonly USAGE="usage: scripts/edit-open-check.sh --keep <dir> --libreoffice <image> [--lo-timeout <secs>] --out <records dir> --stem <stem>"
+readonly TXT_HEADER=$'test\tin_bytes\tin_sha256\tout_bytes\tout_sha256\tlo_in\tlo'
+
+die() {
+  echo "error: $1" >&2
+  exit 2
+}
+
+. "$(dirname -- "${BASH_SOURCE[0]}")/lo-check.sh" || die "cannot source scripts/lo-check.sh"
+
+KEEP="" LO_IMAGE="" LO_TIMEOUT=600 OUT="" STEM=""
+while [ $# -gt 0 ]; do
+  case $1 in
+    --keep | --libreoffice | --lo-timeout | --out | --stem)
+      [ $# -ge 2 ] || die "$1 needs a value; $USAGE"
+      case $1 in
+        --keep) KEEP=$2 ;;
+        --libreoffice) LO_IMAGE=$2 ;;
+        --lo-timeout) LO_TIMEOUT=$2 ;;
+        --out) OUT=$2 ;;
+        --stem) STEM=$2 ;;
+      esac
+      shift 2
+      ;;
+    *) die "unknown argument; $USAGE" ;;
+  esac
+done
+[ -n "$KEEP" ] && [ -n "$LO_IMAGE" ] && [ -n "$OUT" ] && [ -n "$STEM" ] || die "$USAGE"
+[ -d "$KEEP" ] || die "--keep is not a directory"
+[ -d "$OUT" ] || die "--out is not a directory"
+[[ "$LO_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--lo-timeout must be a positive whole number of seconds"
+[[ "$LO_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@-]*$ ]] || die "--libreoffice must name an image"
+[[ "$STEM" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || die "--stem must be lower-case letters, digits, '.' and '-'"
+[ ! -e "$OUT/$STEM.md" ] && [ ! -e "$OUT/$STEM.txt" ] || die "the record $STEM is already there"
+for tool in podman timeout python3 sha256sum; do
+  command -v "$tool" >/dev/null 2>&1 || die "$tool is not on PATH"
+done
+
+# The pairs, sorted by name, and a refusal of anything that is not one.
+tests=()
+declare -A seen=()
+while IFS= read -r -d '' path; do
+  name=${path##*/}
+  [ -f "$path" ] || die "the keep directory holds something that is not a file"
+  [[ "$name" =~ ^([A-Za-z0-9_.-]+)\.(in|out)\.xlsx$ ]] ||
+    die "the keep directory holds a file that is not half of a pair"
+  test=${BASH_REMATCH[1]}
+  seen[$test]=$((${seen[$test]:-0} + 1))
+done < <(find "$KEEP" -mindepth 1 -maxdepth 1 -print0)
+[ "${#seen[@]}" -gt 0 ] || die "the keep directory holds no pairs"
+for test in "${!seen[@]}"; do
+  [ -f "$KEEP/$test.in.xlsx" ] && [ -f "$KEEP/$test.out.xlsx" ] ||
+    die "the keep directory holds half a pair"
+done
+mapfile -t tests < <(printf '%s\n' "${!seen[@]}" | LC_ALL=C sort)
+
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/emend-open-check.XXXXXX") || die "cannot make the reasons directory"
+
+verdict() {
+  case $1 in
+    0) echo ok ;;
+    1) echo fail ;;
+    *) echo error ;;
+  esac
+}
+
+rows=$WORK/rows.tsv
+: >"$rows" || die "cannot write the rows"
+n=0
+for test in "${tests[@]}"; do
+  n=$((n + 1))
+  input=$KEEP/$test.in.xlsx
+  output=$KEEP/$test.out.xlsx
+  lo_check "$input" "$WORK/$n/in" "$WORK/$n/in-reason.txt" "$input"
+  lo_in=$(verdict $?)
+  lo_check "$output" "$WORK/$n/out" "$WORK/$n/out-reason.txt" "$input"
+  lo=$(verdict $?)
+  in_bytes=$(stat -c %s -- "$input") || die "cannot read a kept file's size"
+  out_bytes=$(stat -c %s -- "$output") || die "cannot read a kept file's size"
+  in_sha=$(sha256sum -- "$input") || die "cannot hash a kept file"
+  out_sha=$(sha256sum -- "$output") || die "cannot hash a kept file"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$test" "$in_bytes" "${in_sha%% *}" \
+    "$out_bytes" "${out_sha%% *}" "$lo_in" "$lo" >>"$rows" || die "cannot write the rows"
+  printf '%s\t%s\t%s\n' "$test" "$lo_in" "$lo"
+done
+
+# The record pair, from the rows alone.
+summary=$(RECORD_ROWS=$rows RECORD_OUT=$OUT RECORD_STEM=$STEM RECORD_IMAGE=$LO_IMAGE \
+  RECORD_TIMEOUT=$LO_TIMEOUT RECORD_HEADER=$TXT_HEADER python3 -c '
+import datetime, os
+env = os.environ
+rows = [line.rstrip("\n").split("\t") for line in open(env["RECORD_ROWS"])]
+stem, out = env["RECORD_STEM"], env["RECORD_OUT"]
+
+def count(column, value):
+    return sum(1 for row in rows if row[column] == value)
+
+refused_inputs = [row[0] for row in rows if row[5] == "fail"]
+refused_outputs = [row[0] for row in rows if row[6] == "fail" and row[5] == "ok"]
+errored = [row[0] for row in rows if "error" in (row[5], row[6])]
+totals = [len(rows)] + [count(5, v) for v in ("ok", "fail", "error")] + [count(6, v) for v in ("ok", "fail", "error")]
+
+with open(os.path.join(out, stem + ".txt"), "x") as txt:
+    txt.write(env["RECORD_HEADER"] + "\n")
+    for row in rows:
+        txt.write("\t".join(row) + "\n")
+
+def listed(names):
+    return "\n".join("- `%s`" % name for name in names) if names else "None."
+
+written = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+md = []
+md.append("# edit open check %s" % stem)
+md.append("")
+md.append(
+    "Written by `scripts/edit-open-check.sh` from a keep directory of test"
+    " fixtures (`specs/0015-open-checks.md`, \"The keep\"). Each kept pair is"
+    " cited by test name, byte counts and sha256 only; the files are fictional"
+    " fixtures and are not committed. The machine-readable companion to this"
+    " file is `%s.txt`, the same rows as a tab-separated table; it is written as"
+    " `.txt` because the hygiene gate refuses a tracked spreadsheet"
+    " extension." % stem)
+md.append("")
+md.append("- Record written: %s" % written)
+md.append("- Image: %s" % env["RECORD_IMAGE"])
+md.append("- Open-check timeout: %s s" % env["RECORD_TIMEOUT"])
+md.append("- Pairs: %d" % len(rows))
+md.append("")
+md.append("## Totals")
+md.append("")
+md.append("| pairs | lo_in ok | lo_in fail | lo_in error | lo ok | lo fail | lo error |")
+md.append("| --- | --- | --- | --- | --- | --- | --- |")
+md.append("| " + " | ".join(str(t) for t in totals) + " |")
+md.append("")
+md.append("## Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)")
+md.append("")
+md.append(listed(refused_inputs))
+md.append("")
+md.append("## Outputs refused on an input LibreOffice accepted (a finding)")
+md.append("")
+md.append(listed(refused_outputs))
+md.append("")
+md.append("## Checks that did not run (error)")
+md.append("")
+md.append(listed(errored))
+md.append("")
+md.append("## Pairs")
+md.append("")
+md.append("| test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo |")
+md.append("| --- | --- | --- | --- | --- | --- | --- |")
+for row in rows:
+    md.append("| `%s` | %s | %s | %s | %s | %s | %s |" % tuple(row))
+with open(os.path.join(out, stem + ".md"), "x") as f:
+    f.write("\n".join(md) + "\n")
+print("%d %d %d" % (len(refused_outputs), len(errored), len(refused_inputs)))
+print("pairs %d; lo_in ok %d fail %d error %d; lo ok %d fail %d error %d" % tuple(totals))
+') || die "cannot write the record"
+
+{ read -r n_refused n_errored n_inputs; read -r totals; } <<<"$summary"
+echo "wrote $STEM.md and $STEM.txt: $totals; inputs refused $n_inputs; outputs refused on an accepted input $n_refused"
+echo "reasons: $WORK"
+if [ "$n_errored" -gt 0 ]; then
+  exit 2
+fi
+if [ "$n_refused" -gt 0 ]; then
+  exit 1
+fi
+exit 0
