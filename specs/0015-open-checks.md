@@ -459,6 +459,117 @@ Asked by the implementing session after the doc commit f9a0291
    tool prints counts, not references). Expected values are the
    sample's constants (A times 2, 1 + 1, 2 + 3).
 
+8. Q8 (asked after ed7c80f, the ruling 3 commit, verified): the
+   script gains `--record <.txt>`, the edit open check's record of
+   the same keep, and refuses with exit 2 a record whose rows are
+   not exactly the keep's pairs by name, bytes and both hashes; it
+   lists only rows with `lo_in` `ok`. The negative log's three
+   cases land as proposed: a run directory with a missing host
+   output, a record whose hash the file does not match, a keep with
+   an odd file, each exit 2. "The Excel check" is read with
+   `--record` added.
+9. Q9: the script derives A, M and F itself from each corpus
+   input, found through the corpus root's `manifest.tsv` (the run
+   directory's grandparent, checked to hold it), by part 6's
+   definition. The run log derives them independently with part 6
+   P2's own comparison script, extracted from the committed
+   `records/logs/m1p6-p2/run.log` where it is printed and checked
+   against the hash that log printed, and compares cell for cell,
+   with the planted-reference control, and asserts the derived
+   `added` and `replaced` against each workbook's `formula` line.
+   Privacy as proposed: no reference is printed by the script or
+   any log; the run log prints counts and yes/no; references live
+   only in the uncommitted list, which goes to the maintainer's own
+   machine.
+10. Q10: the row details as proposed (corpus rows first in
+    manifest order, then fixture rows in name order; the six
+    reference and value columns empty where `added` is 0, asserted
+    by the run log against the `formula` line; fixture rows' six
+    columns empty; expected values 42, 2 and 5). Accepted.
+11. Rulings 8 to 10 follow a code commit, so no doc commit carries
+    them within P2 (`specs/0001`: no doc commit after a code commit
+    in a phase); they go unedited in the close-out doc commit. The
+    report may cite them.
+
+## Planning verification and rulings on P2 (2026-09-24)
+
+Verified from primaries, not the report: the four P2 commits and the
+record commit (ed7c80f, f66b4c5, da080f1, 686ba6d on 50d2c4a; each
+Co-Authored-By only, one no-reply author); the six logs and the
+record pair at the hashes the report gives; planning's own gate
+(nine PASS), tests on both targets in both feature states, and
+clippy, all built on disk; planning's own comparison of the
+regenerated keep and of its own P1 keep with the record (298 files,
+every byte count and hash equal) and its own LibreOffice verdicts
+with the prefix-tolerant count agreeing with the record on all 149
+pairs; planning's own reading of the uncommitted list (sha256
+0e7e19f4..., 36697 bytes, 166 lines, mode 600): the header, 27
+corpus rows in manifest order then 138 fixture rows in name order,
+every byte count and hash the named file's, the fixture set exactly
+the record's `lo_in` ok pairs, and the three references and three
+values of every corpus row equal to planning's own derivation with
+part 6's reader logic (19 with A, 15 with F, 27 of 27, each fitting
+its `formula` line), with no reference printed; and a count of the
+list's 24 distinct corpus references over the 14 files of the phase
+diff, which found only phase, finding and case labels and fictional
+fixture cells, no corpus reference. The template holds no reference
+and names the acceptance rule.
+
+1. F2: the record is right that the two crate inputs are refused by
+   LibreOffice, and their class is right. The parenthetical
+   "(allowed: a zip-level fixture)" is ruling 3 (b)'s wording and
+   too narrow: each of the two fixtures holds a workbook part but
+   no relationships part, or an empty content-types root, so
+   LibreOffice loads nothing of it. run.log's remark that ruling 3
+   names them zip-level fixtures is wrong and stands as written
+   (a committed log is not rewritten). The heading becomes
+   "(allowed: a fixture LibreOffice cannot load: zip-level, or a
+   package with no relationships part or an empty content-types
+   root)" in the phase ruling 6 names; the committed record is not
+   regenerated for that.
+2. F1: test.log and negative.log count the tree's status lines
+   against a pattern and print neither the spec's path nor its
+   hash; gate.log, run.log and the scan print both, and gate.log's
+   hash is the one planning sent. Accepted for P2. From the
+   close-out on, every log's tree-status check prints the status
+   lines themselves, as gate.log and run.log do.
+3. F3, F4 and F5: the refusals beyond the spec fail closed and fit
+   it; the four run-log checks without a control are covered by
+   planning's own derivation above; a reason class the negative log
+   did not exercise can only cause a spurious exit 2, never a wrong
+   class. Accepted; no rerun and no log added.
+4. F6 and F7: the list script writes with the process umask (644
+   here) and lets an IndexError on a short manifest or summary row
+   escape as a traceback with exit 1. Neither reaches the
+   repository: the list is never committed and the manifest is the
+   corpus's own file. Carried: `main` sets umask 077 before writing
+   and IndexError joins the caught exceptions, in the phase ruling
+   6 names. Until then the list is set to mode 600 by hand, as it
+   was.
+5. F8, F9 and F10: the docstring's citation of rulings 8 to 10 is
+   right once the close-out doc commit lands (ruling 11); the
+   reason files hold only `scripts/lo-check.sh`'s fixed lines,
+   never a line of stderr, so printing them discloses nothing and
+   the run log may keep doing so; the missing blank line stands.
+6. The carried items (rulings 1 and 4) are scripts-only. They are
+   fixed in one code commit of the first phase that next edits
+   `scripts/edit-open-check.sh` or `scripts/excel-check-list.py`,
+   and in any case before the list is regenerated for the Excel
+   check. They do not hold part 8's close-out; `ROADMAP.md` carries
+   them under part 8.
+7. Disclosures accepted: the unlogged dry runs preceded every
+   logged run; the two script fixes before any logged run are
+   ordinary development; `scripts/__pycache__` appeared after
+   gate.log and test.log had read a clean tree, was removed before
+   the scan, which ran last and passed, and the record commit holds
+   eight files and no such directory.
+8. P2 is DONE. The close-out runs as part 7's: one doc commit
+   carrying this spec and `ROADMAP.md` at the hashes planning
+   sends, unedited; the push on planning's word and the
+   maintainer's typed authorisation in the implementing session,
+   carrying 9232e61; the record commit after the push; the scan
+   last; the `ANTHROPIC_API_KEY` check.
+
 ## Out of scope
 
 - Any core crate change; the size record.

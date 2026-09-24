@@ -351,11 +351,20 @@ Milestone 1 is accepted when that record shows pass on every row.
 No core code; no size record. No push during the part; the
 close-out push follows P2 and carries the local commit 9232e61.
 
+Carried from P2 (`specs/0015` P2 verification rulings 1, 4 and 6),
+scripts-only, fixed in one code commit of the first phase that next
+edits `scripts/edit-open-check.sh` or `scripts/excel-check-list.py`
+and before the list is regenerated for the Excel check: the
+record's "refused by LibreOffice" heading names a fixture
+LibreOffice cannot load (zip-level, or no relationships part, or
+an empty content-types root); the list script sets umask 077 and
+catches IndexError.
+
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | the keep in `testing.rs`, `written`, the cells test and the tool's helper; `scripts/lo-check.sh` sourced by the runner; `scripts/edit-open-check.sh`; the keep tests; the negative log with the runner's T3 P3 cases rerun; the run log's keeps on both targets compared and the first record `records/m1p8-open-<date>-<sha>.md` and `.txt` | DONE 2026-09-23 (e2b8a81, records 50d2c4a, local; eight P1 rulings, two of them mid-phase on the tool fixtures; verified by planning from primaries, its own gate, tests on both targets, privacy scan, its own keep run reproducing every kept pair's hashes and its own LibreOffice pass agreeing on all 149 pairs; record `records/m1p8-open-2026-09-24-e2b8a81.md` and `.txt`: 149 pairs, 13 inputs refused, none on an accepted input; finding F3: five crate fixtures failed only the sheet count, fixed in P2; `specs/0015` "Planning verification and rulings on P1") |
-| P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-m1-<date>.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | READY |
-| Close | close-out push after P2, as part 7's, carrying 9232e61 | PLANNED |
+| P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
+| Close | close-out push after P2, as part 7's, carrying 9232e61 | READY |
 
 ## Milestone 2: openpyxl's editing surface (PROPOSED 2026-09-23)
 
