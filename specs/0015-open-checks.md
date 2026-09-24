@@ -570,6 +570,76 @@ and names the acceptance rule.
    carrying 9232e61; the record commit after the push; the scan
    last; the `ANTHROPIC_API_KEY` check.
 
+## Planning verification and rulings on the close-out (2026-09-24)
+
+Verified from primaries: the doc commit b06e0a7 holds the two files
+at the hashes planning sent; origin/main and local main are both
+b06e0a7 after the push, the range 4bc741e..b06e0a7 is 17 commits
+starting at 9232e61, each with the one no-reply author and
+committer identity and no session link; CI run 36006157721 (push,
+main, head b06e0a7) completed with conclusion success; the
+repository is PRIVATE; planning's own blob scan over the range
+found 0 findings in 528 blobs; `ANTHROPIC_API_KEY` is unset in
+both sessions. The push script's identity section prints the exit,
+the count of commits read (17 of 17) and the mismatches (0), and
+its control prints its three counts against their expectations;
+those printed values are what the two defective checks meant to
+assert, and they agree with planning's own reading of the range.
+
+1. The finding is real and is the compound-shape defect
+   `specs/0001` forbids: in each of the two added checks only the
+   first condition decides the printed answer. It is a form defect
+   of the record, not of the pushed content, which planning read
+   independently. Cause as reported: the two checks were added to
+   part 7's script without the shape greps being run over the new
+   source before its logged run.
+2. push.log stands as written and is committed unedited: a log is
+   never rewritten, and pre mode cannot run again once origin/main
+   has moved. Attempt 1's scan (sha256 0f343e34...) is superseded,
+   not committed, and is named by hash in the rerun's header.
+3. A correction log, `records/logs/m1p8-close/correction.log`, in
+   the form of `records/logs/m1p2-close/correction.log`: it names
+   the two superseded checks by their line numbers in push.log's
+   printed script and by place, never by their text; it prints the
+   fixed script, in which each check goes through a named function
+   (proposal (a)); it reruns the identity read, the mismatch count
+   and the three controls over 4bc741e..b06e0a7 through those
+   functions; it runs the three shape greps over its own source and
+   over the fixed script before printing them, each with a control;
+   and it cites push.log, ci-run.log and attempt 1's scan by
+   sha256. It writes no shape.
+4. The scan is rerun as attempt 2 (proposal (c), option (iii), as
+   part 2's close-out ruling 4): the header names attempt 1 by
+   sha256; correction.log is a sibling, hashed and scanned like
+   push.log and ci-run.log; nothing is excluded and the expectation
+   of 0 is not touched, so the rerun ends RESULT: FAIL on the same
+   two hits in push.log's printed script and is committed as such.
+   A failing run is a finding to record (CLAUDE.md); this one
+   cannot pass for this close-out because the log that holds the
+   shapes is the record of the push. Options (i) and (ii) are
+   refused: the scan does not learn to forgive a known hit, and no
+   file is left out of it. The run again with the fix named is the
+   next close-out's scan, whose header names this finding.
+5. Rule from the next close-out on, added to `specs/0001` with
+   that close-out's doc commit: the push and ci-run scripts run the
+   three shape greps over their own source before printing
+   themselves, as a structural check with a control, the way the
+   phase logs already do. A script carried from an earlier
+   close-out is not exempt: the greps run over the file as it is
+   about to run, additions included.
+6. The report quoted the two forms verbatim in a message. A report
+   or message names a shape hit by file, line number and count,
+   never by its text, as the logs do. This is the rule for every
+   report from now on.
+7. Order: this ruling goes in a doc commit holding planning's two
+   files unedited (this spec and `ROADMAP.md`, which closes part 8
+   and carries the finding); then correction.log; then the scan
+   rerun; then ONE record commit under `records/logs/m1p8-close/`
+   holding push.log, ci-run.log, correction.log and scan.log. Both
+   commits go with the next push. No independent check, as the
+   close-out phase says. Report and STOP. Part 8 is DONE and
+   PUSHED; Milestone 1's acceptance waits on the Excel check.
+
 ## Out of scope
 
 - Any core crate change; the size record.
