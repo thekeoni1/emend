@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (parts 1 to 6 DONE and PUSHED; part 7 P1 and P2 DONE, close-out READY 2026-09-23; part 8 PROPOSED)
+## Milestone 1: greenfield core (parts 1 to 7 DONE and PUSHED; part 8 APPROVED 2026-09-23)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -330,7 +330,32 @@ close-out push follows P2 and carries the local commit 03669ca.
 |-------|------|--------|
 | P1 | `quick-xml` in `xlsx-diff`; the comparison, the `xml` rows and the four `archive` rows; the Limits; the fixture tests and the no-leak test; the negative log | DONE 2026-09-23 (43731f2, records 5fa6c8f, local; nine P1 rulings before code; verified by planning from primaries, its own gate, tests, privacy scan, its own no-leak run and its own run of the built tool over the 27 corpus pairs of part 6 P3 with derived expectations agreeing on all 27; `specs/0014` "Planning verification and rulings on P1") |
 | P2 | the record script's table and `.txt` rows with its test; the corpus run `--formula-sample` with the new tool, the run log asserting the rows against its own derivation; the entry statuses compared with part 6 P3's record | DONE 2026-09-23 (ea37ad7, records a39c3cd, local; three code commits, the third a defect fix the negative log measured; verified by planning from primaries, its own gate, tests on both targets, privacy scan, its own comparison over the run directory agreeing with the tool on all 27 workbooks on both labels and with part 6 P3's outputs byte for byte, and its own tally of the record pair reproducing every family row; record pair `records/m1p7-p2-2026-09-24-ea37ad7.md` and `.txt`, named by the run's UTC date; `specs/0014` "Planning verification and rulings on P2") |
-| Close | close-out push after P2, as part 6's, carrying 03669ca and part 7's ten commits | READY 2026-09-23 (planning's word given in `specs/0014` P2 verification ruling 12; the push waits on the maintainer's authorisation typed in the implementing session) |
+| Close | close-out push after P2, as part 6's, carrying 03669ca and part 7's ten commits | DONE 2026-09-23 (pushed 6d2dc62..4bc741e, 12 commits; CI run 35941782215 success; record 9232e61 local, goes with the next push; verified by planning from the logs, git and `gh`; `specs/0014` "Planning verification and rulings on the close-out") |
+
+### Part 8: open checks for every edit test and the Excel check (`specs/0015-open-checks.md`)
+
+Approved by the maintainer 2026-09-23 and sent to implementation,
+the four decisions taken as planning recommended (every crate test
+that writes a workbook and every tool test that exits 0 with an
+output is kept, the archive-level tests excluded; kept files named
+by the test thread's name; from Milestone 2 on every phase's run
+log opens the kept pairs on the host; the Excel list holds part 6
+P3's host outputs and the kept fixture outputs). An opt-in keep of
+each edit test's input and output, switched by an environment
+variable the gate never sets; the runner's open check moved into a
+shared library; a script that opens every kept pair in the pinned
+image and records hashes and results by test name; the Excel check
+as a list by sha256 the maintainer carries to the desktop machine
+and a record template that takes pass, repair or fail per hash.
+Milestone 1 is accepted when that record shows pass on every row.
+No core code; no size record. No push during the part; the
+close-out push follows P2 and carries the local commit 9232e61.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | the keep in `testing.rs`, `written`, the cells test and the tool's helper; `scripts/lo-check.sh` sourced by the runner; `scripts/edit-open-check.sh`; the keep tests; the negative log with the runner's T3 P3 cases rerun; the run log's keeps on both targets compared and the first record `records/m1p8-open-<date>-<sha>.md` and `.txt` | READY |
+| P2 | `scripts/excel-check-list.py`, the record template `records/excel-check-m1-<date>.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | PLANNED |
+| Close | close-out push after P2, as part 7's, carrying 9232e61 | PLANNED |
 
 ## Milestone 2: openpyxl's editing surface (PROPOSED 2026-09-23)
 

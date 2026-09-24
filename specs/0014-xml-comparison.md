@@ -544,6 +544,32 @@ Rulings:
     close-out doc commit carries this spec and `ROADMAP.md`
     unedited, at the hashes planning sends.
 
+## Planning verification and rulings on the close-out (2026-09-23)
+
+Verified from primaries: origin/main is 4bc741e, twelve commits
+after 6d2dc62, the first 03669ca; the doc commit carries the spec
+and `ROADMAP.md` at planning's hashes (af420101..., ee4528d6...)
+and nothing else; every commit in the range has the Co-Authored-By
+line only, no session line, no non-ASCII byte, one author and
+committer identity (the GitHub no-reply one); the record commit
+9232e61 is local, one ahead; the three logs hash as the report
+says; push.log shows `ANTHROPIC_API_KEY` unset, the hook equal to
+what the installer writes, twelve commits scanned with no finding,
+remote main equal to local main and the repository PRIVATE;
+ci-run.log records run 35941782215 on 4bc741e, a push to main,
+success, eight gate steps PASS and privacy skipped in CI mode;
+scan.log PASS over the range plus the two logs. Planning confirmed
+the run's head, conclusion and event and the repository's
+visibility through `gh` itself.
+
+Rulings:
+
+1. The close-out is as "Close-out push (after P2)" says: part 6's
+   scripts with names, spec and base pattern changed. Accepted.
+2. Part 7 is DONE and PUSHED. 9232e61 goes with the next push.
+   Part 8 is next; its spec is planning's next draft, for the
+   maintainer's approval before any handoff.
+
 ## Out of scope
 
 - Comparing values in the clear, or printing any value, hash or
