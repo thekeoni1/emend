@@ -353,8 +353,8 @@ close-out push follows P2 and carries the local commit 9232e61.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | the keep in `testing.rs`, `written`, the cells test and the tool's helper; `scripts/lo-check.sh` sourced by the runner; `scripts/edit-open-check.sh`; the keep tests; the negative log with the runner's T3 P3 cases rerun; the run log's keeps on both targets compared and the first record `records/m1p8-open-<date>-<sha>.md` and `.txt` | READY |
-| P2 | `scripts/excel-check-list.py`, the record template `records/excel-check-m1-<date>.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | PLANNED |
+| P1 | the keep in `testing.rs`, `written`, the cells test and the tool's helper; `scripts/lo-check.sh` sourced by the runner; `scripts/edit-open-check.sh`; the keep tests; the negative log with the runner's T3 P3 cases rerun; the run log's keeps on both targets compared and the first record `records/m1p8-open-<date>-<sha>.md` and `.txt` | DONE 2026-09-23 (e2b8a81, records 50d2c4a, local; eight P1 rulings, two of them mid-phase on the tool fixtures; verified by planning from primaries, its own gate, tests on both targets, privacy scan, its own keep run reproducing every kept pair's hashes and its own LibreOffice pass agreeing on all 149 pairs; record `records/m1p8-open-2026-09-24-e2b8a81.md` and `.txt`: 149 pairs, 13 inputs refused, none on an accepted input; finding F3: five crate fixtures failed only the sheet count, fixed in P2; `specs/0015` "Planning verification and rulings on P1") |
+| P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-m1-<date>.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | READY |
 | Close | close-out push after P2, as part 7's, carrying 9232e61 | PLANNED |
 
 ## Milestone 2: openpyxl's editing surface (PROPOSED 2026-09-23)

@@ -274,6 +274,134 @@ it.
 6. These rulings go in a second doc commit before code, this spec
    unedited at the hash planning sends.
 
+7. Finding before the logs (asked after the four code commits
+   67ad8c1, 10aff01, ab26a7f, e9a63e2): LibreOffice loads none of
+   the tool tests' kept inputs, so the tool side of the check would
+   be vacuous. Planning measured the cause on six variants of the
+   tool's package fixture in the pinned image: the fixture as the
+   tests build it is refused ("source file could not be loaded");
+   the same fixture with the real Office Open XML content types for
+   the workbook, worksheet and relationships parts loads, one table
+   in the ODS, with the bare `<sheetData/>` sheet part kept, with
+   or without the `styles.xml` part, with or without the untyped
+   media entry; the real sheet root alone, with the made-up types,
+   is still refused. So the cause is the made-up content types
+   (`application/workbook` and the like, 19 attributes in
+   `null_rewrite.rs`), not a missing styles part. Ruling: option
+   (b), narrowed to that cause. One test-only commit before the
+   logs gives every tool fixture builder the real content types
+   (workbook, worksheet, relationships, shared strings, styles; the
+   untyped media entry stays untyped); no styles part is added and
+   no test assertion changes, since none asserts on the type
+   strings. The logs then run; the acceptance stands as written,
+   and the record must show every tool input accepted, so a refused
+   tool input is a finding from here on. The crate's seven refused
+   fixture inputs are named in the record as the spec allows.
+
+8. After d9315b8 (ruling 7 applied: all 19 attributes, the
+   calcChain override counted among them, now real types), six
+   tool inputs are still refused: the five tests built on the
+   zip-level `specs()` fixture (no `xl/workbook.xml`) and the
+   no-XML-parts round trip. They are the tool's counterpart of the
+   crate archive tests decision 1 excluded and cannot become
+   workbooks without changing what they test. Ruling: option (a).
+   Ruling 7's last sentence is read as: a refused tool input whose
+   fixture holds an `xl/workbook.xml` entry is a finding. The record
+   names the refused tool inputs as allowed zip-level fixtures, as
+   it names the crate's, and the run log asserts that the set of
+   refused tool inputs equals the set of tool tests whose kept input
+   has no `xl/workbook.xml` entry, derived by the log from the kept
+   files (never a typed list), and that no crate or tool output is
+   refused on an accepted input. No code change. The tree-status
+   form of part 6 stands for this phase's logs: the one modified
+   path is printed as planning's uncommitted spec and nothing else
+   may differ.
+
+## Planning verification and rulings on P1 (2026-09-23)
+
+Verified from primaries at the record commit 50d2c4a (phase commit
+e2b8a81): the nine commits and their diffs against "Design" and
+rulings 1 to 8; the two doc commits' blobs at planning's hashes;
+every hash the report cites against the committed files; planning's
+own gate (nine PASS), workspace tests on both targets (523 passed,
+2 ignored each), clippy, and privacy scan over the nine commits
+(509 blobs, 0 findings); planning's own keep run with its own build
+on both crates: 149 pairs with the record's 149 names, and both
+hashes of every pair equal to the record's, so the keep is
+deterministic across builds; planning's own conversion of every
+kept file in the pinned image with its own sheet and table count:
+the same `lo_in` and `lo` verdict as the record on all 149 pairs.
+Planning's first pass converted all 298 files in one LibreOffice
+call, which silently produced no ODS for 54 of them with no error
+line; converted one file per call they all behaved as the record
+says. The script converts one file per call, so the record is not
+affected; the quirk is noted for anyone reproducing by hand. No API
+key is set in planning's environment.
+
+Rulings:
+
+1. The six code commits do what "Design" and rulings 1 to 8 say and
+   nothing else: the crate keep (67ad8c1, amended once from 27afb8c
+   for a count in its message, trees equal, disclosed), the tool
+   keep (10aff01), the library move (ab26a7f, a pure move but for
+   one variable's name), the script (e9a63e2, e2b8a81) and ruling
+   7's types (d9315b8). Accepted, including the script's extra
+   refusals and its fourth list.
+2. F1: ruling 7's sentence "no test assertion changes" was wrong as
+   worded: the recipe test's expected content-types string changed
+   in step with its builder (three of the nineteen attributes). No
+   property changed. The sentence is withdrawn; d9315b8 stands.
+3. F3, a real defect in the record's wording, and a gap in the
+   check: the seven crate inputs listed as refused all hold
+   `xl/workbook.xml`. Five were loaded by LibreOffice and failed only
+   the sheet count, which matches an unprefixed `<sheet` element and
+   so counts 0 in the prefixed-workbook fixture and in the fixtures
+   whose workbook root has no children; two were refused by
+   LibreOffice (the fixture with no relationships part; the
+   empty content-types root). So in P1 seven crate edit tests were
+   not open-checked, five of them for a reason in the check, not in
+   the fixture. Ruling, for P2's first code commit: (a) the sheet
+   count in `scripts/lo-check.sh` matches a `sheet` element with any
+   prefix or none, amending the T3 P3 definition by that much (the
+   table count already names its prefix; a fixture-level case in
+   P2's negative log shows a prefixed workbook counted, and T3 P3's
+   runner cases rerun unchanged); (b) the record's `.txt` gains
+   `reason_in` and `reason_out` columns holding a class word taken
+   from the reason file's fixed opening words (`none`, `refused`,
+   `count`, `error`; never the reason text), and the `.md` lists
+   refused inputs under two headings, "refused by LibreOffice
+   (allowed: a zip-level fixture)" and "the sheet count did not
+   apply (allowed: a workbook fixture with no sheet element)", each
+   derived from the class; (c) the run log of P2 reruns the script
+   on P1's keep (kept, or regenerated and shown byte-identical to
+   the record's hashes) and records the new counts, expecting the
+   prefixed fixture's two pairs to move to accepted.
+4. F6 (the root line said the library was run): fixed by the
+   negative log's rerun; accepted.
+5. F7: the run log compares its counts with the test log's unset
+   run, since the gate prints no counts; "P1" is read so.
+6. F4 and F5 (no mutation on the tool keep's own refusal, counter
+   or override; the "nothing written" tests watch a directory the
+   keep never targets): notes, accepted; K3's measured non-bite is
+   the exit-0 condition being redundant with the output-file test,
+   left as it is and disclosed.
+7. F9: the record pair was installed by hand; its hashes equal the
+   run log's. Accepted; from P2 the run log prints the install
+   command and hashes the installed copies.
+8. F10 (the /tmp figure) is the implementer's observation, not a
+   primary; accepted as marked. Planning removed 1.4 GB of its own
+   scratch build directories the same day; the maintainer was told
+   of the rest.
+9. The gate's first attempt stopped for want of space on the
+   temporary file system; every log now builds on disk under the
+   home cache, with a root line. Accepted, and the rule from here:
+   build directories live on disk, never on the temporary file
+   system.
+10. P1 is DONE. P2 is next: its first doc commit carries this spec
+    and `ROADMAP.md` unedited at the hashes planning sends; its
+    first code commit is ruling 3's (a) and (b); then "### P2" as
+    written, with ruling 3's (c) in the run log.
+
 ## Out of scope
 
 - Any core crate change; the size record.
