@@ -402,6 +402,63 @@ Rulings:
     first code commit is ruling 3's (a) and (b); then "### P2" as
     written, with ruling 3's (c) in the run log.
 
+## Planning rulings during P2 (2026-09-23)
+
+Asked by the implementing session after the doc commit f9a0291
+(verified: parent 50d2c4a, the two blobs at planning's hashes).
+
+1. Q1, the class words: the map as proposed. `none` is a side with
+   no reason file; `refused` is every return-1 opening but the
+   count mismatch (the conversion exited, the stderr line, no ODS
+   written); `count` is the count-mismatch opening; `error` is
+   every return-2 opening. The class is read from the reason file's
+   fixed opening words alone, and an opening the map does not know
+   stops the script with exit 2.
+2. Q2: the first alternative. A `count`-class input is listed under
+   "the sheet count did not apply" only when the script's own count
+   of `sheet` elements in the kept input's `xl/workbook.xml` is
+   zero; any other `count`-class input goes under a third list,
+   "Inputs whose sheet and table counts differ (a finding)", and
+   the script exits 1 for it as it does for a refused output on an
+   accepted input.
+3. Q3, the layout as proposed: `reason_in` and `reason_out` after
+   `lo`, nine columns; the same two in the Pairs table; the totals
+   gain one row per side with the four class counts; the error
+   list stays.
+4. Q4: the regex as proposed, any prefix or none, `<sheets` and
+   `<sheetData` still excluded. A `sheet` element of a foreign
+   namespace would count; no corpus file or fixture has one, and
+   the check is a count, not a schema. Accepted, and the library's
+   comment says so.
+5. Q5: the Excel list holds the corpus outputs and only the kept
+   outputs whose input LibreOffice accepted (`lo_in` `ok` after
+   ruling 3's count). The left-out tests are named in the run log
+   with their class. "Pass on every row" then means every row of
+   the list, which is what the acceptance intends; a fixture Excel
+   cannot open because the fixture is not a workbook proves
+   nothing.
+6. Q6: P2's run log regenerates the keep on disk under
+   `<home>/.cache/emend-build/m1p8-p2-keep-host` and shows it
+   byte-identical to P1's record hashes (P1 verification ruling 3
+   (c)); the list names fixture files relative to that keep and
+   corpus outputs relative to the corpus root, part 6 P3's run
+   directory, host label. Nothing is written under the corpus
+   directory for this: fixtures stay out of it.
+7. Q7: the template is committed as
+   `records/excel-check-template.md` and a filled copy becomes
+   `records/excel-check-m1-<date>.md`. The list is a tab-separated
+   `.txt` with the thirteen columns proposed; it is NOT committed:
+   the run log hashes it, it is regenerated on demand, and the
+   filled record carries every row's source, name, bytes, sha256,
+   result and the three values seen. The three references per
+   formula-sample workbook are derived by the P2 run log from its
+   own reading of each corpus input by part 6's definition (A, M +
+   1 and F), with a control, and the derived `added` and `replaced`
+   counts per workbook are asserted equal to the run directory's
+   `formula` line for that workbook, which part 6 P3 recorded (the
+   tool prints counts, not references). Expected values are the
+   sample's constants (A times 2, 1 + 1, 2 + 3).
+
 ## Out of scope
 
 - Any core crate change; the size record.
