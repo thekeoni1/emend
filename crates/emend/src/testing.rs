@@ -592,3 +592,201 @@ pub(crate) fn stored_data(bytes: &[u8], name: &[u8]) -> Vec<u8> {
     let start = at + FIXED + name_length + extra_length;
     bytes[start..start + entry.uncompressed_size as usize].to_vec()
 }
+
+// ------------------------------------------------------------------ the keep
+//
+// `specs/0015-open-checks.md`, "The keep" and the P1 rulings 1 to 3: with a
+// keep directory named, every successful edit test's input and output are
+// written there, so a script can open each pair in LibreOffice afterwards.
+// With none named nothing is written and no test behaves differently.
+
+/// The environment variable that names the keep directory.
+pub(crate) const KEEP_VARIABLE: &str = "EMEND_KEEP_DIR";
+
+thread_local! {
+    /// The keep tests' override of the variable, for this thread alone:
+    /// `Some(Some(dir))` keeps into `dir`, `Some(None)` keeps nothing, and
+    /// `None` reads the variable. The variable is process-wide, and setting
+    /// it is unsafe in this edition, which the crate forbids (P1 ruling 3).
+    static KEEP_OVERRIDE: std::cell::RefCell<Option<Option<std::path::PathBuf>>> =
+        const { std::cell::RefCell::new(None) };
+    /// How many pairs this thread has kept: a test that writes more than
+    /// once keeps each write under the next number (P1 ruling 1).
+    static KEEP_COUNT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    /// The bytes of the fixture this thread last opened, for the keep.
+    static FIXTURE: std::cell::RefCell<Option<Vec<u8>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Sets this thread's override: `Some(dir)` keeps into `dir`, `None` keeps
+/// nothing whatever the variable says.
+pub(crate) fn override_keep(dir: Option<std::path::PathBuf>) {
+    KEEP_OVERRIDE.with(|slot| *slot.borrow_mut() = Some(dir));
+}
+
+/// The directory this thread keeps into, if any. A named directory that is
+/// not there is a mistake in the run, so it fails the test rather than
+/// keeping nothing quietly.
+#[track_caller]
+pub(crate) fn keep_dir() -> Option<std::path::PathBuf> {
+    let dir = KEEP_OVERRIDE
+        .with(|slot| slot.borrow().clone())
+        .unwrap_or_else(|| std::env::var_os(KEEP_VARIABLE).map(std::path::PathBuf::from))?;
+    assert!(
+        dir.is_dir(),
+        "the keep directory {} is not a directory",
+        dir.display()
+    );
+    Some(dir)
+}
+
+/// Records `bytes` as the fixture this thread is about to open.
+pub(crate) fn record_fixture(bytes: &[u8]) {
+    FIXTURE.with(|slot| *slot.borrow_mut() = Some(bytes.to_vec()));
+}
+
+/// The recorded fixture, taken: a second write needs a second open.
+pub(crate) fn take_fixture() -> Option<Vec<u8>> {
+    FIXTURE.with(|slot| slot.borrow_mut().take())
+}
+
+/// Keeps `input` and `output` as `<test>.<n>.in.xlsx` and
+/// `<test>.<n>.out.xlsx` in the keep directory, `<test>` being this thread's
+/// name with `::` made `.` and `n` counting this thread's pairs from 1.
+/// Nothing when no directory is named. A name already there is refused, so a
+/// directory holds one run, and it is refused before either file is written.
+#[track_caller]
+pub(crate) fn keep(input: &[u8], output: &[u8]) {
+    let Some(dir) = keep_dir() else {
+        return;
+    };
+    let n = KEEP_COUNT.with(|count| {
+        count.set(count.get() + 1);
+        count.get()
+    });
+    let thread = std::thread::current();
+    let test = thread
+        .name()
+        .expect("the keep names a pair after the test's thread")
+        .replace("::", ".");
+    let pair = [
+        (dir.join(format!("{test}.{n}.in.xlsx")), input),
+        (dir.join(format!("{test}.{n}.out.xlsx")), output),
+    ];
+    for (path, _) in &pair {
+        assert!(
+            !path.exists(),
+            "the keep refuses {}: the name is already there",
+            path.display()
+        );
+    }
+    for (path, bytes) in &pair {
+        std::fs::write(path, bytes).expect("write a kept file");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    /// A fresh directory named after the test, removed first if a failed
+    /// run left one.
+    fn fresh(label: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("emend-keep-test-{}-{label}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create the directory");
+        dir
+    }
+
+    fn listed(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("list the directory")
+            .map(|entry| {
+                entry
+                    .expect("an entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn the_keep_names_each_pair_after_the_test_and_numbers_them() {
+        let dir = fresh("names");
+        override_keep(Some(dir.clone()));
+        keep(b"first in", b"first out");
+        keep(b"second in", b"second out");
+        let test = "testing.tests.the_keep_names_each_pair_after_the_test_and_numbers_them";
+        assert_eq!(
+            listed(&dir),
+            [
+                format!("{test}.1.in.xlsx"),
+                format!("{test}.1.out.xlsx"),
+                format!("{test}.2.in.xlsx"),
+                format!("{test}.2.out.xlsx"),
+            ]
+        );
+        let read = |name: String| std::fs::read(dir.join(name)).expect("read a kept file");
+        assert_eq!(read(format!("{test}.1.in.xlsx")), b"first in");
+        assert_eq!(read(format!("{test}.1.out.xlsx")), b"first out");
+        assert_eq!(read(format!("{test}.2.in.xlsx")), b"second in");
+        assert_eq!(read(format!("{test}.2.out.xlsx")), b"second out");
+        std::fs::remove_dir_all(&dir).expect("remove the directory");
+    }
+
+    #[test]
+    fn the_keep_refuses_a_name_already_there_and_writes_neither_file() {
+        let dir = fresh("refuses");
+        let test = "testing.tests.the_keep_refuses_a_name_already_there_and_writes_neither_file";
+        // A previous run's output under the name the first pair takes.
+        std::fs::write(dir.join(format!("{test}.1.out.xlsx")), b"earlier").expect("plant");
+        override_keep(Some(dir.clone()));
+        let refused = std::panic::catch_unwind(|| keep(b"in", b"out"));
+        let message = *refused
+            .expect_err("the keep refused")
+            .downcast::<String>()
+            .expect("a formatted message");
+        assert!(
+            message.contains("the name is already there"),
+            "the message: {message}"
+        );
+        assert_eq!(listed(&dir), [format!("{test}.1.out.xlsx")]);
+        assert_eq!(
+            std::fs::read(dir.join(format!("{test}.1.out.xlsx"))).expect("read"),
+            b"earlier"
+        );
+        std::fs::remove_dir_all(&dir).expect("remove the directory");
+    }
+
+    #[test]
+    fn with_no_keep_directory_nothing_is_written() {
+        // The override stands for an unset variable, whatever the run's
+        // environment holds, so a directory the test watches stays empty.
+        let dir = fresh("none");
+        override_keep(None);
+        assert_eq!(keep_dir(), None);
+        keep(b"in", b"out");
+        assert_eq!(listed(&dir), Vec::<String>::new());
+        std::fs::remove_dir_all(&dir).expect("remove the directory");
+    }
+
+    #[test]
+    fn a_keep_directory_that_is_not_there_fails_the_test() {
+        let dir = fresh("missing").join("not-there");
+        override_keep(Some(dir));
+        let refused = std::panic::catch_unwind(|| keep(b"in", b"out"));
+        let message = *refused
+            .expect_err("the keep refused")
+            .downcast::<String>()
+            .expect("a formatted message");
+        assert!(
+            message.contains("is not a directory"),
+            "the message: {message}"
+        );
+        std::fs::remove_dir_all(fresh("missing")).expect("remove the directory");
+    }
+}

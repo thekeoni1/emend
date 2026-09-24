@@ -18,8 +18,8 @@ use std::io::Cursor;
 
 use super::*;
 use crate::testing::{
-    Build, METHOD_DEFLATE, Spec, TEMPORARY_LOCK, crc32, names, parse_independently,
-    replacement_temporaries, stored_data,
+    Build, METHOD_DEFLATE, Spec, TEMPORARY_LOCK, crc32, keep, keep_dir, names, override_keep,
+    parse_independently, record_fixture, replacement_temporaries, stored_data, take_fixture,
 };
 
 /// The namespaces the fixtures write, as text.
@@ -1081,8 +1081,16 @@ fn opened(parts: Parts) -> (Parts, Package<Cursor<Vec<u8>>>) {
         .map(|(name, data)| Spec::new(name, data))
         .collect();
     let bytes = Build::new(specs).bytes();
-    let package = Package::open(Cursor::new(bytes)).expect("the fixture opens");
-    (parts, package)
+    (parts, open_fixture(bytes))
+}
+
+/// Opens `bytes` as a package and records them as this thread's fixture, so
+/// [`written`] can keep them beside the output (`specs/0015-open-checks.md`,
+/// P1 ruling 2).
+#[track_caller]
+fn open_fixture(bytes: Vec<u8>) -> Package<Cursor<Vec<u8>>> {
+    record_fixture(&bytes);
+    Package::open(Cursor::new(bytes)).expect("the fixture opens")
 }
 
 /// Writes the package back and returns the output bytes.
@@ -1091,11 +1099,42 @@ fn opened(parts: Parts) -> (Parts, Package<Cursor<Vec<u8>>>) {
 /// replacement each make a temporary of the one form, in this one process, so
 /// a write here that ran beside the zip layer's snapshot tests would fail
 /// them on a race rather than on either layer.
+///
+/// With a keep directory named, the fixture [`open_fixture`] recorded and the
+/// output are kept there (`specs/0015-open-checks.md`, "The keep"). The
+/// fixture is taken, so each write needs its own open, and it must be the
+/// one this package was opened from: its entry names and CRC-32s, read
+/// independently, are compared with the package's (P1 ruling 2).
 #[track_caller]
 fn written(package: Package<Cursor<Vec<u8>>>) -> Vec<u8> {
+    let fixture = take_fixture();
+    let keeping = keep_dir().is_some();
+    if keeping {
+        let fixture = fixture
+            .as_deref()
+            .expect("the keep has no fixture: open it with open_fixture");
+        let recorded: Vec<(Vec<u8>, u32)> = parse_independently(fixture)
+            .entries
+            .iter()
+            .map(|entry| (entry.name.clone(), entry.crc32))
+            .collect();
+        let opened: Vec<(Vec<u8>, u32)> = package
+            .archive()
+            .entries()
+            .iter()
+            .map(|entry| (entry.name().to_vec(), entry.crc32()))
+            .collect();
+        assert_eq!(
+            recorded, opened,
+            "the keep's fixture is not the one this package was opened from"
+        );
+    }
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = Vec::new();
     package.write_to(&mut out).expect("write_to");
+    if let Some(fixture) = fixture.filter(|_| keeping) {
+        keep(&fixture, &out);
+    }
     out
 }
 
@@ -1992,7 +2031,7 @@ fn a_package_with_no_chain_comes_back_byte_for_byte() {
         .map(|(name, data)| Spec::new(name, data))
         .collect();
     let input = Build::new(specs).bytes();
-    let mut package = Package::open(Cursor::new(input.clone())).expect("the fixture opens");
+    let mut package = open_fixture(input.clone());
     assert!(
         package
             .relationships(b"xl/workbook.xml")
@@ -4513,4 +4552,106 @@ fn a_workbook_part_replaced_or_removed_refuses_the_flag() {
     let (_, mut package) = opened(smallest());
     package.replace_part(WORKBOOK, replacement());
     written(package);
+}
+
+// ------------------------------------------------------------------ the keep
+
+/// A fresh directory for a keep test, removed first if a failed run left one.
+fn keep_test_dir(label: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "emend-keep-test-{}-package-{label}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create the directory");
+    dir
+}
+
+#[test]
+fn written_keeps_the_fixture_and_the_output() {
+    let dir = keep_test_dir("kept");
+    override_keep(Some(dir.clone()));
+    let (_, mut package) = opened(smallest());
+    package.set_cell(SHEET, at("A1"), Value::Number(1.0));
+    let fixture = Build::new(
+        smallest()
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let output = written(package);
+    let test = "package.tests.written_keeps_the_fixture_and_the_output";
+    let read = |suffix: &str| std::fs::read(dir.join(format!("{test}.1.{suffix}"))).expect("read");
+    assert_eq!(read("in.xlsx"), fixture);
+    assert_eq!(read("out.xlsx"), output);
+    std::fs::remove_dir_all(&dir).expect("remove the directory");
+}
+
+#[test]
+fn written_with_a_keep_refuses_a_package_whose_fixture_was_not_recorded() {
+    let dir = keep_test_dir("unrecorded");
+    override_keep(Some(dir.clone()));
+    let bytes = Build::new(
+        smallest()
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let package = Package::open(Cursor::new(bytes)).expect("the fixture opens");
+    let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| written(package)));
+    let message = *refused
+        .expect_err("the keep refused")
+        .downcast::<String>()
+        .expect("a formatted message");
+    assert!(
+        message.contains("the keep has no fixture: open it with open_fixture"),
+        "the message: {message}"
+    );
+    assert_eq!(std::fs::read_dir(&dir).expect("list").count(), 0);
+    std::fs::remove_dir_all(&dir).expect("remove the directory");
+}
+
+#[test]
+fn written_with_a_keep_refuses_a_fixture_the_package_was_not_opened_from() {
+    let dir = keep_test_dir("stale");
+    override_keep(Some(dir.clone()));
+    // The recorded fixture is the smallest package; the one written was
+    // opened from other bytes, with a worksheet that differs.
+    let (_, _) = opened(smallest());
+    let other = Build::new(
+        with_rows("<row r=\"1\"></row>")
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let package = Package::open(Cursor::new(other)).expect("the other opens");
+    let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| written(package)));
+    let message = *refused
+        .expect_err("the keep refused")
+        .downcast::<String>()
+        .expect("a formatted message");
+    assert!(
+        message.contains("the keep's fixture is not the one this package was opened from"),
+        "the message: {message}"
+    );
+    assert_eq!(std::fs::read_dir(&dir).expect("list").count(), 0);
+    std::fs::remove_dir_all(&dir).expect("remove the directory");
+}
+
+#[test]
+fn written_with_no_keep_needs_no_fixture() {
+    // The gate's case: nothing recorded, nothing named, the write as before.
+    override_keep(None);
+    let bytes = Build::new(
+        smallest()
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let package = Package::open(Cursor::new(bytes.clone())).expect("the fixture opens");
+    assert_eq!(written(package), bytes);
 }

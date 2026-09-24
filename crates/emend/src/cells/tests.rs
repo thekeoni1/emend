@@ -1246,6 +1246,9 @@ fn reading_cells_then_writing_copies_the_package_byte_for_byte() {
     assert_eq!(references(&read), ["A1", "B1"]);
     let mut out = Vec::new();
     package.write_to(&mut out).expect("the copy writes");
+    // Kept for the open check, as `written` keeps the package tests' writes
+    // (`specs/0015-open-checks.md`, "The keep").
+    crate::testing::keep(&input, &out);
     assert_eq!(out, input, "byte for byte");
 }
 
