@@ -1,0 +1,1205 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p1/m1p8-p1-negative.sh e2b8a8140de26f6977d0a7041247c89fcdc09939
+about: M1 part 8 P1 phase commit e2b8a8140de26f6977d0a7041247c89fcdc09939; HEAD at run: e2b8a8140de26f6977d0a7041247c89fcdc09939
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  the part 7 close-out record commit (the base): 9232e613cbee861ede583fee96c8d1c09b5d6523
+  the first doc commit: e566de173e489ce5e49756b318b183e98422609d
+  the second doc commit: f25dd1b1366fc31fb68114c2be9df82b4eb3ed9b
+  code commit 1: 67ad8c14d1322382b340cb79be1e95c761e9b824
+  code commit 2: 10aff01a3508d85743ac3a66ec1555e52aeb112c
+  code commit 3: ab26a7f362a421a5b404e05d85d43c935bd9bd2e
+  code commit 4: e9a63e22904bfc634ebc58f37e573bd4ab1f1734
+  code commit 5: d9315b877ec035a2ee94eb905d40811aed5bf06c
+  code commit 6: e2b8a8140de26f6977d0a7041247c89fcdc09939
+command: git rev-parse <phase commit>~0 to <phase commit>~8
+    e2b8a8140de26f6977d0a7041247c89fcdc09939
+    d9315b877ec035a2ee94eb905d40811aed5bf06c
+    e9a63e22904bfc634ebc58f37e573bd4ab1f1734
+    ab26a7f362a421a5b404e05d85d43c935bd9bd2e
+    10aff01a3508d85743ac3a66ec1555e52aeb112c
+    67ad8c14d1322382b340cb79be1e95c761e9b824
+    f25dd1b1366fc31fb68114c2be9df82b4eb3ed9b
+    e566de173e489ce5e49756b318b183e98422609d
+    9232e613cbee861ede583fee96c8d1c09b5d6523
+  code commits 6 to 1, the second and first doc commits and the base, each the next one's parent, the last code commit the phase commit: yes
+  control: roles_in_order refuses code commit 2 named as code commit 1: yes
+
+phase: Milestone 1 part 8 P1 (specs/0015-open-checks.md) negative.log; run at 2026-09-24T02:40:46Z
+rerun: attempt 2, at the same phase commit, after independent check 1. Attempt 1 (negative-attempt-1.log, hashed below) printed every check as expected, but its <repo> root line said scripts/lo-check.sh is run from the repository, while it is sourced and never run (check 1 F6, against the Phases rule that a root line says sourced where a library is sourced). The root line is corrected; no check changed.
+command: sha256sum and wc -c over each superseded attempt named above
+    6c5f3a3a28a85b731bfa4c2a4a40e1baf3a70e39b8274a43151d73fe799346e8  75180 bytes  negative-attempt-1.log
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log; the phase runner and scripts/edit-open-check.sh are run from it, and each of them sources scripts/lo-check.sh, which is never run
+root: <home> stands for the home directory of the account that ran this script
+root: <scratch>/p1 stands for this script's own directory, which holds the script
+root: <scratch>/w stands for this run's mktemp -d working directory (fixtures, keeps, corpus, run directories, records, reasons), removed at exit
+root: <build> stands for <home>/.cache/emend-build/m1p8-p1-negative on the disk (header change 4): <build>/target the binaries' build, <build>/base-tree the base runner's detached worktree, removed at exit
+  the roots other than <home> are distinct, none inside another: yes
+  control: apart refuses the worktree against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+image: localhost/emend-lo:25.2.3-2-deb13u6 (rootless podman, --network=none); podman: podman version 5.7.0
+at entry: status lines 4; of them this phase's records or planning's spec 4
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison against the null commit says no: yes
+every fixture is generated; no corpus file is copied or read
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 1 part 8 P1 negative.log (specs/0015-open-checks.md, "### P1" and
+    # "The open-check library"). Two families, every fixture generated:
+    #
+    # (S) scripts/edit-open-check.sh, the four cases "### P1" names, each on a
+    #     keep directory this log builds from generated workbooks:
+    #       S1 a planted output that cannot open (a truncated archive): lo fail,
+    #          listed as a finding, exit 1;
+    #       S2 a planted input that cannot open: listed among the refused inputs,
+    #          exit 0;
+    #       S3 an image that is not there: error, listed among the checks that did
+    #          not run, exit 2;
+    #       S4 an empty keep directory: refused, exit 2, no record and no reasons
+    #          directory;
+    #     and two refusals beyond the four, each a one-line check with no
+    #     container: S5 half a pair, S6 a record already there. Each record's
+    #     .txt rows are compared, row by row, with the bytes and sha256 this log
+    #     computes from the keep's files, and its header with the script's own
+    #     constant, read from the script at the phase commit.
+    # (R) the runner's T3 P3 negative cases rerun on the moved library ("the
+    #     runner's behaviour is unchanged, shown by T3 P3's negative cases rerun
+    #     on it (ok, fail, error on the same fixtures)"). The fixtures are T3 P3's:
+    #     its generator is read out of records/logs/t3-p3/negative.log, where its
+    #     script is printed, not retyped. The open-check cases C1 to C9, C11 and
+    #     C12 run twice on the same scratch corpus and the same binaries: once
+    #     with the runner at the phase commit (the main tree's, which sources
+    #     scripts/lo-check.sh) and once with the runner at the part 7 close-out
+    #     record commit (in a detached worktree; lo_check still inline there).
+    #     Each case's T3 P3 assertion is made on both, and the two runs' outcome,
+    #     lo and lo_in columns and their reason files are compared byte for byte.
+    #     C10 (the record script) and M1 to M4 (the conversion run directly) do
+    #     not run lo_check and are not rerun.
+    #
+    # WRITTEN FOR M1 part 8 P1 from part 7 P2's negative script (printed in
+    # records/logs/m1p7-p2/negative.log) and T3 P3's (printed in
+    # records/logs/t3-p3/negative.log). From part 7 P2's: lines 1 to 3, the shape
+    # greps with controls, the roles by subject, the rerun block, SERIALIZED,
+    # the root lines, the counting controls. From T3 P3's: the generator (read,
+    # not copied), the case list C1 to C9, C11, C12 and each case's assertion.
+    # What differs, and why:
+    #  1. The phase, the log directory and the subjects are part 8 P1's.
+    #  2. The xlsx-diff cases and the record script's family B are gone: this
+    #     phase changes neither. Family S is new; family R is T3 P3's cases run
+    #     on two runners and compared.
+    #  3. T3 P3 required a clean tree; this log allows this phase's logs, its
+    #     record pair and planning's uncommitted specs/0015, and nothing else.
+    #  4. The build directory is on the disk, <home>/.cache/emend-build/
+    #     m1p8-p1-negative, not in /tmp, a tmpfs that filled during gate.log's
+    #     first attempt; the base runner's worktree lives there too.
+    #  5. The script's reasons directories are made under <scratch>/w by setting
+    #     TMPDIR per case, so S4 can show none was made.
+    #
+    # RERUN AFTER INDEPENDENT CHECK 1 (same phase commit): F6, the <repo> root
+    # line said scripts/lo-check.sh is run from it; it is sourced by the runner
+    # and the script, never run, and the line now says so. Nothing else changed.
+    #
+    # Usage: m1p8-p1-negative.sh <phase commit> > <scratch file>; the caller moves
+    # the output to records/logs/m1p8-p1/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR PASSTHROUGH_FAULT PASSTHROUGH_FAULT_ALLOWED
+    IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    NO_IMAGE=localhost/emend-lo-no-such-image:0
+    BUILD_ROOT=$HOME/.cache/emend-build/m1p8-p1-negative
+    mkdir -p "$BUILD_ROOT" || exit 2
+    export CARGO_TARGET_DIR=$BUILD_ROOT/target
+    B=$(mktemp -d)
+    BASETREE=$BUILD_ROOT/base-tree
+    cleanup() {
+      git worktree remove --force "$BASETREE" >/dev/null 2>&1
+      rm -rf "$B"
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    OURS='^((\?\?| ?[MARCD]) records/logs/m1p8-p1|(\?\?| ?[MARCD]) records/m1p8-open-| M specs/0015-open-checks[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's records and planning's spec" >&2
+      exit 2
+    fi
+    if [ -e "$BASETREE" ]; then echo "$BASETREE is already there" >&2; exit 2; fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scratch>/p1#g" -e "s#$BUILD_ROOT#<build>#g" \
+        -e "s#$B#<scratch>/w#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scratch>/p1/$(basename "$0") $*"
+    echo "about: M1 part 8 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M1 part 7 close-out record:')
+    DOC1=$(by_subject 'M1 part 8 P1: commit planning docs (the part 7 close-out rulings, the part 8 spec)')
+    DOC2=$(by_subject 'M1 part 8 P1: commit planning docs (the P1 rulings before code)')
+    CODE1=$(by_subject "M1 part 8 P1: the keep in the crate's tests")
+    CODE2=$(by_subject "M1 part 8 P1: the keep in the tool's tests")
+    CODE3=$(by_subject 'M1 part 8 P1: the open check moves to scripts/lo-check.sh')
+    CODE4=$(by_subject 'M1 part 8 P1: scripts/edit-open-check.sh')
+    CODE5=$(by_subject "M1 part 8 P1: real content types in the tool's package fixtures")
+    CODE6=$(by_subject "M1 part 8 P1: the open-check script's scratch rows file is .txt")
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  the part 7 close-out record commit (the base): ${REC:-none}"
+    echo "  the first doc commit: ${DOC1:-none}"
+    echo "  the second doc commit: ${DOC2:-none}"
+    for k in 1 2 3 4 5 6; do var=CODE$k; echo "  code commit $k: ${!var:-none}"; done
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~8"
+    for k in 0 1 2 3 4 5 6 7 8; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE6" "$CODE5" "$CODE4" "$CODE3" "$CODE2" "$CODE1" "$DOC2" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 6 to 1, the second and first doc commits and the base, each the next one's parent, the last code commit the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE1=$CODE2; if roles_in_order; then return 1; else return 0; fi; }
+    check "control: roles_in_order refuses code commit 2 named as code commit 1" "$(yn roles_ctl)"
+    echo
+    echo "phase: Milestone 1 part 8 P1 (specs/0015-open-checks.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)"
+    check "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log; the phase runner and scripts/edit-open-check.sh are run from it, and each of them sources scripts/lo-check.sh, which is never run"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scratch>/p1 stands for this script's own directory, which holds the script"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory (fixtures, keeps, corpus, run directories, records, reasons), removed at exit"
+    echo "root: <build> stands for <home>/.cache/emend-build/m1p8-p1-negative on the disk (header change 4): <build>/target the binaries' build, <build>/base-tree the base runner's detached worktree, removed at exit"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() {
+      apart "$B" "$SELF_DIR" && apart "$B" "$BUILD_ROOT" && apart "$B" "$MAIN" &&
+        apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" &&
+        apart "$BASETREE" "$CARGO_TARGET_DIR"
+    }
+    check "the roots other than <home> are distinct, none inside another" "$(yn roots_distinct)"
+    roots_ctl() { if apart "$BASETREE" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    check "control: apart refuses the worktree against <build>, which holds it" "$(yn roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "image: $IMAGE (rootless podman, --network=none); podman: $(podman --version)"
+    echo "at entry: status lines $entry_all; of them this phase's records or planning's spec $entry_ours"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    echo "every fixture is generated; no corpus file is copied or read"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the scripts run, against the phase commit"
+    echo "command: sha256sum of each script in the main tree, and of git show <phase commit>:<script>"
+    tree_is_commit() { [ "$(sha256sum <"$1" | cut -d' ' -f1)" = "$(git show "$C:$1" | sha256sum | cut -d' ' -f1)" ]; }
+    for s in scripts/edit-open-check.sh scripts/lo-check.sh scripts/passthrough-run.sh; do
+      echo "    $s: tree $(sha256sum <"$s" | cut -d' ' -f1); commit $(git show "$C:$s" | sha256sum | cut -d' ' -f1)"
+      check "$s in the main tree is the phase commit's" "$(yn tree_is_commit "$s")"
+    done
+    tree_ctl() { if [ "$(git show "$REC:scripts/passthrough-run.sh" | sha256sum | cut -d' ' -f1)" = "$(sha256sum <scripts/passthrough-run.sh | cut -d' ' -f1)" ]; then return 1; else return 0; fi; }
+    check "control: the same hash comparison tells the base's runner from the phase commit's" "$(yn tree_ctl)"
+    
+    echo
+    echo "## build"
+    echo "command: cargo build -p passthrough -p xlsx-diff"
+    cargo build -p passthrough -p xlsx-diff >"$B/build.out" 2>&1 </dev/null
+    rc=$?
+    echo "  exit: $rc"
+    check "host build exit 0" "$(yn [ "$rc" -eq 0 ])"
+    PT=$CARGO_TARGET_DIR/debug/passthrough
+    XD=$CARGO_TARGET_DIR/debug/xlsx-diff
+    echo "command: git diff --name-only <base> <phase commit> -- crates tools"
+    git diff --name-only "$REC" "$C" -- crates tools >"$B/code-changed"
+    sed 's/^/    /' "$B/code-changed"
+    printf '%s\n' crates/emend/src/cells/tests.rs crates/emend/src/package/tests.rs crates/emend/src/testing.rs tools/emend-copy/tests/null_rewrite.rs >"$B/test-files"
+    check "the phase changed only test files under crates and tools, so the two runners run the same binaries' code" "$(yn cmp -s "$B/code-changed" "$B/test-files")"
+    echo "  crates/emend/src/lib.rs's lines naming the testing module:"
+    git show "$C:crates/emend/src/lib.rs" | LC_ALL=C "$G" -n -B1 -E 'mod testing' | sed 's/^/    /'
+    testing_gated() { git show "$C:crates/emend/src/lib.rs" | LC_ALL=C "$G" -B1 -E '^mod testing;' | LC_ALL=C "$G" -qx -F '#[cfg(test)]'; }
+    check "the testing module is declared under #[cfg(test)]" "$(yn testing_gated)"
+    
+    echo
+    echo "## the generated workbooks (T3 P3's generator, read from its committed log)"
+    T3LOG=records/logs/t3-p3/negative.log
+    echo "command: sed -n between the gen.py heredoc's opening line and its PY terminator in $T3LOG, the log's four-space indent removed"
+    echo "  $T3LOG: sha256 $(sha256sum <"$T3LOG" | cut -d' ' -f1)"
+    awk '
+      $0 == "    cat >\"$BASE/gen.py\" <<'"'"'PY'"'"'" { on = 1; next }
+      on && $0 == "    PY" { exit }
+      on { sub(/^    /, ""); print }
+    ' "$T3LOG" >"$B/gen.py"
+    sed 's/^/    /' "$B/gen.py"
+    n_gen=$(count_lines "$B/gen.py")
+    echo "  lines read: $n_gen"
+    check "the generator was read from the log" "$(yn [ "$n_gen" -ge 20 ])"
+    CORPUS=$B/corpus
+    mkdir -m 700 "$CORPUS" "$CORPUS/corpus"
+    echo "command: python3 <scratch>/w/gen.py <scratch>/w <scratch>/w/corpus"
+    python3 "$B/gen.py" "$B" "$CORPUS" >"$B/gen.out" 2>&1
+    rc=$?
+    echo "  exit: $rc"
+    sed 's/^/    /' "$B/gen.out"
+    check "gen.py exit 0" "$(yn [ "$rc" -eq 0 ])"
+    NAMES=(healthy truncated noct ghost nopart badxml)
+    check "six workbooks and a manifest of six rows" "$(yn [ "$(awk -F'\t' 'NF == 12' "$CORPUS/manifest.tsv" | wc -l)" = 7 ])"
+    id_of() { cat "$B/id-$1"; }
+    W=$B/work
+    
+    echo
+    echo "## family S: scripts/edit-open-check.sh"
+    echo "command: git show <phase commit>:scripts/edit-open-check.sh | the TXT_HEADER line"
+    TXT_HEADER=$(git show "$C:scripts/edit-open-check.sh" | sed -n "s/^readonly TXT_HEADER=\\$'\\(.*\\)'\$/\\1/p" | sed 's/\\t/\t/g')
+    echo "    $(printf '%s' "$TXT_HEADER" | tr '\t' '|')"
+    check "the header was read from the script (seven columns)" "$(yn [ "$(printf '%s\n' "$TXT_HEADER" | awk -F'\t' '{ print NF }')" = 7 ])"
+    OC=$MAIN/scripts/edit-open-check.sh
+    # keep_pair <keep dir> <test> <input> <output>: copies a pair into a keep.
+    keep_pair() { cp "$3" "$1/$2.in.xlsx" && cp "$4" "$1/$2.out.xlsx"; }
+    # run_oc <case> <keep> <image> [stem]: the script, with its reasons directory
+    # made under <scratch>/w/tmp-<case>; records go to <scratch>/w/rec-<case>.
+    run_oc() {
+      local case=$1 keep=$2 image=$3 stem=${4:-m1p8-negative-$1}
+      mkdir -p "$B/tmp-$case" "$B/rec-$case"
+      TMPDIR=$B/tmp-$case "$OC" --keep "$keep" --libreoffice "$image" --lo-timeout 300 \
+        --out "$B/rec-$case" --stem "$stem" >"$B/$case.stdout" 2>"$B/$case.stderr" </dev/null
+      echo $? >"$B/$case.status"
+      echo "command: TMPDIR=<scratch>/w/tmp-$case scripts/edit-open-check.sh --keep <scratch>/w/${keep##*/} --libreoffice $image --lo-timeout 300 --out <scratch>/w/rec-$case --stem $stem"
+      echo "  exit: $(cat "$B/$case.status")"
+      echo "  stdout:"; sed 's/^/    /' "$B/$case.stdout"
+      echo "  stderr:"; sed 's/^/    /' "$B/$case.stderr"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    # rows_match <case> <keep>: the .txt's header is the script's, and each row's
+    # bytes and sha256 are the keep files', one row per pair, in name order.
+    rows_match() {
+      local txt=$B/rec-$1/m1p8-negative-$1.txt keep=$2 t n=1
+      [ "$(head -n 1 "$txt")" = "$TXT_HEADER" ] || return 1
+      [ "$(($(count_lines "$txt") - 1))" = "$(find "$keep" -name '*.in.xlsx' | wc -l)" ] || return 1
+      for t in $(find "$keep" -name '*.in.xlsx' -printf '%f\n' | sed 's/\.in\.xlsx$//' | LC_ALL=C sort); do
+        n=$((n + 1))
+        [ "$(sed -n "${n}p" "$txt" | cut -f1-5)" = "$t$TAB$(stat -c %s "$keep/$t.in.xlsx")$TAB$(sha256sum <"$keep/$t.in.xlsx" | cut -d' ' -f1)$TAB$(stat -c %s "$keep/$t.out.xlsx")$TAB$(sha256sum <"$keep/$t.out.xlsx" | cut -d' ' -f1)" ] || return 1
+      done
+    }
+    # row_is <case> <test> <lo_in> <lo>
+    row_is() { [ "$(awk -F'\t' -v t="$2" '$1 == t { print $6 " " $7 }' "$B/rec-$1/m1p8-negative-$1.txt")" = "$3 $4" ]; }
+    # listed_under <case> <section heading> <test>: the test is a list item in
+    # that section of the .md and in no other list section.
+    listed_under() {
+      local md=$B/rec-$1/m1p8-negative-$1.md
+      [ "$(awk -v h="## $2" '$0 == h { on = 1; next } /^## / { on = 0 } on' "$md" | count_matches -xF "- \`$3\`" /dev/stdin)" = 1 ] &&
+        [ "$(count_matches -xF "- \`$3\`" "$md")" = 1 ]
+    }
+    none_under() { [ "$(awk -v h="## $2" '$0 == h { on = 1; next } /^## / { on = 0 } on && NF' "$B/rec-$1/m1p8-negative-$1.md")" = None. ]; }
+    SEC_IN="Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)"
+    SEC_OUT="Outputs refused on an input LibreOffice accepted (a finding)"
+    SEC_ERR="Checks that did not run (error)"
+    show_record() {
+      echo "  the record's .txt:"; sed 's/^/    /' "$B/rec-$1/m1p8-negative-$1.txt"
+      echo "  the record's .md:"; sed 's/^/    /' "$B/rec-$1/m1p8-negative-$1.md"
+    }
+    show_reasons() {
+      local f
+      for f in $(find "$B/tmp-$1" -name '*-reason.txt' | LC_ALL=C sort); do
+        echo "    reason ${f#"$B/tmp-$1/"}: $(cat "$f")"
+      done
+    }
+    
+    echo
+    echo "### S1: a planted output that cannot open (the truncated archive)"
+    mkdir "$B/keep-s1"
+    keep_pair "$B/keep-s1" fixture.sound "$W/healthy.xlsx" "$W/healthy.xlsx"
+    keep_pair "$B/keep-s1" fixture.cut "$W/healthy.xlsx" "$W/truncated.xlsx"
+    run_oc s1 "$B/keep-s1" "$IMAGE"
+    show_record s1
+    show_reasons s1
+    check "S1: exit 1" "$(yn status_is s1 1)"
+    check "S1: the planted pair reads lo_in ok, lo fail" "$(yn row_is s1 fixture.cut ok fail)"
+    check "S1: the sound pair reads ok, ok" "$(yn row_is s1 fixture.sound ok ok)"
+    check "S1: the planted pair is listed as a finding, and nowhere else" "$(yn listed_under s1 "$SEC_OUT" fixture.cut)"
+    check "S1: no input refused, no check errored" "$(yn none_under s1 "$SEC_IN")"
+    check "S1: the .txt rows are the keep's files, byte counts and hashes" "$(yn rows_match s1 "$B/keep-s1")"
+    
+    echo
+    echo "### S2: a planted input that cannot open"
+    mkdir "$B/keep-s2"
+    keep_pair "$B/keep-s2" fixture.sound "$W/healthy.xlsx" "$W/healthy.xlsx"
+    keep_pair "$B/keep-s2" fixture.notbook "$W/truncated.xlsx" "$W/truncated.xlsx"
+    run_oc s2 "$B/keep-s2" "$IMAGE"
+    show_record s2
+    show_reasons s2
+    check "S2: exit 0" "$(yn status_is s2 0)"
+    check "S2: the planted pair reads lo_in fail" "$(yn [ "$(awk -F'\t' '$1 == "fixture.notbook" { print $6 }' "$B/rec-s2/m1p8-negative-s2.txt")" = fail ])"
+    check "S2: the planted pair is listed among the refused inputs, and nowhere else" "$(yn listed_under s2 "$SEC_IN" fixture.notbook)"
+    check "S2: no finding" "$(yn none_under s2 "$SEC_OUT")"
+    check "S2: no check errored" "$(yn none_under s2 "$SEC_ERR")"
+    check "S2: the .txt rows are the keep's files" "$(yn rows_match s2 "$B/keep-s2")"
+    
+    echo
+    echo "### S3: an image that is not there"
+    echo "command: podman image exists $NO_IMAGE; podman image exists $IMAGE (the control)"
+    no_such_image() { if podman image exists "$NO_IMAGE"; then return 1; else return 0; fi; }
+    check "S3: the image is not there" "$(yn no_such_image)"
+    check "control: the pinned image is there, through the same command" "$(yn podman image exists "$IMAGE")"
+    mkdir "$B/keep-s3"
+    keep_pair "$B/keep-s3" fixture.sound "$W/healthy.xlsx" "$W/healthy.xlsx"
+    run_oc s3 "$B/keep-s3" "$NO_IMAGE"
+    show_record s3
+    show_reasons s3
+    check "S3: exit 2" "$(yn status_is s3 2)"
+    check "S3: the pair reads error, error" "$(yn row_is s3 fixture.sound error error)"
+    check "S3: the pair is listed among the checks that did not run, and nowhere else" "$(yn listed_under s3 "$SEC_ERR" fixture.sound)"
+    podman_reason() { [ "$(find "$B/tmp-s3" -name '*-reason.txt' -exec cat {} + | LC_ALL=C sort -u)" = "podman could not run the container, exit 125" ]; }
+    check "S3: both reasons say podman could not run the container" "$(yn podman_reason)"
+    check "S3: the .txt rows are the keep's files" "$(yn rows_match s3 "$B/keep-s3")"
+    
+    echo
+    echo "### S4: an empty keep directory"
+    mkdir "$B/keep-s4"
+    run_oc s4 "$B/keep-s4" "$IMAGE"
+    refused_with() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    check "S4: exit 2, no stdout, stderr exactly the refusal" "$(yn refused_with s4 'error: the keep directory holds no pairs')"
+    check "S4: no record written" "$(yn [ "$(find "$B/rec-s4" -type f | wc -l)" = 0 ])"
+    check "S4: no reasons directory made" "$(yn [ "$(find "$B/tmp-s4" -mindepth 1 | wc -l)" = 0 ])"
+    check "control: the same count finds S1's reasons directory" "$(yn [ "$(find "$B/tmp-s1" -mindepth 1 -maxdepth 1 | wc -l)" = 1 ])"
+    
+    echo
+    echo "### S5 and S6: two refusals beyond the four (no container runs)"
+    mkdir "$B/keep-s5"
+    cp "$W/healthy.xlsx" "$B/keep-s5/fixture.half.in.xlsx"
+    run_oc s5 "$B/keep-s5" "$IMAGE"
+    check "S5: half a pair: exit 2, no stdout, stderr exactly the refusal" "$(yn refused_with s5 'error: the keep directory holds half a pair')"
+    mkdir -p "$B/rec-s6"
+    : >"$B/rec-s6/m1p8-negative-s6.md"
+    run_oc s6 "$B/keep-s1" "$IMAGE"
+    check "S6: a record already there: exit 2, no stdout, stderr exactly the refusal" "$(yn refused_with s6 'error: the record m1p8-negative-s6 is already there')"
+    check "S6: the record already there is untouched (empty)" "$(yn [ ! -s "$B/rec-s6/m1p8-negative-s6.md" ])"
+    not_refused() { if refused_with "$1" 'error: the keep directory holds no pairs'; then return 1; else return 0; fi; }
+    check "control: refused_with says no on S1's run" "$(yn not_refused s1)"
+    
+    echo
+    echo "## family R: the runner's T3 P3 open-check cases, at the phase commit and at the base"
+    echo "command: git worktree add --detach <build>/base-tree <base>"
+    git worktree add --detach "$BASETREE" "$REC" >/dev/null 2>&1
+    check "the base worktree was added at the base" "$(yn [ "$(git -C "$BASETREE" rev-parse HEAD)" = "$REC" ])"
+    base_inline() { [ "$(count_matches -E '^lo_check\(\) \{' "$BASETREE/scripts/passthrough-run.sh")" = 1 ] && [ ! -e "$BASETREE/scripts/lo-check.sh" ]; }
+    phase_sources() { [ "$(count_matches -E '^lo_check\(\) \{' scripts/passthrough-run.sh)" = 0 ] && [ "$(count_matches -F '/lo-check.sh"' scripts/passthrough-run.sh)" = 1 ]; }
+    check "the base runner defines lo_check inline and has no scripts/lo-check.sh" "$(yn base_inline)"
+    check "the phase runner defines no lo_check and sources scripts/lo-check.sh" "$(yn phase_sources)"
+    mkdir -p "$B/fakebin" "$B/fakebin-py"
+    cat >"$B/fakebin/podman" <<'SH'
+    #!/usr/bin/env bash
+    # Test wrapper (T3 P3's C8): runs the real podman, then adds one line to stderr.
+    /usr/bin/podman "$@"
+    rc=$?
+    printf '%s\n' "${FAKE_PODMAN_LINE:?}" >&2
+    exit "$rc"
+    SH
+    cat >"$B/fakebin-py/python3" <<'SH'
+    #!/usr/bin/env bash
+    # Test wrapper (T3 P3's C11): python3 that always fails.
+    exit 1
+    SH
+    chmod 755 "$B/fakebin/podman" "$B/fakebin-py/python3"
+    id_of healthy >"$B/ids-healthy"
+    field() { awk -F'\t' -v id="$2" -v name="$3" 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next } $1 == id { print $col[name] }' "$1"; }
+    lo_is() { local s=$1/summary.host.tsv id; id=$(id_of "$2"); [ "$(field "$s" "$id" lo)" = "$3" ] && [ "$(field "$s" "$id" lo_in)" = "$4" ]; }
+    all_dash() { [ "$(awk -F'\t' 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next } $col["lo"] == "-" && $col["lo_in"] == "-" { n++ } END { print n + 0 }' "$1/summary.host.tsv")" = "${#NAMES[@]}" ]; }
+    reason_held() { [ -s "$1/$(id_of "$2")/$3-reason.host.txt" ]; }
+    count_container_words() { cat "$@" | LC_ALL=C "$G" -a -c -E 'Error|Warning|javaldx'; }
+    # runner <which> <out name> [extra args...]: the runner of that side over the
+    # scratch corpus, stdout and stderr kept beside the run directory.
+    runner() {
+      local which=$1 out=$2 script
+      shift 2
+      case $which in
+        phase) script=$MAIN/scripts/passthrough-run.sh ;;
+        base) script=$BASETREE/scripts/passthrough-run.sh ;;
+      esac
+      "$script" --label host --passthrough "$PT" --xlsx-diff "$XD" --corpus "$CORPUS" \
+        --out "$B/$which/$out" --timeout 120 "$@" >"$B/$which/$out.stdout" 2>"$B/$which/$out.stderr" </dev/null
+      echo $? >"$B/$which/$out.status"
+    }
+    rstatus() { cat "$B/$1/$2.status"; }
+    for which in phase base; do
+      R=$B/$which
+      mkdir -p "$R"
+      echo
+      echo "### the $which runner"
+      echo "command: <the $which runner> --label host --passthrough <build>/target/debug/passthrough --xlsx-diff <build>/target/debug/xlsx-diff --corpus <scratch>/w/corpus --out <scratch>/w/$which/<run> --timeout 120 [--libreoffice $IMAGE] [--ids <scratch>/w/ids-healthy], with PATH changes for C8 and C11"
+      runner "$which" run-lo --libreoffice "$IMAGE"
+      runner "$which" run-nolo
+      FAKE_PODMAN_LINE='Warning: a second warning the allowance does not cover' PATH=$B/fakebin:$PATH \
+        runner "$which" run-extra --libreoffice "$IMAGE" --ids "$B/ids-healthy"
+      FAKE_PODMAN_LINE='Warning: failed to launch javaldx - java may not function correctly' PATH=$B/fakebin:$PATH \
+        runner "$which" run-allowed --libreoffice "$IMAGE" --ids "$B/ids-healthy"
+      PATH=$B/fakebin-py:$PATH runner "$which" run-error --libreoffice "$IMAGE" --ids "$B/ids-healthy"
+      runner "$which" run-badimage --libreoffice 'not an image!'
+      for r in run-lo run-nolo run-extra run-allowed run-error run-badimage; do
+        echo "  $r: exit $(rstatus "$which" "$r"); stdout lines $(count_lines "$R/$r.stdout"); stderr bytes $(wc -c <"$R/$r.stderr")"
+      done
+      echo "  outcome, lo and lo_in per workbook (run-lo):"
+      for name in "${NAMES[@]}"; do
+        printf '    %-9s outcome=%s lo=%s lo_in=%s\n' "$name" "$(field "$R/run-lo/summary.host.tsv" "$(id_of "$name")" outcome)" \
+          "$(field "$R/run-lo/summary.host.tsv" "$(id_of "$name")" lo)" "$(field "$R/run-lo/summary.host.tsv" "$(id_of "$name")" lo_in)"
+      done
+      check "[$which] C1: the run exits 0" "$(yn [ "$(rstatus "$which" run-lo)" = 0 ])"
+      check "[$which] C1 healthy: lo ok, lo_in ok" "$(yn lo_is "$R/run-lo" healthy ok ok)"
+      check "[$which] C2 truncated: lo_in fail" "$(yn [ "$(field "$R/run-lo/summary.host.tsv" "$(id_of truncated)" lo_in)" = fail ])"
+      check "[$which] C2 truncated: the reason is kept in the run subdirectory" "$(yn reason_held "$R/run-lo" truncated lo-in)"
+      check "[$which] C3 noct: lo_in fail" "$(yn [ "$(field "$R/run-lo/summary.host.tsv" "$(id_of noct)" lo_in)" = fail ])"
+      check "[$which] C4 ghost: lo ok and lo_in ok (T3 P3's recorded finding)" "$(yn lo_is "$R/run-lo" ghost ok ok)"
+      check "[$which] C5 nopart: lo ok and lo_in ok (the same finding)" "$(yn lo_is "$R/run-lo" nopart ok ok)"
+      echo "  [$which] C6 badxml, as measured: lo=$(field "$R/run-lo/summary.host.tsv" "$(id_of badxml)" lo) lo_in=$(field "$R/run-lo/summary.host.tsv" "$(id_of badxml)" lo_in)"
+      run_all_dash() { [ "$(rstatus "$which" run-nolo)" = 0 ] && all_dash "$R/run-nolo"; }
+      check "[$which] C7: without --libreoffice the run exits 0 and every row has lo and lo_in \"-\"" "$(yn run_all_dash)"
+      check "[$which] C8a: a second Warning line fails the healthy workbook on both sides" "$(yn lo_is "$R/run-extra" healthy fail fail)"
+      check "[$which] C8b: the allowed line repeated still passes" "$(yn lo_is "$R/run-allowed" healthy ok ok)"
+      OUTS=("$R/run-lo.stdout" "$R/run-lo.stderr" "$R/run-nolo.stdout" "$R/run-nolo.stderr" "$R/run-extra.stdout" "$R/run-extra.stderr" "$R/run-allowed.stdout" "$R/run-allowed.stderr")
+      n=$(count_container_words "${OUTS[@]}")
+      check "[$which] C9: lines with Error, Warning or javaldx in the runner's stdout and stderr: $n (expect 0)" "$(yn [ "$n" = 0 ])"
+      nctl=$(count_container_words "$R/run-lo/$(id_of truncated)/lo-in.host/stderr.txt")
+      check "[$which] control: the same count finds the container's lines in the stderr file kept in the run directory ($nctl)" "$(yn [ "$nctl" -ge 1 ])"
+      check "[$which] C11: python3 failing reads error on both sides, not fail" "$(yn lo_is "$R/run-error" healthy error error)"
+      c11_reason() { [ "$(cat "$R/run-error/$(id_of healthy)/lo-in-reason.host.txt")" = "cannot count sheets and tables" ]; }
+      check "[$which] C11: the reason names the count step" "$(yn c11_reason)"
+      c12_refused() { [ "$(rstatus "$which" run-badimage)" = 2 ] && [ ! -s "$R/run-badimage.stdout" ] && [ "$(cat "$R/run-badimage.stderr")" = 'error: --libreoffice must name an image' ] && [ ! -e "$R/run-badimage" ]; }
+      check "[$which] C12: exit 2, no stdout, stderr exactly the refusal, no run directory" "$(yn c12_refused)"
+    done
+    
+    echo
+    echo "### the two runners compared"
+    # The summary's outcome, lo and lo_in columns per run, and every reason file,
+    # byte for byte. Other columns (timings, commit) differ by nature.
+    cols() { awk -F'\t' -v OFS='\t' 'NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i } { print $col["id"], $col["outcome"], $col["lo"], $col["lo_in"] }' "$1"; }
+    same_cols=0
+    nruns=0
+    for r in run-lo run-nolo run-extra run-allowed run-error; do
+      nruns=$((nruns + 1))
+      cols "$B/phase/$r/summary.host.tsv" >"$B/cols-phase-$r"
+      cols "$B/base/$r/summary.host.tsv" >"$B/cols-base-$r"
+      if cmp -s "$B/cols-phase-$r" "$B/cols-base-$r"; then same_cols=$((same_cols + 1)); else echo "    $r: the columns differ"; fi
+    done
+    echo "  runs whose id, outcome, lo and lo_in columns are the same on both runners: $same_cols of $nruns"
+    check "every run's id, outcome, lo and lo_in columns are the same on both runners" "$(yn [ "$same_cols" = "$nruns" ])"
+    (cd "$B/phase" && find . -name '*-reason.host.txt' | LC_ALL=C sort) >"$B/reasons-phase"
+    (cd "$B/base" && find . -name '*-reason.host.txt' | LC_ALL=C sort) >"$B/reasons-base"
+    nreasons=$(count_lines "$B/reasons-phase")
+    same_reasons=0
+    while IFS= read -r f; do
+      if cmp -s "$B/phase/$f" "$B/base/$f"; then same_reasons=$((same_reasons + 1)); else echo "    $f differs"; fi
+    done <"$B/reasons-phase"
+    echo "  reason files: phase $nreasons, base $(count_lines "$B/reasons-base"); the same bytes on both: $same_reasons"
+    reasons_same() { cmp -s "$B/reasons-phase" "$B/reasons-base" && [ "$nreasons" -ge 1 ] && [ "$same_reasons" = "$nreasons" ]; }
+    check "both runners kept the same reason files, byte for byte" "$(yn reasons_same)"
+    echo "  the verdicts compared, as run-lo gave them (id, outcome, lo, lo_in):"
+    sed 's/^/    /' "$B/cols-phase-run-lo"
+    cols_ctl() { if cmp -s "$B/cols-phase-run-lo" "$B/cols-phase-run-extra"; then return 1; else return 0; fi; }
+    check "control: the same comparison tells run-lo from run-extra" "$(yn cols_ctl)"
+    verdicts_seen() {
+      cat "$B"/cols-phase-* | awk -F'\t' '{ print $3; print $4 }' | LC_ALL=C "$G" -xE 'ok|fail|error' | LC_ALL=C sort -u | tr '\n' ' '
+    }
+    echo "  lo and lo_in verdicts the compared runs hold: $(verdicts_seen)"
+    check "the compared runs hold ok, fail and error" "$(yn [ "$(verdicts_seen)" = "error fail ok " ])"
+    git worktree remove --force "$BASETREE" >/dev/null 2>&1
+    check "the base worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$BASETREE" /dev/stdin)" = 0 ])"
+    
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr "$B"/phase/*.stdout "$B"/phase/*.stderr "$B"/base/*.stdout "$B"/base/*.stderr; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs, its record pair or planning's uncommitted spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's or planning's uncommitted spec" "$(yn status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the scripts run, against the phase commit
+command: sha256sum of each script in the main tree, and of git show <phase commit>:<script>
+    scripts/edit-open-check.sh: tree 956d618ddebdfd587a1c3e409078d2caf2070c7d62d41ef50020c08f91535a67; commit 956d618ddebdfd587a1c3e409078d2caf2070c7d62d41ef50020c08f91535a67
+  scripts/edit-open-check.sh in the main tree is the phase commit's: yes
+    scripts/lo-check.sh: tree ac5973e959ccb8bc50143da6cefbb29915ac01eea3a66a9d7c2570d229373298; commit ac5973e959ccb8bc50143da6cefbb29915ac01eea3a66a9d7c2570d229373298
+  scripts/lo-check.sh in the main tree is the phase commit's: yes
+    scripts/passthrough-run.sh: tree e16088dae715da36463fef5b5e43211b2a18448a6223bae93d9cca5fe53d738a; commit e16088dae715da36463fef5b5e43211b2a18448a6223bae93d9cca5fe53d738a
+  scripts/passthrough-run.sh in the main tree is the phase commit's: yes
+  control: the same hash comparison tells the base's runner from the phase commit's: yes
+
+## build
+command: cargo build -p passthrough -p xlsx-diff
+  exit: 0
+  host build exit 0: yes
+command: git diff --name-only <base> <phase commit> -- crates tools
+    crates/emend/src/cells/tests.rs
+    crates/emend/src/package/tests.rs
+    crates/emend/src/testing.rs
+    tools/emend-copy/tests/null_rewrite.rs
+  the phase changed only test files under crates and tools, so the two runners run the same binaries' code: yes
+  crates/emend/src/lib.rs's lines naming the testing module:
+    43-#[cfg(test)]
+    44:mod testing;
+  the testing module is declared under #[cfg(test)]: yes
+
+## the generated workbooks (T3 P3's generator, read from its committed log)
+command: sed -n between the gen.py heredoc's opening line and its PY terminator in records/logs/t3-p3/negative.log, the log's four-space indent removed
+  records/logs/t3-p3/negative.log: sha256 41cbd2f91845a37e3e530f4f017f5489b2a1424b7071e7b96793d5bb757831a1
+    import hashlib, os, sys, zipfile
+    base, corpus = sys.argv[1:3]
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+     '<Default Extension="xml" ContentType="application/xml"/>'
+     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+     '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+     '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+     '</Types>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+     '<sheet name="Alpha" sheetId="1" r:id="rId1"/><sheet name="Beta" sheetId="2" r:id="rId2"/></sheets></workbook>')
+    WBR = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+     '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>')
+    def sheet(word):
+        return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+         '<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>fictional %s</t></is></c></row></sheetData></worksheet>' % word)
+    PARTS = [("[Content_Types].xml", CT), ("_rels/.rels", RELS), ("xl/workbook.xml", WB),
+             ("xl/_rels/workbook.xml.rels", WBR), ("xl/worksheets/sheet1.xml", sheet("one")),
+             ("xl/worksheets/sheet2.xml", sheet("two"))]
+    def build(path, parts):
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for name, body in parts:
+                info = zipfile.ZipInfo(name, date_time=(2026, 1, 2, 3, 4, 6))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                z.writestr(info, body)
+    work = os.path.join(base, "work")
+    os.makedirs(work, exist_ok=True)
+    healthy = os.path.join(work, "healthy.xlsx")
+    build(healthy, PARTS)
+    # ghost: a third sheet with no part and no relationship
+    build(os.path.join(work, "ghost.xlsx"),
+          [(n, b.replace('</sheets>', '<sheet name="Ghost" sheetId="3" r:id="rId9"/></sheets>') if n == "xl/workbook.xml" else b)
+           for n, b in PARTS])
+    # nopart: the second worksheet part removed, workbook.xml and the rel unchanged
+    build(os.path.join(work, "nopart.xlsx"), [p for p in PARTS if p[0] != "xl/worksheets/sheet2.xml"])
+    # noct: [Content_Types].xml removed
+    build(os.path.join(work, "noct.xlsx"), [p for p in PARTS if p[0] != "[Content_Types].xml"])
+    # badxml: a sound zip whose second worksheet part is cut mid-element
+    build(os.path.join(work, "badxml.xlsx"),
+          [(n, b[:len(b) // 2] if n == "xl/worksheets/sheet2.xml" else b) for n, b in PARTS])
+    # cutdir: the healthy archive with its last 200 bytes removed, so the central
+    # directory is gone. Generated for the measured section only.
+    data0 = open(healthy, "rb").read()
+    open(os.path.join(work, "cutdir.xlsx"), "wb").write(data0[:-200])
+    print("cutdir: %d bytes of %d (measured section only)" % (len(data0) - 200, len(data0)))
+    # truncated: the healthy archive cut inside the second worksheet entry
+    data = open(healthy, "rb").read()
+    info = zipfile.ZipFile(healthy).getinfo("xl/worksheets/sheet2.xml")
+    cut = info.header_offset + 30 + len(info.filename) + max(1, info.compress_size // 2)
+    open(os.path.join(work, "truncated.xlsx"), "wb").write(data[:cut])
+    header = ["id","sha256","bytes","ext","producer","producer_version","app","source","tags","added","original_name","note"]
+    rows = ["\t".join(header)]
+    for name in ("healthy", "truncated", "noct", "ghost", "nopart", "badxml"):
+        path = os.path.join(work, name + ".xlsx")
+        body = open(path, "rb").read()
+        sha = hashlib.sha256(body).hexdigest()
+        fid = sha[:12]
+        dest = os.path.join(corpus, "corpus", fid + ".xlsx")
+        with open(dest, "wb") as handle:
+            handle.write(body)
+        os.chmod(dest, 0o600)
+        rows.append("\t".join([fid, sha, str(len(body)), "xlsx", "libreoffice", "unknown", "none",
+                               "libreoffice-export", "plain,strings", "2026-09-15", name + ".xlsx", "generated"]))
+        with open(os.path.join(base, "id-" + name), "w") as handle:
+            handle.write(fid)
+        print("%s: id %s, %d bytes" % (name, fid, len(body)))
+    with open(os.path.join(corpus, "manifest.tsv"), "w") as handle:
+        handle.write("\n".join(rows) + "\n")
+  lines read: 73
+  the generator was read from the log: yes
+command: python3 <scratch>/w/gen.py <scratch>/w <scratch>/w/corpus
+  exit: 0
+    cutdir: 1710 bytes of 1910 (measured section only)
+    healthy: id d72f39c105ad, 1910 bytes
+    truncated: id 08ddb9e2479e, 1402 bytes
+    noct: id 4feecc0dd1da, 1534 bytes
+    ghost: id 03063cc31c62, 1922 bytes
+    nopart: id 63b1c2b6c46d, 1604 bytes
+    badxml: id b39cfeec3992, 1838 bytes
+  gen.py exit 0: yes
+  six workbooks and a manifest of six rows: yes
+
+## family S: scripts/edit-open-check.sh
+command: git show <phase commit>:scripts/edit-open-check.sh | the TXT_HEADER line
+    test|in_bytes|in_sha256|out_bytes|out_sha256|lo_in|lo
+  the header was read from the script (seven columns): yes
+
+### S1: a planted output that cannot open (the truncated archive)
+command: TMPDIR=<scratch>/w/tmp-s1 scripts/edit-open-check.sh --keep <scratch>/w/keep-s1 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --out <scratch>/w/rec-s1 --stem m1p8-negative-s1
+  exit: 1
+  stdout:
+    fixture.cut	ok	fail
+    fixture.sound	ok	ok
+    wrote m1p8-negative-s1.md and m1p8-negative-s1.txt: pairs 2; lo_in ok 2 fail 0 error 0; lo ok 1 fail 1 error 0; inputs refused 0; outputs refused on an accepted input 1
+    reasons: <scratch>/w/tmp-s1/emend-open-check.ILBLAG
+  stderr:
+  the record's .txt:
+    test	in_bytes	in_sha256	out_bytes	out_sha256	lo_in	lo
+    fixture.cut	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	1402	08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91	ok	fail
+    fixture.sound	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	ok	ok
+  the record's .md:
+    # edit open check m1p8-negative-s1
+    
+    Written by `scripts/edit-open-check.sh` from a keep directory of test fixtures (`specs/0015-open-checks.md`, "The keep"). Each kept pair is cited by test name, byte counts and sha256 only; the files are fictional fixtures and are not committed. The machine-readable companion to this file is `m1p8-negative-s1.txt`, the same rows as a tab-separated table; it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
+    
+    - Record written: 2026-09-24T02:40:53Z
+    - Image: localhost/emend-lo:25.2.3-2-deb13u6
+    - Open-check timeout: 300 s
+    - Pairs: 2
+    
+    ## Totals
+    
+    | pairs | lo_in ok | lo_in fail | lo_in error | lo ok | lo fail | lo error |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | 2 | 2 | 0 | 0 | 1 | 1 | 0 |
+    
+    ## Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)
+    
+    None.
+    
+    ## Outputs refused on an input LibreOffice accepted (a finding)
+    
+    - `fixture.cut`
+    
+    ## Checks that did not run (error)
+    
+    None.
+    
+    ## Pairs
+    
+    | test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `fixture.cut` | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | 1402 | 08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91 | ok | fail |
+    | `fixture.sound` | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | ok | ok |
+    reason emend-open-check.ILBLAG/1/out-reason.txt: stderr holds a line with Error or Warning other than the allowed javaldx line
+  S1: exit 1: yes
+  S1: the planted pair reads lo_in ok, lo fail: yes
+  S1: the sound pair reads ok, ok: yes
+  S1: the planted pair is listed as a finding, and nowhere else: yes
+  S1: no input refused, no check errored: yes
+  S1: the .txt rows are the keep's files, byte counts and hashes: yes
+
+### S2: a planted input that cannot open
+command: TMPDIR=<scratch>/w/tmp-s2 scripts/edit-open-check.sh --keep <scratch>/w/keep-s2 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --out <scratch>/w/rec-s2 --stem m1p8-negative-s2
+  exit: 0
+  stdout:
+    fixture.notbook	fail	fail
+    fixture.sound	ok	ok
+    wrote m1p8-negative-s2.md and m1p8-negative-s2.txt: pairs 2; lo_in ok 1 fail 1 error 0; lo ok 1 fail 1 error 0; inputs refused 1; outputs refused on an accepted input 0
+    reasons: <scratch>/w/tmp-s2/emend-open-check.tlwShq
+  stderr:
+  the record's .txt:
+    test	in_bytes	in_sha256	out_bytes	out_sha256	lo_in	lo
+    fixture.notbook	1402	08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91	1402	08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91	fail	fail
+    fixture.sound	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	ok	ok
+  the record's .md:
+    # edit open check m1p8-negative-s2
+    
+    Written by `scripts/edit-open-check.sh` from a keep directory of test fixtures (`specs/0015-open-checks.md`, "The keep"). Each kept pair is cited by test name, byte counts and sha256 only; the files are fictional fixtures and are not committed. The machine-readable companion to this file is `m1p8-negative-s2.txt`, the same rows as a tab-separated table; it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
+    
+    - Record written: 2026-09-24T02:41:01Z
+    - Image: localhost/emend-lo:25.2.3-2-deb13u6
+    - Open-check timeout: 300 s
+    - Pairs: 2
+    
+    ## Totals
+    
+    | pairs | lo_in ok | lo_in fail | lo_in error | lo ok | lo fail | lo error |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | 2 | 1 | 1 | 0 | 1 | 1 | 0 |
+    
+    ## Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)
+    
+    - `fixture.notbook`
+    
+    ## Outputs refused on an input LibreOffice accepted (a finding)
+    
+    None.
+    
+    ## Checks that did not run (error)
+    
+    None.
+    
+    ## Pairs
+    
+    | test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `fixture.notbook` | 1402 | 08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91 | 1402 | 08ddb9e2479ebca3600e908af33a3cf9e5a5f3a46e7c68ad638cdb1b9e77ce91 | fail | fail |
+    | `fixture.sound` | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | ok | ok |
+    reason emend-open-check.tlwShq/1/in-reason.txt: stderr holds a line with Error or Warning other than the allowed javaldx line
+    reason emend-open-check.tlwShq/1/out-reason.txt: stderr holds a line with Error or Warning other than the allowed javaldx line
+  S2: exit 0: yes
+  S2: the planted pair reads lo_in fail: yes
+  S2: the planted pair is listed among the refused inputs, and nowhere else: yes
+  S2: no finding: yes
+  S2: no check errored: yes
+  S2: the .txt rows are the keep's files: yes
+
+### S3: an image that is not there
+command: podman image exists localhost/emend-lo-no-such-image:0; podman image exists localhost/emend-lo:25.2.3-2-deb13u6 (the control)
+  S3: the image is not there: yes
+  control: the pinned image is there, through the same command: yes
+command: TMPDIR=<scratch>/w/tmp-s3 scripts/edit-open-check.sh --keep <scratch>/w/keep-s3 --libreoffice localhost/emend-lo-no-such-image:0 --lo-timeout 300 --out <scratch>/w/rec-s3 --stem m1p8-negative-s3
+  exit: 2
+  stdout:
+    fixture.sound	error	error
+    wrote m1p8-negative-s3.md and m1p8-negative-s3.txt: pairs 1; lo_in ok 0 fail 0 error 1; lo ok 0 fail 0 error 1; inputs refused 0; outputs refused on an accepted input 0
+    reasons: <scratch>/w/tmp-s3/emend-open-check.3XrD5U
+  stderr:
+  the record's .txt:
+    test	in_bytes	in_sha256	out_bytes	out_sha256	lo_in	lo
+    fixture.sound	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	1910	d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2	error	error
+  the record's .md:
+    # edit open check m1p8-negative-s3
+    
+    Written by `scripts/edit-open-check.sh` from a keep directory of test fixtures (`specs/0015-open-checks.md`, "The keep"). Each kept pair is cited by test name, byte counts and sha256 only; the files are fictional fixtures and are not committed. The machine-readable companion to this file is `m1p8-negative-s3.txt`, the same rows as a tab-separated table; it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
+    
+    - Record written: 2026-09-24T02:41:09Z
+    - Image: localhost/emend-lo-no-such-image:0
+    - Open-check timeout: 300 s
+    - Pairs: 1
+    
+    ## Totals
+    
+    | pairs | lo_in ok | lo_in fail | lo_in error | lo ok | lo fail | lo error |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | 1 | 0 | 0 | 1 | 0 | 0 | 1 |
+    
+    ## Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)
+    
+    None.
+    
+    ## Outputs refused on an input LibreOffice accepted (a finding)
+    
+    None.
+    
+    ## Checks that did not run (error)
+    
+    - `fixture.sound`
+    
+    ## Pairs
+    
+    | test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `fixture.sound` | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | 1910 | d72f39c105ad1182ed3e6782f29bd3e63e61243f77544c69d70141d0cac4b7d2 | error | error |
+    reason emend-open-check.3XrD5U/1/in-reason.txt: podman could not run the container, exit 125
+    reason emend-open-check.3XrD5U/1/out-reason.txt: podman could not run the container, exit 125
+  S3: exit 2: yes
+  S3: the pair reads error, error: yes
+  S3: the pair is listed among the checks that did not run, and nowhere else: yes
+  S3: both reasons say podman could not run the container: yes
+  S3: the .txt rows are the keep's files: yes
+
+### S4: an empty keep directory
+command: TMPDIR=<scratch>/w/tmp-s4 scripts/edit-open-check.sh --keep <scratch>/w/keep-s4 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --out <scratch>/w/rec-s4 --stem m1p8-negative-s4
+  exit: 2
+  stdout:
+  stderr:
+    error: the keep directory holds no pairs
+  S4: exit 2, no stdout, stderr exactly the refusal: yes
+  S4: no record written: yes
+  S4: no reasons directory made: yes
+  control: the same count finds S1's reasons directory: yes
+
+### S5 and S6: two refusals beyond the four (no container runs)
+command: TMPDIR=<scratch>/w/tmp-s5 scripts/edit-open-check.sh --keep <scratch>/w/keep-s5 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --out <scratch>/w/rec-s5 --stem m1p8-negative-s5
+  exit: 2
+  stdout:
+  stderr:
+    error: the keep directory holds half a pair
+  S5: half a pair: exit 2, no stdout, stderr exactly the refusal: yes
+command: TMPDIR=<scratch>/w/tmp-s6 scripts/edit-open-check.sh --keep <scratch>/w/keep-s1 --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 --lo-timeout 300 --out <scratch>/w/rec-s6 --stem m1p8-negative-s6
+  exit: 2
+  stdout:
+  stderr:
+    error: the record m1p8-negative-s6 is already there
+  S6: a record already there: exit 2, no stdout, stderr exactly the refusal: yes
+  S6: the record already there is untouched (empty): yes
+  control: refused_with says no on S1's run: yes
+
+## family R: the runner's T3 P3 open-check cases, at the phase commit and at the base
+command: git worktree add --detach <build>/base-tree <base>
+  the base worktree was added at the base: yes
+  the base runner defines lo_check inline and has no scripts/lo-check.sh: yes
+  the phase runner defines no lo_check and sources scripts/lo-check.sh: yes
+
+### the phase runner
+command: <the phase runner> --label host --passthrough <build>/target/debug/passthrough --xlsx-diff <build>/target/debug/xlsx-diff --corpus <scratch>/w/corpus --out <scratch>/w/phase/<run> --timeout 120 [--libreoffice localhost/emend-lo:25.2.3-2-deb13u6] [--ids <scratch>/w/ids-healthy], with PATH changes for C8 and C11
+  run-lo: exit 0; stdout lines 7; stderr bytes 0
+  run-nolo: exit 0; stdout lines 7; stderr bytes 0
+  run-extra: exit 0; stdout lines 2; stderr bytes 0
+  run-allowed: exit 0; stdout lines 2; stderr bytes 0
+  run-error: exit 0; stdout lines 2; stderr bytes 0
+  run-badimage: exit 2; stdout lines 0; stderr bytes 40
+  outcome, lo and lo_in per workbook (run-lo):
+    healthy   outcome=ok lo=ok lo_in=ok
+    truncated outcome=error lo=- lo_in=fail
+    noct      outcome=ok lo=fail lo_in=fail
+    ghost     outcome=ok lo=ok lo_in=ok
+    nopart    outcome=ok lo=ok lo_in=ok
+    badxml    outcome=ok lo=ok lo_in=ok
+  [phase] C1: the run exits 0: yes
+  [phase] C1 healthy: lo ok, lo_in ok: yes
+  [phase] C2 truncated: lo_in fail: yes
+  [phase] C2 truncated: the reason is kept in the run subdirectory: yes
+  [phase] C3 noct: lo_in fail: yes
+  [phase] C4 ghost: lo ok and lo_in ok (T3 P3's recorded finding): yes
+  [phase] C5 nopart: lo ok and lo_in ok (the same finding): yes
+  [phase] C6 badxml, as measured: lo=ok lo_in=ok
+  [phase] C7: without --libreoffice the run exits 0 and every row has lo and lo_in "-": yes
+  [phase] C8a: a second Warning line fails the healthy workbook on both sides: yes
+  [phase] C8b: the allowed line repeated still passes: yes
+  [phase] C9: lines with Error, Warning or javaldx in the runner's stdout and stderr: 0 (expect 0): yes
+  [phase] control: the same count finds the container's lines in the stderr file kept in the run directory (2): yes
+  [phase] C11: python3 failing reads error on both sides, not fail: yes
+  [phase] C11: the reason names the count step: yes
+  [phase] C12: exit 2, no stdout, stderr exactly the refusal, no run directory: yes
+
+### the base runner
+command: <the base runner> --label host --passthrough <build>/target/debug/passthrough --xlsx-diff <build>/target/debug/xlsx-diff --corpus <scratch>/w/corpus --out <scratch>/w/base/<run> --timeout 120 [--libreoffice localhost/emend-lo:25.2.3-2-deb13u6] [--ids <scratch>/w/ids-healthy], with PATH changes for C8 and C11
+  run-lo: exit 0; stdout lines 7; stderr bytes 0
+  run-nolo: exit 0; stdout lines 7; stderr bytes 0
+  run-extra: exit 0; stdout lines 2; stderr bytes 0
+  run-allowed: exit 0; stdout lines 2; stderr bytes 0
+  run-error: exit 0; stdout lines 2; stderr bytes 0
+  run-badimage: exit 2; stdout lines 0; stderr bytes 40
+  outcome, lo and lo_in per workbook (run-lo):
+    healthy   outcome=ok lo=ok lo_in=ok
+    truncated outcome=error lo=- lo_in=fail
+    noct      outcome=ok lo=fail lo_in=fail
+    ghost     outcome=ok lo=ok lo_in=ok
+    nopart    outcome=ok lo=ok lo_in=ok
+    badxml    outcome=ok lo=ok lo_in=ok
+  [base] C1: the run exits 0: yes
+  [base] C1 healthy: lo ok, lo_in ok: yes
+  [base] C2 truncated: lo_in fail: yes
+  [base] C2 truncated: the reason is kept in the run subdirectory: yes
+  [base] C3 noct: lo_in fail: yes
+  [base] C4 ghost: lo ok and lo_in ok (T3 P3's recorded finding): yes
+  [base] C5 nopart: lo ok and lo_in ok (the same finding): yes
+  [base] C6 badxml, as measured: lo=ok lo_in=ok
+  [base] C7: without --libreoffice the run exits 0 and every row has lo and lo_in "-": yes
+  [base] C8a: a second Warning line fails the healthy workbook on both sides: yes
+  [base] C8b: the allowed line repeated still passes: yes
+  [base] C9: lines with Error, Warning or javaldx in the runner's stdout and stderr: 0 (expect 0): yes
+  [base] control: the same count finds the container's lines in the stderr file kept in the run directory (2): yes
+  [base] C11: python3 failing reads error on both sides, not fail: yes
+  [base] C11: the reason names the count step: yes
+  [base] C12: exit 2, no stdout, stderr exactly the refusal, no run directory: yes
+
+### the two runners compared
+  runs whose id, outcome, lo and lo_in columns are the same on both runners: 5 of 5
+  every run's id, outcome, lo and lo_in columns are the same on both runners: yes
+  reason files: phase 7, base 7; the same bytes on both: 7
+  both runners kept the same reason files, byte for byte: yes
+  the verdicts compared, as run-lo gave them (id, outcome, lo, lo_in):
+    id	outcome	lo	lo_in
+    d72f39c105ad	ok	ok	ok
+    08ddb9e2479e	error	-	fail
+    4feecc0dd1da	ok	fail	fail
+    03063cc31c62	ok	ok	ok
+    63b1c2b6c46d	ok	ok	ok
+    b39cfeec3992	ok	ok	ok
+  control: the same comparison tells run-lo from run-extra: yes
+  lo and lo_in verdicts the compared runs hold: error fail ok 
+  the compared runs hold ok, fail and error: yes
+  the base worktree is gone from git's list: yes
+
+## the log itself
+  captured outputs: 36; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+status lines: 4; of them this phase's logs, its record pair or planning's uncommitted spec: 4
+  every change in the working tree is this phase's or planning's uncommitted spec: yes
+run ended at 2026-09-24T02:42:18Z
+negative log checks all as expected: yes
