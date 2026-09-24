@@ -5,6 +5,17 @@
 # specs/0006-passthrough.md P3, sourced from scripts/lo-check.sh, and writes
 # the record pair <stem>.md and <stem>.txt into --out.
 #
+# Each side's reason is classed from the reason file's fixed opening words
+# alone, never its text beyond them (P1 verification ruling 3 (b), P2 ruling
+# 1): none (no reason file, ok), refused (LibreOffice loaded nothing: the
+# conversion exited non-zero, a disallowed stderr line, or no ODS), count (the
+# sheet and table counts differ) and error (the check did not run). An opening
+# the map does not know, or a class that does not fit the side's verdict,
+# stops the script with exit 2. A count-class input whose own xl/workbook.xml
+# holds no sheet element (scripts/lo-check.sh's LO_SHEET_PATTERN) is listed
+# as one the sheet count did not apply to; any other count-class input is a
+# finding (P2 ruling 2).
+#
 # The keep directory must hold nothing but pairs: for every <test>.in.xlsx a
 # <test>.out.xlsx and the other way round, <test> made of letters, digits,
 # '_', '.' and '-'. Each pair's input and output are checked, the input as its
@@ -13,15 +24,17 @@
 # for the run and kept; they are never printed. The script prints one line per
 # pair (test, lo_in, lo), a totals line and the reasons directory's path.
 #
-# Exit 0 when no output was refused on an input LibreOffice accepted and no
-# check errored; 1 when an output was so refused (a finding); 2 when any
-# check errored (the check did not run), or on a usage or setup error, which
-# prints one "error: " line and writes no record.
+# Exit 0 when there is no finding and no check errored; 1 when an output was
+# refused on an input LibreOffice accepted, or an input's sheet and table
+# counts differ while its workbook holds sheet elements (a finding); 2 when
+# any check errored (the check did not run), or on a usage or setup error, or
+# on a reason the map does not know, which print one "error: " line and write
+# no record.
 set -uo pipefail
 umask 077
 
 readonly USAGE="usage: scripts/edit-open-check.sh --keep <dir> --libreoffice <image> [--lo-timeout <secs>] --out <records dir> --stem <stem>"
-readonly TXT_HEADER=$'test\tin_bytes\tin_sha256\tout_bytes\tout_sha256\tlo_in\tlo'
+readonly TXT_HEADER=$'test\tin_bytes\tin_sha256\tout_bytes\tout_sha256\tlo_in\tlo\treason_in\treason_out'
 
 die() {
   echo "error: $1" >&2
@@ -86,6 +99,43 @@ verdict() {
   esac
 }
 
+# reason_class <reason file> <verdict>: the class word of one side, read from
+# the reason file's fixed opening words (P2 ruling 1), checked against the
+# side's verdict.
+reason_class() {
+  local file=$1 verdict=$2 first class
+  if [ ! -e "$file" ]; then
+    class=none
+  else
+    IFS= read -r first <"$file" || [ -n "$first" ] || die "cannot read a reason file"
+    case $first in
+      "the conversion exited "* | \
+        "stderr holds a line with Error or Warning other than the allowed javaldx line" | \
+        "no ods file was written") class=refused ;;
+      "the ods holds "*" table elements and the workbook "*" sheet elements") class=count ;;
+      "cannot prepare the conversion directory" | "the conversion timed out after "* | \
+        "podman could not run the container, exit "* | "the conversion was killed, exit status "* | \
+        "the stderr scan failed, grep exit "* | "the stderr allowance scan failed, grep exit "* | \
+        "cannot count sheets and tables" | "cannot read the ods or the workbook part") class=error ;;
+      *) die "an unknown reason" ;;
+    esac
+  fi
+  case $verdict:$class in
+    ok:none | fail:refused | fail:count | error:error) echo "$class" ;;
+    *) die "a reason that does not fit its verdict" ;;
+  esac
+}
+
+# sheet_count <workbook package>: the sheet elements in its xl/workbook.xml,
+# by the library's pattern.
+sheet_count() {
+  LO_SHEET=$LO_SHEET_PATTERN python3 -c '
+import os, re, sys, zipfile
+workbook = zipfile.ZipFile(sys.argv[1]).read("xl/workbook.xml").decode("utf-8", "replace")
+print(len(re.findall(os.environ["LO_SHEET"], workbook)))
+' "$1" 2>/dev/null
+}
+
 rows=$WORK/rows.txt
 : >"$rows" || die "cannot write the rows"
 n=0
@@ -97,12 +147,19 @@ for test in "${tests[@]}"; do
   lo_in=$(verdict $?)
   lo_check "$output" "$WORK/$n/out" "$WORK/$n/out-reason.txt" "$input"
   lo=$(verdict $?)
+  reason_in=$(reason_class "$WORK/$n/in-reason.txt" "$lo_in") || exit 2
+  reason_out=$(reason_class "$WORK/$n/out-reason.txt" "$lo") || exit 2
+  in_sheets=-
+  if [ "$reason_in" = count ]; then
+    in_sheets=$(sheet_count "$input") && [[ "$in_sheets" =~ ^[0-9]+$ ]] || die "cannot count a kept input's sheets"
+  fi
   in_bytes=$(stat -c %s -- "$input") || die "cannot read a kept file's size"
   out_bytes=$(stat -c %s -- "$output") || die "cannot read a kept file's size"
   in_sha=$(sha256sum -- "$input") || die "cannot hash a kept file"
   out_sha=$(sha256sum -- "$output") || die "cannot hash a kept file"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$test" "$in_bytes" "${in_sha%% *}" \
-    "$out_bytes" "${out_sha%% *}" "$lo_in" "$lo" >>"$rows" || die "cannot write the rows"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$test" "$in_bytes" "${in_sha%% *}" \
+    "$out_bytes" "${out_sha%% *}" "$lo_in" "$lo" "$reason_in" "$reason_out" "$in_sheets" >>"$rows" ||
+    die "cannot write the rows"
   printf '%s\t%s\t%s\n' "$test" "$lo_in" "$lo"
 done
 
@@ -111,16 +168,24 @@ summary=$(RECORD_ROWS=$rows RECORD_OUT=$OUT RECORD_STEM=$STEM RECORD_IMAGE=$LO_I
   RECORD_TIMEOUT=$LO_TIMEOUT RECORD_HEADER=$TXT_HEADER python3 -c '
 import datetime, os
 env = os.environ
-rows = [line.rstrip("\n").split("\t") for line in open(env["RECORD_ROWS"])]
+# Each scratch row carries the sheet count of the input after the nine record
+# columns ("-" unless its class is count); the record takes the nine.
+scratch = [line.rstrip("\n").split("\t") for line in open(env["RECORD_ROWS"])]
+rows = [row[:9] for row in scratch]
+in_sheets = {row[0]: row[9] for row in scratch}
 stem, out = env["RECORD_STEM"], env["RECORD_OUT"]
 
 def count(column, value):
     return sum(1 for row in rows if row[column] == value)
 
-refused_inputs = [row[0] for row in rows if row[5] == "fail"]
+CLASSES = ("none", "refused", "count", "error")
+refused_by_lo = [row[0] for row in rows if row[7] == "refused"]
+count_na = [row[0] for row in rows if row[7] == "count" and in_sheets[row[0]] == "0"]
+count_differ = [row[0] for row in rows if row[7] == "count" and in_sheets[row[0]] != "0"]
 refused_outputs = [row[0] for row in rows if row[6] == "fail" and row[5] == "ok"]
 errored = [row[0] for row in rows if "error" in (row[5], row[6])]
 totals = [len(rows)] + [count(5, v) for v in ("ok", "fail", "error")] + [count(6, v) for v in ("ok", "fail", "error")]
+classes = {side: [count(col, c) for c in CLASSES] for side, col in (("reason_in", 7), ("reason_out", 8))}
 
 with open(os.path.join(out, stem + ".txt"), "x") as txt:
     txt.write(env["RECORD_HEADER"] + "\n")
@@ -154,9 +219,22 @@ md.append("| pairs | lo_in ok | lo_in fail | lo_in error | lo ok | lo fail | lo 
 md.append("| --- | --- | --- | --- | --- | --- | --- |")
 md.append("| " + " | ".join(str(t) for t in totals) + " |")
 md.append("")
-md.append("## Inputs LibreOffice refuses (allowed: a fixture that is not a workbook)")
+md.append("| side | none | refused | count | error |")
+md.append("| --- | --- | --- | --- | --- |")
+for side in ("reason_in", "reason_out"):
+    md.append("| %s | " % side + " | ".join(str(v) for v in classes[side]) + " |")
 md.append("")
-md.append(listed(refused_inputs))
+md.append("## Inputs refused by LibreOffice (allowed: a zip-level fixture)")
+md.append("")
+md.append(listed(refused_by_lo))
+md.append("")
+md.append("## Inputs the sheet count did not apply to (allowed: a workbook fixture with no sheet element)")
+md.append("")
+md.append(listed(count_na))
+md.append("")
+md.append("## Inputs whose sheet and table counts differ (a finding)")
+md.append("")
+md.append(listed(count_differ))
 md.append("")
 md.append("## Outputs refused on an input LibreOffice accepted (a finding)")
 md.append("")
@@ -168,23 +246,23 @@ md.append(listed(errored))
 md.append("")
 md.append("## Pairs")
 md.append("")
-md.append("| test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo |")
-md.append("| --- | --- | --- | --- | --- | --- | --- |")
+md.append("| test | in bytes | in sha256 | out bytes | out sha256 | lo_in | lo | reason_in | reason_out |")
+md.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 for row in rows:
-    md.append("| `%s` | %s | %s | %s | %s | %s | %s |" % tuple(row))
+    md.append("| `%s` | %s | %s | %s | %s | %s | %s | %s | %s |" % tuple(row))
 with open(os.path.join(out, stem + ".md"), "x") as f:
     f.write("\n".join(md) + "\n")
-print("%d %d %d" % (len(refused_outputs), len(errored), len(refused_inputs)))
+print("%d %d %d %d %d" % (len(refused_outputs) + len(count_differ), len(errored), len(refused_by_lo), len(count_na), len(count_differ)))
 print("pairs %d; lo_in ok %d fail %d error %d; lo ok %d fail %d error %d" % tuple(totals))
 ') || die "cannot write the record"
 
-{ read -r n_refused n_errored n_inputs; read -r totals; } <<<"$summary"
-echo "wrote $STEM.md and $STEM.txt: $totals; inputs refused $n_inputs; outputs refused on an accepted input $n_refused"
+{ read -r n_findings n_errored n_inputs n_na n_differ; read -r totals; } <<<"$summary"
+echo "wrote $STEM.md and $STEM.txt: $totals; inputs refused by LibreOffice $n_inputs; the sheet count did not apply $n_na; counts differ $n_differ; findings $n_findings"
 echo "reasons: $WORK"
 if [ "$n_errored" -gt 0 ]; then
   exit 2
 fi
-if [ "$n_refused" -gt 0 ]; then
+if [ "$n_findings" -gt 0 ]; then
   exit 1
 fi
 exit 0

@@ -12,6 +12,15 @@ readonly LO_GREP=/usr/bin/grep
 # stderr. Planning ruled on 2026-09-15 that it is the only allowed line holding
 # Error or Warning, matched whole (records/libreoffice-2026-09-15.md).
 readonly LO_ALLOWED_STDERR='Warning: failed to launch javaldx - java may not function correctly'
+# The sheet elements of xl/workbook.xml, as a Python regular expression: a
+# sheet element with any namespace prefix or none, followed by whitespace, a
+# slash or the tag's end. <sheets> and <sheetData do not match. P1
+# verification ruling 3 (a) amended T3 P3's definition, which matched only an
+# unprefixed <sheet, so a prefixed workbook counted 0. A sheet element of a
+# foreign namespace would count too; no corpus file or fixture has one, and
+# the check is a count, not a schema (P2 ruling 4). scripts/edit-open-check.sh
+# counts a kept input's sheets with this same pattern.
+readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 
 # lo_check <file> <work dir> <reason file> <reference workbook>: the open check
 # of specs/0006-passthrough.md P3. The file's directory is mounted read-only as
@@ -92,7 +101,7 @@ lo_check() {
     printf 'no ods file was written\n' >"$reason"
     return 1
   fi
-  counts=$(LO_REFERENCE=$reference LO_ODS=$ods python3 -c '
+  counts=$(LO_REFERENCE=$reference LO_ODS=$ods LO_SHEET=$LO_SHEET_PATTERN python3 -c '
 import os, re, sys, zipfile
 try:
     workbook = zipfile.ZipFile(os.environ["LO_REFERENCE"]).read("xl/workbook.xml").decode("utf-8", "replace")
@@ -101,9 +110,10 @@ except Exception as err:
     sys.stdout.write("error %s" % type(err).__name__)
 else:
     # Tolerant of any whitespace after the name, and of a tag closed straight
-    # away: <sheet\n, <sheet\t, <sheet/> and <sheet> all count, while <sheets>
-    # and <sheetData do not, and <table:table-row and <table:table-cell do not.
-    sheet = r"<sheet(?=[\s/>])"
+    # away: <sheet\n, <sheet\t, <sheet/> and <sheet> all count, with any prefix
+    # (LO_SHEET_PATTERN), while <sheets> and <sheetData do not, and
+    # <table:table-row and <table:table-cell do not.
+    sheet = os.environ["LO_SHEET"]
     table = r"<table:table(?=[\s/>])"
     sys.stdout.write("%d %d" % (len(re.findall(sheet, workbook)), len(re.findall(table, content))))
 ') || { printf 'cannot count sheets and tables\n' >"$reason"; return 2; }
