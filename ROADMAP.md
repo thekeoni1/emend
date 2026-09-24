@@ -137,7 +137,7 @@ run against scratch clones; run whenever a gate file changes.
   (T0 P6) and needs planning's word plus the maintainer's authorisation
   in the implementing session. Commit messages carry no session links.
 
-## Milestone 1: greenfield core (parts 1 to 8 DONE and PUSHED; acceptance waits on the Excel check)
+## Milestone 1: greenfield core (parts 1 to 8 DONE and PUSHED; PROVISIONALLY ACCEPTED 2026-09-24 on Excel check 1, confirmed by Excel check 2)
 
 Outline approved as a proposal by the maintainer on 2026-09-14. Each
 part is scoped into phases, with its own spec, before work on it starts.
@@ -358,13 +358,31 @@ and before the list is regenerated for the Excel check: the
 record's "refused by LibreOffice" heading names a fixture
 LibreOffice cannot load (zip-level, or no relationships part, or
 an empty content-types root); the list script sets umask 077 and
-catches IndexError.
+catches IndexError. From Excel check 1 (`specs/0015`, "Planning
+rulings on the Excel check", 2026-09-24): the list carries an
+input row per fixture pair and the outputs of a style-sample
+corpus run; the template carries the automated fixture procedure
+(a committed PowerShell script driving Excel through COM, alerts
+on, read-only) and an input column; `specs/0012`'s limits state
+the styles-part precondition (font, fill, border and cell-style
+collections present). Excel check 2 runs on that list and its
+filled record is retained.
+
+Excel check 1 (2026-09-24, `records/excel-check-m1-2026-09-24.md`,
+PROVISIONAL): 27 of 27 corpus rows pass with their values (7
+measured, 20 reported by the maintainer, filled record not
+retained); fixtures 80 pass and 58 refused outright, the inputs
+opened too: 76 pass/pass, 54 refused/refused (allowed), 4
+refused/pass (explained), 4 pass/refused (ruled the fixtures'
+styles-part precondition, not a defect). Excel refuses skeletal
+fixtures LibreOffice tolerates; the fixture rule is now
+LibreOffice's.
 
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | the keep in `testing.rs`, `written`, the cells test and the tool's helper; `scripts/lo-check.sh` sourced by the runner; `scripts/edit-open-check.sh`; the keep tests; the negative log with the runner's T3 P3 cases rerun; the run log's keeps on both targets compared and the first record `records/m1p8-open-<date>-<sha>.md` and `.txt` | DONE 2026-09-23 (e2b8a81, records 50d2c4a, local; eight P1 rulings, two of them mid-phase on the tool fixtures; verified by planning from primaries, its own gate, tests on both targets, privacy scan, its own keep run reproducing every kept pair's hashes and its own LibreOffice pass agreeing on all 149 pairs; record `records/m1p8-open-2026-09-24-e2b8a81.md` and `.txt`: 149 pairs, 13 inputs refused, none on an accepted input; finding F3: five crate fixtures failed only the sheet count, fixed in P2; `specs/0015` "Planning verification and rulings on P1") |
 | P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
-| Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit and record commit local, go with the next push) |
+| Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit f6c2dba and record commit 065f3e4 local, verified by planning, go with the next push) |
 
 ## Milestone 2: openpyxl's editing surface (PROPOSED 2026-09-23)
 

@@ -640,6 +640,100 @@ assert, and they agree with planning's own reading of the range.
    close-out phase says. Report and STOP. Part 8 is DONE and
    PUSHED; Milestone 1's acceptance waits on the Excel check.
 
+## Planning rulings on the Excel check (2026-09-24)
+
+Facts, from the maintainer's run on the desktop machine and the
+result files planning read: the 27 corpus rows were opened by hand
+from the file-open dialog; the 138 fixture outputs were opened by
+a PowerShell script driving desktop Excel through COM, alerts on,
+read-only, closed without saving, each refusal recorded with
+Excel's error text; the same script then opened the 138 fixture
+inputs, which planning staged from the keep. Outputs: 80 pass, 58
+refused, each with the one generic error, and a second run refused
+the same files. Inputs against outputs: 76 pass/pass, 54
+refused/refused, 4 refused/pass, 4 pass/refused. Planning's
+structural reading of the 276 files explains every refusal it
+looked into: a cell whose `s` is 1 or more in a styles part with
+no font collection, or with no styles part at all (62 sides); a
+worksheet part with no `worksheet` root; an empty `bookViews`; a
+shared-string cell with no shared strings part; a calculation chain
+naming a cell with no formula; a relationship whose target is no
+entry; and the tool's counting fixtures, built to exercise the
+survey, not to be workbooks.
+
+1. The automated open is accepted as the fixture procedure and the
+   record says so: Excel through COM with alerts on, so a repair
+   prompt would have stopped the run, read-only, never saved. The
+   corpus rows stay by hand from the dialog. The template gains the
+   procedure and an input column in the phase ruling 8 names.
+2. Decision 4 assumed LibreOffice's acceptance predicts Excel's. It
+   does not: Excel refuses skeletal fixtures LibreOffice tolerates.
+   The Excel check's rule for fixtures is therefore LibreOffice's
+   (P1 verification ruling 3): an input Excel refuses is allowed and
+   listed with its output's result; an output refused on an input
+   Excel accepted is a finding. The list carries an input row for
+   every fixture pair from now on, and the record an input result
+   beside the output's.
+3. The 54 pairs refused on both sides are allowed under ruling 2:
+   the fixture's own shape, unchanged by the edit, is what Excel
+   refuses. 25 of the tool's 26 pairs are among them.
+4. The 4 outputs refused on an accepted input, each read by
+   planning against its input:
+   (a) `several_edits_to_one_part_apply_together.1`: the test's own
+   relationship edits leave targets that are no entry. The fixture.
+   (b) `an_index_at_the_count_plus_additions_is_refused_and_below_
+   it_accepted.1`: emend's added `xf` names font 0, fill 0, border
+   0 and cell style 0, which the fixture's styles part does not
+   hold. (c) `a_formula_and_a_style_edit_on_one_cell_both_apply.1`
+   and (d) `a_style_edit_alone_on_an_absent_cell_writes_it_or_
+   nothing.1`: the edit gives a cell an `s` of 1 or more in a
+   styles part of bare `xf` entries and no font collection, the
+   shape Excel refuses in 62 sides here; the inputs referenced style
+   0 or nothing. None is a defect against a workbook Excel or
+   LibreOffice wrote, which always carries those collections; each
+   is the same precondition, stated nowhere. Ruling: the
+   precondition goes into `specs/0012`'s limits with Milestone 2
+   part 2 (fuller styles), where the styles part is next touched:
+   a style edit assumes the styles part carries the font, fill,
+   border and cell-style collections and `cellXfs` entries that
+   name them. The fixtures stay as they are; they test the layer.
+5. The 4 inputs refused whose outputs Excel accepted are explained
+   and recorded, no action: two shared-string cells with no shared
+   strings part, which the edit replaced; one `s="1"` with no styles
+   part, which the edit dropped; one calculation chain naming a
+   cell with no formula, which the recipe dropped.
+6. A gap this check shows: the corpus list holds part 6's
+   formula-sample outputs, so Excel has not opened a corpus output
+   of part 4's style sample, the one edit that adds an `xf`. The
+   next Excel list includes a style-sample corpus run's outputs.
+7. Milestone 1's acceptance reads, for the fixtures, as ruling 2
+   says; for the corpus, as the template says. Planning recommends
+   acceptance once the filled record shows every corpus row pass
+   with its values, since the fixture findings are all ruled here.
+   The maintainer decides.
+8. The record: planning merges the three result files the
+   maintainer brought back (the record with the corpus rows, the
+   fixture output results with Excel's error text, the input
+   results) into `records/excel-check-m1-2026-09-24.md`, checks
+   every hash against the run directory and the keep, and the
+   implementing session commits it with a scan as one record
+   commit; the ruling's list-script, template and `specs/0012`
+   changes are carried with P2 verification ruling 6's items.
+
+9. The maintainer chose (2026-09-24) not to retain the filled
+   record: 7 corpus rows were pasted to planning with their values
+   and are recorded as measured; the other 20 the maintainer
+   reported to planning as pass with the expected values, and the
+   record marks them so. The fixture results are measured in full
+   from the two result files. Milestone 1 is PROVISIONALLY accepted
+   on this record, `records/excel-check-m1-2026-09-24.md`, which
+   planning assembles and the implementing session commits with a
+   scan. Excel check 2, on a list with input rows and a
+   style-sample corpus run's outputs, after the carried fixes, is
+   the one that confirms it; its filled record is retained. Any
+   README sentence about Excel cites check 1 as provisional until
+   then.
+
 ## Out of scope
 
 - Any core crate change; the size record.
