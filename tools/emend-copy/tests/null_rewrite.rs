@@ -737,6 +737,19 @@ const TYPES_NS: &str = "http://schemas.openxmlformats.org/package/2006/content-t
 const RELS_NS: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
 const MAIN_NS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const ATTR_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+/// The Office Open XML content types the package fixtures declare. Made-up
+/// types left LibreOffice unable to load any fixture, so the open check saw
+/// none of the tool's edits (`specs/0015-open-checks.md`, P1 ruling 7).
+const RELS_TYPE: &str = "application/vnd.openxmlformats-package.relationships+xml";
+const WORKBOOK_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
+const SHEET_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
+const STRINGS_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml";
+const STYLES_TYPE: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml";
+const CHAIN_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml";
 
 /// The smallest package the survey can count, plus one untyped entry and one
 /// external relationship so that every key it prints has something to count.
@@ -750,10 +763,10 @@ fn package_specs_with(extra: &str) -> Vec<Spec> {
     let content_types = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
          <Types xmlns=\"{TYPES_NS}\">\
-         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"rels\" ContentType=\"{RELS_TYPE}\"/>\
          <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
-         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{SHEET_TYPE}\"/>\
          {extra}</Types>"
     );
     let package_rels = format!(
@@ -887,11 +900,11 @@ fn package_specs_with_a_chain() -> Vec<Spec> {
     let content_types = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
          <Types xmlns=\"{TYPES_NS}\">\
-         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"rels\" ContentType=\"{RELS_TYPE}\"/>\
          <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
-         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
-         <Override PartName=\"/xl/calcChain.xml\" ContentType=\"application/chain\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{SHEET_TYPE}\"/>\
+         <Override PartName=\"/xl/calcChain.xml\" ContentType=\"{CHAIN_TYPE}\"/>\
          </Types>"
     );
     let workbook_rels = format!(
@@ -968,10 +981,10 @@ fn the_recipe_drops_the_chain_and_leaves_every_other_entry_alone() {
     let types_expected = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
          <Types xmlns=\"{TYPES_NS}\">\
-         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"rels\" ContentType=\"{RELS_TYPE}\"/>\
          <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
-         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{SHEET_TYPE}\"/>\
          </Types>"
     );
     let rels_expected = format!(
@@ -1056,12 +1069,12 @@ fn shared_strings_specs() -> Vec<Spec> {
     let content_types = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
          <Types xmlns=\"{TYPES_NS}\">\
-         <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+         <Default Extension=\"rels\" ContentType=\"{RELS_TYPE}\"/>\
          <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
-         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/sheet\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
+         <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"{SHEET_TYPE}\"/>\
          <Override PartName=\"/xl/sharedStrings.xml\" \
-         ContentType=\"application/sharedStrings\"/>\
+         ContentType=\"{STRINGS_TYPE}\"/>\
          </Types>"
     );
     let package_rels = format!(
@@ -2017,14 +2030,14 @@ fn styled_specs(sheet_data: &str, styles: &str) -> Vec<Spec> {
             let types = format!(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
                  <Types xmlns=\"{TYPES_NS}\">\
-                 <Default Extension=\"rels\" ContentType=\"application/rels\"/>\
+                 <Default Extension=\"rels\" ContentType=\"{RELS_TYPE}\"/>\
                  <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-                 <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/workbook\"/>\
+                 <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>\
                  <Override PartName=\"/xl/worksheets/sheet1.xml\" \
-                 ContentType=\"application/sheet\"/>\
+                 ContentType=\"{SHEET_TYPE}\"/>\
                  <Override PartName=\"/xl/sharedStrings.xml\" \
-                 ContentType=\"application/sharedStrings\"/>\
-                 <Override PartName=\"/xl/styles.xml\" ContentType=\"application/styles\"/>\
+                 ContentType=\"{STRINGS_TYPE}\"/>\
+                 <Override PartName=\"/xl/styles.xml\" ContentType=\"{STYLES_TYPE}\"/>\
                  </Types>"
             );
             *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
