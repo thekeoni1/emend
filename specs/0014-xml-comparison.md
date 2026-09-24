@@ -453,6 +453,97 @@ Rulings:
    6's fixtures, the record script and the corpus run as "### P2"
    and the amended "Harness runs" say.
 
+## Planning verification and rulings on P2 (2026-09-23)
+
+Verified from primaries at the record commit a39c3cd (phase commit
+ea37ad7): the five commits and their diffs; the doc commit's two
+blobs at the hashes planning sent (spec 56db12e0..., `ROADMAP.md`
+7ba4353b...); every hash the report cites against the committed
+files; planning's own gate (nine PASS), workspace tests on both
+targets (510 passed, 2 ignored, p7 17 on each), clippy, and privacy
+scan over the five commits (491 blobs, 0 findings); planning's own
+comparison over the run directory: on both labels the tool's `xml`
+and `archive` rows agree with planning's derivation on all 27
+workbooks (19 with an A, 8 with no row), the run directory's diff
+file equals the stdout of planning's own P1 build of the tool on
+every workbook, host and i686 diff files are byte-identical, and
+every output is byte-identical to part 6 P3's; planning's own read
+of the record pair: the entry table is byte-identical to part 6
+P3's (1740 rows), the `.txt`'s third table holds exactly the 524
+`xml` rows of the diff files (as a multiset), and planning's own
+tally by family reproduces every row of both `.md` tables (44, 0,
+0, 0, 104, 146 in total; content-types 6 and 0, rels 9 and 0,
+workbook 0 and 19, worksheet 89 and 127 one-sided). Nothing is
+pushed: main is eleven commits ahead of origin/main, the first of
+them 03669ca. No API key is set in planning's environment.
+
+Rulings:
+
+1. The doc commit 4cb3c6a is as ruling 8 asked. The three code
+   commits do what "### P2" and ruling 6 say: bacffa3 the two
+   fixtures and the "UTF-8 only" Limits line; 04ba408 the third
+   table, the `.md` table per label and the read filter (rows with
+   outcome `ok` and diff exit 0 or 1, the only rows whose diff file
+   is the tool's); ea37ad7 a two-line refusal of a repeated `xml`
+   archive row, a defect the negative log found in 04ba408 and B3m
+   now measures. Accepted, including the filter and the refusal.
+2. F2: the record script's "existing test pattern" is the negative
+   log's family B, as T3 P1 and part 1 P2 tested it; B1 compares
+   the `.txt`'s third table and both `.md` tables with a derivation
+   over fixture diff files, content included. The spec's wording is
+   satisfied.
+3. F1 and G1 (no row-order check in the record script): the spec
+   asks for none; the tool's row order is P1's tested behaviour,
+   and a diff file not of the tool's making stops the script with a
+   nonzero exit, so no record is written from one. No change.
+   Noted in the passthrough backlog of `ROADMAP.md` ("Unscoped").
+4. G3 (five superseded hashes typed in rerun lines, not printed by
+   a command): a gap, accepted as recorded. The files are outside
+   the repository, committed nowhere, and planning did not find
+   them on disk; the typed hashes stand as the pointers they are,
+   and a rerun to print them would only add a further attempt. From
+   part 8: a rerun line names only hashes the command under it
+   prints, or marks a hash "typed from the predecessor's rerun
+   line".
+5. G4 (the run log's `.txt` check counts rows, its `.md` check
+   compares the total row only): accepted for P2, since planning's
+   own read above compared the content and every family row. From
+   part 8: the run log's record check compares the third table's
+   content and each family row, as B1 does on fixtures.
+6. G5 (stale script comments and one stale printed line in
+   test.log; header items 9 before 8 in run.log): accepted as
+   recorded; no rerun for text alone.
+7. G6: sourcing the committed `scripts/counting.sh` from the main
+   tree and running a `git show` copy of the record script are
+   within P1 ruling 2, which meant that nothing in the main tree is
+   executed as the thing under test; the gate's status check shows
+   the tree held nothing but the phase's own files. The root line's
+   "nothing in it is run" is wrong as worded; from part 8 it says
+   "sourced" where a library is sourced.
+8. G7: "keeping the last" in ea37ad7's message is a reading of the
+   code (a later assignment to the same key), not a measurement,
+   and with equal values it cannot be one. Accepted as stated;
+   B3m prints the acceptance, which is the claim that mattered.
+9. G8: the failed rerun attempt's empty test.log is named as empty,
+   which is why it has no hash worth printing; its stderr is
+   hashed. Accepted.
+10. G2 and G9 to G14 (report statements not printed by a primary):
+    each was confirmed by planning from primaries on disk (the read
+    filter from the diff; the run directory listing; origin/main;
+    the outputs' identity). Accepted as the report's inferences,
+    marked as such.
+11. The record pair is named by the UTC date the run ran on
+    (2026-09-24), one day after the phase's other dates; the stem
+    rule in "### P2" is followed. `ROADMAP.md` cites both.
+12. P2 is DONE and part 7's work is complete. The close-out is
+    READY: planning's word for the push is given here; it carries
+    03669ca and part 7's ten commits, on the maintainer's
+    authorisation typed in the implementing session, as "Close-out
+    push (after P2)" says, with the record commit after the push,
+    the scan rerun last and the `ANTHROPIC_API_KEY` check. The
+    close-out doc commit carries this spec and `ROADMAP.md`
+    unedited, at the hashes planning sends.
+
 ## Out of scope
 
 - Comparing values in the clear, or printing any value, hash or
