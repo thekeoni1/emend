@@ -1,0 +1,774 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/excel1/m1excel1-scan.sh records/excel-check-m1-2026-09-24.md a49f2d38130e03921dd101cb39c5de555b7c761a
+about: M1 Excel check 1 record scan over records/excel-check-m1-2026-09-24.md and the doc commit a49f2d38130e03921dd101cb39c5de555b7c761a; HEAD at run: a49f2d38130e03921dd101cb39c5de555b7c761a
+the doc commit given is HEAD: yes
+control: the same form refuses a commit that is not HEAD: yes
+control: the same form refuses a short sha of the real commit: yes
+phase: Milestone 1 Excel check 1 (specs/0015-open-checks.md "Planning rulings on the Excel check (2026-09-24)", ruling 8) scan.log; run at 2026-09-24T22:22:15Z
+ANTHROPIC_API_KEY is unset in this shell (set: no): yes
+root: <scratch> stands for this session's scratch directory; this script is in <scratch>/excel1
+temporary files live in a mktemp -d directory and are deleted on exit
+
+## the three shape greps over this script's own source, before it is printed
+  control f_shape on a fixture holding the chained form count=1 expected=1: as-expected
+  control f_bang on a fixture holding the leading-bang form count=1 expected=1: as-expected
+  control f_assign on a fixture holding the assignment-prefix form count=1 expected=1: as-expected
+  this script's source: chained=0 leading-bang=0 assignment=0
+this script's own source holds none of the three shapes: yes
+  pre-P6d forms over this script's source: count=0
+this script's own source writes no bare shape: yes
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 1 Excel check 1 scan.log (specs/0015-open-checks.md "Planning
+    # rulings on the Excel check (2026-09-24)", ruling 8, and planning's
+    # instruction: "a scan log under records/logs/m1-excel-check-1/ run last over
+    # that file (the three shape greps do not apply to a record with no script;
+    # the privacy scan and the path check do; the record names no path, no
+    # reference and no value beyond 42, 2 and 5)").
+    #
+    # Usage: m1excel1-scan.sh <record> <doc commit> > <scratch file>
+    #   <record>     records/excel-check-m1-2026-09-24.md, untracked at run time;
+    #                the record commit that holds it and this log follows.
+    #   <doc commit> the doc commit holding planning's rulings (full sha, HEAD).
+    # The caller moves the output to records/logs/m1-excel-check-1/scan.log.
+    #
+    # WRITTEN FROM M1 part 8 P2's scan script (printed in
+    # records/logs/m1p8-p2/scan.log): the nine forms, the pre-P6d forms, their
+    # controls and the denylist reading are carried verbatim, the forms' comments
+    # shortened to what they do. What is new: the scope (one record file, the doc
+    # commit's two files and message, and the local range origin/main..HEAD
+    # through scripts/privacy.sh), a value check on the record's three seen
+    # columns, a path check with a planted control, and the status lines printed.
+    # The three shape greps run over this script's own source only, before it is
+    # printed (specs/0015 close-out ruling 5 applies the rule to push and ci-run
+    # scripts; a scan script already carries it).
+    # Never prints matched text, an email address, a denylist entry or a pattern.
+    set -uo pipefail
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    . scripts/counting.sh
+    
+    REC=${1:?the record is required}
+    C=${2:?the doc commit is required}
+    WANT_REC=4b88b98a434c3ae531215639a45741671fec3e05624fcd975d1efed23f941126
+    WANT_SPEC=04a6fac816ce1faad7deb4ec56914a1abf4744777e1aee9633d558bfffb38021
+    WANT_ROAD=6dabdc0fcf0d9969e283bafa234f8f5756180612347b112d8d0520855bdaedca
+    DOC_SUBJECT='M1: commit planning docs (the Excel check rulings, Milestone 1 provisional acceptance)'
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>'
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() { printf '%s' "$1" | LC_ALL=C /usr/bin/grep -qE '^[0-9a-f]{40}$'; }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    not_head() { if is_head "$1"; then return 1; else return 0; fi; }
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    
+    P6=()
+    while IFS= read -r line; do P6+=("$line"); done < scripts/privacy-patterns.txt
+    printf '%s\n' "${P6[@]}" >"$T/p6-patterns"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    [ -n "$PRE_COMMIT" ] || { echo "cannot find the P6d narrowing commit" >&2; exit 2; }
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$T/pre-all" ||
+      { echo "cannot read the pre-P6d patterns" >&2; exit 2; }
+    sed -n '8p'  "$T/pre-all" >"$T/pre1"
+    sed -n '10p' "$T/pre-all" >"$T/pre2"
+    sed -n '11p' "$T/pre-all" >"$T/pre3"
+    cat "$T/pre1" "$T/pre2" "$T/pre3" >"$T/pre-patterns"
+    printf '%s\n%s\n' "$HOST" "$FQDN" | sort -u >"$T/host-patterns"
+    CORPUS_DIR=emend-testing
+    # The exemption is a whole path SEGMENT, not a prefix: a directory beside the
+    # corpus whose name merely begins with the corpus name is a leak like any
+    # other, and a control asserts that. The boundary is "not a filename
+    # character" rather than "a slash or the end of the line", because the two
+    # committed mentions are followed by a backtick and by a full stop, and a
+    # boundary of slash-or-end would have failed the scan on ROADMAP.md while
+    # still exempting the sibling directory. That needs the exemption as a regex,
+    # the one pattern here built with -E, so the home directory must contain no
+    # ERE metacharacter. Rather than escape it and hope, the run refuses to
+    # proceed if it does: an unescaped metacharacter would silently widen the
+    # exemption, which is the one direction this form must not fail in.
+    case $HOME in
+      *[][.^\$*+?\(\)\{\}\|\\]*)
+        echo "the home directory holds a regex metacharacter; f_home would" >&2
+        echo "  widen its exemption silently. Stopping rather than guessing." >&2
+        exit 2 ;;
+    esac
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_emdash()   { count_matches -F "$EMDASH" "$1"; }
+    f_session()  { count_matches -E '^Claude-Session:' "$1"; }
+    f_p6()       { count_from_file -E "$T/p6-patterns" "$1"; }
+    f_pre()      { count_from_file -E "$T/pre-patterns" "$1"; }
+    f_pre1()     { count_from_file -E "$T/pre1" "$1"; }
+    f_pre2()     { count_from_file -E "$T/pre2" "$1"; }
+    f_pre3()     { count_from_file -E "$T/pre3" "$1"; }
+    f_host()     { count_from_file -F "$T/host-patterns" "$1"; }
+    # f_home: occurrences of this machine's home directory, less the one
+    # documented corpus directory as a whole path segment (part 2 P3's form).
+    f_home() {
+      local out rc all corpus
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/[-A-Za-z0-9._]" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      all=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/$CORPUS_DIR([^-A-Za-z0-9._]|\$)" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      corpus=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      printf '%s' "$((all - corpus))"
+    }
+    f_deny()     { count_from_file -F "$T/deny" "$1"; }
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      if [ "$rc" -eq 1 ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0 }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_home f_host f_deny f_email"
+    
+    run() {
+      local n
+      n=$("$1" "$2")
+      echo "  form=$1 count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    }
+    check_ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    # bad COUNTS the failing structural checks (independent check 1 F7: it was a
+    # 0/1 flag printed as a count); the verdict still reads it as "0 or not".
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=$((bad + 1)); }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    # The seen columns (9 to 11 of a results row split on "|") hold only these.
+    # bad_values <file>: result rows whose seen cells, result or input are outside
+    # the allowed sets; prints a count, never a cell.
+    bad_values() {
+      awk -F'|' '
+        /^\| (corpus|fixture) \|/ {
+          for (i = 9; i <= 11; i++) {
+            v = $i; gsub(/^ +| +$/, "", v)
+            if (v != "" && v != "42" && v != "2" && v != "5" && v != "42 (reported)" && v != "2 (reported)" && v != "5 (reported)") n++
+          }
+          r = $7; gsub(/ /, "", r); if (r != "pass" && r != "fail") n++
+          p = $8; gsub(/ /, "", p); if (p != "-" && p != "pass" && p != "fail") n++
+        }
+        END { print n + 0 }' "$1" 2>/dev/null || printf 'error'
+    }
+    # rows_of <file> <source>: results rows of that source.
+    rows_of() { count_matches -E "^[|] $2 [|]" "$1"; }
+    PATH_RE='(/home/|/mnt/|/Users/|/tmp/|emend-testing|[A-Za-z]:[\\])'
+    f_path() { count_matches -E "$PATH_RE" "$1"; }
+    is_zero() { [ "$1" != error ] && [ "$1" = 0 ]; }
+    equals() { [ "$1" != error ] && [ "$1" = "$2" ]; }
+    # rows_as_listed <corpus> <fixture>: the record's row counts.
+    rows_as_listed() { equals "$1" 27 && equals "$2" 138; }
+    # summary_ok <commits>: privacy.sh's summary names that many commits, 0 findings.
+    summary_ok() { equals "$(count_matches -E "^privacy: $1 commit[(]s[)], [0-9]+ blob[(]s[)] scanned, 0 finding[(]s[)]$" "$T/pverr")" 1; }
+    # only_record: git status shows exactly the untracked record.
+    only_record() {
+      git status --porcelain >"$T/st" 2>/dev/null || return 1
+      printf '?? %s\n' "$REC" >"$T/st-want"
+      cmp -s "$T/st" "$T/st-want"
+    }
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scratch>/excel1/$(basename "$0") $REC $C"
+    echo "about: M1 Excel check 1 record scan over $REC and the doc commit $C; HEAD at run: $HEAD_SHA"
+    structural "the doc commit given is HEAD" "$(yn is_head "$C")"
+    structural "control: the same form refuses a commit that is not HEAD" "$(yn not_head "$NULL_SHA")"
+    structural "control: the same form refuses a short sha of the real commit" "$(yn not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo "phase: Milestone 1 Excel check 1 (specs/0015-open-checks.md \"Planning rulings on the Excel check (2026-09-24)\", ruling 8) scan.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    KSET=$([ -n "${ANTHROPIC_API_KEY+set}" ] && echo yes || echo no)
+    structural "ANTHROPIC_API_KEY is unset in this shell (set: $KSET)" "$(yn [ "$KSET" = no ])"
+    echo "root: <scratch> stands for this session's scratch directory; this script is in <scratch>/excel1"
+    echo "temporary files live in a mktemp -d directory and are deleted on exit"
+    
+    echo
+    echo "## the three shape greps over this script's own source, before it is printed"
+    SHAPE='[$][(](yn|is|isnot) .*(&&|[|][|])'
+    BANG='[$][(](yn|is|isnot) [!]'
+    ASSIGN='[$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*='
+    f_shape() { count_matches -E "$SHAPE" "$1"; }
+    f_bang() { count_matches -E "$BANG" "$1"; }
+    f_assign() { count_matches -E "$ASSIGN" "$1"; }
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$T/g-shape"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$T/g-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$T/g-assign"
+    check_ctl "f_shape on a fixture holding the chained form" 1 f_shape "$T/g-shape"
+    check_ctl "f_bang on a fixture holding the leading-bang form" 1 f_bang "$T/g-bang"
+    check_ctl "f_assign on a fixture holding the assignment-prefix form" 1 f_assign "$T/g-assign"
+    s=$(f_shape "$0"); b=$(f_bang "$0"); a=$(f_assign "$0")
+    echo "  this script's source: chained=$s leading-bang=$b assignment=$a"
+    shapes_clean() { is_zero "$s" && is_zero "$b" && is_zero "$a"; }
+    structural "this script's own source holds none of the three shapes" "$(yn shapes_clean)"
+    n=$(f_pre "$0")
+    echo "  pre-P6d forms over this script's source: count=$n"
+    structural "this script's own source writes no bare shape" "$(yn is_zero "$n")"
+    
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources (sourced: scripts/counting.sh)"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    structural "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## the denylist, entries counted and never printed"
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE")"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >"$T/deny"
+    NDENY=$(count_lines "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    denylist_usable() { [ "$NDENY" != error ] && [ "$NDENY" -gt 0 ]; }
+    structural "the denylist is readable and not empty" "$(yn denylist_usable)"
+    # The read and the comparison are two statements, not one and-chain: a failed
+    # git show used to skip this check instead of failing it (independent check 1
+    # of M1 part 2 P1, which is where the finding was made). patterns_match is
+    # one function returning yes or no, and it reports no when the file cannot
+    # be read.
+    patterns_match() {
+      git show "$C:scripts/privacy-patterns.txt" >"$T/patterns-at-c" 2>/dev/null || return 1
+      cmp -s "$T/p6-patterns" "$T/patterns-at-c"
+    }
+    structural "this script's patterns equal scripts/privacy-patterns.txt at $C" \
+      "$(yn patterns_match)"
+    echo "command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1"
+    echo "  the narrowing commit resolves to $PRE_COMMIT; the pre-P6d patterns are read from its parent"
+    structural "the three pre-P6d forms were read from git, not typed (lines read: $(count_lines "$T/pre-patterns"))" \
+      "$(yn [ "$(count_lines "$T/pre-patterns")" = 3 ])"
+    
+    echo "## controls (the same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' >"$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$T/c-ctrl"
+    printf 'plain\ttab\r\n' >"$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" >"$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' >"$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$T/c-p6"
+    printf 'x %s%s%s%s y\n' '/mnt/' 'c/' 'Users/' 'bob' >"$T/c-p6-path"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$T/c-bare"
+    printf 'x %s y\n' "$HOST" >"$T/c-host"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' >"$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" >"$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' >"$T/c-clean"
+    sed -n 1p "$T/deny" | awk '{ print "x " $0 " y" }' >"$T/c-deny"
+    check_ctl "f_nonascii on a two-byte character" 2 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl on tab and CR only" 0 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash on U+2014" 1 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash on another non-ASCII byte" 0 f_emdash "$T/c-nonascii"
+    check_ctl "f_session on the trailer" 1 f_session "$T/c-session"
+    check_ctl "f_p6 on a token shape" 1 f_p6 "$T/c-p6"
+    check_ctl "f_p6 on a real path of the narrowed form" 1 f_p6 "$T/c-p6-path"
+    check_ctl "f_p6 on a bare shape (P6d: must not match)" 0 f_p6 "$T/c-bare"
+    check_ctl "f_pre on the same bare shape (the pre-P6d form does match)" 1 f_pre "$T/c-bare"
+    printf 'x C%s%sUsers%s y\n' ':' '\' '\' >"$T/c-bare2"
+    printf 'x %s%s y\n' '.claude' '/projects/' >"$T/c-bare3"
+    check_ctl "f_pre1 on the bare /mnt form" 1 f_pre1 "$T/c-bare"
+    check_ctl "f_pre2 on the bare drive-letter form" 1 f_pre2 "$T/c-bare2"
+    check_ctl "f_pre3 on the bare projects form" 1 f_pre3 "$T/c-bare3"
+    check_ctl "f_p6 on the bare drive-letter form (P6d: must not match)" 0 f_p6 "$T/c-bare2"
+    check_ctl "f_p6 on the bare projects form (P6d: must not match)" 0 f_p6 "$T/c-bare3"
+    check_ctl "f_host on a file naming this host" 1 f_host "$T/c-host"
+    # f_home's controls. The positive fixture holds this machine's home
+    # directory; the label says so without printing it. The two negatives are
+    # the shapes that must NOT be flagged: the synthetic control path P1 and P2
+    # already committed in their run logs, which names an account this machine
+    # does not have, and the repo-relative form the T0 P6d ruling asks for,
+    # which is the shape the corrected negative.log now prints on that line.
+    printf 'x %s/crates/emend/src/lib.rs y\n' "$HOME" >"$T/c-home"
+    printf 'x %s%s y\n' '/home/' 'someone/emend-testing/corpus/x.xlsx' >"$T/c-home-other"
+    printf 'x %s y\n' '<repo>/crates/emend/src/package/tests.rs' >"$T/c-home-rel"
+    printf 'x %s/%s/corpus/x.xlsx y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-corpus"
+    printf 'x %s/%s/a and %s/crates/b y\n' "$HOME" "$CORPUS_DIR" "$HOME" >"$T/c-home-both"
+    printf 'x %s/%s-notes/a y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-prefix"
+    printf 'Private, in `%s/%s`. Nothing from it is committed.\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-roadmap"
+    check_ctl "f_home on a path under this machine's home directory" 1 f_home "$T/c-home"
+    check_ctl "f_home on a home path of another account (must not match)" 0 f_home "$T/c-home-other"
+    check_ctl "f_home on the repo-relative form (must not match)" 0 f_home "$T/c-home-rel"
+    check_ctl "f_home on the documented corpus directory (exempt, must not match)" 0 f_home "$T/c-home-corpus"
+    check_ctl "f_home on one line holding the corpus root AND a real leak" 1 f_home "$T/c-home-both"
+    check_ctl "f_home on a sibling whose name merely starts with the corpus name" 1 f_home "$T/c-home-prefix"
+    check_ctl "f_home on the committed sentence's shape, corpus root then punctuation" 0 f_home "$T/c-home-roadmap"
+    check_ctl "f_host on the same path under this home directory" 0 f_host "$T/c-home"
+    check_ctl "f_p6 on the same path (the narrowed patterns do not reach it)" 0 f_p6 "$T/c-home"
+    check_ctl "f_pre on the same path (nor do the pre-P6d forms)" 0 f_pre "$T/c-home"
+    check_ctl "f_deny on one denylist entry (not printed)" 1 f_deny "$T/c-deny"
+    check_ctl "f_email on an address outside the allowlist" 1 f_email "$T/c-email-bad"
+    check_ctl "f_email on only allowed addresses" 0 f_email "$T/c-email-ok"
+    for f in $FORMS; do check_ctl "$f on a clean file" 0 "$f" "$T/c-clean"; done
+    check_ctl "f_pre on a clean file" 0 f_pre "$T/c-clean"
+    # The count's control (change J): two planted failing structural checks and one
+    # passing one, inside a function whose local bad shadows the run's, count 2.
+    struct_count_control() {
+      local bad=0
+      structural "planted failing check one" no >/dev/null
+      structural "planted failing check two" no >/dev/null
+      structural "planted passing check" yes >/dev/null
+      [ "$bad" = 2 ]
+    }
+    structural "control: two planted failing structural checks count 2" "$(yn struct_count_control)"
+    # The two checks new to this scan, each with a control.
+    printf '| corpus | `x` | host | 1 | h | pass | - | 42 | 2 | 5 |\n| fixture | `t.1` | - | 1 | h | pass | fail |  |  |  |\n' >"$T/c-rec-ok"
+    printf '| corpus | `x` | host | 1 | h | pass | - | 41 | 2 | 5 |\n| fixture | `t.1` | - | 1 | h | repair | fail |  |  |  |\n' >"$T/c-rec-bad"
+    check_ctl "bad_values on allowed values and results" 0 bad_values "$T/c-rec-ok"
+    check_ctl "bad_values on one other value and one other result" 2 bad_values "$T/c-rec-bad"
+    printf 'x %s%s%s y\n' '/ho' 'me/someone/' 'a.xlsx' >"$T/c-path1"
+    printf 'x %s%s%s y\n' 'D' ':\' 'data\a.xlsx' >"$T/c-path2"
+    check_ctl "f_path on a planted home path" 1 f_path "$T/c-path1"
+    check_ctl "f_path on a planted drive-letter path" 1 f_path "$T/c-path2"
+    check_ctl "f_path on a clean file" 0 f_path "$T/c-clean"
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## the record"
+    echo "file $REC"
+    RS=$(sha256sum <"$REC" | cut -d' ' -f1)
+    echo "  sha256 $RS; bytes $(wc -c <"$REC")"
+    structural "the record is at the sha256 planning sent" "$(yn [ "$RS" = "$WANT_REC" ])"
+    echo "command: git status --porcelain -- $REC"
+    git status --porcelain -- "$REC" | sed 's/^/    /'
+    structural "the record is untracked (the record commit follows this log)" "$(yn equals "$(run_matches -F "?? $REC" git status --porcelain -- "$REC")" 1)"
+    for f in $FORMS; do run "$f" "$REC"; done
+    n=$(f_pre "$REC"); echo "  form=f_pre count=$n"
+    structural "no bare shape in the record (pre-P6d forms)" "$(yn is_zero "$n")"
+    n=$(f_path "$REC"); echo "  form=f_path count=$n"
+    structural "the record names no path" "$(yn is_zero "$n")"
+    nc=$(rows_of "$REC" corpus); nf=$(rows_of "$REC" fixture)
+    echo "  results rows: corpus $nc, fixture $nf"
+    structural "27 corpus rows and 138 fixture rows" "$(yn rows_as_listed "$nc" "$nf")"
+    nb=$(bad_values "$REC")
+    echo "  results cells outside the allowed sets (seen: empty, 42, 2 or 5, with or without \"(reported)\"; result: pass or fail; input: -, pass or fail): $nb"
+    structural "no value beyond 42, 2 and 5, and no other result" "$(yn is_zero "$nb")"
+    
+    echo
+    echo "## the doc commit"
+    echo "command: git log -1 --format=%s $C"
+    SUBJ=$(git log -1 --format=%s "$C")
+    echo "    $SUBJ"
+    structural "the doc commit's subject is planning's" "$(yn [ "$SUBJ" = "$DOC_SUBJECT" ])"
+    echo "command: git diff-tree --no-commit-id --name-only -r $C"
+    git diff-tree --no-commit-id --name-only -r "$C" >"$T/doc-files"
+    sed 's/^/    /' "$T/doc-files"
+    printf 'ROADMAP.md\nspecs/0015-open-checks.md\n' >"$T/doc-want"
+    structural "the doc commit holds exactly ROADMAP.md and specs/0015-open-checks.md" "$(yn cmp -s "$T/doc-files" "$T/doc-want")"
+    git show "$C:specs/0015-open-checks.md" >"$T/spec"
+    git show "$C:ROADMAP.md" >"$T/road"
+    S1=$(sha256sum <"$T/spec" | cut -d' ' -f1); S2=$(sha256sum <"$T/road" | cut -d' ' -f1)
+    echo "  specs/0015-open-checks.md at $C: sha256 $S1"
+    echo "  ROADMAP.md at $C: sha256 $S2"
+    structural "specs/0015 is at the sha256 planning sent" "$(yn [ "$S1" = "$WANT_SPEC" ])"
+    structural "ROADMAP.md is at the sha256 planning sent" "$(yn [ "$S2" = "$WANT_ROAD" ])"
+    git log -1 --format=%B "$C" >"$T/msg"
+    for x in spec road msg; do echo "file <$x of $C>"; for f in $FORMS; do run "$f" "$T/$x"; done; done
+    LAST=$(awk 'NF { l = $0 } END { print l }' "$T/msg")
+    structural "the message's last non-empty line is the one Co-Authored-By line" "$(yn [ "$LAST" = "$COAUTHOR" ])"
+    structural "the message holds one Co-Authored-By line" "$(yn equals "$(count_matches -E '^Co-Authored-By:' "$T/msg")" 1)"
+    
+    echo
+    echo "## the local range through scripts/privacy.sh (identity, messages, paths, blobs)"
+    LB=$(git rev-parse origin/main)
+    echo "command: scripts/privacy.sh --range $LB..$C"
+    NLR=$(git rev-list --count "$LB..$C")
+    echo "  commits in the range: $NLR"
+    git log --reverse --format='    %H %s' "$LB..$C"
+    scripts/privacy.sh --range "$LB..$C" >"$T/pv" 2>"$T/pverr" </dev/null
+    rc=$?
+    echo "stdout:"; sed 's/^/    /' "$T/pv"
+    echo "stderr:"; sed 's/^/    /' "$T/pverr"
+    echo "exit: $rc"
+    structural "privacy exit is 0" "$(yn [ "$rc" -eq 0 ])"
+    printf 'PASS privacy\n' >"$T/pvwant"
+    structural "stdout is exactly PASS privacy" "$(yn cmp -s "$T/pv" "$T/pvwant")"
+    structural "stderr is the summary: $NLR commits, 0 findings" "$(yn summary_ok "$NLR")"
+    
+    echo
+    echo "## the tree"
+    echo "command: git status --porcelain -> $(run_lines git status --porcelain) line(s)"
+    git status --porcelain 2>&1 | sed 's/^/    /'
+    structural "the only change in the tree is the untracked record" "$(yn only_record)"
+    
+    echo
+    echo "total hits: $hits"
+    echo "read or counting errors: $err"
+    echo "structural checks failed: $bad"
+    echo "controls failed: $ctl_fail"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$hits" -eq 0 ] && [ "$err" -eq 0 ] && [ "$bad" -eq 0 ] && [ "$ctl_fail" -eq 0 ]; then
+      echo "RESULT: PASS"; exit 0
+    else
+      echo "RESULT: FAIL"; exit 1
+    fi
+
+## the shared counting library this log sources (sourced: scripts/counting.sh)
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## the denylist, entries counted and never printed
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+the denylist is readable and not empty: yes
+this script's patterns equal scripts/privacy-patterns.txt at a49f2d38130e03921dd101cb39c5de555b7c761a: yes
+command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
+  the narrowing commit resolves to 721e86323e41fe6090b95ce3e26876e81e27b464; the pre-P6d patterns are read from its parent
+the three pre-P6d forms were read from git, not typed (lines read: 3): yes
+## controls (the same command forms as the scans)
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_ctrl on tab and CR only count=0 expected=0: as-expected
+  control f_emdash on U+2014 count=1 expected=1: as-expected
+  control f_emdash on another non-ASCII byte count=0 expected=0: as-expected
+  control f_session on the trailer count=1 expected=1: as-expected
+  control f_p6 on a token shape count=1 expected=1: as-expected
+  control f_p6 on a real path of the narrowed form count=1 expected=1: as-expected
+  control f_p6 on a bare shape (P6d: must not match) count=0 expected=0: as-expected
+  control f_pre on the same bare shape (the pre-P6d form does match) count=1 expected=1: as-expected
+  control f_pre1 on the bare /mnt form count=1 expected=1: as-expected
+  control f_pre2 on the bare drive-letter form count=1 expected=1: as-expected
+  control f_pre3 on the bare projects form count=1 expected=1: as-expected
+  control f_p6 on the bare drive-letter form (P6d: must not match) count=0 expected=0: as-expected
+  control f_p6 on the bare projects form (P6d: must not match) count=0 expected=0: as-expected
+  control f_host on a file naming this host count=1 expected=1: as-expected
+  control f_home on a path under this machine's home directory count=1 expected=1: as-expected
+  control f_home on a home path of another account (must not match) count=0 expected=0: as-expected
+  control f_home on the repo-relative form (must not match) count=0 expected=0: as-expected
+  control f_home on the documented corpus directory (exempt, must not match) count=0 expected=0: as-expected
+  control f_home on one line holding the corpus root AND a real leak count=1 expected=1: as-expected
+  control f_home on a sibling whose name merely starts with the corpus name count=1 expected=1: as-expected
+  control f_home on the committed sentence's shape, corpus root then punctuation count=0 expected=0: as-expected
+  control f_host on the same path under this home directory count=0 expected=0: as-expected
+  control f_p6 on the same path (the narrowed patterns do not reach it) count=0 expected=0: as-expected
+  control f_pre on the same path (nor do the pre-P6d forms) count=0 expected=0: as-expected
+  control f_deny on one denylist entry (not printed) count=1 expected=1: as-expected
+  control f_email on an address outside the allowlist count=1 expected=1: as-expected
+  control f_email on only allowed addresses count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_emdash on a clean file count=0 expected=0: as-expected
+  control f_session on a clean file count=0 expected=0: as-expected
+  control f_p6 on a clean file count=0 expected=0: as-expected
+  control f_home on a clean file count=0 expected=0: as-expected
+  control f_host on a clean file count=0 expected=0: as-expected
+  control f_deny on a clean file count=0 expected=0: as-expected
+  control f_email on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+control: two planted failing structural checks count 2: yes
+  control bad_values on allowed values and results count=0 expected=0: as-expected
+  control bad_values on one other value and one other result count=2 expected=2: as-expected
+  control f_path on a planted home path count=1 expected=1: as-expected
+  control f_path on a planted drive-letter path count=1 expected=1: as-expected
+  control f_path on a clean file count=0 expected=0: as-expected
+controls: all as expected
+
+## the record
+file records/excel-check-m1-2026-09-24.md
+  sha256 4b88b98a434c3ae531215639a45741671fec3e05624fcd975d1efed23f941126; bytes 32223
+the record is at the sha256 planning sent: yes
+command: git status --porcelain -- records/excel-check-m1-2026-09-24.md
+    ?? records/excel-check-m1-2026-09-24.md
+the record is untracked (the record commit follows this log): yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+  form=f_pre count=0
+no bare shape in the record (pre-P6d forms): yes
+  form=f_path count=0
+the record names no path: yes
+  results rows: corpus 27, fixture 138
+27 corpus rows and 138 fixture rows: yes
+  results cells outside the allowed sets (seen: empty, 42, 2 or 5, with or without "(reported)"; result: pass or fail; input: -, pass or fail): 0
+no value beyond 42, 2 and 5, and no other result: yes
+
+## the doc commit
+command: git log -1 --format=%s a49f2d38130e03921dd101cb39c5de555b7c761a
+    M1: commit planning docs (the Excel check rulings, Milestone 1 provisional acceptance)
+the doc commit's subject is planning's: yes
+command: git diff-tree --no-commit-id --name-only -r a49f2d38130e03921dd101cb39c5de555b7c761a
+    ROADMAP.md
+    specs/0015-open-checks.md
+the doc commit holds exactly ROADMAP.md and specs/0015-open-checks.md: yes
+  specs/0015-open-checks.md at a49f2d38130e03921dd101cb39c5de555b7c761a: sha256 04a6fac816ce1faad7deb4ec56914a1abf4744777e1aee9633d558bfffb38021
+  ROADMAP.md at a49f2d38130e03921dd101cb39c5de555b7c761a: sha256 6dabdc0fcf0d9969e283bafa234f8f5756180612347b112d8d0520855bdaedca
+specs/0015 is at the sha256 planning sent: yes
+ROADMAP.md is at the sha256 planning sent: yes
+file <spec of a49f2d38130e03921dd101cb39c5de555b7c761a>
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file <road of a49f2d38130e03921dd101cb39c5de555b7c761a>
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file <msg of a49f2d38130e03921dd101cb39c5de555b7c761a>
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+the message's last non-empty line is the one Co-Authored-By line: yes
+the message holds one Co-Authored-By line: yes
+
+## the local range through scripts/privacy.sh (identity, messages, paths, blobs)
+command: scripts/privacy.sh --range b06e0a7a711e649bb26c0a01efd2375160ce567d..a49f2d38130e03921dd101cb39c5de555b7c761a
+  commits in the range: 3
+    f6c2dba2b7b409a00c0148720e08efb1580e9a15 M1 part 8 close-out: commit planning docs (the close-out rulings)
+    065f3e4d42f45f9aa24d9ee6a5243f0ea10accda M1 part 8 close-out record: the push, the CI run, the correction and the scan
+    a49f2d38130e03921dd101cb39c5de555b7c761a M1: commit planning docs (the Excel check rulings, Milestone 1 provisional acceptance)
+stdout:
+    PASS privacy
+stderr:
+    privacy: 3 commit(s), 517 blob(s) scanned, 0 finding(s)
+exit: 0
+privacy exit is 0: yes
+stdout is exactly PASS privacy: yes
+stderr is the summary: 3 commits, 0 findings: yes
+
+## the tree
+command: git status --porcelain -> 1 line(s)
+    ?? records/excel-check-m1-2026-09-24.md
+the only change in the tree is the untracked record: yes
+
+total hits: 0
+read or counting errors: 0
+structural checks failed: 0
+controls failed: 0
+run ended at 2026-09-24T22:22:30Z
+RESULT: PASS
