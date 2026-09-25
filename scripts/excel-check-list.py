@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """emend Excel check list (specs/0015-open-checks.md, "The Excel check", with
-the planning rulings during P2, 5 to 10).
+the planning rulings during P2, 5 to 10, and on the Excel check, 2 and 6;
+specs/0016-new-workbook-and-sheets.md, "The carried items", with the planning
+rulings during P1, 1 to 4 and 7).
 
-Usage: scripts/excel-check-list.py --run <run dir> --keep <dir>
-       --record <.txt> --out <file>
+Usage: scripts/excel-check-list.py --run <run dir> [--run-plain <run dir>]...
+       --keep <dir> --record <.txt> --out <file>
 
 Writes the list the maintainer carries to a machine with Excel: one
 tab-separated row per file, under a header of thirteen columns (source,
@@ -15,7 +17,8 @@ Corpus rows come first, in manifest order: every workbook of the run
 directory's summary.host.tsv, source "corpus", its id, label "host", and its
 output, out.host.<ext> with the manifest's extension, named relative to the
 corpus root (the run directory's grandparent, which must hold manifest.tsv).
-Each corpus output is a --formula-sample output, so the row carries the three
+The output's size must be the summary's out_bytes (0016 P1 ruling 1). Each
+--run output is a --formula-sample output, so the row carries the three
 references the sample wrote, derived here from the workbook's input by part
 6's definition (specs/0013, "Harness runs"): the first sheet whose workbook
 relationship is of kind worksheet, in <sheets> order; in it, in document
@@ -26,17 +29,27 @@ expected 42 (A times 2, A set to 21); ref2 is (M + 1, 2), expected 2 (1 + 1);
 ref3 is F, expected 5 (2 + 3), empty when there is no F. With no A the sample
 edits nothing and all six are empty.
 
+Each --run-plain directory, repeatable, in the order given, adds the same
+corpus rows from another run directory of the same corpus root (for example a
+--style-sample run; specs/0015 Excel ruling 6): label the directory's
+basename, and the six reference and value columns empty. A --run-plain
+directory under another corpus root than --run's is refused (0016 P1 ruling
+4).
+
 Fixture rows follow, in name order: source "fixture", the test name, label
 "-", and the kept output named relative to the keep directory, for every pair
 whose input LibreOffice accepted (lo_in ok in --record, the edit open check's
-record of that keep; P2 ruling 5). The record must name exactly the keep's
-pairs, by name, bytes and both sha256s, or the script stops (P2 ruling 8).
-Fixture rows carry no references.
+record of that keep; P2 ruling 5). Each is followed by its input row (specs/0015
+Excel ruling 2): source "input", the same test name, label "-", file
+<test>.in.xlsx, and the record's in_bytes and in_sha256. The record must name
+exactly the keep's pairs, by name, bytes and both sha256s, or the script stops
+(P2 ruling 8). Fixture and input rows carry no references.
 
-The result column is empty: the maintainer fills it with pass, repair or
-fail. The script prints counts only, never a reference, a value or a path.
-Standard library only (zipfile and expat). Errors print one "error: " line
-without a path and exit 2; nothing is written then.
+The result column is empty: scripts/excel-check-open.ps1 or the maintainer
+fills it. The list is written with umask 077 (mode 600). The script prints
+counts only, never a reference, a value or a path. Standard library only
+(zipfile and expat). Errors, a short manifest or summary row among them, print
+one "error: " line without a path and exit 2; nothing is written then.
 """
 
 import argparse
@@ -220,7 +233,7 @@ def read_tsv(path):
     return [line.split("\t") for line in lines]
 
 
-def corpus_rows(run):
+def corpus_rows(run, label, with_refs):
     run = os.path.abspath(run)
     root = os.path.dirname(os.path.dirname(run))
     manifest = os.path.join(root, "manifest.tsv")
@@ -231,14 +244,15 @@ def corpus_rows(run):
         raise Refused("the run directory has no summary.host.tsv")
     summary = read_tsv(summary_path)
     head = summary[0]
-    if "id" not in head or "outcome" not in head:
+    if "id" not in head or "outcome" not in head or "out_bytes" not in head:
         raise Refused("summary.host.tsv has another header")
-    ids = {}
+    ids, sizes = {}, {}
     for row in summary[1:]:
         cells = dict(zip(head, row))
         if cells["id"] in ids:
             raise Refused("summary.host.tsv names a workbook twice")
         ids[cells["id"]] = cells["outcome"]
+        sizes[cells["id"]] = cells["out_bytes"]
     if not ids:
         raise Refused("summary.host.tsv names no workbook")
     manifest_rows = read_tsv(manifest)
@@ -253,15 +267,17 @@ def corpus_rows(run):
         out = os.path.join(run, wid, "out.host." + exts[wid])
         if not os.path.isfile(out):
             raise Refused("a workbook of the run has no host output")
+        if str(os.path.getsize(out)) != sizes[wid]:
+            raise Refused("a corpus output's size differs from the summary")
         if not os.path.isfile(inputs[wid]):
             raise Refused("a workbook of the run has no input in the corpus")
-        refs = sample_refs(inputs[wid])
+        refs = sample_refs(inputs[wid]) if with_refs else ("", "", "")
         expects = (EXPECT_1 if refs[0] else "", EXPECT_2 if refs[1] else "", EXPECT_3 if refs[2] else "")
-        rows.append(("corpus", wid, "host", os.path.relpath(out, root), str(os.path.getsize(out)),
+        rows.append(("corpus", wid, label, os.path.relpath(out, root), str(os.path.getsize(out)),
                      sha256_of(out), "", refs[0], expects[0], refs[1], expects[1], refs[2], expects[2]))
     if len(rows) != len(ids):
         raise Refused("summary.host.tsv names a workbook the manifest does not")
-    return rows
+    return root, rows
 
 
 def fixture_rows(keep, record):
@@ -297,26 +313,39 @@ def fixture_rows(keep, record):
         if row[5] == "ok":
             out.append(("fixture", test, "-", test + ".out.xlsx", row[3], row[4], "",
                         "", "", "", "", "", ""))
+            out.append(("input", test, "-", test + ".in.xlsx", row[1], row[2], "",
+                        "", "", "", "", "", ""))
     return out, len(seen)
 
 
 def main():
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument("--run", required=True)
+    parser.add_argument("--run-plain", action="append", default=[])
     parser.add_argument("--keep", required=True)
     parser.add_argument("--record", required=True)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
+    os.umask(0o077)
     try:
         if not os.path.isdir(args.run):
             raise Refused("--run is not a directory")
+        if not all(os.path.isdir(plain) for plain in args.run_plain):
+            raise Refused("a --run-plain is not a directory")
         if not os.path.isdir(args.keep):
             raise Refused("--keep is not a directory")
         if not os.path.isfile(args.record):
             raise Refused("--record is not a file")
         if os.path.exists(args.out):
             raise Refused("--out is already there")
-        corpus = corpus_rows(args.run)
+        root, corpus = corpus_rows(args.run, "host", True)
+        plain = 0
+        for run in args.run_plain:
+            plain_root, rows = corpus_rows(run, os.path.basename(os.path.abspath(run)), False)
+            if plain_root != root:
+                raise Refused("a --run-plain directory is under another corpus root")
+            corpus += rows
+            plain += len(rows)
         fixtures, pairs = fixture_rows(args.keep, args.record)
         with open(args.out, "x") as handle:
             handle.write("\t".join(HEADER) + "\n")
@@ -325,12 +354,14 @@ def main():
     except Refused as err:
         print("error: %s" % err, file=sys.stderr)
         return 2
-    except (OSError, zipfile.BadZipFile, expat.ExpatError, KeyError, ValueError) as err:
+    except (OSError, zipfile.BadZipFile, expat.ExpatError, KeyError, ValueError, IndexError) as err:
         print("error: cannot read the run, the keep or the record (%s)" % type(err).__name__, file=sys.stderr)
         return 2
-    print("corpus rows %d (with A %d, with F %d); fixture rows %d of %d kept pairs (%d left out: input not accepted)"
-          % (len(corpus), sum(1 for r in corpus if r[7]), sum(1 for r in corpus if r[11]),
-             len(fixtures), pairs, pairs - len(fixtures)))
+    accepted = sum(1 for r in fixtures if r[0] == "fixture")
+    print("corpus rows %d (with A %d, with F %d; %d from --run-plain); fixture rows %d and input rows %d"
+          " of %d kept pairs (%d left out: input not accepted)"
+          % (len(corpus), sum(1 for r in corpus if r[7]), sum(1 for r in corpus if r[11]), plain,
+             accepted, len(fixtures) - accepted, pairs, pairs - accepted))
     return 0
 
 

@@ -224,7 +224,7 @@ md.append("| --- | --- | --- | --- | --- |")
 for side in ("reason_in", "reason_out"):
     md.append("| %s | " % side + " | ".join(str(v) for v in classes[side]) + " |")
 md.append("")
-md.append("## Inputs refused by LibreOffice (allowed: a zip-level fixture)")
+md.append("## Inputs refused by LibreOffice (allowed: a fixture LibreOffice cannot load: zip-level, or a package with no relationships part or an empty content-types root)")
 md.append("")
 md.append(listed(refused_by_lo))
 md.append("")
