@@ -404,6 +404,40 @@
 //!   which is off by default and outside the core's size, and nothing here
 //!   calls it (the same section, 2). A `t="d"` cell's text is not converted.
 //!
+//! The fuller cell styles add theirs (`specs/0017-fuller-styles.md`, "Module
+//! `package`" and the P1 and P2 rulings; the refusals are the three messages
+//! catalogued above, with "a style index is out of range" for an id `u32`
+//! cannot hold):
+//!
+//! - The caller's picture: [`Package::add_style`] records one cell format
+//!   carrying a [`Style`]'s number format, font, fill, border, alignment and
+//!   protection, each `Some` field replacing what the base has; the font,
+//!   the fill and the border are each appended once to `<fonts>`, `<fills>`
+//!   or `<borders>`, equal ones recorded by one package sharing an element
+//!   and an id; [`Package::set_cell_style`] then names the index it returns.
+//! - What is not read: the part's own fonts, fills and borders are counted
+//!   and nothing inside them is read, so an added font equal to one the part
+//!   already has is a second copy (producers write such copies too);
+//!   nothing is deduplicated at the `xf` level. A cell format's alignment,
+//!   protection and apply flags are not read back as values: its ids are.
+//! - What is kept: `x14ac:knownFonts` on `fonts` as it was; `dxfs`,
+//!   `cellStyles`, `cellStyleXfs` and the theme, untouched, so a
+//!   [`crate::styles::Color::Theme`] names whatever the workbook's theme defines at that
+//!   index and a [`crate::styles::Color::Indexed`] whatever its `colors` or the default
+//!   palette defines; a derived cell format's children other than its first
+//!   main-namespace `alignment` and `protection`, as the base's bytes (one
+//!   inside an `extLst` is not a child and is kept raw).
+//! - What cannot be written: a font's `charset`, `outline`, `shadow`,
+//!   `condense` or `extend`; a gradient fill; an inside-of-range border side
+//!   (`vertical`, `horizontal`); an alignment's `readingOrder`,
+//!   `justifyLastLine` or `relativeIndent`.
+//! - A part without `<fonts>`, `<fills>` or `<borders>` refuses an addition
+//!   that needs the collection; the template has all three. Whether a
+//!   consumer shows a font name it does not have is the consumer's.
+//! - Fuller styles have not been through an Excel check yet: the harness
+//!   opens their outputs in LibreOffice, and Excel check 2 covers
+//!   Milestone 1's edits alone.
+//!
 //! Formulas add theirs (`specs/0013-formulas.md`, "Module `package`"; the
 //! refusals are the five messages catalogued above, and the shared, array
 //! and data table refusals of the cell edits apply to a formula as to any

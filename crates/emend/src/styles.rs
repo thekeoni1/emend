@@ -80,13 +80,22 @@
 //!   fill 0, border 0 and cell style 0, and Excel refuses a cell whose `s`
 //!   names an `xf` in a part without those collections (`specs/0012-styles.md`,
 //!   the limits, from Excel check 1).
-//! - Two additions with equal codes share one `numFmt` id; two with an equal
-//!   base and format are two cell formats, since nothing is deduplicated at
-//!   the `xf` level.
+//! - Two additions with equal codes share one `numFmt` id, and two with equal
+//!   fonts, fills or borders one element and one id; nothing is compared with
+//!   the part's own fonts, fills and borders, which are counted and not read;
+//!   two additions with an equal base and style are two cell formats, since
+//!   nothing is deduplicated at the `xf` level.
+//! - What cannot be written: a font's `charset`, `outline`, `shadow`,
+//!   `condense` or `extend`, a gradient fill, an inside-of-range border side,
+//!   and an alignment's `readingOrder`, `justifyLastLine` or
+//!   `relativeIndent` (`specs/0017-fuller-styles.md`, decision 2).
 //! - An addition is refused, with the messages catalogued in
 //!   [`crate::package`]'s module header, for a base that names no existing
 //!   `xf`, a built-in id of 164 or more, a code that is empty or holds a
-//!   character XML cannot carry, and an index or id `u32` cannot hold.
+//!   character XML cannot carry, a font, fill or border for a part without
+//!   its collection, a font name that is empty or holds such a character, a
+//!   font size, a tint or a text rotation out of range, and an index or id
+//!   `u32` cannot hold.
 
 use std::io::Read;
 
