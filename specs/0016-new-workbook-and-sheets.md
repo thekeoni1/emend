@@ -611,7 +611,51 @@ as "Harness runs". The report states the part's own cost, the whole
 growth and the budget figure against the ceiling, and names the
 corpus gap (decision 4) as recorded.
 
-### Close-out push (after P4)
+### P5: one copy of the read and write paths
+
+Ruling 11's cause, removed inside the crate. The public types keep
+their parameters (`Package<R>`, `Archive<R>`, `Cells<'_, R>`,
+`Stream<R>`, `write_to(self, out: impl Write)`); underneath, the
+reader is erased once, at `Archive::open`, and the writer once, at
+`write_to`, so every body below that boundary is compiled once,
+over trait objects, and a second reader or writer type costs a
+thin shell. Planning's preference, not a ruling: `Archive` holds
+`Option<zip::ZipArchive<Box<dyn ReadSeek>>>` with a private
+`trait ReadSeek: Read + Seek` and its blanket impl, a `PhantomData`
+keeping the parameter, and the functions under `write_to` take
+`&mut dyn Write` from the `impl Write` shell. Before its code
+commit the session proposes the mechanism with the list of every
+function whose signature changes, and planning rules. No new
+dependency, no `unsafe`, no public signature changed, no change to
+what any function reads, writes or refuses, no test edited except
+for a type name a changed private signature forces, each such edit
+named in the report.
+
+The doc commit first (the P4 rulings and verification, this section,
+ROADMAP), then the code commit or commits, then the logs: gate;
+test on both targets; size.log as P4's with P4's record as the
+previous record, the thirteen probes rebuilt, the classification
+read off the bytes as before, and the sheets probe's difference
+from P4's 1012208 printed with every earlier probe's difference
+from its P4 figure; recorded as
+`records/size-m2p1-<utc-date>-<shortsha>.md`, the part's size
+record from then on; run.log: `--remove-sample` on both targets
+with the binaries size.log hashed, every output byte-identical to
+P4's run directory's output for the same corpus file by sha256,
+printed 27 of 27 per label, with the open check as P4's; recorded
+as `records/m2p1-p5-<utc-date>-<shortsha>.md` and `.txt`. No
+negative log: the phase adds no refusal. Acceptance: the tests pass
+unchanged; the sheets probe at least 100000 section bytes below
+1012208; the budget figure under 393216; the corpus outputs
+identical. The report states the budget figure against the
+ceiling, the headroom left, the largest growth among the twelve
+earlier probes (a trait object can cost a single-reader consumer a
+little; the figure is reported, not hidden), and the whole growth
+since part 6 restated from P5's record. Should the figure land
+above the ceiling still, the report says so and the maintainer
+re-rules before P5's record commit.
+
+### Close-out push (after P5)
 
 As part 8's, with the self-scan rule applied to the push and
 ci-run scripts and the scan header naming the m1p8-close finding
@@ -647,6 +691,13 @@ session.
    the script reads are the sample's constants and never a corpus
    value; a refused row's error text stays in the results file the
    maintainer brings back and never enters the record.
+6. The size finding (P4 rulings 10 and 11): P4's record committed
+   as measured with the excess a finding; a P5 that removes the
+   second copy of the read and write paths and measures the
+   thirteen probes again; the ceiling unchanged until P5's figure
+   exists (taken as recommended, 2026-09-25). The alternatives were
+   raising the ceiling to cover a duplication that should not
+   exist, or changing the probe to hide the cost.
 
 ## Planning rulings during P1 (2026-09-24)
 
@@ -1065,6 +1116,222 @@ the open record.
    doc commit with the P3 rulings 1 to 10 and the `ROADMAP.md` row.
    P4's first code commit carries ruling 1 and check 1's F4 (add
    then remove of the pending sheet) beside `remove_sheet`.
+
+## Planning rulings during P4 (2026-09-25)
+
+Asked by the implementing session before P4's first code commit,
+after the doc commit d6396bb (verified by planning: parent 2797fe9,
+the two files unedited at the hashes sent). The corpus counts the
+session gave (95 sheets: `state` absent on 47, `visible` on 43,
+`hidden` on 5, no other value) are the witness for ruling 1.
+
+1. Q1: the spec's "no state" was wrong; the corpus writes
+   `state="visible"` on 43 of 95 sheets. A sheet is visible when
+   its `state` is absent or exactly `visible`; any other value
+   (`hidden`, `veryHidden`, or anything else) counts as hidden.
+   This reading governs the last-visible refusal, the first visible
+   sheet an `activeTab` of a removed sheet goes to, and
+   `SheetPlan.first_visible`, changed in P4's first code commit,
+   with the test proposed (the first sheet removed when the second
+   says `visible`: allowed, `activeTab` 0). "Removing a sheet" and
+   "The workbook rewrite" read so from now.
+2. Q2: as proposed. A file entry recorded for removal still counts
+   as taken, so a later `add_sheet` takes the next free
+   `sheet<n>.xml`; a pending sheet's removal frees its name; the
+   `sheetId` is the projected maximum plus one and may equal a
+   removed sheet's; a relationship id is never reused, since the
+   file's ids still count. The remove-then-add test asserts exactly
+   that; the spec's "the entry name may be reused" reads as this.
+3. Q3: as proposed. K leaves out every workbook relationship
+   recorded for removal so far and follows no edge out of any
+   removed sheet's part; an entry already recorded for removal is
+   not recorded again, so a part reached only from two removed
+   sheets goes with the second; the chain recipe is recorded once,
+   through the once-guard the formula-change rule shares, and
+   `fullCalcOnLoad` is set. With one removal this is the spec's
+   definition, which the run log's walk exercises. The two-sheets-
+   one-drawing test covers it.
+4. Q4: as proposed. Removing a pending sheet records a `Remove`
+   edit so the projection and later edits by name stay coherent,
+   and drops its part, `Override` and relationship additions and
+   the cell and style edits on its part; no walk and no chain rule.
+   F4's test asserts the output byte-identical to the input when
+   the add and the remove are the only edits.
+5. The stated order and reads are accepted: "no sheet of that
+   name", then the last sheet, then the last visible sheet; every
+   read before the first record; a reached rels part that cannot
+   be read refuses the removal; a target outside the package or
+   naming no entry contributes nothing.
+
+6. Q6, after code commit 1 (8abc666): the probe is as "Size"
+   writes it, and the size log runs it on a generated two-sheet
+   package whose first sheet has no edits and whose second is the
+   one the command line names for the cell, style and formula
+   edits; removing "the sheet that was first" then removes an
+   unedited sheet, as the spec meant, and the write's refusal of an
+   edit to a removed part (ruling 3 and the limits) is not
+   exercised by the probe. The expected lines are the formulas
+   probe's, then `sheets` (2), `first_name`, `first_part` and
+   `new_bytes`. The other twelve probes run on part 6's fixtures
+   unchanged.
+7. Q7: "name length" is the renamed name's length in UTF-8 bytes
+   and "part length" the added part's entry name length in bytes,
+   both read from the reopened output's `Workbook`, so the rename
+   and the add are read back and nothing more is linked.
+8. The report's claim that a planted mutation of `is_visible`, the
+   `firstSheet` guard and the K filter is caught is a measurement
+   (`specs/0001`, "Rules for every phase"): it appears in
+   `test.log` with the planted change, the run and the failing
+   assertion's output, or it is not made anywhere.
+
+9. Q8, from an unlogged dry run before any log (disclosed): 17 of
+   the 27 corpus workbooks carry `Override` elements for rels
+   parts (68 in all), and the spec's wording removed only a
+   removed entry's own `Override`, leaving overrides naming rels
+   parts that no longer exist in 4 outputs. Ruled as proposed:
+   every entry the walk removes, rels parts included, loses its
+   `Override` when the content types part holds one, so no
+   `Override` names a removed entry. Code commit 3 in `package.rs`
+   and its tests, with a limits sentence and the test proposed (a
+   sheet whose rels part has an `Override`: both dropped); the run
+   log's walk expects it. Leaving dangling overrides is refused:
+   nothing has shown Excel accepts them. "Removing a sheet" step 3
+   reads so from now.
+
+10. The size finding, measured by size.log attempt 3 at the phase
+   commit 3bd4257 (i686 musl, the `size` profile, section bytes):
+   `probe-zip-xml` 533216 (drift 0); `probe-emend-formulas-write-
+   xml` 876240 against part 6's 845212 (drift 30212, 8 commits
+   touching the crate, 7 of them this part's); `probe-emend-
+   sheets-write-xml` 1012208; the budget figure 478992 against the
+   ceiling of 393216, 85776 over; the part's own cost 135968
+   against planning's expectation of under 25000. Attempt 3 also
+   failed on the session's own defect (the formulas probe's run
+   block reading the sheets probe's variable), fixed for the next
+   attempt. The cause is a hypothesis, not a measurement: the
+   probe holds a `Package<BufReader<File>>` and a
+   `Package<Cursor<Vec<u8>>>` from `Package::new`, and calls
+   `write_to` on both, so the generic write path is compiled twice.
+   Ruled: before anything else, the cause is measured, as a logged
+   step (`size-attribution.log`, committed with the phase's logs):
+   in a scratch worktree at 3bd4257, three variants of the sheets
+   probe built and measured as size.log measures, each variant's
+   diff printed: (a) no `Package::new` call; (b) no sheet edits;
+   (c) `Package::new`'s bytes written to a file and reopened
+   through `BufReader<File>`, so one reader type is instantiated.
+   The log prints each variant's section bytes and its difference
+   from the probe as committed. No crate code changes and no
+   record commit until the maintainer has re-ruled on those
+   figures, as "Size" says; planning takes them to the maintainer
+   with a recommendation. run.log finishes first; the attribution
+   runs with no other cargo.
+
+11. The attribution, `size-attribution.log` at 3bd4257, reported by
+   the session at sha256 929f8152... and committed with P4's logs,
+   where planning verifies it. The control rebuilt the committed
+   probe at 1012208 section bytes. The variants: (a) no
+   `Package::new` call, 903196, a difference of -109012; (b) no
+   sheet edits, 986700, -25508; (c) `Package::new`'s bytes reopened
+   through `BufReader<File>`, 1012384, +176. The cause is now a
+   measurement: the sheet edits and their rewrite cost about 25500,
+   near the expectation; `Package::new` costs about 109000, and (c)
+   shows the probe cannot avoid it, because the constructor's own
+   body opens and writes a `Package<Cursor<Vec<u8>>>`, so `Archive`,
+   `Package` and everything under `write_to` are compiled a second
+   time for that reader and for `Vec<u8>` as the writer, beside the
+   copy over `BufReader<File>` every consumer already carries. With
+   that copy gone the budget figure would be about 369980, under the
+   ceiling by about 23000, and the part's own cost with the drift
+   about 56000, above the expectation and reported as "Size" asks.
+   The maintainer re-ruled on 2026-09-25 (decision 6): P4's record
+   is committed as measured, the excess a finding; P5 removes the
+   second copy and measures again; the ceiling is not changed before
+   P5's figure exists. So P4 finishes as follows. size.log attempt 4
+   at 3bd4257 with the script's own defect fixed and nothing else it
+   measures changed; its record,
+   `records/size-m2p1-2026-09-25-3bd4257.md`, states that the budget
+   figure is above the ceiling by 85776 (the generated sentence
+   reads "above the ceiling by" when the figure is above it, never a
+   negative number "under" it), names this finding, ruling 10's
+   three figures and P5 as the fix, and stands as the measurement
+   P5's record is compared with. run.log attempt 3 stands when the
+   binaries attempt 4 hashes are the ones it ran (the same sha256
+   lines); if the rebuild's hashes differ, run.log reruns. Then the
+   independent check or checks, the scan, and one record commit
+   with `size-attribution.log` among the logs. No crate change in
+   P4.
+
+These rulings go in P5's doc commit, with P4's verification;
+P4's code commits cite them by number.
+
+## Planning verification and rulings on P4 (2026-09-25)
+
+Verified from primaries: the three code diffs read (8abc666,
+b61fde5, 3bd4257: `is_visible`, `remove_sheet`, `reachable`,
+`drop_pending_sheet`, the chain reads before the first record, the
+rels-part overrides of ruling 9, `SheetPlan::changes`); the record
+commit c7d7870 (parent 3bd4257, 14 files, every sha256 the report
+gave reproduced); planning's own privacy scan of c7d7870 (570
+blobs, 0 findings); the tests on planning's own build (585 on the
+host, 585 on i686, clippy clean); planning's own rebuild of three
+probes in the `size` profile on i686 (the sheets probe 1012208
+section bytes at the same sha256 as size.log's, `probe-zip-xml`
+533216, the formulas probe 876240, so the budget figure 478992 and
+the finding are reproduced); planning's own `--remove-sample` run
+on the host with its own binaries, 27 ok and all 27 outputs
+byte-identical to the run directory's; and planning's own walk, a
+script of its own over both labels' outputs: 27 of 27, 3 outputs
+identical to their inputs, 24 sheets removed, 93 entries removed,
+the removed set exactly R minus K with the rels parts and the
+chain, no `Override` naming a removed entry, the workbook
+relationships, `<sheets>`, `<definedNames>`, `activeTab` and
+`fullCalcOnLoad` as "Removing a sheet" says, every other entry
+byte-identical. The two check answers were read from the committed
+files.
+
+1. The check answers given by committed path and sha256 rather
+   than pasted are accepted; `specs/0001` step 4 allows it, and a
+   retyped answer could differ from the committed bytes. The same
+   holds for later phases.
+2. The ceiling check stays a check, and size.log ends "no" with
+   that check alone listed. A failing measurement is a finding the
+   log states itself; a printed comparison would hide it. The line
+   "the 80404 part 6 left becomes -85776" is arithmetic, not a
+   claim, and stands.
+3. Check 1 F12 and check 2 G9: test.log's heading "each caught by
+   a test this phase adds" is wrong for the first-sheet mutation,
+   which `a_move_leaves_a_first_sheet_past_the_end_unchanged`, a P3
+   test from 09b42e4, catches. Accepted as recorded with this ruling
+   as the correction: the planted change, the run and the failing
+   assertion are in the log, which is what ruling 8 requires, and
+   the heading reads "caught by a test in the tree". No rerun for a
+   heading.
+4. Check 1 F13, check 2 G10 and G12: attempts 1 and 2 of size.log
+   and run.log never ran, the gate's failure having stopped those
+   rounds, and test.log's attempts 1 and 2 were stopped by the
+   driver for the same reason, not by the environment, so
+   `specs/0001`'s stopped-run header does not apply. "Attempt 3"
+   is a round label. Recorded here; no log changes.
+5. Check 1 F3 and check 2 G15: the name rule's approximation
+   sentence is in the `package` header from 770c9dd (P3), verified
+   by planning with `git log -S`. "P4" listed it as if new; nothing
+   is missing.
+6. Check 1 F20: the corpus gap of decision 4 is named in the
+   session's report, as "P4" asks, and in ROADMAP; the generated
+   records do not carry it and need not. The gap stands: no macro,
+   threaded-comment, chartex or Google Sheets workbook has had a
+   sheet removed. It closes in the first `--remove-sample` run
+   after those files arrive.
+7. F11 is fixed by attempt 6 (check 2 G7); F16 and F18 are fixed.
+   F17, G14, G16, G17, G18 and G19 name report sentences with no
+   primary behind them, each disclosed as unlogged or carried by
+   the log and the record (G19: the part's own cost 135968 is
+   above 30000, as size.log and the record say). Accepted; nothing
+   to change.
+8. P4 is DONE as measured, with the finding. P5 follows as its
+   section says. P5's doc commit carries the rulings during P4 (1
+   to 11), these, decision 6, the P5 section and ROADMAP, with
+   planning's two files unedited at the hashes sent.
 
 ## Out of scope
 
