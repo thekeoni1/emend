@@ -59,6 +59,12 @@
 //! - The apply flags of an `xf`, its `alignment` and its `protection` are not
 //!   modelled. Its bytes are kept, privately, so that a new cell format can
 //!   be made as a copy of one.
+//! - Each direct child of an `xf` has its name resolved, to find the first
+//!   `alignment` and `protection` in the main namespace, so a child whose
+//!   prefix no declaration binds refuses the part ("an element or attribute
+//!   uses a prefix its document does not bind"), as a name the crate
+//!   resolves anywhere does; such a part is not namespace-well-formed
+//!   (`specs/0017-fuller-styles.md`, P2 verification ruling 5).
 //! - A format code is text to this layer: which numbers it shows as dates is
 //!   the caller's to decide.
 //! - What [`crate::package::Package::add_style`] adds is a cell format

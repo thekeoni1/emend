@@ -58,7 +58,9 @@
 //! - "a sheet's relationship is missing" (`sheet_relationship_missing`).
 //! - "an element or attribute uses a prefix its document does not bind",
 //!   raised by [`Scope`] and reached from here through an `r:id` whose prefix
-//!   nothing binds (`rel_id_prefix_unbound`).
+//!   nothing binds (`rel_id_prefix_unbound`), and from the styles reader
+//!   through a cell format's child whose prefix nothing binds
+//!   (`styles::tests::an_xf_child_with_an_unbound_prefix_is_refused`).
 //! - "no such relationship" (`removing_an_absent_relationship`).
 //! - "no such override" (`removing_an_absent_override`).
 //! - "an override for that part already exists"

@@ -471,3 +471,16 @@ fn a_second_fonts_fills_or_borders_is_refused() {
         );
     }
 }
+
+#[test]
+fn an_xf_child_with_an_unbound_prefix_is_refused() {
+    // specs/0017-fuller-styles.md, P2 verification ruling 5: the reader
+    // resolves each direct child of an xf, so an unbound prefix there refuses
+    // the part; the same child under a bound prefix reads.
+    assert_package(
+        refused(&part("<cellXfs><xf><y:alignment/></xf></cellXfs>")),
+        "an element or attribute uses a prefix its document does not bind",
+    );
+    let styles = read("<cellXfs><xf xmlns:y=\"urn:other\"><y:alignment/></xf></cellXfs>");
+    assert_eq!(styles.cell_xfs.len(), 1);
+}
