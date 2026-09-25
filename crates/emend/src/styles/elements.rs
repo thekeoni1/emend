@@ -32,10 +32,6 @@ pub(crate) const FIELD_OUT_OF_RANGE: Error = Error::Package("a style field is ou
 
 /// What a new cell format gets: each `Some` field is given to it, and each
 /// `None` field is what its base has, or the plain form's value with no base.
-///
-/// The alignment and protection fields come with P2 of
-/// `specs/0017-fuller-styles.md` (P1 ruling 3); a `Style` built with
-/// `..Default::default()` is written the same way before and after.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Style {
     /// The number format, as [`crate::package::Package::add_cell_style`]
@@ -47,6 +43,10 @@ pub struct Style {
     pub fill: Option<Fill>,
     /// A border, appended to `<borders>`.
     pub border: Option<Border>,
+    /// The cell format's `alignment` child, in place of its base's.
+    pub alignment: Option<Alignment>,
+    /// The cell format's `protection` child, in place of its base's.
+    pub protection: Option<Protection>,
 }
 
 /// A font: the children of a `<font>` element.
@@ -386,9 +386,6 @@ impl BorderStyle {
 }
 
 impl Horizontal {
-    // Reached only through `Alignment::compose` until P2 wires it in
-    // (`specs/0017-fuller-styles.md`, P1 ruling 3).
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn keyword(self) -> &'static str {
         match self {
             Self::General => "general",
@@ -404,8 +401,6 @@ impl Horizontal {
 }
 
 impl Vertical {
-    // As `Horizontal::keyword`.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn keyword(self) -> &'static str {
         match self {
             Self::Top => "top",
@@ -427,7 +422,7 @@ pub(crate) struct Composed {
 }
 
 impl Composed {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             bytes: Vec::new(),
             names: Vec::new(),
@@ -492,6 +487,23 @@ impl Composed {
             Color::Auto => self.attribute("auto", "1"),
         }
         self.end_tag(true);
+    }
+
+    /// `bytes` as they are: a base's own bytes, which carry their own names.
+    pub(crate) fn raw(&mut self, bytes: &[u8]) {
+        self.bytes.extend_from_slice(bytes);
+    }
+
+    /// `other` after these bytes, its names still taking the prefix.
+    pub(crate) fn append(&mut self, other: &Composed) {
+        let at = self.bytes.len();
+        self.names.extend(other.names.iter().map(|name| name + at));
+        self.bytes.extend_from_slice(&other.bytes);
+    }
+
+    /// Whether nothing has been composed.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
     }
 
     /// The element, with `prefix` (with its colon, or empty) on every name.
@@ -650,7 +662,6 @@ impl Border {
 impl Alignment {
     /// The `<alignment>` element, or the refusal of a rotation above 180
     /// that is not 255.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn compose(&self) -> Result<Composed, Error> {
         if let Some(rotation) = self.text_rotation
             && rotation > 180
@@ -685,7 +696,6 @@ impl Alignment {
 
 impl Protection {
     /// The `<protection>` element.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn compose(&self) -> Composed {
         let flag = |on: bool| if on { "1" } else { "0" };
         let mut out = Composed::new();

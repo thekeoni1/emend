@@ -63,11 +63,11 @@
 //!   the caller's to decide.
 //! - What [`crate::package::Package::add_style`] adds is a cell format
 //!   derived from an existing one, or the plain form over no base, with its
-//!   number format, font, fill and border as the [`Style`] gives them, a
-//!   custom number format when its code is new, and a font, a fill and a
-//!   border appended to their collections (`specs/0017-fuller-styles.md`). No
-//!   alignment or protection is added yet (P1 ruling 3), and `dxfs` and
-//!   `cellStyles` are never touched.
+//!   number format, font, fill, border, alignment and protection as the
+//!   [`Style`] gives them, a custom number format when its code is new, and
+//!   a font, a fill and a border appended to their collections
+//!   (`specs/0017-fuller-styles.md`); `dxfs` and `cellStyles` are never
+//!   touched.
 //! - A style edit assumes the styles part carries the font, fill, border and
 //!   cell-style collections and `cellXfs` entries that name them, as every
 //!   workbook Excel or LibreOffice writes does. A new `xf` names font 0,
@@ -150,6 +150,11 @@ pub struct Xf {
     /// The element as the part writes it: start tag through end tag, or its
     /// one empty-element tag.
     raw: Vec<u8>,
+    /// Where its first `alignment` child lies in `raw`, start tag to end
+    /// tag, when it has one (`specs/0017-fuller-styles.md`, "The content").
+    alignment: Option<std::ops::Range<usize>>,
+    /// Where its first `protection` child lies in `raw`, likewise.
+    protection: Option<std::ops::Range<usize>>,
 }
 
 impl Xf {
@@ -171,9 +176,10 @@ pub(crate) struct NewXf {
     /// Everything after the name in the start tag, up to and not including
     /// its closing `>` or `/>`: the attributes, each with its leading space.
     attributes: Vec<u8>,
-    /// The base's bytes between its start tag and its end tag, `None` when
-    /// the new element is written empty.
-    content: Option<Vec<u8>>,
+    /// What goes between its start tag and its end tag: the base's bytes and
+    /// any new `alignment` and `protection`, which take the prefix at the
+    /// rewrite as the name does. `None` when the element is written empty.
+    content: Option<Composed>,
 }
 
 impl NewXf {
@@ -185,7 +191,7 @@ impl NewXf {
             None => out.extend_from_slice(b"/>"),
             Some(content) => {
                 out.push(b'>');
-                out.extend_from_slice(content);
+                out.extend_from_slice(&content.element(prefix));
                 out.extend_from_slice(&[b"</".as_slice(), prefix, b"xf>"].concat());
             }
         }
@@ -194,8 +200,8 @@ impl NewXf {
 }
 
 /// What a new cell format changes of its base: each id given, `None` for
-/// what the base keeps.
-#[derive(Clone, Copy, Debug, Default)]
+/// what the base keeps, and the `alignment` and `protection` elements given.
+#[derive(Clone, Debug, Default)]
 pub(crate) struct Changes {
     /// `numFmtId`.
     pub(crate) num_fmt: Option<u32>,
@@ -205,6 +211,10 @@ pub(crate) struct Changes {
     pub(crate) fill: Option<u32>,
     /// `borderId`.
     pub(crate) border: Option<u32>,
+    /// The new `alignment` child.
+    pub(crate) alignment: Option<Composed>,
+    /// The new `protection` child.
+    pub(crate) protection: Option<Composed>,
 }
 
 /// A cell format's number format.
@@ -250,26 +260,41 @@ impl Styles {
     /// its attributes in its order, each as a space, the name, `=`, the quote
     /// character the base used for it, the value's bytes as the base wrote
     /// them and that quote again (`specs/0012-styles.md`, P1 ruling 5),
-    /// except that each id `changes` gives has the new value and its apply
-    /// flag the value `1`. An id the base lacks is added: `numFmtId` first,
-    /// the others after the base's attributes in the order `fontId fillId
-    /// borderId`, then each apply flag the base lacks in the order
-    /// `applyNumberFormat applyFont applyFill applyBorder`. The base's content
-    /// between its start and end tags is kept raw, and a base with none gives
-    /// an empty element. `None` when `base` is out of range, or when the
-    /// base's start tag does not scan, which a part the reader accepted
-    /// cannot give.
+    /// except that each id `changes` gives has the new value and each apply
+    /// flag of what it gives the value `1`. An id the base lacks is added:
+    /// `numFmtId` first, the others after the base's attributes in the order
+    /// `fontId fillId borderId`, then each apply flag the base lacks in the
+    /// order `applyNumberFormat applyFont applyFill applyBorder
+    /// applyAlignment applyProtection`.
+    ///
+    /// The content is the base's bytes between its start and end tags, with
+    /// its first `alignment` child replaced by the one given and its first
+    /// `protection` likewise; an `alignment` the base lacks goes first, a
+    /// `protection` it lacks after the base's `alignment` when it has one and
+    /// first otherwise, after any new `alignment`. Every other byte is the
+    /// base's. No content gives an empty element. `None` when `base` is out
+    /// of range, or when the base's start tag does not scan, which a part the
+    /// reader accepted cannot give.
     ///
     /// With no base: `numFmtId`, `fontId`, `fillId` and `borderId` with the
-    /// given ids or 0, `xfId="0"`, then the apply flag of each id given, in
-    /// the order above.
+    /// given ids or 0, `xfId="0"`, the apply flag of each thing given, in the
+    /// order above, and the new `alignment` and `protection` as its content.
     pub(crate) fn derived_xf(&self, base: Option<u32>, changes: &Changes) -> Option<NewXf> {
-        // `(id attribute, apply flag, new value)` in the order they are added.
-        let given: [(&[u8], &[u8], Option<u32>); 4] = [
-            (b"numFmtId", b"applyNumberFormat", changes.num_fmt),
-            (b"fontId", b"applyFont", changes.font),
-            (b"fillId", b"applyFill", changes.fill),
-            (b"borderId", b"applyBorder", changes.border),
+        // `(id attribute, new value)` in the order they are added.
+        let ids: [(&[u8], Option<u32>); 4] = [
+            (b"numFmtId", changes.num_fmt),
+            (b"fontId", changes.font),
+            (b"fillId", changes.fill),
+            (b"borderId", changes.border),
+        ];
+        // `(apply flag, whether its thing is given)`, in the order added.
+        let flags: [(&[u8], bool); 6] = [
+            (b"applyNumberFormat", changes.num_fmt.is_some()),
+            (b"applyFont", changes.font.is_some()),
+            (b"applyFill", changes.fill.is_some()),
+            (b"applyBorder", changes.border.is_some()),
+            (b"applyAlignment", changes.alignment.is_some()),
+            (b"applyProtection", changes.protection.is_some()),
         ];
         let mut attributes = Vec::new();
         let mut push = |name: &[u8], quote: u8, value: &[u8]| {
@@ -281,67 +306,100 @@ impl Styles {
             attributes.push(quote);
         };
         let Some(base) = base else {
-            for (name, _, id) in given {
+            for (name, id) in ids {
                 push(name, b'"', id.unwrap_or(0).to_string().as_bytes());
             }
             push(b"xfId", b'"', b"0");
-            for (_, flag, id) in given {
-                if id.is_some() {
+            for (flag, given) in flags {
+                if given {
                     push(flag, b'"', b"1");
                 }
             }
+            let mut content = Composed::new();
+            for child in [&changes.alignment, &changes.protection]
+                .into_iter()
+                .flatten()
+            {
+                content.append(child);
+            }
             return Some(NewXf {
                 attributes,
-                content: None,
+                content: (!content.is_empty()).then_some(content),
             });
         };
-        let raw = &self.cell_xfs.get(usize::try_from(base).ok()?)?.raw;
+        let xf = self.cell_xfs.get(usize::try_from(base).ok()?)?;
+        let raw = &xf.raw;
         let tag = scan_start_tag(raw)?;
         let named = |name: &[u8]| tag.attributes.iter().any(|a| &raw[a.name.clone()] == name);
-        let (num_fmt, others) = given.split_at(1);
-        if let Some(id) = num_fmt[0].2
+        if let Some(id) = changes.num_fmt
             && !named(b"numFmtId")
         {
             push(b"numFmtId", b'"', id.to_string().as_bytes());
         }
         for attribute in &tag.attributes {
             let name = &raw[attribute.name.clone()];
-            let replaced = given.iter().find_map(|(id_name, flag, id)| {
-                let id = (*id)?;
-                if name == *id_name {
-                    Some(id.to_string().into_bytes())
-                } else if name == *flag {
-                    Some(b"1".to_vec())
-                } else {
-                    None
-                }
-            });
-            let value = replaced.as_deref().unwrap_or(&raw[attribute.value.clone()]);
-            push(name, attribute.quote, value);
+            let new_id = ids
+                .iter()
+                .find(|(id_name, _)| name == *id_name)
+                .and_then(|(_, id)| id.map(|id| id.to_string().into_bytes()));
+            let new_flag = flags
+                .iter()
+                .any(|(flag, given)| *given && name == *flag)
+                .then(|| b"1".to_vec());
+            let value = new_id
+                .or(new_flag)
+                .unwrap_or_else(|| raw[attribute.value.clone()].to_vec());
+            push(name, attribute.quote, &value);
         }
-        for (name, _, id) in others {
+        for (name, id) in &ids[1..] {
             if let Some(id) = id
                 && !named(name)
             {
                 push(name, b'"', id.to_string().as_bytes());
             }
         }
-        for (_, flag, id) in given {
-            if id.is_some() && !named(flag) {
+        for (flag, given) in flags {
+            if given && !named(flag) {
                 push(flag, b'"', b"1");
             }
         }
-        let content = if tag.empty {
-            None
+        // The base's content, from after its start tag to its end tag, which
+        // is its last `<`: the reader kept the element's tokens and nothing
+        // after them.
+        let (start, end) = if tag.empty {
+            (tag.end, tag.end)
         } else {
-            // The end tag is the element's last `<`: the reader kept the
-            // element's tokens and nothing after them.
-            let end = raw.iter().rposition(|byte| *byte == b'<')?;
-            Some(raw.get(tag.end..end)?.to_vec()).filter(|content| !content.is_empty())
+            (tag.end, raw.iter().rposition(|byte| *byte == b'<')?)
         };
+        // Each edit: `(position in raw, bytes of raw it replaces, element)`,
+        // in the order they apply; at one position an `alignment` comes
+        // before a `protection`.
+        let mut edits: Vec<(usize, usize, &Composed)> = Vec::new();
+        if let Some(new) = &changes.alignment {
+            edits.push(match &xf.alignment {
+                Some(span) => (span.start, span.end, new),
+                None => (start, start, new),
+            });
+        }
+        if let Some(new) = &changes.protection {
+            edits.push(match (&xf.protection, &xf.alignment) {
+                (Some(span), _) => (span.start, span.end, new),
+                (None, Some(alignment)) => (alignment.end, alignment.end, new),
+                (None, None) => (start, start, new),
+            });
+        }
+        edits.sort_by_key(|(at, _, _)| *at);
+        let mut content = Composed::new();
+        let mut at = start;
+        for (from, to, new) in edits {
+            content.raw(raw.get(at..from)?);
+            content.append(new);
+            at = to.max(at);
+        }
+        content.raw(raw.get(at..end)?);
         Some(NewXf {
             attributes,
-            content,
+            content: (!content.is_empty()).then_some(content),
         })
     }
 
@@ -458,7 +516,9 @@ impl Styles {
             }
             if let Some((mut xf, empty)) = xf {
                 if !empty {
-                    consume_subtree(stream, &mut scope, index, Some(&mut xf.raw))?;
+                    let spans = consume_subtree(stream, &mut scope, index, Some(&mut xf.raw))?;
+                    xf.alignment = spans.alignment;
+                    xf.protection = spans.protection;
                     depth -= 1;
                 }
                 styles.cell_xfs.push(xf);
@@ -721,6 +781,8 @@ fn read_xf(start: &BytesStart<'_>, scope: &Scope, index: usize, raw: &[u8]) -> R
         border_id: None,
         xf_id: None,
         raw: raw.to_vec(),
+        alignment: None,
+        protection: None,
     };
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|_| Error::Xml(index))?;
@@ -744,8 +806,18 @@ fn read_xf(start: &BytesStart<'_>, scope: &Scope, index: usize, raw: &[u8]) -> R
     Ok(xf)
 }
 
+/// Where the first `alignment` and `protection` children of a consumed
+/// element lie in the bytes it was appended to, start tag to end tag.
+#[derive(Default)]
+struct ChildSpans {
+    alignment: Option<std::ops::Range<usize>>,
+    protection: Option<std::ops::Range<usize>>,
+}
+
 /// Consumes an element's subtree, to and including its matching end tag,
-/// appending every token's bytes to `into` when there is one.
+/// appending every token's bytes to `into` when there is one, and returns
+/// where its first `alignment` and `protection` children in the main
+/// namespace lie in `into` (none without `into`).
 ///
 /// Called with the start tag already given to `scope`, and gives it back.
 /// Every start tag inside is given to `scope` too, so a namespace declared
@@ -760,27 +832,67 @@ fn consume_subtree<R: Read>(
     scope: &mut Scope,
     index: usize,
     mut into: Option<&mut Vec<u8>>,
-) -> Result<(), Error> {
+) -> Result<ChildSpans, Error> {
     let mut depth = 0usize;
+    let mut spans = ChildSpans::default();
+    // The direct child being read, which slot it fills and where it began.
+    let mut open: Option<(bool, usize)> = None;
     while let Some(token) = stream.next()? {
+        let at = into.as_deref().map_or(0, Vec::len);
         if let Some(into) = into.as_deref_mut() {
             into.extend_from_slice(token.raw);
         }
+        let after = into.as_deref().map_or(0, Vec::len);
         match token.event {
-            Event::Start(ref start) => {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
                 scope.start(start)?;
-                depth += 1;
-            }
-            Event::Empty(ref start) => {
-                scope.start(start)?;
-                scope.end();
+                if depth == 0 && into.is_some() {
+                    let (namespace, local) = scope.resolve_element(start.name())?;
+                    let which = match local {
+                        b"alignment" => Some(true),
+                        b"protection" => Some(false),
+                        _ => None,
+                    };
+                    if let Some(which) = which
+                        && MAIN.contains(&namespace.unwrap_or_default())
+                    {
+                        let slot = if which {
+                            &mut spans.alignment
+                        } else {
+                            &mut spans.protection
+                        };
+                        if slot.is_none() {
+                            if empty {
+                                *slot = Some(at..after);
+                            } else {
+                                open = Some((which, at));
+                            }
+                        }
+                    }
+                }
+                if empty {
+                    scope.end();
+                } else {
+                    depth += 1;
+                }
             }
             Event::End(_) => {
                 scope.end();
                 if depth == 0 {
-                    return Ok(());
+                    return Ok(spans);
                 }
                 depth -= 1;
+                if depth == 0
+                    && let Some((which, from)) = open.take()
+                {
+                    let slot = if which {
+                        &mut spans.alignment
+                    } else {
+                        &mut spans.protection
+                    };
+                    *slot = Some(from..after);
+                }
             }
             _ => {}
         }

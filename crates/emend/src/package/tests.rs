@@ -6873,6 +6873,7 @@ fn a_derived_xf_from_a_base_with_every_id_replaces_them_in_place() {
                 font: Some(named("a")),
                 fill: Some(solid(1)),
                 border: Some(underlined()),
+                ..Style::default()
             };
             add_styled(p, Some(0), &style, 1);
         },
@@ -6925,6 +6926,7 @@ fn a_derived_xf_with_no_base_names_every_id_and_flags_what_is_given() {
         font: Some(named("a")),
         fill: Some(solid(1)),
         border: Some(underlined()),
+        ..Style::default()
     };
     add_styled(&mut package, None, &every, 1);
     add_styled(&mut package, None, &Style::default(), 2);
@@ -7144,4 +7146,185 @@ fn a_collection_gone_at_the_write_is_refused_with_no_output() {
         assert!(out.is_empty(), "a refused write wrote to the output");
     }
     assert_eq!(replacement_temporaries(), before, "a temporary was left");
+}
+
+// ------------------ alignment and protection (specs/0017, P2)
+
+use crate::styles::{Alignment, Horizontal, Protection, Vertical};
+
+/// An alignment centred both ways.
+fn centred() -> Alignment {
+    Alignment {
+        horizontal: Some(Horizontal::Center),
+        vertical: Some(Vertical::Center),
+        ..Alignment::default()
+    }
+}
+
+/// A protection that unlocks the cell.
+fn unlocked() -> Protection {
+    Protection {
+        locked: Some(false),
+        hidden: None,
+    }
+}
+
+/// The xf the addition over `base` writes, alone, from a part whose only
+/// cell format is `base`.
+#[track_caller]
+fn derived_from(base: &str, style: &Style) -> String {
+    let got = added_styles(
+        &with_collections(&format!("<cellXfs count=\"1\">{base}</cellXfs>")),
+        |p| add_styled(p, Some(0), style, 1),
+    );
+    let at = got.find(base).expect("the base is kept") + base.len();
+    let end = got.rfind("</cellXfs>").expect("cellXfs closes");
+    got[at..end].to_owned()
+}
+
+/// A style giving `alignment` and `protection` alone.
+fn children(alignment: Option<Alignment>, protection: Option<Protection>) -> Style {
+    Style {
+        alignment,
+        protection,
+        ..Style::default()
+    }
+}
+
+#[test]
+fn an_alignment_replaces_the_bases_own() {
+    let base = "<xf applyAlignment=\"0\"><alignment wrapText=\"1\"/></xf>";
+    assert_eq!(
+        derived_from(base, &children(Some(centred()), None)),
+        "<xf applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\"/></xf>"
+    );
+}
+
+#[test]
+fn an_alignment_and_a_protection_replace_both_and_keep_the_bytes_between() {
+    // A start-to-end alignment and whitespace between the two children: the
+    // spans are replaced whole and the whitespace is the base's.
+    let base = "<xf><alignment horizontal=\"left\"></alignment>\n <protection locked=\"1\"/></xf>";
+    assert_eq!(
+        derived_from(base, &children(Some(centred()), Some(unlocked()))),
+        "<xf applyAlignment=\"1\" applyProtection=\"1\">\
+         <alignment horizontal=\"center\" vertical=\"center\"/>\n <protection locked=\"0\"/></xf>"
+    );
+}
+
+#[test]
+fn a_new_alignment_goes_before_the_bases_protection() {
+    let base = "<xf applyProtection=\"1\"><protection hidden=\"1\"/></xf>";
+    assert_eq!(
+        derived_from(base, &children(Some(Alignment::default()), None)),
+        "<xf applyProtection=\"1\" applyAlignment=\"1\"><alignment/><protection hidden=\"1\"/></xf>"
+    );
+}
+
+#[test]
+fn a_new_protection_goes_after_the_bases_alignment_and_before_other_children() {
+    let base = "<xf><alignment indent=\"2\"/><extLst><ext uri=\"x\"/></extLst></xf>";
+    assert_eq!(
+        derived_from(base, &children(None, Some(unlocked()))),
+        "<xf applyProtection=\"1\"><alignment indent=\"2\"/><protection locked=\"0\"/>\
+         <extLst><ext uri=\"x\"/></extLst></xf>"
+    );
+}
+
+#[test]
+fn both_new_go_first_and_an_ext_lst_is_kept_raw_after_them() {
+    // The extLst holds an alignment and a protection of its own, which are
+    // not the xf's children and are neither read nor replaced.
+    let base = "<xf><extLst><ext uri=\"x\"><alignment/><protection/></ext></extLst></xf>";
+    assert_eq!(
+        derived_from(base, &children(Some(centred()), Some(unlocked()))),
+        "<xf applyAlignment=\"1\" applyProtection=\"1\">\
+         <alignment horizontal=\"center\" vertical=\"center\"/><protection locked=\"0\"/>\
+         <extLst><ext uri=\"x\"><alignment/><protection/></ext></extLst></xf>"
+    );
+}
+
+#[test]
+fn a_base_with_no_children_gains_both_with_an_end_tag() {
+    let base = "<xf numFmtId=\"0\"/>";
+    assert_eq!(
+        derived_from(base, &children(Some(centred()), Some(unlocked()))),
+        "<xf numFmtId=\"0\" applyAlignment=\"1\" applyProtection=\"1\">\
+         <alignment horizontal=\"center\" vertical=\"center\"/><protection locked=\"0\"/></xf>"
+    );
+}
+
+#[test]
+fn a_base_with_children_given_neither_keeps_its_content_byte_for_byte() {
+    let base = "<xf><alignment wrapText=\"1\"/><protection/></xf>";
+    assert_eq!(
+        derived_from(base, &children(None, None)),
+        "<xf><alignment wrapText=\"1\"/><protection/></xf>"
+    );
+}
+
+#[test]
+fn with_no_base_the_children_are_written_and_flagged() {
+    let (_, mut package) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+    let style = Style {
+        border: Some(underlined()),
+        alignment: Some(Alignment {
+            horizontal: Some(Horizontal::Right),
+            ..Alignment::default()
+        }),
+        ..Style::default()
+    };
+    add_styled(&mut package, None, &style, 1);
+    add_styled(&mut package, None, &children(None, Some(unlocked())), 2);
+    let element =
+        |index: usize| String::from_utf8(package.edits.xf_additions[index].element(b"")).unwrap();
+    assert_eq!(
+        element(0),
+        "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" \
+         applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\"/></xf>"
+    );
+    assert_eq!(
+        element(1),
+        "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+         applyProtection=\"1\"><protection locked=\"0\"/></xf>"
+    );
+}
+
+#[test]
+fn a_new_child_takes_the_cell_xfs_prefix_and_the_bases_bytes_keep_theirs() {
+    let body = format!(
+        "{DECLARATION}\n<x:styleSheet xmlns:x=\"{MAIN_NS}\"><x:cellXfs count=\"1\">\
+         <x:xf><x:protection/></x:xf></x:cellXfs></x:styleSheet>"
+    );
+    let mut parts = with_rows("");
+    set(&mut parts, STYLES_PART, body);
+    let output = edited_output(parts.clone(), |p| {
+        add_styled(p, Some(0), &children(Some(Alignment::default()), None), 1);
+    });
+    let got = String::from_utf8(stored_data(&output, STYLES_PART)).expect("UTF-8");
+    assert!(
+        got.contains(
+            "<x:xf><x:protection/></x:xf><x:xf applyAlignment=\"1\"><x:alignment/>\
+             <x:protection/></x:xf></x:cellXfs>"
+        ),
+        "{got}"
+    );
+}
+
+#[test]
+fn a_rotation_out_of_range_refuses_the_addition_and_records_nothing() {
+    let (_, mut package) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+    let style = Style {
+        font: Some(named("a")),
+        alignment: Some(Alignment {
+            text_rotation: Some(181),
+            ..Alignment::default()
+        }),
+        ..Style::default()
+    };
+    assert_package(
+        package.add_style(Some(0), &style).expect_err("refused"),
+        "a style field is out of range",
+    );
+    assert_nothing_recorded(&package);
 }

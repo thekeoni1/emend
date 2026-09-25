@@ -154,7 +154,8 @@
 //!   `a_refused_font_name_or_field_records_nothing`).
 //! - "a style field is out of range"
 //!   (`styles::elements::tests::a_field_out_of_range_is_refused`,
-//!   `a_refused_font_name_or_field_records_nothing`).
+//!   `a_refused_font_name_or_field_records_nothing`,
+//!   `a_rotation_out_of_range_refuses_the_addition_and_records_nothing`).
 //!
 //! Formulas and the workbook's `calcPr` add five (`specs/0013-formulas.md`,
 //! "Errors"); the first three are raised by [`Value`] in `cells` and reported
@@ -390,9 +391,9 @@
 //! - The styles part is rewritten at most once per write, in one streaming
 //!   pass that holds one token, the recorded additions and five counts.
 //! - An addition is a cell format derived from an existing one, or the plain
-//!   form over no base, with its number format, font, fill and border as
-//!   given; no alignment or protection is added (`specs/0017-fuller-styles.md`,
-//!   P1 ruling 3: they come with its P2).
+//!   form over no base, with its number format, font, fill, border,
+//!   alignment and protection as given (`specs/0017-fuller-styles.md`); the
+//!   base's other children are kept as its bytes.
 //! - A write with a `Some` style edit reads the styles part to check the
 //!   index against the `cellXfs` count plus the additions; a `None` edit
 //!   needs no styles part at all (the same section, 3).
@@ -536,8 +537,8 @@ use quick_xml::events::{BytesStart, Event};
 use crate::archive::{Archive, Core, Edits, Error, Replacement, TempFile, replacement_from_reader};
 use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
 use crate::styles::{
-    Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Style, Styles, counted,
-    num_fmt_element, scan_start_tag,
+    Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
+    Styles, counted, num_fmt_element, scan_start_tag,
 };
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
@@ -1638,10 +1639,14 @@ impl<R: Read + Seek> Package<R> {
     /// second copy.
     ///
     /// With a base, the new cell format is a copy of it with each id `style`
-    /// gives replaced and that id's apply flag set to `1`, an id or a flag
-    /// the base lacks added; with `None`, `<xf numFmtId="N" fontId="F"
-    /// fillId="I" borderId="B" xfId="0"/>` with the given ids or 0 and the
-    /// apply flag of each one given.
+    /// gives replaced and the apply flag of each thing it gives set to `1`,
+    /// an id or a flag the base lacks added; its content is the base's with
+    /// the `alignment` and `protection` given in place of the base's (a new
+    /// `alignment` first, a new `protection` after any `alignment`), every
+    /// other child the base's bytes. With `None`, `<xf numFmtId="N"
+    /// fontId="F" fillId="I" borderId="B" xfId="0"/>` with the given ids or
+    /// 0, the apply flag of each thing given, and the given `alignment` and
+    /// `protection` as its children.
     ///
     /// The styles part is read first when it is not cached, so this fails as
     /// [`Package::styles`] fails. Nothing is recorded when this fails.
@@ -1653,8 +1658,8 @@ impl<R: Read + Seek> Package<R> {
     /// a fill or a border given to a part without `<fonts>`, `<fills>` or
     /// `<borders>`; "a font name is empty or holds a character XML cannot
     /// carry"; "a style field is out of range" for a font size that is not
-    /// finite or not above zero, and a tint that is not finite or lies
-    /// outside `-1.0..=1.0`; "a style index is out of range" for an id `u32`
+    /// finite or not above zero, a tint that is not finite or lies outside
+    /// `-1.0..=1.0`, and a text rotation above 180 that is not 255; "a style index is out of range" for an id `u32`
     /// cannot hold.
     pub fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
         self.parts().add_style(base, style)
@@ -2261,11 +2266,21 @@ impl<'a> Parts<'a> {
             }
         };
         let index = u32::try_from(existing + recorded).map_err(|_| STYLE_OUT_OF_RANGE)?;
+        // The cell format's own children, composed here as the collections'
+        // elements are; only an alignment can be refused (its rotation).
+        let alignment = style
+            .alignment
+            .as_ref()
+            .map(Alignment::compose)
+            .transpose()?;
+        let protection = style.protection.as_ref().map(Protection::compose);
         let changes = Changes {
             num_fmt,
             font: font.as_ref().map(|(id, _)| *id),
             fill: fill.as_ref().map(|(id, _)| *id),
             border: border.as_ref().map(|(id, _)| *id),
+            alignment,
+            protection,
         };
         // The base is in range by the check above, and its bytes are ones the
         // reader accepted, so this is `None` only for a part that could not
