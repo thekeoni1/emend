@@ -19,7 +19,10 @@
 # from Value2 into seen1 to seen3: a whole-number double without decimals,
 # another double in the invariant culture, an error value as the cell's text.
 # A read that throws on a workbook that opened writes read-error in that seen
-# column, keeps result pass and puts the exception text in message.
+# column, keeps result pass and puts the exception text in message. A close
+# that throws writes close-error and its text in message, keeps result, and
+# the run goes on to the next row, so a results file is always written
+# (specs/0016, "Planning verification and rulings on P1", ruling 3).
 #
 # Writes open-results.txt beside the script, tab-separated ASCII, with the
 # columns source, id_or_test, label, result, seen1, seen2, seen3, message; a
@@ -94,7 +97,11 @@ foreach ($r in $list) {
         }
       }
     }
-    $wb.Close($false)
+    try {
+      $wb.Close($false)
+    } catch {
+      $message = "close-error: " + (Clean $_.Exception.Message)
+    }
   }
   $out += "$($r.source)`t$($r.id_or_test)`t$($r.label)`t$result`t$($seen[0])`t$($seen[1])`t$($seen[2])`t$message"
   Write-Host "$n of $($list.Count): $($r.source) $result"

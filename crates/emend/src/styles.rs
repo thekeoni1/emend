@@ -64,6 +64,12 @@
 //!   format when its code is new. No font, fill, border, alignment or
 //!   protection is added, and `dxfs`, `cellStyles`, `fonts`, `fills` and
 //!   `borders` are never touched.
+//! - A style edit assumes the styles part carries the font, fill, border and
+//!   cell-style collections and `cellXfs` entries that name them, as every
+//!   workbook Excel or LibreOffice writes does. A new `xf` names font 0,
+//!   fill 0, border 0 and cell style 0, and Excel refuses a cell whose `s`
+//!   names an `xf` in a part without those collections (`specs/0012-styles.md`,
+//!   the limits, from Excel check 1).
 //! - Two additions with equal codes share one `numFmt` id; two with an equal
 //!   base and format are two cell formats, since nothing is deduplicated at
 //!   the `xf` level.
