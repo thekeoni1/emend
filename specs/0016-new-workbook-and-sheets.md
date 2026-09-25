@@ -893,6 +893,179 @@ the list's sha256; all 310 keep files matching the open record.
    steps. P3 starts on this section, which goes in P3's first doc
    commit with the P2 rulings 1 to 6 and the `ROADMAP.md` row.
 
+## Planning rulings during P3 (2026-09-25)
+
+Asked by the implementing session before P3's main code commit,
+after the doc commit 9ae2efe and the first code commit 421bd44
+(both verified by planning: the two files unedited at the hashes
+sent; the close-error appended after "; "; the two `package.rs`
+sentences reworded). The corpus measurements the session gave
+(counts only: every workbook part binds the relationships prefix,
+none has a prefixed root or a non-sheet child in `<sheets>`; 95
+sheets, 48 with `state`; 160 defined names, 38 with `localSheetId`;
+27 book views, 17 with `activeTab` and 17 with `firstSheet`; no
+`Default` for `xml` of the worksheet type) are the witness below.
+
+1. Q1: the spec conflicted with itself; the sample's cell wins. The
+   run log checks the added entry byte for byte against bytes it
+   builds itself: the template's worksheet with `<sheetData/>`
+   replaced by the one row the cell rewrite writes, and with
+   `ElementTree` that it holds one cell, A1, value 7. The crate
+   tests keep the blank-bytes check for `add_sheet` alone. "Harness
+   runs" P3 reads so from now.
+2. Q2: a cell edit on a pending added part is applied at the write
+   to the template's blank worksheet bytes through the existing
+   worksheet rewrite, and the result is the added entry's bytes:
+   one entry, no separate replacement, the rewrite's refusals
+   unchanged. `Package::cells` on a pending part reads the file
+   state and is refused "no such part", as today.
+3. Q3: option (a). A name holding a character XML 1.0 cannot carry
+   is refused at record time, with the name rules, by the existing
+   message "a text holds a character XML cannot carry"; catalogued
+   with the sheet edits as reached from add and rename, with a test.
+4. Q4: a name written into an attribute (a new `<sheet>`, or a
+   renamed name between its own quotes) is escaped with quick-xml's
+   attribute escape: `&`, `<`, `>`, the apostrophe and the quote as
+   entities; tab, line feed and carriage return as `&#9;`, `&#10;`
+   and `&#13;`, so the name reads back as given. The rename test
+   pins it.
+5. Q5: a `localSheetId` that is not a decimal `u32` is refused with
+   "a sheet edit no longer applies at the write"; one past the
+   file's sheet count names no sheet and is copied unchanged, and
+   the limits say so.
+6. Q6: a new `sheetId` past `u32::MAX` is refused at record time and
+   at the write, and a `<sheet>` added to a workbook part with no
+   `<sheets>` element is refused at the write, both with "a sheet
+   edit no longer applies at the write"; neither is reachable from
+   the corpus, and the limits say so.
+7. Q7: as proposed. The sample's name is the first free of `emend`,
+   `emend2`, `emend3` and so on, compared as the name check compares;
+   the tool counts `definedName` elements and reads the first
+   `workbookView` with its own quick-xml pass over the workbook
+   part, and the crate's API stays as the spec lists it.
+8. Q8: the comparison as proposed, one independent Python script
+   with a planted control per flag, counts and yes/no only, the
+   byte spans measured on the raw part. But not the `firstSheet`
+   remap: the spec's rule was wrong for that attribute. `firstSheet`
+   is the tab strip's scroll position, not a reference to a sheet:
+   an add or a move never changes it, and appending `firstSheet="1"`
+   after the sample would scroll the strip past the new first sheet.
+   Rule from now, replacing "The workbook rewrite"'s sentence on
+   `firstSheet`: `activeTab` is remapped as written there; a present
+   `firstSheet` is decremented by the number of removed sheets that
+   stood before it and clamped to the projected count minus one, an
+   absent one stays absent, and a move or an add leaves it as it
+   is. The P3 expectation reads `activeTab` one more and `firstSheet`
+   unchanged; P4's reads `firstSheet` as this rule gives.
+
+9. Harness gap, found by run.log attempt 1 after the main code
+   commit 770c9dd and confirmed by planning from the scripts: both
+   open checks (`scripts/passthrough-run.sh`, `scripts/
+   edit-open-check.sh`) compare the output's ODS table count with
+   the INPUT's `<sheet>` count, which no earlier operation could
+   tell from the output's. `--sheet-sample` adds a sheet, so every
+   output read `lo` fail on the count while the ODS held exactly
+   the sheets the output declares. Option (a): a P3 code commit 3,
+   scripts only. The output's check takes the output as its
+   reference workbook; the input's check keeps the input. Earlier
+   records read the same, since every earlier operation kept the
+   count, and each run log's comparison checks the sheet list
+   against the input on its own. The negative log gains two cases:
+   an output whose declared count differs from the input's is
+   accepted when LibreOffice shows that many tables, and one whose
+   table count differs from its own declared count is refused, as
+   a control. Then attempt 2 of every log from the gate on, attempt
+   1's logs hashed in the rerun headers, attempt 1's run directory
+   hashed, removed and printed. The alternative, expecting `lo`
+   fail on a sheet-changing operation, is refused: it would blind
+   the check to a real miscount. From now the open check's
+   definition (`specs/0006` P3) reads: the table count against the
+   checked workbook's own sheet count.
+
+10. After code commit 3 (a7f7060) and attempt 2 of the logs (every
+   log "yes": `lo` 27 of 27 on both targets, 10 of 10 plants, 173
+   pairs and 0 findings in the edit open check, the two ruling 9
+   cases holding), independent check 1 raised F1 to F10. Ruled: a
+   code commit 4 carrying F1, F2, F3 and F5 as proposed, then
+   attempt 3 of every log from the gate on, attempts 1 and 2
+   hashed in the rerun headers, attempt 2's run directory hashed,
+   removed and printed; check 1's answer kept and committed as
+   `independent-check-1.md`; check 2 on attempt 3.
+   (F1) The move-remap fixture's deliberate out-of-range
+   `localSheetId` makes LibreOffice refuse input and output alike,
+   so the remapped output was never seen to open (the session
+   bisected it, unlogged, in the pinned image). The test splits:
+   the move-remap test loses the out-of-range name and its pair
+   opens; a new test keeps ruling 5's past-count case, its pair
+   expected refused on both sides, which the open check allows.
+   (F2) An `activeTab` or `firstSheet` that is not a decimal `u32`
+   is refused at the write with "a sheet edit no longer applies at
+   the write", as ruling 5's `localSheetId` is; the catalogue entry
+   and the limits name it and a test covers it. Copying such a
+   value unchanged is refused: the remap cannot say what it means.
+   (F3) `firstSheet` is decremented and clamped only when a sheet
+   was removed, as ruling 8 says; a present value past the end is
+   left unchanged by a move, with a test.
+   (F5) The rename test adds `>` and the LF and CR character
+   references; a test covers `Package::cells` on a pending part
+   refused (ruling 2).
+   (F4) "add then remove of the pending sheet" moves to P4 with
+   `remove_sheet`. (F6 to F10) Recorded, no action: the superseded
+   run directory hashed through its two summaries; the comparison
+   on expat and byte spans, as ruling 8 asked; a long comment line;
+   an unreachable overflow; the disclosed unlogged items.
+
+These rulings go in the next doc commit (P4's first), with P3's
+verification; P3's code commits cite them by number.
+
+## Planning verification and rulings on P3 (2026-09-25)
+
+Verified from primaries: the doc commit 9ae2efe (the two files at
+the hashes sent, unedited); the code commits 421bd44, 770c9dd,
+a7f7060 and 09b42e4, each held to its area; the record commit
+2797fe9 (eleven files); every log and record hash the report gives
+read from the files; planning's own privacy scan over
+3a1f0ec..HEAD, 6 commits, 565 blobs, 0 findings; `ANTHROPIC_API_KEY`
+unset. Planning's own checks: the whole `package.rs` diff read (the
+projected list, the name rules, the three edits, the plan, the
+four-region rewrite, the attribute escaping and index reading, the
+worksheet rewrite on the blank part); the workspace tests on
+planning's own host build (429 crate tests among them), the crate's
+415 on i686, and clippy clean; planning's own `--sheet-sample`
+corpus run through the runner with the pinned image: 27 ok, `lo`
+and `lo_in` ok on 27, every output byte-identical to the phase's
+run directory; planning's own comparison over the 27 pairs, every
+check on 27 of 27: every entry other than the workbook part, its
+rels part and the content types identical and exactly one entry
+added; the rels part one relationship longer; the content types
+one `Override` longer or covered; the sheets equal to the input's
+with the new sheet first and its `sheetId` the largest plus one;
+every `localSheetId` one more; every `activeTab` one more;
+`firstSheet` unchanged; the added entry the template's worksheet
+with one cell A1 holding 7; the workbook part identical outside
+the three regions; 122 sheets after; all 350 keep files matching
+the open record.
+
+1. F2: `package.rs`'s limits gain a bullet in P4's first code
+   commit naming the two refusals ruling 6 gives (a `sheetId` past
+   `u32::MAX`, a sheet added to a workbook part with no `<sheets>`),
+   each unreachable from the corpus. The catalogue alone does not
+   satisfy "the limits say so".
+2. F1: the failed pre-check scan (an answer installed before the
+   pre-check stage) is hashed in the final scan's header with the
+   two others; accepted, nothing else needed.
+3. F3 to F8: report and log nits, in the committed answer, none
+   changing a result; F7 (`--sheet-sample` exits 2 on a workbook
+   with no book view) is the spec's expectation and every corpus
+   workbook has one. Accepted.
+4. Disclosures accepted: the unlogged bisection of check 1's F1 in
+   the pinned image; tests, fmt and clippy before code commit 4;
+   check 1's F4 deferred to P4 with `remove_sheet`.
+5. P3 is DONE. P4 starts on this section, which goes in P4's first
+   doc commit with the P3 rulings 1 to 10 and the `ROADMAP.md` row.
+   P4's first code commit carries ruling 1 and check 1's F4 (add
+   then remove of the pending sheet) beside `remove_sheet`.
+
 ## Out of scope
 
 Cell styles beyond part 5's (part 2); rows, columns, freeze panes,
