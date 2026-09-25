@@ -652,6 +652,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--formula-sample", "--calc"],
         vec!["--calc", "--formula-sample"],
         vec!["--formula-sample", "[Content_Types].xml"],
+        // And with M2 part 1 P2's.
+        vec!["--new-sample", "--formula-sample"],
+        vec!["--formula-sample", "--new-sample"],
+        vec!["--new-sample", "[Content_Types].xml"],
         // A flag that takes no argument, given one.
         vec!["--drop-calc-chain", "[Content_Types].xml"],
         vec!["--cells", "[Content_Types].xml"],
@@ -2502,4 +2506,51 @@ fn a_tool_keep_directory_that_is_not_there_fails_the_test() {
         message.contains("is not a directory"),
         "the message: {message}"
     );
+}
+
+#[test]
+fn the_new_sample_writes_a_new_workbook_then_three_cells() {
+    // `specs/0016-new-workbook-and-sheets.md`, "Harness runs",
+    // `--new-sample`: the first path is written with `Package::new()`'s
+    // bytes, the second with the three sample cells, and the line counts the
+    // second. Both files are made through a temporary and moved into place,
+    // replacing what was there (P2 ruling 4), and two runs give the same
+    // bytes.
+    let dir = TempDir::new("new-sample");
+    let first = dir.path("new.xlsx");
+    let second = dir.path("new-cells.xlsx");
+    fs::write(&first, b"replaced").expect("write a file to be replaced");
+    fs::write(&second, b"replaced").expect("write a file to be replaced");
+    let ran = emend_copy_with(&first, &second, &["--new-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(ran.stderr, "");
+    assert_eq!(
+        ran.stdout, "new\tentries=6\tsheets=1\tcells=3\tread_back=3\n",
+        "the new line"
+    );
+    let a = fs::read(&first).expect("read the first file");
+    let b = fs::read(&second).expect("read the second file");
+    assert_ne!(a, b"replaced");
+    assert_ne!(b, b"replaced");
+    assert_ne!(a, b);
+    assert_eq!(
+        dir.names(),
+        vec!["new-cells.xlsx".to_string(), "new.xlsx".to_string()],
+        "no temporary is left"
+    );
+
+    // Two runs, two directories, the same bytes.
+    let again = TempDir::new("new-sample-again");
+    let first_again = again.path("new.xlsx");
+    let second_again = again.path("new-cells.xlsx");
+    let ran = emend_copy_with(&first_again, &second_again, &["--new-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(fs::read(&first_again).expect("read"), a);
+    assert_eq!(fs::read(&second_again).expect("read"), b);
+
+    // The first file is a verbatim round trip of itself.
+    let copied = again.path("copied.xlsx");
+    let ran = emend_copy_with(&first_again, &copied, &[]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(fs::read(&copied).expect("read"), a);
 }

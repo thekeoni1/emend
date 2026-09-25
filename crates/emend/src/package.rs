@@ -150,6 +150,13 @@
 //! - "the workbook part cannot be edited in a package that replaces or removes it"
 //!   (`a_workbook_part_replaced_or_removed_refuses_the_flag`).
 //!
+//! [`Package::new`] adds none (`specs/0016-new-workbook-and-sheets.md`,
+//! "`Package::new`"): it can fail only with what [`Package::write_to`] and
+//! [`Package::open`] refuse, and on the template's fixed bytes neither
+//! refuses, so no test reaches an error from it
+//! (`new_is_the_empty_archive_with_the_template_added` shows the bytes it
+//! opens are the ones its recipe writes).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -356,13 +363,30 @@
 //! - A worksheet with two `<sheetData>` elements is edited in the first and
 //!   the second is copied raw; a reader counts cells in both (P2 ruling
 //!   3(a)).
+//!
+//! A new workbook adds these (`specs/0016-new-workbook-and-sheets.md`, "The
+//! template" and "`Package::new`"):
+//!
+//! - [`Package::new`] is a fixed template of six parts, one sheet named
+//!   `Sheet1` with no cell, written through the ordinary write and opened
+//!   back; there is no writer of its own and no template of the caller's. A
+//!   caller who wants another starting workbook opens it and edits it.
+//! - The template has no `docProps` parts, no shared strings part, no theme,
+//!   no `calcPr` and no calculation chain; a formula written into it gets
+//!   `calcPr` from the formula-change rule, as in any workbook.
+//! - Its styles part carries one font, the two fills Excel requires, one
+//!   empty border, one cell format and the `Normal` cell style, which is the
+//!   precondition `crate::styles` states for a style edit.
+//! - Writing the template compresses each part through a temporary file in
+//!   the system's temporary directory, as the archive layer does for every
+//!   added entry, and the temporary is removed however the write ends.
 
 #[cfg(test)]
 mod tests;
 
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::str;
 
 use quick_xml::XmlVersion;
@@ -857,6 +881,81 @@ impl Recorded {
             }
         }
         sources
+    }
+}
+
+/// An archive with no entries: the 22-byte end of central directory record,
+/// zero entries on this disk and in all, a directory of size 0 at offset 0,
+/// and an empty comment. [`Package::new`] opens it and adds the template.
+const EMPTY_ARCHIVE: [u8; 22] = [
+    b'P', b'K', 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+/// The new workbook's six parts, in the order they are written
+/// (`specs/0016-new-workbook-and-sheets.md`, "The template", and its P2
+/// rulings 1 to 6): entry name, then the bytes of the file of that name under
+/// `crates/emend/template/`, which are the entry's bytes exactly.
+///
+/// The files were written by hand for that spec. They are fictional and hold
+/// no cell: a content types part with the `rels` and `xml` defaults and three
+/// overrides; the package relationship to `xl/workbook.xml`; a workbook of
+/// one sheet named `Sheet1`, one book view and no `calcPr`; its relationships
+/// to the worksheet and the styles part; a worksheet whose `sheetData` is
+/// empty; and a styles part holding one font, the two fills Excel requires,
+/// one empty border, one cell style format, one cell format and the `Normal`
+/// cell style, the collections `crate::styles`'s precondition names. Each is
+/// the declaration, one line feed, and the root with no whitespace between
+/// elements, with no line feed at the end.
+const TEMPLATE: [(&[u8], &[u8]); 6] = [
+    (
+        CONTENT_TYPES_PART,
+        include_bytes!("../template/[Content_Types].xml"),
+    ),
+    (b"_rels/.rels", include_bytes!("../template/_rels/.rels")),
+    (
+        b"xl/workbook.xml",
+        include_bytes!("../template/xl/workbook.xml"),
+    ),
+    (
+        b"xl/_rels/workbook.xml.rels",
+        include_bytes!("../template/xl/_rels/workbook.xml.rels"),
+    ),
+    (
+        b"xl/worksheets/sheet1.xml",
+        include_bytes!("../template/xl/worksheets/sheet1.xml"),
+    ),
+    (
+        b"xl/styles.xml",
+        include_bytes!("../template/xl/styles.xml"),
+    ),
+];
+
+impl Package<Cursor<Vec<u8>>> {
+    /// A new workbook: the template's six parts, written and opened back
+    /// (`specs/0016-new-workbook-and-sheets.md`, "`Package::new`").
+    ///
+    /// The empty archive is opened, the six parts are recorded as additions
+    /// in the template's order, [`Package::write_to`] writes them into memory,
+    /// and the result is opened, so every later edit takes the ordinary path
+    /// and nothing here is a writer of its own. The archive layer writes an
+    /// added entry with fixed flags, method and time, so every call gives the
+    /// same bytes, on every target. The workbook holds one sheet, `Sheet1`, of
+    /// kind [`SheetKind::Worksheet`] and no cell; the caller who wants it on
+    /// disk writes it with no edits, which is a verbatim round trip.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::write_to`] and [`Package::open`] refuse. The bytes
+    /// are fixed, so neither refuses them, and no test can reach an error
+    /// here; the module header's catalogue says so.
+    pub fn new() -> Result<Self, Error> {
+        let mut template = Package::open(Cursor::new(EMPTY_ARCHIVE.to_vec()))?;
+        for (name, bytes) in TEMPLATE {
+            template.add_part(name, replacement_from_reader(bytes));
+        }
+        let mut written = Vec::new();
+        template.write_to(&mut written)?;
+        Package::open(Cursor::new(written))
     }
 }
 

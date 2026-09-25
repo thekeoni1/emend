@@ -123,6 +123,19 @@
 //!   `cells_after` are asserted as `--style-sample`'s are. The tool enables
 //!   the crate's `dates` feature for this operation.
 //!
+//! - `--new-sample`: the new workbook sample of
+//!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The first path
+//!   is WRITTEN, not read: `Package::new()` with no edits goes to it. It is
+//!   then opened, its first sheet takes `Number(7)`, `Text("emend")` and
+//!   `Boolean(true)` in row 1, columns 1 to 3, and the second path is
+//!   written. The second is reopened and one line goes to stdout: the word
+//!   `new` then `entries`, `sheets`, `cells` and `read_back` (the cells that
+//!   read back with the value written). COUNTS ONLY, and the values are this
+//!   tool's own constants. `cells` and `read_back` are asserted equal to 3;
+//!   either failing is exit 2 with the message, the second file removed and
+//!   the first kept (P2 ruling 4). Each file goes through a temporary and is
+//!   moved into place, replacing what was there, as every output is.
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -151,7 +164,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample | --date-sample | --calc | --formula-sample]";
+| --style-sample | --date-sample | --calc | --formula-sample | --new-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -185,6 +198,9 @@ enum Operation {
     Calc,
     /// The formula sample of part 6, and its counts on stdout.
     FormulaSample,
+    /// A new workbook written to the first path, the sample cells to the
+    /// second, and its counts on stdout.
+    NewSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -209,6 +225,7 @@ enum Error {
     CellsAfter { expected: u64, found: u64 },
     XfsAfter { expected: u64, found: u64 },
     ReadBack { expected: u64, found: u64 },
+    NewReadBack { expected: u64, found: u64 },
 }
 
 impl fmt::Display for Error {
@@ -242,6 +259,11 @@ impl fmt::Display for Error {
             Error::ReadBack { expected, found } => write!(
                 f,
                 "the output's sheet reads back {found} written formula(s) and the edits imply \
+                 {expected}"
+            ),
+            Error::NewReadBack { expected, found } => write!(
+                f,
+                "the output's sheet reads back {found} written value(s) and the edits imply \
                  {expected}"
             ),
         }
@@ -302,6 +324,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::FormulaSample,
         ),
+        [input, output, flag] if flag == "--new-sample" => {
+            run(Path::new(input), Path::new(output), Operation::NewSample)
+        }
         [input, output, flag] if flag == "--drop-calc-chain" => run(
             Path::new(input),
             Path::new(output),
@@ -344,6 +369,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::FormulaSample) {
         return formula_sample(input, output);
     }
+    if matches!(operation, Operation::NewSample) {
+        return new_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -372,6 +400,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::StyleSample => unreachable!("the style sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
+        Operation::NewSample => unreachable!("the new workbook sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -1124,6 +1153,107 @@ fn style_read_back(
         });
     }
     Ok((xfs_after, formats_after, cells_after, read_back))
+}
+
+/// The new workbook sample (`specs/0016-new-workbook-and-sheets.md`,
+/// "Harness runs", `--new-sample`): `first` is written with
+/// `Package::new()`'s bytes, opened, and the three sample cells set on its
+/// first sheet are written to `second`, which is then read back.
+fn new_sample(first: &Path, second: &Path) -> Result<(), Error> {
+    write_into(Package::new()?, first)?;
+    let file = File::open(first).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    for (col, value) in new_sample_values() {
+        package.set_cell(&part, CellRef { row: 1, col }, value);
+    }
+    write_into(package, second)?;
+    // The second file is in place: a failure from here on removes it, and
+    // the first, which is the constructor's and not the edit's, stays.
+    let checked = new_read_back(second, &part);
+    if checked.is_err() {
+        let _ = fs::remove_file(second);
+    }
+    let (entries, sheets, cells, read_back) = checked?;
+    let line =
+        format!("new\tentries={entries}\tsheets={sheets}\tcells={cells}\tread_back={read_back}");
+    print_line(&line)
+}
+
+/// The three values the new workbook sample writes in row 1, by column.
+fn new_sample_values() -> [(u32, Value); 3] {
+    [
+        (1, Value::Number(7.0)),
+        (2, Value::Text("emend".to_string())),
+        (3, Value::Boolean(true)),
+    ]
+}
+
+/// Reopens the new workbook sample's second file: its entry and sheet
+/// counts, its first sheet's cell count, asserted equal to 3, and how many
+/// of those cells read back with the value written, asserted equal to 3.
+fn new_read_back(output: &Path, part: &[u8]) -> Result<(u64, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let entries = written.archive().entries().len() as u64;
+    let sheets = written.workbook()?.sheets.len() as u64;
+    let values = new_sample_values();
+    let mut cells = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells += 1;
+        let matched = values.iter().any(|(col, value)| {
+            cell.reference == CellRef { row: 1, col: *col }
+                && match value {
+                    Value::Number(n) => cell.number() == Some(*n),
+                    Value::Text(text) => {
+                        cell.kind == Kind::InlineString && cell.value.as_deref() == Some(text)
+                    }
+                    Value::Boolean(b) => cell.boolean() == Some(*b),
+                    _ => false,
+                }
+        });
+        read_back += u64::from(matched);
+    }
+    let expected = values.len() as u64;
+    if cells != expected {
+        return Err(Error::CellsAfter {
+            expected,
+            found: cells,
+        });
+    }
+    if read_back != expected {
+        return Err(Error::NewReadBack {
+            expected,
+            found: read_back,
+        });
+    }
+    Ok((entries, sheets, cells, read_back))
+}
+
+/// Writes `package` to `output` through a temporary in its directory and
+/// moves it into place, removing the temporary when either step fails, as
+/// every output of this tool is written.
+fn write_into<R: io::Read + io::Seek>(package: Package<R>, output: &Path) -> Result<(), Error> {
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// The date and time the date sample writes: its serial is 45351.5 in the

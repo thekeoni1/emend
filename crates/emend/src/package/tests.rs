@@ -4655,3 +4655,260 @@ fn written_with_no_keep_needs_no_fixture() {
     let package = Package::open(Cursor::new(bytes.clone())).expect("the fixture opens");
     assert_eq!(written(package), bytes);
 }
+
+// `Package::new` (`specs/0016-new-workbook-and-sheets.md`, "P2: the
+// template and `Package::new`"): the template written and opened back. Each
+// call writes the template's additions through the archive layer, which makes
+// temporaries of the one form, so every call here holds `TEMPORARY_LOCK`.
+
+/// A new package, made under [`TEMPORARY_LOCK`].
+#[track_caller]
+fn new_package() -> Package<Cursor<Vec<u8>>> {
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    Package::new().expect("Package::new")
+}
+
+/// The bytes a new package holds, read as a write with no edits, which is a
+/// verbatim round trip, under [`TEMPORARY_LOCK`] and never kept.
+#[track_caller]
+fn new_bytes() -> Vec<u8> {
+    let package = new_package();
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut out = Vec::new();
+    package.write_to(&mut out).expect("write_to");
+    out
+}
+
+/// A new package with its bytes recorded as this thread's fixture, so
+/// [`written`] keeps the pair (`specs/0016`, "Harness runs": each phase's
+/// run log opens its keep).
+#[track_caller]
+fn new_recorded() -> Package<Cursor<Vec<u8>>> {
+    record_fixture(&new_bytes());
+    new_package()
+}
+
+/// The template's file for an entry, by name.
+fn template_file(name: &[u8]) -> &'static [u8] {
+    TEMPLATE
+        .iter()
+        .find(|(entry, _)| *entry == name)
+        .map(|(_, bytes)| *bytes)
+        .expect("a template entry")
+}
+
+#[test]
+fn new_twice_gives_the_same_bytes() {
+    let first = new_bytes();
+    let second = new_bytes();
+    assert_eq!(first, second);
+    assert!(!first.is_empty());
+}
+
+#[test]
+fn new_holds_the_six_template_files_in_order_byte_for_byte() {
+    let bytes = new_bytes();
+    let parsed = parse_independently(&bytes);
+    let want: Vec<&[u8]> = vec![
+        b"[Content_Types].xml",
+        b"_rels/.rels",
+        b"xl/workbook.xml",
+        b"xl/_rels/workbook.xml.rels",
+        b"xl/worksheets/sheet1.xml",
+        b"xl/styles.xml",
+    ];
+    assert_names(&bytes, &want);
+    // The independent reader's CRC-32 and size of each entry are the
+    // template file's, computed here without the layer.
+    for entry in &parsed.entries {
+        let file = template_file(&entry.name);
+        assert_eq!(entry.crc32, crc32(file), "the CRC-32 of {:?}", entry.name);
+        assert_eq!(entry.uncompressed_size, file.len() as u64);
+        assert_eq!(entry.method, METHOD_DEFLATE);
+        assert_eq!(entry.gp_flags, 0);
+    }
+    // And the layer's own read gives the file's bytes back.
+    let mut package = new_package();
+    for (name, file) in TEMPLATE {
+        let index = package.part(name).expect("the entry is there");
+        let mut read = Vec::new();
+        package
+            .read_part(index)
+            .expect("read_part")
+            .read_to_end(&mut read)
+            .expect("read");
+        assert_eq!(read, file, "the bytes of {name:?}");
+    }
+    // The template files are under the 4 KB the spec's "32-bit" section
+    // states, and each is its declaration, one line feed and the root, with
+    // no line feed at the end (P2 ruling 1).
+    let total: usize = TEMPLATE.iter().map(|(_, bytes)| bytes.len()).sum();
+    assert!(total < 4096, "the template is {total} bytes");
+    for (name, file) in TEMPLATE {
+        assert!(
+            file.starts_with(b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<"),
+            "the declaration of {name:?}"
+        );
+        assert_eq!(file.last(), Some(&b'>'), "the end of {name:?}");
+        assert_eq!(file.iter().filter(|b| **b == b'\n').count(), 1);
+        assert!(!file.contains(&b'\r'));
+    }
+}
+
+#[test]
+fn new_is_the_empty_archive_with_the_template_added() {
+    // The bytes new() opens are the ones its recipe writes: the constant
+    // opened, the six additions, one write. Built here from the same private
+    // constant and table, so the check is that new() adds nothing else.
+    assert_eq!(EMPTY_ARCHIVE.len(), 22);
+    let recipe = {
+        let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut template =
+            Package::open(Cursor::new(EMPTY_ARCHIVE.to_vec())).expect("the empty archive opens");
+        assert_eq!(template.archive().entries().len(), 0);
+        for (name, bytes) in TEMPLATE {
+            template.add_part(name, replacement_from_reader(bytes));
+        }
+        let mut out = Vec::new();
+        template.write_to(&mut out).expect("write_to");
+        out
+    };
+    // A write of new() with no edits is byte for byte those bytes.
+    assert_eq!(new_bytes(), recipe);
+    // The end record: no comment, six entries.
+    let parsed = parse_independently(&recipe);
+    assert_eq!(parsed.entries.len(), 6);
+    assert_eq!(&recipe[recipe.len() - 2..], &[0, 0]);
+}
+
+#[test]
+fn new_opens_back_as_one_empty_sheet_with_one_cell_format() {
+    let mut package = new_package();
+    let workbook = package.workbook().expect("workbook").clone();
+    assert_eq!(workbook.part, b"xl/workbook.xml");
+    assert_eq!(workbook.sheets.len(), 1);
+    let sheet = &workbook.sheets[0];
+    assert_eq!(sheet.name, "Sheet1");
+    assert_eq!(sheet.sheet_id, 1);
+    assert_eq!(sheet.rel_id, b"rId1");
+    assert_eq!(sheet.state, None);
+    assert_eq!(sheet.part, b"xl/worksheets/sheet1.xml");
+    assert_eq!(sheet.kind, SheetKind::Worksheet);
+    assert_eq!(workbook.shared_strings, None);
+    assert_eq!(workbook.styles.as_deref(), Some(&b"xl/styles.xml"[..]));
+    assert_eq!(workbook.calc_chain, None);
+    assert_eq!(workbook.theme, None);
+    assert!(!workbook.date1904);
+    assert!(!workbook.full_calc_on_load);
+    let styles = package.styles().expect("styles");
+    assert_eq!(styles.cell_xfs.len(), 1);
+    assert_eq!(styles.num_fmts.len(), 0);
+    assert_eq!(styles.number_format(0), Some(NumberFormat::BuiltIn(0)));
+    let cells: Vec<_> = package
+        .cells(b"xl/worksheets/sheet1.xml")
+        .expect("cells")
+        .collect();
+    assert!(cells.is_empty());
+    assert_eq!(
+        package
+            .content_types()
+            .expect("content types")
+            .overrides()
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn new_takes_a_number_a_text_a_boolean_and_a_formula() {
+    let part: &[u8] = b"xl/worksheets/sheet1.xml";
+    let mut package = new_recorded();
+    let at = |row, col| CellRef { row, col };
+    package.set_cell(part, at(1, 1), Value::Number(7.0));
+    package.set_cell(part, at(1, 2), Value::Text("emend".to_string()));
+    package.set_cell(part, at(1, 3), Value::Boolean(true));
+    package.set_cell(part, at(2, 1), Value::Formula("A1*2".to_string()));
+    let out = written(package);
+    assert_names(&out, &part_names(&template_parts()));
+    let mut back = Package::open(Cursor::new(out)).expect("the output opens");
+    let cells: Vec<_> = back
+        .cells(part)
+        .expect("cells")
+        .collect::<Result<_, _>>()
+        .expect("every cell reads");
+    assert_eq!(cells.len(), 4);
+    assert_eq!(cells[0].reference, at(1, 1));
+    assert_eq!(cells[0].number(), Some(7.0));
+    assert_eq!(cells[1].reference, at(1, 2));
+    assert_eq!(cells[1].kind, crate::cells::Kind::InlineString);
+    assert_eq!(cells[1].value.as_deref(), Some("emend"));
+    assert_eq!(cells[2].reference, at(1, 3));
+    assert_eq!(cells[2].boolean(), Some(true));
+    assert_eq!(cells[3].reference, at(2, 1));
+    assert_eq!(
+        cells[3].formula.as_ref().map(|f| f.text.as_str()),
+        Some("A1*2")
+    );
+    assert_eq!(cells[3].value, None);
+    // The formula set the flag: the workbook part gains `calcPr` right after
+    // `sheets`, the one change to its bytes, and no chain was there to drop.
+    let workbook = back.workbook().expect("workbook").clone();
+    assert!(workbook.full_calc_on_load);
+    assert_eq!(workbook.calc_chain, None);
+    let index = back.part(b"xl/workbook.xml").expect("the workbook part");
+    let mut bytes = Vec::new();
+    back.read_part(index)
+        .expect("read_part")
+        .read_to_end(&mut bytes)
+        .expect("read");
+    let want = String::from_utf8(template_file(b"xl/workbook.xml").to_vec())
+        .expect("UTF-8")
+        .replace("</sheets>", "</sheets><calcPr fullCalcOnLoad=\"1\"/>");
+    assert_eq!(String::from_utf8(bytes).expect("UTF-8"), want);
+}
+
+#[test]
+fn new_takes_a_cell_style_over_its_one_format() {
+    let part: &[u8] = b"xl/worksheets/sheet1.xml";
+    let mut package = new_recorded();
+    let at = CellRef { row: 1, col: 1 };
+    let dated = package
+        .add_cell_style(Some(0), NumberFormat::BuiltIn(14))
+        .expect("add_cell_style");
+    assert_eq!(dated, 1);
+    package.set_cell(part, at, Value::Number(45000.5));
+    package.set_cell_style(part, at, Some(dated));
+    let out = written(package);
+    let mut back = Package::open(Cursor::new(out)).expect("the output opens");
+    let styles = back.styles().expect("styles");
+    assert_eq!(styles.cell_xfs.len(), 2);
+    assert_eq!(styles.number_format(1), Some(NumberFormat::BuiltIn(14)));
+    let xf = &styles.cell_xfs[1];
+    assert_eq!(
+        (xf.font_id, xf.fill_id, xf.border_id, xf.xf_id),
+        (Some(0), Some(0), Some(0), Some(0))
+    );
+    let cells: Vec<_> = back
+        .cells(part)
+        .expect("cells")
+        .collect::<Result<_, _>>()
+        .expect("every cell reads");
+    assert_eq!(cells.len(), 1);
+    assert_eq!(cells[0].number(), Some(45000.5));
+    assert_eq!(cells[0].style, Some(1));
+}
+
+#[test]
+fn new_written_with_no_edits_is_its_own_bytes_and_is_kept() {
+    let bytes = new_bytes();
+    let package = new_recorded();
+    assert_eq!(written(package), bytes);
+}
+
+/// The template's parts as `(name, bytes)`, for [`part_names`].
+fn template_parts() -> Vec<(Vec<u8>, Vec<u8>)> {
+    TEMPLATE
+        .iter()
+        .map(|(name, bytes)| (name.to_vec(), bytes.to_vec()))
+        .collect()
+}
