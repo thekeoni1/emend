@@ -2331,33 +2331,46 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     // Part 5 P1 adds the fourth (`specs/0012-styles.md`, "Errors", and P1
     // ruling 2): the styles part's reading raises from its own module.
     const STYLES: &str = include_str!("../styles.rs");
+    // Milestone 2 part 2 P1 adds the fifth (`specs/0017-fuller-styles.md`,
+    // "Errors"): a style field's refusals raise from `styles`'s submodule.
+    const ELEMENTS: &str = include_str!("../styles/elements.rs");
 
     let (package_raised, package_calls, package_literals) = raised(PACKAGE);
     let (xml_raised, xml_calls, xml_literals) = raised(XML);
     let (cells_raised, cells_calls, cells_literals) = raised(CELLS);
     let (styles_raised, styles_calls, styles_literals) = raised(STYLES);
-    // Every `Error::Package(` in any of the four takes a literal. If one
+    let (elements_raised, elements_calls, elements_literals) = raised(ELEMENTS);
+    // Every `Error::Package(` in any of the five takes a literal. If one
     // ever takes a variable the extractor cannot read it, and this is the
     // line that says so instead of the comparison quietly passing on a
     // subset.
     assert_eq!(
-        (package_calls, xml_calls, cells_calls, styles_calls),
+        (
+            package_calls,
+            xml_calls,
+            cells_calls,
+            styles_calls,
+            elements_calls
+        ),
         (
             package_literals,
             xml_literals,
             cells_literals,
-            styles_literals
+            styles_literals,
+            elements_literals
         ),
         "an Error::Package is raised with something other than a literal"
     );
 
-    // The catalogue lives in `package.rs`; `xml.rs`, `cells.rs` and
-    // `styles.rs` say so rather than keeping a list of their own.
+    // The catalogue lives in `package.rs`; `xml.rs`, `cells.rs`, `styles.rs`
+    // and `styles/elements.rs` say so rather than keeping a list of their
+    // own.
     let catalogue = catalogued(PACKAGE);
     let mut raised_all = package_raised;
     raised_all.extend(xml_raised);
     raised_all.extend(cells_raised);
     raised_all.extend(styles_raised);
+    raised_all.extend(elements_raised);
 
     assert!(
         !catalogue.is_empty() && !raised_all.is_empty(),
@@ -6551,4 +6564,562 @@ fn a_removed_rels_part_loses_its_override_too() {
             ],
         ),
     );
+}
+
+// ------------------------------- fuller cell styles (specs/0017, P1)
+
+use crate::styles::{BorderStyle, Color, Pattern, Scheme, Side, Underline, VerticalAlign};
+
+/// The three collections the template has, with one font, the two required
+/// fills and one border, before `cell_xfs`.
+fn with_collections(cell_xfs: &str) -> String {
+    format!(
+        "<fonts count=\"1\"><font><sz val=\"11\"/></font></fonts>\
+         <fills count=\"2\"><fill><patternFill patternType=\"none\"/></fill>\
+         <fill><patternFill patternType=\"gray125\"/></fill></fills>\
+         <borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\
+         {cell_xfs}"
+    )
+}
+
+/// Records one `add_style` and asserts the index it returns.
+#[track_caller]
+fn add_styled(
+    package: &mut Package<Cursor<Vec<u8>>>,
+    base: Option<u32>,
+    style: &Style,
+    index: u32,
+) {
+    let got = package
+        .add_style(base, style)
+        .expect("the addition is recorded");
+    assert_eq!(got, index, "the index the addition returns");
+}
+
+/// A font with a name and nothing else.
+fn named(name: &str) -> Font {
+    Font {
+        name: Some(name.to_owned()),
+        ..Font::default()
+    }
+}
+
+/// A solid fill of an indexed colour.
+fn solid(index: u32) -> Fill {
+    Fill {
+        pattern: Pattern::Solid,
+        foreground: Some(Color::Indexed(index)),
+        background: None,
+    }
+}
+
+/// A border with a thin bottom and nothing else.
+fn underlined() -> Border {
+    Border {
+        bottom: Some(Side {
+            style: BorderStyle::Thin,
+            color: None,
+        }),
+        ..Border::default()
+    }
+}
+
+/// Nothing is recorded by a refused addition.
+#[track_caller]
+fn assert_nothing_recorded(package: &Package<Cursor<Vec<u8>>>) {
+    let edits = &package.edits;
+    assert!(edits.xf_additions.is_empty(), "an xf was recorded");
+    assert!(edits.num_fmt_additions.is_empty(), "a numFmt was recorded");
+    assert!(edits.font_additions.is_empty(), "a font was recorded");
+    assert!(edits.fill_additions.is_empty(), "a fill was recorded");
+    assert!(edits.border_additions.is_empty(), "a border was recorded");
+}
+
+#[test]
+fn a_font_with_every_field_reaches_the_part_as_its_element() {
+    let font = Font {
+        name: Some("A & B".to_owned()),
+        size: Some(10.5),
+        bold: true,
+        italic: true,
+        strike: true,
+        underline: Some(Underline::Double),
+        vertical_align: Some(VerticalAlign::Subscript),
+        color: Some(Color::Rgb(0xFF00_8000)),
+        family: Some(2),
+        scheme: Some(Scheme::Major),
+    };
+    let xfs = "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\"/></cellXfs>";
+    let got = added_styles(&with_collections(xfs), |p| {
+        let style = Style {
+            font: Some(font.clone()),
+            ..Style::default()
+        };
+        add_styled(p, None, &style, 1);
+    });
+    let expected = with_collections(
+        "<cellXfs count=\"2\"><xf numFmtId=\"0\" fontId=\"0\"/>\
+         <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\
+         </cellXfs>",
+    )
+    .replace(
+        "<fonts count=\"1\"><font><sz val=\"11\"/></font></fonts>",
+        "<fonts count=\"2\"><font><sz val=\"11\"/></font>\
+         <font><b/><i/><strike/><u val=\"double\"/><vertAlign val=\"subscript\"/>\
+         <sz val=\"10.5\"/><color rgb=\"FF008000\"/><name val=\"A &amp; B\"/>\
+         <family val=\"2\"/><scheme val=\"major\"/></font></fonts>",
+    );
+    assert_eq!(got, style_sheet(&expected));
+}
+
+#[test]
+fn the_rewrite_grows_fonts_fills_and_cell_xfs_and_keeps_num_fmts_and_borders() {
+    // A font and a fill on a base, the second cell format naming the same
+    // font: `fonts` grows by one, `fills` by one, `cellXfs` by two, and
+    // `numFmts` and `borders` come out byte for byte, count and all.
+    let num_fmts = "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.0\"/></numFmts>";
+    let base = "<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+                applyNumberFormat=\"1\"/>";
+    let body = format!(
+        "{num_fmts}{}",
+        with_collections(&format!("<cellXfs count=\"1\">{base}</cellXfs>"))
+    );
+    let got = added_styles(&body, |p| {
+        let both = Style {
+            font: Some(named("emend")),
+            fill: Some(solid(64)),
+            ..Style::default()
+        };
+        add_styled(p, Some(0), &both, 1);
+        let font = Style {
+            font: Some(named("emend")),
+            ..Style::default()
+        };
+        add_styled(p, None, &font, 2);
+    });
+    let expected = body
+        .replace(
+            "<fonts count=\"1\"><font><sz val=\"11\"/></font></fonts>",
+            "<fonts count=\"2\"><font><sz val=\"11\"/></font>\
+             <font><name val=\"emend\"/></font></fonts>",
+        )
+        .replace(
+            "<fill><patternFill patternType=\"gray125\"/></fill></fills>",
+            "<fill><patternFill patternType=\"gray125\"/></fill>\
+             <fill><patternFill patternType=\"solid\"><fgColor indexed=\"64\"/></patternFill>\
+             </fill></fills>",
+        )
+        .replace("<fills count=\"2\">", "<fills count=\"3\">")
+        .replace(
+            &format!("<cellXfs count=\"1\">{base}</cellXfs>"),
+            &format!(
+                "<cellXfs count=\"3\">{base}\
+                 <xf numFmtId=\"164\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" \
+                 applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\"/>\
+                 <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+                 applyFont=\"1\"/></cellXfs>"
+            ),
+        );
+    assert_eq!(got, style_sheet(&expected));
+    assert!(got.contains(num_fmts), "numFmts is byte-identical");
+    assert!(
+        got.contains("<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>"),
+        "borders is byte-identical"
+    );
+}
+
+#[test]
+fn the_rewrite_grows_borders() {
+    let xfs = "<cellXfs count=\"1\"><xf/></cellXfs>";
+    let got = added_styles(&with_collections(xfs), |p| {
+        let style = Style {
+            border: Some(underlined()),
+            ..Style::default()
+        };
+        add_styled(p, Some(0), &style, 1);
+    });
+    let expected = with_collections(
+        "<cellXfs count=\"2\"><xf/><xf borderId=\"1\" applyBorder=\"1\"/></cellXfs>",
+    )
+    .replace(
+        "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>",
+        "<borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border>\
+         <border><left/><right/><top/><bottom style=\"thin\"/><diagonal/></border></borders>",
+    );
+    assert_eq!(got, style_sheet(&expected));
+}
+
+#[test]
+fn an_empty_container_opens_up_a_wrong_count_is_corrected_and_order_is_not_assumed() {
+    // `cellXfs` before the collections, a non-schema order: each container
+    // is still found by its name. `fonts` is empty, `fills` says 7 of its 2
+    // children, `borders` gains nothing and is kept byte for byte.
+    let body = "<cellXfs count=\"1\"><xf/></cellXfs><fonts count=\"0\"/>\
+                <fills count=\"7\"><fill/><fill/></fills><borders count=\"0\"/>";
+    let got = added_styles(body, |p| {
+        let style = Style {
+            font: Some(named("a")),
+            fill: Some(solid(9)),
+            ..Style::default()
+        };
+        add_styled(p, None, &style, 1);
+    });
+    assert_eq!(
+        got,
+        style_sheet(
+            "<cellXfs count=\"2\"><xf/><xf numFmtId=\"0\" fontId=\"0\" fillId=\"2\" \
+             borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/></cellXfs>\
+             <fonts count=\"1\"><font><name val=\"a\"/></font></fonts>\
+             <fills count=\"3\"><fill/><fill/><fill><patternFill patternType=\"solid\">\
+             <fgColor indexed=\"9\"/></patternFill></fill></fills><borders count=\"0\"/>"
+        )
+    );
+}
+
+#[test]
+fn the_new_elements_take_their_containers_prefix() {
+    let body = format!(
+        "{DECLARATION}\n<x:styleSheet xmlns:x=\"{MAIN_NS}\"><x:fonts count=\"0\"/>\
+         <x:fills count=\"0\"></x:fills><x:borders count=\"0\"/>\
+         <x:cellXfs count=\"0\"/></x:styleSheet>"
+    );
+    let mut parts = with_rows("");
+    set(&mut parts, STYLES_PART, body.clone());
+    let output = edited_output(parts.clone(), |p| {
+        let style = Style {
+            fill: Some(solid(9)),
+            border: Some(Border::default()),
+            ..Style::default()
+        };
+        add_styled(p, None, &style, 0);
+    });
+    assert_untouched(&output, &parts, &[STYLES_PART]);
+    let got = String::from_utf8(stored_data(&output, STYLES_PART)).expect("UTF-8");
+    assert_eq!(
+        got,
+        format!(
+            "{DECLARATION}\n<x:styleSheet xmlns:x=\"{MAIN_NS}\"><x:fonts count=\"0\"/>\
+             <x:fills count=\"1\"><x:fill><x:patternFill patternType=\"solid\">\
+             <x:fgColor indexed=\"9\"/></x:patternFill></x:fill></x:fills>\
+             <x:borders count=\"1\"><x:border><x:left/><x:right/><x:top/><x:bottom/>\
+             <x:diagonal/></x:border></x:borders><x:cellXfs count=\"1\">\
+             <x:xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+             applyFill=\"1\" applyBorder=\"1\"/></x:cellXfs></x:styleSheet>"
+        )
+    );
+}
+
+#[test]
+fn equal_additions_share_one_element_and_one_id_and_unequal_ones_do_not() {
+    let (_, mut package) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+    let style = |font: Font, fill: Fill, border: Border| Style {
+        font: Some(font),
+        fill: Some(fill),
+        border: Some(border),
+        ..Style::default()
+    };
+    add_styled(
+        &mut package,
+        None,
+        &style(named("a"), solid(1), underlined()),
+        1,
+    );
+    add_styled(
+        &mut package,
+        None,
+        &style(named("a"), solid(1), underlined()),
+        2,
+    );
+    let mut bold = named("a");
+    bold.bold = true;
+    let mut doubled = underlined();
+    doubled.diagonal_up = true;
+    add_styled(&mut package, None, &style(bold, solid(2), doubled), 3);
+    let edits = &package.edits;
+    assert_eq!(
+        (
+            edits.font_additions.len(),
+            edits.fill_additions.len(),
+            edits.border_additions.len(),
+            edits.xf_additions.len()
+        ),
+        (2, 2, 2, 3)
+    );
+    let ids = |index: usize| String::from_utf8(edits.xf_additions[index].element(b"")).unwrap();
+    for (index, (font, fill, border)) in [(1, 2, 1), (1, 2, 1), (2, 3, 2)].into_iter().enumerate() {
+        assert_eq!(
+            ids(index),
+            format!(
+                "<xf numFmtId=\"0\" fontId=\"{font}\" fillId=\"{fill}\" borderId=\"{border}\" \
+                 xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\"/>"
+            )
+        );
+    }
+}
+
+#[test]
+fn a_derived_xf_from_a_base_with_every_id_replaces_them_in_place() {
+    // Values replaced, flags set to 1, the base's order and quotes kept,
+    // nothing appended; `xfId` and every other attribute as the base wrote
+    // them.
+    let base = "<xf numFmtId=\"3\" fontId='4' fillId=\"5\" borderId=\"6\" xfId=\"1\" \
+                applyBorder=\"0\" applyFill=\"false\" applyFont=\"0\" applyNumberFormat=\"0\" \
+                quotePrefix=\"1\"/>";
+    let got = added_styles(
+        &with_collections(&format!("<cellXfs count=\"1\">{base}</cellXfs>")),
+        |p| {
+            let style = Style {
+                number_format: Some(NumberFormat::BuiltIn(14)),
+                font: Some(named("a")),
+                fill: Some(solid(1)),
+                border: Some(underlined()),
+            };
+            add_styled(p, Some(0), &style, 1);
+        },
+    );
+    assert!(
+        got.contains(
+            "<xf numFmtId=\"14\" fontId='1' fillId=\"2\" borderId=\"1\" xfId=\"1\" \
+             applyBorder=\"1\" applyFill=\"1\" applyFont=\"1\" applyNumberFormat=\"1\" \
+             quotePrefix=\"1\"/></cellXfs>"
+        ),
+        "{got}"
+    );
+}
+
+#[test]
+fn a_derived_xf_gains_what_its_base_lacks_in_the_stated_order() {
+    // The base lacks `numFmtId`, `fontId`, `fillId` and every apply flag but
+    // `applyBorder`: `numFmtId` goes first, then the base's attributes, then
+    // `fontId fillId`, then `applyNumberFormat applyFont applyFill`. Its
+    // content is kept raw, since nothing replaces it.
+    let base = "<xf borderId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">\
+                <alignment horizontal=\"left\"/><extLst/></xf>";
+    let got = added_styles(
+        &with_collections(&format!("<cellXfs count=\"1\">{base}</cellXfs>")),
+        |p| {
+            let style = Style {
+                number_format: Some(NumberFormat::BuiltIn(2)),
+                font: Some(named("a")),
+                fill: Some(solid(1)),
+                ..Style::default()
+            };
+            add_styled(p, Some(0), &style, 1);
+        },
+    );
+    assert!(
+        got.contains(&format!(
+            "{base}<xf numFmtId=\"2\" borderId=\"0\" applyBorder=\"1\" applyAlignment=\"1\" \
+             fontId=\"1\" fillId=\"2\" applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\">\
+             <alignment horizontal=\"left\"/><extLst/></xf></cellXfs>"
+        )),
+        "{got}"
+    );
+}
+
+#[test]
+fn a_derived_xf_with_no_base_names_every_id_and_flags_what_is_given() {
+    let (_, mut package) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+    let every = Style {
+        number_format: Some(NumberFormat::BuiltIn(9)),
+        font: Some(named("a")),
+        fill: Some(solid(1)),
+        border: Some(underlined()),
+    };
+    add_styled(&mut package, None, &every, 1);
+    add_styled(&mut package, None, &Style::default(), 2);
+    let element =
+        |index: usize| String::from_utf8(package.edits.xf_additions[index].element(b"")).unwrap();
+    assert_eq!(
+        element(0),
+        "<xf numFmtId=\"9\" fontId=\"1\" fillId=\"2\" borderId=\"1\" xfId=\"0\" \
+         applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\"/>"
+    );
+    assert_eq!(
+        element(1),
+        "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>"
+    );
+}
+
+#[test]
+fn add_cell_style_is_add_style_with_a_number_format_alone() {
+    let body = with_collections("<cellXfs><xf fontId=\"0\"><alignment/></xf></cellXfs>");
+    let (_, mut one) = opened(styled(&body, ""));
+    let (_, mut other) = opened(styled(&body, ""));
+    for base in [None, Some(0)] {
+        let format = code("0.00%");
+        let style = Style {
+            number_format: Some(format.clone()),
+            ..Style::default()
+        };
+        let a = one.add_cell_style(base, format).expect("recorded");
+        let b = other.add_style(base, &style).expect("recorded");
+        assert_eq!(a, b);
+    }
+    assert_eq!(one.edits.xf_additions, other.edits.xf_additions);
+    assert_eq!(one.edits.num_fmt_additions, other.edits.num_fmt_additions);
+}
+
+#[test]
+fn a_font_fill_or_border_on_a_part_without_its_collection_is_refused_and_records_nothing() {
+    let refusals = [
+        (
+            "<fills/><borders/>",
+            Style {
+                font: Some(named("a")),
+                ..Style::default()
+            },
+        ),
+        (
+            "<fonts/><borders/>",
+            Style {
+                fill: Some(solid(1)),
+                ..Style::default()
+            },
+        ),
+        (
+            "<fonts/><fills/>",
+            Style {
+                border: Some(underlined()),
+                ..Style::default()
+            },
+        ),
+    ];
+    for (collections, style) in refusals {
+        let (_, mut package) = opened(styled(
+            &format!("{collections}<cellXfs><xf/></cellXfs>"),
+            "",
+        ));
+        let with_code = Style {
+            number_format: Some(code("0.0")),
+            ..style
+        };
+        assert_package(
+            package.add_style(Some(0), &with_code).expect_err("refused"),
+            "a style addition needs a collection the styles part lacks",
+        );
+        assert_nothing_recorded(&package);
+        // What the part has is still taken, at the index nothing took.
+        add_styled(&mut package, None, &Style::default(), 1);
+    }
+}
+
+#[test]
+fn a_refused_font_name_or_field_records_nothing() {
+    let (_, mut package) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+    let refusals = [
+        (
+            Style {
+                font: Some(named("")),
+                ..Style::default()
+            },
+            "a font name is empty or holds a character XML cannot carry",
+        ),
+        (
+            Style {
+                font: Some(Font {
+                    size: Some(0.0),
+                    ..Font::default()
+                }),
+                ..Style::default()
+            },
+            "a style field is out of range",
+        ),
+        (
+            Style {
+                font: Some(named("a")),
+                fill: Some(Fill {
+                    pattern: Pattern::Solid,
+                    foreground: Some(Color::Theme {
+                        index: 0,
+                        tint: Some(1.5),
+                    }),
+                    background: None,
+                }),
+                ..Style::default()
+            },
+            "a style field is out of range",
+        ),
+    ];
+    for (style, message) in refusals {
+        let with_code = Style {
+            number_format: Some(code("0.0")),
+            ..style
+        };
+        assert_package(
+            package.add_style(None, &with_code).expect_err("refused"),
+            message,
+        );
+        assert_nothing_recorded(&package);
+    }
+}
+
+#[test]
+fn a_collection_id_past_u32_is_refused() {
+    assert_eq!(collection_id(Some(u32::MAX), None, 0).ok(), Some(u32::MAX));
+    assert_eq!(collection_id(Some(7), Some(2), 5).ok(), Some(9));
+    for (count, position, recorded) in [
+        (Some(u32::MAX), None, 1),
+        (Some(1), Some(u32::MAX as usize), 0),
+    ] {
+        assert_package(
+            collection_id(count, position, recorded).expect_err("refused"),
+            "a style index is out of range",
+        );
+    }
+    assert_package(
+        collection_id(None, None, 0).expect_err("refused"),
+        "a style addition needs a collection the styles part lacks",
+    );
+}
+
+#[test]
+fn a_collection_gone_at_the_write_is_refused_with_no_output() {
+    // No path of the crate reaches this: the cached read comes from another
+    // part, one with the collections, so `add_style` records what the part
+    // being rewritten cannot take (`specs/0017-fuller-styles.md`, P1 ruling
+    // 1). The refusal is found once the part has streamed.
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    for (lacking, style) in [
+        (
+            "<fills/><borders/>",
+            Style {
+                font: Some(named("a")),
+                ..Style::default()
+            },
+        ),
+        (
+            "<fonts/><borders/>",
+            Style {
+                fill: Some(solid(1)),
+                ..Style::default()
+            },
+        ),
+        (
+            "<fonts/><fills/>",
+            Style {
+                border: Some(underlined()),
+                ..Style::default()
+            },
+        ),
+    ] {
+        let (_, mut package) = opened(styled(&format!("{lacking}<cellXfs><xf/></cellXfs>"), ""));
+        let (_, mut other) = opened(styled(&with_collections("<cellXfs><xf/></cellXfs>"), ""));
+        other.styles().expect("the other part reads");
+        package.styles = other.styles.take();
+        add_styled(&mut package, None, &style, 1);
+        let mut out = Vec::new();
+        // Not `refused`: it takes the lock this test already holds.
+        let error = match package.write_to(&mut out) {
+            Ok(()) => panic!("the write was not refused: it wrote {} byte(s)", out.len()),
+            Err(error) => error,
+        };
+        assert_package(
+            error,
+            "a style addition needs a collection the styles part lacks",
+        );
+        assert!(out.is_empty(), "a refused write wrote to the output");
+    }
+    assert_eq!(replacement_temporaries(), before, "a temporary was left");
 }

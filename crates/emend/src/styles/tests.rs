@@ -386,7 +386,7 @@ fn a_second_num_fmts_is_refused() {
     );
     assert_package(
         refused(&body),
-        "the styles part has more than one numFmts or cellXfs",
+        "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
     );
 }
 
@@ -396,6 +396,78 @@ fn a_second_cell_xfs_is_refused() {
     let body = part("<cellXfs><xf/></cellXfs><cellStyles/><cellXfs><xf/></cellXfs>");
     assert_package(
         refused(&body),
-        "the styles part has more than one numFmts or cellXfs",
+        "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
     );
+}
+
+// ------------------------------------------ the counts (specs/0017, P1)
+
+#[test]
+fn the_template_part_counts_one_font_two_fills_and_one_border() {
+    let mut package = Package::new().expect("the template opens");
+    let styles = package.styles().expect("the template's styles part reads");
+    assert_eq!(
+        (styles.fonts(), styles.fills(), styles.borders()),
+        (Some(1), Some(2), Some(1))
+    );
+}
+
+#[test]
+fn a_part_without_a_collection_counts_none_and_an_empty_one_zero() {
+    let styles = read("<fills/><cellXfs><xf/></cellXfs>");
+    assert_eq!(
+        (styles.fonts(), styles.fills(), styles.borders()),
+        (None, Some(0), None)
+    );
+}
+
+#[test]
+fn the_counts_are_the_children_not_the_count_attribute() {
+    // Only a main-namespace child of the container's own name counts, at
+    // depth 3: not an element of another namespace, not a `font` inside a
+    // `dxf` or an `extLst`, not a `font` nested in a `font`. Nothing inside a
+    // counted child is read, so a child the reader would refuse elsewhere
+    // passes.
+    let styles = read(
+        "<fonts count=\"9\"><font><b/><font/></font><o:font xmlns:o=\"urn:other\"/>\
+         <font/></fonts>\
+         <fills count=\"0\"><fill><patternFill patternType=\"none\"/></fill></fills>\
+         <borders><border><left/></border><border/><border numFmtId=\"x\"/></borders>\
+         <cellXfs><xf/></cellXfs>\
+         <dxfs><dxf><font><b/></font><fill/><border/></dxf></dxfs>\
+         <extLst><ext uri=\"urn:x\"><fonts><font/></fonts></ext></extLst>",
+    );
+    assert_eq!(
+        (styles.fonts(), styles.fills(), styles.borders()),
+        (Some(2), Some(1), Some(3))
+    );
+}
+
+#[test]
+fn the_counts_are_read_under_a_prefix_and_in_the_strict_namespace() {
+    let prefixed = read_part(&format!(
+        "{DECLARATION}\n<x:styleSheet xmlns:x=\"{MAIN_NS}\"><x:fonts><x:font/></x:fonts>\
+         <x:cellXfs><x:xf/></x:cellXfs></x:styleSheet>"
+    ));
+    assert_eq!(prefixed.fonts(), Some(1));
+    let strict = read_part(&format!(
+        "{DECLARATION}\n<styleSheet xmlns=\"{MAIN_STRICT}\"><borders><border/><border/>\
+         </borders><cellXfs><xf/></cellXfs></styleSheet>"
+    ));
+    assert_eq!(strict.borders(), Some(2));
+}
+
+#[test]
+fn a_second_fonts_fills_or_borders_is_refused() {
+    // `specs/0017-fuller-styles.md`, "Module `styles`: the counts".
+    for twice in [
+        "<fonts/><fonts/>",
+        "<fills/><fills><fill/></fills>",
+        "<borders/><borders/>",
+    ] {
+        assert_package(
+            refused(&part(&format!("{twice}<cellXfs><xf/></cellXfs>"))),
+            "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
+        );
+    }
 }

@@ -113,9 +113,12 @@
 //! - "a style attribute is not a number"
 //!   (`styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused`,
 //!   `an_xf_id_that_is_not_a_number_is_refused`).
-//! - "the styles part has more than one numFmts or cellXfs"
+//! - "the styles part has more than one numFmts, fonts, fills, borders or cellXfs"
 //!   (`styles::tests::a_second_num_fmts_is_refused`,
-//!   `a_second_cell_xfs_is_refused`).
+//!   `a_second_cell_xfs_is_refused`,
+//!   `a_second_fonts_fills_or_borders_is_refused`), widened from its two
+//!   containers by `specs/0017-fuller-styles.md`, "Module `styles`: the
+//!   counts", and P1 ruling 2.
 //!
 //! The additions and the style edits add five more (the same "Errors"),
 //! raised here by [`Package::add_cell_style`] and [`Package::write_to`]; the
@@ -135,6 +138,23 @@
 //!   (`a_style_edit_or_addition_on_a_replaced_or_removed_part_is_refused`).
 //! - "a styles part without cellXfs cannot take a style"
 //!   (`a_part_without_cell_xfs_is_refused_at_write_with_no_output`).
+//!
+//! The fuller cell styles add three (`specs/0017-fuller-styles.md`,
+//! "Errors"), raised by [`Package::add_style`], the first also by
+//! [`Package::write_to`] and the other two by `styles`:
+//!
+//! - "a style addition needs a collection the styles part lacks"
+//!   (`a_font_fill_or_border_on_a_part_without_its_collection_is_refused_and_records_nothing`,
+//!   `a_collection_id_past_u32_is_refused`, and at the write, for a part that
+//!   lost the collection after it was read, which no path of this crate can
+//!   cause, `a_collection_gone_at_the_write_is_refused_with_no_output`; P1
+//!   ruling 1).
+//! - "a font name is empty or holds a character XML cannot carry"
+//!   (`styles::elements::tests::a_font_name_empty_or_holding_a_forbidden_character_is_refused`,
+//!   `a_refused_font_name_or_field_records_nothing`).
+//! - "a style field is out of range"
+//!   (`styles::elements::tests::a_field_out_of_range_is_refused`,
+//!   `a_refused_font_name_or_field_records_nothing`).
 //!
 //! Formulas and the workbook's `calcPr` add five (`specs/0013-formulas.md`,
 //! "Errors"); the first three are raised by [`Value`] in `cells` and reported
@@ -347,23 +367,29 @@
 //! `package`: recording and applying style edits"):
 //!
 //! - A new `xf` copies its base's font, fill, border, alignment and
-//!   protection and changes its number format only.
+//!   protection and changes only what the addition gives: its number format
+//!   through [`Package::add_cell_style`], and a new font, fill or border
+//!   through [`Package::add_style`] (`specs/0017-fuller-styles.md`).
 //! - A style set on a cell whose row has `customFormat` or whose column has
 //!   a `<col style>` overrides those, as any `s` does.
 //! - A cell shown as a date is a number with a date format; what a consumer
 //!   shows for a format code is the consumer's.
-//! - `dxfs`, `cellStyles`, `fonts`, `fills` and `borders` are never touched.
-//! - A `numFmts` or `cellXfs` whose `count` disagreed with its children
-//!   comes out corrected, since the rewritten `count` is the children's.
+//! - `dxfs` and `cellStyles` are never touched. `fonts`, `fills` and
+//!   `borders` grow at their ends when an addition gives a font, a fill or a
+//!   border, and are otherwise kept byte for byte; nothing already in them
+//!   is read, changed or compared.
+//! - A `numFmts`, `fonts`, `fills`, `borders` or `cellXfs` the rewrite grows
+//!   and whose `count` disagreed with its children comes out corrected, since
+//!   the rewritten `count` is the children's.
 //! - A style edit alone rewrites the cell's start tag and nothing else: it
 //!   removes no formula, never drops the chain, and the formula refusals do
 //!   not apply to it.
 //! - The styles part is rewritten at most once per write, in one streaming
-//!   pass that holds one token, the recorded additions and two counts.
-//! - Number formats only. An addition is a cell format derived from an
-//!   existing one, or the plain form over no base, with its number format
-//!   changed; no font, fill, border, alignment or protection is ever added
-//!   (`specs/0012-styles.md`, "Decisions for the maintainer", 1).
+//!   pass that holds one token, the recorded additions and five counts.
+//! - An addition is a cell format derived from an existing one, or the plain
+//!   form over no base, with its number format, font, fill and border as
+//!   given; no alignment or protection is added (`specs/0017-fuller-styles.md`,
+//!   P1 ruling 3: they come with its P2).
 //! - A write with a `Some` style edit reads the styles part to check the
 //!   index against the `cellXfs` count plus the additions; a `None` edit
 //!   needs no styles part at all (the same section, 3).
@@ -506,7 +532,10 @@ use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Core, Edits, Error, Replacement, TempFile, replacement_from_reader};
 use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
-use crate::styles::{NewXf, NumberFormat, Styles, counted, num_fmt_element, scan_start_tag};
+use crate::styles::{
+    Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Style, Styles, counted,
+    num_fmt_element, scan_start_tag,
+};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -880,6 +909,14 @@ struct Recorded {
     /// `(id, code)`: the number formats those additions need that the part
     /// does not define, in record order.
     num_fmt_additions: Vec<(u32, String)>,
+    /// The distinct fonts those additions name, in record order, each beside
+    /// its element; the id of the one at `i` is the part's font count plus
+    /// `i` (`specs/0017-fuller-styles.md`, "Module `package`").
+    font_additions: Vec<(Font, Composed)>,
+    /// The distinct fills, as `font_additions`.
+    fill_additions: Vec<(Fill, Composed)>,
+    /// The distinct borders, as `font_additions`.
+    border_additions: Vec<(Border, Composed)>,
     /// Whether the workbook part gets `fullCalcOnLoad="1"`: recorded by
     /// [`Package::recalculate_on_open`], or by the formula-change rule of
     /// [`Package::write_to`] (`specs/0013-formulas.md`).
@@ -1576,7 +1613,48 @@ impl<R: Read + Seek> Package<R> {
         base: Option<u32>,
         format: NumberFormat,
     ) -> Result<u32, Error> {
-        self.parts().add_cell_style(base, format)
+        let style = Style {
+            number_format: Some(format),
+            ..Style::default()
+        };
+        self.parts().add_style(base, &style)
+    }
+
+    /// Records a new cell format carrying `style` and returns the index it
+    /// will have.
+    ///
+    /// `specs/0017-fuller-styles.md`, "Module `styles`: what can be added".
+    /// [`Package::add_cell_style`] is this with a number format alone, and
+    /// what it says of the base, the index and the number format holds here.
+    /// A font, a fill and a border are each appended to the part's `<fonts>`,
+    /// `<fills>` or `<borders>` by [`Package::write_to`], and the new cell
+    /// format names it: its id is that of the first equal one recorded
+    /// earlier by this package, else the collection's count plus the number
+    /// of distinct ones recorded earlier. Nothing is compared with the part's
+    /// own fonts, fills and borders, which are not read, so an equal one is a
+    /// second copy.
+    ///
+    /// With a base, the new cell format is a copy of it with each id `style`
+    /// gives replaced and that id's apply flag set to `1`, an id or a flag
+    /// the base lacks added; with `None`, `<xf numFmtId="N" fontId="F"
+    /// fillId="I" borderId="B" xfId="0"/>` with the given ids or 0 and the
+    /// apply flag of each one given.
+    ///
+    /// The styles part is read first when it is not cached, so this fails as
+    /// [`Package::styles`] fails. Nothing is recorded when this fails.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::add_cell_style`] refuses; [`Error::Package`] "a
+    /// style addition needs a collection the styles part lacks" for a font,
+    /// a fill or a border given to a part without `<fonts>`, `<fills>` or
+    /// `<borders>`; "a font name is empty or holds a character XML cannot
+    /// carry"; "a style field is out of range" for a font size that is not
+    /// finite or not above zero, and a tint that is not finite or lies
+    /// outside `-1.0..=1.0`; "a style index is out of range" for an id `u32`
+    /// cannot hold.
+    pub fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
+        self.parts().add_style(base, style)
     }
 
     /// Records `reference` in the worksheet part `part` given the style
@@ -2097,8 +2175,8 @@ impl<'a> Parts<'a> {
         self.edits.cell_edits.push((part.to_vec(), reference, None));
     }
 
-    /// The body of [`Package::add_cell_style`].
-    fn add_cell_style(&mut self, base: Option<u32>, format: NumberFormat) -> Result<u32, Error> {
+    /// The body of [`Package::add_style`].
+    fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
         let recorded = self.edits.xf_additions.len();
         self.styles()?;
         // A borrow of the field alone, so the recorded edits stay readable.
@@ -2111,10 +2189,11 @@ impl<'a> Parts<'a> {
         {
             return Err(STYLE_OUT_OF_RANGE);
         }
-        let (id, new_code) = match format {
-            NumberFormat::BuiltIn(id) if id >= 164 => return Err(BUILT_IN_164),
-            NumberFormat::BuiltIn(id) => (id, None),
-            NumberFormat::Code(code) => {
+        let (num_fmt, new_code) = match &style.number_format {
+            None => (None, None),
+            Some(NumberFormat::BuiltIn(id)) if *id >= 164 => return Err(BUILT_IN_164),
+            Some(NumberFormat::BuiltIn(id)) => (Some(*id), None),
+            Some(NumberFormat::Code(code)) => {
                 if code.is_empty() || code.chars().any(forbidden_in_xml) {
                     return Err(CODE_REFUSED);
                 }
@@ -2128,10 +2207,10 @@ impl<'a> Parts<'a> {
                             .iter()
                             .map(|(id, code)| (*id, code)),
                     )
-                    .find(|(_, have)| **have == code)
+                    .find(|(_, have)| *have == code)
                     .map(|(id, _)| id);
                 match defined {
-                    Some(id) => (id, None),
+                    Some(id) => (Some(id), None),
                     None => {
                         let mut id = 164u32;
                         for have in styles
@@ -2142,18 +2221,66 @@ impl<'a> Parts<'a> {
                         {
                             id = id.max(have.checked_add(1).ok_or(STYLE_OUT_OF_RANGE)?);
                         }
-                        (id, Some(code))
+                        (Some(id), Some(code.clone()))
                     }
                 }
             }
         };
+        // Each of the three: its id, and its element when it is new.
+        let font = match &style.font {
+            None => None,
+            Some(font) => {
+                let recorded = &self.edits.font_additions;
+                let position = recorded.iter().position(|(have, _)| have == font);
+                let id = collection_id(styles.fonts(), position, recorded.len())?;
+                Some((id, position.is_none().then(|| font.compose()).transpose()?))
+            }
+        };
+        let fill = match &style.fill {
+            None => None,
+            Some(fill) => {
+                let recorded = &self.edits.fill_additions;
+                let position = recorded.iter().position(|(have, _)| have == fill);
+                let id = collection_id(styles.fills(), position, recorded.len())?;
+                Some((id, position.is_none().then(|| fill.compose()).transpose()?))
+            }
+        };
+        let border = match &style.border {
+            None => None,
+            Some(border) => {
+                let recorded = &self.edits.border_additions;
+                let position = recorded.iter().position(|(have, _)| have == border);
+                let id = collection_id(styles.borders(), position, recorded.len())?;
+                Some((
+                    id,
+                    position.is_none().then(|| border.compose()).transpose()?,
+                ))
+            }
+        };
         let index = u32::try_from(existing + recorded).map_err(|_| STYLE_OUT_OF_RANGE)?;
+        let changes = Changes {
+            num_fmt,
+            font: font.as_ref().map(|(id, _)| *id),
+            fill: fill.as_ref().map(|(id, _)| *id),
+            border: border.as_ref().map(|(id, _)| *id),
+        };
         // The base is in range by the check above, and its bytes are ones the
         // reader accepted, so this is `None` only for a part that could not
         // have been read.
-        let xf = styles.derived_xf(base, id).ok_or(STYLE_OUT_OF_RANGE)?;
-        if let Some(code) = new_code {
+        let xf = styles
+            .derived_xf(base, &changes)
+            .ok_or(STYLE_OUT_OF_RANGE)?;
+        if let (Some(id), Some(code)) = (num_fmt, new_code) {
             self.edits.num_fmt_additions.push((id, code));
+        }
+        if let (Some(font), Some((_, Some(element)))) = (&style.font, font) {
+            self.edits.font_additions.push((font.clone(), element));
+        }
+        if let (Some(fill), Some((_, Some(element)))) = (&style.fill, fill) {
+            self.edits.fill_additions.push((*fill, element));
+        }
+        if let (Some(border), Some((_, Some(element)))) = (&style.border, border) {
+            self.edits.border_additions.push((*border, element));
         }
         self.edits.xf_additions.push(xf);
         Ok(index)
@@ -2502,18 +2629,22 @@ impl<'a> Parts<'a> {
             let styles = self.styles()?;
             let counts = Counts {
                 num_fmts: styles.num_fmts.len() as u64,
+                fonts: styles.fonts().map_or(0, u64::from),
+                fills: styles.fills().map_or(0, u64::from),
+                borders: styles.borders().map_or(0, u64::from),
                 cell_xfs: styles.cell_xfs.len() as u64,
                 has_num_fmts: styles.has_num_fmts(),
             };
             let mut codes = self.edits.num_fmt_additions.clone();
             codes.sort_by_key(|(id, _)| *id);
-            let (temp, replacement) = rewrite_styles(
-                self.archive,
-                index,
-                &counts,
-                &codes,
-                &self.edits.xf_additions,
-            )?;
+            let additions = StyleAdditions {
+                codes: &codes,
+                fonts: &self.edits.font_additions,
+                fills: &self.edits.fill_additions,
+                borders: &self.edits.border_additions,
+                xfs: &self.edits.xf_additions,
+            };
+            let (temp, replacement) = rewrite_styles(self.archive, index, &counts, &additions)?;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
@@ -3070,13 +3201,40 @@ const NO_SHEET_DATA: Error = Error::Package("a worksheet without sheetData canno
 /// [`Package::write_to`] refuse a style with (`specs/0012-styles.md`,
 /// "Errors"); the reading's other four are raised by `styles`.
 const NO_STYLES_PART: Error = Error::Package("the workbook has no styles part");
-const STYLE_OUT_OF_RANGE: Error = Error::Package("a style index is out of range");
+pub(crate) const STYLE_OUT_OF_RANGE: Error = Error::Package("a style index is out of range");
 const BUILT_IN_164: Error = Error::Package("a built-in number format id is 164 or more");
 const CODE_REFUSED: Error =
     Error::Package("a number format code is empty or holds a character XML cannot carry");
 const STYLE_ADDITION_REPLACED: Error =
     Error::Package("a style addition to a part this write replaces");
 const NO_CELL_XFS: Error = Error::Package("a styles part without cellXfs cannot take a style");
+/// What [`Package::add_style`] and [`Package::write_to`] refuse a font, a
+/// fill or a border with when the part lacks its collection
+/// (`specs/0017-fuller-styles.md`, "Errors" and P1 ruling 1); the two
+/// messages about a field are raised by `styles`.
+const NEEDS_COLLECTION: Error =
+    Error::Package("a style addition needs a collection the styles part lacks");
+
+/// The id a font, a fill or a border gets: the collection's `count` plus its
+/// `position` among the distinct ones recorded, or plus `recorded` when it is
+/// new.
+///
+/// # Errors
+///
+/// "a style addition needs a collection the styles part lacks" for a part
+/// without the collection, and "a style index is out of range" for an id
+/// `u32` cannot hold.
+fn collection_id(
+    count: Option<u32>,
+    position: Option<usize>,
+    recorded: usize,
+) -> Result<u32, Error> {
+    let count = count.ok_or(NEEDS_COLLECTION)?;
+    u32::try_from(position.unwrap_or(recorded))
+        .ok()
+        .and_then(|offset| count.checked_add(offset))
+        .ok_or(STYLE_OUT_OF_RANGE)
+}
 
 /// What [`Package::write_to`] refuses a workbook rewrite with
 /// (`specs/0013-formulas.md`, "Errors"); the three about a formula's text are
@@ -3319,41 +3477,60 @@ fn rewrite_part(
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
 }
 
-/// What the styles rewrite knows of the part before it streams: its two
-/// containers' child counts, read by [`Package::styles`] from the same bytes,
-/// and whether it has a `<numFmts>`.
+/// The number of children each container the styles rewrite grows holds in
+/// the part as read, and whether it has a `<numFmts>` at all.
 struct Counts {
     num_fmts: u64,
+    fonts: u64,
+    fills: u64,
+    borders: u64,
     cell_xfs: u64,
     has_num_fmts: bool,
+}
+
+/// What the styles rewrite appends, container by container.
+struct StyleAdditions<'a> {
+    /// The new number formats, in id order.
+    codes: &'a [(u32, String)],
+    fonts: &'a [(Font, Composed)],
+    fills: &'a [(Fill, Composed)],
+    borders: &'a [(Border, Composed)],
+    xfs: &'a [NewXf],
 }
 
 /// Rewrites the styles part with the recorded additions into a temporary
 /// file.
 ///
-/// `specs/0012-styles.md`, "Module `package`": every token's `raw` is copied
-/// except that the `<numFmts>` and `<cellXfs>` start tags among the root's
-/// children have their `count` values replaced by their children plus the
-/// additions, every other byte of the tag kept; the new `numFmt` elements
-/// (`codes`, in id order) go immediately before `</numFmts>` and the new `xf`
-/// elements immediately before `</cellXfs>`, each taking its container's
-/// prefix; an empty container that gains children is opened up as part 2
-/// opens an empty root; and a part with no `<numFmts>` that gains a code gets
-/// one, with the root's prefix, immediately before the first of `fonts`,
-/// `fills`, `borders`, `cellStyleXfs` and `cellXfs` among the root's
-/// children. A part with no `<cellXfs>` is refused once the stream ends,
-/// leaving no output.
+/// `specs/0012-styles.md`, "Module `package`", over the five containers of
+/// `specs/0017-fuller-styles.md`: every token's `raw` is copied except that
+/// the `<numFmts>`, `<fonts>`, `<fills>`, `<borders>` and `<cellXfs>` start
+/// tags among the root's children, found by name in whatever order the part
+/// gives them, have their `count` values replaced by their children plus
+/// their additions, every other byte of the tag kept; each container's new
+/// elements (the `numFmt`s in id order, the rest in record order) go
+/// immediately before its end tag, each taking the container's prefix; an
+/// empty container that gains children is opened up as part 2 opens an empty
+/// root; and a part with no `<numFmts>` that gains a code gets one, with the
+/// root's prefix, immediately before the first of `fonts`, `fills`,
+/// `borders`, `cellStyleXfs` and `cellXfs` among the root's children. Once
+/// the stream ends, leaving no output, a part with no `<cellXfs>` is
+/// refused, and then one without the `<fonts>`, `<fills>` or `<borders>` an
+/// addition goes into, which [`Package::add_style`] has already refused
+/// unless the part changed after it was read.
 fn rewrite_styles(
     archive: &mut Core,
     index: usize,
     counts: &Counts,
-    codes: &[(u32, String)],
-    xfs: &[NewXf],
+    additions: &StyleAdditions<'_>,
 ) -> Result<(TempFile, Replacement), Error> {
     /// The root's children, before the first of which a new `<numFmts>`
     /// goes, in the schema's order.
     const AFTER_NUM_FMTS: [&[u8]; 5] =
         [b"fonts", b"fills", b"borders", b"cellStyleXfs", b"cellXfs"];
+    /// The containers the rewrite grows, by the index `grown` and `seen` use.
+    const GROWN: [&[u8]; 5] = [b"numFmts", b"fonts", b"fills", b"borders", b"cellXfs"];
+    const NUM_FMTS: usize = 0;
+    const CELL_XFS: usize = 4;
 
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -3361,26 +3538,60 @@ fn rewrite_styles(
     if stream.bom() {
         out.write_all(&BYTE_ORDER_MARK)?;
     }
-    let num_fmt_elements = |prefix: &[u8]| -> Vec<u8> {
-        codes
-            .iter()
-            .flat_map(|(id, code)| num_fmt_element(prefix, *id, code))
-            .collect()
+    // Each container's new elements, with its prefix, and how many there are.
+    let elements = |container: usize, prefix: &[u8]| -> Vec<u8> {
+        match container {
+            NUM_FMTS => additions
+                .codes
+                .iter()
+                .flat_map(|(id, code)| num_fmt_element(prefix, *id, code))
+                .collect(),
+            1 => additions
+                .fonts
+                .iter()
+                .flat_map(|(_, e)| e.element(prefix))
+                .collect(),
+            2 => additions
+                .fills
+                .iter()
+                .flat_map(|(_, e)| e.element(prefix))
+                .collect(),
+            3 => additions
+                .borders
+                .iter()
+                .flat_map(|(_, e)| e.element(prefix))
+                .collect(),
+            _ => additions
+                .xfs
+                .iter()
+                .flat_map(|xf| xf.element(prefix))
+                .collect(),
+        }
     };
-    let xf_elements =
-        |prefix: &[u8]| -> Vec<u8> { xfs.iter().flat_map(|xf| xf.element(prefix)).collect() };
-    let num_fmts_count = counts.num_fmts + codes.len() as u64;
-    let cell_xfs_count = counts.cell_xfs + xfs.len() as u64;
+    let added = [
+        additions.codes.len(),
+        additions.fonts.len(),
+        additions.fills.len(),
+        additions.borders.len(),
+        additions.xfs.len(),
+    ];
+    let had = [
+        counts.num_fmts,
+        counts.fonts,
+        counts.fills,
+        counts.borders,
+        counts.cell_xfs,
+    ];
 
     let mut scope = Scope::new(index);
     let mut depth = 0usize;
     let mut root_prefix: Vec<u8> = Vec::new();
     // Whether a `<numFmts>` still has to be created before the next of
     // `AFTER_NUM_FMTS`.
-    let mut create_num_fmts = !counts.has_num_fmts && !codes.is_empty();
-    let mut seen_cell_xfs = false;
+    let mut create_num_fmts = !counts.has_num_fmts && added[NUM_FMTS] > 0;
+    let mut seen = [false; 5];
     // The open container among the root's children, with its prefix.
-    let mut open: Option<(bool, Vec<u8>)> = None;
+    let mut open: Option<(usize, Vec<u8>)> = None;
     while let Some(token) = stream.next()? {
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
@@ -3395,38 +3606,37 @@ fn rewrite_styles(
                 if depth == 2 && ours && create_num_fmts && AFTER_NUM_FMTS.contains(&local) {
                     let p = &root_prefix;
                     out.write_all(&[b"<".as_slice(), p, b"numFmts count=\""].concat())?;
-                    out.write_all(num_fmts_count.to_string().as_bytes())?;
+                    out.write_all(
+                        (had[NUM_FMTS] + added[NUM_FMTS] as u64)
+                            .to_string()
+                            .as_bytes(),
+                    )?;
                     out.write_all(b"\">")?;
-                    out.write_all(&num_fmt_elements(p))?;
+                    out.write_all(&elements(NUM_FMTS, p))?;
                     out.write_all(&[b"</".as_slice(), p, b"numFmts>"].concat())?;
                     create_num_fmts = false;
                 }
-                let container = if depth == 2 && ours && local == b"numFmts" {
-                    Some((true, num_fmts_count, !codes.is_empty()))
-                } else if depth == 2 && ours && local == b"cellXfs" {
-                    seen_cell_xfs = true;
-                    Some((false, cell_xfs_count, true))
+                let container = if depth == 2 && ours {
+                    GROWN.iter().position(|name| *name == local)
                 } else {
                     None
                 };
                 match container {
-                    Some((is_num_fmts, count, gains)) => {
+                    Some(container) => {
+                        seen[container] = true;
+                        let count = had[container] + added[container] as u64;
                         let tag = counted(token.raw, count, index)?;
                         let prefix = prefix_of(start);
-                        if empty && gains {
+                        if empty && added[container] > 0 {
                             out.write_all(&opened_up(&tag, index)?)?;
-                            out.write_all(&if is_num_fmts {
-                                num_fmt_elements(&prefix)
-                            } else {
-                                xf_elements(&prefix)
-                            })?;
+                            out.write_all(&elements(container, &prefix))?;
                             out.write_all(b"</")?;
                             out.write_all(start.name().into_inner().as_bytes())?;
                             out.write_all(b">")?;
                         } else {
                             out.write_all(&tag)?;
                             if !empty {
-                                open = Some((is_num_fmts, prefix));
+                                open = Some((container, prefix));
                             }
                         }
                     }
@@ -3439,13 +3649,9 @@ fn rewrite_styles(
             }
             Event::End(_) => {
                 if depth == 2
-                    && let Some((is_num_fmts, prefix)) = open.take()
+                    && let Some((container, prefix)) = open.take()
                 {
-                    out.write_all(&if is_num_fmts {
-                        num_fmt_elements(&prefix)
-                    } else {
-                        xf_elements(&prefix)
-                    })?;
+                    out.write_all(&elements(container, &prefix))?;
                 }
                 out.write_all(token.raw)?;
                 scope.end();
@@ -3454,8 +3660,11 @@ fn rewrite_styles(
             _ => out.write_all(token.raw)?,
         }
     }
-    if !seen_cell_xfs {
+    if !seen[CELL_XFS] {
         return Err(NO_CELL_XFS);
+    }
+    if (1..CELL_XFS).any(|container| added[container] > 0 && !seen[container]) {
+        return Err(NEEDS_COLLECTION);
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
 }

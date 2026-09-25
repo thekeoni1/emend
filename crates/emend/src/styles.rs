@@ -3,10 +3,13 @@
 //!
 //! `specs/0012-styles.md`, "Module `styles`: what is read". [`Styles`] holds
 //! the `numFmt` children of `<numFmts>` and the `xf` children of `<cellXfs>`,
-//! both in part order, so `cell_xfs[i]` is what a cell's `s="i"` names. Every
-//! other element of the part is walked past with its subtree: fonts, fills,
-//! borders, `cellStyleXfs`, `cellStyles`, `dxfs`, table styles, colours and
-//! extensions are not modelled here, and nothing about them is read.
+//! both in part order, so `cell_xfs[i]` is what a cell's `s="i"` names, and
+//! counts the children of `<fonts>`, `<fills>` and `<borders>`
+//! (`specs/0017-fuller-styles.md`, "Module `styles`: the counts"). Every
+//! other element of the part is walked past with its subtree: what a font, a
+//! fill or a border holds, `cellStyleXfs`, `cellStyles`, `dxfs`, table
+//! styles, colours and extensions are not modelled here, and nothing about
+//! them is read.
 //!
 //! [`crate::package::Package::styles`] reads the part once and keeps the
 //! answer, as [`crate::package::Package::workbook`] does.
@@ -58,12 +61,13 @@
 //!   be made as a copy of one.
 //! - A format code is text to this layer: which numbers it shows as dates is
 //!   the caller's to decide.
-//! - Number formats only. What [`crate::package::Package::add_cell_style`]
-//!   adds is a cell format derived from an existing one, or the plain form
-//!   over no base, with its number format changed, and a custom number
-//!   format when its code is new. No font, fill, border, alignment or
-//!   protection is added, and `dxfs`, `cellStyles`, `fonts`, `fills` and
-//!   `borders` are never touched.
+//! - What [`crate::package::Package::add_style`] adds is a cell format
+//!   derived from an existing one, or the plain form over no base, with its
+//!   number format, font, fill and border as the [`Style`] gives them, a
+//!   custom number format when its code is new, and a font, a fill and a
+//!   border appended to their collections (`specs/0017-fuller-styles.md`). No
+//!   alignment or protection is added yet (P1 ruling 3), and `dxfs` and
+//!   `cellStyles` are never touched.
 //! - A style edit assumes the styles part carries the font, fill, border and
 //!   cell-style collections and `cellXfs` entries that name them, as every
 //!   workbook Excel or LibreOffice writes does. A new `xf` names font 0,
@@ -85,11 +89,18 @@ use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::Error;
 use crate::cells::decimal;
-use crate::package::MAIN;
+use crate::package::{MAIN, STYLE_OUT_OF_RANGE};
 use crate::xml::{Scope, Stream};
 
+mod elements;
 #[cfg(test)]
 mod tests;
+
+pub(crate) use elements::Composed;
+pub use elements::{
+    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, Pattern, Protection, Scheme,
+    Side, Style, Underline, Vertical, VerticalAlign,
+};
 
 /// What a workbook's styles part defines, as far as this layer reads it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -102,6 +113,12 @@ pub struct Styles {
     /// Whether the part has a `<numFmts>` among the root's children, empty
     /// or not: a rewrite that adds a code creates one only when it has none.
     has_num_fmts: bool,
+    /// The number of `font` children of `<fonts>`, `None` without one.
+    fonts: Option<u32>,
+    /// The number of `fill` children of `<fills>`, `None` without one.
+    fills: Option<u32>,
+    /// The number of `border` children of `<borders>`, `None` without one.
+    borders: Option<u32>,
 }
 
 /// One `<numFmt>`: a number format the part defines.
@@ -143,7 +160,7 @@ impl Xf {
     }
 }
 
-/// A cell format recorded by [`crate::package::Package::add_cell_style`],
+/// A cell format recorded by [`crate::package::Package::add_style`],
 /// composed at that call and written by the styles rewrite.
 ///
 /// Held without its element name: the new `xf` takes the qualified-name
@@ -176,6 +193,20 @@ impl NewXf {
     }
 }
 
+/// What a new cell format changes of its base: each id given, `None` for
+/// what the base keeps.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Changes {
+    /// `numFmtId`.
+    pub(crate) num_fmt: Option<u32>,
+    /// `fontId`.
+    pub(crate) font: Option<u32>,
+    /// `fillId`.
+    pub(crate) fill: Option<u32>,
+    /// `borderId`.
+    pub(crate) border: Option<u32>,
+}
+
 /// A cell format's number format.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NumberFormat {
@@ -193,56 +224,112 @@ impl Styles {
         self.has_num_fmts
     }
 
-    /// The new cell format [`crate::package::Package::add_cell_style`]
-    /// records: a copy of the cell format `base` with its number format
-    /// changed to `num_fmt_id`, or the form `specs/0012-styles.md` gives for
-    /// no base.
+    /// The number of fonts the part's `<fonts>` holds, `None` when it has
+    /// none. Nothing inside a font is read.
+    pub fn fonts(&self) -> Option<u32> {
+        self.fonts
+    }
+
+    /// The number of fills the part's `<fills>` holds, `None` when it has
+    /// none. Nothing inside a fill is read.
+    pub fn fills(&self) -> Option<u32> {
+        self.fills
+    }
+
+    /// The number of borders the part's `<borders>` holds, `None` when it has
+    /// none. Nothing inside a border is read.
+    pub fn borders(&self) -> Option<u32> {
+        self.borders
+    }
+
+    /// The new cell format [`crate::package::Package::add_style`] records: a
+    /// copy of the cell format `base` with what `changes` gives replaced, or
+    /// the form `specs/0017-fuller-styles.md` gives for no base.
     ///
     /// With a base, the start tag is written anew from the base's own bytes:
     /// its attributes in its order, each as a space, the name, `=`, the quote
     /// character the base used for it, the value's bytes as the base wrote
-    /// them and that quote again (P1 ruling 5), except that `numFmtId`'s
-    /// value is the new id (added first when the base had none) and
-    /// `applyNumberFormat`'s is `1` (appended last when the base had none).
-    /// The base's content between its start and end tags is kept raw, and a
-    /// base with none gives an empty element. `None` when `base` is out of
-    /// range, or when the base's start tag does not scan, which a part the
-    /// reader accepted cannot give.
-    pub(crate) fn derived_xf(&self, base: Option<u32>, num_fmt_id: u32) -> Option<NewXf> {
+    /// them and that quote again (`specs/0012-styles.md`, P1 ruling 5),
+    /// except that each id `changes` gives has the new value and its apply
+    /// flag the value `1`. An id the base lacks is added: `numFmtId` first,
+    /// the others after the base's attributes in the order `fontId fillId
+    /// borderId`, then each apply flag the base lacks in the order
+    /// `applyNumberFormat applyFont applyFill applyBorder`. The base's content
+    /// between its start and end tags is kept raw, and a base with none gives
+    /// an empty element. `None` when `base` is out of range, or when the
+    /// base's start tag does not scan, which a part the reader accepted
+    /// cannot give.
+    ///
+    /// With no base: `numFmtId`, `fontId`, `fillId` and `borderId` with the
+    /// given ids or 0, `xfId="0"`, then the apply flag of each id given, in
+    /// the order above.
+    pub(crate) fn derived_xf(&self, base: Option<u32>, changes: &Changes) -> Option<NewXf> {
+        // `(id attribute, apply flag, new value)` in the order they are added.
+        let given: [(&[u8], &[u8], Option<u32>); 4] = [
+            (b"numFmtId", b"applyNumberFormat", changes.num_fmt),
+            (b"fontId", b"applyFont", changes.font),
+            (b"fillId", b"applyFill", changes.fill),
+            (b"borderId", b"applyBorder", changes.border),
+        ];
+        let mut attributes = Vec::new();
+        let mut push = |name: &[u8], quote: u8, value: &[u8]| {
+            attributes.push(b' ');
+            attributes.extend_from_slice(name);
+            attributes.push(b'=');
+            attributes.push(quote);
+            attributes.extend_from_slice(value);
+            attributes.push(quote);
+        };
         let Some(base) = base else {
+            for (name, _, id) in given {
+                push(name, b'"', id.unwrap_or(0).to_string().as_bytes());
+            }
+            push(b"xfId", b'"', b"0");
+            for (_, flag, id) in given {
+                if id.is_some() {
+                    push(flag, b'"', b"1");
+                }
+            }
             return Some(NewXf {
-                attributes: format!(
-                    " numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"0\" borderId=\"0\" \
-                     xfId=\"0\" applyNumberFormat=\"1\""
-                )
-                .into_bytes(),
+                attributes,
                 content: None,
             });
         };
         let raw = &self.cell_xfs.get(usize::try_from(base).ok()?)?.raw;
         let tag = scan_start_tag(raw)?;
-        let id = num_fmt_id.to_string();
-        let mut attributes = Vec::new();
         let named = |name: &[u8]| tag.attributes.iter().any(|a| &raw[a.name.clone()] == name);
-        if !named(b"numFmtId") {
-            attributes.extend_from_slice(format!(" numFmtId=\"{id}\"").as_bytes());
+        let (num_fmt, others) = given.split_at(1);
+        if let Some(id) = num_fmt[0].2
+            && !named(b"numFmtId")
+        {
+            push(b"numFmtId", b'"', id.to_string().as_bytes());
         }
         for attribute in &tag.attributes {
             let name = &raw[attribute.name.clone()];
-            let value: &[u8] = match name {
-                b"numFmtId" => id.as_bytes(),
-                b"applyNumberFormat" => b"1",
-                _ => &raw[attribute.value.clone()],
-            };
-            attributes.push(b' ');
-            attributes.extend_from_slice(name);
-            attributes.push(b'=');
-            attributes.push(attribute.quote);
-            attributes.extend_from_slice(value);
-            attributes.push(attribute.quote);
+            let replaced = given.iter().find_map(|(id_name, flag, id)| {
+                let id = (*id)?;
+                if name == *id_name {
+                    Some(id.to_string().into_bytes())
+                } else if name == *flag {
+                    Some(b"1".to_vec())
+                } else {
+                    None
+                }
+            });
+            let value = replaced.as_deref().unwrap_or(&raw[attribute.value.clone()]);
+            push(name, attribute.quote, value);
         }
-        if !named(b"applyNumberFormat") {
-            attributes.extend_from_slice(b" applyNumberFormat=\"1\"");
+        for (name, _, id) in others {
+            if let Some(id) = id
+                && !named(name)
+            {
+                push(name, b'"', id.to_string().as_bytes());
+            }
+        }
+        for (_, flag, id) in given {
+            if id.is_some() && !named(flag) {
+                push(flag, b'"', b"1");
+            }
         }
         let content = if tag.empty {
             None
@@ -277,20 +364,22 @@ impl Styles {
     ///
     /// The root must be `styleSheet` in the main namespace, either spelling
     /// and any prefix. Under it, the `numFmt` children of `<numFmts>` and the
-    /// `xf` children of `<cellXfs>` are read; every other element, at any
-    /// depth, is walked past with its subtree. A second `<numFmts>` or
-    /// `<cellXfs>` among the root's children is refused: the schema allows
-    /// one of each, and a second `<cellXfs>` would make every `s` ambiguous
-    /// (`specs/0012-styles.md`, P1 ruling 4).
+    /// `xf` children of `<cellXfs>` are read, and the `font`, `fill` and
+    /// `border` children of `<fonts>`, `<fills>` and `<borders>` counted;
+    /// every other element, at any depth, is walked past with its subtree. A
+    /// second of any of those five containers among the root's children is
+    /// refused: the schema allows one of each, and a second `<cellXfs>` would
+    /// make every `s` ambiguous (`specs/0012-styles.md`, P1 ruling 4;
+    /// `specs/0017-fuller-styles.md`, "Module `styles`: the counts").
     pub(crate) fn read<R: Read>(stream: &mut Stream<R>, index: usize) -> Result<Self, Error> {
         let mut scope = Scope::new(index);
         let mut styles = Styles::default();
         let mut root = false;
         let mut depth = 0usize;
-        // Which container among the root's children is open, if either.
+        // Which container among the root's children is open, if any, and
+        // which of them have been seen.
         let mut open: Option<Container> = None;
-        let mut seen_num_fmts = false;
-        let mut seen_cell_xfs = false;
+        let mut seen = [false; 5];
 
         while let Some(token) = stream.next()? {
             // What the token asks for, decided inside the match and acted on
@@ -309,23 +398,29 @@ impl Styles {
                             return Err(NOT_STYLE_SHEET);
                         }
                         root = true;
-                    } else if depth == 2 && ours && local == b"numFmts" {
-                        if seen_num_fmts {
+                    } else if depth == 2
+                        && ours
+                        && let Some(container) = Container::named(local)
+                    {
+                        if std::mem::replace(&mut seen[container as usize], true) {
                             return Err(TWO_CONTAINERS);
                         }
-                        seen_num_fmts = true;
-                        styles.has_num_fmts = true;
+                        match styles.count_of(container) {
+                            Some(count) => *count = Some(0),
+                            None => styles.has_num_fmts |= container == Container::NumFmts,
+                        }
                         if !empty {
-                            open = Some(Container::NumFmts);
+                            open = Some(container);
                         }
-                    } else if depth == 2 && ours && local == b"cellXfs" {
-                        if seen_cell_xfs {
-                            return Err(TWO_CONTAINERS);
-                        }
-                        seen_cell_xfs = true;
-                        if !empty {
-                            open = Some(Container::CellXfs);
-                        }
+                    } else if depth == 3
+                        && ours
+                        && let Some(container) = open
+                        && container.counted_child() == Some(local)
+                        && let Some(count) = styles.count_of(container)
+                    {
+                        let counted = count.unwrap_or(0).checked_add(1);
+                        *count = Some(counted.ok_or(STYLE_OUT_OF_RANGE)?);
+                        skip = !empty;
                     } else if depth == 3
                         && ours
                         && local == b"numFmt"
@@ -348,7 +443,7 @@ impl Styles {
                     }
                 }
                 Event::End(_) => {
-                    // Only the root and the two containers are entered
+                    // Only the root and the five containers are entered
                     // without being consumed whole, so an end tag at depth 2
                     // closes a container.
                     if depth == 2 {
@@ -379,11 +474,51 @@ impl Styles {
     }
 }
 
-/// The two containers this layer reads the children of.
+/// The containers among the root's children this layer reads or counts the
+/// children of, in the schema's order.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Container {
     NumFmts,
+    Fonts,
+    Fills,
+    Borders,
     CellXfs,
+}
+
+impl Container {
+    /// The container a root child's local name is, if any.
+    fn named(local: &[u8]) -> Option<Self> {
+        Some(match local {
+            b"numFmts" => Self::NumFmts,
+            b"fonts" => Self::Fonts,
+            b"fills" => Self::Fills,
+            b"borders" => Self::Borders,
+            b"cellXfs" => Self::CellXfs,
+            _ => return None,
+        })
+    }
+
+    /// The child a counted container's count counts.
+    fn counted_child(self) -> Option<&'static [u8]> {
+        match self {
+            Self::Fonts => Some(b"font"),
+            Self::Fills => Some(b"fill"),
+            Self::Borders => Some(b"border"),
+            Self::NumFmts | Self::CellXfs => None,
+        }
+    }
+}
+
+impl Styles {
+    /// The count a counted container keeps.
+    fn count_of(&mut self, container: Container) -> Option<&mut Option<u32>> {
+        match container {
+            Container::Fonts => Some(&mut self.fonts),
+            Container::Fills => Some(&mut self.fills),
+            Container::Borders => Some(&mut self.borders),
+            Container::NumFmts | Container::CellXfs => None,
+        }
+    }
 }
 
 /// What a styles part is refused with, one message each, catalogued in
@@ -392,7 +527,7 @@ const NOT_STYLE_SHEET: Error = Error::Package("the styles part's root is not sty
 const INCOMPLETE_NUM_FMT: Error = Error::Package("a numFmt lacks numFmtId or formatCode");
 const NOT_A_NUMBER: Error = Error::Package("a style attribute is not a number");
 const TWO_CONTAINERS: Error =
-    Error::Package("the styles part has more than one numFmts or cellXfs");
+    Error::Package("the styles part has more than one numFmts, fonts, fills, borders or cellXfs");
 
 /// A `<numFmt>` element as the styles rewrite writes one: `prefix` (with its
 /// colon, or empty) on the name, and the code escaped with the crate's

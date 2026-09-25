@@ -48,5 +48,8 @@ pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_re
 pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
-pub use styles::{NumFmt, NumberFormat, Styles, Xf};
+pub use styles::{
+    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,
+    Protection, Scheme, Side, Style, Styles, Underline, Vertical, VerticalAlign, Xf,
+};
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

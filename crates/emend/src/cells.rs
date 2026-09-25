@@ -707,7 +707,7 @@ impl Value {
 }
 
 /// A number's text as [`Value::Number`] writes it. `number` is finite.
-fn number_text(number: f64) -> String {
+pub(crate) fn number_text(number: f64) -> String {
     let magnitude = number.abs();
     if number == 0.0 || (1e-7..1e21).contains(&magnitude) {
         format!("{number}")
