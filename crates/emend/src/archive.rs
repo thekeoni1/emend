@@ -174,7 +174,9 @@
 //! - For the same reason an [`Archive`] is neither `Send` nor `Sync`, nor
 //!   `UnwindSafe` nor `RefUnwindSafe`, whatever its reader is: the boxed
 //!   reader carries none of those traits (ruling 3). `Package` and `Cells`
-//!   never had them.
+//!   never had them. The reader [`Archive::read`] returns reads through the
+//!   same boxed reader, so it is neither `Send` nor `Sync` either
+//!   (`specs/0016`, "Planning verification and rulings on P5", ruling 5).
 //!
 //! Every offset, size and count here is `u64`. `usize` is 32 bits on
 //! `i686-unknown-linux-musl`.
