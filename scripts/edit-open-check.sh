@@ -19,8 +19,8 @@
 # The keep directory must hold nothing but pairs: for every <test>.in.xlsx a
 # <test>.out.xlsx and the other way round, <test> made of letters, digits,
 # '_', '.' and '-'. Each pair's input and output are checked, the input as its
-# own reference and the output against its input's sheet count, as the runner
-# checks a corpus copy. The check's reasons go to a scratch directory made
+# own reference and the output as its own (specs/0016, "Planning rulings during
+# P3", ruling 9), as the runner checks a corpus copy. The check's reasons go to a scratch directory made
 # for the run and kept; they are never printed. The script prints one line per
 # pair (test, lo_in, lo), a totals line and the reasons directory's path.
 #
@@ -145,7 +145,10 @@ for test in "${tests[@]}"; do
   output=$KEEP/$test.out.xlsx
   lo_check "$input" "$WORK/$n/in" "$WORK/$n/in-reason.txt" "$input"
   lo_in=$(verdict $?)
-  lo_check "$output" "$WORK/$n/out" "$WORK/$n/out-reason.txt" "$input"
+  # The output is counted against its own sheets, as the input is against its
+  # own: an edit may change the sheet list (specs/0016, "Planning rulings
+  # during P3", ruling 9).
+  lo_check "$output" "$WORK/$n/out" "$WORK/$n/out-reason.txt" "$output"
   lo=$(verdict $?)
   reason_in=$(reason_class "$WORK/$n/in-reason.txt" "$lo_in") || exit 2
   reason_out=$(reason_class "$WORK/$n/out-reason.txt" "$lo") || exit 2

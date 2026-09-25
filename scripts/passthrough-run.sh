@@ -296,7 +296,10 @@ while IFS=$'\t' read -r id ext producer tags; do
       *) lo_in=error ;;
     esac
     if [ "$outcome" = ok ]; then
-      lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$input"
+      # The copy is counted against its own sheets, as the input is against
+      # its own: an edit may change the sheet list (specs/0016, "Planning
+      # rulings during P3", ruling 9).
+      lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$output"
       case $? in
         0) lo=ok ;;
         1) lo=fail ;;
