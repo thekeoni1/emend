@@ -860,6 +860,86 @@ Verified by planning from primaries, never from the report alone:
    5, 7 (the scripts) and 8 before any P2 change, and the dead-code
    attributes go when the composers are wired.
 
+## Planning verification and rulings on P2 (2026-09-25)
+
+Verified by planning from primaries, never from the report alone:
+
+1. Commits, from git: 06d485b (docs, the two files at planning's
+   hashes), 24ce03b (P1 verification rulings 4 and 5), 4bd46a1
+   (alignment and protection, the child spans, the content
+   replacement), 09c941f (the tool, the phase commit), ebfe711 (the
+   record, ten files), a chain from 6080f2a; every message ASCII,
+   ending with the Co-Authored-By line, no session link; each commit
+   planning docs alone, code alone or records alone; nothing pushed.
+   The six committed logs and the check answer at the sha256 the
+   report gives. Planning's own `scripts/privacy.sh --range
+   6080f2a..HEAD`: 5 commits, 617 blobs, 0 findings; no log or record
+   names the home directory; the three `specs/0001` shape greps over
+   every printed script find 0, 0 and 0; `ANTHROPIC_API_KEY` unset.
+2. The logs at their verdict lines, every one attempt 1: gate "checks
+   all as expected: yes"; test "yes", host and i686 each 633 passed,
+   0 failed, 2 ignored, 14 test names added and 0 removed, 54 keyword
+   lines against 54 pinned rows; negative "yes", B0 the control, B1
+   exit 2 with the collection message, B2 exit 2 with the widened
+   message, no output in each; run "yes", 27 of 27 on both targets
+   with every comparison flag holding, `xfs_after` 1046,
+   `borders_added` 27, 18 plants of 18 turning their own flag, host
+   and i686 outputs byte for byte the same in 27, the keep 220 pairs
+   with P1's 210 found by name, bytes and hashes, the open record 220
+   pairs and 0 findings; scan final stage PASS, 0 hits. Each of the
+   five logs prints its own stderr as 0 bytes with the one-byte
+   control at 1 (P1 verification ruling 7, in force).
+3. Planning's own measurements: the workspace tests on planning's
+   build at 09c941f, 633 passed, 0 failed, 2 ignored; clippy with
+   `-D warnings` clean; planning's own comparison (the P1 reader
+   extended to borders and the two children, with a negative control
+   over P1's run directory reporting a problem on all 27) over the
+   phase's run directory: 27 of 27 with no problem on both labels,
+   `xfs_after` 1046, `borders_added` 27, `read_back` 54, host and
+   i686 outputs equal by sha256 in 27 of 27. Planning's first pass
+   reported every file on the second cell format; that was
+   planning's expectation carrying the first format's alignment, and
+   the output holds the spec's `horizontal="right"` alone.
+4. Check 1's F1 and disclosed decision 1: the two P1 tests that named
+   every `Style` field gained `..Style::default()` when P2 added two
+   fields. Accepted, pinned by gate.log as the only lines added
+   inside base tests with the tool test's four. P1 ruling 3's
+   "compiles unchanged across the two phases" held for a literal
+   built with `..Default::default()` and was written without reading
+   the two literals that were not: planning's slip, corrected here.
+5. Check 1's F3, a behaviour change P1 did not have: the reader now
+   resolves the name of every direct child of a kept `xf` to find
+   its `alignment` and `protection`, so a child whose prefix no
+   declaration binds is refused where P1 copied it raw. The refusal
+   stands. The crate refuses an unbound prefix wherever it resolves a
+   name (`xml.rs`, `resolve_element`; `package::tests::
+   rel_id_prefix_unbound`); a part with one is not namespace-well-
+   formed and no corpus part has one. The implementing session's
+   proposal to read a failed resolution as "not our child" is
+   declined: it would have one reader path accept what every other
+   refuses. P3's first code commit adds a `styles` limits sentence
+   and a test through `Package::styles` on a byte-built part.
+6. Check 1's F7: the gate script's carry note names P1's log by the
+   P2 path, a rename slip in a comment; gate.log stands as it ran,
+   and P3's scripts carry the corrected note. F9: the absent-path
+   control checks the exit status too from P3's gate. F10: P3's run
+   log, which runs the border comparison again, adds a plant that
+   reorders the base's other children so `first_xf_content`'s
+   `ElementTree` half is shown alone.
+7. Disclosed decisions 2 to 5 accepted: the content placement as
+   implemented is the spec's rule read case by case (a replaced
+   child stays in place; a new protection follows the first
+   alignment, else goes first); only the first main-namespace direct
+   `alignment` and `protection` children are recorded and one inside
+   `extLst` is kept raw, stated in the limits with P3's catalogue
+   work; the carried summary wording; `head_same` where the input
+   counts agree. F2, F4, F5, F6, F8 and F11 are remarks, answered in
+   the report.
+8. P2 is DONE. P3's doc commit carries this spec and `ROADMAP.md`,
+   unedited at the hashes planning sends; P3's first code commit
+   carries ruling 5's test and sentence before any P3 change; P3's
+   scripts carry ruling 6.
+
 ## Out of scope
 
 - Reading fonts, fills, borders, alignment or protection back as
