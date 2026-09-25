@@ -376,11 +376,14 @@
 //!   shows for a format code is the consumer's.
 //! - `dxfs` and `cellStyles` are never touched. `fonts`, `fills` and
 //!   `borders` grow at their ends when an addition gives a font, a fill or a
-//!   border, and are otherwise kept byte for byte; nothing already in them
-//!   is read, changed or compared.
-//! - A `numFmts`, `fonts`, `fills`, `borders` or `cellXfs` the rewrite grows
-//!   and whose `count` disagreed with its children comes out corrected, since
-//!   the rewritten `count` is the children's.
+//!   border; nothing already in them is read, changed or compared.
+//! - Whenever the styles part is rewritten, each of `numFmts`, `fonts`,
+//!   `fills`, `borders` and `cellXfs`, grown or not, has its `count`
+//!   rewritten to its children plus its additions, so one whose `count`
+//!   disagreed with its children comes out corrected, even in a write that
+//!   adds only a number format; one whose `count` agreed, or that has none,
+//!   comes out byte for byte (`specs/0017-fuller-styles.md`, P1
+//!   verification ruling 5).
 //! - A style edit alone rewrites the cell's start tag and nothing else: it
 //!   removes no formula, never drops the chain, and the formula refusals do
 //!   not apply to it.

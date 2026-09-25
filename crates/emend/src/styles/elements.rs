@@ -19,6 +19,7 @@
 
 use crate::archive::Error;
 use crate::cells::{forbidden_in_xml, number_text};
+use crate::styles::attribute_text;
 
 #[cfg(test)]
 mod tests;
@@ -562,7 +563,7 @@ impl Font {
             out.color("color", color);
         }
         if let Some(name) = &self.name {
-            out.val("name", &quick_xml::escape::escape(name.as_str()));
+            out.val("name", &attribute_text(name));
         }
         if let Some(family) = self.family {
             out.val("family", &family.to_string());

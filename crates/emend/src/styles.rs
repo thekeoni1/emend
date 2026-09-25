@@ -529,16 +529,24 @@ const NOT_A_NUMBER: Error = Error::Package("a style attribute is not a number");
 const TWO_CONTAINERS: Error =
     Error::Package("the styles part has more than one numFmts, fonts, fills, borders or cellXfs");
 
-/// A `<numFmt>` element as the styles rewrite writes one: `prefix` (with its
-/// colon, or empty) on the name, and the code escaped with the crate's
-/// `escape`, then a tab, a line feed and a carriage return as character
-/// references, so the code reads back equal to itself through the
-/// attribute-value normalisation the reader applies (P1 ruling 3).
-pub(crate) fn num_fmt_element(prefix: &[u8], id: u32, code: &str) -> Vec<u8> {
-    let escaped = quick_xml::escape::escape(code)
+/// `text` as an attribute value the styles rewrite writes: escaped with the
+/// crate's `escape`, then a tab, a line feed and a carriage return as
+/// character references, so the value reads back equal to itself through the
+/// attribute-value normalisation the reader applies (`specs/0012-styles.md`,
+/// P1 ruling 3; a font's name the same way, `specs/0017-fuller-styles.md`,
+/// P1 verification ruling 4).
+pub(crate) fn attribute_text(text: &str) -> String {
+    quick_xml::escape::escape(text)
         .replace('\t', "&#9;")
         .replace('\n', "&#10;")
-        .replace('\r', "&#13;");
+        .replace('\r', "&#13;")
+}
+
+/// A `<numFmt>` element as the styles rewrite writes one: `prefix` (with its
+/// colon, or empty) on the name, and the code as [`attribute_text`] writes
+/// it.
+pub(crate) fn num_fmt_element(prefix: &[u8], id: u32, code: &str) -> Vec<u8> {
+    let escaped = attribute_text(code);
     let mut out = [b"<".as_slice(), prefix, b"numFmt numFmtId=\""].concat();
     out.extend_from_slice(id.to_string().as_bytes());
     out.extend_from_slice(b"\" formatCode=\"");

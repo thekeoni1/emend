@@ -7055,6 +7055,28 @@ fn a_refused_font_name_or_field_records_nothing() {
 }
 
 #[test]
+fn a_rewrite_adding_only_a_number_format_corrects_a_disagreeing_count() {
+    // specs/0017-fuller-styles.md, P1 verification ruling 5: every one of the
+    // five containers has its count rewritten whenever the part is, grown or
+    // not. fonts says 9 of its 1 child and is corrected to 1; fills agrees
+    // and borders has no count, and both come out byte for byte.
+    let fills = "<fills count=\"2\"><fill/><fill/></fills>";
+    let borders = "<borders><border/></borders>";
+    let body = format!(
+        "<fonts count=\"9\"><font/></fonts>{fills}{borders}<cellXfs count=\"1\"><xf/></cellXfs>"
+    );
+    let got = added_styles(&body, |p| add(p, None, NumberFormat::BuiltIn(14), 1));
+    assert_eq!(
+        got,
+        style_sheet(&format!(
+            "<fonts count=\"1\"><font/></fonts>{fills}{borders}<cellXfs count=\"2\"><xf/>\
+             <xf numFmtId=\"14\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+             applyNumberFormat=\"1\"/></cellXfs>"
+        ))
+    );
+}
+
+#[test]
 fn a_collection_id_past_u32_is_refused() {
     assert_eq!(collection_id(Some(u32::MAX), None, 0).ok(), Some(u32::MAX));
     assert_eq!(collection_id(Some(7), Some(2), 5).ok(), Some(9));

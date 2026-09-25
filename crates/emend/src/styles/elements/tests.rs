@@ -271,6 +271,21 @@ fn a_font_name_empty_or_holding_a_forbidden_character_is_refused() {
 }
 
 #[test]
+fn a_font_name_takes_the_number_format_codes_path() {
+    // specs/0017-fuller-styles.md, P1 verification ruling 4: escaped, then a
+    // tab, a line feed and a carriage return as character references, so the
+    // name reads back as itself rather than with spaces.
+    let font = Font {
+        name: Some("a\tb\nc\rd \"&".to_owned()),
+        ..Font::default()
+    };
+    assert_eq!(
+        text(font.compose().expect("the font composes")),
+        "<font><name val=\"a&#9;b&#10;c&#13;d &quot;&amp;\"/></font>"
+    );
+}
+
+#[test]
 fn a_field_out_of_range_is_refused() {
     for size in [0.0, -1.0, f64::NAN, f64::INFINITY] {
         let font = Font {
