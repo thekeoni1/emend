@@ -122,6 +122,19 @@
 //!   or 43889.5, never a number read from the workbook. `xfs_after` and
 //!   `cells_after` are asserted as `--style-sample`'s are. The tool enables
 //!   the crate's `dates` feature for this operation.
+//! - `--font-sample`: the sample font and fill of
+//!   `specs/0017-fuller-styles.md`, "Harness runs": two cell formats are
+//!   added through `add_style`, one over the first sampled cell's own format
+//!   with the tool's font F1 and fill L1, and one over no base with F1 alone,
+//!   so the part gains one font and one fill; the sampled cell takes the
+//!   first and a new cell one row past the last takes `Number(7)` with the
+//!   second. One line goes to stdout: the word `edit` then `styled`,
+//!   `added`, `xfs_before`, `xfs_after`, `fonts_added`, `fills_added`,
+//!   `cells_before`, `cells_after` and `read_back`. COUNTS ONLY: the font's
+//!   name and the colours are this tool's own constants, and no cell's text
+//!   or reference is printed. `xfs_after` and `cells_after` are asserted as
+//!   `--style-sample`'s are. A styles part without `fonts` or `fills` is
+//!   refused by the layer with no output.
 //!
 //! - `--new-sample`: the new workbook sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The first path
@@ -197,14 +210,14 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
-use emend::styles::NumberFormat;
+use emend::styles::{Color, Fill, Font, NumberFormat, Pattern, Style};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
-| --remove-sample]";
+| --remove-sample | --font-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -232,6 +245,8 @@ enum Operation {
     Styles,
     /// The sample style edit, and its counts on stdout.
     StyleSample,
+    /// The sample font and fill, and their counts on stdout.
+    FontSample,
     /// The sample dated cell, and its counts on stdout.
     DateSample,
     /// No edits, and the workbook's two calculation flags on stdout.
@@ -367,6 +382,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--style-sample" => {
             run(Path::new(input), Path::new(output), Operation::StyleSample)
         }
+        [input, output, flag] if flag == "--font-sample" => {
+            run(Path::new(input), Path::new(output), Operation::FontSample)
+        }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -423,6 +441,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::StyleSample) {
         return style_sample(input, output);
     }
+    if matches!(operation, Operation::FontSample) {
+        return font_sample(input, output);
+    }
     if matches!(operation, Operation::DateSample) {
         return date_sample(input, output);
     }
@@ -464,6 +485,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::EditSample => unreachable!("the sample edit has its own path"),
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
         Operation::StyleSample => unreachable!("the style sample has its own path"),
+        Operation::FontSample => unreachable!("the font sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
@@ -1221,6 +1243,197 @@ fn style_read_back(
         });
     }
     Ok((xfs_after, formats_after, cells_after, read_back))
+}
+
+/// F1 of `specs/0017-fuller-styles.md`, "Harness runs": the font the font
+/// sample adds.
+fn sample_font() -> Font {
+    Font {
+        name: Some("emend".to_string()),
+        size: Some(12.0),
+        bold: true,
+        color: Some(Color::Rgb(0xFF33_6699)),
+        ..Font::default()
+    }
+}
+
+/// L1 of the same section: a solid fill with an `rgb` foreground and an
+/// `indexed` 64 background, the corpus's commonest solid fill shape.
+fn sample_fill() -> Fill {
+    Fill {
+        pattern: Pattern::Solid,
+        foreground: Some(Color::Rgb(0xFFDD_EEFF)),
+        background: Some(Color::Indexed(64)),
+    }
+}
+
+/// The sample font and fill of `specs/0017-fuller-styles.md`, "Harness
+/// runs", `--font-sample`.
+///
+/// As [`style_sample`], with X the `cell_xfs` count, F and I the `fonts` and
+/// `fills` counts, A and M from [`sample`]. S1 is `add_style` over A's own
+/// `s` with F1 and L1, S2 over no base with F1 alone, so F1 is one font
+/// element; A takes `Some(S1)` when it exists, and `(M + 1, 1)` is set to
+/// `Number(7)` with `Some(S2)`. `xfs_after` is asserted equal to X + 2 and
+/// `cells_after` to `cells_before + 1`; either failing removes the output.
+fn font_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let styles = package.styles()?;
+    let xfs_before = styles.cell_xfs.len() as u64;
+    let counts_before = (styles.fonts(), styles.fills());
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let new_cell = CellRef {
+        row: new_row,
+        col: 1,
+    };
+
+    let both = Style {
+        font: Some(sample_font()),
+        fill: Some(sample_fill()),
+        ..Style::default()
+    };
+    let font_alone = Style {
+        font: Some(sample_font()),
+        ..Style::default()
+    };
+    let first = package.add_style(before.first_style, &both)?;
+    let second = package.add_style(None, &font_alone)?;
+    if let Some(at) = before.first {
+        package.set_cell_style(&part, at, Some(first));
+    }
+    package.set_cell(&part, new_cell, Value::Number(7.0));
+    package.set_cell_style(&part, new_cell, Some(second));
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it.
+    let checked = font_read_back(
+        output,
+        &part,
+        &before,
+        new_cell,
+        counts_before,
+        (first, second),
+        (xfs_before + 2, before.cells + 1),
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let after = checked?;
+    let added = |after: Option<u32>, before: Option<u32>| {
+        u64::from(after.unwrap_or(0).saturating_sub(before.unwrap_or(0)))
+    };
+    edit_line(&[
+        ("styled", u64::from(before.first.is_some())),
+        ("added", 1),
+        ("xfs_before", xfs_before),
+        ("xfs_after", after.xfs),
+        ("fonts_added", added(after.fonts, counts_before.0)),
+        ("fills_added", added(after.fills, counts_before.1)),
+        ("cells_before", before.cells),
+        ("cells_after", after.cells),
+        ("read_back", after.read_back),
+    ])
+}
+
+/// What [`font_read_back`] reads off the output.
+struct FontReadBack {
+    xfs: u64,
+    fonts: Option<u32>,
+    fills: Option<u32>,
+    cells: u64,
+    read_back: u64,
+}
+
+/// Reopens the output for the font sample's line: the cell format count,
+/// asserted equal to `expected.0`; the `fonts` and `fills` counts; the
+/// edited sheet's cell count, asserted equal to `expected.1`; and how many
+/// of the two read-backs hold: A's value text unchanged with `s` the first
+/// new format, whose font and fill are the part's first new ones (F and I),
+/// and the new cell's number 7 with `s` the second, whose font is F and
+/// whose fill is 0.
+fn font_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &Sampled,
+    new_cell: CellRef,
+    counts_before: (Option<u32>, Option<u32>),
+    added: (u32, u32),
+    expected: (u64, u64),
+) -> Result<FontReadBack, Error> {
+    let (first, second) = added;
+    let (fonts, fills) = counts_before;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let styles = written.styles()?;
+    let xfs_after = styles.cell_xfs.len() as u64;
+    let counts_after = (styles.fonts(), styles.fills());
+    let ids = |index: u32| {
+        styles
+            .cell_xfs
+            .get(index as usize)
+            .map(|xf| (xf.font_id, xf.fill_id))
+    };
+    let first_ids = ids(first) == Some((fonts, fills));
+    let second_ids = ids(second) == Some((fonts, Some(0)));
+    if xfs_after != expected.0 {
+        return Err(Error::XfsAfter {
+            expected: expected.0,
+            found: xfs_after,
+        });
+    }
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let at = cell.reference;
+        if Some(at) == before.first
+            && cell.value == before.first_value
+            && cell.style == Some(first)
+            && first_ids
+        {
+            read_back += 1;
+        }
+        if at == new_cell && cell.number() == Some(7.0) && cell.style == Some(second) && second_ids
+        {
+            read_back += 1;
+        }
+    }
+    if cells_after != expected.1 {
+        return Err(Error::CellsAfter {
+            expected: expected.1,
+            found: cells_after,
+        });
+    }
+    Ok(FontReadBack {
+        xfs: xfs_after,
+        fonts: counts_after.0,
+        fills: counts_after.1,
+        cells: cells_after,
+        read_back,
+    })
 }
 
 /// The new workbook sample (`specs/0016-new-workbook-and-sheets.md`,

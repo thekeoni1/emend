@@ -660,6 +660,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--remove-sample", "--sheet-sample"],
         vec!["--sheet-sample", "--remove-sample"],
         vec!["--remove-sample", "[Content_Types].xml"],
+        // And with M2 part 2 P1's.
+        vec!["--font-sample", "--style-sample"],
+        vec!["--style-sample", "--font-sample"],
+        vec!["--font-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2278,6 +2282,122 @@ fn the_style_sample_refuses_a_styles_part_it_cannot_read_and_leaves_nothing() {
         &styled_specs(A_CELL, "<styleSheet/>"),
         "the styles part's root is not styleSheet",
     );
+}
+
+// --------------------------------------------------------- --font-sample
+
+/// A styles part with the three collections the font sample needs: one
+/// font, the two required fills and one border, and three cell formats, the
+/// second with a child. The name is fictional. Hand count: `xfs` 3, `fonts`
+/// 1, `fills` 2.
+fn font_sample_part(fonts: &str, fills: &str, cell_xfs: &str, count: u32) -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\">{fonts}{fills}\
+         <borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\
+         <cellXfs count=\"{count}\">{cell_xfs}</cellXfs></styleSheet>"
+    )
+}
+
+const SAMPLE_FONTS: &str = "<fonts count=\"1\"><font><name val=\"Fictional\"/></font></fonts>";
+const SAMPLE_FILLS: &str = "<fills count=\"2\"><fill><patternFill patternType=\"none\"/></fill>\
+                            <fill><patternFill patternType=\"gray125\"/></fill></fills>";
+const SAMPLE_XFS: &str = "<xf numFmtId=\"0\"/><xf numFmtId=\"2\" fontId=\"0\" applyAlignment=\"1\">\
+                          <alignment horizontal=\"left\"/></xf><xf/>";
+/// F1's and L1's elements, as `specs/0017-fuller-styles.md` gives them.
+const F1: &str = "<font><b/><sz val=\"12\"/><color rgb=\"FF336699\"/><name val=\"emend\"/></font>";
+const L1: &str = "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFDDEEFF\"/>\
+                  <bgColor indexed=\"64\"/></patternFill></fill>";
+
+#[test]
+fn the_font_sample_adds_one_font_one_fill_and_two_formats() {
+    // A is A1 (a number styled `1`, whose `xf` has a child), M is 2. S1 is 3
+    // over A's own format with F1 and L1 (font 1, fill 2); S2 is 4 over no
+    // base with F1 again, so `fonts` grows by one, not two.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c>\
+                <c r=\"B1\" t=\"s\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>";
+    let part = font_sample_part(SAMPLE_FONTS, SAMPLE_FILLS, SAMPLE_XFS, 3);
+    let (line, styles, sheet) = styled_run(
+        "font-sample",
+        &styled_specs(&format!("<sheetData>{rows}</sheetData>"), &part),
+        "--font-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tfonts_added=1\tfills_added=1\
+         \tcells_before=3\tcells_after=4\tread_back=2\n",
+        "the edit line"
+    );
+    assert_eq!(
+        styles,
+        font_sample_part(
+            &SAMPLE_FONTS
+                .replace("count=\"1\"", "count=\"2\"")
+                .replace("</fonts>", &format!("{F1}</fonts>")),
+            &SAMPLE_FILLS
+                .replace("count=\"2\"", "count=\"3\"")
+                .replace("</fills>", &format!("{L1}</fills>")),
+            &format!(
+                "{SAMPLE_XFS}<xf numFmtId=\"2\" fontId=\"1\" applyAlignment=\"1\" fillId=\"2\" \
+                 applyFont=\"1\" applyFill=\"1\"><alignment horizontal=\"left\"/></xf>\
+                 <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" \
+                 applyFont=\"1\"/>"
+            ),
+            5,
+        ),
+        "the styles part"
+    );
+    let want = "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>1.5</v></c>\
+                <c r=\"B1\" t=\"s\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>\
+                <row r=\"3\"><c r=\"A3\" s=\"4\"><v>7</v></c></row>";
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{want}</sheetData>")),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_font_sample_on_a_sheet_with_no_candidate_styles_the_new_cell_alone() {
+    // No A: S1 takes no base, nothing is restyled, `styled` is 0 and the one
+    // read-back is the new cell's.
+    let part = font_sample_part(SAMPLE_FONTS, SAMPLE_FILLS, SAMPLE_XFS, 3);
+    let (line, _, sheet) = styled_run(
+        "font-sample-empty",
+        &styled_specs("<sheetData/>", &part),
+        "--font-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tstyled=0\tadded=1\txfs_before=3\txfs_after=5\tfonts_added=1\tfills_added=1\
+         \tcells_before=0\tcells_after=1\tread_back=1\n",
+        "the edit line"
+    );
+    assert_eq!(
+        sheet,
+        edited("<sheetData><row r=\"1\"><c r=\"A1\" s=\"4\"><v>7</v></c></row></sheetData>"),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_font_sample_refuses_a_part_without_fonts_or_fills_and_leaves_nothing() {
+    // The negative log's case through the binary as well
+    // (`specs/0017-fuller-styles.md`, "P1" and P1 ruling 4): exit 2, the
+    // message, no line, no file.
+    for (label, fonts, fills) in [
+        ("font-sample-no-fonts", "", SAMPLE_FILLS),
+        ("font-sample-no-fills", SAMPLE_FONTS, ""),
+    ] {
+        styled_run_refused(
+            label,
+            &styled_specs(A_CELL, &font_sample_part(fonts, fills, SAMPLE_XFS, 3)),
+            "a style addition needs a collection the styles part lacks",
+            "--font-sample",
+        );
+    }
 }
 
 // --------------------------------------------------------- --date-sample
