@@ -648,6 +648,158 @@ session.
    value; a refused row's error text stays in the results file the
    maintainer brings back and never enters the record.
 
+## Planning rulings during P1 (2026-09-24)
+
+Asked by the implementing session before P1's code commit, after
+the doc commit 1450dbd (verified by planning: parent d4ab367, the
+three files unedited at the hashes sent).
+
+1. Q1: the spec's negative case named a hash the summary does not
+   hold; `summary.host.tsv` carries `out_bytes` and no sha256. The
+   list script refuses, for `--run` and `--run-plain` alike, a
+   corpus output whose size differs from the summary's `out_bytes`
+   ("error: a corpus output's size differs from the summary"), and
+   the negative case plants a one-byte append on a copied output.
+   Every hash in the list is still checked against its file by the
+   run log; the spec's P1 sentence reads as this ruling from now.
+2. Q2: `open-results.txt` carries a label column, since each
+   corpus id appears once per run directory: `source`, `id_or_test`,
+   `label`, `result`, `seen1`, `seen2`, `seen3`, `message`; a row is
+   unique by the first three. The record template's corpus and
+   fixture tables carry the label too.
+3. Q3: row order as proposed. Corpus rows from `--run` first, then
+   each `--run-plain` directory's rows in the order the flags were
+   given, each in manifest order; fixture rows in name order, each
+   followed at once by its input row (source `input`, label `-`,
+   file `<test>.in.xlsx`, the record's `in_bytes` and `in_sha256`).
+4. Q4: the stage layout as proposed: the list beside the script as
+   `excel-check-list.txt`; every file at `files\<source>\<file>`,
+   the list's forward slashes turned to backslashes by the script; a
+   corpus row's file column relative to the corpus root as in check
+   1. The script refuses a `--run-plain` directory whose corpus root
+   differs from `--run`'s. The run directory's name in a path
+   (date and short sha) is not a corpus path in the privacy sense:
+   only the directory above the corpus root is.
+5. Q5: the value read as proposed. The first worksheet is
+   `Worksheets.Item(1)` (chart sheets excluded, hidden sheets
+   included, matching the list's definition); each value is
+   `Range(ref).Value2`; a whole-number double is written without
+   decimals, another double in the invariant culture, an error
+   value (`Value2` an `Int32`) as the cell's `.Text`. A read that
+   throws on a workbook that opened writes `read-error` in the seen
+   cell, leaves `result` `pass` and puts the exception text, tabs
+   and line ends replaced by spaces, in `message`. `Value2` and not
+   `.Text`, which depends on the column's format and width.
+6. Q6: as proposed: `Workbooks.Open(path, 0, $true)` (links not
+   updated, read-only), Excel visible with alerts on, `Quit` at the
+   end, results written as ASCII.
+7. Q7: the edit open check's record for P1's regenerated keep is
+   `records/m2p1-open-<utc-date>-<shortsha>.md` and `.txt`,
+   installed by the run log and committed with P1's record commit,
+   as part 8 P2's was; the list's `--record` names its `.txt`.
+8. The style-sample run is host only, so the record script runs
+   with `--allow-single` and the record says host only; part 5 P3's
+   expectations apply to the host label.
+
+9. Q8: the spec named the wrong phase, and so did ruling 8. Part 5
+   P3's corpus run was `--date-sample`; the `--style-sample` run and
+   its expectations are part 5 P2's (`specs/0012` "Harness runs",
+   bullet P2; `records/m1p5-p2-2026-09-22-7c96575.md`), which
+   planning confirmed from `records/logs/m1p5-p2/run.log` and
+   `m1p5-p3/run.log`. Every "part 5 P3's expectations" in this spec
+   and in ruling 8 reads as part 5 P2's `--style-sample`
+   expectations on the host label: the styles part and the first
+   worksheet part changed, every other entry identical and
+   unflagged, `descriptor` alone allowed on a changed entry,
+   `order_preserved` yes; `lo` and `lo_in` ok; the tool's asserted
+   `xfs_after` and `cells_after`; `read_back` equal to `styled` plus
+   2 in every file; totals `xfs_before` 992, `xfs_after` 1046,
+   `formats_added` 27, `styled` 27.
+10. Q9: yes. The run log reruns part 5 P2's comparison over the 27
+   host pairs as part 8 P2 reused part 6 P2's: the printed script is
+   extracted from `records/logs/m1p5-p2/run.log`, its sha256 checked
+   against the value that log prints, `cmp.py` taken from its
+   heredoc, run on each host pair with its planted-flag controls on
+   the first workbook, every per-workbook line asserted as
+   expected; no reference, code or text printed.
+11. The two unlogged development checks on the `.ps1` (a syntax
+   parse by Windows PowerShell through the interop, and the value
+   formatting on mock cells) are disclosed in the report and stay
+   unlogged: a logged run through the interop would print Windows
+   host paths, which a log must never hold. The logged check is the
+   spec's grep (ASCII, no absolute path) with its control.
+
+These rulings go in the next doc commit (P2's first), with P1's
+verification; P1's code commit cites them by number.
+
+## Planning verification and rulings on P1 (2026-09-25)
+
+Verified from primaries: the doc commit 1450dbd (the three files at
+the hashes sent, unedited), the code commit ade3c49 (four files:
+the heading, the list script, the `.ps1`, the template; no crate,
+tool, manifest or gate file) and the record commit 56e7c34 (eleven
+files), each with the one no-reply identity and the Co-Authored-By
+line only; every log and record hash the report gives read from the
+files; planning's own privacy scan over d4ab367..HEAD, 3 commits,
+532 blobs, 0 findings; `ANTHROPIC_API_KEY` unset. Planning's own
+checks: the `.ps1` read in full and found as the rulings say; the
+list (mode 600, sha256 bcda16d9...) holds 54 corpus rows (27
+labelled `host`, 27 labelled by the style run's directory), 138
+fixture and 138 input rows, every `--run-plain` and input row with
+empty reference columns, each fixture row followed by its own input
+row, and the 27 `host` rows equal cell for cell to check 1's list;
+the zip (sha256 99b3376d..., 33010705 bytes, mode 600) holds 332
+entries under one directory, the list and the script at its root
+(the script byte-identical to the committed file), and every one
+of the 330 listed files at its path with the list's size and
+sha256, nothing else; all 298 keep files match the open record,
+whose `.txt` is byte-identical to part 8 P2's; the 27 style-sample
+outputs of the new run directory are byte-identical to part 5 P2's
+(`2026-09-22-7c96575-c`, the `xltx` included), which is planning's
+check that the tool at ade3c49 is part 6 P3's on this operation.
+
+1. G1: attempt 3's form, per-file `git show` copies of the scripts
+   under test with their hashes printed and compared with the phase
+   commit, the main tree read but never written, meets the rule's
+   purpose (the committed bytes are what runs; nothing in the main
+   tree is changed or committed) and is accepted for P1. It is a
+   departure from the rule's letter, which asks planning's word
+   before the run; that word is given here after it, once. From P2
+   on, a negative log that runs only repository scripts may use
+   this form, and says so in its header with the hashes; one that
+   runs a built binary uses a worktree or clone as before.
+2. G2: closed by the final scan, whose header names both pre-check
+   runs, their results and their hashes; neither is committed and
+   nothing else is needed.
+3. G3: option (b). P2's first code commit moves `$wb.Close($false)`
+   inside a `try`; a `Close` that throws writes `close-error` in
+   `message`, keeps `result`, and the run goes on to the next row,
+   so a results file is always written. P2's run log then rebuilds
+   the stage from the same list (its hash unchanged, since the
+   script is not a listed file) and prints the new zip's sha256;
+   Excel check 2 runs on that zip and not on 99b3376d....
+4. G8: a negative log's printed command is the invocation that
+   runs (`specs/0013` "Phases": the log prints the invocation).
+   Printing the repository path while running the scratch copy is
+   a form defect, accepted as recorded for P1; from P2 on the
+   printed command names the copy.
+5. G10: the template's by-hand `repair` row stands: alerts on means
+   a repair prompt stops the script at that file, and the maintainer
+   answers it and notes the row. The script cannot see a repair the
+   maintainer accepted, which the template says.
+6. F5, F7, G4 to G7, G9 and G11 are report and log nits, recorded
+   in the committed answers, none changing a result; accepted.
+7. Disclosures accepted: the two unlogged interop checks (ruling
+   11); the run log running repository scripts from the main tree
+   behind its guards, as part 8 P2's did; the three superseded run
+   attempts and two superseded negative attempts, each hashed in a
+   rerun header; the external cargo process at attempt 2's entry.
+8. P1 is DONE. Excel check 2 waits for P2's first code commit and
+   the rebuilt zip (ruling 3); planning then gives the maintainer
+   the staging steps. P2 starts on this section, which goes in P2's
+   first doc commit with rulings 1 to 11 during P1 and the
+   `ROADMAP.md` row.
+
 ## Out of scope
 
 Cell styles beyond part 5's (part 2); rows, columns, freeze panes,
