@@ -1,0 +1,703 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p4/m2p1-p4-size-attribution.sh 3bd425730cd1e95d892fd8d44aca94cfda6b50f7 <scratch>/p4/out/size.log
+about: M2 part 1 P4 phase commit 3bd425730cd1e95d892fd8d44aca94cfda6b50f7; HEAD at run: 3bd425730cd1e95d892fd8d44aca94cfda6b50f7
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  the P3 record commit (the base): 2797fe9f7a73fc8a984b9f901c6608bfc998d10c
+  the doc commit: d6396bb8072604783739a107fe3e29f4c3ccf135
+  code commit 1: 8abc6666128bc357976508b60b5cf73e92a87ae2
+  code commit 2: b61fde50ca6bcc8b518b49023fd0a4bb60c89b32
+  code commit 3: 3bd425730cd1e95d892fd8d44aca94cfda6b50f7
+  code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit: yes
+  control: roles_in_order refuses code commit 2 named as code commit 3: yes
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison against the null commit says no: yes
+
+phase: Milestone 2 part 1 P4 (specs/0016-new-workbook-and-sheets.md) size-attribution.log, P4 ruling 10; run at 2026-09-25T06:17:40Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it; nothing in it is built or changed
+root: <home> stands for the home directory of the account that ran this script
+root: <scratch>/p4 stands for this script's own directory, which holds the script and size.log attempt 3, read for the committed probe's figures
+root: <build> stands for <home>/.cache/emend-build/m2p1-p4-attr on the disk: <build>/target the size builds, <tree> = <build>/tree the detached worktree of the phase commit whose probe source the variants change, removed at exit
+root: <scratch>/w stands for this run's mktemp -d working directory (the shape fixture, the build outputs and the variant binaries' copies), removed at exit
+  the roots other than <home> are distinct, none inside another: yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+at entry: status lines 7; of them this phase's records or planning's spec 7; the lines:
+     M specs/0016-new-workbook-and-sheets.md
+    ?? records/logs/m2p1-p4/
+    ?? records/m2p1-open-2026-09-25-3bd4257.md
+    ?? records/m2p1-open-2026-09-25-3bd4257.txt
+    ?? records/m2p1-p4-2026-09-25-3bd4257.md
+    ?? records/m2p1-p4-2026-09-25-3bd4257.txt
+    ?? records/size-m2p1-2026-09-25-3bd4257.md
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 2 part 1 P4 size-attribution.log (specs/0016-new-workbook-and-sheets.md,
+    # "Planning rulings during P4", ruling 10): after size.log attempt 3 measured
+    # the budget figure over its ceiling, three variants of
+    # probe-emend-sheets-write-xml are built and measured exactly as size.log
+    # measures the probes, in a detached worktree of the phase commit, each
+    # variant's diff printed:
+    #   (a) no Package::new call: the third output is not written, new_bytes 0;
+    #   (b) no sheet edits: add_sheet, move_sheet, rename_sheet and remove_sheet
+    #       removed with the name of the sheet that was first, the rest kept;
+    #   (c) Package::new's bytes written to a file and reopened through
+    #       BufReader<File>, the byte count taken from the reopened package, so
+    #       the probe's own code names only one reader type. Package::new's own
+    #       body opens and writes a Package over a Cursor, so the crate's
+    #       instantiation for that reader stays whatever the probe does; the
+    #       figure measures what the probe's side can change.
+    # Each variant's section bytes, file bytes and .text are printed, and its
+    # section bytes' difference from the committed probe's, which this log
+    # rebuilds first as the control and checks against size.log attempt 3's
+    # figures and sha256.
+    #
+    # WRITTEN FOR M2 part 1 P4 from this phase's size script (its build and
+    # measure forms: the size profile, i686-unknown-linux-musl, features
+    # emend,xml, `size -A` for the section total and .text). No crate code is
+    # changed: the variants change the probe's source in the worktree alone, and
+    # the worktree is removed at the end.
+    #
+    # Usage: m2p1-p4-size-attribution.sh <phase commit> <size.log attempt 3> > <scratch file>
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    SIZE3=${2:?size.log attempt 3 required}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    I686=i686-unknown-linux-musl
+    PROBE=probe-emend-sheets-write-xml
+    SRC=tools/size-probe/src/bin/$PROBE.rs
+    BUILD_ROOT=$HOME/.cache/emend-build/m2p1-p4-attr
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    mkdir -p "$BUILD_ROOT" || exit 2
+    export CARGO_TARGET_DIR=$BUILD_ROOT/target
+    T=$(mktemp -d)
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+      rm -rf "$T"
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    section() {
+      local out
+      out=$(size -A "$1" 2>/dev/null) || { printf 'error'; return; }
+      printf '%s\n' "$out" | awk -v s="$2" '$1 == s { print $2; found = 1 } END { if (!found) print "error" }'
+    }
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    OURS='^((\?\?| ?[MARCD]) records/logs/m2p1-p4|(\?\?| ?[MARCD]) records/(m2p1-(p4|open)|size-m2p1)-| M specs/0016-new-workbook-and-sheets[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's records and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scratch>/p4#g" -e "s#$TREE#<tree>#g" -e "s#$BUILD_ROOT#<build>#g" \
+        -e "s#$T#<scratch>/w#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scratch>/p4/$(basename "$0") $1 <scratch>/p4/$(basename "$(dirname "$SIZE3")")/$(basename "$SIZE3")"
+    echo "about: M2 part 1 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$T/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$T/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M2 part 1 P3 record:')
+    DOC1=$(by_subject 'M2 part 1 P4: commit planning docs (the P3 rulings and verification)')
+    CODE1=$(by_subject 'M2 part 1 P4: remove_sheet, the walk, the chain rule, the catalogue and limits')
+    CODE2=$(by_subject 'M2 part 1 P4: probe-emend-sheets-write-xml and --remove-sample')
+    CODE3=$(by_subject 'M2 part 1 P4: a removed rels part loses its Override too')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  the P3 record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1: ${CODE1:-none}"
+    echo "  code commit 2: ${CODE2:-none}"
+    echo "  code commit 3: ${CODE3:-none}"
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE3" "$CODE2" "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE3=$CODE2; if roles_in_order; then return 1; else return 0; fi; }
+    check "control: roles_in_order refuses code commit 2 named as code commit 3" "$(yn roles_ctl)"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    echo
+    echo "phase: Milestone 2 part 1 P4 (specs/0016-new-workbook-and-sheets.md) size-attribution.log, P4 ruling 10; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)"
+    check "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it; nothing in it is built or changed"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scratch>/p4 stands for this script's own directory, which holds the script and size.log attempt 3, read for the committed probe's figures"
+    echo "root: <build> stands for <home>/.cache/emend-build/m2p1-p4-attr on the disk: <build>/target the size builds, <tree> = <build>/tree the detached worktree of the phase commit whose probe source the variants change, removed at exit"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory (the shape fixture, the build outputs and the variant binaries' copies), removed at exit"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$T" "$SELF_DIR" && apart "$T" "$MAIN" && apart "$MAIN" "$SELF_DIR" && apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$T"; }
+    check "the roots other than <home> are distinct, none inside another" "$(yn roots_distinct)"
+    roots_ctl() { if apart "$TREE" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(yn roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "at entry: status lines $entry_all; of them this phase's records or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## toolchain"
+    rustc --version
+    cargo --version
+    echo "command: size --version"
+    size --version | head -1 | sed 's/^/    /'
+    
+    echo
+    echo "## the committed probe's figures, read from size.log attempt 3"
+    echo "command: sha256sum <scratch>/p4/out/size.log (attempt 3, at $C); sed for the probe's figures line"
+    echo "  size.log attempt 3: sha256 $(sha_of "$SIZE3"), $(wc -c <"$SIZE3") bytes"
+    ROW=$(LC_ALL=C "$G" -E "^<build>/target/$I686/size/$PROBE: file " "$SIZE3")
+    echo "  its line: $ROW"
+    WAS_FILE=$(printf '%s\n' "$ROW" | sed -n 's/.*: file \([0-9]*\) bytes;.*/\1/p')
+    WAS_SECT=$(printf '%s\n' "$ROW" | sed -n 's/.* sections \([0-9]*\);.*/\1/p')
+    WAS_SHA=$(printf '%s\n' "$ROW" | sed -n 's/.* sha256 \([0-9a-f]\{64\}\)$/\1/p')
+    echo "  read: file $WAS_FILE, sections $WAS_SECT, sha256 $WAS_SHA"
+    was_read() { [ -n "$WAS_FILE" ] && [ -n "$WAS_SECT" ] && [ "${#WAS_SHA}" = 64 ]; }
+    check "the committed probe's figures and sha256 were read from size.log attempt 3" "$(yn was_read)"
+    about_at_c() { [ "$(sed -n 's/^about: M2 part 1 P4 phase commit \([0-9a-f]*\);.*/\1/p' "$SIZE3")" = "$C" ]; }
+    check "size.log attempt 3 was measured at this phase commit" "$(yn about_at_c)"
+    
+    echo
+    echo "## the worktree, and the committed probe rebuilt as the control"
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >"$T/wt.out" 2>&1
+    sed 's/^/    /' "$T/wt.out"
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    build_probe() {
+      # build_probe <label>: the size build of the probe from the worktree, its
+      # output kept, the binary copied to <scratch>/w/<label>.
+      echo "command: (cd <tree> && cargo build -p size-probe --bin $PROBE --features emend,xml --profile size --target $I686 --offline)"
+      (cd "$TREE" && cargo build -p size-probe --bin "$PROBE" --features emend,xml --profile size --target "$I686" --offline) >"$T/b-$1.out" 2>&1 </dev/null
+      local rc=$?
+      echo "  exit: $rc; build output lines $(count_lines "$T/b-$1.out"), of them warnings or errors $(count_matches -E '^(warning|error)' "$T/b-$1.out")"
+      LC_ALL=C "$G" -E '^(warning|error)' -A 6 "$T/b-$1.out" | sed 's/^/    /'
+      cp "$CARGO_TARGET_DIR/$I686/size/$PROBE" "$T/$1" 2>/dev/null
+      return "$rc"
+    }
+    declare -A FILE SECT TEXT SHA
+    measure() {
+      FILE[$1]=$(stat -c %s "$T/$1")
+      SECT[$1]=$(section "$T/$1" Total)
+      TEXT[$1]=$(section "$T/$1" .text)
+      SHA[$1]=$(sha_of "$T/$1")
+      echo "  $1: file ${FILE[$1]} bytes; sections ${SECT[$1]}; .text ${TEXT[$1]}; sha256 ${SHA[$1]}"
+    }
+    build_probe committed
+    rc_committed=$?
+    measure committed
+    check "the committed probe builds" "$(yn [ "$rc_committed" = 0 ])"
+    reproduces() { [ "${SHA[committed]}" = "$WAS_SHA" ] && [ "${SECT[committed]}" = "$WAS_SECT" ] && [ "${FILE[committed]}" = "$WAS_FILE" ]; }
+    check "the rebuild reproduces size.log attempt 3's sha256 and figures, so the variants are measured as size.log measures" "$(yn reproduces)"
+    
+    # plant <from> <to>: the one occurrence of <from> in the worktree's probe
+    # source replaced with <to>, and fails unless there was exactly one.
+    plant() {
+      python3 - "$TREE/$SRC" "$1" "$2" <<'PLANT_PY'
+    import sys
+    path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+    text = open(path, encoding="utf-8").read()
+    if text.count(old) != 1:
+        sys.exit(1)
+    open(path, "w", encoding="utf-8").write(text.replace(old, new))
+    PLANT_PY
+    }
+    unplant() { git -C "$TREE" checkout -- "$SRC"; }
+    variant() {
+      # variant <label> <description>, after its plants: the diff, the build,
+      # the figures, the difference from the committed probe; then restored.
+      local label=$1
+      echo "command: git -C <tree> diff -- $SRC"
+      git -C "$TREE" diff -- "$SRC" | sed 's/^/    /'
+      build_probe "$label"
+      local rc=$?
+      check "variant $label builds" "$(yn [ "$rc" = 0 ])"
+      measure "$label"
+      echo "  variant $label: sections ${SECT[$label]}, the committed probe's ${SECT[committed]}: difference $((SECT[$label] - SECT[committed])); file difference $((FILE[$label] - FILE[committed])); .text difference $((TEXT[$label] - TEXT[committed]))"
+      unplant
+      clean_again() { [ -z "$(git -C "$TREE" status --porcelain)" ]; }
+      check "variant $label: the worktree is clean again after it" "$(yn clean_again)"
+    }
+    
+    echo
+    echo "## variant (a): no Package::new call"
+    plant 'Ok((counts, written, new_workbook(third)?))' 'Ok((counts, written, {
+                let _ = third;
+                0u64
+            }))'
+    pa1=$?
+    plant '/// `Package::new()` written to `third`, and the bytes written.' '/// `Package::new()` written to `third`, and the bytes written.
+    #[allow(dead_code)]'
+    pa2=$?
+    check "variant a: both plants applied, exactly one occurrence each" "$(yn [ "$((pa1 + pa2))" = 0 ])"
+    variant a
+    
+    echo
+    echo "## variant (b): no sheet edits"
+    plant '    let first = package
+            .sheets()
+            .map_err(|e| e.to_string())?
+            .first()
+            .map(|sheet| sheet.name.clone())
+            .ok_or("the workbook has no sheet")?;
+        package.add_sheet(&edits.added).map_err(|e| e.to_string())?;
+        package
+            .move_sheet(&edits.added, 0)
+            .map_err(|e| e.to_string())?;
+        package
+            .rename_sheet(&edits.added, &edits.renamed)
+            .map_err(|e| e.to_string())?;
+        package.remove_sheet(&first).map_err(|e| e.to_string())?;
+    ' '    let _ = (&edits.added, &edits.renamed);
+    '
+    pb=$?
+    check "variant b: the plant applied, exactly one occurrence" "$(yn [ "$pb" = 0 ])"
+    variant b
+    
+    echo
+    echo "## variant (c): Package::new's bytes written to a file and reopened through BufReader<File>"
+    plant '    let bytes = std::fs::metadata(third)
+            .map_err(|e| e.kind().to_string())?
+            .len();
+        Ok(bytes)' '    let reopened = Package::open(BufReader::new(
+            File::open(third).map_err(|e| e.kind().to_string())?,
+        ))
+        .map_err(|e| e.to_string())?;
+        Ok(reopened.archive().entries().len() as u64)'
+    pc=$?
+    check "variant c: the plant applied, exactly one occurrence" "$(yn [ "$pc" = 0 ])"
+    variant c
+    
+    echo
+    echo "## the figures"
+    echo "  the committed probe: sections ${SECT[committed]} (size.log attempt 3: $WAS_SECT)"
+    for v in a b c; do
+      echo "  variant $v: sections ${SECT[$v]}; difference from the committed probe $((SECT[$v] - SECT[committed]))"
+    done
+    all_measured() { local v; for v in committed a b c; do [ "${SECT[$v]:-error}" != error ] || return 1; done; }
+    check "all four builds were measured" "$(yn all_measured)"
+    
+    echo
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is removed" "$(yn [ ! -e "$TREE" ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's or planning's uncommitted spec" "$(yn status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "size attribution log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## toolchain
+rustc 1.98.1 (48a229cea 2026-09-01)
+cargo 1.98.1 (797e8a9bc 2026-08-05)
+command: size --version
+    GNU size (GNU Binutils for Ubuntu) 2.46
+
+## the committed probe's figures, read from size.log attempt 3
+command: sha256sum <scratch>/p4/out/size.log (attempt 3, at 3bd425730cd1e95d892fd8d44aca94cfda6b50f7); sed for the probe's figures line
+  size.log attempt 3: sha256 0d526141847aad1da91274a7a9041daafde9958859896d047574a9e061e64a3a, 215336 bytes
+  its line: <build>/target/i686-unknown-linux-musl/size/probe-emend-sheets-write-xml: file 1018404 bytes; sections 1012208; .text 800755; sha256 004f5b789f8cec640729e8f6c75ba84ba88f97243a3466857c7b5f04a92b2d6e
+  read: file 1018404, sections 1012208, sha256 004f5b789f8cec640729e8f6c75ba84ba88f97243a3466857c7b5f04a92b2d6e
+  the committed probe's figures and sha256 were read from size.log attempt 3: yes
+  size.log attempt 3 was measured at this phase commit: yes
+
+## the worktree, and the committed probe rebuilt as the control
+command: git worktree add --detach <tree> <phase commit>
+    Preparing worktree (detached HEAD 3bd4257)
+    HEAD is now at 3bd4257 M2 part 1 P4: a removed rels part loses its Override too
+  the worktree is at the phase commit: yes
+command: (cd <tree> && cargo build -p size-probe --bin probe-emend-sheets-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline)
+  exit: 0; build output lines 14, of them warnings or errors 0
+  committed: file 1018404 bytes; sections 1012208; .text 800755; sha256 004f5b789f8cec640729e8f6c75ba84ba88f97243a3466857c7b5f04a92b2d6e
+  the committed probe builds: yes
+  the rebuild reproduces size.log attempt 3's sha256 and figures, so the variants are measured as size.log measures: yes
+
+## variant (a): no Package::new call
+  variant a: both plants applied, exactly one occurrence each: yes
+command: git -C <tree> diff -- tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    diff --git a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    index 4a2ad29..b79a6dd 100644
+    --- a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    +++ b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    @@ -106,7 +106,10 @@ fn main() -> ExitCode {
+         };
+         let result = run(input, output, &names).and_then(|counts| {
+             let written = edit(input, second, names.sheet, &edits)?;
+    -        Ok((counts, written, new_workbook(third)?))
+    +        Ok((counts, written, {
+    +            let _ = third;
+    +            0u64
+    +        }))
+         });
+         match result {
+             Ok((counts, written, new_bytes)) => {
+    @@ -304,6 +307,7 @@ fn edit(
+     }
+     
+     /// `Package::new()` written to `third`, and the bytes written.
+    +#[allow(dead_code)]
+     fn new_workbook(third: &std::ffi::OsStr) -> Result<u64, String> {
+         let package = Package::new().map_err(|e| e.to_string())?;
+         let out = File::create(third).map_err(|e| e.kind().to_string())?;
+command: (cd <tree> && cargo build -p size-probe --bin probe-emend-sheets-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline)
+  exit: 0; build output lines 2, of them warnings or errors 0
+  variant a builds: yes
+  a: file 907812 bytes; sections 903196; .text 702595; sha256 773ecba7338a94a551ec2306ad78038127f120e9639ad81870b79561208660c2
+  variant a: sections 903196, the committed probe's 1012208: difference -109012; file difference -110592; .text difference -98160
+  variant a: the worktree is clean again after it: yes
+
+## variant (b): no sheet edits
+  variant b: the plant applied, exactly one occurrence: yes
+command: git -C <tree> diff -- tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    diff --git a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    index 4a2ad29..4dc281b 100644
+    --- a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    +++ b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    @@ -233,20 +233,7 @@ fn edit(
+             edits.formula_at,
+             Value::Formula(edits.formula.clone()),
+         );
+    -    let first = package
+    -        .sheets()
+    -        .map_err(|e| e.to_string())?
+    -        .first()
+    -        .map(|sheet| sheet.name.clone())
+    -        .ok_or("the workbook has no sheet")?;
+    -    package.add_sheet(&edits.added).map_err(|e| e.to_string())?;
+    -    package
+    -        .move_sheet(&edits.added, 0)
+    -        .map_err(|e| e.to_string())?;
+    -    package
+    -        .rename_sheet(&edits.added, &edits.renamed)
+    -        .map_err(|e| e.to_string())?;
+    -    package.remove_sheet(&first).map_err(|e| e.to_string())?;
+    +    let _ = (&edits.added, &edits.renamed);
+     
+         let out = File::create(second).map_err(|e| e.kind().to_string())?;
+         let mut writer = BufWriter::new(out);
+command: (cd <tree> && cargo build -p size-probe --bin probe-emend-sheets-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline)
+  exit: 0; build output lines 2, of them warnings or errors 0
+  variant b builds: yes
+  b: file 993828 bytes; sections 986700; .text 780099; sha256 a58bd13b48378c9bcae6795c1d66d2147139448d142f0852eb3a48475f1b8afd
+  variant b: sections 986700, the committed probe's 1012208: difference -25508; file difference -24576; .text difference -20656
+  variant b: the worktree is clean again after it: yes
+
+## variant (c): Package::new's bytes written to a file and reopened through BufReader<File>
+  variant c: the plant applied, exactly one occurrence: yes
+command: git -C <tree> diff -- tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    diff --git a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    index 4a2ad29..9699d17 100644
+    --- a/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    +++ b/tools/size-probe/src/bin/probe-emend-sheets-write-xml.rs
+    @@ -311,10 +311,11 @@ fn new_workbook(third: &std::ffi::OsStr) -> Result<u64, String> {
+         package.write_to(&mut writer).map_err(|e| e.to_string())?;
+         writer.flush().map_err(|e| e.kind().to_string())?;
+         drop(writer);
+    -    let bytes = std::fs::metadata(third)
+    -        .map_err(|e| e.kind().to_string())?
+    -        .len();
+    -    Ok(bytes)
+    +    let reopened = Package::open(BufReader::new(
+    +        File::open(third).map_err(|e| e.kind().to_string())?,
+    +    ))
+    +    .map_err(|e| e.to_string())?;
+    +    Ok(reopened.archive().entries().len() as u64)
+     }
+     
+     /// What the probe prints. A struct rather than a tuple because six numbers in
+command: (cd <tree> && cargo build -p size-probe --bin probe-emend-sheets-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl --offline)
+  exit: 0; build output lines 2, of them warnings or errors 0
+  variant c builds: yes
+  c: file 1018404 bytes; sections 1012384; .text 800931; sha256 fcbcb826817ce314351a04fd6fb3e178221228464e729feda23eccd3e514d221
+  variant c: sections 1012384, the committed probe's 1012208: difference 176; file difference 0; .text difference 176
+  variant c: the worktree is clean again after it: yes
+
+## the figures
+  the committed probe: sections 1012208 (size.log attempt 3: 1012208)
+  variant a: sections 903196; difference from the committed probe -109012
+  variant b: sections 986700; difference from the committed probe -25508
+  variant c: sections 1012384; difference from the committed probe 176
+  all four builds were measured: yes
+
+  the worktree is removed: yes
+command: git status --porcelain
+     M specs/0016-new-workbook-and-sheets.md
+    ?? records/logs/m2p1-p4/
+    ?? records/m2p1-open-2026-09-25-3bd4257.md
+    ?? records/m2p1-open-2026-09-25-3bd4257.txt
+    ?? records/m2p1-p4-2026-09-25-3bd4257.md
+    ?? records/m2p1-p4-2026-09-25-3bd4257.txt
+    ?? records/size-m2p1-2026-09-25-3bd4257.md
+  every change in the working tree is this phase's or planning's uncommitted spec: yes
+run ended at 2026-09-25T06:18:25Z
+size attribution log checks all as expected: yes
