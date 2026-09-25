@@ -131,7 +131,12 @@ run against scratch clones; run whenever a gate file changes.
   profile (`specs/0008-zip-layer.md`, "Size"). Part 1 spent 132732;
   123268 remain. Checkpoint after part 2's size record: more than about
   40 KB for part 2 alone means a higher ceiling or features off by
-  default.
+  default. Milestone 2: RULED by the maintainer 2026-09-25 at 458752
+  section bytes over `probe-zip-xml` (448 KiB), judged at the close
+  of part 3 on the last core probe, with a checkpoint after part 2's
+  size record: above 25000 for part 2 alone means re-ruling before
+  part 3's spec (`specs/0017`, "The size ceiling"). The Milestone 1
+  ceiling of 393216 stands as Milestone 1's record.
 - Licence: MIT OR Apache-2.0, copyright holder "emend contributors".
 - GitHub: `thekeoni1/emend`, private. Every push passes the privacy gate
   (T0 P6) and needs planning's word plus the maintainer's authorisation
@@ -451,8 +456,32 @@ four local commits f6c2dba, 065f3e4, a49f2d3 and d4ab367.
 | P3 | `Package::sheets`, the name rules, `add_sheet`, `rename_sheet`, `move_sheet`; the three-region workbook rewrite; `--sheet-sample` over the corpus with the run log's comparison | DONE 2026-09-25 (09b42e4, records 2797fe9, local; ten P3 rulings, two of them corrections of the spec, ruling 9 a harness gap: the open check counted an output against the input's sheets, fixed in a7f7060; verified by planning from primaries, its own privacy scan, tests on both targets and clippy on its own build, its own `--sheet-sample` corpus run byte-identical to the phase's and its own comparison of the three regions on 27 of 27; records `records/m2p1-p3-2026-09-25-09b42e4.md` and `.txt`, 95 sheets to 122; open record `records/m2p1-open-2026-09-25-09b42e4.md` and `.txt`, 175 pairs, 0 findings; `specs/0016` "Planning verification and rulings on P3") |
 | P4 | the reachability walk, `remove_sheet`, the chain rule; the catalogue and limits; `probe-emend-sheets-write-xml` and the size record; `--remove-sample` over the corpus with the independent walk in the run log | DONE 2026-09-25 (3bd4257, records c7d7870, local; eleven P4 rulings; verified by planning from primaries, its own privacy scan, tests on its own build, its own rebuild of three probes reproducing the figures, its own `--remove-sample` run with all 27 outputs byte-identical, and its own walk on both labels; `specs/0016` "Planning verification and rulings on P4"; size finding: the budget figure 478992 section bytes against the ceiling 393216, 85776 over; the logged attribution puts 109012 of it on `Package::new`'s second copy of the read and write paths and 25508 on the sheet edits; the maintainer's decision 6 records P4 as measured with the excess a finding and adds P5) |
 | P5 | one copy of the read and write paths under the generic shell (`Package<R>`, `Archive<R>` and `write_to` unchanged in signature; the reader and the writer erased once underneath); the thirteen probes measured again against P4's record; `--remove-sample` over the corpus with every output byte-identical to P4's | DONE 2026-09-25 (975c974, records 558d659, local; seven P5 rulings; the one public change is `R: 'static` on the two `open` constructors; the budget figure 375984 section bytes, 17232 under the ceiling 393216, the sheets probe down 103008, no earlier probe grew; every corpus output byte-identical to P4's on both labels; verified by planning from primaries, its own privacy scan, tests on its own build, its own rebuild of six probes reproducing the figures and hashes, its own run and its own walk; `specs/0016` "Planning verification and rulings on P5") |
-| Close | close-out push after P5 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | READY |
-| Close | close-out push after P4 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | PLANNED |
+| Close | close-out push after P5 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | DONE 2026-09-25 (pushed b06e0a7..c115d45, 28 commits, 0 findings; CI run 36158180907 success; the post-push scan PASS with the m1p8-close finding run again and passed; one record commit e81bf5b local, goes with the next push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0016` "Planning verification and rulings on the close-out") |
+| Close | close-out push after P4 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | SUPERSEDED 2026-09-25 (decision 6: the push followed P5, the row above) |
+
+### Part 2: fuller cell styles (`specs/0017-fuller-styles.md`)
+
+Approved by the maintainer 2026-09-25 and sent to implementation,
+decision 1 taken as A (a Milestone 2 ceiling of 458752 section
+bytes judged at the close of part 3, with a checkpoint after this
+part's size record; part 1 had left 17232 under 393216 against an
+estimate of about 20000 for this part) and decisions 2 to 4 as
+planning recommended. The design: `Package::add_style(base,
+&Style)` records a cell format derived as part 5's, naming a new
+font, fill and border appended to their collections and carrying
+a new `alignment` and `protection`; nothing new is read back; the
+styles rewrite grows five containers instead of two. Decisions 2
+to 4 (the field set, deduplication among additions only, a
+missing collection refused) are design choices with planning's
+recommendation, taken. Planning's estimate 15000 to 20000 section
+bytes.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | the counts and accessors; the types and composers; `add_style` with `add_cell_style` over it; the rewrite over five containers; the three messages; `--font-sample` over the corpus | READY 2026-09-25 |
+| P2 | the `xf` content replacement (`alignment`, `protection`); borders wired in; `--border-sample` over the corpus | PLANNED |
+| P3 | the catalogue and limits; `probe-emend-fullstyles-write-xml` and the size record against the ceiling decision 1 sets; the negative log through the binary; both samples again with the release binaries | PLANNED |
+| Close | close-out push after P3, carrying part 1's record commit e81bf5b | PLANNED |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values

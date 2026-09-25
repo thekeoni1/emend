@@ -1463,6 +1463,52 @@ check answer was read from the committed file.
    P5)" says, with planning's three files (`specs/0016`,
    `specs/0001` with the self-scan rule, ROADMAP) in its doc commit.
 
+## Planning verification and rulings on the close-out (2026-09-25)
+
+1. Verified from git and `gh`, not from the report: origin/main is
+   c115d456c0eeb62d84430c999c1a581d65525a75; the pushed range
+   b06e0a7..c115d45 holds 28 commits, f6c2dba through c115d45; every
+   one ends with the Co-Authored-By line only (28 of 28), no
+   session link, no byte outside ASCII in any message; CI run
+   36158180907 is on c115d45, branch main, event push, conclusion
+   success, its one job's six steps all success; the repository is
+   still PRIVATE; planning's own `scripts/privacy.sh --range
+   b06e0a7..e81bf5b` scanned 29 commits and 630 blobs with 0
+   findings; `ANTHROPIC_API_KEY` is unset in planning's shell too.
+2. The three logs are at the reported hashes (push.log b7aed2ea...,
+   ci-run.log f14fb4b7..., scan.log 7c4a28f2...). push.log's pre
+   and push modes each end "checks all as expected: yes"; each
+   mode's self-scan finds 0 of the three shapes in the script with
+   the fixture control at 1 each; the hook's range is the base pre
+   recorded; the hook scanned 28 commits with 0 findings; ls-remote
+   equals local main; `gh` reports PRIVATE; no path in either
+   mode's captured output, with the planted-path control at 1.
+   ci-run.log carries the same self-scan and controls, the key
+   check, three polls of run 36158180907 and its success, and ends
+   "checks all as expected: yes". scan.log is stage post: 88 files
+   in the range, 88 scanned, 88 read; total hits 0; structural
+   failures 0; RESULT: PASS. Its header names the m1p8-close scan
+   finding and the fix (`specs/0001`'s push and ci-run bullet); the
+   printed script of push.log (408 lines) and of ci-run.log (248
+   lines) hold 0 of each shape; the scan's own source holds none,
+   with the control at 1. `specs/0015` close-out rulings 4 and 5 are
+   answered: the finding was run again and passed.
+3. The record commit e81bf5b has parent c115d45, adds exactly the
+   three logs, ends with the Co-Authored-By line only, and is local.
+   It goes with the next push, as every part's record commit has.
+   Accepted.
+4. Carried into part 2, from the P5 verification (rulings 3 to 7):
+   the archive header sentence on the reader `Archive::read` returns
+   losing `Send` and `Sync` (in part 2's first code commit); every
+   log declares its placeholders in root lines, the scan counting an
+   undeclared one as a structural failure; a per-commit test claim
+   needs a logged run; a superseded run directory is moved, never
+   removed; `Stream`'s two instantiations stay an unmeasured size
+   candidate. The headroom is 17232 section bytes under the ceiling
+   393216; part 2's spec brings the maintainer the ceiling options
+   before part 2's code starts.
+5. The close-out is DONE. Milestone 2 part 1 is DONE.
+
 ## Out of scope
 
 Cell styles beyond part 5's (part 2); rows, columns, freeze panes,
