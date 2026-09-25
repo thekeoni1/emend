@@ -504,7 +504,7 @@ use quick_xml::XmlVersion;
 use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
-use crate::archive::{Archive, Edits, Error, Replacement, TempFile, replacement_from_reader};
+use crate::archive::{Archive, Core, Edits, Error, Replacement, TempFile, replacement_from_reader};
 use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
 use crate::styles::{NewXf, NumberFormat, Styles, counted, num_fmt_element, scan_start_tag};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
@@ -1339,15 +1339,7 @@ impl<R: Read + Seek> Package<R> {
     /// well-formed XML or not UTF-8; whatever [`Package::workbook`] refuses,
     /// since the relationship is followed through it.
     pub fn shared_strings(&mut self) -> Result<SharedStrings, Error> {
-        let part = match self.workbook()?.shared_strings.clone() {
-            Some(part) => part,
-            None => return Ok(SharedStrings::default()),
-        };
-        let Some(index) = self.archive.index_of(&part) else {
-            return Err(NO_SUCH_PART);
-        };
-        let mut stream = Stream::new(self.archive.read(index)?, index)?;
-        SharedStrings::read(&mut stream, index)
+        self.parts().shared_strings()
     }
 
     /// A streaming read over the worksheet part named `part`.
@@ -1386,16 +1378,7 @@ impl<R: Read + Seek> Package<R> {
     /// part whose root is not Types"; [`Error::Xml`] for bytes that are not
     /// well-formed XML.
     pub fn content_types(&mut self) -> Result<&ContentTypes, Error> {
-        if self.content_types.is_none() {
-            let index = self
-                .archive
-                .index_of(CONTENT_TYPES_PART)
-                .ok_or(NO_CONTENT_TYPES)?;
-            let parsed = parse_content_types(&mut self.archive, index)?;
-            return Ok(self.content_types.insert(parsed));
-        }
-        // The branch above returns whenever the field was empty.
-        Ok(self.content_types.as_ref().unwrap())
+        self.parts().into_content_types()
     }
 
     /// The relationships of the part `source`, or of the package when
@@ -1410,24 +1393,7 @@ impl<R: Read + Seek> Package<R> {
     /// Relationships" or "two relationships with the same id";
     /// [`Error::Xml`] for bytes that are not well-formed XML.
     pub fn relationships(&mut self, source: &[u8]) -> Result<&Relationships, Error> {
-        if let Some(at) = self
-            .relationships
-            .iter()
-            .position(|rels| rels.source == source)
-        {
-            return Ok(&self.relationships[at]);
-        }
-        let part = rels_part_name(source);
-        let parsed = match self.archive.index_of(&part) {
-            Some(index) => parse_relationships(&mut self.archive, index, source.to_vec())?,
-            None => Relationships {
-                source: source.to_vec(),
-                list: Vec::new(),
-            },
-        };
-        self.relationships.push(parsed);
-        // The push above leaves at least one.
-        Ok(self.relationships.last().unwrap())
+        self.parts().into_relationships(source)
     }
 
     /// The workbook part and its sheets, parsed on the first call and kept.
@@ -1438,6 +1404,479 @@ impl<R: Read + Seek> Package<R> {
     /// sheet messages the module header lists; [`Error::Xml`] for bytes that
     /// are not well-formed XML.
     pub fn workbook(&mut self) -> Result<&Workbook, Error> {
+        self.parts().into_workbook()
+    }
+
+    /// The workbook's styles part, parsed on the first call and kept.
+    ///
+    /// `specs/0012-styles.md`, "Module `styles`: what is read": the part the
+    /// workbook's first `styles` relationship names, read through [`Stream`]
+    /// and [`Scope`] with the element resolution [`Cells`] uses, for its
+    /// number formats and its cell formats.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "the workbook has no styles part" when the workbook
+    /// has no `styles` relationship, "no such part" when the relationship
+    /// names an entry the archive does not hold, and the styles messages the
+    /// module header lists; [`Error::Xml`] for bytes that are not well-formed
+    /// XML or not UTF-8; whatever [`Package::workbook`] refuses, since the
+    /// relationship is followed through it.
+    pub fn styles(&mut self) -> Result<&Styles, Error> {
+        self.parts().into_styles()
+    }
+
+    /// Records the removal of the relationship `id` from `source`'s rels part.
+    ///
+    /// Nothing is read or written here, and nothing else goes with it: the
+    /// target part, its override and its own rels part are the caller's
+    /// separate calls. [`Package::write_to`] refuses an id the part does not
+    /// hold.
+    pub fn remove_relationship(&mut self, source: &[u8], id: &[u8]) {
+        self.parts().remove_relationship(source, id)
+    }
+
+    /// Records a new relationship on `source` and returns the id it will have.
+    ///
+    /// The id is `rId<n>`, `n` one more than the largest among the part's ids
+    /// of the form `rId<digits>` and the ids this call has already handed out
+    /// for the same source, or `rId1` when there is none. An id of another
+    /// form is never generated, so a generated id never collides with one.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::relationships`] refuses for `source`'s rels part,
+    /// since the id rule has to read the ids already there. A source with no
+    /// rels part is an empty set, not an error: [`Package::write_to`] creates
+    /// the part.
+    pub fn add_relationship(
+        &mut self,
+        source: &[u8],
+        kind: &[u8],
+        target: &[u8],
+        external: bool,
+    ) -> Result<Vec<u8>, Error> {
+        self.parts()
+            .add_relationship(source, kind, target, external)
+    }
+
+    /// Records the removal of the `Override` for `part_name`.
+    ///
+    /// `part_name` is matched as the `PartName` attribute writes it, by exact
+    /// bytes, leading slash included. [`Package::write_to`] refuses an
+    /// override the part does not hold.
+    pub fn remove_override(&mut self, part_name: &[u8]) {
+        self.parts().remove_override(part_name)
+    }
+
+    /// Records a new `Override` for `part_name`.
+    ///
+    /// [`Package::write_to`] refuses a part name that already has one.
+    pub fn add_override(&mut self, part_name: &[u8], content_type: &[u8]) {
+        self.parts().add_override(part_name, content_type)
+    }
+
+    /// Records the removal of the entry `name`.
+    ///
+    /// The entry alone: its override and any relationship naming it are the
+    /// caller's separate calls.
+    pub fn remove_part(&mut self, name: &[u8]) {
+        self.parts().remove_part(name)
+    }
+
+    /// Records new bytes for the entry `name`.
+    pub fn replace_part(&mut self, name: &[u8], replacement: Replacement) {
+        self.parts().replace_part(name, replacement)
+    }
+
+    /// Records a new entry `name`.
+    ///
+    /// The entry alone: the caller adds an override or relies on a `Default`
+    /// covering its extension.
+    pub fn add_part(&mut self, name: &[u8], replacement: Replacement) {
+        self.parts().add_part(name, replacement)
+    }
+
+    /// Records the removal of the workbook's calculation chain, and says
+    /// whether there was one.
+    ///
+    /// The recipe of `specs/0009-package-layer.md`, "Module `package`", moved
+    /// here from `tools/emend-copy` (`specs/0011-editing-cells.md`, "Module
+    /// `package`"): when the workbook has a `calcChain` relationship, the
+    /// three removals in the order the recipe gives them, each only when its
+    /// subject is there: the relationship, the `Override` for its target
+    /// when the content types part has one, and the entry when the package
+    /// has one. The `Override` is matched as the package writes it, leading
+    /// slash and all, and removed by those same bytes. With no `calcChain`
+    /// relationship nothing is recorded and the answer is `false`.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::workbook`] refuses, and, when there is a chain,
+    /// whatever [`Package::content_types`] and [`Relationships::target_part`]
+    /// refuse. Nothing is recorded when this fails.
+    pub fn drop_calc_chain(&mut self) -> Result<bool, Error> {
+        self.parts().drop_calc_chain()
+    }
+
+    /// Records `reference` in the worksheet part `part` set to `value`.
+    ///
+    /// `part` is the worksheet's entry name, as [`Package::cells`] takes it;
+    /// the caller finds it through [`Workbook::sheet`]. Nothing is read and
+    /// nothing can fail here, and the last edit recorded for a reference
+    /// wins. [`Package::write_to`] checks the value and rewrites the part
+    /// (`specs/0011-editing-cells.md`, "Module `package`").
+    pub fn set_cell(&mut self, part: &[u8], reference: CellRef, value: Value) {
+        self.parts().set_cell(part, reference, value)
+    }
+
+    /// Records `reference` in the worksheet part `part` cleared.
+    ///
+    /// A cell with a style keeps it and loses everything else; a cell without
+    /// one is removed; a cell that does not exist stays absent. As
+    /// [`Package::set_cell`], nothing is read here and the last edit recorded
+    /// for a reference wins.
+    pub fn clear_cell(&mut self, part: &[u8], reference: CellRef) {
+        self.parts().clear_cell(part, reference)
+    }
+
+    /// Records a new cell format and returns the index it will have.
+    ///
+    /// `specs/0012-styles.md`, "Module `styles`: what can be added". The new
+    /// `xf` is a copy of the existing cell format `base` with its number
+    /// format changed to `format`, or with `None` the form `<xf numFmtId="N"
+    /// fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`;
+    /// it is composed here and appended to `<cellXfs>` by
+    /// [`Package::write_to`]. The index is the number of `xf` elements
+    /// `<cellXfs>` holds plus the number already recorded by this package.
+    ///
+    /// The number format's id: `BuiltIn(id)` is `id`, and nothing is added to
+    /// `<numFmts>`, whether or not the part spells that id out. `Code(code)`
+    /// is the id of the first `numFmt` whose code equals it, else of the
+    /// first equal code recorded earlier by this package, else a new id: the
+    /// largest of 164, one more than the largest id the part defines and one
+    /// more than the largest recorded, and the new `(id, code)` is recorded.
+    /// Two additions with equal codes share one id; two additions with an
+    /// equal base and format are two cell formats, since nothing is
+    /// deduplicated at the `xf` level.
+    ///
+    /// The styles part is read first when it is not cached, so this fails as
+    /// [`Package::styles`] fails. Nothing is recorded when this fails.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses; [`Error::Package`] "a style
+    /// index is out of range" for a `base` at or beyond the part's cell
+    /// formats (a base names an existing `xf` only, never one recorded here),
+    /// and for an index or a new id that `u32` cannot hold; "a built-in number
+    /// format id is 164 or more"; "a number format code is empty or holds a
+    /// character XML cannot carry" (the set [`Value::Text`] refuses).
+    pub fn add_cell_style(
+        &mut self,
+        base: Option<u32>,
+        format: NumberFormat,
+    ) -> Result<u32, Error> {
+        self.parts().add_cell_style(base, format)
+    }
+
+    /// Records `reference` in the worksheet part `part` given the style
+    /// `style`: `Some(i)` names a cell format by index, one the part has or
+    /// one [`Package::add_cell_style`] returned, and `None` removes the
+    /// cell's `s`.
+    ///
+    /// As [`Package::set_cell`], nothing is read and nothing can fail here,
+    /// and the last style edit recorded for a reference wins, independently
+    /// of the last value edit for it (`specs/0012-styles.md`, "Module
+    /// `package`"). [`Package::write_to`] checks the index and rewrites the
+    /// part.
+    pub fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
+        self.parts().set_cell_style(part, reference, style)
+    }
+
+    /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
+    /// `<calcPr>`, asking an application to recalculate every formula when
+    /// it opens the file.
+    ///
+    /// `specs/0013-formulas.md`, "Module `package`". Nothing is read and
+    /// nothing can fail here, and recording it twice records it once.
+    /// [`Package::write_to`] records it itself for a write that changes a
+    /// formula; a caller whose edits changed an input of existing formulas
+    /// and no formula calls this, since emend cannot know which formulas
+    /// depend on which cells. Whether an application honours the request is
+    /// the application's: nothing is evaluated here.
+    pub fn recalculate_on_open(&mut self) {
+        self.parts().recalculate_on_open()
+    }
+
+    /// The workbook's sheets with the recorded sheet edits applied, in the
+    /// order they were recorded (`specs/0016-new-workbook-and-sheets.md`,
+    /// "The projected sheet list").
+    ///
+    /// [`Package::workbook`] keeps answering with the file's list, as
+    /// [`Package::cells`] reads the file and not the pending cell edits. A
+    /// sheet added and not yet written has `part`, `sheet_id` and `rel_id` set
+    /// to the values it will get, `state` `None` and `kind`
+    /// [`SheetKind::Worksheet`].
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::workbook`] refuses.
+    pub fn sheets(&mut self) -> Result<Vec<Sheet>, Error> {
+        self.parts().sheets()
+    }
+
+    /// Records a new worksheet named `name` at the end of the list, and
+    /// returns its entry name (`specs/0016-new-workbook-and-sheets.md`,
+    /// "Adding a sheet").
+    ///
+    /// Recorded in the order the write applies them: the entry, the
+    /// template's blank worksheet, at `<dir>/worksheets/sheet<n>.xml`, `<dir>`
+    /// the workbook part's directory and `n` the smallest positive integer
+    /// whose name is neither an entry nor a pending addition; an `Override`
+    /// for it with the worksheet content type, unless the content types
+    /// part has a `Default` for `xml` of that type; a worksheet relationship
+    /// on the workbook part, in the form of the workbook's first worksheet
+    /// relationship or transitional when there is none, its target relative
+    /// to the workbook part; and a `<sheet>` at the end of the projected list
+    /// with `sheetId` one more than the largest there. A caller places it with
+    /// [`Package::move_sheet`], and writes into it with [`Package::set_cell`]
+    /// on the returned name (P3 ruling 2).
+    ///
+    /// # Errors
+    ///
+    /// The name rules' messages ("a sheet name is empty", "a sheet name is
+    /// longer than 31 characters", "a sheet name holds a character Excel
+    /// refuses", "a sheet name starts or ends with an apostrophe", "a text
+    /// holds a character XML cannot carry", "a sheet name is the reserved
+    /// name History", "a sheet name is already in use"); "a sheet edit no
+    /// longer applies at the write" for a `sheetId` past `u32::MAX`; and
+    /// whatever reading the workbook, its relationships and the content
+    /// types refuses. Nothing is recorded when this fails.
+    pub fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+        self.parts().add_sheet(name)
+    }
+
+    /// Records that the sheet named `name` takes the name `to`
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving").
+    ///
+    /// `to` is checked as [`Package::add_sheet`] checks a name, against every
+    /// other sheet of the projected list, so a sheet may be renamed to its
+    /// own name or to its own name in another case. Formulas, defined names
+    /// and anything else that names the sheet in text are not touched.
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name" when the projected list has no sheet named
+    /// exactly `name`; the name rules' messages for `to`; whatever
+    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
+    pub fn rename_sheet(&mut self, name: &str, to: &str) -> Result<(), Error> {
+        self.parts().rename_sheet(name, to)
+    }
+
+    /// Records that the sheet named `name` moves to position `to`, 0 first
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving"). A
+    /// move to the sheet's own position records nothing.
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name"; "a sheet position is past the end" for `to`
+    /// at or past the projected list's length; whatever
+    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
+    pub fn move_sheet(&mut self, name: &str, to: usize) -> Result<(), Error> {
+        self.parts().move_sheet(name, to)
+    }
+
+    /// Records the removal of the sheet named `name`
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Removing a sheet", and P4
+    /// rulings 1 to 5 and 9).
+    ///
+    /// Recorded in this order: the `<sheet>` gone from the projected list;
+    /// the workbook relationship its `r:id` names removed; the walk's
+    /// removals; and, when the workbook has a `calcChain` relationship, the
+    /// recipe of [`Package::drop_calc_chain`], recorded once however many
+    /// edits ask for it, and a full calculation on load as
+    /// [`Package::recalculate_on_open`] records it.
+    ///
+    /// The walk: R is every entry reachable from the sheet's part through
+    /// internal relationships, transitively, the part included; K is every
+    /// entry reachable the same way from the package's relationships, with
+    /// every relationship recorded for removal and this sheet's left out,
+    /// and no edge followed out of a removed sheet's part. Each entry of R
+    /// not in K and not already recorded for removal is removed, with its
+    /// own rels part when the package holds one, and each one's `Override`
+    /// when the content types part holds one, so no `Override` names a
+    /// removed entry (P4 ruling 9). A target outside the package or naming
+    /// no entry contributes nothing, and an external relationship is never
+    /// followed.
+    ///
+    /// A sheet added and not yet written leaves the list, and its part,
+    /// `Override` and relationship additions and the cell and style edits
+    /// recorded on its part are dropped: nothing is written for it (P4
+    /// ruling 4).
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name"; "the last sheet cannot be removed" when the
+    /// projected list has one sheet; "the last visible sheet cannot be
+    /// removed" when every other sheet is hidden (P4 ruling 1); whatever
+    /// reading the workbook, a reached rels part or the content types part
+    /// refuses, and for the chain whatever [`Relationships::target_part`]
+    /// refuses. Nothing is recorded when this fails.
+    pub fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
+        self.parts().remove_sheet(name)
+    }
+
+    /// Writes the package back with every recorded edit applied.
+    ///
+    /// Every edit is validated first, so a refused set writes nothing. Then
+    /// each worksheet with cell edits is streamed into a temporary file once,
+    /// with all of its edits, as `specs/0011-editing-cells.md`, "Module
+    /// `package`", describes; a refusal found while a part streams also
+    /// writes nothing. When the write changes formulas (the last value edit
+    /// for some reference is a [`Value::Formula`], or an edit replaced or
+    /// cleared a cell whose formula was a normal one), the calculation chain
+    /// is dropped in the same write through [`Package::drop_calc_chain`],
+    /// unless its relationship is already recorded for removal, a full
+    /// calculation on load is recorded as [`Package::recalculate_on_open`]
+    /// records it, and the set is validated again (`specs/0013-formulas.md`).
+    /// The styles part is rewritten when a cell format was added, and the
+    /// workbook part when the full calculation is recorded, its `calcPr`
+    /// start tag alone changing. Then
+    /// `[Content_Types].xml` and each rels part with edits are read through
+    /// [`Stream`] and rewritten into a temporary file: every token's `raw` is
+    /// copied except a removed element's own bytes, so the whitespace around
+    /// one stays, and additions go immediately before the root's end tag with
+    /// no whitespace added. The temporaries become the entries'
+    /// replacements, [`Archive::write_to`] runs with the assembled
+    /// [`Edits`], and the temporaries are removed however the write ends.
+    ///
+    /// Takes the package by value (P3 ruling 12): a package is written at
+    /// most once, because a recorded [`Replacement`] is a reader that cannot
+    /// be read twice or cloned, and a refused or failed write spends it too.
+    /// A caller that wants to write again opens the input again, which the
+    /// type enforces rather than a refusal at run time.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] for an edit that cannot apply: "no such
+    /// relationship", "no such override", "an override for that part already
+    /// exists", "an edit to a removed part", "no such part", "no Default
+    /// covers rels", and for a cell edit "a number that is not finite cannot
+    /// be written", "a text holds a character XML cannot carry", "a cell
+    /// edit to a part this write replaces", "the worksheet part's root is not
+    /// worksheet", "a worksheet without explicit references cannot be
+    /// edited", "a worksheet whose rows or cells are out of order cannot be
+    /// edited", "a cell in a shared, array or data table formula cannot be
+    /// edited", "a cell carries an attribute this layer does not model",
+    /// "a worksheet without sheetData cannot be edited", and three the
+    /// `cells` module raises too: "a cell reference is not of the form A1",
+    /// "a row number is not a number" and, for an edited cell, "a formula
+    /// has a type this layer does not know". For a style edit or addition
+    /// (`specs/0012-styles.md`): "a style index is out of range", "the
+    /// workbook has no styles part" and whatever else reading the styles
+    /// part refuses, "a style addition to a part this write replaces", "a
+    /// styles part without cellXfs cannot take a style" and, for a `count`
+    /// it rewrites, "a style attribute is not a number". For a formula
+    /// (`specs/0013-formulas.md`): "a formula text is empty", "a formula
+    /// text starts with an equals sign", "a formula text holds a character
+    /// XML cannot carry", and for the workbook rewrite "a workbook has two
+    /// calcPr elements" and "the workbook part cannot be edited in a package
+    /// that replaces or removes it".
+    /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
+    /// the index of the part the value would have been written into.
+    /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
+    /// [`Archive::write_to`] refuses for the assembled edits.
+    pub fn write_to(mut self, mut out: impl Write) -> Result<(), Error> {
+        self.parts().write_to(&mut out)
+    }
+
+    /// The package's fields as one view, over the archive's erased core.
+    fn parts(&mut self) -> Parts<'_> {
+        Parts {
+            archive: &mut self.archive.core,
+            content_types: &mut self.content_types,
+            relationships: &mut self.relationships,
+            workbook: &mut self.workbook,
+            calc_prs: &mut self.calc_prs,
+            styles: &mut self.styles,
+            edits: &mut self.edits,
+        }
+    }
+}
+
+/// A [`Package`]'s fields, borrowed, with the archive as its erased core.
+///
+/// Every method body of [`Package`] lives here, so it is compiled once
+/// however many reader types a consumer uses; the methods of [`Package`]
+/// build this view and forward (`specs/0016-new-workbook-and-sheets.md`,
+/// "P5" and "Planning rulings during P5", ruling 1).
+struct Parts<'a> {
+    archive: &'a mut Core,
+    content_types: &'a mut Option<ContentTypes>,
+    relationships: &'a mut Vec<Relationships>,
+    workbook: &'a mut Option<Workbook>,
+    calc_prs: &'a mut usize,
+    styles: &'a mut Option<Styles>,
+    edits: &'a mut Recorded,
+}
+
+impl<'a> Parts<'a> {
+    /// [`Package::part`], over the view.
+    fn part(&self, name: &[u8]) -> Option<usize> {
+        self.archive.index_of(name)
+    }
+
+    /// The body of [`Package::shared_strings`].
+    fn shared_strings(&mut self) -> Result<SharedStrings, Error> {
+        let part = match self.workbook()?.shared_strings.clone() {
+            Some(part) => part,
+            None => return Ok(SharedStrings::default()),
+        };
+        let Some(index) = self.archive.index_of(&part) else {
+            return Err(NO_SUCH_PART);
+        };
+        let mut stream = Stream::new(self.archive.read(index)?, index)?;
+        SharedStrings::read(&mut stream, index)
+    }
+
+    /// The body of [`Package::content_types`].
+    fn content_types(&mut self) -> Result<&ContentTypes, Error> {
+        if self.content_types.is_none() {
+            let index = self
+                .archive
+                .index_of(CONTENT_TYPES_PART)
+                .ok_or(NO_CONTENT_TYPES)?;
+            let parsed = parse_content_types(self.archive, index)?;
+            return Ok(self.content_types.insert(parsed));
+        }
+        // The branch above returns whenever the field was empty.
+        Ok(self.content_types.as_ref().unwrap())
+    }
+
+    /// The body of [`Package::relationships`].
+    fn relationships(&mut self, source: &[u8]) -> Result<&Relationships, Error> {
+        if let Some(at) = self
+            .relationships
+            .iter()
+            .position(|rels| rels.source == source)
+        {
+            return Ok(&self.relationships[at]);
+        }
+        let part = rels_part_name(source);
+        let parsed = match self.archive.index_of(&part) {
+            Some(index) => parse_relationships(self.archive, index, source.to_vec())?,
+            None => Relationships {
+                source: source.to_vec(),
+                list: Vec::new(),
+            },
+        };
+        self.relationships.push(parsed);
+        // The push above leaves at least one.
+        Ok(self.relationships.last().unwrap())
+    }
+
+    /// The body of [`Package::workbook`].
+    fn workbook(&mut self) -> Result<&Workbook, Error> {
         if self.workbook.is_none() {
             let parsed = self.parse_workbook()?;
             return Ok(self.workbook.insert(parsed));
@@ -1466,8 +1905,8 @@ impl<R: Read + Seek> Package<R> {
         let index = self.archive.index_of(&part).ok_or(Error::Package(
             "the officeDocument relationship names no entry",
         ))?;
-        let read = parse_workbook_sheets(&mut self.archive, index)?;
-        self.calc_prs = read.calc_prs;
+        let read = parse_workbook_sheets(self.archive, index)?;
+        *self.calc_prs = read.calc_prs;
         let rels = self.relationships(&part)?;
         let mut sheets = Vec::with_capacity(read.sheets.len());
         for sheet in read.sheets {
@@ -1495,22 +1934,8 @@ impl<R: Read + Seek> Package<R> {
         })
     }
 
-    /// The workbook's styles part, parsed on the first call and kept.
-    ///
-    /// `specs/0012-styles.md`, "Module `styles`: what is read": the part the
-    /// workbook's first `styles` relationship names, read through [`Stream`]
-    /// and [`Scope`] with the element resolution [`Cells`] uses, for its
-    /// number formats and its cell formats.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Package`] "the workbook has no styles part" when the workbook
-    /// has no `styles` relationship, "no such part" when the relationship
-    /// names an entry the archive does not hold, and the styles messages the
-    /// module header lists; [`Error::Xml`] for bytes that are not well-formed
-    /// XML or not UTF-8; whatever [`Package::workbook`] refuses, since the
-    /// relationship is followed through it.
-    pub fn styles(&mut self) -> Result<&Styles, Error> {
+    /// The body of [`Package::styles`].
+    fn styles(&mut self) -> Result<&Styles, Error> {
         if self.styles.is_none() {
             let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
@@ -1524,30 +1949,13 @@ impl<R: Read + Seek> Package<R> {
         Ok(self.styles.as_ref().unwrap())
     }
 
-    /// Records the removal of the relationship `id` from `source`'s rels part.
-    ///
-    /// Nothing is read or written here, and nothing else goes with it: the
-    /// target part, its override and its own rels part are the caller's
-    /// separate calls. [`Package::write_to`] refuses an id the part does not
-    /// hold.
-    pub fn remove_relationship(&mut self, source: &[u8], id: &[u8]) {
+    /// The body of [`Package::remove_relationship`].
+    fn remove_relationship(&mut self, source: &[u8], id: &[u8]) {
         self.edits.rel_removals.push((source.to_vec(), id.to_vec()));
     }
 
-    /// Records a new relationship on `source` and returns the id it will have.
-    ///
-    /// The id is `rId<n>`, `n` one more than the largest among the part's ids
-    /// of the form `rId<digits>` and the ids this call has already handed out
-    /// for the same source, or `rId1` when there is none. An id of another
-    /// form is never generated, so a generated id never collides with one.
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Package::relationships`] refuses for `source`'s rels part,
-    /// since the id rule has to read the ids already there. A source with no
-    /// rels part is an empty set, not an error: [`Package::write_to`] creates
-    /// the part.
-    pub fn add_relationship(
+    /// The body of [`Package::add_relationship`].
+    fn add_relationship(
         &mut self,
         source: &[u8],
         kind: &[u8],
@@ -1583,66 +1991,37 @@ impl<R: Read + Seek> Package<R> {
         Ok(id)
     }
 
-    /// Records the removal of the `Override` for `part_name`.
-    ///
-    /// `part_name` is matched as the `PartName` attribute writes it, by exact
-    /// bytes, leading slash included. [`Package::write_to`] refuses an
-    /// override the part does not hold.
-    pub fn remove_override(&mut self, part_name: &[u8]) {
+    /// The body of [`Package::remove_override`].
+    fn remove_override(&mut self, part_name: &[u8]) {
         self.edits.override_removals.push(part_name.to_vec());
     }
 
-    /// Records a new `Override` for `part_name`.
-    ///
-    /// [`Package::write_to`] refuses a part name that already has one.
-    pub fn add_override(&mut self, part_name: &[u8], content_type: &[u8]) {
+    /// The body of [`Package::add_override`].
+    fn add_override(&mut self, part_name: &[u8], content_type: &[u8]) {
         self.edits
             .override_additions
             .push((part_name.to_vec(), content_type.to_vec()));
     }
 
-    /// Records the removal of the entry `name`.
-    ///
-    /// The entry alone: its override and any relationship naming it are the
-    /// caller's separate calls.
-    pub fn remove_part(&mut self, name: &[u8]) {
+    /// The body of [`Package::remove_part`].
+    fn remove_part(&mut self, name: &[u8]) {
         self.edits.part_removals.push(name.to_vec());
     }
 
-    /// Records new bytes for the entry `name`.
-    pub fn replace_part(&mut self, name: &[u8], replacement: Replacement) {
+    /// The body of [`Package::replace_part`].
+    fn replace_part(&mut self, name: &[u8], replacement: Replacement) {
         self.edits
             .part_replacements
             .push((name.to_vec(), replacement));
     }
 
-    /// Records a new entry `name`.
-    ///
-    /// The entry alone: the caller adds an override or relies on a `Default`
-    /// covering its extension.
-    pub fn add_part(&mut self, name: &[u8], replacement: Replacement) {
+    /// The body of [`Package::add_part`].
+    fn add_part(&mut self, name: &[u8], replacement: Replacement) {
         self.edits.part_additions.push((name.to_vec(), replacement));
     }
 
-    /// Records the removal of the workbook's calculation chain, and says
-    /// whether there was one.
-    ///
-    /// The recipe of `specs/0009-package-layer.md`, "Module `package`", moved
-    /// here from `tools/emend-copy` (`specs/0011-editing-cells.md`, "Module
-    /// `package`"): when the workbook has a `calcChain` relationship, the
-    /// three removals in the order the recipe gives them, each only when its
-    /// subject is there: the relationship, the `Override` for its target
-    /// when the content types part has one, and the entry when the package
-    /// has one. The `Override` is matched as the package writes it, leading
-    /// slash and all, and removed by those same bytes. With no `calcChain`
-    /// relationship nothing is recorded and the answer is `false`.
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Package::workbook`] refuses, and, when there is a chain,
-    /// whatever [`Package::content_types`] and [`Relationships::target_part`]
-    /// refuse. Nothing is recorded when this fails.
-    pub fn drop_calc_chain(&mut self) -> Result<bool, Error> {
+    /// The body of [`Package::drop_calc_chain`].
+    fn drop_calc_chain(&mut self) -> Result<bool, Error> {
         match self.chain_removals()? {
             Some(chain) => {
                 self.record_chain_removals(chain);
@@ -1706,65 +2085,20 @@ impl<R: Read + Seek> Package<R> {
             .map(|over| over.part_name.clone()))
     }
 
-    /// Records `reference` in the worksheet part `part` set to `value`.
-    ///
-    /// `part` is the worksheet's entry name, as [`Package::cells`] takes it;
-    /// the caller finds it through [`Workbook::sheet`]. Nothing is read and
-    /// nothing can fail here, and the last edit recorded for a reference
-    /// wins. [`Package::write_to`] checks the value and rewrites the part
-    /// (`specs/0011-editing-cells.md`, "Module `package`").
-    pub fn set_cell(&mut self, part: &[u8], reference: CellRef, value: Value) {
+    /// The body of [`Package::set_cell`].
+    fn set_cell(&mut self, part: &[u8], reference: CellRef, value: Value) {
         self.edits
             .cell_edits
             .push((part.to_vec(), reference, Some(value)));
     }
 
-    /// Records `reference` in the worksheet part `part` cleared.
-    ///
-    /// A cell with a style keeps it and loses everything else; a cell without
-    /// one is removed; a cell that does not exist stays absent. As
-    /// [`Package::set_cell`], nothing is read here and the last edit recorded
-    /// for a reference wins.
-    pub fn clear_cell(&mut self, part: &[u8], reference: CellRef) {
+    /// The body of [`Package::clear_cell`].
+    fn clear_cell(&mut self, part: &[u8], reference: CellRef) {
         self.edits.cell_edits.push((part.to_vec(), reference, None));
     }
 
-    /// Records a new cell format and returns the index it will have.
-    ///
-    /// `specs/0012-styles.md`, "Module `styles`: what can be added". The new
-    /// `xf` is a copy of the existing cell format `base` with its number
-    /// format changed to `format`, or with `None` the form `<xf numFmtId="N"
-    /// fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`;
-    /// it is composed here and appended to `<cellXfs>` by
-    /// [`Package::write_to`]. The index is the number of `xf` elements
-    /// `<cellXfs>` holds plus the number already recorded by this package.
-    ///
-    /// The number format's id: `BuiltIn(id)` is `id`, and nothing is added to
-    /// `<numFmts>`, whether or not the part spells that id out. `Code(code)`
-    /// is the id of the first `numFmt` whose code equals it, else of the
-    /// first equal code recorded earlier by this package, else a new id: the
-    /// largest of 164, one more than the largest id the part defines and one
-    /// more than the largest recorded, and the new `(id, code)` is recorded.
-    /// Two additions with equal codes share one id; two additions with an
-    /// equal base and format are two cell formats, since nothing is
-    /// deduplicated at the `xf` level.
-    ///
-    /// The styles part is read first when it is not cached, so this fails as
-    /// [`Package::styles`] fails. Nothing is recorded when this fails.
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Package::styles`] refuses; [`Error::Package`] "a style
-    /// index is out of range" for a `base` at or beyond the part's cell
-    /// formats (a base names an existing `xf` only, never one recorded here),
-    /// and for an index or a new id that `u32` cannot hold; "a built-in number
-    /// format id is 164 or more"; "a number format code is empty or holds a
-    /// character XML cannot carry" (the set [`Value::Text`] refuses).
-    pub fn add_cell_style(
-        &mut self,
-        base: Option<u32>,
-        format: NumberFormat,
-    ) -> Result<u32, Error> {
+    /// The body of [`Package::add_cell_style`].
+    fn add_cell_style(&mut self, base: Option<u32>, format: NumberFormat) -> Result<u32, Error> {
         let recorded = self.edits.xf_additions.len();
         self.styles()?;
         // A borrow of the field alone, so the recorded edits stay readable.
@@ -1825,51 +2159,20 @@ impl<R: Read + Seek> Package<R> {
         Ok(index)
     }
 
-    /// Records `reference` in the worksheet part `part` given the style
-    /// `style`: `Some(i)` names a cell format by index, one the part has or
-    /// one [`Package::add_cell_style`] returned, and `None` removes the
-    /// cell's `s`.
-    ///
-    /// As [`Package::set_cell`], nothing is read and nothing can fail here,
-    /// and the last style edit recorded for a reference wins, independently
-    /// of the last value edit for it (`specs/0012-styles.md`, "Module
-    /// `package`"). [`Package::write_to`] checks the index and rewrites the
-    /// part.
-    pub fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
+    /// The body of [`Package::set_cell_style`].
+    fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
         self.edits
             .style_edits
             .push((part.to_vec(), reference, style));
     }
 
-    /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
-    /// `<calcPr>`, asking an application to recalculate every formula when
-    /// it opens the file.
-    ///
-    /// `specs/0013-formulas.md`, "Module `package`". Nothing is read and
-    /// nothing can fail here, and recording it twice records it once.
-    /// [`Package::write_to`] records it itself for a write that changes a
-    /// formula; a caller whose edits changed an input of existing formulas
-    /// and no formula calls this, since emend cannot know which formulas
-    /// depend on which cells. Whether an application honours the request is
-    /// the application's: nothing is evaluated here.
-    pub fn recalculate_on_open(&mut self) {
+    /// The body of [`Package::recalculate_on_open`].
+    fn recalculate_on_open(&mut self) {
         self.edits.recalculate = true;
     }
 
-    /// The workbook's sheets with the recorded sheet edits applied, in the
-    /// order they were recorded (`specs/0016-new-workbook-and-sheets.md`,
-    /// "The projected sheet list").
-    ///
-    /// [`Package::workbook`] keeps answering with the file's list, as
-    /// [`Package::cells`] reads the file and not the pending cell edits. A
-    /// sheet added and not yet written has `part`, `sheet_id` and `rel_id` set
-    /// to the values it will get, `state` `None` and `kind`
-    /// [`SheetKind::Worksheet`].
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Package::workbook`] refuses.
-    pub fn sheets(&mut self) -> Result<Vec<Sheet>, Error> {
+    /// The body of [`Package::sheets`].
+    fn sheets(&mut self) -> Result<Vec<Sheet>, Error> {
         Ok(self
             .projected()?
             .into_iter()
@@ -1883,34 +2186,8 @@ impl<R: Read + Seek> Package<R> {
         project(&file, &self.edits.sheet_edits)
     }
 
-    /// Records a new worksheet named `name` at the end of the list, and
-    /// returns its entry name (`specs/0016-new-workbook-and-sheets.md`,
-    /// "Adding a sheet").
-    ///
-    /// Recorded in the order the write applies them: the entry, the
-    /// template's blank worksheet, at `<dir>/worksheets/sheet<n>.xml`, `<dir>`
-    /// the workbook part's directory and `n` the smallest positive integer
-    /// whose name is neither an entry nor a pending addition; an `Override`
-    /// for it with the worksheet content type, unless the content types
-    /// part has a `Default` for `xml` of that type; a worksheet relationship
-    /// on the workbook part, in the form of the workbook's first worksheet
-    /// relationship or transitional when there is none, its target relative
-    /// to the workbook part; and a `<sheet>` at the end of the projected list
-    /// with `sheetId` one more than the largest there. A caller places it with
-    /// [`Package::move_sheet`], and writes into it with [`Package::set_cell`]
-    /// on the returned name (P3 ruling 2).
-    ///
-    /// # Errors
-    ///
-    /// The name rules' messages ("a sheet name is empty", "a sheet name is
-    /// longer than 31 characters", "a sheet name holds a character Excel
-    /// refuses", "a sheet name starts or ends with an apostrophe", "a text
-    /// holds a character XML cannot carry", "a sheet name is the reserved
-    /// name History", "a sheet name is already in use"); "a sheet edit no
-    /// longer applies at the write" for a `sheetId` past `u32::MAX`; and
-    /// whatever reading the workbook, its relationships and the content
-    /// types refuses. Nothing is recorded when this fails.
-    pub fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+    /// The body of [`Package::add_sheet`].
+    fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
         let list = self.projected()?;
         check_sheet_name(name, &list, None)?;
         let sheet_id = list
@@ -1968,20 +2245,8 @@ impl<R: Read + Seek> Package<R> {
         Ok(part)
     }
 
-    /// Records that the sheet named `name` takes the name `to`
-    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving").
-    ///
-    /// `to` is checked as [`Package::add_sheet`] checks a name, against every
-    /// other sheet of the projected list, so a sheet may be renamed to its
-    /// own name or to its own name in another case. Formulas, defined names
-    /// and anything else that names the sheet in text are not touched.
-    ///
-    /// # Errors
-    ///
-    /// "no sheet of that name" when the projected list has no sheet named
-    /// exactly `name`; the name rules' messages for `to`; whatever
-    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
-    pub fn rename_sheet(&mut self, name: &str, to: &str) -> Result<(), Error> {
+    /// The body of [`Package::rename_sheet`].
+    fn rename_sheet(&mut self, name: &str, to: &str) -> Result<(), Error> {
         let list = self.projected()?;
         let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
         check_sheet_name(to, &list, Some(at))?;
@@ -1992,16 +2257,8 @@ impl<R: Read + Seek> Package<R> {
         Ok(())
     }
 
-    /// Records that the sheet named `name` moves to position `to`, 0 first
-    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving"). A
-    /// move to the sheet's own position records nothing.
-    ///
-    /// # Errors
-    ///
-    /// "no sheet of that name"; "a sheet position is past the end" for `to`
-    /// at or past the projected list's length; whatever
-    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
-    pub fn move_sheet(&mut self, name: &str, to: usize) -> Result<(), Error> {
+    /// The body of [`Package::move_sheet`].
+    fn move_sheet(&mut self, name: &str, to: usize) -> Result<(), Error> {
         let list = self.projected()?;
         let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
         if to >= list.len() {
@@ -2016,43 +2273,8 @@ impl<R: Read + Seek> Package<R> {
         Ok(())
     }
 
-    /// Records the removal of the sheet named `name`
-    /// (`specs/0016-new-workbook-and-sheets.md`, "Removing a sheet", and P4
-    /// rulings 1 to 5 and 9).
-    ///
-    /// Recorded in this order: the `<sheet>` gone from the projected list;
-    /// the workbook relationship its `r:id` names removed; the walk's
-    /// removals; and, when the workbook has a `calcChain` relationship, the
-    /// recipe of [`Package::drop_calc_chain`], recorded once however many
-    /// edits ask for it, and a full calculation on load as
-    /// [`Package::recalculate_on_open`] records it.
-    ///
-    /// The walk: R is every entry reachable from the sheet's part through
-    /// internal relationships, transitively, the part included; K is every
-    /// entry reachable the same way from the package's relationships, with
-    /// every relationship recorded for removal and this sheet's left out,
-    /// and no edge followed out of a removed sheet's part. Each entry of R
-    /// not in K and not already recorded for removal is removed, with its
-    /// own rels part when the package holds one, and each one's `Override`
-    /// when the content types part holds one, so no `Override` names a
-    /// removed entry (P4 ruling 9). A target outside the package or naming
-    /// no entry contributes nothing, and an external relationship is never
-    /// followed.
-    ///
-    /// A sheet added and not yet written leaves the list, and its part,
-    /// `Override` and relationship additions and the cell and style edits
-    /// recorded on its part are dropped: nothing is written for it (P4
-    /// ruling 4).
-    ///
-    /// # Errors
-    ///
-    /// "no sheet of that name"; "the last sheet cannot be removed" when the
-    /// projected list has one sheet; "the last visible sheet cannot be
-    /// removed" when every other sheet is hidden (P4 ruling 1); whatever
-    /// reading the workbook, a reached rels part or the content types part
-    /// refuses, and for the chain whatever [`Relationships::target_part`]
-    /// refuses. Nothing is recorded when this fails.
-    pub fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
+    /// The body of [`Package::remove_sheet`].
+    fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
         let list = self.projected()?;
         let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
         if list.len() == 1 {
@@ -2222,67 +2444,8 @@ impl<R: Read + Seek> Package<R> {
         self.edits.style_edits.retain(|(at, _, _)| at != part);
     }
 
-    /// Writes the package back with every recorded edit applied.
-    ///
-    /// Every edit is validated first, so a refused set writes nothing. Then
-    /// each worksheet with cell edits is streamed into a temporary file once,
-    /// with all of its edits, as `specs/0011-editing-cells.md`, "Module
-    /// `package`", describes; a refusal found while a part streams also
-    /// writes nothing. When the write changes formulas (the last value edit
-    /// for some reference is a [`Value::Formula`], or an edit replaced or
-    /// cleared a cell whose formula was a normal one), the calculation chain
-    /// is dropped in the same write through [`Package::drop_calc_chain`],
-    /// unless its relationship is already recorded for removal, a full
-    /// calculation on load is recorded as [`Package::recalculate_on_open`]
-    /// records it, and the set is validated again (`specs/0013-formulas.md`).
-    /// The styles part is rewritten when a cell format was added, and the
-    /// workbook part when the full calculation is recorded, its `calcPr`
-    /// start tag alone changing. Then
-    /// `[Content_Types].xml` and each rels part with edits are read through
-    /// [`Stream`] and rewritten into a temporary file: every token's `raw` is
-    /// copied except a removed element's own bytes, so the whitespace around
-    /// one stays, and additions go immediately before the root's end tag with
-    /// no whitespace added. The temporaries become the entries'
-    /// replacements, [`Archive::write_to`] runs with the assembled
-    /// [`Edits`], and the temporaries are removed however the write ends.
-    ///
-    /// Takes the package by value (P3 ruling 12): a package is written at
-    /// most once, because a recorded [`Replacement`] is a reader that cannot
-    /// be read twice or cloned, and a refused or failed write spends it too.
-    /// A caller that wants to write again opens the input again, which the
-    /// type enforces rather than a refusal at run time.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Package`] for an edit that cannot apply: "no such
-    /// relationship", "no such override", "an override for that part already
-    /// exists", "an edit to a removed part", "no such part", "no Default
-    /// covers rels", and for a cell edit "a number that is not finite cannot
-    /// be written", "a text holds a character XML cannot carry", "a cell
-    /// edit to a part this write replaces", "the worksheet part's root is not
-    /// worksheet", "a worksheet without explicit references cannot be
-    /// edited", "a worksheet whose rows or cells are out of order cannot be
-    /// edited", "a cell in a shared, array or data table formula cannot be
-    /// edited", "a cell carries an attribute this layer does not model",
-    /// "a worksheet without sheetData cannot be edited", and three the
-    /// `cells` module raises too: "a cell reference is not of the form A1",
-    /// "a row number is not a number" and, for an edited cell, "a formula
-    /// has a type this layer does not know". For a style edit or addition
-    /// (`specs/0012-styles.md`): "a style index is out of range", "the
-    /// workbook has no styles part" and whatever else reading the styles
-    /// part refuses, "a style addition to a part this write replaces", "a
-    /// styles part without cellXfs cannot take a style" and, for a `count`
-    /// it rewrites, "a style attribute is not a number". For a formula
-    /// (`specs/0013-formulas.md`): "a formula text is empty", "a formula
-    /// text starts with an equals sign", "a formula text holds a character
-    /// XML cannot carry", and for the workbook rewrite "a workbook has two
-    /// calcPr elements" and "the workbook part cannot be edited in a package
-    /// that replaces or removes it".
-    /// [`Error::Xml`] for a part name or value that is not UTF-8, carrying
-    /// the index of the part the value would have been written into.
-    /// Whatever [`Stream`] refuses for a part it rewrites, and whatever
-    /// [`Archive::write_to`] refuses for the assembled edits.
-    pub fn write_to(mut self, out: impl Write) -> Result<(), Error> {
+    /// The body of [`Package::write_to`], over the writer as a trait object.
+    fn write_to(mut self, out: &mut dyn Write) -> Result<(), Error> {
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -2300,7 +2463,7 @@ impl<R: Read + Seek> Package<R> {
             match self.archive.index_of(&part) {
                 Some(index) => {
                     let (temp, replacement, removed) =
-                        rewrite_worksheet(&mut self.archive, index, &sorted)?;
+                        rewrite_worksheet(self.archive, index, &sorted)?;
                     changed_formula |= removed;
                     temporaries.push(temp);
                     edits.replace(index, replacement);
@@ -2345,7 +2508,7 @@ impl<R: Read + Seek> Package<R> {
             let mut codes = self.edits.num_fmt_additions.clone();
             codes.sort_by_key(|(id, _)| *id);
             let (temp, replacement) = rewrite_styles(
-                &mut self.archive,
+                self.archive,
                 index,
                 &counts,
                 &codes,
@@ -2370,9 +2533,8 @@ impl<R: Read + Seek> Package<R> {
         if self.edits.recalculate || plan.is_some() {
             let part = self.workbook()?.part.clone();
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
-            let calc = self.edits.recalculate.then_some(self.calc_prs > 0);
-            let (temp, replacement) =
-                rewrite_workbook(&mut self.archive, index, calc, plan.as_ref())?;
+            let calc = self.edits.recalculate.then_some(*self.calc_prs > 0);
+            let (temp, replacement) = rewrite_workbook(self.archive, index, calc, plan.as_ref())?;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
@@ -2385,7 +2547,7 @@ impl<R: Read + Seek> Package<R> {
             let additions = self.override_elements(index)?;
             let removals = self.edits.override_removals.clone();
             let (temp, replacement) = rewrite_part(
-                &mut self.archive,
+                self.archive,
                 index,
                 &|local, start| {
                     Ok(local == b"Override" && attribute_in(start, b"PartName", &removals, index)?)
@@ -2423,7 +2585,7 @@ impl<R: Read + Seek> Package<R> {
             match existing {
                 Some(index) => {
                     let (temp, replacement) = rewrite_part(
-                        &mut self.archive,
+                        self.archive,
                         index,
                         &|local, start| {
                             Ok(local == b"Relationship"
@@ -2437,7 +2599,7 @@ impl<R: Read + Seek> Package<R> {
                 }
                 None => {
                     // The Default was checked above, before the elements.
-                    let (temp, replacement) = new_rels_part(&mut self.archive, &additions)?;
+                    let (temp, replacement) = new_rels_part(self.archive, &additions)?;
                     temporaries.push(temp);
                     edits.add(name, replacement);
                 }
@@ -2672,7 +2834,7 @@ impl<R: Read + Seek> Package<R> {
             {
                 return Err(WORKBOOK_REPLACED);
             }
-            if calc && self.calc_prs > 1 {
+            if calc && *self.calc_prs > 1 {
                 return Err(TWO_CALC_PRS);
             }
         }
@@ -2755,6 +2917,42 @@ impl<R: Read + Seek> Package<R> {
                 Ok(out)
             })
             .collect()
+    }
+
+    /// [`Parts::content_types`], consuming the view so that the result borrows
+    /// the package itself.
+    fn into_content_types(mut self) -> Result<&'a ContentTypes, Error> {
+        self.content_types()?;
+        let slot = self.content_types;
+        // Filled by the call above.
+        Ok(slot.as_ref().unwrap())
+    }
+
+    /// [`Parts::relationships`], consuming the view so that the result borrows
+    /// the package itself.
+    fn into_relationships(mut self, source: &[u8]) -> Result<&'a Relationships, Error> {
+        self.relationships(source)?;
+        let all = self.relationships;
+        // The call above found or added the set for `source`.
+        Ok(all.iter().find(|rels| rels.source == source).unwrap())
+    }
+
+    /// [`Parts::workbook`], consuming the view so that the result borrows
+    /// the package itself.
+    fn into_workbook(mut self) -> Result<&'a Workbook, Error> {
+        self.workbook()?;
+        let slot = self.workbook;
+        // Filled by the call above.
+        Ok(slot.as_ref().unwrap())
+    }
+
+    /// [`Parts::styles`], consuming the view so that the result borrows
+    /// the package itself.
+    fn into_styles(mut self) -> Result<&'a Styles, Error> {
+        self.styles()?;
+        let slot = self.styles;
+        // Filled by the call above.
+        Ok(slot.as_ref().unwrap())
     }
 }
 
@@ -3024,8 +3222,8 @@ type Removes<'a> = &'a dyn Fn(&[u8], &BytesStart<'_>) -> Result<bool, Error>;
 /// with the `/` of its `/>` dropped, then the additions, then `</` and the
 /// root's name as the input writes it (P3 ruling 8): the prolog and the
 /// root's attributes are kept byte for byte, and only those two bytes change.
-fn rewrite_part<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn rewrite_part(
+    archive: &mut Core,
     index: usize,
     remove: Removes<'_>,
     namespace: &[u8],
@@ -3145,8 +3343,8 @@ struct Counts {
 /// `fills`, `borders`, `cellStyleXfs` and `cellXfs` among the root's
 /// children. A part with no `<cellXfs>` is refused once the stream ends,
 /// leaving no output.
-fn rewrite_styles<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn rewrite_styles(
+    archive: &mut Core,
     index: usize,
     counts: &Counts,
     codes: &[(u32, String)],
@@ -3378,8 +3576,8 @@ impl SheetPlan {
 /// - `<bookViews>`, when a sheet moved or was removed: a `<workbookView>`'s
 ///   `activeTab` is remapped, an absent one appended when it maps away from
 ///   0, and a present `firstSheet` follows P3 ruling 8.
-fn rewrite_workbook<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn rewrite_workbook(
+    archive: &mut Core,
     index: usize,
     calc: Option<bool>,
     plan: Option<&SheetPlan>,
@@ -4185,8 +4383,8 @@ fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Fo
 ///
 /// `edits` is sorted by row then column, as [`Recorded::cell_edits_of`]
 /// gives it.
-fn rewrite_worksheet<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn rewrite_worksheet(
+    archive: &mut Core,
     index: usize,
     edits: &[(CellRef, CellEdit)],
 ) -> Result<(TempFile, Replacement, bool), Error> {
@@ -4460,7 +4658,7 @@ fn fallback_rels_prefix() -> Vec<u8> {
 /// come out exactly as that package writes them. No corpus package mixes two
 /// forms across its own rels parts, which is what makes one of them the
 /// package's form (P3 ruling 10).
-fn rels_prefix<R: Read + Seek>(archive: &mut Archive<R>) -> Result<Vec<u8>, Error> {
+fn rels_prefix(archive: &mut Core) -> Result<Vec<u8>, Error> {
     let Some(index) = archive.index_of(&rels_part_name(b"")) else {
         return Ok(fallback_rels_prefix());
     };
@@ -4484,8 +4682,8 @@ fn rels_prefix<R: Read + Seek>(archive: &mut Archive<R>) -> Result<Vec<u8>, Erro
 /// The prefix from [`rels_prefix`], the root on one line, the new elements
 /// with no whitespace between them, the end tag and nothing after
 /// (P3 ruling 10).
-fn new_rels_part<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn new_rels_part(
+    archive: &mut Core,
     additions: &[Vec<u8>],
 ) -> Result<(TempFile, Replacement), Error> {
     let prefix = rels_prefix(archive)?;
@@ -4503,10 +4701,7 @@ fn new_rels_part<R: Read + Seek>(
 }
 
 /// Reads `[Content_Types].xml`.
-fn parse_content_types<R: Read + Seek>(
-    archive: &mut Archive<R>,
-    index: usize,
-) -> Result<ContentTypes, Error> {
+fn parse_content_types(archive: &mut Core, index: usize) -> Result<ContentTypes, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
     let mut root = false;
@@ -4569,8 +4764,8 @@ fn parse_content_types<R: Read + Seek>(
 }
 
 /// Reads one `.rels` part, whose relationships belong to `source`.
-fn parse_relationships<R: Read + Seek>(
-    archive: &mut Archive<R>,
+fn parse_relationships(
+    archive: &mut Core,
     index: usize,
     source: Vec<u8>,
 ) -> Result<Relationships, Error> {
@@ -4644,10 +4839,7 @@ struct RawWorkbook {
 /// Reads the workbook part's `<sheets>`, its first `<workbookPr>`'s
 /// `date1904` and its first `<calcPr>`'s `fullCalcOnLoad`, and counts its
 /// `<calcPr>` elements, skipping everything else.
-fn parse_workbook_sheets<R: Read + Seek>(
-    archive: &mut Archive<R>,
-    index: usize,
-) -> Result<RawWorkbook, Error> {
+fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
     let mut root = false;

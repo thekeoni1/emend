@@ -3044,7 +3044,10 @@ fn a_chain_the_caller_already_dropped_is_dropped_once() {
         (1, 1, 1),
         "after the caller's drop"
     );
-    package.drop_calc_chain_once().expect("the chain rule");
+    package
+        .parts()
+        .drop_calc_chain_once()
+        .expect("the chain rule");
     assert_eq!(
         removals_recorded(&package),
         (1, 1, 1),
@@ -3064,7 +3067,10 @@ fn a_chain_the_caller_did_not_drop_is_dropped_once_by_the_rule() {
         (0, 0, 0),
         "before the chain rule"
     );
-    package.drop_calc_chain_once().expect("the chain rule");
+    package
+        .parts()
+        .drop_calc_chain_once()
+        .expect("the chain rule");
     assert_eq!(
         removals_recorded(&package),
         (1, 1, 1),
@@ -4246,7 +4252,7 @@ fn the_callers_drop_then_a_written_formula_records_the_recipe_once() {
     let (_, mut package) = opened(parts.clone());
     assert!(package.drop_calc_chain().expect("the recipe"));
     package.set_cell(SHEET, at("C1"), Value::Formula("1+1".to_string()));
-    package.formula_change_rule().expect("the rule");
+    package.parts().formula_change_rule().expect("the rule");
     assert_eq!(removals_recorded(&package), (1, 1, 1), "after the rule");
     let output = written(package);
     assert_chain_gone(&output);
@@ -4481,7 +4487,7 @@ fn the_calc_pr_rewrite_refuses_a_second_calc_pr_itself() {
     let (_, mut package) = opened(parts);
     let index = package.part(WORKBOOK).expect("the workbook part");
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    match rewrite_workbook(&mut package.archive, index, Some(true), None) {
+    match rewrite_workbook(&mut package.archive.core, index, Some(true), None) {
         Ok(_) => panic!("the rewrite took two calcPr elements"),
         Err(error) => assert_package(error, "a workbook has two calcPr elements"),
     }
