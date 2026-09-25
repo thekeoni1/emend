@@ -5284,6 +5284,10 @@ fn a_sheet_that_is_not_there_is_refused() {
             .expect_err("names are matched exactly"),
         "no sheet of that name",
     );
+    assert_package(
+        package.remove_sheet("S9").expect_err("remove"),
+        "no sheet of that name",
+    );
 }
 
 #[test]
@@ -5657,4 +5661,844 @@ fn a_new_workbook_takes_a_sheet_moved_first() {
         .read_to_end(&mut bytes)
         .expect("read");
     assert_eq!(String::from_utf8(bytes).expect("UTF-8"), want);
+}
+
+// Removing a sheet (`specs/0016-new-workbook-and-sheets.md`, "Removing a
+// sheet", P4 and P4 rulings 1 to 5).
+
+const DRAWING_TYPE: &str = "application/vnd.openxmlformats-officedocument.drawing+xml";
+const CHART_TYPE: &str = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml";
+const COMMENTS_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml";
+const CHARTSHEET_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml";
+const CALC_CHAIN_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml";
+
+/// Adds a part at the end of `parts`, with an `Override` of `content_type`
+/// when one is given.
+fn with_part(parts: &mut Parts, name: &str, bytes: &str, content_type: Option<&str>) {
+    parts.push((name.as_bytes().to_vec(), bytes.as_bytes().to_vec()));
+    if let Some(content_type) = content_type {
+        let types = part_text(parts, b"[Content_Types].xml").replace(
+            "</Types>",
+            &format!("<Override PartName=\"/{name}\" ContentType=\"{content_type}\"/></Types>"),
+        );
+        set(parts, b"[Content_Types].xml", types);
+    }
+}
+
+/// Adds a `Default` for `extension` to the content types part.
+fn with_default(parts: &mut Parts, extension: &str, content_type: &str) {
+    let types = part_text(parts, b"[Content_Types].xml").replace(
+        "</Types>",
+        &format!("<Default Extension=\"{extension}\" ContentType=\"{content_type}\"/></Types>"),
+    );
+    set(parts, b"[Content_Types].xml", types);
+}
+
+/// The content types part without the `Override` for `name`.
+fn types_without(parts: &Parts, names: &[&str]) -> String {
+    let mut types = part_text(parts, b"[Content_Types].xml");
+    for name in names {
+        let element = types
+            .split("<Override ")
+            .find(|element| element.starts_with(&format!("PartName=\"/{name}\"")))
+            .map(|element| {
+                format!(
+                    "<Override {}",
+                    &element[..=element.find("/>").expect("closed") + 1]
+                )
+            })
+            .expect("the override is there");
+        types = types.replace(&element, "");
+    }
+    types
+}
+
+/// The entry names of `parts` without those named.
+fn names_without<'p>(parts: &'p Parts, gone: &[&str]) -> Vec<&'p [u8]> {
+    part_names(parts)
+        .into_iter()
+        .filter(|name| !gone.iter().any(|gone| gone.as_bytes() == *name))
+        .collect()
+}
+
+/// The workbook relationships part without the relationship `id`.
+fn workbook_rels_without(parts: &Parts, id: &str) -> String {
+    let rels = part_text(parts, b"xl/_rels/workbook.xml.rels");
+    let start = rels
+        .find(&format!("<Relationship Id=\"{id}\""))
+        .expect("the relationship is there");
+    let end = start + rels[start..].find("/>").expect("closed") + 2;
+    format!("{}{}", &rels[..start], &rels[end..])
+}
+
+/// The `<sheet>` element `sheeted` writes for sheet `i`.
+fn sheet_element(i: usize) -> String {
+    format!("<sheet name=\"S{i}\" sheetId=\"{i}\" r:id=\"rId{i}\"/>")
+}
+
+/// A worksheet whose rels part holds `body`, for sheet `i` of `sheeted`.
+fn with_sheet_rels(parts: &mut Parts, i: usize, body: &str) {
+    with_part(
+        parts,
+        &format!("xl/worksheets/_rels/sheet{i}.xml.rels"),
+        &rels(body),
+        None,
+    );
+}
+
+#[test]
+fn removing_the_last_of_two_drops_its_sheet_relationship_override_entry_and_rels_part() {
+    let mut parts = sheeted(2, "", "");
+    with_sheet_rels(
+        &mut parts,
+        2,
+        "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"https://example.com/\" TargetMode=\"External\"/>",
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    assert_eq!(sheet_names(&mut package), ["S1"]);
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(&sheet_element(2), ""),
+    );
+    assert_part(
+        &out,
+        b"xl/_rels/workbook.xml.rels",
+        &workbook_rels_without(&parts, "rId2"),
+    );
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(&parts, &["xl/worksheets/sheet2.xml"]),
+    );
+    assert_untouched(
+        &out,
+        &parts,
+        &[
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"[Content_Types].xml",
+            b"xl/worksheets/sheet2.xml",
+            b"xl/worksheets/_rels/sheet2.xml.rels",
+        ],
+    );
+}
+
+/// `sheeted(n)` with a drawing on sheet 2 whose rels part names a chart and
+/// an image; the drawing and chart have overrides, the image a `Default`.
+fn with_drawing(n: usize) -> Parts {
+    let mut parts = sheeted(n, "", "");
+    with_default(&mut parts, "png", "image/png");
+    with_sheet_rels(
+        &mut parts,
+        2,
+        &relationship(
+            "rId1",
+            &format!("{ATTR_NS}/drawing"),
+            "../drawings/drawing1.xml",
+        ),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/drawing1.xml",
+        "<wsDr/>",
+        Some(DRAWING_TYPE),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/_rels/drawing1.xml.rels",
+        &rels(&format!(
+            "{}{}",
+            relationship("rId1", &format!("{ATTR_NS}/chart"), "../charts/chart1.xml"),
+            relationship("rId2", &format!("{ATTR_NS}/image"), "../media/image1.png"),
+        )),
+        None,
+    );
+    with_part(
+        &mut parts,
+        "xl/charts/chart1.xml",
+        "<chartSpace/>",
+        Some(CHART_TYPE),
+    );
+    with_part(&mut parts, "xl/media/image1.png", "png", None);
+    parts
+}
+
+#[test]
+fn a_drawing_and_its_chart_reached_only_from_the_removed_sheet_go_with_it() {
+    let (parts, mut package) = opened(with_drawing(2));
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    let gone = [
+        "xl/worksheets/sheet2.xml",
+        "xl/worksheets/_rels/sheet2.xml.rels",
+        "xl/drawings/drawing1.xml",
+        "xl/drawings/_rels/drawing1.xml.rels",
+        "xl/charts/chart1.xml",
+        "xl/media/image1.png",
+    ];
+    assert_names(&out, &names_without(&parts, &gone));
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/drawings/drawing1.xml",
+                "xl/charts/chart1.xml",
+            ],
+        ),
+    );
+}
+
+#[test]
+fn a_drawing_also_reached_from_a_kept_sheet_is_kept_whole() {
+    let mut parts = with_drawing(2);
+    with_sheet_rels(
+        &mut parts,
+        1,
+        &relationship(
+            "rId1",
+            &format!("{ATTR_NS}/drawing"),
+            "../drawings/drawing1.xml",
+        ),
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(&parts, &["xl/worksheets/sheet2.xml"]),
+    );
+}
+
+#[test]
+fn two_sheets_sharing_a_drawing_both_removed_take_it_with_the_second() {
+    // P4 ruling 3: the first removal keeps the drawing, which the other
+    // sheet still reaches; the second takes it, and nothing is recorded
+    // twice.
+    let mut parts = with_drawing(3);
+    with_sheet_rels(
+        &mut parts,
+        3,
+        &relationship(
+            "rId1",
+            &format!("{ATTR_NS}/drawing"),
+            "../drawings/drawing1.xml",
+        ),
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("first");
+    package.remove_sheet("S3").expect("second");
+    assert_eq!(sheet_names(&mut package), ["S1"]);
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/sheet3.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+                "xl/worksheets/_rels/sheet3.xml.rels",
+                "xl/drawings/drawing1.xml",
+                "xl/drawings/_rels/drawing1.xml.rels",
+                "xl/charts/chart1.xml",
+                "xl/media/image1.png",
+            ],
+        ),
+    );
+}
+
+#[test]
+fn a_comments_part_and_its_vml_reached_only_from_the_sheet_go() {
+    let mut parts = sheeted(2, "", "");
+    with_default(
+        &mut parts,
+        "vml",
+        "application/vnd.openxmlformats-officedocument.vmlDrawing",
+    );
+    with_sheet_rels(
+        &mut parts,
+        2,
+        &format!(
+            "{}{}",
+            relationship("rId1", &format!("{ATTR_NS}/comments"), "../comments1.xml"),
+            relationship(
+                "rId2",
+                &format!("{ATTR_NS}/vmlDrawing"),
+                "../drawings/vmlDrawing1.vml"
+            ),
+        ),
+    );
+    with_part(
+        &mut parts,
+        "xl/comments1.xml",
+        "<comments/>",
+        Some(COMMENTS_TYPE),
+    );
+    with_part(&mut parts, "xl/drawings/vmlDrawing1.vml", "<xml/>", None);
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+                "xl/comments1.xml",
+                "xl/drawings/vmlDrawing1.vml",
+            ],
+        ),
+    );
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(&parts, &["xl/worksheets/sheet2.xml", "xl/comments1.xml"]),
+    );
+}
+
+#[test]
+fn a_relationship_to_no_entry_or_outside_the_package_contributes_nothing() {
+    let mut parts = sheeted(2, "", "");
+    with_sheet_rels(
+        &mut parts,
+        2,
+        &format!(
+            "{}{}",
+            relationship(
+                "rId1",
+                &format!("{ATTR_NS}/drawing"),
+                "../drawings/missing.xml"
+            ),
+            relationship(
+                "rId2",
+                &format!("{ATTR_NS}/drawing"),
+                "../../../../outside.xml"
+            ),
+        ),
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+}
+
+#[test]
+fn an_external_relationship_is_never_followed() {
+    // The external target spells an entry no kept part reaches; followed, it
+    // would go.
+    let mut parts = sheeted(2, "", "");
+    with_sheet_rels(
+        &mut parts,
+        2,
+        &format!(
+            "<Relationship Id=\"rId1\" Type=\"{ATTR_NS}/hyperlink\" Target=\"../orphan.xml\" TargetMode=\"External\"/>"
+        ),
+    );
+    with_part(&mut parts, "xl/orphan.xml", "<orphan/>", None);
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+    assert_untouched(
+        &out,
+        &parts,
+        &[
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"[Content_Types].xml",
+            b"xl/worksheets/sheet2.xml",
+            b"xl/worksheets/_rels/sheet2.xml.rels",
+        ],
+    );
+}
+
+/// `sheeted(n)` with a `calcPr` and a calculation chain, sheet 2 holding a
+/// formula.
+fn with_chain(n: usize) -> Parts {
+    let mut parts = sheeted(n, "", "<calcPr calcId=\"191029\"/>");
+    let rels = part_text(&parts, b"xl/_rels/workbook.xml.rels").replace(
+        "</Relationships>",
+        &format!(
+            "{}</Relationships>",
+            relationship("rId9", &format!("{ATTR_NS}/calcChain"), "calcChain.xml")
+        ),
+    );
+    set(&mut parts, b"xl/_rels/workbook.xml.rels", rels);
+    set(
+        &mut parts,
+        b"xl/worksheets/sheet2.xml",
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData><row r=\"1\"><c r=\"A1\"><f>1+1</f><v>2</v></c></row></sheetData></worksheet>"
+        ),
+    );
+    with_part(
+        &mut parts,
+        "xl/calcChain.xml",
+        &format!("{DECLARATION}\n<calcChain xmlns=\"{MAIN_NS}\"><c r=\"A1\" i=\"2\"/></calcChain>"),
+        Some(CALC_CHAIN_TYPE),
+    );
+    parts
+}
+
+#[test]
+fn removing_a_sheet_drops_the_chain_and_sets_full_calc_on_load() {
+    let (parts, mut package) = opened(with_chain(2));
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(&parts, &["xl/worksheets/sheet2.xml", "xl/calcChain.xml"]),
+    );
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml")
+            .replace(&sheet_element(2), "")
+            .replace(
+                "<calcPr calcId=\"191029\"/>",
+                "<calcPr calcId=\"191029\" fullCalcOnLoad=\"1\"/>",
+            ),
+    );
+    let rels = workbook_rels_without(&parts, "rId2");
+    let start = rels.find("<Relationship Id=\"rId9\"").expect("the chain");
+    let end = start + rels[start..].find("/>").expect("closed") + 2;
+    assert_part(
+        &out,
+        b"xl/_rels/workbook.xml.rels",
+        &format!("{}{}", &rels[..start], &rels[end..]),
+    );
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(&parts, &["xl/worksheets/sheet2.xml", "xl/calcChain.xml"]),
+    );
+}
+
+#[test]
+fn two_removals_drop_the_chain_once() {
+    let (parts, mut package) = opened(with_chain(3));
+    package.remove_sheet("S2").expect("first");
+    package.remove_sheet("S3").expect("second");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/sheet3.xml",
+                "xl/calcChain.xml",
+            ],
+        ),
+    );
+}
+
+#[test]
+fn a_workbook_with_no_chain_keeps_its_calc_pr() {
+    let (parts, mut package) = opened(sheeted(2, "", "<calcPr calcId=\"191029\"/>"));
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(&sheet_element(2), ""),
+    );
+}
+
+#[test]
+fn removing_the_first_sheet_remaps_local_sheet_ids_active_tabs_and_first_sheet() {
+    let views = "<bookViews><workbookView activeTab=\"0\" firstSheet=\"1\"/>\
+                 <workbookView activeTab=\"1\"/><workbookView/></bookViews>";
+    let names = "<definedNames><definedName name=\"a\" localSheetId=\"0\">S1!A1</definedName>\
+                 <definedName name=\"b\" localSheetId=\"1\">S2!A1</definedName>\
+                 <definedName name=\"c\">S1!A1</definedName></definedNames>";
+    let (parts, mut package) = opened(sheeted(2, views, names));
+    package.remove_sheet("S1").expect("remove_sheet");
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml")
+        .replace(&sheet_element(1), "")
+        // activeTab 0 named S1, gone: the first visible sheet, 0. activeTab
+        // 1 named S2, now 0. firstSheet 1 loses the one removed sheet before
+        // it. The absent activeTab read 0 and maps to 0, so stays absent.
+        .replace("firstSheet=\"1\"", "firstSheet=\"0\"")
+        .replace(
+            "<workbookView activeTab=\"1\"/>",
+            "<workbookView activeTab=\"0\"/>",
+        )
+        // localSheetId 0 goes with its element; 1 becomes 0.
+        .replace(
+            "<definedName name=\"a\" localSheetId=\"0\">S1!A1</definedName>",
+            "",
+        )
+        .replace(
+            "name=\"b\" localSheetId=\"1\"",
+            "name=\"b\" localSheetId=\"0\"",
+        );
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn an_active_tab_on_the_removed_sheet_goes_to_the_first_visible_sheet() {
+    let views = "<bookViews><workbookView activeTab=\"0\"/></bookViews>";
+    let mut parts = sheeted(3, views, "");
+    let workbook = part_text(&parts, b"xl/workbook.xml").replace(
+        "<sheet name=\"S2\" sheetId=\"2\"",
+        "<sheet name=\"S2\" state=\"hidden\" sheetId=\"2\"",
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S1").expect("remove_sheet");
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml")
+        .replace(&sheet_element(1), "")
+        .replace("activeTab=\"0\"", "activeTab=\"1\"");
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn a_sheet_whose_state_says_visible_counts_as_visible() {
+    // P4 ruling 1: the first sheet removed when the second says visible is
+    // allowed, and the active tab goes to it, at 0.
+    let views = "<bookViews><workbookView activeTab=\"0\"/></bookViews>";
+    let mut parts = sheeted(2, views, "");
+    let workbook = part_text(&parts, b"xl/workbook.xml").replace(
+        "<sheet name=\"S2\" sheetId=\"2\"",
+        "<sheet name=\"S2\" state=\"visible\" sheetId=\"2\"",
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S1").expect("allowed");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(&sheet_element(1), ""),
+    );
+}
+
+#[test]
+fn the_last_sheet_cannot_be_removed() {
+    let (parts, mut package) = opened(smallest());
+    assert_package(
+        package.remove_sheet("Sheet1").expect_err("refused"),
+        "the last sheet cannot be removed",
+    );
+    // A pending sheet counts: with it, Sheet1 may go, and then it may not.
+    package.add_sheet("Two").expect("add");
+    package.remove_sheet("Sheet1").expect("allowed");
+    assert_package(
+        package.remove_sheet("Two").expect_err("refused"),
+        "the last sheet cannot be removed",
+    );
+    assert_eq!(sheet_names(&mut package), ["Two"]);
+    drop(parts);
+}
+
+#[test]
+fn the_last_visible_sheet_cannot_be_removed() {
+    let mut parts = sheeted(3, "", "");
+    let workbook = part_text(&parts, b"xl/workbook.xml")
+        .replace(
+            "<sheet name=\"S2\" sheetId=\"2\"",
+            "<sheet name=\"S2\" state=\"hidden\" sheetId=\"2\"",
+        )
+        .replace(
+            "<sheet name=\"S3\" sheetId=\"3\"",
+            "<sheet name=\"S3\" state=\"other\" sheetId=\"3\"",
+        );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (parts, mut package) = opened(parts);
+    assert_package(
+        package.remove_sheet("S1").expect_err("refused"),
+        "the last visible sheet cannot be removed",
+    );
+    // Nothing was recorded, and a hidden sheet may go.
+    package.remove_sheet("S2").expect("a hidden sheet");
+    let out = written(package);
+    assert_names(&out, &names_without(&parts, &["xl/worksheets/sheet2.xml"]));
+}
+
+#[test]
+fn a_chartsheet_is_removed_with_what_only_it_reaches() {
+    let mut parts = sheeted(1, "", "");
+    let workbook = part_text(&parts, b"xl/workbook.xml").replace(
+        "</sheets>",
+        "<sheet name=\"C1\" sheetId=\"2\" r:id=\"rId7\"/></sheets>",
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let workbook_rels = part_text(&parts, b"xl/_rels/workbook.xml.rels").replace(
+        "</Relationships>",
+        &format!(
+            "{}</Relationships>",
+            relationship(
+                "rId7",
+                &format!("{ATTR_NS}/chartsheet"),
+                "chartsheets/sheet1.xml"
+            )
+        ),
+    );
+    set(&mut parts, b"xl/_rels/workbook.xml.rels", workbook_rels);
+    with_part(
+        &mut parts,
+        "xl/chartsheets/sheet1.xml",
+        "<chartsheet/>",
+        Some(CHARTSHEET_TYPE),
+    );
+    with_part(
+        &mut parts,
+        "xl/chartsheets/_rels/sheet1.xml.rels",
+        &rels_text_drawing(),
+        None,
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/drawing1.xml",
+        "<wsDr/>",
+        Some(DRAWING_TYPE),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/_rels/drawing1.xml.rels",
+        &rels(&relationship(
+            "rId1",
+            &format!("{ATTR_NS}/chart"),
+            "../charts/chart1.xml",
+        )),
+        None,
+    );
+    with_part(
+        &mut parts,
+        "xl/charts/chart1.xml",
+        "<chartSpace/>",
+        Some(CHART_TYPE),
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("C1").expect("remove_sheet");
+    let out = written(package);
+    let gone = [
+        "xl/chartsheets/sheet1.xml",
+        "xl/chartsheets/_rels/sheet1.xml.rels",
+        "xl/drawings/drawing1.xml",
+        "xl/drawings/_rels/drawing1.xml.rels",
+        "xl/charts/chart1.xml",
+    ];
+    assert_names(&out, &names_without(&parts, &gone));
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(
+            &parts,
+            &[
+                "xl/chartsheets/sheet1.xml",
+                "xl/drawings/drawing1.xml",
+                "xl/charts/chart1.xml",
+            ],
+        ),
+    );
+    assert_part(
+        &out,
+        b"xl/_rels/workbook.xml.rels",
+        &workbook_rels_without(&parts, "rId7"),
+    );
+}
+
+/// A rels part naming one drawing, for a chartsheet.
+fn rels_text_drawing() -> String {
+    rels(&relationship(
+        "rId1",
+        &format!("{ATTR_NS}/drawing"),
+        "../drawings/drawing1.xml",
+    ))
+}
+
+#[test]
+fn remove_then_add_of_the_same_name_takes_new_ids() {
+    // P4 ruling 2: the removed entry still counts as taken; the sheetId is the
+    // projected maximum plus one, here the removed sheet's; the relationship
+    // id is never reused.
+    let (parts, mut package) = opened(sheeted(2, "", ""));
+    package.remove_sheet("S2").expect("remove");
+    let part = package.add_sheet("S2").expect("add");
+    assert_eq!(part, b"xl/worksheets/sheet3.xml");
+    let added = package.sheets().expect("sheets")[1].clone();
+    assert_eq!(
+        (added.sheet_id, added.rel_id.as_slice()),
+        (2, b"rId4".as_slice())
+    );
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            &sheet_element(2),
+            "<sheet name=\"S2\" sheetId=\"2\" r:id=\"rId4\"/>",
+        ),
+    );
+    let mut back = Package::open(Cursor::new(out)).expect("opens");
+    let sheets = back.workbook().expect("workbook").sheets.clone();
+    assert_eq!(sheets[1].part, b"xl/worksheets/sheet3.xml");
+}
+
+#[test]
+fn every_byte_outside_the_regions_is_kept_with_ext_lst_and_pivot_caches() {
+    let before = "\n  <fileVersion appName=\"xl\"/>\n  <bookViews><workbookView activeTab=\"1\"/></bookViews>\n  ";
+    let after = "\n  <calcPr calcId=\"1\"/>\n  <pivotCaches><pivotCache cacheId=\"1\" r:id=\"rId8\"/></pivotCaches>\n  \
+                 <extLst><ext uri=\"{X}\"><x:y xmlns:x=\"urn:x\" a=\"1\"/></ext></extLst>\n";
+    let mut parts = sheeted(2, before, after);
+    let rels = part_text(&parts, b"xl/_rels/workbook.xml.rels").replace(
+        "</Relationships>",
+        &format!(
+            "{}</Relationships>",
+            relationship(
+                "rId8",
+                &format!("{ATTR_NS}/pivotCacheDefinition"),
+                "pivotCache/pivotCacheDefinition1.xml"
+            )
+        ),
+    );
+    set(&mut parts, b"xl/_rels/workbook.xml.rels", rels);
+    with_part(
+        &mut parts,
+        "xl/pivotCache/pivotCacheDefinition1.xml",
+        "<pivotCacheDefinition/>",
+        None,
+    );
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S1").expect("remove_sheet");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml")
+            .replace(&sheet_element(1), "")
+            .replace("activeTab=\"1\"", "activeTab=\"0\""),
+    );
+    assert!(
+        part_names(&parts)
+            .iter()
+            .any(|name| *name == b"xl/pivotCache/pivotCacheDefinition1.xml")
+    );
+    assert_names(&out, &names_without(&parts, &["xl/worksheets/sheet1.xml"]));
+}
+
+#[test]
+fn adding_then_removing_a_pending_sheet_writes_the_input_back() {
+    // Check 1's F4 and P4 ruling 4: the add's recorded additions and the cell
+    // edit on its part are dropped, the workbook part is not rewritten, and
+    // the output is the input.
+    let parts = smallest();
+    let bytes = Build::new(
+        parts
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let mut package = open_fixture(bytes.clone());
+    let part = package.add_sheet("Two").expect("add");
+    package.set_cell(&part, CellRef { row: 1, col: 1 }, Value::Number(7.0));
+    package.move_sheet("Two", 0).expect("move");
+    package.remove_sheet("Two").expect("remove");
+    assert_eq!(sheet_names(&mut package), ["Sheet1"]);
+    let out = written(package);
+    assert_eq!(out, bytes, "the output is the input");
+}
+
+#[test]
+fn a_pending_sheet_removed_frees_its_name_and_later_adds_follow_on() {
+    let (parts, mut package) = opened(smallest());
+    let first = package.add_sheet("Two").expect("add");
+    package.remove_sheet("Two").expect("remove");
+    let again = package.add_sheet("Three").expect("add again");
+    assert_eq!(first, again, "the pending name is free again");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            "</sheets>",
+            "<sheet name=\"Three\" sheetId=\"2\" r:id=\"rId3\"/></sheets>",
+        ),
+    );
+}
+
+#[test]
+fn a_cell_edit_on_a_sheet_then_removed_refuses_the_write() {
+    let (_, mut package) = opened(sheeted(2, "", ""));
+    package.set_cell(
+        b"xl/worksheets/sheet2.xml",
+        CellRef { row: 1, col: 1 },
+        Value::Number(1.0),
+    );
+    package.remove_sheet("S2").expect("recorded");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    assert_package(
+        package.write_to(Vec::new()).expect_err("refused"),
+        "an edit to a removed part",
+    );
+}
+
+#[test]
+fn a_rels_part_that_cannot_be_read_refuses_the_removal_and_records_nothing() {
+    let mut parts = sheeted(2, "", "");
+    with_sheet_rels(&mut parts, 2, "");
+    set(
+        &mut parts,
+        b"xl/worksheets/_rels/sheet2.xml.rels",
+        "<notRelationships/>".to_string(),
+    );
+    let (parts, mut package) = opened(parts);
+    assert!(package.remove_sheet("S2").is_err());
+    assert_eq!(sheet_names(&mut package), ["S1", "S2"]);
+    let out = written(package);
+    assert_untouched(&out, &parts, &[]);
 }

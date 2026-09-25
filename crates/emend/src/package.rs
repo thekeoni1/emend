@@ -153,7 +153,8 @@
 //!
 //! The sheet list adds these (`specs/0016-new-workbook-and-sheets.md`,
 //! "Errors"), raised by [`Package::add_sheet`], [`Package::rename_sheet`],
-//! [`Package::move_sheet`] and [`Package::write_to`]; a name holding a
+//! [`Package::move_sheet`], [`Package::remove_sheet`] and
+//! [`Package::write_to`]; a name holding a
 //! character XML cannot carry reuses "a text holds a character XML cannot
 //! carry" above (P3 ruling 3,
 //! `a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`):
@@ -172,6 +173,9 @@
 //! - "a sheet name is already in use"
 //!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
 //! - "no sheet of that name" (`a_sheet_that_is_not_there_is_refused`).
+//! - "the last sheet cannot be removed" (`the_last_sheet_cannot_be_removed`).
+//! - "the last visible sheet cannot be removed"
+//!   (`the_last_visible_sheet_cannot_be_removed`).
 //! - "a sheet position is past the end"
 //!   (`moves_to_the_front_to_the_end_to_its_own_place_and_past_the_end`).
 //! - "the workbook root binds no prefix for the relationships namespace"
@@ -453,11 +457,44 @@
 //!   remap cannot say what it means (P3 ruling 10).
 //! - An added sheet's part is the template's blank worksheet, with no
 //!   `tabSelected` view; a cell edit on it is written into that part.
+//! - A `sheetId` past `u32::MAX` and a sheet added to a workbook part with
+//!   no `<sheets>` are refused with "a sheet edit no longer applies at the
+//!   write" (P3 ruling 6); neither occurs in the corpus (P3 verification
+//!   ruling 1).
+//!
+//! Removing a sheet adds these (`specs/0016-new-workbook-and-sheets.md`,
+//! "Removing a sheet", and P4 rulings 1 to 5):
+//!
+//! - The caller's picture: [`Package::remove_sheet`] takes the sheet out of
+//!   the list, removes its relationship, and removes every part only it
+//!   reaches, with those parts' rels parts and overrides; `definedName`
+//!   elements scoped to it go, and the other sheet indexes in
+//!   `<definedNames>` and `<bookViews>` follow their sheets.
+//! - A sheet is visible when its `state` is absent or exactly `visible`; any
+//!   other value counts as hidden. The last sheet and the last visible
+//!   sheet are not removed.
+//! - What the walk does not do: it reads no worksheet text, so a formula in
+//!   a kept sheet naming the removed sheet becomes `#REF!` when Excel
+//!   recalculates, as with openpyxl; it does not touch pivot caches,
+//!   external links, `definedNames` text, the `docProps` title list or
+//!   `tabSelected` in kept sheets; and a part reachable from the removed
+//!   sheet and from a kept part is kept whole.
+//! - A workbook with a calculation chain loses it, and gets
+//!   `fullCalcOnLoad="1"`, when a sheet is removed: the chain names cells
+//!   the sheet held.
+//! - A file entry recorded for removal still counts as taken, so a sheet
+//!   added after the removal takes the next free name; its `sheetId` may
+//!   equal the removed sheet's, and a relationship id is never reused (P4
+//!   ruling 2). A cell or style edit recorded on a file sheet that is then
+//!   removed refuses the write with "an edit to a removed part".
+//! - Sheet edits have not been through an Excel check yet: the harness
+//!   opens their outputs in LibreOffice, and Excel check 2 covers
+//!   Milestone 1's edits alone.
 
 #[cfg(test)]
 mod tests;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::str;
@@ -867,6 +904,9 @@ enum SheetEdit {
     Rename { from: String, to: String },
     /// The sheet named `name` goes to position `to`, 0 first.
     Move { name: String, to: usize },
+    /// The sheet named `name` leaves the list (P4 ruling 4 for a pending
+    /// one).
+    Remove { name: String },
 }
 
 /// One sheet of the projected list and where it came from.
@@ -925,9 +965,22 @@ fn project(file: &[Sheet], edits: &[SheetEdit]) -> Result<Vec<Projected>, Error>
                 let moved = list.remove(at);
                 list.insert(*to, moved);
             }
+            SheetEdit::Remove { name } => {
+                let at = position_of(&list, name).ok_or(SHEET_EDIT_STALE)?;
+                list.remove(at);
+            }
         }
     }
     Ok(list)
+}
+
+/// Whether a sheet is visible: its `state` absent or exactly `visible`; any
+/// other value counts as hidden (P4 ruling 1).
+fn is_visible(sheet: &Sheet) -> bool {
+    sheet
+        .state
+        .as_deref()
+        .is_none_or(|state| state == b"visible")
 }
 
 /// The position of the sheet named exactly `name` in `list`.
@@ -1008,6 +1061,24 @@ impl CellEdit {
     }
 }
 
+/// One entry the walk of [`Package::remove_sheet`] removes, with its own rels
+/// part and its `Override` when there is one to remove.
+struct WalkRemoval {
+    entry: Vec<u8>,
+    rels: Option<Vec<u8>>,
+    over: Option<Vec<u8>>,
+}
+
+/// What the chain recipe removes: the `calcChain` relationship on the
+/// workbook part, the `Override` for its target when the content types part
+/// holds one, and the entry when the package holds one.
+struct ChainRemovals {
+    workbook: Vec<u8>,
+    id: Vec<u8>,
+    over: Option<Vec<u8>>,
+    entry: Option<Vec<u8>>,
+}
+
 impl Recorded {
     fn is_empty(&self) -> bool {
         self.rel_removals.is_empty()
@@ -1034,6 +1105,9 @@ impl Recorded {
                 SheetEdit::Add { part, .. } => Some(part.clone()),
                 _ => None,
             })
+            // A pending sheet removed again has no addition left (P4 ruling
+            // 4).
+            .filter(|part| self.part_additions.iter().any(|(added, _)| added == part))
             .collect()
     }
 
@@ -1560,18 +1634,57 @@ impl<R: Read + Seek> Package<R> {
     /// whatever [`Package::content_types`] and [`Relationships::target_part`]
     /// refuse. Nothing is recorded when this fails.
     pub fn drop_calc_chain(&mut self) -> Result<bool, Error> {
+        match self.chain_removals()? {
+            Some(chain) => {
+                self.record_chain_removals(chain);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
+    }
+
+    /// What the chain recipe removes, read before any of it is recorded:
+    /// each read borrows the package, and recording takes it mutably. `None`
+    /// when the workbook has no `calcChain` relationship.
+    fn chain_removals(&mut self) -> Result<Option<ChainRemovals>, Error> {
         let workbook = self.workbook()?.part.clone();
-        // Read everything the three removals need before recording any of
-        // them: each read borrows the package, and recording takes it
-        // mutably.
         let (id, part) = {
             let rels = self.relationships(&workbook)?;
             match rels.first_of(CALC_CHAIN) {
                 Some(rel) => (rel.id.clone(), rels.target_part(rel)?),
-                None => return Ok(false),
+                None => return Ok(None),
             }
         };
-        let over = self
+        let over = self.override_of(&part)?;
+        let entry = self.part(&part).is_some().then_some(part);
+        Ok(Some(ChainRemovals {
+            workbook,
+            id,
+            over,
+            entry,
+        }))
+    }
+
+    /// Records the chain recipe's removals, in the recipe's order, skipping
+    /// an override or entry already recorded for removal.
+    fn record_chain_removals(&mut self, chain: ChainRemovals) {
+        self.remove_relationship(&chain.workbook, &chain.id);
+        if let Some(over) = chain.over
+            && !self.edits.override_removals.contains(&over)
+        {
+            self.remove_override(&over);
+        }
+        if let Some(entry) = chain.entry
+            && !self.edits.part_removals.contains(&entry)
+        {
+            self.remove_part(&entry);
+        }
+    }
+
+    /// The `PartName` of the `Override` for the entry `part`, as the content
+    /// types part writes it, leading slash and all, when it holds one.
+    fn override_of(&mut self, part: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        Ok(self
             .content_types()?
             .overrides()
             .iter()
@@ -1579,19 +1692,9 @@ impl<R: Read + Seek> Package<R> {
                 over.part_name
                     .strip_prefix(b"/".as_slice())
                     .unwrap_or(&over.part_name)
-                    == part.as_slice()
+                    == part
             })
-            .map(|over| over.part_name.clone());
-        let entry = self.part(&part).is_some();
-
-        self.remove_relationship(&workbook, &id);
-        if let Some(over) = over {
-            self.remove_override(&over);
-        }
-        if entry {
-            self.remove_part(&part);
-        }
-        Ok(true)
+            .map(|over| over.part_name.clone()))
     }
 
     /// Records `reference` in the worksheet part `part` set to `value`.
@@ -1904,6 +2007,191 @@ impl<R: Read + Seek> Package<R> {
         Ok(())
     }
 
+    /// Records the removal of the sheet named `name`
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Removing a sheet", and P4
+    /// rulings 1 to 5).
+    ///
+    /// Recorded in this order: the `<sheet>` gone from the projected list;
+    /// the workbook relationship its `r:id` names removed; the walk's
+    /// removals; and, when the workbook has a `calcChain` relationship, the
+    /// recipe of [`Package::drop_calc_chain`], recorded once however many
+    /// edits ask for it, and a full calculation on load as
+    /// [`Package::recalculate_on_open`] records it.
+    ///
+    /// The walk: R is every entry reachable from the sheet's part through
+    /// internal relationships, transitively, the part included; K is every
+    /// entry reachable the same way from the package's relationships, with
+    /// every relationship recorded for removal and this sheet's left out,
+    /// and no edge followed out of a removed sheet's part. Each entry of R
+    /// not in K and not already recorded for removal is removed, with its
+    /// own rels part when the package holds one and its `Override` when the
+    /// content types part holds one. A target outside the package or naming
+    /// no entry contributes nothing, and an external relationship is never
+    /// followed.
+    ///
+    /// A sheet added and not yet written leaves the list, and its part,
+    /// `Override` and relationship additions and the cell and style edits
+    /// recorded on its part are dropped: nothing is written for it (P4
+    /// ruling 4).
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name"; "the last sheet cannot be removed" when the
+    /// projected list has one sheet; "the last visible sheet cannot be
+    /// removed" when every other sheet is hidden (P4 ruling 1); whatever
+    /// reading the workbook, a reached rels part or the content types part
+    /// refuses, and for the chain whatever [`Relationships::target_part`]
+    /// refuses. Nothing is recorded when this fails.
+    pub fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
+        let list = self.projected()?;
+        let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
+        if list.len() == 1 {
+            return Err(LAST_SHEET);
+        }
+        if !list
+            .iter()
+            .enumerate()
+            .any(|(other, entry)| other != at && is_visible(&entry.sheet))
+        {
+            return Err(LAST_VISIBLE_SHEET);
+        }
+        let workbook = self.workbook()?.part.clone();
+        let sheet = list[at].sheet.clone();
+        let edit = SheetEdit::Remove {
+            name: name.to_string(),
+        };
+        if list[at].origin.is_none() {
+            self.drop_pending_sheet(&workbook, &sheet);
+            self.edits.sheet_edits.push(edit);
+            return Ok(());
+        }
+
+        // Every read comes before the first record, so a refusal records
+        // nothing (P4 ruling 5).
+        let file = self.workbook()?.sheets.clone();
+        let mut stops: Vec<Vec<u8>> = file
+            .iter()
+            .enumerate()
+            .filter(|(origin, _)| !list.iter().any(|entry| entry.origin == Some(*origin)))
+            .map(|(_, removed)| removed.part.clone())
+            .collect();
+        stops.push(sheet.part.clone());
+        let mut skipped = self.edits.rel_removals.clone();
+        skipped.push((workbook.clone(), sheet.rel_id.clone()));
+        let reached = self.reachable(&sheet.part, &[], &[])?;
+        let kept: BTreeSet<Vec<u8>> = self.reachable(b"", &skipped, &stops)?.into_iter().collect();
+        let mut removals: Vec<WalkRemoval> = Vec::new();
+        for entry in reached {
+            if kept.contains(&entry) || self.edits.part_removals.contains(&entry) {
+                continue;
+            }
+            let rels = rels_part_name(&entry);
+            let rels = (self.archive.index_of(&rels).is_some()
+                && !self.edits.part_removals.contains(&rels))
+            .then_some(rels);
+            let over = self
+                .override_of(&entry)?
+                .filter(|over| !self.edits.override_removals.contains(over));
+            removals.push(WalkRemoval { entry, rels, over });
+        }
+        let has_chain = self
+            .relationships(&workbook)?
+            .first_of(CALC_CHAIN)
+            .is_some();
+        let chain = if has_chain && !self.calc_chain_pending()? {
+            self.chain_removals()?
+        } else {
+            None
+        };
+
+        self.edits.sheet_edits.push(edit);
+        self.remove_relationship(&workbook, &sheet.rel_id);
+        for WalkRemoval { entry, rels, over } in removals {
+            self.remove_part(&entry);
+            if let Some(rels) = rels {
+                self.remove_part(&rels);
+            }
+            if let Some(over) = over {
+                self.remove_override(&over);
+            }
+        }
+        if let Some(chain) = chain {
+            self.record_chain_removals(chain);
+        }
+        if has_chain {
+            self.edits.recalculate = true;
+        }
+        Ok(())
+    }
+
+    /// Every entry reachable from `root`, an entry or the package itself as
+    /// the empty name, through internal relationships, transitively, in the
+    /// order first reached; `root` itself first when it is an entry. A
+    /// relationship in `skipped`, as `(source, id)`, is not followed, and no
+    /// edge is followed out of a part in `stops`. Each rels part is read
+    /// through [`Package::relationships`], which parses it once.
+    fn reachable(
+        &mut self,
+        root: &[u8],
+        skipped: &[(Vec<u8>, Vec<u8>)],
+        stops: &[Vec<u8>],
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        let mut found: Vec<Vec<u8>> = Vec::new();
+        let mut seen: BTreeSet<Vec<u8>> = BTreeSet::new();
+        if !root.is_empty() {
+            if self.archive.index_of(root).is_none() {
+                return Ok(found);
+            }
+            found.push(root.to_vec());
+            seen.insert(root.to_vec());
+        }
+        let mut queue: Vec<Vec<u8>> = vec![root.to_vec()];
+        let mut next = 0;
+        while let Some(source) = queue.get(next).cloned() {
+            next += 1;
+            if stops.contains(&source) {
+                continue;
+            }
+            let targets: Vec<Vec<u8>> = {
+                let rels = self.relationships(&source)?;
+                rels.all()
+                    .iter()
+                    .filter(|rel| {
+                        !rel.external
+                            && !skipped
+                                .iter()
+                                .any(|(from, id)| *from == source && *id == rel.id)
+                    })
+                    .filter_map(|rel| rels.target_part(rel).ok())
+                    .collect()
+            };
+            for target in targets {
+                if self.archive.index_of(&target).is_some() && seen.insert(target.clone()) {
+                    found.push(target.clone());
+                    queue.push(target);
+                }
+            }
+        }
+        Ok(found)
+    }
+
+    /// Drops what [`Package::add_sheet`] recorded for a sheet not yet
+    /// written, and the cell and style edits on its part (P4 ruling 4).
+    fn drop_pending_sheet(&mut self, workbook: &[u8], sheet: &Sheet) {
+        let part = sheet.part.as_slice();
+        let mut part_name = b"/".to_vec();
+        part_name.extend_from_slice(part);
+        self.edits.part_additions.retain(|(added, _)| added != part);
+        self.edits
+            .override_additions
+            .retain(|(name, _)| *name != part_name);
+        self.edits
+            .rel_additions
+            .retain(|(source, rel)| !(source == workbook && rel.id == sheet.rel_id));
+        self.edits.cell_edits.retain(|(at, _, _)| at != part);
+        self.edits.style_edits.retain(|(at, _, _)| at != part);
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
@@ -2047,7 +2335,7 @@ impl<R: Read + Seek> Package<R> {
             None
         } else {
             let file_count = self.workbook()?.sheets.len();
-            Some(SheetPlan::new(self.projected()?, file_count))
+            Some(SheetPlan::new(self.projected()?, file_count)).filter(SheetPlan::changes)
         };
         if self.edits.recalculate || plan.is_some() {
             let part = self.workbook()?.part.clone();
@@ -2578,6 +2866,8 @@ const SHEET_NAME_IN_USE: Error = Error::Package("a sheet name is already in use"
 const TEXT_NOT_XML: Error = Error::Package("a text holds a character XML cannot carry");
 const NO_SUCH_SHEET: Error = Error::Package("no sheet of that name");
 const SHEET_PAST_END: Error = Error::Package("a sheet position is past the end");
+const LAST_SHEET: Error = Error::Package("the last sheet cannot be removed");
+const LAST_VISIBLE_SHEET: Error = Error::Package("the last visible sheet cannot be removed");
 const NO_RELATIONSHIPS_PREFIX: Error =
     Error::Package("the workbook root binds no prefix for the relationships namespace");
 const SHEETS_NOT_SHEETS: Error =
@@ -2955,8 +3245,8 @@ struct SheetPlan {
     /// Whether a file sheet's index changes, a move or a removal, which is
     /// when `<definedNames>` and `<bookViews>` are rewritten.
     reindexed: bool,
-    /// The position of the first projected sheet with no `state`, where an
-    /// `activeTab` naming a removed sheet goes.
+    /// The position of the first visible projected sheet (P4 ruling 1),
+    /// where an `activeTab` naming a removed sheet goes.
     first_visible: usize,
 }
 
@@ -2976,7 +3266,7 @@ impl SheetPlan {
             .any(|(origin, at)| *at != Some(origin));
         let first_visible = list
             .iter()
-            .position(|entry| entry.sheet.state.is_none())
+            .position(|entry| is_visible(&entry.sheet))
             .unwrap_or(0);
         SheetPlan {
             list,
@@ -2990,6 +3280,14 @@ impl SheetPlan {
     /// Whether the projected list holds a sheet this write adds.
     fn adds(&self) -> bool {
         self.list.iter().any(|entry| entry.origin.is_none())
+    }
+
+    /// Whether the projected list differs from the file's: a sheet added,
+    /// moved, removed or renamed. A pending sheet added and removed again
+    /// leaves none of these, and the workbook part is then not rewritten
+    /// (P4 ruling 4).
+    fn changes(&self) -> bool {
+        self.reindexed || self.adds() || self.list.iter().any(|entry| entry.renamed)
     }
 
     /// A file index's projected index: its own position, the first visible
