@@ -478,8 +478,8 @@ bytes.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | the counts and accessors; the types and composers; `add_style` with `add_cell_style` over it; the rewrite over five containers; the three messages; `--font-sample` over the corpus | READY 2026-09-25 |
-| P2 | the `xf` content replacement (`alignment`, `protection`); borders wired in; `--border-sample` over the corpus | PLANNED |
+| P1 | the counts and accessors; the types and composers; `add_style` with `add_cell_style` over it; the rewrite over five containers; the three messages; `--font-sample` over the corpus | DONE 2026-09-25 (cc81810, records 6080f2a, local; five P1 rulings, two of them corrections of the spec, ruling 3 wiring borders in P1; verified by planning from primaries, its own privacy scan, tests and clippy on its own build, and its own comparison over the run directory agreeing on 27 of 27 on both labels; records `records/m2p2-p1-2026-09-25-cc81810.md` and `.txt`; open record `records/m2p2-open-2026-09-25-cc81810.md` and `.txt`, 210 pairs, 0 findings; check 1's F1, F2, F7, F8, F9 and F12 ruled, four of them into P2's first code commit; `specs/0017` "Planning verification and rulings on P1") |
+| P2 | the `xf` content replacement (`alignment`, `protection`); the P1 verification items (the font name's references, the count wording and test, the stderr and `removed_in` script rules); `--border-sample` over the corpus | READY 2026-09-25 |
 | P3 | the catalogue and limits; `probe-emend-fullstyles-write-xml` and the size record against the ceiling decision 1 sets; the negative log through the binary; both samples again with the release binaries | PLANNED |
 | Close | close-out push after P3, carrying part 1's record commit e81bf5b | PLANNED |
 

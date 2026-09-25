@@ -701,6 +701,165 @@ recommended.
    part Excel refuses anyway (Excel check 1) and no corpus part
    needs.
 
+## Planning rulings during P1 (2026-09-25)
+
+Asked by the implementing session before P1's dependent code, after
+it checked every code fact in "Design" against the source and found
+none false.
+
+1. The rewrite's refusal for a `fonts`, `fills` or `borders`
+   collection missing at the write ("Module `package`", "the same
+   message") is the new string "a style addition needs a collection
+   the styles part lacks", the one `add_style` raises, not the
+   `cellXfs` message, whose text names `cellXfs`. The catalogue
+   entry for the new string lists both tests: the refusal at
+   `add_style` on a part without the collection, and the rewrite's
+   refusal through a byte-built part with the cached read swapped.
+   The `cellXfs` message and its test are unchanged.
+2. "The part 5 tests unedited and passing" (P1's test list) and the
+   widened two-containers message ("The counts") are read together:
+   the two part 5 tests that pin the old string, `styles::tests::
+   a_second_num_fmts_is_refused` and `a_second_cell_xfs_is_refused`,
+   change in their expected string alone, and every other part 5
+   test is unedited. The catalogue entry keeps naming those two
+   tests beside the new ones for `fonts`, `fills` and `borders`.
+   The old string in six committed Milestone 1 negative logs stays:
+   a log records what its commit printed.
+
+3. What P1's `add_style` does with `border`, `alignment` and
+   `protection`, which "P1" and "P2" left unsaid. Neither a silent
+   no-op nor a temporary refusal: a committed state has no
+   behaviour a test does not pin and no message a later phase
+   removes. `border` is wired end to end in P1 (the id with the
+   equality lookup, the append to `borders`, `borderId` and
+   `applyBorder` on the derived `xf`, the refusal for a part
+   without `borders` at `add_style` and at the rewrite), since the
+   composer and the five-container rewrite are P1 work already; P1's
+   tests cover it as they cover fonts and fills (a border addition
+   refused on a part without `borders`; two equal borders one id).
+   `Style` has no `alignment` and no `protection` field at P1; P2
+   adds the two fields with the content replacement, and P1's
+   `Alignment` and `Protection` types and composers land with their
+   tests as "P1" says. A `Style` built with `..Default::default()`
+   compiles unchanged across the two phases; the P1 doc of `Style`
+   says the two fields come with P2. `--border-sample` stays in P2,
+   since it needs alignment. "P1" and "P2" read with this ruling.
+
+4. A correction of "P1": the negative log's `--font-sample` on a
+   workbook whose styles part lacks `fonts` is refused with exit 2,
+   the message "a style addition needs a collection the styles part
+   lacks" on stderr, and no output. The tool exits 2 on every error
+   (`tools/emend-copy/src/main.rs`, `EXIT_ERROR`), as part 1 P4's
+   negative log and `specs/0012` and `specs/0016` expect; "exit 1"
+   was planning's slip, written without reading the constant. The
+   tool is unchanged. P2's negative log reads the same way.
+5. The implementing session's addition of `styles/elements.rs` as a
+   fifth source to the test that holds the catalogue and the source
+   to the same set of messages is accepted: the two field messages
+   raised there would otherwise be unchecked. It is an edit to an
+   existing test beyond ruling 2's two strings, named in the report
+   as such.
+
+## Planning verification and rulings on P1 (2026-09-25)
+
+Verified by planning from primaries, never from the report alone:
+
+1. Commits, from git: b3152ca (docs, the three files at planning's
+   hashes), 05cc43a (the archive header sentence alone), f14885f
+   (the crate), cc81810 (the tool, the phase commit), 6080f2a (the
+   record, ten files), a chain from e81bf5b; every message ASCII,
+   ending with the Co-Authored-By line, no session link; each commit
+   planning docs alone, code alone or records alone; nothing pushed.
+   The six committed logs and the check answer at the sha256 the
+   report gives. Planning's own `scripts/privacy.sh --range
+   e81bf5b..HEAD`: 5 commits, 605 blobs, 0 findings; no log or record
+   names the home directory; the three `specs/0001` shape greps over
+   every printed script find 0, 0 and 0; `ANTHROPIC_API_KEY` unset.
+2. The logs, read at their verdict lines: gate attempt 2 "checks all
+   as expected: yes", its header naming attempt 1's log, stderr and
+   script by hash; test "yes", host and i686 each 619 passed, 0
+   failed, 2 ignored, 34 test names added and 0 removed, 54 keyword
+   lines against 54 pinned rows; negative "yes", F0 the control, F1
+   and F2 exit 2 with the collection message, F3 exit 2 with the
+   widened message, no output in each; run "yes", 27 of 27 on both
+   targets with every comparison flag holding, totals `xfs_after`
+   1046, `fonts_added` 27, `fills_added` 27, 22 plants of 22 turning
+   their own flag, host and i686 outputs byte for byte the same in
+   27, the keep 210 pairs with 201 found in part 1 P5's record by
+   name, bytes and hashes and 9 new, the open record 210 pairs and 0
+   findings; scan final stage PASS, 0 hits, 0 structural failures.
+3. Planning's own measurements: the workspace tests on planning's
+   build at cc81810, 619 passed, 0 failed, 2 ignored; clippy with
+   `-D warnings` clean; planning's own comparison (an `ElementTree`
+   and byte-span reader written before the run, with a negative
+   control over part 1 P5's run directory reporting a problem on all
+   27) over the phase's run directory: 27 of 27 with no problem on
+   both labels, `xfs_after` 1046, `fonts_added` 27, `fills_added`
+   27, `read_back` 54, and the host and i686 outputs equal by sha256
+   in 27 of 27.
+4. Check 1's F1, the font name's escape: the check read "the crate's
+   `escape`" as a function that also writes a tab, a line feed or a
+   carriage return as a character reference, which only the number
+   format code's path does (`specs/0012` P1 ruling 3). The spec meant
+   what `specs/0012` names by those words, quick_xml's `escape`, and
+   the code does that; the check's reading is refuted as a defect.
+   The point under it stands: a name holding one of those three
+   characters would be written raw and read back as a space by any
+   reader, a silent change. Ruled: P2's first code commit gives the
+   font name the number format code's path, `escape` then the three
+   references, with a test that a name holding a tab writes `&#9;`;
+   "the elements" reads so from P2.
+5. Check 1's F2: the rewrite passes every one of the five containers
+   through the count rewrite, grown or not, so a write that adds
+   only a number format corrects a disagreeing `fonts`, `fills` or
+   `borders` count. That is what "Module `package`" asks ("as
+   today") and the module header's limits bullet says "grows",
+   which is narrower. Ruled: the wording is corrected and a test
+   pins the no-addition, disagreeing-count case, both in P2's first
+   code commit.
+6. Check 1's F7, the placeholder rule: `specs/0016` P5 verification
+   ruling 3 says a log "declares each placeholder it uses in a root
+   line", and this spec's "Phases" paraphrased it as "its own root
+   line". The ruling's wording holds: a declaration `<word> stands
+   for` anywhere in a root line declares the word, and `negative.log`
+   line 39 declares `<tree>` inside the `<build>` root line lawfully.
+   The pre-check scan's attempt 2, which tests that form and names
+   the change in its header, is the rule's instrument; "Phases" is
+   read with this ruling. Not a loosening: the first form tested a
+   paraphrase.
+7. Check 1's F8 and the implementing session's proposal: no log
+   records its own script's stderr, so the failure that forced the
+   gate rerun is invisible in a log. Ruled, from P2: every log script
+   redirects its own standard error to a file under `<scratch>` at
+   its start (`exec 2>"$ERR"`), and its last block prints that file's
+   byte count as a check expecting 0, with a control that writes one
+   byte to a copy and reports it; a rerun header that cites a
+   superseded attempt's stderr cites that file by hash.
+8. Check 1's F9: `removed_in` maps every `git show` failure to an
+   empty file. Ruled: P2's gate script asks `git cat-file -e` whether
+   the path exists at the base and treats only that as "no lines";
+   any other failure is a failed check.
+9. Check 1's F12: the superseded scripts a rerun header hashes are
+   given to the checker with the superseded logs from P2, so the
+   hashes can be verified.
+10. The eight disclosed decisions are accepted: composition at the
+   call with the prefix filled at the rewrite; `expect(dead_code)`
+   under `cfg_attr(not(test))` on the alignment and protection
+   composers and the two keyword tables, removed in P2 when they are
+   wired; `Copy` where possible and `Eq` on the field-less enums,
+   `Alignment` and `Protection` (not on `Color`, which holds an
+   `f64`); the refusal order base, format, font, fill, border; the
+   header sentences the change made false corrected in P1; the
+   negative log's F2 and F3; each plant on the first workbook where
+   it applies; the placeholder reading of ruling 6. F3, F4, F5, F10,
+   F11, F13 and F14 are remarks, answered in the report as the
+   report says.
+11. P1 is DONE. P2's first doc commit carries this spec (rulings 1 to
+   5 during P1 and this section) and `ROADMAP.md`, unedited at the
+   hashes planning sends; P2's first code commit carries rulings 4,
+   5, 7 (the scripts) and 8 before any P2 change, and the dead-code
+   attributes go when the composers are wired.
+
 ## Out of scope
 
 - Reading fonts, fills, borders, alignment or protection back as
