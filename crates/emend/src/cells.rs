@@ -760,6 +760,35 @@ pub(crate) fn forbidden_in_xml(c: char) -> bool {
 /// an error the iterator is spent and yields `None`: a reader that carried on
 /// from an unknown position would be guessing.
 pub struct Cells<'p, R: Read + Seek> {
+    /// The walk itself, compiled once for every reader type.
+    walk: Walk<'p>,
+    /// `Cells` borrows the package it streams from, and the reader type is
+    /// named so the type says whose borrow it holds.
+    package: PhantomData<&'p mut Package<R>>,
+}
+
+impl<'p, R: Read + Seek> Cells<'p, R> {
+    /// Opens a worksheet part's reader. `index` is the entry's index.
+    pub(crate) fn new(reader: Box<dyn Read + 'p>, index: usize) -> Result<Self, Error> {
+        Ok(Self {
+            walk: Walk::new(reader, index)?,
+            package: PhantomData,
+        })
+    }
+}
+
+impl<R: Read + Seek> Iterator for Cells<'_, R> {
+    type Item = Result<Cell, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.walk.next()
+    }
+}
+
+/// The state of a [`Cells`], with every body of its walk, which names no
+/// reader type (`specs/0016-new-workbook-and-sheets.md`, "P5" and "Planning
+/// rulings during P5", ruling 1).
+struct Walk<'p> {
     /// The part's tokens.
     ///
     /// Boxed because [`crate::archive::Archive::read`] hands back an opaque
@@ -783,14 +812,11 @@ pub struct Cells<'p, R: Read + Seek> {
     col: u32,
     /// Set once the part is spent or has been refused.
     done: bool,
-    /// `Cells` borrows the package it streams from, and the reader type is
-    /// named so the type says whose borrow it holds.
-    package: PhantomData<&'p mut Package<R>>,
 }
 
-impl<'p, R: Read + Seek> Cells<'p, R> {
-    /// Opens a worksheet part's reader. `index` is the entry's index.
-    pub(crate) fn new(reader: Box<dyn Read + 'p>, index: usize) -> Result<Self, Error> {
+impl<'p> Walk<'p> {
+    /// The body of [`Cells`]' constructor.
+    fn new(reader: Box<dyn Read + 'p>, index: usize) -> Result<Self, Error> {
         Ok(Self {
             stream: Stream::new(reader, index)?,
             scope: Scope::new(index),
@@ -801,7 +827,6 @@ impl<'p, R: Read + Seek> Cells<'p, R> {
             last_row: 0,
             col: 0,
             done: false,
-            package: PhantomData,
         })
     }
 
@@ -1000,12 +1025,9 @@ impl<'p, R: Read + Seek> Cells<'p, R> {
             }
         }
     }
-}
 
-impl<R: Read + Seek> Iterator for Cells<'_, R> {
-    type Item = Result<Cell, Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    /// The body of [`Cells`]' `Iterator::next`.
+    fn next(&mut self) -> Option<Result<Cell, Error>> {
         if self.done {
             return None;
         }
