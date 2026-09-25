@@ -143,6 +143,14 @@ from this needs planning's word before the run (T2 P7 ruling).
 - A push script records the base (the remote ref before the push) and
   compares against that afterwards; the tracking ref moves with a
   successful push (T0b close-out).
+- The push and ci-run scripts run the three shape greps over their
+  own source before printing themselves, as a structural check with
+  a control, the way the phase logs do; a script carried from an
+  earlier close-out is not exempt, and the greps run over the file
+  as it is about to run, additions included (`specs/0015`, close-out
+  ruling 5, from Milestone 2 part 1's close-out on; the m1p8-close
+  scan's two hits in push.log's printed script are the finding it
+  answers).
 - Scans:
   - Run them from a script that starts with `#!/usr/bin/env bash` and
     calls `/usr/bin/grep` explicitly. In the Claude Code tool shell,

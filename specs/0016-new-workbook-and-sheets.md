@@ -1333,6 +1333,136 @@ files.
    to 11), these, decision 6, the P5 section and ROADMAP, with
    planning's two files unedited at the hashes sent.
 
+## Planning rulings during P5 (2026-09-25)
+
+Asked by the implementing session before P5's first code commit,
+after the doc commit 703e0ff (verified by planning: parent c7d7870,
+the two files unedited at the hashes sent, the tree clean).
+
+1. The mechanism is accepted as proposed: in `archive`, a private
+   `trait ReadSeek: Read + Seek` with its blanket impl, the private
+   `Reader = Box<dyn ReadSeek>`, a `pub(crate) struct Core` holding
+   every field `Archive` has today with `Option<Reader>` and
+   `Option<zip::ZipArchive<Reader>>`, and `Archive<R>` as `Core`
+   plus `PhantomData<R>` (the plain form, so variance and the drop
+   check are those of owning an `R`), every public method a forward,
+   `open` boxing the reader, `write_to` handing `&mut dyn Write` on.
+   In `package`, `Package<R>` keeps its fields, a private view
+   `Parts<'a>` over `&'a mut Core` and the other fields carries
+   every method body once, the public methods forward, and a method
+   whose result borrows the package is written on `Parts` consuming
+   it. In `cells`, the fields move to a non-generic `Walk<'p>` with
+   `Cells<'p, R>` the shell. `Stream` is left as it is: its two
+   internal instantiations are fixed types the consumer's reader
+   does not drive. The private signature list sent is accepted as
+   the plan; the report lists what actually changed against it.
+2. Q1: the bound `R: 'static` on `Archive::open` and
+   `Package::open` is allowed. It is a public change, so the P5
+   section's "no public signature changed" reads with this one
+   exception, named in the report and in each constructor's doc
+   comment, with a limits sentence in the `archive` header: a
+   borrowed reader (`&mut File`) is no longer accepted; every caller
+   in the repository passes an owned one. A lifetime parameter on
+   the two types is the larger public change and is refused;
+   `unsafe` is forbidden.
+3. Q2: (a). `Archive<R>` loses `Send`, `Sync`, `UnwindSafe` and
+   `RefUnwindSafe`; `Package` and `Cells` never had them. Stated in
+   the `archive` header beside ruling 2's sentence. The bound stays
+   `'static` alone. The unlogged compile probe is disclosed and
+   cited as nothing more.
+4. The four test lines are allowed as proposed (the two
+   `sole_entry_fields(&archive.core)` calls, `file: Box::new(file)`
+   in the `Made` literal, `rewrite_workbook(&mut
+   package.archive.core, ...)`), each named in the report; no
+   assertion changes. The test-only shims are refused for the
+   reason given: the test build's API would differ from the real
+   one, and a `try_clone` adds a way for the write to fail.
+5. Q3: three code commits, `archive`, `package`, `cells`, each
+   building and passing the tests on both targets, the third the
+   phase commit the logs measure. The report says what each commit
+   moved and that no body changed beyond the dereferences `Parts`
+   needs.
+6. Q4: `Stream`'s two instantiations stay; unifying them is a
+   separate saving, not driven by the consumer's reader, and is
+   out of P5. The report may name it as a candidate with no figure.
+
+7. After code commit 1 (6a0086e, `archive`): three more test lines
+   are allowed as (a), the receiver `package.parts()` on the two
+   `drop_calc_chain_once` calls and the `formula_change_rule` call,
+   no assertion changed, named in the report with ruling 4's four.
+   (b), private forwards under `#[cfg(test)]`, is refused as the
+   shim ruling 4 refused. The two departures are accepted and go in
+   the report: `Parts` carries a one-line copy of `Package::part`,
+   and the four borrowing methods keep their `&mut self` bodies on
+   `Parts` with consuming `into_` wrappers the public shells call,
+   `into_relationships` finding the set again by its source bytes
+   after the body has read it, so no refusal moves. The gate run on
+   commit 1's tree is disclosed as unlogged.
+
+## Planning verification and rulings on P5 (2026-09-25)
+
+Verified from primaries: the three code diffs read (6a0086e,
+95fb486, 975c974), with planning's own comparison of every removed
+line of `package.rs` against every added line after normalising
+the receiver forms: no body line is dropped, and the residual is
+the forwarding shells, `Parts`, the four `into_` wrappers, the
+signature changes and the `'static` bound; the seven test edits
+are the seven ruled, no assertion changed; the record commit
+558d659 (parent 975c974, 11 files, every sha256 the report gave
+reproduced); planning's own privacy scan of 558d659 (580 blobs, 0
+findings); the tests on planning's own build (585 on the host, 585
+on i686, clippy clean); planning's own rebuild of six probes in
+the `size` profile on i686, each at the same section bytes and
+sha256 as size.log's (`probe-zip` 464320, `probe-zip-xml` 533216,
+`probe-emend-copy` 579588, `probe-emend-edit-xml` 658124, the
+formulas probe 872324, the sheets probe 909200), so the budget
+figure 375984 and the fall of 103008 are reproduced; P5's run
+directory against P4's, every output byte-identical by sha256 on
+both labels, 27 of 27 each; planning's own walk over P5's outputs
+on both labels, 27 of 27 as on P4's; and planning's own
+`--remove-sample` run on the host with its own P5 binaries, 27 ok
+and all 27 outputs byte-identical to P4's run directory's. The
+check answer was read from the committed file.
+
+1. The budget figure is 375984 section bytes, 17232 under the
+   ceiling of 393216; the sheets probe fell by 103008, past the
+   100000 the acceptance asked; no earlier probe grew, nine shrank.
+   The part's own cost, 36876, and the whole growth since part 6,
+   63172, are above the 25000 expectation and the 30000 report
+   line, as the record says; recorded, and the ceiling stays. This
+   record is the part's size record; P4's stands as the finding it
+   answers.
+2. One independent check is accepted for P5: the P5 section says
+   "the check or checks", and the check confirmed the no-behaviour-
+   change claims by its own reproduction of the removed-lines
+   comparison.
+3. Check 1 F16: (a). The logs declare no root line for some
+   placeholders (`<sizebuild>` in run.log; `<repo>` and `<home>` in
+   size.log; the same in P4's), and nothing is mis-substituted. The
+   logs stand. From the next phase every log declares each
+   placeholder it uses in a root line, and the phase's scan counts
+   an undeclared placeholder as a structural failure.
+4. Check 1 F19: accepted. Ruling 5's "each building and passing
+   the tests on both targets" for commits 1 and 2 rests on the
+   session's disclosed unlogged gate runs, and the phase commit's
+   logs cover the tree that is measured. From now a spec sentence
+   that asks a per-commit claim asks a logged run for it, or is not
+   written.
+5. Check 1 F6: the reader `Archive::read` returns, now over the
+   boxed reader, loses `Send` and `Sync` too. Ruling 3's header
+   sentence is extended to say so in the next part's first code
+   commit; recorded here, since the close-out has no code commit.
+6. Check 1 F4, F9, F20 and F21: report-side items, each disclosed
+   or checkable from the diffs; the attempt-1 keep's move by hand is
+   disclosed here. Accepted; nothing to change.
+7. The rerun's header removed attempt 1's run directory after
+   hashing its summaries. From now a superseded run directory is
+   moved beside the attempt's other kept files, never removed, as
+   the logs and keeps are kept.
+8. P5 is DONE. The close-out follows as "Close-out push (after
+   P5)" says, with planning's three files (`specs/0016`,
+   `specs/0001` with the self-scan rule, ROADMAP) in its doc commit.
+
 ## Out of scope
 
 Cell styles beyond part 5's (part 2); rows, columns, freeze panes,
