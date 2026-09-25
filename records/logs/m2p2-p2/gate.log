@@ -1,0 +1,1566 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p2/m2p2-p2-gate.sh 09c941f04e921a51c34f05ad6371e3d2b30354e7
+about: M2 part 2 P2 phase commits, last is 09c941f04e921a51c34f05ad6371e3d2b30354e7; HEAD at run: 09c941f04e921a51c34f05ad6371e3d2b30354e7
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: as-expected
+  control: CHAIN: the same form finds the fixture's one line: as-expected
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: as-expected
+  control: BANG: the same form finds the fixture's one line: as-expected
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: as-expected
+  control: ASSIGN: the same form finds the fixture's one line: as-expected
+
+## the phase's commits by role, read from git (header change 2)
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  P1's record commit: 6080f2ade220c05013287a0be8fd9c9f7f3411bb
+  the doc commit: 06d485b22465083b157d47213182019c38db1534
+  code commit 1: 24ce03b7398819ecddd8b8f6bc96178a430d1023
+  code commit 2: 4bd46a119744d09058039b611e2d56d3cedfd327
+  code commit 3: 09c941f04e921a51c34f05ad6371e3d2b30354e7
+command: git rev-parse <phase commit>~0 to <phase commit>~4
+    09c941f04e921a51c34f05ad6371e3d2b30354e7
+    4bd46a119744d09058039b611e2d56d3cedfd327
+    24ce03b7398819ecddd8b8f6bc96178a430d1023
+    06d485b22465083b157d47213182019c38db1534
+    6080f2ade220c05013287a0be8fd9c9f7f3411bb
+  code commits 3, 2 and 1, the doc commit and P1's record commit, each the next one's parent: as-expected
+  control: roles_in_order refuses code commit 3 named as code commit 2: as-expected
+  control: roles_in_order refuses the base named as the doc commit: as-expected
+command: git log --format=%s <P1's record commit>..<phase commit>
+    M2 part 2 P2: emend-copy --border-sample
+    M2 part 2 P2: alignment and protection in add_style, the xf content replacement
+    M2 part 2 P2: a font name as a format code is written; every count rewritten, grown or not
+    M2 part 2 P2: commit planning docs (the P1 rulings and verification)
+  subjects in the range: 4; beginning "M2 part 2 P2: ": 4
+  every commit in the range carries the phase's subject prefix: as-expected
+  control one subject of three with the prefix, same command form count=1 expected=1: as-expected
+  control: a subject no commit has resolves to nothing: as-expected
+  the phase commit given to this script: 09c941f04e921a51c34f05ad6371e3d2b30354e7
+  git rev-parse HEAD at this run:        09c941f04e921a51c34f05ad6371e3d2b30354e7
+  the phase commit given to this script is a full sha: as-expected
+  the phase commit given to this script is HEAD: as-expected
+  control: the same comparison refuses the null commit: as-expected
+  control: the same comparison refuses a short sha of the real commit: as-expected
+phase: Milestone 2 part 2 P2 (specs/0017-fuller-styles.md) gate.log; run at 2026-09-25T23:01:47Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)
+root: <repo> stands for the repository's top level, the directory this script cds to (it lies inside <home>, so it is scrubbed first); scripts/counting.sh is sourced from it, and the gate script is run from it
+root: <home> stands for the home directory of the account that ran this script
+root: <scratch>/p2 stands for this script's own directory, which holds the script and, in <scratch>/p2/out, this script's own standard error (ruling 7)
+root: <build> stands for <home>/.cache/emend-build/m2p2-p2-gate, this log's build directory's parent on the disk (header change 1); the gate builds into <build>/target
+root: <scratch>/w stands for this run's mktemp -d working directory, a directory distinct from <scratch>/p2
+  <scratch>/w and <scratch>/p2 are distinct directories, neither inside the other: as-expected
+  <scratch>/w and <repo> are distinct directories, neither inside the other: as-expected
+  <scratch>/p2 and <repo> are distinct directories, neither inside the other: as-expected
+  <build> and <scratch>/p2 are distinct directories, neither inside the other: as-expected
+  <build> and <repo> are distinct directories, neither inside the other: as-expected
+  <build> and <scratch>/w are distinct directories, neither inside the other: as-expected
+  control: apart refuses a directory inside another: as-expected
+  no cargo or rustc process was running at entry: as-expected
+ANTHROPIC_API_KEY set in this shell: no
+DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 2 part 2 P2 gate.log (specs/0017-fuller-styles.md, "P2: borders,
+    # alignment and protection", with "Planning verification and rulings on P1
+    # (2026-09-25)" 1 to 11): the full gate on a cold cache, the phase's commits
+    # by role and by the paths they touch, each commit message's form, the doc
+    # commit's two files against the hashes planning's message gave, each
+    # commit's diff hashed, each code commit held to its area, no lock and no
+    # manifest change, the gate files checked against the diff, the scripts
+    # parsed, the new and modified sources scored, the public functions
+    # compared with the base's, the tests of the base held unedited but for
+    # the ruled lines, the four DEBUG binary hashes, this script's own stderr
+    # counted, and the working tree's status.
+    #
+    # Usage: m2p2-p2-gate.sh <phase commit> > <scratch file>; the caller moves the
+    # output to records/logs/m2p2-p2/gate.log. The log prints its own invocation.
+    #
+    # This is a FILE, not an inline block, so "$0" names it and the log prints the
+    # script rather than the shell binary.
+    #
+    # Its own text is committed inside the log, so it holds no office file name, no
+    # path shape and no address: the office regex is read from check.sh, the
+    # pre-P6d path forms are read from git, and every control fixture is assembled
+    # at run time from pieces (specs/0001-bootstrap.md, as in every earlier gate log).
+    #
+    # CARRIED TO M2 part 2 P2 from P1's gate script (printed in
+    # records/logs/m2p2-p2/gate.log; its change list 1 to 7 and its attempt-2
+    # note are there), grepped for P1's names, subjects, typed lists and hashes.
+    # What differs, and why:
+    #  A. The phase is P2: the log directory records/logs/m2p2-p2, the script's
+    #     directory <scratch>/p2, the build directory
+    #     <home>/.cache/emend-build/m2p2-p2-gate; the base is P1's record commit
+    #     ("M2 part 2 P1 record:"); the doc commit and the three code commits by
+    #     their full subjects, all beginning "M2 part 2 P2: ".
+    #  B. The doc commit carries specs/0017-fuller-styles.md and ROADMAP.md at
+    #     the hashes planning's message gave.
+    #  C. Code commit 1 (P1 verification rulings 4 and 5) and code commit 2 are
+    #     held to the crate's package.rs, styles.rs, styles/elements.rs and
+    #     their tests; code commit 3 to tools/emend-copy's main.rs and tests.
+    #  D. The public functions: the phase adds and removes none (Style's two
+    #     new fields are fields); the list must equal the base's.
+    #  E. The test block: P2 removes no test line. Every #[test] function of the
+    #     base, in every test file the phase changes, is read at the base and at
+    #     the phase commit; each base body is a subsequence of its body now (no
+    #     line removed or changed), and the lines added inside base tests are
+    #     exactly a typed list: one "..Style::default()" in each of the two P1
+    #     tests whose Style literals named every P1 field (the report discloses
+    #     them), and the P2 usage cases the tool's operations test gains, as
+    #     every phase's did. P1's removed_in block is gone with its reason;
+    #     ruling 8's form is kept for the base read: a commit that does not
+    #     exist is a failure, a path git cat-file -e says is absent at a real
+    #     commit is "no tests", and any other failure of git show fails.
+    #  F. Ruling 7: this script's standard error goes to <scratch>/p2/out/
+    #     gate.stderr from its start (exec 2>), and its last block counts that
+    #     file's bytes expecting 0, with a control that appends one byte to a
+    #     copy and reads one more.
+    #  G. Planning's spec is committed; should planning's rulings stand in
+    #     specs/0017 uncommitted, the status block allows that one path and
+    #     prints its sha256 beside the hash planning gave (PLANNING_GAVE).
+    set -uo pipefail
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # Ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/gate.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    # Header change 1: the build directory is on the disk, not in /tmp.
+    BUILD_ROOT=$HOME/.cache/emend-build/m2p2-p2-gate
+    mkdir -p "$BUILD_ROOT" || exit 2
+    export CARGO_TARGET_DIR=$BUILD_ROOT/target
+    # Every printed line passes through this scrub: the repository first, since it
+    # lies inside the home directory.
+    W=$(mktemp -d)
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scratch>/p2#g" -e "s#$W#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    . scripts/counting.sh
+    
+    trap 'rm -rf "$W"' EXIT INT TERM HUP
+    fail=0
+    note() { echo "  $1: $2"; [ "$2" = as-expected ] || fail=1; }
+    is() { if "$@"; then echo as-expected; else echo UNEXPECTED; fi; }
+    # For a control that must FAIL. `is ! f x` cannot express it: `!` is a shell
+    # keyword, so "$@" would try to run a command named "!" and the helper would
+    # print UNEXPECTED whatever f did.
+    isnot() { if "$@"; then echo UNEXPECTED; else echo as-expected; fi; }
+    ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || fail=1
+    }
+    
+    # specs/0001-bootstrap.md, "Rules for every phase" (M1 part 3 P1 ruling 11):
+    # the phase commit is GIVEN to the script and compared with git rev-parse
+    # HEAD before the run, with a control that refuses a fabricated commit.
+    C=${1:?phase commit required}
+    HEAD_SHA=$(git rev-parse HEAD)
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() {
+      printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'
+    }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    not_head() { if is_head "$1"; then return 1; else return 0; fi; }
+    echo "command: git rev-parse HEAD"
+    inv_path=$0
+    case "$inv_path" in
+      "$(git rev-parse --show-toplevel)"/*) inv_path="<repo>/${inv_path#"$(git rev-parse --show-toplevel)"/}" ;;
+      /*) inv_path="<scratch>/p2/$(basename "$inv_path")" ;;
+    esac
+    echo "invocation: bash $inv_path $*"
+    echo "about: M2 part 2 P2 phase commits, last is $C; HEAD at run: $HEAD_SHA"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    # specs/0001: the scan greps every printed script for three forbidden shapes,
+    # and they run here first, over this script's own file, each with a positive
+    # control through the same command form. The patterns and the fixture are
+    # assembled from pieces at run time, so this script's text holds none.
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    SHAPE_DIR=$(mktemp -d)
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$SHAPE_DIR/fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$SHAPE_DIR/fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      SHAPE_RESULT_SELF=$n_self
+      SHAPE_RESULT_FIX=$n_fix
+      note "$shape: this script holds none" "$(is [ "$SHAPE_RESULT_SELF" = 0 ])"
+      note "control: $shape: the same form finds the fixture's one line" "$(is [ "$SHAPE_RESULT_FIX" = 1 ])"
+    done
+    rm -rf "$SHAPE_DIR"
+    
+    echo
+    echo "## the phase's commits by role, read from git (header change 2)"
+    note_fn() { local label=$1; shift; note "$label" "$(is "$@")"; }
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M2 part 2 P1 record:')
+    DOC1=$(by_subject 'M2 part 2 P2: commit planning docs (the P1 rulings and verification)')
+    CODE1=$(by_subject 'M2 part 2 P2: a font name as a format code is written; every count rewritten, grown or not')
+    CODE2=$(by_subject 'M2 part 2 P2: alignment and protection in add_style, the xf content replacement')
+    CODE3=$(by_subject 'M2 part 2 P2: emend-copy --border-sample')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  P1's record commit: ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1: ${CODE1:-none}"
+    echo "  code commit 2: ${CODE2:-none}"
+    echo "  code commit 3: ${CODE3:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~4"
+    for k in 0 1 2 3 4; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r
+      for r in "$REC" "$DOC1" "$CODE1" "$CODE2" "$CODE3"; do
+        [ -n "$r" ] || return 1
+      done
+      [ "$CODE3" = "$C" ] || return 1
+      [ "$(git rev-parse "$C~1")" = "$CODE2" ] || return 1
+      [ "$(git rev-parse "$C~2")" = "$CODE1" ] || return 1
+      [ "$(git rev-parse "$C~3")" = "$DOC1" ] || return 1
+      [ "$(git rev-parse "$C~4")" = "$REC" ]
+    }
+    note_fn "code commits 3, 2 and 1, the doc commit and P1's record commit, each the next one's parent" roles_in_order
+    roles_ctl1() { local CODE2=$CODE3; if roles_in_order; then return 1; else return 0; fi; }
+    roles_ctl2() { local DOC1=$REC; if roles_in_order; then return 1; else return 0; fi; }
+    note_fn "control: roles_in_order refuses code commit 3 named as code commit 2" roles_ctl1
+    note_fn "control: roles_in_order refuses the base named as the doc commit" roles_ctl2
+    echo "command: git log --format=%s <P1's record commit>..<phase commit>"
+    git log --format='%s' "$REC..$C" >"$W/subjects"
+    sed 's/^/    /' "$W/subjects"
+    PREFIX_RE='^M2 part 2 P2: '
+    nsub=$(count_lines "$W/subjects")
+    nprefix=$(count_matches -E "$PREFIX_RE" "$W/subjects")
+    echo "  subjects in the range: $nsub; beginning \"M2 part 2 P2: \": $nprefix"
+    prefix_all() { [ "$nsub" -ge 1 ] && [ "$nsub" = "$nprefix" ]; }
+    note_fn "every commit in the range carries the phase's subject prefix" prefix_all
+    printf 'M2 part 2 P2: x\nM2 part 2 P1: y\nM2 part 2: z\n' >"$W/c-subjects"
+    ctl "one subject of three with the prefix, same command form" 1 count_matches -E "$PREFIX_RE" "$W/c-subjects"
+    no_such_subject() { [ -z "$(by_subject 'M2 part 2 P2: no such subject anywhere')" ]; }
+    note_fn "control: a subject no commit has resolves to nothing" no_such_subject
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    note "the phase commit given to this script is a full sha" "$(is full_sha "$C")"
+    note "the phase commit given to this script is HEAD" "$(is is_head "$C")"
+    note "control: the same comparison refuses the null commit" \
+      "$(is not_head "$NULL_SHA")"
+    note "control: the same comparison refuses a short sha of the real commit" \
+      "$(is not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo "phase: Milestone 2 part 2 P2 (specs/0017-fuller-styles.md) gate.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0014 P2 verification ruling 4: a rerun line names only hashes the
+      # command under it prints.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    # SERIALIZED: backed by a measurement at entry, the cargo and rustc processes
+    # running before this script starts any.
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this run used its own target directory, <build>/target (CARGO_TARGET_DIR)"
+    echo "root: <repo> stands for the repository's top level, the directory this script cds to (it lies inside <home>, so it is scrubbed first); scripts/counting.sh is sourced from it, and the gate script is run from it"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scratch>/p2 stands for this script's own directory, which holds the script and, in <scratch>/p2/out, this script's own standard error (ruling 7)"
+    echo "root: <build> stands for <home>/.cache/emend-build/m2p2-p2-gate, this log's build directory's parent on the disk (header change 1); the gate builds into <build>/target"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory, a directory distinct from <scratch>/p2"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    note_fn "<scratch>/w and <scratch>/p2 are distinct directories, neither inside the other" apart "$W" "$SELF_DIR"
+    note_fn "<scratch>/w and <repo> are distinct directories, neither inside the other" apart "$W" "$MAIN"
+    note_fn "<scratch>/p2 and <repo> are distinct directories, neither inside the other" apart "$SELF_DIR" "$MAIN"
+    note_fn "<build> and <scratch>/p2 are distinct directories, neither inside the other" apart "$BUILD_ROOT" "$SELF_DIR"
+    note_fn "<build> and <repo> are distinct directories, neither inside the other" apart "$BUILD_ROOT" "$MAIN"
+    note_fn "<build> and <scratch>/w are distinct directories, neither inside the other" apart "$BUILD_ROOT" "$W"
+    apart_ctl() { if apart "$BUILD_ROOT/target" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    note_fn "control: apart refuses a directory inside another" apart_ctl
+    note "no cargo or rustc process was running at entry" "$(is [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "DEPARTURE: CARGO_BUILD_JOBS=4 (this box stopped two T0 P6d gate runs for low memory)"
+    echo
+    echo "## script"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the phase base, resolved from git and checked for ambiguity"
+    # specs/0001 requires the base to be read from git by the first doc commit's
+    # subject, never typed; its parent is the base. The count of doc commits is
+    # deliberately NOT asserted (a typed count of something the phase may grow is
+    # not a property); structure_sound below asserts the structure instead.
+    DOC_PATTERN='^M2 part 2 P2: commit planning docs [(]the P1 rulings and verification'
+    echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
+    git log --format='%H' --grep="$DOC_PATTERN" >"$W/doc-matches"
+    nmatch=$(count_lines "$W/doc-matches")
+    echo "  commits matching the first doc commit's pattern: $nmatch"
+    note "the first doc commit's pattern matches exactly one commit" "$(is [ "$nmatch" = 1 ])"
+    DOC=$(git log --format='%H' --grep="$DOC_PATTERN" -n 1)
+    BASE=$(git rev-parse --verify "$DOC^" 2>/dev/null)
+    echo "  the first doc commit is $DOC"
+    echo "  its parent, the phase base, is $BASE"
+    note "the base resolved from git, not typed" "$(is [ -n "$BASE" ])"
+    CLOSE_REC=$(git log --format='%H' -n 1 --grep='^M2 part 2 P1 record:')
+    echo "  P1's record commit, by subject: ${CLOSE_REC:-none found}"
+    note "the phase base is P1's record commit" "$(is [ "$BASE" = "$CLOSE_REC" ])"
+    note "control: the same comparison refuses the first doc commit as the base" \
+      "$(isnot [ "$DOC" = "$CLOSE_REC" ])"
+    
+    echo
+    echo "## the phase's commits"
+    echo "command: git log --reverse --format='%H %s' <base>..<phase commit>"
+    git log --reverse --format='    %H %s' "$BASE..$C"
+    ncommits=$(git rev-list --count "$BASE..$C")
+    echo "  commits in the range: $ncommits"
+    # Each commit is classified by the paths it touches, and the sequence is
+    # checked as one property in one function: a mixed or empty commit fails, the
+    # range opens with a doc commit and holds at least one code commit.
+    commit_class() {
+      git show --name-only --format= "$1" | awk '
+        NF { total++; if ($0 ~ /^specs\// || $0 == "ROADMAP.md" || $0 == "CLAUDE.md") docs++ }
+        END {
+          if (total == 0) { print "empty"; exit }
+          if (docs == total) print "doc"; else if (docs == 0) print "code"; else print "mixed"
+        }'
+    }
+    structure_sound() {
+      awk 'NR == 1 && $1 != "doc" { bad = 1 }
+           $1 == "mixed" || $1 == "empty" { bad = 1 }
+           $1 == "code" { code = 1 }
+           END { exit (bad || !code || NR == 0) }' "$1"
+    }
+    : >"$W/classes"
+    for h in $(git rev-list --reverse "$BASE..$C"); do
+      printf '%s %s\n' "$(commit_class "$h")" "$(git log --format='%h %s' -n 1 "$h")" >>"$W/classes"
+    done
+    sed 's/^/    /' "$W/classes"
+    note "every commit is planning docs alone or code alone, the range opens with a doc commit and holds code" \
+      "$(is structure_sound "$W/classes")"
+    ndoc=$(count_matches -E '^doc ' "$W/classes")
+    ncode=$(count_matches -E '^code ' "$W/classes")
+    echo "  of the $ncommits commits in the range: $ndoc planning-doc, $ncode code"
+    note "the phase holds at least one doc commit, counted in the range" \
+      "$(is [ "$ndoc" -ge 1 ])"
+    note "control: the same count finds this phase's code commits too" \
+      "$(is [ "$ncode" -ge 1 ])"
+    note "control: the two classes account for every commit in the range" \
+      "$(is [ "$((ndoc + ncode))" = "$ncommits" ])"
+    note "control: commit_class calls the first doc commit a doc commit" \
+      "$(is [ "$(commit_class "$DOC")" = doc ])"
+    # The code-commit control names its commit by what that commit DID: the last
+    # commit in the range that modified the package tests.
+    CODEC=$(git log --format='%H' -n 1 --diff-filter=M "$BASE..$C" -- crates/emend/src/package/tests.rs)
+    echo "  the last commit in the range that modified crates/emend/src/package/tests.rs: ${CODEC:-none found}"
+    note "the commit that modified the package tests resolved from git" "$(is [ -n "$CODEC" ])"
+    note "control: commit_class calls the commit that modified the package tests a code commit" \
+      "$(is [ "$(commit_class "$CODEC")" = code ])"
+    note "control: the first doc commit carries ROADMAP.md, a term the classifier reads" \
+      "$(is [ "$(git show --name-only --format= "$DOC" | count_matches -Fx ROADMAP.md /dev/stdin)" = 1 ])"
+    printf 'doc a docs\ncode b code\ndoc c docs\ncode d code\n' >"$W/c-ord-ok"
+    printf 'code a code\ndoc b docs\n'                        >"$W/c-ord-first"
+    printf 'doc a docs\nmixed b both\ncode c code\n'          >"$W/c-ord-mixed"
+    printf 'doc a docs\nempty b nothing\ncode c code\n'       >"$W/c-ord-empty"
+    printf 'doc a docs\ndoc b docs\n'                         >"$W/c-ord-nocode"
+    note "control: structure_sound accepts docs and code interleaved" \
+      "$(is structure_sound "$W/c-ord-ok")"
+    note "control: structure_sound rejects a range that opens with a code commit" \
+      "$(isnot structure_sound "$W/c-ord-first")"
+    note "control: structure_sound rejects a commit mixing docs and code" \
+      "$(isnot structure_sound "$W/c-ord-mixed")"
+    note "control: structure_sound rejects an empty commit" \
+      "$(isnot structure_sound "$W/c-ord-empty")"
+    note "control: isnot reports a passing command as UNEXPECTED, so it can fail" \
+      "$(is [ "$(isnot true)" = UNEXPECTED ])"
+    note "control: structure_sound rejects a range with no code commit" \
+      "$(isnot structure_sound "$W/c-ord-nocode")"
+    
+    echo
+    echo "## every commit message in the range: ASCII, ending with the Co-Authored-By line only"
+    COAUTHOR='Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>'
+    msg_form_ok() {
+      local last nco nsess nna ntrail
+      last=$(awk 'NF { l = $0 } END { print l }' "$1")
+      nco=$(count_matches -E '^Co-Authored-By:' "$1")
+      nsess=$(count_matches_i -F 'claude-session' "$1")
+      nna=$(count_bytes "$NONASCII_CLASS" "$1")
+      ntrail=$(git interpret-trailers --parse <"$1" | count_lines /dev/stdin)
+      [ "$last" = "$COAUTHOR" ] || return 1
+      [ "$nco" = 1 ] || return 1
+      [ "$nsess" = 0 ] || return 1
+      [ "$ntrail" = 1 ] || return 1
+      [ "$nna" = 0 ]
+    }
+    for h in $(git rev-list --reverse "$BASE..$C"); do
+      git log -1 --format=%B "$h" >"$W/msg"
+      echo "  $(git log -1 --format=%h "$h"): message lines $(count_lines "$W/msg"), non-ASCII bytes $(count_bytes "$NONASCII_CLASS" "$W/msg"), trailers git parses:"
+      git interpret-trailers --parse <"$W/msg" | sed 's/^/      /'
+      note "$(git log -1 --format=%h "$h")'s message is ASCII and ends with the Co-Authored-By line only" \
+        "$(is msg_form_ok "$W/msg")"
+    done
+    printf 'subject\n\nbody\n\n%s\n' "$COAUTHOR" >"$W/c-msg-ok"
+    printf 'subject\n\nbody\n\n%s\n%s: x\n' "$COAUTHOR" 'Claude-Session' >"$W/c-msg-session"
+    printf 'subj\303\251ct\n\n%s\n' "$COAUTHOR" >"$W/c-msg-nonascii"
+    printf 'subject\n\n%s\n%s\n' "$COAUTHOR" "$COAUTHOR" >"$W/c-msg-twice"
+    printf 'subject\n\nbody\n' >"$W/c-msg-none"
+    note "control: msg_form_ok accepts a message ending with the line" "$(is msg_form_ok "$W/c-msg-ok")"
+    note "control: msg_form_ok refuses a session line after it" "$(isnot msg_form_ok "$W/c-msg-session")"
+    note "control: msg_form_ok refuses a non-ASCII byte" "$(isnot msg_form_ok "$W/c-msg-nonascii")"
+    note "control: msg_form_ok refuses the line twice" "$(isnot msg_form_ok "$W/c-msg-twice")"
+    note "control: msg_form_ok refuses a message without it" "$(isnot msg_form_ok "$W/c-msg-none")"
+    
+    echo
+    echo "## the doc commit's files against the hashes planning's message gave (header change 3)"
+    # The expected values are typed because they are planning's: each is
+    # labelled "the hash planning's message gave". Every computed hash is printed
+    # by the command that made it.
+    echo "  the doc commit: $DOC1"
+    blob_sha() { git show "$1:$2" | sha256sum | cut -d' ' -f1; }
+    blob_matches() {
+      git cat-file -e "$1:$2" 2>/dev/null || return 1
+      [ "$(blob_sha "$1" "$2")" = "$3" ]
+    }
+    while read -r which path given; do
+      case "$which" in doc1) at=$DOC1 ;; head) at=$C ;; esac
+      if git cat-file -e "$at:$path" 2>/dev/null; then got=$(blob_sha "$at" "$path"); else got=absent; fi
+      echo "  $which $(git rev-parse --short "$at") $path"
+      echo "    command: git show <commit>:$path | sha256sum"
+      echo "    sha256 $got"
+      echo "    the hash planning's message gave: $given"
+      note "$which's $path is the blob planning's message gave" "$(is blob_matches "$at" "$path" "$given")"
+    done <<'HASHES'
+    doc1 specs/0017-fuller-styles.md 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+    doc1 ROADMAP.md 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+    head specs/0017-fuller-styles.md 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+    head ROADMAP.md 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+    HASHES
+    # The "head" rows say no commit after the doc commit changed planning's files.
+    git show --name-only --format= "$DOC1" | sort >"$W/doc1-files"
+    printf 'ROADMAP.md\nspecs/0017-fuller-styles.md\n' >"$W/doc1-want"
+    sed 's/^/    the doc commit carries: /' "$W/doc1-files"
+    note "the doc commit carries exactly the two files planning's message hashed" "$(is cmp -s "$W/doc1-files" "$W/doc1-want")"
+    note "control: blob_matches refuses the message's ROADMAP hash at the base, before the doc commit" \
+      "$(isnot blob_matches "$BASE" ROADMAP.md 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571)"
+    note "control: blob_matches refuses the message's 0017 hash at the base, before the doc commit" \
+      "$(isnot blob_matches "$BASE" specs/0017-fuller-styles.md 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c)"
+    note "control: blob_matches refuses a path absent at the commit" \
+      "$(isnot blob_matches "$BASE" records/no-such-file.md 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c)"
+    printf 'ROADMAP.md\n' >"$W/c-doc-short"
+    note "control: the file comparison refuses a list one file short" "$(isnot cmp -s "$W/c-doc-short" "$W/doc1-want")"
+    
+    echo
+    echo "## each commit's diff and the phase's combined diff, hashed with the command that produced each"
+    for h in $(git rev-list --reverse "$BASE..$C"); do
+      cmd="git show --no-color --no-ext-diff --format= $h"
+      echo "  command: $cmd | sha256sum"
+      echo "    $($cmd | sha256sum | cut -d' ' -f1)  $(git log -1 --format=%s "$h")"
+    done
+    cmd="git diff --no-color --no-ext-diff $BASE $C"
+    echo "  command: $cmd | sha256sum"
+    echo "    $($cmd | sha256sum | cut -d' ' -f1)  the phase's combined diff"
+    h1=$(git show --no-color --no-ext-diff --format= "$C" | sha256sum | cut -d' ' -f1)
+    h2=$(git show --no-color --no-ext-diff --format= "$C" | sha256sum | cut -d' ' -f1)
+    h3=$(git show --no-color --no-ext-diff --format= "$C^" | sha256sum | cut -d' ' -f1)
+    note "control: the phase commit's diff hashes the same twice" "$(is [ "$h1" = "$h2" ])"
+    note "control: its parent's diff hashes differently" "$(isnot [ "$h1" = "$h3" ])"
+    
+    echo
+    echo "## the changed files at the phase commit"
+    for f in $(git diff --name-only --diff-filter=d "$BASE" "$C"); do
+      git show "$C:$f" >"$W/f" 2>/dev/null || { echo "$f: READ ERROR"; fail=1; continue; }
+      echo "$f: sha256 $(sha256sum <"$W/f" | cut -d' ' -f1), bytes $(wc -c <"$W/f"), mode $(git ls-tree "$C" -- "$f" | awk '{print $1}')"
+    done
+    git diff --name-only --diff-filter=d "$BASE" "$C" >"$W/difffiles"
+    echo "  files in the diff: $(count_lines "$W/difffiles")"
+    new_mode() { [ "$(git ls-tree "$C" -- "$1" | awk '{print $1}')" = 100755 ]; }
+    # Every source the phase adds or modifies, read from the diff, is checked.
+    while IFS= read -r m; do
+      note "$m, in this phase's diff, is not executable" "$(isnot new_mode "$m")"
+    done <"$W/difffiles"
+    note "control: the same mode check finds the runner executable" "$(is new_mode scripts/passthrough-run.sh)"
+    
+    echo
+    echo "## the gate files this phase changed, and the self-test they require"
+    # specs/0001-bootstrap.md, "Rules for every phase": a phase that changes no
+    # gate file LISTS IN gate.log the gate files it checked against the diff.
+    cat >"$W/gate-files" <<'EOF'
+    scripts/check.sh
+    scripts/privacy.sh
+    scripts/privacy-patterns.txt
+    scripts/privacy-identity.txt
+    scripts/sys-allowlist.txt
+    scripts/install-hooks.sh
+    scripts/counting.sh
+    scripts/gate-self-test.sh
+    .gitignore
+    .github/workflows/ci.yml
+    EOF
+    echo "command: awk over specs/0001-bootstrap.md, the bullet opening '- A phase that changes a gate file' up to its first 'runs', backticked names"
+    awk '/^- A phase that changes a gate file/ { on = 1 } on { print } on && /runs/ { exit }' specs/0001-bootstrap.md >"$W/gate-sentence"
+    sed 's/^/    /' "$W/gate-sentence"
+    tr -d '\n' <"$W/gate-sentence" | LC_ALL=C "$G" -o -E '`[^`]+`' | tr -d '`' | LC_ALL=C "$G" -v -E ' ' | sort >"$W/gate-from-spec"
+    LC_ALL=C "$G" -v -Fx .github/workflows/ci.yml "$W/gate-files" | sort >"$W/gate-typed"
+    sed 's/^/    named in specs\/0001: /' "$W/gate-from-spec"
+    ci_named() { [ "$(count_matches -F 'the CI workflow' "$W/gate-sentence")" = 1 ]; }
+    note "the typed gate-file list is specs/0001's backticked names plus the CI workflow" "$(is cmp -s "$W/gate-from-spec" "$W/gate-typed")"
+    note "specs/0001's sentence names the CI workflow" "$(is ci_named)"
+    LC_ALL=C "$G" -v -Fx scripts/counting.sh "$W/gate-typed" >"$W/c-gate-typed"
+    note "control: the comparison refuses the typed list one name short" "$(isnot cmp -s "$W/gate-from-spec" "$W/c-gate-typed")"
+    echo "  the gate files specs/0001 names, each checked against the phase diff:"
+    sed 's/^/    checked: /' "$W/gate-files"
+    touched=0
+    while IFS= read -r g; do
+      if LC_ALL=C "$G" -Fxq -- "$g" "$W/difffiles"; then
+        echo "  gate file in the diff: $g"
+        touched=$((touched + 1))
+      fi
+    done <"$W/gate-files"
+    echo "  gate files checked: $(count_lines "$W/gate-files"); of them in the phase diff: $touched"
+    note "no gate file is in the phase diff, so specs/0001 asks for this listing and no self-test" \
+      "$(is [ "$touched" = 0 ])"
+    FIRST_DIFF=$(sed -n '1p' "$W/difffiles")
+    echo "  a file that IS in the phase diff, taken from the diff: $FIRST_DIFF"
+    found_first=$(count_matches -Fx "$FIRST_DIFF" "$W/difffiles")
+    note "control: the same search finds a name the diff does hold" \
+      "$(is [ "$found_first" -ge 1 ])"
+    # Every file the phase diff holds, read from the diff rather than typed.
+    while IFS= read -r s; do
+      echo "  $s: in the phase diff $(count_matches -Fx "$s" "$W/difffiles") times; in the gate-file list $(count_matches -Fx "$s" "$W/gate-files") times"
+      in_diff_not_gate() {
+        [ "$(count_matches -Fx "$1" "$W/difffiles")" = 1 ] &&
+          [ "$(count_matches -Fx "$1" "$W/gate-files")" = 0 ]
+      }
+      note "$s is in the diff and is not a gate file" "$(is in_diff_not_gate "$s")"
+    done <"$W/difffiles"
+    ST=records/logs/m2p2-p2/self-test.log
+    echo "  $ST: $([ -e "$ST" ] && echo PRESENT || echo "absent, as a phase with no gate-file change requires")"
+    note "this phase committed no self-test log, having changed no gate file" \
+      "$(is [ ! -e "$ST" ])"
+    
+    echo
+    echo "## each code commit touches its own area only, and no lock or manifest changed (header change 4)"
+    outside_count() {
+      local all inside
+      all=$(count_lines "$1"); inside=$(count_matches -E "$2" "$1")
+      printf '%s' "$((all - inside))"
+    }
+    AREA_1='^crates/emend/src/(package|styles|package/tests|styles/elements|styles/elements/tests)[.]rs$'
+    AREA_2='^crates/emend/src/(package|styles|package/tests|styles/elements|styles/elements/tests)[.]rs$'
+    AREA_3='^tools/emend-copy/(src/main|tests/null_rewrite)[.]rs$'
+    for k in 1 2 3; do
+      var=CODE$k; at=${!var}; avar=AREA_$k; area=${!avar}
+      echo "command: git show --name-only --format= <code commit $k>"
+      git show --name-only --format= "$at" >"$W/code-files-$k"
+      sed "s/^/    code commit $k touches: /" "$W/code-files-$k"
+      nall=$(count_lines "$W/code-files-$k")
+      nout=$(outside_count "$W/code-files-$k" "$area")
+      echo "  paths: $nall; outside $area: $nout"
+      touches_only() { [ "$nall" -ge 1 ] && [ "$nout" = 0 ]; }
+      note "code commit $k touches something, and nothing outside its area" "$(is touches_only)"
+    done
+    printf 'crates/emend/src/styles.rs\ncrates/emend/src/archive.rs\n' >"$W/c-code-files"
+    ctl "one path outside code commit 1's area (archive.rs), same command form" 1 outside_count "$W/c-code-files" "$AREA_1"
+    printf 'crates/emend/src/styles.rs\ncrates/emend/src/archive.rs\n' >"$W/c-code-files-2"
+    ctl "one path outside code commit 2's area (archive.rs), same command form" 1 outside_count "$W/c-code-files-2" "$AREA_2"
+    printf 'tools/emend-copy/src/main.rs\ncrates/emend/src/styles.rs\n' >"$W/c-code-files-3"
+    ctl "one path outside code commit 3's area (styles.rs), same command form" 1 outside_count "$W/c-code-files-3" "$AREA_3"
+    nlock=$(count_matches -Fx Cargo.lock "$W/difffiles")
+    LC_ALL=C "$G" -E '(^|/)Cargo[.]toml$' "$W/difffiles" >"$W/manifests"
+    nmanifest=$(count_lines "$W/manifests")
+    echo "  Cargo.lock in the phase diff: $nlock; manifests in the phase diff: $nmanifest"
+    sed 's/^/    manifest: /' "$W/manifests"
+    note "the phase changes no Cargo.lock" "$(is [ "$nlock" = 0 ])"
+    note "the phase changes no manifest" "$(is [ "$nmanifest" = 0 ])"
+    printf 'Cargo.lock\ntools/xlsx-diff/Cargo.toml\n' >"$W/c-lock"
+    ctl "a lock file in a list, same command form" 1 count_matches -Fx Cargo.lock "$W/c-lock"
+    ctl "a manifest in a list, same command form" 1 count_matches -E '(^|/)Cargo[.]toml$' "$W/c-lock"
+    
+    echo
+    echo "## the scripts this phase runs parse, and the list script compiles"
+    for s in scripts/check.sh scripts/counting.sh scripts/passthrough-run.sh scripts/lo-check.sh scripts/edit-open-check.sh; do
+      git show "$C:$s" >"$W/parse.sh"
+      bash -n "$W/parse.sh" 2>/dev/null
+      note "$s parses at the phase commit" "$(is [ $? -eq 0 ])"
+    done
+    printf 'if then\n' >"$W/c-parse.sh"
+    parse_ctl() { bash -n "$W/c-parse.sh" 2>/dev/null; }
+    note "control: the same parse refuses a broken if" "$(isnot parse_ctl)"
+    echo "command: python3 --version"
+    python3 --version 2>&1 | sed 's/^/    /'
+    py_compiles() { python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' "$1" "$W/compiled.pyc" 2>/dev/null; }
+    git show "$C:scripts/excel-check-list.py" >"$W/list.py"
+    note "scripts/excel-check-list.py compiles at the phase commit (py_compile, doraise)" "$(is py_compiles "$W/list.py")"
+    printf 'def f(:\n    pass\n' >"$W/c-broken.py"
+    note "control: the same compile refuses a broken def" "$(isnot py_compiles "$W/c-broken.py")"
+    
+    echo
+    echo "## the new sources scored against the gate they must pass, with controls"
+    OFF=$(sed -n "s/^readonly OFFICE_RE='\(.*\)'\$/\1/p" scripts/check.sh)
+    note "OFFICE_RE was read from check.sh and is non-empty" "$(is [ -n "$OFF" ])"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    note "the P6d narrowing commit resolved from git" "$(is [ -n "$PRE_COMMIT" ])"
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$W/pre-all" 2>/dev/null || fail=1
+    sed -n '8p;10p;11p' "$W/pre-all" >"$W/pre-patterns"
+    note "three pre-P6d forms read from the narrowing commit's parent" \
+      "$(is [ "$(count_lines "$W/pre-patterns")" = 3 ])"
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_live()     { count_from_file -E scripts/privacy-patterns.txt "$1"; }
+    f_pre()      { count_from_file -E "$W/pre-patterns" "$1"; }
+    f_office()   { count_matches -E "$OFF" "$1"; }
+    # P1 gate header change 7, kept: an office extension whose file name is a literal, the
+    # name running back from the extension to a space, a quote, a slash, an
+    # equals sign or the line's start with no shell expansion in it.
+    f_office_literal() { count_matches -E "(^|[ \"'=/])[^ \"'=/\$]+$OFF" "$1"; }
+    
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    printf 'plain\nhas \303\251 byte\n' >"$W/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$W/c-ctrl"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$W/c-live"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$W/c-pre"
+    printf 'name.%s%s\n' 'xl' 'sx' >"$W/c-office"
+    printf 'input=$KEEP/$test.in.%s%s\n' 'xl' 'sx' >"$W/c-office-expanded"
+    printf 'plain ascii only\n' >"$W/c-clean"
+    ctl "f_nonascii on a two-byte character" 2 f_nonascii "$W/c-nonascii"
+    ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$W/c-ctrl"
+    ctl "f_live on a token shape" 1 f_live "$W/c-live"
+    ctl "f_pre on a bare path shape" 1 f_pre "$W/c-pre"
+    ctl "f_office on an office file name" 1 f_office "$W/c-office"
+    ctl "f_office_literal on the same literal name" 1 f_office_literal "$W/c-office"
+    ctl "f_office on a name built from variables" 1 f_office "$W/c-office-expanded"
+    ctl "f_office_literal on the same built name" 0 f_office_literal "$W/c-office-expanded"
+    for f in f_nonascii f_ctrl f_live f_pre f_office f_office_literal; do
+      ctl "$f on a clean file" 0 "$f" "$W/c-clean"
+    done
+    
+    git diff --name-only --diff-filter=A "$BASE" "$C" >"$W/added"
+    echo "  files added in this phase: $(count_lines "$W/added")"
+    nscored=0
+    while IFS= read -r s; do
+      git show "$C:$s" >"$W/a-at-head" 2>/dev/null || { echo "$s: READ ERROR"; fail=1; continue; }
+      echo "$s (new in this phase):"
+      echo "  non-ASCII bytes: $(f_nonascii "$W/a-at-head")"
+      echo "  control bytes: $(f_ctrl "$W/a-at-head")"
+      echo "  hits against all $(count_lines scripts/privacy-patterns.txt) live privacy patterns: $(f_live "$W/a-at-head")"
+      echo "  hits against the three pre-P6d bare forms: $(f_pre "$W/a-at-head")"
+      echo "  lines with an office extension: $(f_office "$W/a-at-head"); of them a literal file name: $(f_office_literal "$W/a-at-head")"
+      clean_source() {
+        [ "$(f_nonascii "$1")" = 0 ] && [ "$(f_ctrl "$1")" = 0 ] &&
+          [ "$(f_live "$1")" = 0 ] && [ "$(f_pre "$1")" = 0 ] && [ "$(f_office_literal "$1")" = 0 ]
+      }
+      note "$s is clean on the five forms, office names counted as literals" "$(is clean_source "$W/a-at-head")"
+      nscored=$((nscored + 1))
+    done <"$W/added"
+    
+    echo
+    echo "## the files this phase MODIFIED, scored by change rather than absolutely"
+    git diff --name-only --diff-filter=M "$BASE" "$C" >"$W/modified"
+    echo "  files modified in this phase: $(count_lines "$W/modified")"
+    while IFS= read -r M; do
+      git show "$BASE:$M" >"$W/m-at-base" 2>/dev/null || { echo "$M: READ ERROR at base"; fail=1; continue; }
+      git show "$C:$M" >"$W/m-at-head" 2>/dev/null || { echo "$M: READ ERROR at the phase commit"; fail=1; continue; }
+      git diff -U0 "$BASE" "$C" -- "$M" |
+        LC_ALL=C "$G" '^+' | LC_ALL=C "$G" -v '^+++' | sed 's/^+//' >"$W/m-added"
+      echo "$M (modified in this phase):"
+      echo "  added lines: $(count_lines "$W/m-added")"
+      for form in f_nonascii f_ctrl f_live f_pre f_office_literal f_office; do
+        at_base=$("$form" "$W/m-at-base")
+        added=$("$form" "$W/m-added")
+        at_head=$("$form" "$W/m-at-head")
+        echo "  $form: at the base $at_base, in the added lines $added, at the phase commit $at_head"
+        if [ "$form" = f_office ]; then
+          # Printed only: a moved or rebuilt line can lower the count, and the
+          # literal form above is the one held to "nothing new".
+          continue
+        fi
+        unchanged_by_this_phase() {
+          [ "$added" = 0 ] && [ "$at_base" != error ] && [ "$at_head" != error ] &&
+            [ "$at_base" = "$at_head" ]
+        }
+        note "$M: $form introduces nothing new in this phase" "$(is unchanged_by_this_phase)"
+      done
+      nscored=$((nscored + 1))
+    done <"$W/modified"
+    
+    echo
+    echo "## every file in the diff was scored"
+    ndiff=$(count_lines "$W/difffiles")
+    echo "  files in the diff: $ndiff; files scored as new or modified: $nscored"
+    note "every file in the phase diff was scored" "$(is [ "$ndiff" = "$nscored" ])"
+    
+    echo
+    echo "## the public functions at the base and at the phase commit (change D)"
+    # The first line of every "pub fn" in crates/emend/src outside the test
+    # files, leading space, "mut " before a parameter and a trailing brace
+    # dropped, sorted. The phase changes, adds and removes no public fn.
+    pub_first_lines() {
+      local at=$1 f
+      for f in $(git ls-tree -r --name-only "$at" -- crates/emend/src | LC_ALL=C "$G" -E '[.]rs$' | LC_ALL=C "$G" -vE '(/tests[.]rs|/testing[.]rs)$'); do
+        git show "$at:$f" | LC_ALL=C "$G" -E '^[[:space:]]*pub fn ' | sed -e 's/^[[:space:]]*//' -e 's/ {$//' -e 's/(mut /(/' -e 's/, mut /, /g'
+      done | LC_ALL=C sort
+    }
+    echo "command: git show <commit>:<each crates/emend/src/*.rs outside the tests> | grep '^ *pub fn ', normalised and sorted, at the base and at the phase commit"
+    pub_first_lines "$BASE" >"$W/pub-base"
+    pub_first_lines "$C" >"$W/pub-head"
+    echo "  pub fn first lines: at the base $(count_lines "$W/pub-base"), at the phase commit $(count_lines "$W/pub-head")"
+    echo "command: diff <base's list> <phase commit's list>"
+    diff "$W/pub-base" "$W/pub-head" | sed 's/^/    /'
+    LC_ALL=C comm -23 "$W/pub-base" "$W/pub-head" >"$W/pub-gone"
+    LC_ALL=C comm -13 "$W/pub-base" "$W/pub-head" >"$W/pub-new"
+    # P2 adds no public fn: Style's two new members are fields.
+    : >"$W/pub-want"
+    LC_ALL=C sort "$W/pub-want" -o "$W/pub-want"
+    echo "  first lines at the base and not at the phase commit: $(count_lines "$W/pub-gone"); at the phase commit and not at the base: $(count_lines "$W/pub-new")"
+    note "no public fn's first line at the base is gone or changed" "$(is [ "$(count_lines "$W/pub-gone")" = 0 ])"
+    note "no public fn's first line is added (the list equals the base's)" "$(is cmp -s "$W/pub-new" "$W/pub-want")"
+    sed '1d' "$W/pub-base" >"$W/c-pub-short"
+    LC_ALL=C comm -23 "$W/pub-base" "$W/c-pub-short" >"$W/c-pub-gone"
+    note "control: the same comm finds a line dropped from a list" "$(is [ "$(count_lines "$W/c-pub-gone")" = 1 ])"
+    printf 'pub fn control(&self)\n' >"$W/c-pub-want"
+    note "control: the added-list comparison refuses a list of one" "$(isnot cmp -s "$W/pub-new" "$W/c-pub-want")"
+    nunsafe=$(git grep -c -w -e unsafe "$C" -- crates/emend/src | awk -F: '{ n += $NF } END { print n + 0 }')
+    nforbid=$(git show "$C:crates/emend/src/lib.rs" | count_matches -Fx '#![forbid(unsafe_code)]' /dev/stdin)
+    echo "  lines holding the word unsafe under crates/emend/src at the phase commit: $nunsafe; lib.rs's forbid line: $nforbid"
+    note "lib.rs still forbids unsafe code" "$(is [ "$nforbid" = 1 ])"
+    
+    echo
+    echo "## the base's tests, unedited but for the disclosed lines (change E)"
+    git diff --name-only "$BASE" "$C" | LC_ALL=C "$G" -E '(/tests[.]rs|^tools/.*/tests/)' >"$W/test-files" || :
+    sed 's/^/    test file changed: /' "$W/test-files"
+    # test_bodies <commit> <file>: "<name>\t<body with each line joined by a
+    # form feed>" per #[test] fn, the body from the fn line to the first line
+    # that is a closing brace at the left margin.
+    test_bodies() {
+      python3 - "$1" "$2" <<'BODIES'
+    import re, subprocess, sys
+    at, path = sys.argv[1:3]
+    if subprocess.run(["git", "cat-file", "-e", at + "^{commit}"], capture_output=True).returncode != 0:
+        sys.exit("no such commit")
+    if subprocess.run(["git", "cat-file", "-e", f"{at}:{path}"], capture_output=True).returncode != 0:
+        sys.exit(0)
+    text = subprocess.run(["git", "show", f"{at}:{path}"], capture_output=True, text=True,
+                          check=True).stdout.split("\n")
+    i = 0
+    while i < len(text):
+        if text[i].strip() == "#[test]":
+            j = i + 1
+            while j < len(text) and not re.match(r"^\s*fn ", text[j]):
+                j += 1
+            if j >= len(text):
+                break
+            name = re.match(r"^\s*fn ([a-z0-9_]+)", text[j]).group(1)
+            k = j
+            while k < len(text) and text[k] != "}":
+                k += 1
+            print(name + "\t" + "\f".join(text[j:k + 1]))
+            i = k
+        i += 1
+    BODIES
+    }
+    # added_in <base bodies> <head bodies> <file>: per base test, "gone",
+    # "changed" (its base body is not a subsequence of its body now), or one line
+    # "<file> <test> + <added line, stripped>" per line added inside it.
+    added_in() {
+      python3 - "$1" "$2" "$3" <<'ADDED'
+    import sys
+    base = dict(l.rstrip("\n").split("\t", 1) for l in open(sys.argv[1]) if l.strip())
+    head = dict(l.rstrip("\n").split("\t", 1) for l in open(sys.argv[2]) if l.strip())
+    for name, body in sorted(base.items()):
+        if name not in head:
+            print("%s %s gone" % (sys.argv[3], name))
+            continue
+        old, new = body.split("\f"), head[name].split("\f")
+        i, added = 0, []
+        for line in new:
+            if i < len(old) and line == old[i]:
+                i += 1
+            else:
+                added.append(line.strip())
+        if i != len(old):
+            print("%s %s changed" % (sys.argv[3], name))
+            continue
+        for line in added:
+            print("%s %s + %s" % (sys.argv[3], name, line))
+    ADDED
+    }
+    : >"$W/tests-edited"; tb_fail=0
+    while IFS= read -r tf; do
+      test_bodies "$BASE" "$tf" >"$W/tb-base" || tb_fail=1
+      test_bodies "$C" "$tf" >"$W/tb-head" || tb_fail=1
+      added_in "$W/tb-base" "$W/tb-head" "$tf" >>"$W/tests-edited" || tb_fail=1
+    done <"$W/test-files"
+    echo "command: every #[test] fn of the base in each changed test file, read at the base and at the phase commit; the lines added inside it, and any removed or changed"
+    sed 's/^/    /' "$W/tests-edited"
+    cat >"$W/added-want" <<'ADDEDWANT'
+    crates/emend/src/package/tests.rs a_derived_xf_from_a_base_with_every_id_replaces_them_in_place + ..Style::default()
+    crates/emend/src/package/tests.rs a_derived_xf_with_no_base_names_every_id_and_flags_what_is_given + ..Style::default()
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + // And with M2 part 2 P2's.
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--border-sample", "--font-sample"],
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--font-sample", "--border-sample"],
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--border-sample", "[Content_Types].xml"],
+    ADDEDWANT
+    LC_ALL=C sort "$W/tests-edited" >"$W/tests-edited-sorted"
+    LC_ALL=C sort "$W/added-want" -o "$W/added-want"
+    note "every test of the base and the phase commit was read, none failing" "$(is [ "$tb_fail" = 0 ])"
+    note "no test of the base is gone or changed, and the lines added inside base tests are exactly the disclosed list" "$(is cmp -s "$W/tests-edited-sorted" "$W/added-want")"
+    printf 'x\tfn a() {\f    let s = 1;\f}\n' >"$W/c-tb-base"
+    printf 'x\tfn a() {\f    let s = 2;\f}\n' >"$W/c-tb-head"
+    changed_ctl() { [ "$(added_in "$W/c-tb-base" "$W/c-tb-head" f)" = "f x changed" ]; }
+    note "control: added_in reports a body with one line changed as changed" "$(is changed_ctl)"
+    printf 'x\tfn a() {\f    let s = 1;\f    let t = 2;\f}\n' >"$W/c-tb-head2"
+    added_ctl() { [ "$(added_in "$W/c-tb-base" "$W/c-tb-head2" f)" = "f x + let t = 2;" ]; }
+    note "control: added_in reports one added line by its text" "$(is added_ctl)"
+    absent_ok() { [ -z "$(test_bodies "$BASE" crates/emend/src/no/such/tests.rs)" ]; }
+    note "control: a path absent at the base gives no test and no failure" "$(is absent_ok)"
+    failed_read() { test_bodies 0000000000000000000000000000000000000000 crates/emend/src/package/tests.rs >/dev/null 2>&1; }
+    note "control: a commit that does not exist is a failed read, not no tests (ruling 8)" "$(isnot failed_read)"
+    
+    echo
+    echo "## full run on a cold cache, started from / by absolute path"
+    echo "command: cargo clean"
+    RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never cargo clean 2>&1 | sed 's/^/    /'
+    GATE=$MAIN/scripts/check.sh
+    echo "command: (cd / && <repo>/scripts/check.sh)"
+    ( cd / && RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4 "$GATE" ) >"$W/gate.out" 2>"$W/gate.err"
+    grc=$?
+    sed 's/^/    /' "$W/gate.out"
+    echo "exit: $grc; stderr bytes: $(wc -c <"$W/gate.err")"
+    npass=$(count_matches -E '^PASS ' "$W/gate.out")
+    ndoc_step=$(count_matches -E '^PASS doc$' "$W/gate.out")
+    note "the gate exits 0" "$(is [ "$grc" -eq 0 ])"
+    note "nine PASS lines" "$(is [ "$npass" = 9 ])"
+    note "the doc step is one of them, by name" "$(is [ "$ndoc_step" = 1 ])"
+    note "stderr is empty" "$(is [ "$(wc -c <"$W/gate.err")" -eq 0 ])"
+    LC_ALL=C "$G" -a -E '^PASS ' "$W/gate.out" | sed 's/^/    /'
+    
+    echo
+    echo "## the binaries the gate built, both targets"
+    bins_ok=yes
+    for b in "$CARGO_TARGET_DIR"/debug/emend-copy "$CARGO_TARGET_DIR"/debug/xlsx-diff \
+             "$CARGO_TARGET_DIR"/i686-unknown-linux-musl/debug/emend-copy \
+             "$CARGO_TARGET_DIR"/i686-unknown-linux-musl/debug/xlsx-diff; do
+      if [ -x "$b" ]; then
+        echo "  $b: sha256 $(sha256sum <"$b" | cut -d' ' -f1), bytes $(wc -c <"$b")"
+      else
+        echo "  $b: MISSING or not executable"
+        bins_ok=no
+      fi
+    done
+    note "the gate left all four binaries, both targets, executable" "$(is [ "$bins_ok" = yes ])"
+    
+    echo
+    echo "## status after the run, with planning's uncommitted spec named and the lines printed"
+    # run_lines and run_matches read the command's own exit status. Planning's
+    # P1 rulings 1 to 5 sit in specs/0017 in the working tree, uncommitted; that
+    # path is named, hashed, and allowed, and nothing else may differ but this
+    # phase's logs and its two record pairs.
+    PLANNING_SPEC=specs/0017-fuller-styles.md
+    PLANNING_GAVE=${PLANNING_GAVE:-none given}
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_untracked_log=$(run_matches -E '^[?][?] records/logs/m2p2-p2' git status --porcelain)
+    st_tracked_log=$(run_matches -E '^ ?[MARCD] records/logs/m2p2-p2' git status --porcelain)
+    st_record=$(run_matches -E '^(\?\?| ?[MARCD]) records/m2p2-(p2|open)-' git status --porcelain)
+    st_planning=$(run_matches -E '^ M specs/0017-fuller-styles[.]md$' git status --porcelain)
+    echo "status lines: $st_all; untracked under the log directory: $st_untracked_log; tracked and modified under it: $st_tracked_log; the phase's records: $st_record; planning's spec modified and uncommitted: $st_planning"
+    echo "  command: sha256sum $PLANNING_SPEC (the working tree's copy)"
+    echo "    sha256 $(sha256sum <"$PLANNING_SPEC" | cut -d' ' -f1)"
+    echo "    the hash planning's message gave: $PLANNING_GAVE"
+    spec_as_given() { [ "$st_planning" = 0 ] || [ "$(sha256sum <"$PLANNING_SPEC" | cut -d' ' -f1)" = "$PLANNING_GAVE" ]; }
+    note "planning's spec is committed, or its uncommitted copy is the file planning's message hashed" "$(is spec_as_given)"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_untracked_log" != error ] &&
+        [ "$st_tracked_log" != error ] && [ "$st_record" != error ] &&
+        [ "$st_planning" != error ] &&
+        [ "$st_all" = "$((st_untracked_log + st_tracked_log + st_record + st_planning))" ]
+    }
+    note "every change in the working tree is one of this phase's logs, its records or planning's uncommitted spec" "$(is status_accounted)"
+    printf ' M specs/0017-fuller-styles.md\n M scripts/check.sh\n' >"$W/c-status"
+    ctl "planning's spec in a status listing, same pattern" 1 count_matches -E '^ M specs/0017-fuller-styles[.]md$' "$W/c-status"
+    printf '?? records/m2p2-open-2026-01-01-abcdef0.md\n?? records/m2p2-p1-2026-01-01-abcdef0.txt\n?? records/m2p1-p2-x.md\n' >"$W/c-rec"
+    ctl "the phase's record stems in a listing of three, same pattern" 1 count_matches -E '^(\?\?| ?[MARCD]) records/m2p2-(p2|open)-' "$W/c-rec"
+    echo
+    echo "## this script's own standard error (ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$W/c-err"; printf 'x' >>"$W/c-err"
+    nerr_ctl=$(wc -c <"$W/c-err")
+    echo "  command: wc -c <scratch>/p2/out/gate.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    note "this script wrote nothing to its standard error" "$(is [ "$nerr" = 0 ])"
+    note "control: the same count reads one byte more in the copy" "$(is [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "gate log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+    
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the phase base, resolved from git and checked for ambiguity
+command: git log --format='%H' --grep='^M2 part 2 P2: commit planning docs [(]the P1 rulings and verification'
+  commits matching the first doc commit's pattern: 1
+  the first doc commit's pattern matches exactly one commit: as-expected
+  the first doc commit is 06d485b22465083b157d47213182019c38db1534
+  its parent, the phase base, is 6080f2ade220c05013287a0be8fd9c9f7f3411bb
+  the base resolved from git, not typed: as-expected
+  P1's record commit, by subject: 6080f2ade220c05013287a0be8fd9c9f7f3411bb
+  the phase base is P1's record commit: as-expected
+  control: the same comparison refuses the first doc commit as the base: as-expected
+
+## the phase's commits
+command: git log --reverse --format='%H %s' <base>..<phase commit>
+    06d485b22465083b157d47213182019c38db1534 M2 part 2 P2: commit planning docs (the P1 rulings and verification)
+    24ce03b7398819ecddd8b8f6bc96178a430d1023 M2 part 2 P2: a font name as a format code is written; every count rewritten, grown or not
+    4bd46a119744d09058039b611e2d56d3cedfd327 M2 part 2 P2: alignment and protection in add_style, the xf content replacement
+    09c941f04e921a51c34f05ad6371e3d2b30354e7 M2 part 2 P2: emend-copy --border-sample
+  commits in the range: 4
+    doc 06d485b M2 part 2 P2: commit planning docs (the P1 rulings and verification)
+    code 24ce03b M2 part 2 P2: a font name as a format code is written; every count rewritten, grown or not
+    code 4bd46a1 M2 part 2 P2: alignment and protection in add_style, the xf content replacement
+    code 09c941f M2 part 2 P2: emend-copy --border-sample
+  every commit is planning docs alone or code alone, the range opens with a doc commit and holds code: as-expected
+  of the 4 commits in the range: 1 planning-doc, 3 code
+  the phase holds at least one doc commit, counted in the range: as-expected
+  control: the same count finds this phase's code commits too: as-expected
+  control: the two classes account for every commit in the range: as-expected
+  control: commit_class calls the first doc commit a doc commit: as-expected
+  the last commit in the range that modified crates/emend/src/package/tests.rs: 4bd46a119744d09058039b611e2d56d3cedfd327
+  the commit that modified the package tests resolved from git: as-expected
+  control: commit_class calls the commit that modified the package tests a code commit: as-expected
+  control: the first doc commit carries ROADMAP.md, a term the classifier reads: as-expected
+  control: structure_sound accepts docs and code interleaved: as-expected
+  control: structure_sound rejects a range that opens with a code commit: as-expected
+  control: structure_sound rejects a commit mixing docs and code: as-expected
+  control: structure_sound rejects an empty commit: as-expected
+  control: isnot reports a passing command as UNEXPECTED, so it can fail: as-expected
+  control: structure_sound rejects a range with no code commit: as-expected
+
+## every commit message in the range: ASCII, ending with the Co-Authored-By line only
+  06d485b: message lines 8, non-ASCII bytes 0, trailers git parses:
+      Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+  06d485b's message is ASCII and ends with the Co-Authored-By line only: as-expected
+  24ce03b: message lines 13, non-ASCII bytes 0, trailers git parses:
+      Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+  24ce03b's message is ASCII and ends with the Co-Authored-By line only: as-expected
+  4bd46a1: message lines 26, non-ASCII bytes 0, trailers git parses:
+      Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+  4bd46a1's message is ASCII and ends with the Co-Authored-By line only: as-expected
+  09c941f: message lines 13, non-ASCII bytes 0, trailers git parses:
+      Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+  09c941f's message is ASCII and ends with the Co-Authored-By line only: as-expected
+  control: msg_form_ok accepts a message ending with the line: as-expected
+  control: msg_form_ok refuses a session line after it: as-expected
+  control: msg_form_ok refuses a non-ASCII byte: as-expected
+  control: msg_form_ok refuses the line twice: as-expected
+  control: msg_form_ok refuses a message without it: as-expected
+
+## the doc commit's files against the hashes planning's message gave (header change 3)
+  the doc commit: 06d485b22465083b157d47213182019c38db1534
+  doc1 06d485b specs/0017-fuller-styles.md
+    command: git show <commit>:specs/0017-fuller-styles.md | sha256sum
+    sha256 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+    the hash planning's message gave: 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+  doc1's specs/0017-fuller-styles.md is the blob planning's message gave: as-expected
+  doc1 06d485b ROADMAP.md
+    command: git show <commit>:ROADMAP.md | sha256sum
+    sha256 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+    the hash planning's message gave: 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+  doc1's ROADMAP.md is the blob planning's message gave: as-expected
+  head 09c941f specs/0017-fuller-styles.md
+    command: git show <commit>:specs/0017-fuller-styles.md | sha256sum
+    sha256 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+    the hash planning's message gave: 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+  head's specs/0017-fuller-styles.md is the blob planning's message gave: as-expected
+  head 09c941f ROADMAP.md
+    command: git show <commit>:ROADMAP.md | sha256sum
+    sha256 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+    the hash planning's message gave: 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571
+  head's ROADMAP.md is the blob planning's message gave: as-expected
+    the doc commit carries: ROADMAP.md
+    the doc commit carries: specs/0017-fuller-styles.md
+  the doc commit carries exactly the two files planning's message hashed: as-expected
+  control: blob_matches refuses the message's ROADMAP hash at the base, before the doc commit: as-expected
+  control: blob_matches refuses the message's 0017 hash at the base, before the doc commit: as-expected
+  control: blob_matches refuses a path absent at the commit: as-expected
+  control: the file comparison refuses a list one file short: as-expected
+
+## each commit's diff and the phase's combined diff, hashed with the command that produced each
+  command: git show --no-color --no-ext-diff --format= 06d485b22465083b157d47213182019c38db1534 | sha256sum
+    36832fec3142a12a92dcdf58510020cd266343ecfd761bc5d9d0964799cbbc8d  M2 part 2 P2: commit planning docs (the P1 rulings and verification)
+  command: git show --no-color --no-ext-diff --format= 24ce03b7398819ecddd8b8f6bc96178a430d1023 | sha256sum
+    b7c54e7d48c3d79aca11e1c7d9d7b8187c723b76449907345d7393390a27cdb4  M2 part 2 P2: a font name as a format code is written; every count rewritten, grown or not
+  command: git show --no-color --no-ext-diff --format= 4bd46a119744d09058039b611e2d56d3cedfd327 | sha256sum
+    2b07a3804e49dba34acc592941180e57664a18dd8b7966a0c76bc91a315a4b87  M2 part 2 P2: alignment and protection in add_style, the xf content replacement
+  command: git show --no-color --no-ext-diff --format= 09c941f04e921a51c34f05ad6371e3d2b30354e7 | sha256sum
+    e8aad6600242c3530b68f49adb329cc1ff3b0aa576631877caba7d3c030381e5  M2 part 2 P2: emend-copy --border-sample
+  command: git diff --no-color --no-ext-diff 6080f2ade220c05013287a0be8fd9c9f7f3411bb 09c941f04e921a51c34f05ad6371e3d2b30354e7 | sha256sum
+    427b78485e0dd9aee9f8de4ae78d4ad9338c84b590b96109093fafac37d8c6c6  the phase's combined diff
+  control: the phase commit's diff hashes the same twice: as-expected
+  control: its parent's diff hashes differently: as-expected
+
+## the changed files at the phase commit
+ROADMAP.md: sha256 0ace90360b8da1de754e066e78661b92016e483b2adeca7a1f085cc70f7b6571, bytes 54728, mode 100644
+crates/emend/src/package.rs: sha256 896485e12f67221e8e52e2b60a7085973a8a3c1ac17d8a558a599ee0515d007f, bytes 224563, mode 100644
+crates/emend/src/package/tests.rs: sha256 d628356594d4f7dff834af2111eac4ea7559bbf4487aecdb6009aeba7606da10, bytes 264878, mode 100644
+crates/emend/src/styles.rs: sha256 6a3c3d5b1f7b34ce31d3f74be018fb8a11e3ffb785722f6402a738b8f5a6087e, bytes 36347, mode 100644
+crates/emend/src/styles/elements.rs: sha256 fe126bebb6092480557f4331269943b5305ca70f8fc354ec42d6348c46e9108e, bytes 20865, mode 100644
+crates/emend/src/styles/elements/tests.rs: sha256 6ef87ab9f345c067523c9481a52fa77c8c5e0fa316f580cead096ac7147c0787, bytes 14942, mode 100644
+specs/0017-fuller-styles.md: sha256 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c, bytes 49496, mode 100644
+tools/emend-copy/src/main.rs: sha256 e36fcf03d6ab29ab723d9dcee4dfae8cf94e8cd3f64ba1294593da4dd5388047, bytes 109694, mode 100644
+tools/emend-copy/tests/null_rewrite.rs: sha256 5d16f70cad88b83fe5eb80a1a5ae35d6bde58944619ac27e9aec97cda917558c, bytes 113664, mode 100644
+  files in the diff: 9
+  ROADMAP.md, in this phase's diff, is not executable: as-expected
+  crates/emend/src/package.rs, in this phase's diff, is not executable: as-expected
+  crates/emend/src/package/tests.rs, in this phase's diff, is not executable: as-expected
+  crates/emend/src/styles.rs, in this phase's diff, is not executable: as-expected
+  crates/emend/src/styles/elements.rs, in this phase's diff, is not executable: as-expected
+  crates/emend/src/styles/elements/tests.rs, in this phase's diff, is not executable: as-expected
+  specs/0017-fuller-styles.md, in this phase's diff, is not executable: as-expected
+  tools/emend-copy/src/main.rs, in this phase's diff, is not executable: as-expected
+  tools/emend-copy/tests/null_rewrite.rs, in this phase's diff, is not executable: as-expected
+  control: the same mode check finds the runner executable: as-expected
+
+## the gate files this phase changed, and the self-test they require
+command: awk over specs/0001-bootstrap.md, the bullet opening '- A phase that changes a gate file' up to its first 'runs', backticked names
+    - A phase that changes a gate file (`scripts/check.sh`,
+      `scripts/privacy.sh`, `scripts/privacy-patterns.txt`,
+      `scripts/privacy-identity.txt`, `scripts/sys-allowlist.txt`,
+      `scripts/install-hooks.sh`, `scripts/counting.sh`,
+      `scripts/gate-self-test.sh`, `.gitignore`, the CI workflow) runs
+    named in specs/0001: .gitignore
+    named in specs/0001: scripts/check.sh
+    named in specs/0001: scripts/counting.sh
+    named in specs/0001: scripts/gate-self-test.sh
+    named in specs/0001: scripts/install-hooks.sh
+    named in specs/0001: scripts/privacy-identity.txt
+    named in specs/0001: scripts/privacy-patterns.txt
+    named in specs/0001: scripts/privacy.sh
+    named in specs/0001: scripts/sys-allowlist.txt
+  the typed gate-file list is specs/0001's backticked names plus the CI workflow: as-expected
+  specs/0001's sentence names the CI workflow: as-expected
+  control: the comparison refuses the typed list one name short: as-expected
+  the gate files specs/0001 names, each checked against the phase diff:
+    checked: scripts/check.sh
+    checked: scripts/privacy.sh
+    checked: scripts/privacy-patterns.txt
+    checked: scripts/privacy-identity.txt
+    checked: scripts/sys-allowlist.txt
+    checked: scripts/install-hooks.sh
+    checked: scripts/counting.sh
+    checked: scripts/gate-self-test.sh
+    checked: .gitignore
+    checked: .github/workflows/ci.yml
+  gate files checked: 10; of them in the phase diff: 0
+  no gate file is in the phase diff, so specs/0001 asks for this listing and no self-test: as-expected
+  a file that IS in the phase diff, taken from the diff: ROADMAP.md
+  control: the same search finds a name the diff does hold: as-expected
+  ROADMAP.md: in the phase diff 1 times; in the gate-file list 0 times
+  ROADMAP.md is in the diff and is not a gate file: as-expected
+  crates/emend/src/package.rs: in the phase diff 1 times; in the gate-file list 0 times
+  crates/emend/src/package.rs is in the diff and is not a gate file: as-expected
+  crates/emend/src/package/tests.rs: in the phase diff 1 times; in the gate-file list 0 times
+  crates/emend/src/package/tests.rs is in the diff and is not a gate file: as-expected
+  crates/emend/src/styles.rs: in the phase diff 1 times; in the gate-file list 0 times
+  crates/emend/src/styles.rs is in the diff and is not a gate file: as-expected
+  crates/emend/src/styles/elements.rs: in the phase diff 1 times; in the gate-file list 0 times
+  crates/emend/src/styles/elements.rs is in the diff and is not a gate file: as-expected
+  crates/emend/src/styles/elements/tests.rs: in the phase diff 1 times; in the gate-file list 0 times
+  crates/emend/src/styles/elements/tests.rs is in the diff and is not a gate file: as-expected
+  specs/0017-fuller-styles.md: in the phase diff 1 times; in the gate-file list 0 times
+  specs/0017-fuller-styles.md is in the diff and is not a gate file: as-expected
+  tools/emend-copy/src/main.rs: in the phase diff 1 times; in the gate-file list 0 times
+  tools/emend-copy/src/main.rs is in the diff and is not a gate file: as-expected
+  tools/emend-copy/tests/null_rewrite.rs: in the phase diff 1 times; in the gate-file list 0 times
+  tools/emend-copy/tests/null_rewrite.rs is in the diff and is not a gate file: as-expected
+  records/logs/m2p2-p2/self-test.log: absent, as a phase with no gate-file change requires
+  this phase committed no self-test log, having changed no gate file: as-expected
+
+## each code commit touches its own area only, and no lock or manifest changed (header change 4)
+command: git show --name-only --format= <code commit 1>
+    code commit 1 touches: crates/emend/src/package.rs
+    code commit 1 touches: crates/emend/src/package/tests.rs
+    code commit 1 touches: crates/emend/src/styles.rs
+    code commit 1 touches: crates/emend/src/styles/elements.rs
+    code commit 1 touches: crates/emend/src/styles/elements/tests.rs
+  paths: 5; outside ^crates/emend/src/(package|styles|package/tests|styles/elements|styles/elements/tests)[.]rs$: 0
+  code commit 1 touches something, and nothing outside its area: as-expected
+command: git show --name-only --format= <code commit 2>
+    code commit 2 touches: crates/emend/src/package.rs
+    code commit 2 touches: crates/emend/src/package/tests.rs
+    code commit 2 touches: crates/emend/src/styles.rs
+    code commit 2 touches: crates/emend/src/styles/elements.rs
+  paths: 4; outside ^crates/emend/src/(package|styles|package/tests|styles/elements|styles/elements/tests)[.]rs$: 0
+  code commit 2 touches something, and nothing outside its area: as-expected
+command: git show --name-only --format= <code commit 3>
+    code commit 3 touches: tools/emend-copy/src/main.rs
+    code commit 3 touches: tools/emend-copy/tests/null_rewrite.rs
+  paths: 2; outside ^tools/emend-copy/(src/main|tests/null_rewrite)[.]rs$: 0
+  code commit 3 touches something, and nothing outside its area: as-expected
+  control one path outside code commit 1's area (archive.rs), same command form count=1 expected=1: as-expected
+  control one path outside code commit 2's area (archive.rs), same command form count=1 expected=1: as-expected
+  control one path outside code commit 3's area (styles.rs), same command form count=1 expected=1: as-expected
+  Cargo.lock in the phase diff: 0; manifests in the phase diff: 0
+  the phase changes no Cargo.lock: as-expected
+  the phase changes no manifest: as-expected
+  control a lock file in a list, same command form count=1 expected=1: as-expected
+  control a manifest in a list, same command form count=1 expected=1: as-expected
+
+## the scripts this phase runs parse, and the list script compiles
+  scripts/check.sh parses at the phase commit: as-expected
+  scripts/counting.sh parses at the phase commit: as-expected
+  scripts/passthrough-run.sh parses at the phase commit: as-expected
+  scripts/lo-check.sh parses at the phase commit: as-expected
+  scripts/edit-open-check.sh parses at the phase commit: as-expected
+  control: the same parse refuses a broken if: as-expected
+command: python3 --version
+    Python 3.14.4
+  scripts/excel-check-list.py compiles at the phase commit (py_compile, doraise): as-expected
+  control: the same compile refuses a broken def: as-expected
+
+## the new sources scored against the gate they must pass, with controls
+  OFFICE_RE was read from check.sh and is non-empty: as-expected
+  the P6d narrowing commit resolved from git: as-expected
+  three pre-P6d forms read from the narrowing commit's parent: as-expected
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_live on a token shape count=1 expected=1: as-expected
+  control f_pre on a bare path shape count=1 expected=1: as-expected
+  control f_office on an office file name count=1 expected=1: as-expected
+  control f_office_literal on the same literal name count=1 expected=1: as-expected
+  control f_office on a name built from variables count=1 expected=1: as-expected
+  control f_office_literal on the same built name count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_live on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+  control f_office on a clean file count=0 expected=0: as-expected
+  control f_office_literal on a clean file count=0 expected=0: as-expected
+  files added in this phase: 0
+
+## the files this phase MODIFIED, scored by change rather than absolutely
+  files modified in this phase: 9
+ROADMAP.md (modified in this phase):
+  added lines: 2
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  ROADMAP.md: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  ROADMAP.md: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  ROADMAP.md: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  ROADMAP.md: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  ROADMAP.md: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+crates/emend/src/package.rs (modified in this phase):
+  added lines: 35
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+crates/emend/src/package/tests.rs (modified in this phase):
+  added lines: 205
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package/tests.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package/tests.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package/tests.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package/tests.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/package/tests.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+crates/emend/src/styles.rs (modified in this phase):
+  added lines: 195
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+crates/emend/src/styles/elements.rs (modified in this phase):
+  added lines: 24
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+crates/emend/src/styles/elements/tests.rs (modified in this phase):
+  added lines: 15
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements/tests.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements/tests.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements/tests.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements/tests.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  crates/emend/src/styles/elements/tests.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+specs/0017-fuller-styles.md (modified in this phase):
+  added lines: 159
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  specs/0017-fuller-styles.md: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  specs/0017-fuller-styles.md: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  specs/0017-fuller-styles.md: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  specs/0017-fuller-styles.md: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  specs/0017-fuller-styles.md: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+tools/emend-copy/src/main.rs (modified in this phase):
+  added lines: 221
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/src/main.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/src/main.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/src/main.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/src/main.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/src/main.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+tools/emend-copy/tests/null_rewrite.rs (modified in this phase):
+  added lines: 75
+  f_nonascii: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/tests/null_rewrite.rs: f_nonascii introduces nothing new in this phase: as-expected
+  f_ctrl: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/tests/null_rewrite.rs: f_ctrl introduces nothing new in this phase: as-expected
+  f_live: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/tests/null_rewrite.rs: f_live introduces nothing new in this phase: as-expected
+  f_pre: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/tests/null_rewrite.rs: f_pre introduces nothing new in this phase: as-expected
+  f_office_literal: at the base 0, in the added lines 0, at the phase commit 0
+  tools/emend-copy/tests/null_rewrite.rs: f_office_literal introduces nothing new in this phase: as-expected
+  f_office: at the base 0, in the added lines 0, at the phase commit 0
+
+## every file in the diff was scored
+  files in the diff: 9; files scored as new or modified: 9
+  every file in the phase diff was scored: as-expected
+
+## the public functions at the base and at the phase commit (change D)
+command: git show <commit>:<each crates/emend/src/*.rs outside the tests> | grep '^ *pub fn ', normalised and sorted, at the base and at the phase commit
+  pub fn first lines: at the base 89, at the phase commit 89
+command: diff <base's list> <phase commit's list>
+  first lines at the base and not at the phase commit: 0; at the phase commit and not at the base: 0
+  no public fn's first line at the base is gone or changed: as-expected
+  no public fn's first line is added (the list equals the base's): as-expected
+  control: the same comm finds a line dropped from a list: as-expected
+  control: the added-list comparison refuses a list of one: as-expected
+  lines holding the word unsafe under crates/emend/src at the phase commit: 1; lib.rs's forbid line: 1
+  lib.rs still forbids unsafe code: as-expected
+
+## the base's tests, unedited but for the disclosed lines (change E)
+    test file changed: crates/emend/src/package/tests.rs
+    test file changed: crates/emend/src/styles/elements/tests.rs
+    test file changed: tools/emend-copy/tests/null_rewrite.rs
+command: every #[test] fn of the base in each changed test file, read at the base and at the phase commit; the lines added inside it, and any removed or changed
+    crates/emend/src/package/tests.rs a_derived_xf_from_a_base_with_every_id_replaces_them_in_place + ..Style::default()
+    crates/emend/src/package/tests.rs a_derived_xf_with_no_base_names_every_id_and_flags_what_is_given + ..Style::default()
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + // And with M2 part 2 P2's.
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--border-sample", "--font-sample"],
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--font-sample", "--border-sample"],
+    tools/emend-copy/tests/null_rewrite.rs the_operations_are_refused_unless_exactly_one_follows_the_paths + vec!["--border-sample", "[Content_Types].xml"],
+  every test of the base and the phase commit was read, none failing: as-expected
+  no test of the base is gone or changed, and the lines added inside base tests are exactly the disclosed list: as-expected
+  control: added_in reports a body with one line changed as changed: as-expected
+  control: added_in reports one added line by its text: as-expected
+  control: a path absent at the base gives no test and no failure: as-expected
+  control: a commit that does not exist is a failed read, not no tests (ruling 8): as-expected
+
+## full run on a cold cache, started from / by absolute path
+command: cargo clean
+         Removed 0 files
+command: (cd / && <repo>/scripts/check.sh)
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS doc
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+exit: 0; stderr bytes: 0
+  the gate exits 0: as-expected
+  nine PASS lines: as-expected
+  the doc step is one of them, by name: as-expected
+  stderr is empty: as-expected
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS doc
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+
+## the binaries the gate built, both targets
+  <build>/target/debug/emend-copy: sha256 f85231e507dda8a9d193f8d0d3ca584049ca03519f28a3ee9e5b7d5ad480af69, bytes 20233408
+  <build>/target/debug/xlsx-diff: sha256 f916b223e800fb5f9f04315e308079199161c36b3e42b9301b9f8234482fcedb, bytes 12915944
+  <build>/target/i686-unknown-linux-musl/debug/emend-copy: sha256 aa4d51f4127a28e198317121fd9710b28c7f6b89da9e38a0df9d58f9c18f79bf, bytes 18275408
+  <build>/target/i686-unknown-linux-musl/debug/xlsx-diff: sha256 43c99c94118a5c1a6de847633943bf03d75102f1febce04858a9c515b86594fd, bytes 11454892
+  the gate left all four binaries, both targets, executable: as-expected
+
+## status after the run, with planning's uncommitted spec named and the lines printed
+command: git status --porcelain
+status lines: 0; untracked under the log directory: 0; tracked and modified under it: 0; the phase's records: 0; planning's spec modified and uncommitted: 0
+  command: sha256sum specs/0017-fuller-styles.md (the working tree's copy)
+    sha256 51672b8eab6c104a517a609dab77a1d65d186335a6f52165f96eb6d9e183b97c
+    the hash planning's message gave: none given
+  planning's spec is committed, or its uncommitted copy is the file planning's message hashed: as-expected
+  every change in the working tree is one of this phase's logs, its records or planning's uncommitted spec: as-expected
+  control planning's spec in a status listing, same pattern count=1 expected=1: as-expected
+  control the phase's record stems in a listing of three, same pattern count=1 expected=1: as-expected
+
+## this script's own standard error (ruling 7)
+  command: wc -c <scratch>/p2/out/gate.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: as-expected
+  control: the same count reads one byte more in the copy: as-expected
+run ended at 2026-09-25T23:03:52Z
+gate log checks all as expected: yes
