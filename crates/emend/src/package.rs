@@ -70,7 +70,8 @@
 //!   `a_relationship_removal_on_a_part_that_is_not_there`,
 //!   `cells::tests::a_relationship_naming_no_entry_is_refused`,
 //!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`,
-//!   `styles::tests::a_styles_relationship_naming_no_entry_is_refused`).
+//!   `styles::tests::a_styles_relationship_naming_no_entry_is_refused`,
+//!   `cells_on_a_sheet_added_and_not_yet_written_is_refused`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The cell edits add eight (`specs/0011-editing-cells.md`, "Errors"); the
@@ -182,9 +183,11 @@
 //! - "a sheet edit no longer applies at the write", the write's defence
 //!   against an edit that no longer holds, which no public call reaches, and
 //!   the refusal of what cannot be written: a `localSheetId` that is not a
-//!   decimal `u32` (P3 ruling 5), a `sheetId` past `u32::MAX` and a sheet
-//!   added to a workbook part with no `<sheets>` (P3 ruling 6)
+//!   decimal `u32` (P3 ruling 5), an `activeTab` or `firstSheet` that is not
+//!   one (P3 ruling 10), a `sheetId` past `u32::MAX` and a sheet added to a
+//!   workbook part with no `<sheets>` (P3 ruling 6)
 //!   (`a_local_sheet_id_that_is_not_a_number_refuses_a_move_at_the_write`,
+//!   `a_book_view_index_that_is_not_a_number_refuses_a_move_at_the_write`,
 //!   `a_sheet_id_past_u32_is_refused_when_recorded`,
 //!   `a_sheet_added_to_a_workbook_with_no_sheets_element_is_refused_at_the_write`).
 //!
@@ -444,7 +447,10 @@
 //!   not reproduced; the children are written back to back.
 //! - A `localSheetId` past the file's sheet count names no sheet and is
 //!   copied unchanged. `activeTab` follows its sheet; `firstSheet`, the tab
-//!   strip's scroll position, is not moved by an add or a move.
+//!   strip's scroll position, is not moved by an add or a move, even past
+//!   the end. When the list is rewritten, a `localSheetId`, `activeTab` or
+//!   `firstSheet` that is not a decimal `u32` refuses the write, since the
+//!   remap cannot say what it means (P3 ruling 10).
 //! - An added sheet's part is the template's blank worksheet, with no
 //!   `tabSelected` view; a cell edit on it is written into that part.
 
@@ -1278,10 +1284,11 @@ impl<R: Read + Seek> Package<R> {
     /// # Errors
     ///
     /// [`Error::Package`] "no such part" when the archive holds no entry of
-    /// that name, whatever [`Archive::read`] refuses for the entry, and
-    /// whatever [`Stream::new`] refuses for its first bytes. The cells
-    /// themselves are read as the iterator runs, so a malformed worksheet is
-    /// an error from [`Cells::next`] and not from this call.
+    /// that name, a part [`Package::add_sheet`] added and not yet written
+    /// among them (P3 ruling 2), whatever [`Archive::read`] refuses for the
+    /// entry, and whatever [`Stream::new`] refuses for its first bytes. The
+    /// cells themselves are read as the iterator runs, so a malformed
+    /// worksheet is an error from [`Cells::next`] and not from this call.
     pub fn cells(&mut self, part: &[u8]) -> Result<Cells<'_, R>, Error> {
         let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
         let reader = self.archive.read(index)?;
@@ -2996,10 +3003,14 @@ impl SheetPlan {
         }
     }
 
-    /// A present `firstSheet`: decremented by the removed sheets before it
-    /// and clamped to the projected list's last position; an add or a move
-    /// leaves it as it is (P3 ruling 8).
+    /// A present `firstSheet`: when a sheet was removed, decremented by the
+    /// removed sheets before it and clamped to the projected list's last
+    /// position; an add or a move leaves it as it is, even past the end (P3
+    /// rulings 8 and 10).
     fn first_sheet(&self, value: usize) -> usize {
+        if self.positions.iter().all(Option::is_some) {
+            return value;
+        }
         let removed = self
             .positions
             .iter()
@@ -3405,7 +3416,7 @@ fn with_attribute(raw: &[u8], name: &[u8], value: &[u8], index: usize) -> Result
 
 /// The value of the unprefixed attribute `name` in a start tag, read as a
 /// decimal `u32`: `Ok(None)` when absent, and "a sheet edit no longer applies
-/// at the write" when it is not a decimal `u32` (P3 ruling 5).
+/// at the write" when it is not a decimal `u32` (P3 rulings 5 and 10).
 fn index_attribute(raw: &[u8], name: &[u8], index: usize) -> Result<Option<usize>, Error> {
     let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
     match tag

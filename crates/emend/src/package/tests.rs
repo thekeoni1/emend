@@ -5240,20 +5240,20 @@ fn a_rename_keeps_the_element_outside_its_name_and_escapes_it() {
     set(&mut parts, b"xl/workbook.xml", workbook);
     let (parts, mut package) = opened(parts);
     package
-        .rename_sheet("Sheet1", "A&B<\"C\"\t'd")
+        .rename_sheet("Sheet1", "A&B<\"C\"\t'd>\n\re")
         .expect("rename_sheet");
-    assert_eq!(sheet_names(&mut package), ["A&B<\"C\"\t'd"]);
+    assert_eq!(sheet_names(&mut package), ["A&B<\"C\"\t'd>\n\re"]);
     let out = written(package);
     let want = part_text(&parts, b"xl/workbook.xml").replace(
         "name = 'Sheet1'",
-        "name = 'A&amp;B&lt;&quot;C&quot;&#9;&apos;d'",
+        "name = 'A&amp;B&lt;&quot;C&quot;&#9;&apos;d&gt;&#10;&#13;e'",
     );
     assert_part(&out, b"xl/workbook.xml", &want);
     // Read back, the name is the one given.
     let mut back = Package::open(Cursor::new(out)).expect("opens");
     assert_eq!(
         back.workbook().expect("workbook").sheets[0].name,
-        "A&B<\"C\"\t'd"
+        "A&B<\"C\"\t'd>\n\re"
     );
 }
 
@@ -5321,8 +5321,7 @@ fn a_move_remaps_local_sheet_ids_and_the_active_tab_and_keeps_first_sheet() {
                  <workbookView/></bookViews>";
     let names = "<definedNames>\n<definedName name=\"a\" localSheetId=\"0\">S1!A1</definedName>\n\
                  <definedName name=\"b\">S2!A1</definedName>\n\
-                 <definedName localSheetId='2' name=\"c\">S3!A1</definedName>\n\
-                 <definedName name=\"d\" localSheetId=\"7\"/></definedNames>";
+                 <definedName localSheetId='2' name=\"c\">S3!A1</definedName></definedNames>";
     let (parts, mut package) = opened(sheeted(3, views, names));
     package.move_sheet("S3", 0).expect("move");
     let out = written(package);
@@ -5343,6 +5342,69 @@ fn a_move_remaps_local_sheet_ids_and_the_active_tab_and_keeps_first_sheet() {
         .replace("localSheetId=\"0\"", "localSheetId=\"1\"")
         .replace("localSheetId='2'", "localSheetId='0'");
     assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn a_local_sheet_id_past_the_count_is_copied_unchanged() {
+    // P3 rulings 5 and 10: an index past the file's sheets names no sheet,
+    // so a move copies it as it is; LibreOffice refuses such a file, input
+    // and output alike.
+    let names = "<definedNames><definedName name=\"a\" localSheetId=\"0\">S1!A1</definedName>\
+                 <definedName name=\"d\" localSheetId=\"7\"/></definedNames>";
+    let (parts, mut package) = opened(sheeted(3, "", names));
+    package.move_sheet("S3", 0).expect("move");
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml")
+        .replace(
+            "<sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>\
+             <sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/>",
+            "<sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/><sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/>\
+             <sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>",
+        )
+        .replace("localSheetId=\"0\"", "localSheetId=\"1\"");
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn a_move_leaves_a_first_sheet_past_the_end_unchanged() {
+    // P3 ruling 10: firstSheet is clamped only when a sheet was removed.
+    let views = "<bookViews><workbookView firstSheet=\"9\"/></bookViews>";
+    let (parts, mut package) = opened(sheeted(3, views, ""));
+    package.move_sheet("S3", 0).expect("move");
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml")
+        .replace(
+            "<sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>\
+             <sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/>",
+            "<sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/><sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/>\
+             <sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>",
+        )
+        // The absent activeTab read 0, which was S1, now 1.
+        .replace(
+            "<workbookView firstSheet=\"9\"/>",
+            "<workbookView firstSheet=\"9\" activeTab=\"1\"/>",
+        );
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn a_book_view_index_that_is_not_a_number_refuses_a_move_at_the_write() {
+    // P3 ruling 10: the remap cannot say what such a value means.
+    for view in [
+        "<workbookView activeTab=\"x\"/>",
+        "<workbookView activeTab=\"\"/>",
+        "<workbookView firstSheet=\"-1\"/>",
+        "<workbookView activeTab=\"0\" firstSheet=\"1.0\"/>",
+    ] {
+        let views = format!("<bookViews>{view}</bookViews>");
+        let (_, mut package) = opened(sheeted(2, &views, ""));
+        package.move_sheet("S2", 0).expect("recorded");
+        let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let before = replacement_temporaries();
+        let error = package.write_to(Vec::new()).expect_err(view);
+        assert_package(error, "a sheet edit no longer applies at the write");
+        assert_eq!(replacement_temporaries(), before, "no temporary is left");
+    }
 }
 
 #[test]
@@ -5558,6 +5620,18 @@ fn a_cell_edit_on_an_added_sheet_writes_into_its_blank_part() {
         .expect("reads");
     assert_eq!(cells.len(), 1);
     assert_eq!(cells[0].number(), Some(7.0));
+}
+
+#[test]
+fn cells_on_a_sheet_added_and_not_yet_written_is_refused() {
+    // P3 ruling 2: `cells` reads the file, which does not hold the part yet.
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add");
+    package.set_cell(&part, CellRef { row: 1, col: 1 }, Value::Number(7.0));
+    assert_package(
+        package.cells(&part).map(|_| ()).expect_err("pending"),
+        "no such part",
+    );
 }
 
 #[test]
