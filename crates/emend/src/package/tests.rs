@@ -6502,3 +6502,47 @@ fn a_rels_part_that_cannot_be_read_refuses_the_removal_and_records_nothing() {
     let out = written(package);
     assert_untouched(&out, &parts, &[]);
 }
+
+#[test]
+fn a_removed_rels_part_loses_its_override_too() {
+    // P4 ruling 9: an Override naming the removed sheet's rels part goes with
+    // it, so no Override names a removed entry.
+    let mut parts = sheeted(2, "", "");
+    with_sheet_rels(
+        &mut parts,
+        2,
+        &format!(
+            "<Relationship Id=\"rId1\" Type=\"{ATTR_NS}/hyperlink\" Target=\"https://example.com/\" TargetMode=\"External\"/>"
+        ),
+    );
+    let types = part_text(&parts, b"[Content_Types].xml").replace(
+        "</Types>",
+        "<Override PartName=\"/xl/worksheets/_rels/sheet2.xml.rels\" \
+         ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/></Types>",
+    );
+    set(&mut parts, b"[Content_Types].xml", types);
+    let (parts, mut package) = opened(parts);
+    package.remove_sheet("S2").expect("remove_sheet");
+    let out = written(package);
+    assert_names(
+        &out,
+        &names_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &types_without(
+            &parts,
+            &[
+                "xl/worksheets/sheet2.xml",
+                "xl/worksheets/_rels/sheet2.xml.rels",
+            ],
+        ),
+    );
+}

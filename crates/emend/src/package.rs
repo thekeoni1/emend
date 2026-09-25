@@ -463,11 +463,12 @@
 //!   ruling 1).
 //!
 //! Removing a sheet adds these (`specs/0016-new-workbook-and-sheets.md`,
-//! "Removing a sheet", and P4 rulings 1 to 5):
+//! "Removing a sheet", and P4 rulings 1 to 5 and 9):
 //!
 //! - The caller's picture: [`Package::remove_sheet`] takes the sheet out of
 //!   the list, removes its relationship, and removes every part only it
-//!   reaches, with those parts' rels parts and overrides; `definedName`
+//!   reaches, with those parts' rels parts and the overrides of each, so no
+//!   `Override` names a removed entry (P4 ruling 9); `definedName`
 //!   elements scoped to it go, and the other sheet indexes in
 //!   `<definedNames>` and `<bookViews>` follow their sheets.
 //! - A sheet is visible when its `state` is absent or exactly `visible`; any
@@ -1062,11 +1063,12 @@ impl CellEdit {
 }
 
 /// One entry the walk of [`Package::remove_sheet`] removes, with its own rels
-/// part and its `Override` when there is one to remove.
+/// part and each one's `Override` when there is one to remove (P4 ruling 9).
 struct WalkRemoval {
     entry: Vec<u8>,
     rels: Option<Vec<u8>>,
     over: Option<Vec<u8>>,
+    rels_over: Option<Vec<u8>>,
 }
 
 /// What the chain recipe removes: the `calcChain` relationship on the
@@ -2009,7 +2011,7 @@ impl<R: Read + Seek> Package<R> {
 
     /// Records the removal of the sheet named `name`
     /// (`specs/0016-new-workbook-and-sheets.md`, "Removing a sheet", and P4
-    /// rulings 1 to 5).
+    /// rulings 1 to 5 and 9).
     ///
     /// Recorded in this order: the `<sheet>` gone from the projected list;
     /// the workbook relationship its `r:id` names removed; the walk's
@@ -2024,8 +2026,9 @@ impl<R: Read + Seek> Package<R> {
     /// every relationship recorded for removal and this sheet's left out,
     /// and no edge followed out of a removed sheet's part. Each entry of R
     /// not in K and not already recorded for removal is removed, with its
-    /// own rels part when the package holds one and its `Override` when the
-    /// content types part holds one. A target outside the package or naming
+    /// own rels part when the package holds one, and each one's `Override`
+    /// when the content types part holds one, so no `Override` names a
+    /// removed entry (P4 ruling 9). A target outside the package or naming
     /// no entry contributes nothing, and an external relationship is never
     /// followed.
     ///
@@ -2092,7 +2095,18 @@ impl<R: Read + Seek> Package<R> {
             let over = self
                 .override_of(&entry)?
                 .filter(|over| !self.edits.override_removals.contains(over));
-            removals.push(WalkRemoval { entry, rels, over });
+            let rels_over = match &rels {
+                Some(rels) => self
+                    .override_of(rels)?
+                    .filter(|over| !self.edits.override_removals.contains(over)),
+                None => None,
+            };
+            removals.push(WalkRemoval {
+                entry,
+                rels,
+                over,
+                rels_over,
+            });
         }
         let has_chain = self
             .relationships(&workbook)?
@@ -2106,12 +2120,21 @@ impl<R: Read + Seek> Package<R> {
 
         self.edits.sheet_edits.push(edit);
         self.remove_relationship(&workbook, &sheet.rel_id);
-        for WalkRemoval { entry, rels, over } in removals {
+        for WalkRemoval {
+            entry,
+            rels,
+            over,
+            rels_over,
+        } in removals
+        {
             self.remove_part(&entry);
             if let Some(rels) = rels {
                 self.remove_part(&rels);
             }
             if let Some(over) = over {
+                self.remove_override(&over);
+            }
+            if let Some(over) = rels_over {
                 self.remove_override(&over);
             }
         }
