@@ -664,6 +664,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--font-sample", "--style-sample"],
         vec!["--style-sample", "--font-sample"],
         vec!["--font-sample", "[Content_Types].xml"],
+        // And with M2 part 2 P2's.
+        vec!["--border-sample", "--font-sample"],
+        vec!["--font-sample", "--border-sample"],
+        vec!["--border-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2398,6 +2402,77 @@ fn the_font_sample_refuses_a_part_without_fonts_or_fills_and_leaves_nothing() {
             "--font-sample",
         );
     }
+}
+
+// ------------------------------------------------------- --border-sample
+
+/// The sample part's borders, as font_sample_part writes them.
+const SAMPLE_BORDERS: &str =
+    "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>";
+/// B1's element, as `specs/0017-fuller-styles.md` gives it.
+const B1: &str = "<border><left style=\"thin\"><color theme=\"1\"/></left>\
+                  <right style=\"thin\"><color theme=\"1\"/></right>\
+                  <top style=\"thin\"><color theme=\"1\"/></top>\
+                  <bottom style=\"thin\"><color theme=\"1\"/></bottom><diagonal/></border>";
+
+#[test]
+fn the_border_sample_adds_one_border_and_two_formats_with_their_children() {
+    // A is A1 (styled 1, whose xf has an alignment), M is 2. S1 is 3 over
+    // A's own format: borderId 1, its alignment replaced by G1 and a
+    // protection added after it; S2 is 4 over no base with B1 again.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>";
+    let part = font_sample_part(SAMPLE_FONTS, SAMPLE_FILLS, SAMPLE_XFS, 3);
+    let (line, styles, sheet) = styled_run(
+        "border-sample",
+        &styled_specs(&format!("<sheetData>{rows}</sheetData>"), &part),
+        "--border-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tstyled=1\tadded=1\txfs_before=3\txfs_after=5\tborders_added=1\tcells_before=2\
+         \tcells_after=3\tread_back=2\n",
+        "the edit line"
+    );
+    let want = part
+        .replace(
+            SAMPLE_BORDERS,
+            &format!(
+                "<borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border>\
+                 {B1}</borders>"
+            ),
+        )
+        .replace(
+            "<xf/></cellXfs>",
+            "<xf/><xf numFmtId=\"2\" fontId=\"0\" applyAlignment=\"1\" borderId=\"1\" \
+             applyBorder=\"1\" applyProtection=\"1\"><alignment horizontal=\"center\" \
+             vertical=\"center\" wrapText=\"1\" indent=\"1\"/><protection locked=\"0\" \
+             hidden=\"0\"/></xf><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" \
+             xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\"/>\
+             </xf></cellXfs>",
+        )
+        .replace("<cellXfs count=\"3\">", "<cellXfs count=\"5\">");
+    assert_eq!(styles, want, "the styles part");
+    let rows_after = "<row r=\"1\"><c r=\"A1\" s=\"3\"><v>1.5</v></c></row>\
+                      <row r=\"2\"><c r=\"A2\"><f>A1*2</f><v>3</v></c></row>\
+                      <row r=\"3\"><c r=\"A3\" s=\"4\"><v>7</v></c></row>";
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{rows_after}</sheetData>")),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_border_sample_refuses_a_part_without_borders_and_leaves_nothing() {
+    let part =
+        font_sample_part(SAMPLE_FONTS, SAMPLE_FILLS, SAMPLE_XFS, 3).replace(SAMPLE_BORDERS, "");
+    styled_run_refused(
+        "border-sample-no-borders",
+        &styled_specs(A_CELL, &part),
+        "a style addition needs a collection the styles part lacks",
+        "--border-sample",
+    );
 }
 
 // --------------------------------------------------------- --date-sample

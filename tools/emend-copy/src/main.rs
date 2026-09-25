@@ -135,6 +135,17 @@
 //!   or reference is printed. `xfs_after` and `cells_after` are asserted as
 //!   `--style-sample`'s are. A styles part without `fonts` or `fills` is
 //!   refused by the layer with no output.
+//! - `--border-sample`: the sample border, alignment and protection of
+//!   `specs/0017-fuller-styles.md`, "Harness runs": two cell formats are
+//!   added through `add_style`, one over the first sampled cell's own format
+//!   with the tool's border B1, alignment G1 and an unlocked, unhidden
+//!   protection, and one over no base with B1 and a right alignment, so the
+//!   part gains one border; the cells are `--font-sample`'s. One line goes to
+//!   stdout: the word `edit` then `styled`, `added`, `xfs_before`,
+//!   `xfs_after`, `borders_added`, `cells_before`, `cells_after` and
+//!   `read_back`, counts only. `xfs_after` and `cells_after` are asserted as
+//!   `--style-sample`'s are. A styles part without `borders` is refused by
+//!   the layer with no output.
 //!
 //! - `--new-sample`: the new workbook sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The first path
@@ -210,14 +221,17 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
-use emend::styles::{Color, Fill, Font, NumberFormat, Pattern, Style};
+use emend::styles::{
+    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
+    Protection, Side, Style, Vertical,
+};
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
-| --remove-sample | --font-sample]";
+| --remove-sample | --font-sample | --border-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -247,6 +261,8 @@ enum Operation {
     StyleSample,
     /// The sample font and fill, and their counts on stdout.
     FontSample,
+    /// The sample border, alignment and protection, and their counts.
+    BorderSample,
     /// The sample dated cell, and its counts on stdout.
     DateSample,
     /// No edits, and the workbook's two calculation flags on stdout.
@@ -385,6 +401,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--font-sample" => {
             run(Path::new(input), Path::new(output), Operation::FontSample)
         }
+        [input, output, flag] if flag == "--border-sample" => {
+            run(Path::new(input), Path::new(output), Operation::BorderSample)
+        }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -444,6 +463,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::FontSample) {
         return font_sample(input, output);
     }
+    if matches!(operation, Operation::BorderSample) {
+        return border_sample(input, output);
+    }
     if matches!(operation, Operation::DateSample) {
         return date_sample(input, output);
     }
@@ -486,6 +508,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::EditFormulaSample => unreachable!("the formula sample has its own path"),
         Operation::StyleSample => unreachable!("the style sample has its own path"),
         Operation::FontSample => unreachable!("the font sample has its own path"),
+        Operation::BorderSample => unreachable!("the border sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
@@ -1431,6 +1454,202 @@ fn font_read_back(
         xfs: xfs_after,
         fonts: counts_after.0,
         fills: counts_after.1,
+        cells: cells_after,
+        read_back,
+    })
+}
+
+/// B1 of `specs/0017-fuller-styles.md`, "Harness runs": four thin sides in
+/// theme colour 1 and no diagonal.
+fn sample_border() -> Border {
+    let side = Some(Side {
+        style: BorderStyle::Thin,
+        color: Some(Color::Theme {
+            index: 1,
+            tint: None,
+        }),
+    });
+    Border {
+        left: side,
+        right: side,
+        top: side,
+        bottom: side,
+        ..Border::default()
+    }
+}
+
+/// The sample border, alignment and protection of
+/// `specs/0017-fuller-styles.md`, "Harness runs", `--border-sample`.
+///
+/// As [`font_sample`], with B the `borders` count. S1 is `add_style` over A's
+/// own `s` with B1, G1 (centred both ways, wrapped, indent 1) and a
+/// protection neither locked nor hidden; S2 over no base with B1 and a right
+/// alignment, so B1 is one border element. A takes `Some(S1)` when it
+/// exists, and `(M + 1, 1)` is set to `Number(7)` with `Some(S2)`.
+/// `xfs_after` is asserted equal to X + 2 and `cells_after` to
+/// `cells_before + 1`; either failing removes the output.
+fn border_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let styles = package.styles()?;
+    let xfs_before = styles.cell_xfs.len() as u64;
+    let borders_before = styles.borders();
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let new_cell = CellRef {
+        row: new_row,
+        col: 1,
+    };
+
+    let first_style = Style {
+        border: Some(sample_border()),
+        alignment: Some(Alignment {
+            horizontal: Some(Horizontal::Center),
+            vertical: Some(Vertical::Center),
+            wrap_text: true,
+            indent: Some(1),
+            ..Alignment::default()
+        }),
+        protection: Some(Protection {
+            locked: Some(false),
+            hidden: Some(false),
+        }),
+        ..Style::default()
+    };
+    let second_style = Style {
+        border: Some(sample_border()),
+        alignment: Some(Alignment {
+            horizontal: Some(Horizontal::Right),
+            ..Alignment::default()
+        }),
+        ..Style::default()
+    };
+    let first = package.add_style(before.first_style, &first_style)?;
+    let second = package.add_style(None, &second_style)?;
+    if let Some(at) = before.first {
+        package.set_cell_style(&part, at, Some(first));
+    }
+    package.set_cell(&part, new_cell, Value::Number(7.0));
+    package.set_cell_style(&part, new_cell, Some(second));
+
+    let temporary = temporary_path(output, "")?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| Error::Create(e.kind()))?;
+    // From here the temporary is this run's own, as in `run`.
+    let result = write_package(package, file)
+        .and_then(|()| fs::rename(&temporary, output).map_err(|e| Error::Rename(e.kind())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+
+    // The output is in place: a failure from here on removes it.
+    let checked = border_read_back(
+        output,
+        &part,
+        &before,
+        new_cell,
+        borders_before,
+        (first, second),
+        (xfs_before + 2, before.cells + 1),
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let after = checked?;
+    let added = u64::from(
+        after
+            .borders
+            .unwrap_or(0)
+            .saturating_sub(borders_before.unwrap_or(0)),
+    );
+    edit_line(&[
+        ("styled", u64::from(before.first.is_some())),
+        ("added", 1),
+        ("xfs_before", xfs_before),
+        ("xfs_after", after.xfs),
+        ("borders_added", added),
+        ("cells_before", before.cells),
+        ("cells_after", after.cells),
+        ("read_back", after.read_back),
+    ])
+}
+
+/// What [`border_read_back`] reads off the output.
+struct BorderReadBack {
+    xfs: u64,
+    borders: Option<u32>,
+    cells: u64,
+    read_back: u64,
+}
+
+/// Reopens the output for the border sample's line: the cell format count,
+/// asserted equal to `expected.0`; the `borders` count; the edited sheet's
+/// cell count, asserted equal to `expected.1`; and how many of the two
+/// read-backs hold: A's value text unchanged with `s` the first new format,
+/// whose border is the part's first new one (B), and the new cell's number 7
+/// with `s` the second, whose border is B too.
+fn border_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &Sampled,
+    new_cell: CellRef,
+    borders_before: Option<u32>,
+    added: (u32, u32),
+    expected: (u64, u64),
+) -> Result<BorderReadBack, Error> {
+    let (first, second) = added;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let styles = written.styles()?;
+    let xfs_after = styles.cell_xfs.len() as u64;
+    let borders_after = styles.borders();
+    let border_of = |index: u32| styles.cell_xfs.get(index as usize).map(|xf| xf.border_id);
+    let first_ids = border_of(first) == Some(borders_before);
+    let second_ids = border_of(second) == Some(borders_before);
+    if xfs_after != expected.0 {
+        return Err(Error::XfsAfter {
+            expected: expected.0,
+            found: xfs_after,
+        });
+    }
+    let mut cells_after = 0u64;
+    let mut read_back = 0u64;
+    for cell in written.cells(part)? {
+        let cell = cell?;
+        cells_after += 1;
+        let at = cell.reference;
+        if Some(at) == before.first
+            && cell.value == before.first_value
+            && cell.style == Some(first)
+            && first_ids
+        {
+            read_back += 1;
+        }
+        if at == new_cell && cell.number() == Some(7.0) && cell.style == Some(second) && second_ids
+        {
+            read_back += 1;
+        }
+    }
+    if cells_after != expected.1 {
+        return Err(Error::CellsAfter {
+            expected: expected.1,
+            found: cells_after,
+        });
+    }
+    Ok(BorderReadBack {
+        xfs: xfs_after,
+        borders: borders_after,
         cells: cells_after,
         read_back,
     })
