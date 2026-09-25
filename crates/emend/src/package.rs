@@ -152,8 +152,9 @@
 //!
 //! [`Package::new`] adds none (`specs/0016-new-workbook-and-sheets.md`,
 //! "`Package::new`"): it can fail only with what [`Package::write_to`] and
-//! [`Package::open`] refuse, and on the template's fixed bytes neither
-//! refuses, so no test reaches an error from it
+//! [`Package::open`] refuse. The template's fixed bytes themselves are never
+//! refused; the temporary a written part goes through can fail on I/O, as
+//! in any write. No test reaches an error from it
 //! (`new_is_the_empty_archive_with_the_template_added` shows the bytes it
 //! opens are the ones its recipe writes).
 //!
@@ -946,8 +947,9 @@ impl Package<Cursor<Vec<u8>>> {
     /// # Errors
     ///
     /// Whatever [`Package::write_to`] and [`Package::open`] refuse. The bytes
-    /// are fixed, so neither refuses them, and no test can reach an error
-    /// here; the module header's catalogue says so.
+    /// are fixed and are never refused themselves; the temporary a written
+    /// part goes through can fail on I/O, as in any write. No test can reach
+    /// an error here; the module header's catalogue says so.
     pub fn new() -> Result<Self, Error> {
         let mut template = Package::open(Cursor::new(EMPTY_ARCHIVE.to_vec()))?;
         for (name, bytes) in TEMPLATE {

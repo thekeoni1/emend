@@ -22,7 +22,10 @@
 # column, keeps result pass and puts the exception text in message. A close
 # that throws writes close-error and its text in message, keeps result, and
 # the run goes on to the next row, so a results file is always written
-# (specs/0016, "Planning verification and rulings on P1", ruling 3).
+# (specs/0016, "Planning verification and rulings on P1", ruling 3); a
+# close-error after a read-error is appended to message after "; ", never
+# replacing it (the same spec, "Planning verification and rulings on P2",
+# ruling 2).
 #
 # Writes open-results.txt beside the script, tab-separated ASCII, with the
 # columns source, id_or_test, label, result, seen1, seen2, seen3, message; a
@@ -100,7 +103,8 @@ foreach ($r in $list) {
     try {
       $wb.Close($false)
     } catch {
-      $message = "close-error: " + (Clean $_.Exception.Message)
+      $closed = "close-error: " + (Clean $_.Exception.Message)
+      if ($message) { $message = $message + "; " + $closed } else { $message = $closed }
     }
   }
   $out += "$($r.source)`t$($r.id_or_test)`t$($r.label)`t$result`t$($seen[0])`t$($seen[1])`t$($seen[2])`t$message"
