@@ -136,6 +136,24 @@
 //!   the first kept (P2 ruling 4). Each file goes through a temporary and is
 //!   moved into place, replacing what was there, as every output is.
 //!
+//! - `--sheet-sample`: the sheet sample of
+//!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs", with the
+//!   planning rulings during P3, 1 and 7. A worksheet is added under the
+//!   first free name of `emend`, `emend2`, `emend3` and so on, compared as the
+//!   layer's name check compares; (1, 1) on it takes `Number(7)`; it moves to
+//!   position 0; the package is written. The output is reopened and one line
+//!   goes to stdout: the word `sheet` then `sheets_before`, `sheets_after`,
+//!   `first` (1 when the output's first sheet is the added part), `cells` (the
+//!   added part's cell count), `names` (the `definedName` elements, counted
+//!   before and after and asserted equal), `active_before` and `active_after`
+//!   (the first `workbookView`'s `activeTab`, absent read as 0). COUNTS ONLY:
+//!   the name is this tool's own and no sheet name of the workbook is
+//!   printed. `sheets_after` one more, `first` 1, `cells` 1, the names equal
+//!   and `active_after` one more are asserted; a failure is exit 2 with the
+//!   message and no output. The two counts are read by this tool's own pass
+//!   over the workbook part's tokens (`emend::xml::Stream`, quick-xml
+//!   underneath), not by a crate call (P3 ruling 7).
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -164,7 +182,7 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample | --date-sample | --calc | --formula-sample | --new-sample]";
+| --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -201,6 +219,8 @@ enum Operation {
     /// A new workbook written to the first path, the sample cells to the
     /// second, and its counts on stdout.
     NewSample,
+    /// The sheet sample, and its counts on stdout.
+    SheetSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -226,6 +246,8 @@ enum Error {
     XfsAfter { expected: u64, found: u64 },
     ReadBack { expected: u64, found: u64 },
     NewReadBack { expected: u64, found: u64 },
+    SheetSample(&'static str),
+    NoFreeName,
 }
 
 impl fmt::Display for Error {
@@ -261,6 +283,10 @@ impl fmt::Display for Error {
                 "the output's sheet reads back {found} written formula(s) and the edits imply \
                  {expected}"
             ),
+            Error::SheetSample(what) => {
+                write!(f, "the output's {what} is not what the edits imply")
+            }
+            Error::NoFreeName => f.write_str("no free sheet name of the sample's form"),
             Error::NewReadBack { expected, found } => write!(
                 f,
                 "the output's sheet reads back {found} written value(s) and the edits imply \
@@ -324,6 +350,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::FormulaSample,
         ),
+        [input, output, flag] if flag == "--sheet-sample" => {
+            run(Path::new(input), Path::new(output), Operation::SheetSample)
+        }
         [input, output, flag] if flag == "--new-sample" => {
             run(Path::new(input), Path::new(output), Operation::NewSample)
         }
@@ -372,6 +401,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::NewSample) {
         return new_sample(input, output);
     }
+    if matches!(operation, Operation::SheetSample) {
+        return sheet_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -401,6 +433,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
+        Operation::SheetSample => unreachable!("the sheet sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -1238,6 +1271,185 @@ fn new_read_back(output: &Path, part: &[u8]) -> Result<(u64, u64, u64, u64), Err
     Ok((entries, sheets, cells, read_back))
 }
 
+/// The sheet sample (`specs/0016-new-workbook-and-sheets.md`, "Harness
+/// runs", `--sheet-sample`).
+fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let before = package.sheets()?;
+    let (names_before, active_before) = workbook_counts(&mut package)?;
+    let folded = |name: &str| {
+        name.chars()
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let taken: Vec<String> = before.iter().map(|sheet| folded(&sheet.name)).collect();
+    let name = (1u32..=before.len() as u32 + 1)
+        .map(|n| {
+            if n == 1 {
+                "emend".to_string()
+            } else {
+                format!("emend{n}")
+            }
+        })
+        .find(|candidate| !taken.contains(&folded(candidate)))
+        .ok_or(Error::NoFreeName)?;
+    let part = package.add_sheet(&name)?;
+    package.set_cell(&part, CellRef { row: 1, col: 1 }, Value::Number(7.0));
+    package.move_sheet(&name, 0)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = sheet_read_back(
+        output,
+        &part,
+        before.len() as u64,
+        names_before,
+        active_before,
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (sheets_after, cells, names_after, active_after) = checked?;
+    edit_line_named(
+        "sheet",
+        &[
+            ("sheets_before", before.len() as u64),
+            ("sheets_after", sheets_after),
+            ("first", 1),
+            ("cells", cells),
+            ("names", names_after),
+            ("active_before", active_before),
+            ("active_after", active_after),
+        ],
+    )
+}
+
+/// Reopens the sheet sample's output and asserts what the edits imply: one
+/// sheet more, the added part first, one cell in it, the same number of
+/// defined names, and the first view's active tab one more.
+fn sheet_read_back(
+    output: &Path,
+    part: &[u8],
+    sheets_before: u64,
+    names_before: u64,
+    active_before: u64,
+) -> Result<(u64, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let sheets = written.workbook()?.sheets.clone();
+    let sheets_after = sheets.len() as u64;
+    if sheets_after != sheets_before + 1 {
+        return Err(Error::SheetSample("sheet count"));
+    }
+    if sheets.first().map(|sheet| sheet.part.as_slice()) != Some(part) {
+        return Err(Error::SheetSample("first sheet"));
+    }
+    let mut cells = 0u64;
+    for cell in written.cells(part)? {
+        cell?;
+        cells += 1;
+    }
+    if cells != 1 {
+        return Err(Error::SheetSample("added sheet's cell count"));
+    }
+    let (names_after, active_after) = workbook_counts(&mut written)?;
+    if names_after != names_before {
+        return Err(Error::SheetSample("defined name count"));
+    }
+    if active_after != active_before + 1 {
+        return Err(Error::SheetSample("active tab"));
+    }
+    Ok((sheets_after, cells, names_after, active_after))
+}
+
+/// This tool's own pass over the workbook part's tokens: the `definedName`
+/// elements that are children of the root's `definedNames`, and the first
+/// `workbookView`'s `activeTab` (absent read as 0). Tags are read from each
+/// token's bytes by local name, so the pass shares no reader with the layer's
+/// rewrite (P3 ruling 7).
+fn workbook_counts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<(u64, u64), Error> {
+    let part = package.workbook()?.part.clone();
+    let index = package.part(&part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut region: Vec<u8> = Vec::new();
+    let mut names = 0u64;
+    let mut active: Option<u64> = None;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            if depth < 2 {
+                region.clear();
+            }
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let local = tag_local_name(raw);
+        if depth == 2 {
+            region = local.to_vec();
+        } else if depth == 3 && region == b"definedNames" && local == b"definedName" {
+            names += 1;
+        } else if depth == 3
+            && region == b"bookViews"
+            && local == b"workbookView"
+            && active.is_none()
+        {
+            active = Some(tag_number(raw, b"activeTab").unwrap_or(0));
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+            if depth < 2 {
+                region.clear();
+            }
+        }
+    }
+    Ok((names, active.unwrap_or(0)))
+}
+
+/// A start tag's element name after any prefix.
+fn tag_local_name(raw: &[u8]) -> &[u8] {
+    let end = raw[1..]
+        .iter()
+        .position(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'>'))
+        .map_or(raw.len(), |at| at + 1);
+    let name = &raw[1..end];
+    match name.iter().position(|byte| *byte == b':') {
+        Some(colon) => &name[colon + 1..],
+        None => name,
+    }
+}
+
+/// An unprefixed attribute's value in a start tag, read as a decimal number.
+fn tag_number(raw: &[u8], attribute: &[u8]) -> Option<u64> {
+    let mut at = 0;
+    while let Some(found) = raw[at..]
+        .windows(attribute.len())
+        .position(|window| window == attribute)
+    {
+        let start = at + found;
+        at = start + attribute.len();
+        let before = raw.get(start.wrapping_sub(1)).copied().unwrap_or(b'<');
+        if !matches!(before, b' ' | b'\t' | b'\n' | b'\r') {
+            continue;
+        }
+        let rest = &raw[at..];
+        let rest = rest.strip_prefix(b"=").or_else(|| {
+            let trimmed = rest.trim_ascii_start();
+            trimmed.strip_prefix(b"=")
+        })?;
+        let rest = rest.trim_ascii_start();
+        let quote = *rest.first()?;
+        let value = &rest[1..];
+        let end = value.iter().position(|byte| *byte == quote)?;
+        return std::str::from_utf8(&value[..end]).ok()?.parse().ok();
+    }
+    None
+}
+
 /// Writes `package` to `output` through a temporary in its directory and
 /// moves it into place, removing the temporary when either step fails, as
 /// every output of this tool is written.
@@ -1398,7 +1610,12 @@ fn date_read_back(
 
 /// Prints one `edit` line: the word, then tab-separated `key=value`.
 fn edit_line(pairs: &[(&str, u64)]) -> Result<(), Error> {
-    let mut line = String::from("edit");
+    edit_line_named("edit", pairs)
+}
+
+/// [`edit_line`] with another first word.
+fn edit_line_named(word: &str, pairs: &[(&str, u64)]) -> Result<(), Error> {
+    let mut line = String::from(word);
     for (key, value) in pairs {
         line.push('\t');
         line.push_str(key);

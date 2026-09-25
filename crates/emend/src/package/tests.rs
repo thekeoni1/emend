@@ -4481,7 +4481,7 @@ fn the_calc_pr_rewrite_refuses_a_second_calc_pr_itself() {
     let (_, mut package) = opened(parts);
     let index = package.part(WORKBOOK).expect("the workbook part");
     let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    match rewrite_workbook(&mut package.archive, index, true) {
+    match rewrite_workbook(&mut package.archive, index, Some(true), None) {
         Ok(_) => panic!("the rewrite took two calcPr elements"),
         Err(error) => assert_package(error, "a workbook has two calcPr elements"),
     }
@@ -4911,4 +4911,676 @@ fn template_parts() -> Vec<(Vec<u8>, Vec<u8>)> {
         .iter()
         .map(|(name, bytes)| (name.to_vec(), bytes.to_vec()))
         .collect()
+}
+
+// The sheet list (`specs/0016-new-workbook-and-sheets.md`, "P3: `sheets`,
+// `add_sheet`, `rename_sheet`, `move_sheet`", with the planning rulings
+// during P3): on byte-built packages, each output part compared with bytes
+// the test builds by hand (`specs/0011-editing-cells.md`, P1 ruling 5).
+
+/// A package of `n` worksheets named `S1` to `Sn`, `sheetId` 1 to n and
+/// relationships `rId1` to `rIdn`, the styles relationship after them; the
+/// workbook's root children between `<workbook ...>` and `<sheets>` are
+/// `before`, and those after `</sheets>` are `after`.
+fn sheeted(n: usize, before: &str, after: &str) -> Vec<(Vec<u8>, Vec<u8>)> {
+    let mut overrides =
+        format!("<Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>");
+    let mut sheets = String::new();
+    let mut rels_body = String::new();
+    for i in 1..=n {
+        overrides.push_str(&format!(
+            "<Override PartName=\"/xl/worksheets/sheet{i}.xml\" ContentType=\"{WORKSHEET_TYPE}\"/>"
+        ));
+        sheets.push_str(&format!(
+            "<sheet name=\"S{i}\" sheetId=\"{i}\" r:id=\"rId{i}\"/>"
+        ));
+        rels_body.push_str(&relationship(
+            &format!("rId{i}"),
+            &format!("{ATTR_NS}/worksheet"),
+            &format!("worksheets/sheet{i}.xml"),
+        ));
+    }
+    rels_body.push_str(&relationship(
+        &format!("rId{}", n + 1),
+        &format!("{ATTR_NS}/styles"),
+        "styles.xml",
+    ));
+    let mut parts = vec![
+        (
+            b"[Content_Types].xml".to_vec(),
+            types(&format!(
+                "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
+                 <Default Extension=\"xml\" ContentType=\"application/xml\"/>{overrides}"
+            ))
+            .into_bytes(),
+        ),
+        (
+            b"_rels/.rels".to_vec(),
+            rels(&relationship(
+                "rId1",
+                &format!("{ATTR_NS}/officeDocument"),
+                "xl/workbook.xml",
+            ))
+            .into_bytes(),
+        ),
+        (
+            b"xl/workbook.xml".to_vec(),
+            format!(
+                "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">{before}\
+                 <sheets>{sheets}</sheets>{after}</workbook>"
+            )
+            .into_bytes(),
+        ),
+        (b"xl/_rels/workbook.xml.rels".to_vec(), rels(&rels_body).into_bytes()),
+    ];
+    for i in 1..=n {
+        parts.push((
+            format!("xl/worksheets/sheet{i}.xml").into_bytes(),
+            format!("{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\"><sheetData/></worksheet>")
+                .into_bytes(),
+        ));
+    }
+    parts.push((b"xl/styles.xml".to_vec(), b"<styleSheet/>".to_vec()));
+    parts
+}
+
+/// The bytes of a part in `parts`, as text.
+fn part_text(parts: &[(Vec<u8>, Vec<u8>)], name: &[u8]) -> String {
+    let (_, bytes) = parts
+        .iter()
+        .find(|(part, _)| part == name)
+        .expect("the fixture has that part");
+    String::from_utf8(bytes.clone()).expect("UTF-8")
+}
+
+/// The names of the projected list.
+fn sheet_names(package: &mut Package<Cursor<Vec<u8>>>) -> Vec<String> {
+    package
+        .sheets()
+        .expect("sheets")
+        .into_iter()
+        .map(|sheet| sheet.name)
+        .collect()
+}
+
+#[test]
+fn adding_a_sheet_records_its_entry_override_relationship_and_sheet() {
+    let (parts, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add_sheet");
+    assert_eq!(part, b"xl/worksheets/sheet2.xml");
+    let added = package.sheets().expect("sheets");
+    assert_eq!(added.len(), 2);
+    assert_eq!(
+        added[1],
+        Sheet {
+            name: "Two".to_string(),
+            sheet_id: 2,
+            rel_id: b"rId3".to_vec(),
+            state: None,
+            part: b"xl/worksheets/sheet2.xml".to_vec(),
+            kind: SheetKind::Worksheet,
+        }
+    );
+    // The file's list is still the file's.
+    assert_eq!(package.workbook().expect("workbook").sheets.len(), 1);
+    let out = written(package);
+    let mut names = part_names(&parts);
+    names.push(b"xl/worksheets/sheet2.xml");
+    assert_names(&out, &names);
+    assert_untouched(
+        &out,
+        &parts,
+        &[
+            b"[Content_Types].xml",
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+        ],
+    );
+    assert_added_part(&out, b"xl/worksheets/sheet2.xml", BLANK_WORKSHEET);
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &part_text(&parts, b"[Content_Types].xml").replace(
+            "</Types>",
+            &format!(
+                "<Override PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"{WORKSHEET_TYPE}\"/></Types>"
+            ),
+        ),
+    );
+    assert_part(
+        &out,
+        b"xl/_rels/workbook.xml.rels",
+        &rels(&format!(
+            "{}{}{}",
+            worksheet_rel(),
+            styles_rel(),
+            relationship(
+                "rId3",
+                &format!("{ATTR_NS}/worksheet"),
+                "worksheets/sheet2.xml"
+            )
+        )),
+    );
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            "</sheets>",
+            "<sheet name=\"Two\" sheetId=\"2\" r:id=\"rId3\"/></sheets>",
+        ),
+    );
+}
+
+#[test]
+fn an_added_sheet_skips_an_entry_name_that_is_taken() {
+    // `sheet2.xml` is an entry but not a sheet: the new part is sheet3.
+    let mut parts = smallest();
+    parts.push((b"xl/worksheets/sheet2.xml".to_vec(), b"<x/>".to_vec()));
+    let (_, mut package) = opened(parts);
+    assert_eq!(
+        package.add_sheet("Two").expect("add_sheet"),
+        b"xl/worksheets/sheet3.xml"
+    );
+    // And a second add skips the first one's pending name.
+    assert_eq!(
+        package.add_sheet("Three").expect("add_sheet"),
+        b"xl/worksheets/sheet4.xml"
+    );
+}
+
+#[test]
+fn a_default_for_xml_of_the_worksheet_type_needs_no_override() {
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        b"[Content_Types].xml",
+        types(&format!(
+            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
+             <Default Extension=\"xml\" ContentType=\"{WORKSHEET_TYPE}\"/>\
+             <Override PartName=\"/xl/workbook.xml\" ContentType=\"{WORKBOOK_TYPE}\"/>"
+        )),
+    );
+    let (parts, mut package) = opened(parts);
+    package.add_sheet("Two").expect("add_sheet");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"[Content_Types].xml",
+        &part_text(&parts, b"[Content_Types].xml"),
+    );
+}
+
+#[test]
+fn a_strict_workbook_gets_a_strict_worksheet_relationship() {
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        b"xl/_rels/workbook.xml.rels",
+        rels(&format!(
+            "{}{}",
+            relationship(
+                "rId1",
+                &format!("{ATTR_STRICT}/worksheet"),
+                "worksheets/sheet1.xml"
+            ),
+            styles_rel()
+        )),
+    );
+    let (_, mut package) = opened(parts);
+    package.add_sheet("Two").expect("add_sheet");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/_rels/workbook.xml.rels",
+        &rels(&format!(
+            "{}{}{}",
+            relationship(
+                "rId1",
+                &format!("{ATTR_STRICT}/worksheet"),
+                "worksheets/sheet1.xml"
+            ),
+            styles_rel(),
+            relationship(
+                "rId3",
+                &format!("{ATTR_STRICT}/worksheet"),
+                "worksheets/sheet2.xml"
+            )
+        )),
+    );
+}
+
+#[test]
+fn a_new_sheet_id_is_one_more_than_the_largest_and_two_adds_differ() {
+    let mut parts = sheeted(2, "", "");
+    let workbook = part_text(&parts, b"xl/workbook.xml").replace("sheetId=\"2\"", "sheetId=\"9\"");
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (parts, mut package) = opened(parts);
+    let first = package.add_sheet("A").expect("add_sheet");
+    let second = package.add_sheet("B").expect("add_sheet");
+    let list = package.sheets().expect("sheets");
+    assert_eq!(
+        list.iter()
+            .map(|sheet| (sheet.sheet_id, sheet.rel_id.clone(), sheet.part.clone()))
+            .collect::<Vec<_>>()[2..],
+        [
+            (10, b"rId4".to_vec(), first),
+            (11, b"rId5".to_vec(), second),
+        ]
+    );
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            "</sheets>",
+            "<sheet name=\"A\" sheetId=\"10\" r:id=\"rId4\"/>\
+             <sheet name=\"B\" sheetId=\"11\" r:id=\"rId5\"/></sheets>",
+        ),
+    );
+}
+
+#[test]
+fn a_sheet_name_breaking_a_rule_is_refused_and_records_nothing() {
+    let (_, mut package) = opened(sheeted(2, "", ""));
+    let long = "x".repeat(32);
+    let cases: Vec<(&str, &str)> = vec![
+        ("", "a sheet name is empty"),
+        (long.as_str(), "a sheet name is longer than 31 characters"),
+        ("a:b", "a sheet name holds a character Excel refuses"),
+        ("a\\b", "a sheet name holds a character Excel refuses"),
+        ("a/b", "a sheet name holds a character Excel refuses"),
+        ("a?b", "a sheet name holds a character Excel refuses"),
+        ("a*b", "a sheet name holds a character Excel refuses"),
+        ("a[b", "a sheet name holds a character Excel refuses"),
+        ("a]b", "a sheet name holds a character Excel refuses"),
+        ("'ab", "a sheet name starts or ends with an apostrophe"),
+        ("ab'", "a sheet name starts or ends with an apostrophe"),
+        ("a\u{1}b", "a text holds a character XML cannot carry"),
+        ("History", "a sheet name is the reserved name History"),
+        ("hISTORY", "a sheet name is the reserved name History"),
+        ("S2", "a sheet name is already in use"),
+        ("s2", "a sheet name is already in use"),
+    ];
+    for (name, message) in &cases {
+        assert_package(package.add_sheet(name).expect_err(name), message);
+        assert_package(package.rename_sheet("S1", name).expect_err(name), message);
+    }
+    assert_eq!(sheet_names(&mut package), ["S1", "S2"]);
+    // Nothing recorded: the write is a verbatim round trip.
+    let bytes = Build::new(
+        sheeted(2, "", "")
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    assert_eq!(written(package), bytes);
+}
+
+#[test]
+fn a_name_of_31_multi_byte_characters_is_accepted() {
+    let (_, mut package) = opened(smallest());
+    let name = "\u{e9}".repeat(31);
+    assert_eq!(name.len(), 62);
+    package.add_sheet(&name).expect("31 characters, 62 bytes");
+    let name32 = "\u{e9}".repeat(32);
+    assert_package(
+        package.add_sheet(&name32).expect_err("32 characters"),
+        "a sheet name is longer than 31 characters",
+    );
+}
+
+#[test]
+fn a_rename_keeps_the_element_outside_its_name_and_escapes_it() {
+    let mut parts = smallest();
+    let workbook = part_text(&parts, b"xl/workbook.xml").replace(
+        "<sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/>",
+        "<sheet  name = 'Sheet1' sheetId=\"1\"\n state=\"visible\" r:id=\"rId1\" />",
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (parts, mut package) = opened(parts);
+    package
+        .rename_sheet("Sheet1", "A&B<\"C\"\t'd")
+        .expect("rename_sheet");
+    assert_eq!(sheet_names(&mut package), ["A&B<\"C\"\t'd"]);
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml").replace(
+        "name = 'Sheet1'",
+        "name = 'A&amp;B&lt;&quot;C&quot;&#9;&apos;d'",
+    );
+    assert_part(&out, b"xl/workbook.xml", &want);
+    // Read back, the name is the one given.
+    let mut back = Package::open(Cursor::new(out)).expect("opens");
+    assert_eq!(
+        back.workbook().expect("workbook").sheets[0].name,
+        "A&B<\"C\"\t'd"
+    );
+}
+
+#[test]
+fn a_rename_to_its_own_name_in_another_case_is_allowed() {
+    let (parts, mut package) = opened(sheeted(2, "", ""));
+    package
+        .rename_sheet("S2", "s2")
+        .expect("own name, other case");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace("name=\"S2\"", "name=\"s2\""),
+    );
+}
+
+#[test]
+fn a_sheet_that_is_not_there_is_refused() {
+    let (_, mut package) = opened(sheeted(2, "", ""));
+    assert_package(
+        package.rename_sheet("S9", "X").expect_err("rename"),
+        "no sheet of that name",
+    );
+    assert_package(
+        package
+            .move_sheet("s1", 0)
+            .expect_err("names are matched exactly"),
+        "no sheet of that name",
+    );
+}
+
+#[test]
+fn moves_to_the_front_to_the_end_to_its_own_place_and_past_the_end() {
+    let (parts, mut package) = opened(sheeted(3, "", ""));
+    package.move_sheet("S3", 0).expect("to the front");
+    assert_eq!(sheet_names(&mut package), ["S3", "S1", "S2"]);
+    package.move_sheet("S3", 2).expect("to the end");
+    assert_eq!(sheet_names(&mut package), ["S1", "S2", "S3"]);
+    package.move_sheet("S2", 1).expect("its own place");
+    assert_package(
+        package.move_sheet("S1", 3).expect_err("past the end"),
+        "a sheet position is past the end",
+    );
+    // Back where it started: the sheets are rewritten as they were.
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml"),
+    );
+}
+
+#[test]
+fn a_move_to_its_own_place_records_nothing() {
+    let (parts, mut package) = opened(sheeted(2, "", ""));
+    package.move_sheet("S1", 0).expect("its own place");
+    let out = written(package);
+    assert_untouched(&out, &parts, &[]);
+}
+
+#[test]
+fn a_move_remaps_local_sheet_ids_and_the_active_tab_and_keeps_first_sheet() {
+    let views = "<bookViews><workbookView activeTab=\"2\" firstSheet=\"1\"/>\
+                 <workbookView/></bookViews>";
+    let names = "<definedNames>\n<definedName name=\"a\" localSheetId=\"0\">S1!A1</definedName>\n\
+                 <definedName name=\"b\">S2!A1</definedName>\n\
+                 <definedName localSheetId='2' name=\"c\">S3!A1</definedName>\n\
+                 <definedName name=\"d\" localSheetId=\"7\"/></definedNames>";
+    let (parts, mut package) = opened(sheeted(3, views, names));
+    package.move_sheet("S3", 0).expect("move");
+    let out = written(package);
+    let want = part_text(&parts, b"xl/workbook.xml")
+        .replace(
+            "<sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>\
+             <sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/>",
+            "<sheet name=\"S3\" sheetId=\"3\" r:id=\"rId3\"/><sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/>\
+             <sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>",
+        )
+        // S3 was the active tab, index 2, and is now 0; firstSheet stays (P3
+        // ruling 8); the second view's absent activeTab read 0, which was S1,
+        // now 1, so it is appended.
+        .replace(
+            "<workbookView activeTab=\"2\" firstSheet=\"1\"/><workbookView/>",
+            "<workbookView activeTab=\"0\" firstSheet=\"1\"/><workbookView activeTab=\"1\"/>",
+        )
+        .replace("localSheetId=\"0\"", "localSheetId=\"1\"")
+        .replace("localSheetId='2'", "localSheetId='0'");
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn an_add_alone_leaves_defined_names_and_book_views_as_they_are() {
+    let views = "<bookViews><workbookView firstSheet=\"1\"/></bookViews>";
+    let names = "<definedNames><definedName name=\"a\" localSheetId=\"1\">S2!A1</definedName></definedNames>";
+    let (parts, mut package) = opened(sheeted(2, views, names));
+    package.add_sheet("New").expect("add");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            "</sheets>",
+            "<sheet name=\"New\" sheetId=\"3\" r:id=\"rId4\"/></sheets>",
+        ),
+    );
+}
+
+#[test]
+fn a_local_sheet_id_that_is_not_a_number_refuses_a_move_at_the_write() {
+    let names =
+        "<definedNames><definedName name=\"a\" localSheetId=\"x\">A1</definedName></definedNames>";
+    let (_, mut package) = opened(sheeted(2, "", names));
+    package.move_sheet("S2", 0).expect("recorded");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    let error = package.write_to(Vec::new()).expect_err("refused");
+    assert_package(error, "a sheet edit no longer applies at the write");
+    assert_eq!(replacement_temporaries(), before, "no temporary is left");
+}
+
+#[test]
+fn a_sheet_added_to_a_workbook_with_no_sheets_element_is_refused_at_the_write() {
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        b"xl/workbook.xml",
+        format!("{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"/>"),
+    );
+    let (_, mut package) = opened(parts);
+    package.add_sheet("Two").expect("recorded");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    assert_package(
+        package.write_to(Vec::new()).expect_err("refused"),
+        "a sheet edit no longer applies at the write",
+    );
+}
+
+#[test]
+fn a_sheet_id_past_u32_is_refused_when_recorded() {
+    let mut parts = smallest();
+    let workbook = part_text(&parts, b"xl/workbook.xml")
+        .replace("sheetId=\"1\"", &format!("sheetId=\"{}\"", u32::MAX));
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (_, mut package) = opened(parts);
+    assert_package(
+        package.add_sheet("Two").expect_err("refused"),
+        "a sheet edit no longer applies at the write",
+    );
+    assert_eq!(sheet_names(&mut package), ["Sheet1"]);
+}
+
+#[test]
+fn a_sheets_element_holding_anything_but_sheets_is_refused() {
+    for inner in ["<!-- note -->", "text", "<other/>"] {
+        let mut parts = sheeted(2, "", "");
+        let workbook = part_text(&parts, b"xl/workbook.xml")
+            .replace("</sheets>", &format!("{inner}</sheets>"));
+        set(&mut parts, b"xl/workbook.xml", workbook);
+        let (_, mut package) = opened(parts);
+        package.rename_sheet("S1", "One").expect("recorded");
+        let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        assert_package(
+            package.write_to(Vec::new()).expect_err(inner),
+            "a sheets element holds something other than sheet elements",
+        );
+    }
+}
+
+#[test]
+fn whitespace_between_sheets_is_dropped_and_a_mark_kept() {
+    let mut parts = sheeted(2, "", "");
+    let workbook = part_text(&parts, b"xl/workbook.xml")
+        .replace("<sheets><sheet", "<sheets>\n  <sheet")
+        .replace("/><sheet", "/>\n  <sheet")
+        .replace("</sheets>", "\n</sheets>");
+    let mut marked = "\u{feff}".to_string();
+    marked.push_str(&workbook);
+    set(&mut parts, b"xl/workbook.xml", marked.clone());
+    let (_, mut package) = opened(parts);
+    package.rename_sheet("S1", "One").expect("rename");
+    let out = written(package);
+    let want = marked
+        .replace("<sheets>\n  <sheet", "<sheets><sheet")
+        .replace("/>\n  <sheet", "/><sheet")
+        .replace("\n</sheets>", "</sheets>")
+        .replace("name=\"S1\"", "name=\"One\"");
+    assert_part(&out, b"xl/workbook.xml", &want);
+}
+
+#[test]
+fn a_prefixed_workbook_takes_a_rename_and_a_move_and_refuses_an_add() {
+    let prefixed = |parts: &mut Vec<(Vec<u8>, Vec<u8>)>| {
+        let workbook = format!(
+            "{DECLARATION}\n<x:workbook xmlns:x=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><x:sheets>\
+             <x:sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/><x:sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>\
+             </x:sheets></x:workbook>"
+        );
+        set(parts, b"xl/workbook.xml", workbook);
+    };
+    let mut parts = sheeted(2, "", "");
+    prefixed(&mut parts);
+    let (parts, mut package) = opened(parts);
+    package.rename_sheet("S1", "One").expect("rename");
+    package.move_sheet("S2", 0).expect("move");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &part_text(&parts, b"xl/workbook.xml").replace(
+            "<x:sheet name=\"S1\" sheetId=\"1\" r:id=\"rId1\"/><x:sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/>",
+            "<x:sheet name=\"S2\" sheetId=\"2\" r:id=\"rId2\"/><x:sheet name=\"One\" sheetId=\"1\" r:id=\"rId1\"/>",
+        ),
+    );
+    let mut parts = sheeted(2, "", "");
+    prefixed(&mut parts);
+    let (_, mut package) = opened(parts);
+    package.add_sheet("Three").expect("recorded");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let before = replacement_temporaries();
+    assert_package(
+        package.write_to(Vec::new()).expect_err("refused"),
+        "a sheet cannot be added to a prefixed workbook",
+    );
+    assert_eq!(replacement_temporaries(), before, "no temporary is left");
+}
+
+#[test]
+fn a_workbook_root_binding_no_relationships_prefix_refuses_an_add() {
+    let mut parts = sheeted(1, "", "");
+    let workbook = format!(
+        "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\"><sheets>\
+         <sheet name=\"S1\" sheetId=\"1\" xmlns:q=\"{ATTR_NS}\" q:id=\"rId1\"/></sheets></workbook>"
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (_, mut package) = opened(parts);
+    package.add_sheet("Two").expect("recorded");
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    assert_package(
+        package.write_to(Vec::new()).expect_err("refused"),
+        "the workbook root binds no prefix for the relationships namespace",
+    );
+}
+
+#[test]
+fn a_sheet_edit_on_a_replaced_workbook_part_is_refused_at_the_write() {
+    let (_, mut package) = opened(sheeted(2, "", ""));
+    package.rename_sheet("S1", "One").expect("recorded");
+    package.replace_part(b"xl/workbook.xml", replacement_from_reader(&b"<x/>"[..]));
+    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    assert_package(
+        package.write_to(Vec::new()).expect_err("refused"),
+        "the workbook part cannot be edited in a package that replaces or removes it",
+    );
+}
+
+#[test]
+fn sheets_projects_every_edit_in_order() {
+    let (_, mut package) = opened(sheeted(2, "", ""));
+    assert_eq!(sheet_names(&mut package), ["S1", "S2"]);
+    package.add_sheet("N").expect("add");
+    assert_eq!(sheet_names(&mut package), ["S1", "S2", "N"]);
+    package.move_sheet("N", 0).expect("move");
+    assert_eq!(sheet_names(&mut package), ["N", "S1", "S2"]);
+    package.rename_sheet("S1", "T").expect("rename");
+    assert_eq!(sheet_names(&mut package), ["N", "T", "S2"]);
+    // The renamed sheet is found by its new name, and its old one is free.
+    package.move_sheet("T", 2).expect("move by the new name");
+    package.add_sheet("S1").expect("the old name is free");
+    assert_eq!(sheet_names(&mut package), ["N", "S2", "T", "S1"]);
+    assert_eq!(
+        package.workbook().expect("workbook").sheets.len(),
+        2,
+        "the file's list is unchanged"
+    );
+}
+
+#[test]
+fn a_cell_edit_on_an_added_sheet_writes_into_its_blank_part() {
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add");
+    package.set_cell(&part, CellRef { row: 1, col: 1 }, Value::Number(7.0));
+    package.move_sheet("Two", 0).expect("move");
+    let out = written(package);
+    let want = String::from_utf8(BLANK_WORKSHEET.to_vec())
+        .expect("UTF-8")
+        .replace(
+            "<sheetData/>",
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>7</v></c></row></sheetData>",
+        );
+    assert_added_part(&out, &part, want.as_bytes());
+    let mut back = Package::open(Cursor::new(out)).expect("opens");
+    let first = back.workbook().expect("workbook").sheets[0].clone();
+    assert_eq!(
+        (first.name.as_str(), first.part.as_slice()),
+        ("Two", part.as_slice())
+    );
+    let cells: Vec<_> = back
+        .cells(&part)
+        .expect("cells")
+        .collect::<Result<_, _>>()
+        .expect("reads");
+    assert_eq!(cells.len(), 1);
+    assert_eq!(cells[0].number(), Some(7.0));
+}
+
+#[test]
+fn a_new_workbook_takes_a_sheet_moved_first() {
+    // The template's `activeTab="0"` names Sheet1, which moves to 1.
+    let mut package = new_recorded();
+    package.add_sheet("Two").expect("add");
+    package.move_sheet("Two", 0).expect("move");
+    let out = written(package);
+    let want = String::from_utf8(template_file(b"xl/workbook.xml").to_vec())
+        .expect("UTF-8")
+        .replace("activeTab=\"0\"", "activeTab=\"1\"")
+        .replace(
+            "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>",
+            "<sheets><sheet name=\"Two\" sheetId=\"2\" r:id=\"rId3\"/>\
+             <sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>",
+        );
+    let mut back = Package::open(Cursor::new(out)).expect("opens");
+    let index = back.part(b"xl/workbook.xml").expect("the workbook part");
+    let mut bytes = Vec::new();
+    back.read_part(index)
+        .expect("read_part")
+        .read_to_end(&mut bytes)
+        .expect("read");
+    assert_eq!(String::from_utf8(bytes).expect("UTF-8"), want);
 }

@@ -150,6 +150,48 @@
 //! - "the workbook part cannot be edited in a package that replaces or removes it"
 //!   (`a_workbook_part_replaced_or_removed_refuses_the_flag`).
 //!
+//! The sheet list adds these (`specs/0016-new-workbook-and-sheets.md`,
+//! "Errors"), raised by [`Package::add_sheet`], [`Package::rename_sheet`],
+//! [`Package::move_sheet`] and [`Package::write_to`]; a name holding a
+//! character XML cannot carry reuses "a text holds a character XML cannot
+//! carry" above (P3 ruling 3,
+//! `a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`):
+//!
+//! - "a sheet name is empty"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
+//! - "a sheet name is longer than 31 characters"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`,
+//!   `a_name_of_31_multi_byte_characters_is_accepted`).
+//! - "a sheet name holds a character Excel refuses"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
+//! - "a sheet name starts or ends with an apostrophe"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
+//! - "a sheet name is the reserved name History"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
+//! - "a sheet name is already in use"
+//!   (`a_sheet_name_breaking_a_rule_is_refused_and_records_nothing`).
+//! - "no sheet of that name" (`a_sheet_that_is_not_there_is_refused`).
+//! - "a sheet position is past the end"
+//!   (`moves_to_the_front_to_the_end_to_its_own_place_and_past_the_end`).
+//! - "the workbook root binds no prefix for the relationships namespace"
+//!   (`a_workbook_root_binding_no_relationships_prefix_refuses_an_add`).
+//! - "a sheets element holds something other than sheet elements"
+//!   (`a_sheets_element_holding_anything_but_sheets_is_refused`).
+//! - "a sheet cannot be added to a prefixed workbook"
+//!   (`a_prefixed_workbook_takes_a_rename_and_a_move_and_refuses_an_add`).
+//! - "a sheet edit no longer applies at the write", the write's defence
+//!   against an edit that no longer holds, which no public call reaches, and
+//!   the refusal of what cannot be written: a `localSheetId` that is not a
+//!   decimal `u32` (P3 ruling 5), a `sheetId` past `u32::MAX` and a sheet
+//!   added to a workbook part with no `<sheets>` (P3 ruling 6)
+//!   (`a_local_sheet_id_that_is_not_a_number_refuses_a_move_at_the_write`,
+//!   `a_sheet_id_past_u32_is_refused_when_recorded`,
+//!   `a_sheet_added_to_a_workbook_with_no_sheets_element_is_refused_at_the_write`).
+//!
+//! The sheet edits also meet the formulas' "the workbook part cannot be
+//! edited in a package that replaces or removes it"
+//! (`a_sheet_edit_on_a_replaced_workbook_part_is_refused_at_the_write`).
+//!
 //! [`Package::new`] adds none (`specs/0016-new-workbook-and-sheets.md`,
 //! "`Package::new`"): it can fail only with what [`Package::write_to`] and
 //! [`Package::open`] refuse. The template's fixed bytes themselves are never
@@ -381,6 +423,30 @@
 //! - Writing the template compresses each part through a temporary file in
 //!   the system's temporary directory, as the archive layer does for every
 //!   added entry, and the temporary is removed however the write ends.
+//!
+//! The sheet list adds these (`specs/0016-new-workbook-and-sheets.md`,
+//! "Sheet names", "Renaming and moving", "The workbook rewrite", and P3
+//! rulings 4 to 8):
+//!
+//! - [`Package::workbook`] answers with the file's sheets and
+//!   [`Package::sheets`] with the projected list; the edits are checked
+//!   against the projected list when they are recorded, and the write
+//!   replays them.
+//! - Names are compared ignoring case through `char::to_lowercase` on both
+//!   sides, an approximation of Excel's rule that needs no table of its own.
+//!   Nothing else about a name is checked beyond the rules the catalogue
+//!   lists.
+//! - A rename or a move changes the sheet list and nothing that names a
+//!   sheet in text: formulas, defined names' text, pivot sources, chart
+//!   series and the `docProps` title list are untouched, as openpyxl leaves
+//!   them.
+//! - When the list is rewritten, whitespace between the `<sheet>` elements is
+//!   not reproduced; the children are written back to back.
+//! - A `localSheetId` past the file's sheet count names no sheet and is
+//!   copied unchanged. `activeTab` follows its sheet; `firstSheet`, the tab
+//!   strip's scroll position, is not moved by an add or a move.
+//! - An added sheet's part is the template's blank worksheet, with no
+//!   `tabSelected` view; a cell edit on it is written into that part.
 
 #[cfg(test)]
 mod tests;
@@ -774,6 +840,137 @@ struct Recorded {
     /// [`Package::recalculate_on_open`], or by the formula-change rule of
     /// [`Package::write_to`] (`specs/0013-formulas.md`).
     recalculate: bool,
+    /// The sheet edits, in record order, each checked at its call against
+    /// the list the ones before it project
+    /// (`specs/0016-new-workbook-and-sheets.md`, "The projected sheet list").
+    sheet_edits: Vec<SheetEdit>,
+}
+
+/// One recorded change to the workbook's list of sheets.
+#[derive(Clone)]
+enum SheetEdit {
+    /// A sheet added at the end: its name, entry, `sheetId` and
+    /// relationship id, each the value it will have.
+    Add {
+        name: String,
+        part: Vec<u8>,
+        sheet_id: u32,
+        rel_id: Vec<u8>,
+    },
+    /// The sheet named `from` takes the name `to`.
+    Rename { from: String, to: String },
+    /// The sheet named `name` goes to position `to`, 0 first.
+    Move { name: String, to: usize },
+}
+
+/// One sheet of the projected list and where it came from.
+#[derive(Clone)]
+struct Projected {
+    sheet: Sheet,
+    /// Its index in the file's `<sheets>`, or `None` for an added sheet.
+    origin: Option<usize>,
+    /// Whether an edit gave it a name other than the file's.
+    renamed: bool,
+}
+
+/// The file's sheets with `edits` applied in order. An edit that no longer
+/// holds, a name that is not there or a position past the end, is
+/// `SHEET_EDIT_STALE`: [`Package`]'s calls check each edit when it is
+/// recorded, so this is the write's defence and no public call reaches it.
+fn project(file: &[Sheet], edits: &[SheetEdit]) -> Result<Vec<Projected>, Error> {
+    let mut list: Vec<Projected> = file
+        .iter()
+        .enumerate()
+        .map(|(at, sheet)| Projected {
+            sheet: sheet.clone(),
+            origin: Some(at),
+            renamed: false,
+        })
+        .collect();
+    for edit in edits {
+        match edit {
+            SheetEdit::Add {
+                name,
+                part,
+                sheet_id,
+                rel_id,
+            } => list.push(Projected {
+                sheet: Sheet {
+                    name: name.clone(),
+                    sheet_id: *sheet_id,
+                    rel_id: rel_id.clone(),
+                    state: None,
+                    part: part.clone(),
+                    kind: SheetKind::Worksheet,
+                },
+                origin: None,
+                renamed: false,
+            }),
+            SheetEdit::Rename { from, to } => {
+                let at = position_of(&list, from).ok_or(SHEET_EDIT_STALE)?;
+                list[at].sheet.name = to.clone();
+                list[at].renamed = true;
+            }
+            SheetEdit::Move { name, to } => {
+                let at = position_of(&list, name).ok_or(SHEET_EDIT_STALE)?;
+                if *to >= list.len() {
+                    return Err(SHEET_EDIT_STALE);
+                }
+                let moved = list.remove(at);
+                list.insert(*to, moved);
+            }
+        }
+    }
+    Ok(list)
+}
+
+/// The position of the sheet named exactly `name` in `list`.
+fn position_of(list: &[Projected], name: &str) -> Option<usize> {
+    list.iter().position(|entry| entry.sheet.name == name)
+}
+
+/// A name compared as Excel compares sheet names, ignoring case: every
+/// `char` through `char::to_lowercase`, the no-dependency approximation the
+/// limits name (`specs/0016-new-workbook-and-sheets.md`, "Sheet names").
+fn folded(name: &str) -> String {
+    name.chars().flat_map(char::to_lowercase).collect()
+}
+
+/// Checks a name a caller gives against the rules Excel enforces on entry
+/// and against every other sheet of `list`, `except` being the renamed
+/// sheet's own position (`specs/0016-new-workbook-and-sheets.md`, "Sheet
+/// names", and P3 ruling 3).
+fn check_sheet_name(name: &str, list: &[Projected], except: Option<usize>) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(SHEET_NAME_EMPTY);
+    }
+    if name.chars().count() > 31 {
+        return Err(SHEET_NAME_LONG);
+    }
+    if name
+        .chars()
+        .any(|c| matches!(c, ':' | '\\' | '/' | '?' | '*' | '[' | ']'))
+    {
+        return Err(SHEET_NAME_CHARACTER);
+    }
+    if name.starts_with('\'') || name.ends_with('\'') {
+        return Err(SHEET_NAME_APOSTROPHE);
+    }
+    if name.chars().any(forbidden_in_xml) {
+        return Err(TEXT_NOT_XML);
+    }
+    let own = folded(name);
+    if own == "history" {
+        return Err(SHEET_NAME_HISTORY);
+    }
+    if list
+        .iter()
+        .enumerate()
+        .any(|(at, entry)| Some(at) != except && folded(&entry.sheet.name) == own)
+    {
+        return Err(SHEET_NAME_IN_USE);
+    }
+    Ok(())
 }
 
 /// What one reference's edits in one write ask for: a value edit, a style
@@ -818,6 +1015,20 @@ impl Recorded {
             && self.style_edits.is_empty()
             && self.xf_additions.is_empty()
             && !self.recalculate
+            && self.sheet_edits.is_empty()
+    }
+
+    /// The entries [`Package::add_sheet`] recorded, in record order, whose
+    /// bytes are the template's blank worksheet until a cell edit writes
+    /// into them.
+    fn added_sheet_parts(&self) -> Vec<Vec<u8>> {
+        self.sheet_edits
+            .iter()
+            .filter_map(|edit| match edit {
+                SheetEdit::Add { part, .. } => Some(part.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Whether the last value edit recorded for some reference writes a
@@ -930,6 +1141,13 @@ const TEMPLATE: [(&[u8], &[u8]); 6] = [
         include_bytes!("../template/xl/styles.xml"),
     ),
 ];
+
+/// The template's blank worksheet: the part every added sheet starts as.
+const BLANK_WORKSHEET: &[u8] = TEMPLATE[4].1;
+
+/// The transitional worksheet content type, which the strict form shares.
+const WORKSHEET_CONTENT_TYPE: &[u8] =
+    b"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 
 impl Package<Cursor<Vec<u8>>> {
     /// A new workbook: the template's six parts, written and opened back
@@ -1519,6 +1737,166 @@ impl<R: Read + Seek> Package<R> {
         self.edits.recalculate = true;
     }
 
+    /// The workbook's sheets with the recorded sheet edits applied, in the
+    /// order they were recorded (`specs/0016-new-workbook-and-sheets.md`,
+    /// "The projected sheet list").
+    ///
+    /// [`Package::workbook`] keeps answering with the file's list, as
+    /// [`Package::cells`] reads the file and not the pending cell edits. A
+    /// sheet added and not yet written has `part`, `sheet_id` and `rel_id` set
+    /// to the values it will get, `state` `None` and `kind`
+    /// [`SheetKind::Worksheet`].
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::workbook`] refuses.
+    pub fn sheets(&mut self) -> Result<Vec<Sheet>, Error> {
+        Ok(self
+            .projected()?
+            .into_iter()
+            .map(|entry| entry.sheet)
+            .collect())
+    }
+
+    /// The projected list with each sheet's origin, for the sheet edits.
+    fn projected(&mut self) -> Result<Vec<Projected>, Error> {
+        let file = self.workbook()?.sheets.clone();
+        project(&file, &self.edits.sheet_edits)
+    }
+
+    /// Records a new worksheet named `name` at the end of the list, and
+    /// returns its entry name (`specs/0016-new-workbook-and-sheets.md`,
+    /// "Adding a sheet").
+    ///
+    /// Recorded in the order the write applies them: the entry, the
+    /// template's blank worksheet, at `<dir>/worksheets/sheet<n>.xml`, `<dir>`
+    /// the workbook part's directory and `n` the smallest positive integer
+    /// whose name is neither an entry nor a pending addition; an `Override`
+    /// for it with the worksheet content type, unless the content types
+    /// part has a `Default` for `xml` of that type; a worksheet relationship
+    /// on the workbook part, in the form of the workbook's first worksheet
+    /// relationship or transitional when there is none, its target relative
+    /// to the workbook part; and a `<sheet>` at the end of the projected list
+    /// with `sheetId` one more than the largest there. A caller places it with
+    /// [`Package::move_sheet`], and writes into it with [`Package::set_cell`]
+    /// on the returned name (P3 ruling 2).
+    ///
+    /// # Errors
+    ///
+    /// The name rules' messages ("a sheet name is empty", "a sheet name is
+    /// longer than 31 characters", "a sheet name holds a character Excel
+    /// refuses", "a sheet name starts or ends with an apostrophe", "a text
+    /// holds a character XML cannot carry", "a sheet name is the reserved
+    /// name History", "a sheet name is already in use"); "a sheet edit no
+    /// longer applies at the write" for a `sheetId` past `u32::MAX`; and
+    /// whatever reading the workbook, its relationships and the content
+    /// types refuses. Nothing is recorded when this fails.
+    pub fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+        let list = self.projected()?;
+        check_sheet_name(name, &list, None)?;
+        let sheet_id = list
+            .iter()
+            .map(|entry| entry.sheet.sheet_id)
+            .max()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or(SHEET_EDIT_STALE)?;
+        let workbook = self.workbook()?.part.clone();
+        let dir = match workbook.iter().rposition(|byte| *byte == b'/') {
+            Some(slash) => workbook[..=slash].to_vec(),
+            None => Vec::new(),
+        };
+        let mut n = 1u32;
+        let part = loop {
+            let mut candidate = dir.clone();
+            candidate.extend_from_slice(format!("worksheets/sheet{n}.xml").as_bytes());
+            let taken = self.archive.index_of(&candidate).is_some()
+                || self
+                    .edits
+                    .part_additions
+                    .iter()
+                    .any(|(added, _)| *added == candidate);
+            if !taken {
+                break candidate;
+            }
+            n = n.checked_add(1).ok_or(SHEET_EDIT_STALE)?;
+        };
+        // Every read comes before the first record, so a refusal records
+        // nothing; add_relationship below reads the rels part cached here.
+        let covered = self.content_types()?.defaults().iter().any(|default| {
+            default.extension.eq_ignore_ascii_case(b"xml")
+                && default.content_type == WORKSHEET_CONTENT_TYPE
+        });
+        let kind = self
+            .relationships(&workbook)?
+            .all()
+            .iter()
+            .find(|rel| WORKSHEET.contains(&rel.kind.as_slice()))
+            .map_or_else(|| WORKSHEET[0].to_vec(), |rel| rel.kind.clone());
+        self.add_part(&part, replacement_from_reader(BLANK_WORKSHEET));
+        if !covered {
+            let mut part_name = b"/".to_vec();
+            part_name.extend_from_slice(&part);
+            self.add_override(&part_name, WORKSHEET_CONTENT_TYPE);
+        }
+        let rel_id = self.add_relationship(&workbook, &kind, &part[dir.len()..], false)?;
+        self.edits.sheet_edits.push(SheetEdit::Add {
+            name: name.to_string(),
+            part: part.clone(),
+            sheet_id,
+            rel_id,
+        });
+        Ok(part)
+    }
+
+    /// Records that the sheet named `name` takes the name `to`
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving").
+    ///
+    /// `to` is checked as [`Package::add_sheet`] checks a name, against every
+    /// other sheet of the projected list, so a sheet may be renamed to its
+    /// own name or to its own name in another case. Formulas, defined names
+    /// and anything else that names the sheet in text are not touched.
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name" when the projected list has no sheet named
+    /// exactly `name`; the name rules' messages for `to`; whatever
+    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
+    pub fn rename_sheet(&mut self, name: &str, to: &str) -> Result<(), Error> {
+        let list = self.projected()?;
+        let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
+        check_sheet_name(to, &list, Some(at))?;
+        self.edits.sheet_edits.push(SheetEdit::Rename {
+            from: name.to_string(),
+            to: to.to_string(),
+        });
+        Ok(())
+    }
+
+    /// Records that the sheet named `name` moves to position `to`, 0 first
+    /// (`specs/0016-new-workbook-and-sheets.md`, "Renaming and moving"). A
+    /// move to the sheet's own position records nothing.
+    ///
+    /// # Errors
+    ///
+    /// "no sheet of that name"; "a sheet position is past the end" for `to`
+    /// at or past the projected list's length; whatever
+    /// [`Package::workbook`] refuses. Nothing is recorded when this fails.
+    pub fn move_sheet(&mut self, name: &str, to: usize) -> Result<(), Error> {
+        let list = self.projected()?;
+        let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
+        if to >= list.len() {
+            return Err(SHEET_PAST_END);
+        }
+        if to != at {
+            self.edits.sheet_edits.push(SheetEdit::Move {
+                name: name.to_string(),
+                to,
+            });
+        }
+        Ok(())
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
@@ -1591,14 +1969,37 @@ impl<R: Read + Seek> Package<R> {
         // removals, which the content types and rels rewrites below apply
         // (`specs/0011-editing-cells.md`, "Module `package`").
         let mut changed_formula = self.edits.writes_formula();
+        let added_sheets = self.edits.added_sheet_parts();
         for part in self.edits.cell_parts() {
-            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let sorted = self.edits.cell_edits_of(&part);
-            let (temp, replacement, removed) =
-                rewrite_worksheet(&mut self.archive, index, &sorted)?;
-            changed_formula |= removed;
-            temporaries.push(temp);
-            edits.replace(index, replacement);
+            match self.archive.index_of(&part) {
+                Some(index) => {
+                    let (temp, replacement, removed) =
+                        rewrite_worksheet(&mut self.archive, index, &sorted)?;
+                    changed_formula |= removed;
+                    temporaries.push(temp);
+                    edits.replace(index, replacement);
+                }
+                None if added_sheets.contains(&part) => {
+                    // A sheet this write adds: its edits go onto the template's
+                    // blank worksheet, and the result is the added entry's
+                    // bytes (`specs/0016-new-workbook-and-sheets.md`, P3
+                    // ruling 2). Its index in an error is where it is added.
+                    let slot = self
+                        .edits
+                        .part_additions
+                        .iter()
+                        .position(|(added, _)| *added == part)
+                        .ok_or(NO_SUCH_PART)?;
+                    let index = self.archive.entries().len() + slot;
+                    let (temp, replacement, removed) =
+                        rewrite_worksheet_from(BLANK_WORKSHEET, index, &sorted)?;
+                    changed_formula |= removed;
+                    temporaries.push(temp);
+                    self.edits.part_additions[slot].1 = replacement;
+                }
+                None => return Err(NO_SUCH_PART),
+            }
         }
         if changed_formula {
             self.formula_change_rule()?;
@@ -1630,14 +2031,23 @@ impl<R: Read + Seek> Package<R> {
         }
 
         // The workbook part, rewritten once when a full calculation on load
-        // was asked for (`specs/0013-formulas.md`, "Module `package`").
-        // `validate` has read the workbook, so its part and its `calcPr`
-        // count are cached.
-        if self.edits.recalculate {
+        // was asked for (`specs/0013-formulas.md`, "Module `package`") or a
+        // sheet edit was recorded (`specs/0016-new-workbook-and-sheets.md`,
+        // "The workbook rewrite"). `validate` has read the workbook, so its
+        // part and its `calcPr` count are cached, and has replayed the sheet
+        // edits, so the plan below is the one it checked.
+        let plan = if self.edits.sheet_edits.is_empty() {
+            None
+        } else {
+            let file_count = self.workbook()?.sheets.len();
+            Some(SheetPlan::new(self.projected()?, file_count))
+        };
+        if self.edits.recalculate || plan.is_some() {
             let part = self.workbook()?.part.clone();
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            let calc = self.edits.recalculate.then_some(self.calc_prs > 0);
             let (temp, replacement) =
-                rewrite_workbook(&mut self.archive, index, self.calc_prs > 0)?;
+                rewrite_workbook(&mut self.archive, index, calc, plan.as_ref())?;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
@@ -1865,8 +2275,9 @@ impl<R: Read + Seek> Package<R> {
         // A cell edit names a part that is there, that this write neither
         // removes nor replaces, and carries a value the format can hold
         // (`specs/0011-editing-cells.md`, "Module `package`").
+        let added_sheets = self.edits.added_sheet_parts();
         for part in self.edits.cell_parts() {
-            if self.archive.index_of(&part).is_none() {
+            if self.archive.index_of(&part).is_none() && !added_sheets.contains(&part) {
                 return Err(NO_SUCH_PART);
             }
             if is_removed(&part) {
@@ -1923,7 +2334,9 @@ impl<R: Read + Seek> Package<R> {
         // part this write neither removes nor replaces and that has at most
         // one `calcPr` (`specs/0013-formulas.md`, P1 ruling 3). A rule fired
         // by a removed formula is checked when the rule validates again.
-        if self.edits.recalculate || self.edits.writes_formula() {
+        let calc = self.edits.recalculate || self.edits.writes_formula();
+        let sheets = !self.edits.sheet_edits.is_empty();
+        if calc || sheets {
             let part = self.workbook()?.part.clone();
             if is_removed(&part)
                 || self
@@ -1934,9 +2347,16 @@ impl<R: Read + Seek> Package<R> {
             {
                 return Err(WORKBOOK_REPLACED);
             }
-            if self.calc_prs > 1 {
+            if calc && self.calc_prs > 1 {
                 return Err(TWO_CALC_PRS);
             }
+        }
+        // The sheet edits are replayed on the file's list: each was checked
+        // when recorded, so this refuses only a set that no longer holds, the
+        // write's defence (`specs/0016-new-workbook-and-sheets.md`, "The
+        // projected sheet list").
+        if sheets {
+            self.projected()?;
         }
         Ok(())
     }
@@ -2139,6 +2559,25 @@ const NO_CELL_XFS: Error = Error::Package("a styles part without cellXfs cannot 
 /// (`specs/0013-formulas.md`, "Errors"); the three about a formula's text are
 /// raised by [`Value`] itself, in `cells`.
 const TWO_CALC_PRS: Error = Error::Package("a workbook has two calcPr elements");
+const SHEET_NAME_EMPTY: Error = Error::Package("a sheet name is empty");
+const SHEET_NAME_LONG: Error = Error::Package("a sheet name is longer than 31 characters");
+const SHEET_NAME_CHARACTER: Error = Error::Package("a sheet name holds a character Excel refuses");
+const SHEET_NAME_APOSTROPHE: Error =
+    Error::Package("a sheet name starts or ends with an apostrophe");
+const SHEET_NAME_HISTORY: Error = Error::Package("a sheet name is the reserved name History");
+const SHEET_NAME_IN_USE: Error = Error::Package("a sheet name is already in use");
+/// Raised by `Value::Text` too; a sheet name uses the same words
+/// (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 3).
+const TEXT_NOT_XML: Error = Error::Package("a text holds a character XML cannot carry");
+const NO_SUCH_SHEET: Error = Error::Package("no sheet of that name");
+const SHEET_PAST_END: Error = Error::Package("a sheet position is past the end");
+const NO_RELATIONSHIPS_PREFIX: Error =
+    Error::Package("the workbook root binds no prefix for the relationships namespace");
+const SHEETS_NOT_SHEETS: Error =
+    Error::Package("a sheets element holds something other than sheet elements");
+const SHEET_ADDED_TO_PREFIXED: Error =
+    Error::Package("a sheet cannot be added to a prefixed workbook");
+const SHEET_EDIT_STALE: Error = Error::Package("a sheet edit no longer applies at the write");
 const WORKBOOK_REPLACED: Error =
     Error::Package("the workbook part cannot be edited in a package that replaces or removes it");
 
@@ -2496,25 +2935,115 @@ fn rewrite_styles<R: Read + Seek>(
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
 }
 
-/// Rewrites the workbook part with `fullCalcOnLoad="1"` into a temporary
-/// file.
+/// What the workbook rewrite does to the sheet list
+/// (`specs/0016-new-workbook-and-sheets.md`, "The workbook rewrite").
+struct SheetPlan {
+    /// The projected list, in order.
+    list: Vec<Projected>,
+    /// How many `<sheet>` elements the file's `<sheets>` holds.
+    file_count: usize,
+    /// For each of the file's sheets, by its index there, its position in
+    /// the projected list, `None` when it is removed.
+    positions: Vec<Option<usize>>,
+    /// Whether a file sheet's index changes, a move or a removal, which is
+    /// when `<definedNames>` and `<bookViews>` are rewritten.
+    reindexed: bool,
+    /// The position of the first projected sheet with no `state`, where an
+    /// `activeTab` naming a removed sheet goes.
+    first_visible: usize,
+}
+
+impl SheetPlan {
+    fn new(list: Vec<Projected>, file_count: usize) -> Self {
+        let mut positions = vec![None; file_count];
+        for (at, entry) in list.iter().enumerate() {
+            if let Some(origin) = entry.origin
+                && origin < file_count
+            {
+                positions[origin] = Some(at);
+            }
+        }
+        let reindexed = positions
+            .iter()
+            .enumerate()
+            .any(|(origin, at)| *at != Some(origin));
+        let first_visible = list
+            .iter()
+            .position(|entry| entry.sheet.state.is_none())
+            .unwrap_or(0);
+        SheetPlan {
+            list,
+            file_count,
+            positions,
+            reindexed,
+            first_visible,
+        }
+    }
+
+    /// Whether the projected list holds a sheet this write adds.
+    fn adds(&self) -> bool {
+        self.list.iter().any(|entry| entry.origin.is_none())
+    }
+
+    /// A file index's projected index: its own position, the first visible
+    /// sheet's when it is removed, and the value unchanged when it names no
+    /// sheet of the file (P3 ruling 5).
+    fn remapped(&self, index: usize) -> usize {
+        match self.positions.get(index) {
+            Some(Some(at)) => *at,
+            Some(None) => self.first_visible,
+            None => index,
+        }
+    }
+
+    /// A present `firstSheet`: decremented by the removed sheets before it
+    /// and clamped to the projected list's last position; an add or a move
+    /// leaves it as it is (P3 ruling 8).
+    fn first_sheet(&self, value: usize) -> usize {
+        let removed = self
+            .positions
+            .iter()
+            .take(value.min(self.file_count))
+            .filter(|at| at.is_none())
+            .count();
+        (value - removed).min(self.list.len().saturating_sub(1))
+    }
+}
+
+/// Rewrites the workbook part into a temporary file: `calcPr` when `calc`
+/// is `Some`, and the `<sheets>`, `<definedNames>` and `<bookViews>` regions
+/// when `plan` is (`specs/0013-formulas.md`, "Module `package`";
+/// `specs/0016-new-workbook-and-sheets.md`, "The workbook rewrite", and P3
+/// rulings 4, 5, 6 and 8). One pass; every token's `raw` is copied, the mark
+/// included, except:
 ///
-/// `specs/0013-formulas.md`, "Module `package`", and P1 rulings 1, 3 and 5:
-/// every token's `raw` is copied, the mark included, except the start tag of
-/// the one `<calcPr>` among the root's children, which keeps every byte but
-/// the value of an unprefixed `fullCalcOnLoad` (now `1`, in its own quotes)
-/// or gains ` fullCalcOnLoad="1"` right after its last attribute. With no
-/// `<calcPr>` (`has_calc_pr` false, from the read), `<calcPr
-/// fullCalcOnLoad="1"/>` with the root's prefix goes immediately after the
-/// end of the last root child among [`BEFORE_CALC_PR`], or after the root
-/// start tag when there is none: the tokens that follow such an end at the
-/// root's level are held back until the next child of the root in the main
-/// namespace shows whether it is one of those. A second `<calcPr>` is
-/// refused, leaving no output.
+/// - `calcPr` (`calc` is `Some(has_calc_pr)`): the start tag of the one
+///   `<calcPr>` among the root's children keeps every byte but the value of
+///   an unprefixed `fullCalcOnLoad` (now `1`, in its own quotes) or gains
+///   ` fullCalcOnLoad="1"` right after its last attribute. With no
+///   `<calcPr>`, `<calcPr fullCalcOnLoad="1"/>` with the root's prefix goes
+///   immediately after the end of the last root child among
+///   [`BEFORE_CALC_PR`], or after the root start tag when there is none: the
+///   tokens that follow such an end at the root's level are held back until
+///   the next child of the root in the main namespace shows whether it is
+///   one of those. A second `<calcPr>` is refused, leaving no output.
+/// - `<sheets>`: its children become the projected list, back to back, an
+///   existing `<sheet>` element copied byte for byte with a renamed sheet's
+///   `name` value replaced between its own quotes, a new one written as
+///   `<sheet name=".." sheetId=".." r:id=".."/>` with the prefix the root
+///   binds to the relationships namespace. Anything in `<sheets>` other than
+///   `<sheet>` elements and whitespace is refused.
+/// - `<definedNames>`, when a sheet moved or was removed: a `<definedName>`'s
+///   `localSheetId` is remapped between its own quotes, or the element
+///   dropped when its sheet was removed.
+/// - `<bookViews>`, when a sheet moved or was removed: a `<workbookView>`'s
+///   `activeTab` is remapped, an absent one appended when it maps away from
+///   0, and a present `firstSheet` follows P3 ruling 8.
 fn rewrite_workbook<R: Read + Seek>(
     archive: &mut Archive<R>,
     index: usize,
-    has_calc_pr: bool,
+    calc: Option<bool>,
+    plan: Option<&SheetPlan>,
 ) -> Result<(TempFile, Replacement), Error> {
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -2525,14 +3054,46 @@ fn rewrite_workbook<R: Read + Seek>(
     let mut scope = Scope::new(index);
     let mut depth = 0usize;
     let mut root_prefix: Vec<u8> = Vec::new();
+    let mut rels_prefix: Option<Vec<u8>> = None;
     let mut calc_prs = 0usize;
     // Whether the new `<calcPr>` is still to be written, and the bytes held
     // back since the last point it could go.
-    let mut inserting = !has_calc_pr;
+    let mut inserting = calc == Some(false);
     let mut held: Vec<u8> = Vec::new();
     let new_calc_pr =
         |prefix: &[u8]| [b"<".as_slice(), prefix, b"calcPr fullCalcOnLoad=\"1\"/>"].concat();
+    // The root child being walked when it is one of the three regions.
+    let mut region: Option<&'static [u8]> = None;
+    // Inside `<sheets>`: the file's `<sheet>` elements' bytes, the one being
+    // read, and the prefix and end tag of `<sheets>` itself.
+    let mut file_sheets: Vec<Vec<u8>> = Vec::new();
+    let mut current: Option<Vec<u8>> = None;
+    let mut sheets_prefix: Vec<u8> = Vec::new();
+    let mut sheets_seen = false;
     while let Some(token) = stream.next()? {
+        // A sheet element being read is kept whole, whatever it holds.
+        if let Some(bytes) = current.as_mut() {
+            bytes.extend_from_slice(token.raw);
+            match token.event {
+                Event::Start(ref start) => {
+                    depth += 1;
+                    scope.start(start)?;
+                }
+                Event::Empty(ref start) => {
+                    scope.start(start)?;
+                    scope.end();
+                }
+                Event::End(_) => {
+                    scope.end();
+                    depth -= 1;
+                    if depth == 2 {
+                        file_sheets.push(current.take().unwrap_or_default());
+                    }
+                }
+                _ => {}
+            }
+            continue;
+        }
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
                 let empty = matches!(token.event, Event::Empty(_));
@@ -2542,26 +3103,84 @@ fn rewrite_workbook<R: Read + Seek>(
                 let ours = is_main(namespace);
                 if depth == 1 {
                     root_prefix = prefix_of(start);
+                    rels_prefix = relationships_prefix(start, index)?;
+                    if let Some(plan) = plan
+                        && plan.adds()
+                    {
+                        if !root_prefix.is_empty() {
+                            return Err(SHEET_ADDED_TO_PREFIXED);
+                        }
+                        if rels_prefix.is_none() {
+                            return Err(NO_RELATIONSHIPS_PREFIX);
+                        }
+                    }
+                }
+                if depth == 3 && region == Some(b"sheets") {
+                    if !(ours && local == b"sheet") {
+                        return Err(SHEETS_NOT_SHEETS);
+                    }
+                    if empty {
+                        file_sheets.push(token.raw.to_vec());
+                        scope.end();
+                        depth -= 1;
+                    } else {
+                        current = Some(token.raw.to_vec());
+                    }
+                    continue;
+                }
+                // The bytes this token writes: its own, or its start tag
+                // with an attribute remapped.
+                let raw: std::borrow::Cow<'_, [u8]> = match (plan, region, depth) {
+                    (Some(plan), Some(b"definedNames"), 3)
+                        if plan.reindexed && ours && local == b"definedName" =>
+                    {
+                        match defined_name_tag(token.raw, plan, index)? {
+                            Some(tag) => tag.into(),
+                            None => {
+                                // Its sheet was removed: the element goes, its
+                                // content with it.
+                                if !empty {
+                                    skip_element(&mut stream, &mut scope)?;
+                                }
+                                scope.end();
+                                depth -= 1;
+                                continue;
+                            }
+                        }
+                    }
+                    (Some(plan), Some(b"bookViews"), 3)
+                        if plan.reindexed && ours && local == b"workbookView" =>
+                    {
+                        workbook_view_tag(token.raw, plan, index)?.into()
+                    }
+                    _ => token.raw.into(),
+                };
+                if depth == 2 && ours && plan.is_some() {
+                    region = [b"sheets".as_slice(), b"definedNames", b"bookViews"]
+                        .into_iter()
+                        .find(|name| *name == local);
+                }
+                if depth == 1 {
                     if inserting && empty {
                         // A root with no children at all: opened up as part 2
                         // opens an empty root, with the new element inside.
-                        out.write_all(&opened_up(token.raw, index)?)?;
+                        out.write_all(&opened_up(&raw, index)?)?;
                         out.write_all(&new_calc_pr(&root_prefix))?;
                         out.write_all(b"</")?;
                         out.write_all(start.name().into_inner().as_bytes())?;
                         out.write_all(b">")?;
                         inserting = false;
                     } else {
-                        out.write_all(token.raw)?;
+                        out.write_all(&raw)?;
                     }
-                } else if depth == 2 && ours && local == b"calcPr" {
+                } else if depth == 2 && ours && local == b"calcPr" && calc.is_some() {
                     calc_prs += 1;
                     if calc_prs > 1 {
                         return Err(TWO_CALC_PRS);
                     }
                     out.write_all(&held)?;
                     held.clear();
-                    out.write_all(&full_calc_tag(token.raw, index)?)?;
+                    out.write_all(&full_calc_tag(&raw, index)?)?;
                 } else if depth == 2 && inserting && ours {
                     if !BEFORE_CALC_PR.contains(&local) {
                         out.write_all(&new_calc_pr(&root_prefix))?;
@@ -2569,23 +3188,59 @@ fn rewrite_workbook<R: Read + Seek>(
                     }
                     out.write_all(&held)?;
                     held.clear();
-                    out.write_all(token.raw)?;
+                    write_region_start(&mut out, &raw, region, empty, index)?;
                 } else if depth >= 2 && inserting && !held.is_empty() {
-                    held.extend_from_slice(token.raw);
+                    held.extend_from_slice(&raw);
                 } else if depth == 2 && inserting && !ours {
                     // Another namespace's child of the root is held with what
                     // follows it, since a child among the nine may come after.
-                    held.extend_from_slice(token.raw);
+                    held.extend_from_slice(&raw);
+                } else if depth == 2 {
+                    write_region_start(&mut out, &raw, region, empty, index)?;
                 } else {
-                    out.write_all(token.raw)?;
+                    out.write_all(&raw)?;
+                }
+                if depth == 2 && region == Some(b"sheets") {
+                    sheets_seen = true;
+                    sheets_prefix = prefix_of(start);
+                    if empty {
+                        if let Some(plan) = plan {
+                            write_sheets(
+                                &mut out,
+                                plan,
+                                &file_sheets,
+                                &sheets_prefix,
+                                rels_prefix.as_deref(),
+                                index,
+                            )?;
+                        }
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                    }
                 }
                 if empty {
+                    if depth == 2 {
+                        region = None;
+                    }
                     scope.end();
                     depth -= 1;
                 }
             }
             Event::End(_) => {
-                if depth == 1 && inserting {
+                if depth == 2 && region == Some(b"sheets") {
+                    if let Some(plan) = plan {
+                        write_sheets(
+                            &mut out,
+                            plan,
+                            &file_sheets,
+                            &sheets_prefix,
+                            rels_prefix.as_deref(),
+                            index,
+                        )?;
+                    }
+                    out.write_all(token.raw)?;
+                } else if depth == 1 && inserting {
                     out.write_all(&new_calc_pr(&root_prefix))?;
                     inserting = false;
                     out.write_all(&held)?;
@@ -2596,12 +3251,22 @@ fn rewrite_workbook<R: Read + Seek>(
                 } else {
                     out.write_all(token.raw)?;
                 }
+                if depth == 2 {
+                    region = None;
+                }
                 scope.end();
                 depth -= 1;
             }
             _ => {
-                // Between the root's children, or inside a held child.
-                if inserting && (depth == 1 || !held.is_empty()) {
+                if depth == 2 && region == Some(b"sheets") {
+                    // Between `<sheet>` elements only whitespace may stand,
+                    // and it is not reproduced.
+                    let text = matches!(token.event, Event::Text(_));
+                    if !text || !token.raw.iter().all(u8::is_ascii_whitespace) {
+                        return Err(SHEETS_NOT_SHEETS);
+                    }
+                } else if inserting && (depth == 1 || !held.is_empty()) {
+                    // Between the root's children, or inside a held child.
                     held.extend_from_slice(token.raw);
                 } else {
                     out.write_all(token.raw)?;
@@ -2609,7 +3274,222 @@ fn rewrite_workbook<R: Read + Seek>(
             }
         }
     }
+    if let Some(plan) = plan
+        && plan.adds()
+        && !sheets_seen
+    {
+        return Err(SHEET_EDIT_STALE);
+    }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// Writes a root child's start tag. `<sheets/>` with sheets to write is
+/// opened up, and the caller writes its children and end tag.
+fn write_region_start(
+    out: &mut impl Write,
+    raw: &[u8],
+    region: Option<&'static [u8]>,
+    empty: bool,
+    index: usize,
+) -> Result<(), Error> {
+    if empty && region == Some(b"sheets") {
+        out.write_all(&opened_up(raw, index)?)?;
+    } else {
+        out.write_all(raw)?;
+    }
+    Ok(())
+}
+
+/// Writes the projected list as `<sheets>`'s children, back to back.
+fn write_sheets(
+    out: &mut impl Write,
+    plan: &SheetPlan,
+    file_sheets: &[Vec<u8>],
+    prefix: &[u8],
+    rels_prefix: Option<&[u8]>,
+    index: usize,
+) -> Result<(), Error> {
+    if file_sheets.len() != plan.file_count {
+        return Err(SHEET_EDIT_STALE);
+    }
+    for entry in &plan.list {
+        match entry.origin {
+            Some(origin) => {
+                let bytes = file_sheets.get(origin).ok_or(SHEET_EDIT_STALE)?;
+                if entry.renamed {
+                    out.write_all(&with_attribute(
+                        bytes,
+                        b"name",
+                        &attribute_escaped(&entry.sheet.name),
+                        index,
+                    )?)?;
+                } else {
+                    out.write_all(bytes)?;
+                }
+            }
+            None => {
+                let rels = rels_prefix.ok_or(NO_RELATIONSHIPS_PREFIX)?;
+                out.write_all(b"<")?;
+                out.write_all(prefix)?;
+                out.write_all(b"sheet name=\"")?;
+                out.write_all(&attribute_escaped(&entry.sheet.name))?;
+                out.write_all(b"\" sheetId=\"")?;
+                out.write_all(entry.sheet.sheet_id.to_string().as_bytes())?;
+                out.write_all(b"\" ")?;
+                out.write_all(rels)?;
+                out.write_all(b":id=\"")?;
+                out.write_all(&entry.sheet.rel_id)?;
+                out.write_all(b"\"/>")?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The prefix the root start tag binds to the relationships namespace, in
+/// either form, the first such binding when there are two.
+fn relationships_prefix(start: &BytesStart<'_>, index: usize) -> Result<Option<Vec<u8>>, Error> {
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        let key = attribute.key.as_ref().as_bytes();
+        if let Some(prefix) = key.strip_prefix(b"xmlns:")
+            && RELATIONSHIPS_ATTRIBUTE.contains(&attribute.value.as_bytes())
+        {
+            return Ok(Some(prefix.to_vec()));
+        }
+    }
+    Ok(None)
+}
+
+/// A sheet name escaped for an attribute: `&`, `<`, `>`, the apostrophe and
+/// the quote as entities, and tab, line feed and carriage return as
+/// character references, so a reader's normalisation gives the name back
+/// (P3 ruling 4).
+fn attribute_escaped(name: &str) -> Vec<u8> {
+    escape(name)
+        .replace('\t', "&#9;")
+        .replace('\n', "&#10;")
+        .replace('\r', "&#13;")
+        .into_bytes()
+}
+
+/// A start tag with the unprefixed attribute `name` set to `value` (already
+/// escaped): replaced between its own quotes when present, else appended
+/// after the last attribute, so every other byte of the tag is kept.
+fn with_attribute(raw: &[u8], name: &[u8], value: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    if let Some(present) = tag
+        .attributes
+        .iter()
+        .find(|attribute| &raw[attribute.name.clone()] == name)
+    {
+        let mut out = raw[..present.value.start].to_vec();
+        out.extend_from_slice(value);
+        out.extend_from_slice(&raw[present.value.end..]);
+        return Ok(out);
+    }
+    let at = match tag.attributes.last() {
+        // The closing quote follows the value.
+        Some(last) => last.value.end + 1,
+        None => tag.name_end,
+    };
+    let mut out = raw[..at].to_vec();
+    out.push(b' ');
+    out.extend_from_slice(name);
+    out.extend_from_slice(b"=\"");
+    out.extend_from_slice(value);
+    out.push(b'"');
+    out.extend_from_slice(&raw[at..]);
+    Ok(out)
+}
+
+/// The value of the unprefixed attribute `name` in a start tag, read as a
+/// decimal `u32`: `Ok(None)` when absent, and "a sheet edit no longer applies
+/// at the write" when it is not a decimal `u32` (P3 ruling 5).
+fn index_attribute(raw: &[u8], name: &[u8], index: usize) -> Result<Option<usize>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    match tag
+        .attributes
+        .iter()
+        .find(|attribute| &raw[attribute.name.clone()] == name)
+    {
+        None => Ok(None),
+        Some(present) => {
+            let value = &raw[present.value.clone()];
+            if value.is_empty() || !value.iter().all(u8::is_ascii_digit) {
+                return Err(SHEET_EDIT_STALE);
+            }
+            let number = str::from_utf8(value)
+                .ok()
+                .and_then(|text| text.parse::<u32>().ok())
+                .ok_or(SHEET_EDIT_STALE)?;
+            Ok(Some(number as usize))
+        }
+    }
+}
+
+/// A `<definedName>` start tag with its `localSheetId` remapped, the tag as
+/// it is without one, or `None` when the sheet it names was removed.
+fn defined_name_tag(raw: &[u8], plan: &SheetPlan, index: usize) -> Result<Option<Vec<u8>>, Error> {
+    match index_attribute(raw, b"localSheetId", index)? {
+        None => Ok(Some(raw.to_vec())),
+        Some(local) if local < plan.file_count && plan.positions[local].is_none() => Ok(None),
+        Some(local) => {
+            let to = plan.remapped(local);
+            if to == local {
+                Ok(Some(raw.to_vec()))
+            } else {
+                Ok(Some(with_attribute(
+                    raw,
+                    b"localSheetId",
+                    to.to_string().as_bytes(),
+                    index,
+                )?))
+            }
+        }
+    }
+}
+
+/// A `<workbookView>` start tag with `activeTab` remapped (absent reads 0,
+/// and stays absent when it maps to 0) and a present `firstSheet` as P3
+/// ruling 8 gives it.
+fn workbook_view_tag(raw: &[u8], plan: &SheetPlan, index: usize) -> Result<Vec<u8>, Error> {
+    let mut tag = raw.to_vec();
+    let active = index_attribute(&tag, b"activeTab", index)?;
+    let to = plan.remapped(active.unwrap_or(0));
+    if Some(to) != active && !(active.is_none() && to == 0) {
+        tag = with_attribute(&tag, b"activeTab", to.to_string().as_bytes(), index)?;
+    }
+    if let Some(first) = index_attribute(&tag, b"firstSheet", index)? {
+        let moved = plan.first_sheet(first);
+        if moved != first {
+            tag = with_attribute(&tag, b"firstSheet", moved.to_string().as_bytes(), index)?;
+        }
+    }
+    Ok(tag)
+}
+
+/// Reads past the rest of an element whose start tag was just read, its end
+/// tag included, keeping the scope in step.
+fn skip_element<R: Read>(stream: &mut Stream<R>, scope: &mut Scope) -> Result<(), Error> {
+    let mut depth = 1usize;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+            }
+            Event::End(_) => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(());
+                }
+                scope.end();
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// The root children ECMA-376 Part 1, 18.2.27 orders before `calcPr`
@@ -2971,9 +3851,21 @@ fn rewrite_worksheet<R: Read + Seek>(
     index: usize,
     edits: &[(CellRef, CellEdit)],
 ) -> Result<(TempFile, Replacement, bool), Error> {
+    rewrite_worksheet_from(archive.read(index)?, index, edits)
+}
+
+/// [`rewrite_worksheet`]'s work on any reader of a worksheet's bytes: the
+/// archive's entry, or the template's blank worksheet for a sheet this write
+/// adds (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 2), `index`
+/// being the entry's index for an error.
+fn rewrite_worksheet_from(
+    input: impl Read,
+    index: usize,
+    edits: &[(CellRef, CellEdit)],
+) -> Result<(TempFile, Replacement, bool), Error> {
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
-    let mut stream = Stream::new(archive.read(index)?, index)?;
+    let mut stream = Stream::new(input, index)?;
     if stream.bom() {
         out.write_all(&BYTE_ORDER_MARK)?;
     }

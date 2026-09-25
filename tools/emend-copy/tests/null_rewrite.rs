@@ -652,6 +652,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--formula-sample", "--calc"],
         vec!["--calc", "--formula-sample"],
         vec!["--formula-sample", "[Content_Types].xml"],
+        // And with M2 part 1 P3's.
+        vec!["--sheet-sample", "--new-sample"],
+        vec!["--new-sample", "--sheet-sample"],
+        vec!["--sheet-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2553,4 +2557,47 @@ fn the_new_sample_writes_a_new_workbook_then_three_cells() {
     let ran = emend_copy_with(&first_again, &copied, &[]);
     assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
     assert_eq!(fs::read(&copied).expect("read"), a);
+}
+
+#[test]
+fn the_sheet_sample_adds_a_first_sheet_and_moves_the_active_tab() {
+    // `specs/0016-new-workbook-and-sheets.md`, "Harness runs",
+    // `--sheet-sample`, with P3 rulings 1 and 7: on a new workbook, one
+    // sheet with `activeTab="0"` and no defined names, the sample adds
+    // `emend` first, so the active tab, Sheet1, moves to 1; run again on
+    // that output, the name is `emend2` and the active tab moves to 2.
+    let dir = TempDir::new("sheet-sample");
+    let new = dir.path("new.xlsx");
+    let cells = dir.path("new-cells.xlsx");
+    let ran = emend_copy_with(&new, &cells, &["--new-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let once = dir.path("once.xlsx");
+    let ran = emend_copy_with(&new, &once, &["--sheet-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(ran.stderr, "");
+    assert_eq!(
+        ran.stdout,
+        "sheet\tsheets_before=1\tsheets_after=2\tfirst=1\tcells=1\tnames=0\tactive_before=0\
+         \tactive_after=1\n",
+        "the first run's line"
+    );
+    let twice = dir.path("twice.xlsx");
+    let ran = emend_copy_with(&once, &twice, &["--sheet-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "sheet\tsheets_before=2\tsheets_after=3\tfirst=1\tcells=1\tnames=0\tactive_before=1\
+         \tactive_after=2\n",
+        "the second run's line"
+    );
+    assert_eq!(
+        dir.names(),
+        vec![
+            "new-cells.xlsx".to_string(),
+            "new.xlsx".to_string(),
+            "once.xlsx".to_string(),
+            "twice.xlsx".to_string()
+        ],
+        "no temporary is left"
+    );
 }
