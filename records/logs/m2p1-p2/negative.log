@@ -1,0 +1,714 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p2/m2p1-p2-negative.sh e7c7061ba07c0616377bb1abbecf6c7b062da123
+about: M2 part 1 P2 phase commit e7c7061ba07c0616377bb1abbecf6c7b062da123; HEAD at run: e7c7061ba07c0616377bb1abbecf6c7b062da123
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  the P1 record commit (the base): 56e7c347c85b52a66cbd60cc9a4041f242e9044e
+  the doc commit: fc82ca7b1f7bb0a74c203c094bf8f6403eff7203
+  code commit 1: 5f6505a3fd0a06f673593fd8f7b31608ddef82a4
+  code commit 2: e7c7061ba07c0616377bb1abbecf6c7b062da123
+command: git rev-parse <phase commit>~0 to <phase commit>~3
+    e7c7061ba07c0616377bb1abbecf6c7b062da123
+    5f6505a3fd0a06f673593fd8f7b31608ddef82a4
+    fc82ca7b1f7bb0a74c203c094bf8f6403eff7203
+    56e7c347c85b52a66cbd60cc9a4041f242e9044e
+  code commits 2 and 1, the doc commit and the base, each the next one's parent, code commit 2 the phase commit: yes
+  control: roles_in_order refuses code commit 1 named as code commit 2: yes
+
+phase: Milestone 2 part 1 P2 (specs/0016-new-workbook-and-sheets.md) negative.log; run at 2026-09-25T03:16:22Z
+rerun: attempt 2, after independent check 1 (F1, F9): attempt 1 passed every check but rebuilt emend-copy in the worktree instead of copying the gate's built binary in (specs/0001, How this task runs), and its root line said the binary was built in <tree>. Changed: the gate's host debug binary is copied into <tree>/bin and checked against gate.log's hash; nothing is built. Nothing else changed.
+command: sha256sum and wc -c over each superseded attempt named above
+    f459b1e604db79ef4841f281983d8a0a969cf69102d47eb1f1adace8f4d15a7b  44139 bytes  negative-attempt-1.log
+    2abd167bb683cad8297f24521029f14d8855d08c1015ea8f37f8b304ce6a1007  20878 bytes  m2p1-p2-negative-attempt-1.sh
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds nothing
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log and its records/logs/m2p1-p2/gate.log is read for the binary's hash; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there, and the PowerShell script is read from a git-show copy in <scratch>/w/scripts
+root: <home> stands for the home directory of the account that ran this script
+root: <scratch>/p2 stands for this script's own directory, which holds the script
+root: <build> stands for <home>/.cache/emend-build/m2p1-p2-negative on the disk; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit
+root: <gatebuild> stands for <home>/.cache/emend-build/m2p1-p2-gate, the gate's build directory, from which the gate's host debug binary is copied; read only
+root: <scratch>/w stands for this run's mktemp -d working directory (the cases' directories and outputs, the PowerShell script's copy and its planted copies), removed at exit
+  the roots other than <home> are distinct, none inside another: yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+at entry: status lines 4; of them this phase's records or planning's spec 4; the lines:
+     M specs/0016-new-workbook-and-sheets.md
+    ?? records/logs/m2p1-p2/
+    ?? records/m2p1-open-2026-09-25-e7c7061.md
+    ?? records/m2p1-open-2026-09-25-e7c7061.txt
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison against the null commit says no: yes
+no fixture is read: the binary writes its own files; no corpus file is copied or read
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 2 part 1 P2 negative.log (specs/0016-new-workbook-and-sheets.md,
+    # "P2: the template and `Package::new`": "The negative log: nothing new is
+    # reachable through the binary; the log says so"; with the P1 verification
+    # rulings 1, 3 and 4 and the P2 rulings 4). Two families:
+    #
+    # (N) tools/emend-copy's --new-sample, run from a detached worktree of the
+    #     phase commit (P1 verification ruling 1: a negative log that runs a
+    #     built binary uses a worktree or clone) with the gate's built binary
+    #     copied in rather than rebuilt (specs/0001, "How this task runs"), its
+    #     sha256 checked against the one this phase's gate.log printed; each
+    #     command printed as it is run, naming the copy (ruling 4):
+    #       N0 the sound run, the control: exit 0, the one line, both files;
+    #       N1 to N3 the usage refusals the operation adds (a name after it, it
+    #          with another operation, in either order): exit 2, the usage line,
+    #          no file written;
+    #       N4 the first path in a directory that is not there: exit 2, the
+    #          existing "cannot create the output file" message, no file at
+    #          either path;
+    #       N5 the second path in a directory that is not there: exit 2, the same
+    #          message, the first file written and kept (the order ruling 4
+    #          gives a failed write of the second);
+    #     and the statement the spec asks for: Package::new adds no message, and
+    #     its fixed bytes reach none of write_to's or open's; --new-sample's two
+    #     assertions (cells and read_back, the new "written value(s)" message
+    #     among them) cannot fail on the template through the binary, so no case
+    #     here reaches them. The tool's test covers the sound line; nothing new
+    #     is refused through the binary but the usage shapes above.
+    # (P) scripts/excel-check-open.ps1, changed in this phase (the Close fix, P1
+    #     verification ruling 3), read from a git-show copy: it is ASCII and
+    #     holds no absolute path, with a planted control for each form, as P1's
+    #     family P; and the close sits inside a try with close-error written.
+    #
+    # WRITTEN FOR M2 part 1 P2 from P1's negative script (printed in
+    # records/logs/m2p1-p1/negative.log, attempt 3). From it: lines 1 to 3, the
+    # shape greps with controls, the roles by subject, the rerun block,
+    # SERIALIZED, the root lines, the counting controls, the scripts checked
+    # against the phase commit, the helpers run and refused_with, family P and
+    # the log's own byte count. What differs, and why:
+    #  1. The phase, the log directory and the subjects are P2's.
+    #  2. Family L is gone: this phase does not change the list script. Family N
+    #     is new, and runs the gate's binary copied into a worktree under
+    #     <home>/.cache/emend-build/m2p1-p2-negative.
+    #
+    # ATTEMPT 2, after independent check 1 (F1, F9): attempt 1 rebuilt the
+    # binary in the worktree instead of copying the gate's in, and its root line
+    # said the binary was built in <tree>. Now nothing is built: the gate's host
+    # debug binary is copied into <tree>/bin and checked by hash against
+    # gate.log. Nothing else changed.
+    #  3. The status checks print the status lines and allow planning's
+    #     uncommitted spec and this phase's logs and open-check record pair.
+    #
+    # Usage: m2p1-p2-negative.sh <phase commit> > <scratch file>; the caller moves
+    # the output to records/logs/m2p1-p2/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    BUILD_ROOT=$HOME/.cache/emend-build/m2p1-p2-negative
+    GATE_BIN=$HOME/.cache/emend-build/m2p1-p2-gate/target/debug/emend-copy
+    GATE_LOG=records/logs/m2p1-p2/gate.log
+    mkdir -p "$BUILD_ROOT" || exit 2
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    B=$(mktemp -d)
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+      rm -rf "$B"
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    OURS='^((\?\?| ?[MARCD]) records/logs/m2p1-p2|(\?\?| ?[MARCD]) records/m2p1-open-| M specs/0016-new-workbook-and-sheets[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's records and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scratch>/p2#g" -e "s#$TREE#<tree>#g" -e "s#$BUILD_ROOT#<build>#g" \
+        -e "s#$HOME/.cache/emend-build/m2p1-p2-gate#<gatebuild>#g" \
+        -e "s#$B#<scratch>/w#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scratch>/p2/$(basename "$0") $*"
+    echo "about: M2 part 1 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M2 part 1 P1 record:')
+    DOC1=$(by_subject 'M2 part 1 P2: commit planning docs (the P1 rulings and verification)')
+    CODE1=$(by_subject 'M2 part 1 P2: the .ps1 close in a try, and the styles precondition in the crate')
+    CODE2=$(by_subject 'M2 part 1 P2: the template, Package::new and --new-sample')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  the P1 record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1: ${CODE1:-none}"
+    echo "  code commit 2: ${CODE2:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~3"
+    for k in 0 1 2 3; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE2" "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 2 and 1, the doc commit and the base, each the next one's parent, code commit 2 the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE2=$CODE1; if roles_in_order; then return 1; else return 0; fi; }
+    check "control: roles_in_order refuses code commit 1 named as code commit 2" "$(yn roles_ctl)"
+    echo
+    echo "phase: Milestone 2 part 1 P2 (specs/0016-new-workbook-and-sheets.md) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds nothing"
+    check "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log and its records/logs/m2p1-p2/gate.log is read for the binary's hash; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there, and the PowerShell script is read from a git-show copy in <scratch>/w/scripts"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scratch>/p2 stands for this script's own directory, which holds the script"
+    echo "root: <build> stands for <home>/.cache/emend-build/m2p1-p2-negative on the disk; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit"
+    echo "root: <gatebuild> stands for <home>/.cache/emend-build/m2p1-p2-gate, the gate's build directory, from which the gate's host debug binary is copied; read only"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory (the cases' directories and outputs, the PowerShell script's copy and its planted copies), removed at exit"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$B" "$SELF_DIR" && apart "$B" "$MAIN" && apart "$MAIN" "$SELF_DIR" && apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$B"; }
+    check "the roots other than <home> are distinct, none inside another" "$(yn roots_distinct)"
+    roots_ctl() { if apart "$TREE" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(yn roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    echo "at entry: status lines $entry_all; of them this phase's records or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    echo "no fixture is read: the binary writes its own files; no corpus file is copied or read"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    echo "## the script read, against the phase commit"
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    tree_is_commit() { [ "$(sha_of "$1")" = "$(git show "$C:$1" | sha256sum | cut -d' ' -f1)" ]; }
+    echo "command: sha256sum of scripts/excel-check-open.ps1 in the main tree, and of git show <phase commit>:scripts/excel-check-open.ps1"
+    echo "    tree $(sha_of scripts/excel-check-open.ps1); commit $(git show "$C:scripts/excel-check-open.ps1" | sha256sum | cut -d' ' -f1)"
+    check "scripts/excel-check-open.ps1 in the main tree is the phase commit's" "$(yn tree_is_commit scripts/excel-check-open.ps1)"
+    tree_ctl() { if [ "$(git show "$REC:scripts/excel-check-open.ps1" | sha256sum | cut -d' ' -f1)" = "$(sha_of scripts/excel-check-open.ps1)" ]; then return 1; else return 0; fi; }
+    check "control: the same hash comparison tells the base's script from the phase commit's (the Close fix changed it)" "$(yn tree_ctl)"
+    
+    echo
+    echo "## family N: --new-sample through the gate's binary, copied into a worktree"
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >/dev/null 2>&1
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    GATED=$(sed -n "s#^  <build>/target/debug/emend-copy: sha256 \([0-9a-f]\{64\}\), bytes [0-9]*\$#\1#p" "$GATE_LOG")
+    echo "command: sed for the host emend-copy hash in $GATE_LOG (sha256 $(sha_of "$GATE_LOG")): $GATED"
+    echo "command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy"
+    mkdir "$TREE/bin" && cp "$GATE_BIN" "$TREE/bin/emend-copy" >"$B/build.out" 2>&1
+    BIN=$TREE/bin/emend-copy
+    echo "  <tree>/bin/emend-copy: sha256 $(sha_of "$BIN")"
+    check "the copied binary is the one gate.log hashed, not a rebuild" "$(yn [ "$(sha_of "$BIN")" = "$GATED" ])"
+    check "control: the reader found a hash in gate.log" "$(yn [ -n "$GATED" ])"
+    # run_bin <case> <args...>: the worktree's binary, the command printed with
+    # the paths it names, stdout, stderr and exit kept.
+    run_bin() {
+      local case=$1
+      shift
+      "$BIN" "$@" >"$B/$case.stdout" 2>"$B/$case.stderr" </dev/null
+      echo $? >"$B/$case.status"
+      echo "command: <tree>/bin/emend-copy $*"
+      echo "  exit: $(cat "$B/$case.status")"
+      echo "  stdout:"; sed 's/^/    /' "$B/$case.stdout"
+      echo "  stderr:"; sed 's/^/    /' "$B/$case.stderr"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    refused_with() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    usage_refused() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(count_matches -F 'error: usage: emend-copy' "$B/$1.stderr")" = 1 ]; }
+    files_in() { find "$1" -type f | wc -l; }
+    
+    echo
+    echo "### N0: the sound run (the control)"
+    mkdir "$B/n0"
+    run_bin n0 "$B/n0/a.xlsx" "$B/n0/b.xlsx" --new-sample
+    check "N0: exit 0" "$(yn status_is n0 0)"
+    check "N0: the line" "$(yn [ "$(cat "$B/n0.stdout")" = "$(printf 'new\tentries=6\tsheets=1\tcells=3\tread_back=3')" ])"
+    check "N0: no stderr" "$(yn [ ! -s "$B/n0.stderr" ])"
+    check "N0: the two files and nothing else" "$(yn [ "$(files_in "$B/n0")" = 2 ])"
+    usage_ctl() { if usage_refused n0; then return 1; else return 0; fi; }
+    check "control: usage_refused says no on N0's run" "$(yn usage_ctl)"
+    
+    echo
+    echo "### N1 to N3: the usage shapes the operation adds"
+    k=0
+    for shape in "--new-sample extra" "--new-sample --formula-sample" "--formula-sample --new-sample"; do
+      k=$((k + 1))
+      mkdir "$B/n$k"
+      # shellcheck disable=SC2086
+      run_bin "n$k" "$B/n$k/a.xlsx" "$B/n$k/b.xlsx" $shape
+      check "N$k: exit 2, no stdout, the usage line" "$(yn usage_refused "n$k")"
+      check "N$k: no file written" "$(yn [ "$(files_in "$B/n$k")" = 0 ])"
+    done
+    
+    echo
+    echo "### N4 and N5: a path in a directory that is not there"
+    mkdir "$B/n4" "$B/n5"
+    run_bin n4 "$B/n4/missing/a.xlsx" "$B/n4/b.xlsx" --new-sample
+    check "N4: exit 2, no stdout, stderr exactly the existing message" "$(yn refused_with n4 'error: cannot create the output file: entity not found')"
+    check "N4: no file at either path" "$(yn [ "$(files_in "$B/n4")" = 0 ])"
+    run_bin n5 "$B/n5/a.xlsx" "$B/n5/missing/b.xlsx" --new-sample
+    check "N5: exit 2, no stdout, stderr exactly the existing message" "$(yn refused_with n5 'error: cannot create the output file: entity not found')"
+    n5_first_kept() { [ "$(files_in "$B/n5")" = 1 ] && cmp -s "$B/n5/a.xlsx" "$B/n0/a.xlsx"; }
+    check "N5: the first file is written and kept, byte for byte N0's, and nothing else is there" "$(yn n5_first_kept)"
+    not_n4() { if refused_with n0 'error: cannot create the output file: entity not found'; then return 1; else return 0; fi; }
+    check "control: refused_with says no on N0's run" "$(yn not_n4)"
+    
+    echo
+    echo "### what the binary cannot reach (the spec's statement)"
+    echo "  Package::new adds no message: on the template's fixed bytes neither write_to nor open refuses (package's module header, and new_is_the_empty_archive_with_the_template_added)."
+    echo "  --new-sample's assertions, cells 3 and read_back 3 with the message \"reads back ... written value(s)\", hold on every run from the fixed template, so no input to the binary reaches them; N0 is that run."
+    echo "  Nothing else new is refused through the binary: N1 to N3 are the operation's usage shapes, and N4 and N5 reach a message the tool already had."
+    NEWMSG=$(git show "$C:tools/emend-copy/src/main.rs" | count_matches -F 'written value(s) and the edits imply' /dev/stdin)
+    echo "  the new message in the tool's source at the phase commit: $NEWMSG line(s)"
+    check "the one new message is in the source" "$(yn [ "$NEWMSG" = 1 ])"
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$TREE" /dev/stdin)" = 0 ])"
+    
+    echo
+    mkdir "$B/scripts"
+    git show "$C:scripts/excel-check-open.ps1" >"$B/scripts/excel-check-open.ps1"
+    echo "command: git show <phase commit>:scripts/excel-check-open.ps1 > <scratch>/w/scripts/excel-check-open.ps1"
+    echo "## family P: scripts/excel-check-open.ps1 is ASCII and holds no absolute path, and its close is in a try"
+    PS1=$B/scripts/excel-check-open.ps1
+    echo "  scripts/excel-check-open.ps1, its git-show copy <scratch>/w/scripts/excel-check-open.ps1: sha256 $(sha_of "$PS1"), $(wc -c <"$PS1") bytes, $(count_lines "$PS1") lines"
+    # The four path forms, built from pieces so this script's own text holds
+    # none: a drive letter and a separator; two backslashes before a name; a
+    # slash that opens a path after the start, a space, a quote, an equals sign
+    # or a parenthesis; a tilde and a separator.
+    # BS is an escaped backslash for the pattern; SL is one backslash, for the
+    # planted lines.
+    BS='\\'
+    SL='\'
+    P_DRIVE="[A-Za-z]:[${SL}/]"
+    P_UNC="${BS}${BS}[A-Za-z0-9._-]"
+    P_ROOT="(^|[ \"'=(])/[A-Za-z0-9._-]"
+    P_HOME="~[${SL}/]"
+    ABS_RE="$P_DRIVE|$P_UNC|$P_ROOT|$P_HOME"
+    echo "  the absolute-path form, as built: $ABS_RE"
+    n_na=$(count_bytes "$NONASCII_CLASS" "$PS1")
+    n_ctrl=$(count_bytes "$CTRL_CLASS" "$PS1")
+    n_abs=$(count_matches -E "$ABS_RE" "$PS1")
+    echo "  non-ASCII bytes: $n_na; control bytes: $n_ctrl; lines holding an absolute path: $n_abs"
+    check "the PowerShell script is ASCII" "$(yn [ "$n_na" = 0 ])"
+    check "it holds no control byte" "$(yn [ "$n_ctrl" = 0 ])"
+    check "it holds no absolute path" "$(yn [ "$n_abs" = 0 ])"
+    plant() { { cat "$PS1"; printf '%s\n' "$2"; } >"$B/ps1-$1"; }
+    plant nonascii "# caf$(printf '\303\251')"
+    plant drive "\$x = \"Q:${SL}data${SL}f\""
+    plant unc "\$x = \"${SL}${SL}server${SL}share\""
+    plant root "\$x = \"/srv/data\""
+    plant home "\$x = \"~/data\""
+    echo "  the planted copies, each the script with one line appended; nonascii's line is a comment holding one two-byte character, not printed, since a log holds no non-ASCII byte; the others' lines are printed after the name:"
+    for k in drive unc root home; do echo "    $k: $(tail -n 1 "$B/ps1-$k")"; done
+    check "control: the same byte count finds the planted non-ASCII character (2 bytes)" "$(yn [ "$(count_bytes "$NONASCII_CLASS" "$B/ps1-nonascii")" = 2 ])"
+    for k in drive unc root home; do
+      check "control: the same form finds the planted $k path on one line" "$(yn [ "$(count_matches -E "$ABS_RE" "$B/ps1-$k")" = 1 ])"
+    done
+    rel_ok() { printf '%s\n' '$p = Join-Path $root "files\corpus"' 'scripts/excel-check-list.py' '$r.file -replace "/", "\"' >"$B/ps1-rel"; [ "$(count_matches -E "$ABS_RE" "$B/ps1-rel")" = 0 ]; }
+    check "control: the same form passes the relative shapes the script uses (a backslash inside a relative path, a repository path, the slash replacement)" "$(yn rel_ok)"
+    own_dir() { [ "$(count_matches -F '$root = $PSScriptRoot' "$PS1")" = 1 ] && [ "$(count_matches -F 'Join-Path $root' "$PS1")" -ge 3 ]; }
+    check "every path the script opens or writes is built from its own directory (\$PSScriptRoot, then Join-Path)" "$(yn own_dir)"
+    close_in_try() { awk '/^ *try \{$/ { t = NR } /\$wb\.Close\(\$false\)/ { c = NR } END { exit !(c == t + 1) }' "$PS1" && [ "$(count_matches -F 'close-error' "$PS1")" -ge 1 ]; }
+    check "the close is the first line of a try, and close-error is written (P1 verification ruling 3)" "$(yn close_in_try)"
+    git show "$REC:scripts/excel-check-open.ps1" >"$B/ps1-base"
+    close_ctl() { if awk '/^ *try \{$/ { t = NR } /\$wb\.Close\(\$false\)/ { c = NR } END { exit !(c == t + 1) }' "$B/ps1-base"; then return 1; else return 0; fi; }
+    check "control: the same test says no on the base's script, whose close was outside a try" "$(yn close_ctl)"
+    
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr "$B"/build.out; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs, its record pair or planning's uncommitted spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's or planning's uncommitted spec" "$(yn status_accounted)"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the script read, against the phase commit
+command: sha256sum of scripts/excel-check-open.ps1 in the main tree, and of git show <phase commit>:scripts/excel-check-open.ps1
+    tree 70b05a06255a9fbb114ef42f455c7552893b5a6438c9fa4dcc70348e25e2112d; commit 70b05a06255a9fbb114ef42f455c7552893b5a6438c9fa4dcc70348e25e2112d
+  scripts/excel-check-open.ps1 in the main tree is the phase commit's: yes
+  control: the same hash comparison tells the base's script from the phase commit's (the Close fix changed it): yes
+
+## family N: --new-sample through the gate's binary, copied into a worktree
+command: git worktree add --detach <tree> <phase commit>
+  the worktree is at the phase commit: yes
+command: sed for the host emend-copy hash in records/logs/m2p1-p2/gate.log (sha256 0891a0f395fb9d7ed36175b47cfaf3b231ebf427f7cada22112845f63770fb2a): bc793bcc35e1cbb7583ac0ad0f9e60f188624798e87c4d09a54b828156e29b0b
+command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy
+  <tree>/bin/emend-copy: sha256 bc793bcc35e1cbb7583ac0ad0f9e60f188624798e87c4d09a54b828156e29b0b
+  the copied binary is the one gate.log hashed, not a rebuild: yes
+  control: the reader found a hash in gate.log: yes
+
+### N0: the sound run (the control)
+command: <tree>/bin/emend-copy <scratch>/w/n0/a.xlsx <scratch>/w/n0/b.xlsx --new-sample
+  exit: 0
+  stdout:
+    new	entries=6	sheets=1	cells=3	read_back=3
+  stderr:
+  N0: exit 0: yes
+  N0: the line: yes
+  N0: no stderr: yes
+  N0: the two files and nothing else: yes
+  control: usage_refused says no on N0's run: yes
+
+### N1 to N3: the usage shapes the operation adds
+command: <tree>/bin/emend-copy <scratch>/w/n1/a.xlsx <scratch>/w/n1/b.xlsx --new-sample extra
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample]
+  N1: exit 2, no stdout, the usage line: yes
+  N1: no file written: yes
+command: <tree>/bin/emend-copy <scratch>/w/n2/a.xlsx <scratch>/w/n2/b.xlsx --new-sample --formula-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample]
+  N2: exit 2, no stdout, the usage line: yes
+  N2: no file written: yes
+command: <tree>/bin/emend-copy <scratch>/w/n3/a.xlsx <scratch>/w/n3/b.xlsx --formula-sample --new-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample]
+  N3: exit 2, no stdout, the usage line: yes
+  N3: no file written: yes
+
+### N4 and N5: a path in a directory that is not there
+command: <tree>/bin/emend-copy <scratch>/w/n4/missing/a.xlsx <scratch>/w/n4/b.xlsx --new-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: cannot create the output file: entity not found
+  N4: exit 2, no stdout, stderr exactly the existing message: yes
+  N4: no file at either path: yes
+command: <tree>/bin/emend-copy <scratch>/w/n5/a.xlsx <scratch>/w/n5/missing/b.xlsx --new-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: cannot create the output file: entity not found
+  N5: exit 2, no stdout, stderr exactly the existing message: yes
+  N5: the first file is written and kept, byte for byte N0's, and nothing else is there: yes
+  control: refused_with says no on N0's run: yes
+
+### what the binary cannot reach (the spec's statement)
+  Package::new adds no message: on the template's fixed bytes neither write_to nor open refuses (package's module header, and new_is_the_empty_archive_with_the_template_added).
+  --new-sample's assertions, cells 3 and read_back 3 with the message "reads back ... written value(s)", hold on every run from the fixed template, so no input to the binary reaches them; N0 is that run.
+  Nothing else new is refused through the binary: N1 to N3 are the operation's usage shapes, and N4 and N5 reach a message the tool already had.
+  the new message in the tool's source at the phase commit: 1 line(s)
+  the one new message is in the source: yes
+  the worktree is gone from git's list: yes
+
+command: git show <phase commit>:scripts/excel-check-open.ps1 > <scratch>/w/scripts/excel-check-open.ps1
+## family P: scripts/excel-check-open.ps1 is ASCII and holds no absolute path, and its close is in a try
+  scripts/excel-check-open.ps1, its git-show copy <scratch>/w/scripts/excel-check-open.ps1: sha256 70b05a06255a9fbb114ef42f455c7552893b5a6438c9fa4dcc70348e25e2112d, 4405 bytes, 111 lines
+  the absolute-path form, as built: [A-Za-z]:[\/]|\\\\[A-Za-z0-9._-]|(^|[ "'=(])/[A-Za-z0-9._-]|~[\/]
+  non-ASCII bytes: 0; control bytes: 0; lines holding an absolute path: 0
+  the PowerShell script is ASCII: yes
+  it holds no control byte: yes
+  it holds no absolute path: yes
+  the planted copies, each the script with one line appended; nonascii's line is a comment holding one two-byte character, not printed, since a log holds no non-ASCII byte; the others' lines are printed after the name:
+    drive: $x = "Q:\data\f"
+    unc: $x = "\\server\share"
+    root: $x = "/srv/data"
+    home: $x = "~/data"
+  control: the same byte count finds the planted non-ASCII character (2 bytes): yes
+  control: the same form finds the planted drive path on one line: yes
+  control: the same form finds the planted unc path on one line: yes
+  control: the same form finds the planted root path on one line: yes
+  control: the same form finds the planted home path on one line: yes
+  control: the same form passes the relative shapes the script uses (a backslash inside a relative path, a repository path, the slash replacement): yes
+  every path the script opens or writes is built from its own directory ($PSScriptRoot, then Join-Path): yes
+  the close is the first line of a try, and close-error is written (P1 verification ruling 3): yes
+  control: the same test says no on the base's script, whose close was outside a try: yes
+
+## the log itself
+  captured outputs: 13; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0016-new-workbook-and-sheets.md
+    ?? records/logs/m2p1-p2/
+    ?? records/m2p1-open-2026-09-25-e7c7061.md
+    ?? records/m2p1-open-2026-09-25-e7c7061.txt
+status lines: 4; of them this phase's logs, its record pair or planning's uncommitted spec: 4
+  every change in the working tree is this phase's or planning's uncommitted spec: yes
+run ended at 2026-09-25T03:16:23Z
+negative log checks all as expected: yes
