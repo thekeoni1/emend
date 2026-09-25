@@ -154,6 +154,27 @@
 //!   over the workbook part's tokens (`emend::xml::Stream`, quick-xml
 //!   underneath), not by a crate call (P3 ruling 7).
 //!
+//! - `--remove-sample`: the removal sample of
+//!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The last sheet
+//!   of the list is removed and the package written. When the layer refuses
+//!   the removal as the last sheet or the last visible sheet, nothing is
+//!   recorded and the output is the input's bytes. The output is reopened
+//!   and one line goes to stdout: the word `remove` then `sheets_before`,
+//!   `sheets_after`, `removed` (0 or 1), `parts` (the entries the output has
+//!   fewer than the input, the chain counted), `chain_before` and
+//!   `chain_after` (1 when the workbook names a calculation chain),
+//!   `names_before`, `names_after`, `local_removed` (the input's
+//!   `definedName` elements whose `localSheetId` is the removed sheet's
+//!   index) and `active_before` and `active_after` (as `--sheet-sample`
+//!   reads them). COUNTS ONLY. Asserted: `sheets_after` is `sheets_before`
+//!   less `removed`; `parts` is 0 and the output the input's bytes when
+//!   nothing was removed; `chain_after` is 0 when a sheet was removed;
+//!   `names_after` is `names_before` less `local_removed`; and
+//!   `active_after` is the first visible sheet's index when the active tab
+//!   was the removed sheet, and `active_before` otherwise. A failure is exit
+//!   2 with the message and no output. The counts come from the same pass
+//!   as `--sheet-sample`'s.
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -182,7 +203,8 @@ use emend::xml::{BYTE_ORDER_MARK, Stream};
 const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
-| --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample]";
+| --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
+| --remove-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -221,6 +243,8 @@ enum Operation {
     NewSample,
     /// The sheet sample, and its counts on stdout.
     SheetSample,
+    /// The removal sample, and its counts on stdout.
+    RemoveSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -248,6 +272,7 @@ enum Error {
     NewReadBack { expected: u64, found: u64 },
     SheetSample(&'static str),
     NoFreeName,
+    RemoveSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -287,6 +312,9 @@ impl fmt::Display for Error {
                 write!(f, "the output's {what} is not what the edits imply")
             }
             Error::NoFreeName => f.write_str("no free sheet name of the sample's form"),
+            Error::RemoveSample(what) => {
+                write!(f, "the output's {what} is not what the removal implies")
+            }
             Error::NewReadBack { expected, found } => write!(
                 f,
                 "the output's sheet reads back {found} written value(s) and the edits imply \
@@ -353,6 +381,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--sheet-sample" => {
             run(Path::new(input), Path::new(output), Operation::SheetSample)
         }
+        [input, output, flag] if flag == "--remove-sample" => {
+            run(Path::new(input), Path::new(output), Operation::RemoveSample)
+        }
         [input, output, flag] if flag == "--new-sample" => {
             run(Path::new(input), Path::new(output), Operation::NewSample)
         }
@@ -404,6 +435,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::SheetSample) {
         return sheet_sample(input, output);
     }
+    if matches!(operation, Operation::RemoveSample) {
+        return remove_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -434,6 +468,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
         Operation::SheetSample => unreachable!("the sheet sample has its own path"),
+        Operation::RemoveSample => unreachable!("the removal sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -1277,7 +1312,7 @@ fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let before = package.sheets()?;
-    let (names_before, active_before) = workbook_counts(&mut package)?;
+    let (names_before, active_before, _) = workbook_counts(&mut package, None)?;
     let folded = |name: &str| {
         name.chars()
             .flat_map(char::to_lowercase)
@@ -1352,7 +1387,7 @@ fn sheet_read_back(
     if cells != 1 {
         return Err(Error::SheetSample("added sheet's cell count"));
     }
-    let (names_after, active_after) = workbook_counts(&mut written)?;
+    let (names_after, active_after, _) = workbook_counts(&mut written, None)?;
     if names_after != names_before {
         return Err(Error::SheetSample("defined name count"));
     }
@@ -1362,18 +1397,136 @@ fn sheet_read_back(
     Ok((sheets_after, cells, names_after, active_after))
 }
 
+/// The removal sample (`specs/0016-new-workbook-and-sheets.md`, "Harness
+/// runs", `--remove-sample`).
+fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let before = package.sheets()?;
+    let sheets_before = before.len() as u64;
+    let last = sheets_before.checked_sub(1).ok_or(Error::NoWorksheet)?;
+    let chain_before = u64::from(package.workbook()?.calc_chain.is_some());
+    let entries_before = package.archive().entries().len() as u64;
+    let (names_before, active_before, local_removed) = workbook_counts(&mut package, Some(last))?;
+    let removed = match package.remove_sheet(&before[last as usize].name) {
+        Ok(()) => 1u64,
+        Err(LayerError::Package(
+            "the last sheet cannot be removed" | "the last visible sheet cannot be removed",
+        )) => 0,
+        Err(e) => return Err(e.into()),
+    };
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = remove_read_back(input, output, removed, last, active_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (sheets_after, entries_after, chain_after, names_after, active_after) = checked?;
+    let parts = entries_before.saturating_sub(entries_after);
+    let local_removed = local_removed * removed;
+    let expected_names = names_before.checked_sub(local_removed);
+    let failure = if sheets_after != sheets_before - removed {
+        Some("sheet count")
+    } else if removed == 0 && parts != 0 {
+        Some("entry count")
+    } else if removed == 1 && chain_after != 0 {
+        Some("calculation chain")
+    } else if expected_names != Some(names_after) {
+        Some("defined name count")
+    } else {
+        None
+    };
+    if let Some(what) = failure {
+        let _ = fs::remove_file(output);
+        return Err(Error::RemoveSample(what));
+    }
+    edit_line_named(
+        "remove",
+        &[
+            ("sheets_before", sheets_before),
+            ("sheets_after", sheets_after),
+            ("removed", removed),
+            ("parts", parts),
+            ("chain_before", chain_before),
+            ("chain_after", chain_after),
+            ("names_before", names_before),
+            ("names_after", names_after),
+            ("local_removed", local_removed),
+            ("active_before", active_before),
+            ("active_after", active_after),
+        ],
+    )
+}
+
+/// Reopens the removal sample's output: its sheet and entry counts, whether
+/// it names a chain, its defined names and first view's active tab. With
+/// nothing removed the output must be the input's bytes; with a sheet
+/// removed the active tab must be the first visible sheet's index when it
+/// was the removed sheet's, and unchanged otherwise.
+fn remove_read_back(
+    input: &Path,
+    output: &Path,
+    removed: u64,
+    last: u64,
+    active_before: u64,
+) -> Result<(u64, u64, u64, u64, u64), Error> {
+    if removed == 0 {
+        let a = fs::read(input).map_err(|e| Error::ReadInput(e.kind()))?;
+        let b = fs::read(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+        if a != b {
+            return Err(Error::RemoveSample("bytes"));
+        }
+    }
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let entries_after = written.archive().entries().len() as u64;
+    let workbook = written.workbook()?;
+    let sheets = workbook.sheets.clone();
+    let chain_after = u64::from(workbook.calc_chain.is_some());
+    let (names_after, active_after, _) = workbook_counts(&mut written, None)?;
+    let first_visible = sheets
+        .iter()
+        .position(|sheet| {
+            sheet
+                .state
+                .as_deref()
+                .is_none_or(|state| state == b"visible")
+        })
+        .unwrap_or(0) as u64;
+    let expected = if removed == 1 && active_before == last {
+        first_visible
+    } else {
+        active_before
+    };
+    if active_after != expected {
+        return Err(Error::RemoveSample("active tab"));
+    }
+    Ok((
+        sheets.len() as u64,
+        entries_after,
+        chain_after,
+        names_after,
+        active_after,
+    ))
+}
+
 /// This tool's own pass over the workbook part's tokens: the `definedName`
-/// elements that are children of the root's `definedNames`, and the first
-/// `workbookView`'s `activeTab` (absent read as 0). Tags are read from each
-/// token's bytes by local name, so the pass shares no reader with the layer's
+/// elements that are children of the root's `definedNames`, the first
+/// `workbookView`'s `activeTab` (absent read as 0), and the `definedName`
+/// elements whose `localSheetId` is `scope`. Tags are read from each token's
+/// bytes by local name, so the pass shares no reader with the layer's
 /// rewrite (P3 ruling 7).
-fn workbook_counts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<(u64, u64), Error> {
+fn workbook_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    scope: Option<u64>,
+) -> Result<(u64, u64, u64), Error> {
     let part = package.workbook()?.part.clone();
     let index = package.part(&part).ok_or(Error::NoSuchName)?;
     let mut stream = Stream::new(package.read_part(index)?, index)?;
     let mut depth = 0usize;
     let mut region: Vec<u8> = Vec::new();
     let mut names = 0u64;
+    let mut scoped = 0u64;
     let mut active: Option<u64> = None;
     while let Some(token) = stream.next()? {
         let raw = token.raw;
@@ -1393,6 +1546,9 @@ fn workbook_counts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<(
             region = local.to_vec();
         } else if depth == 3 && region == b"definedNames" && local == b"definedName" {
             names += 1;
+            if scope.is_some() && tag_number(raw, b"localSheetId") == scope {
+                scoped += 1;
+            }
         } else if depth == 3
             && region == b"bookViews"
             && local == b"workbookView"
@@ -1407,7 +1563,7 @@ fn workbook_counts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<(
             }
         }
     }
-    Ok((names, active.unwrap_or(0)))
+    Ok((names, active.unwrap_or(0), scoped))
 }
 
 /// A start tag's element name after any prefix.

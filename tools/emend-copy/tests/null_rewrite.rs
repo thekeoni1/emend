@@ -656,6 +656,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--sheet-sample", "--new-sample"],
         vec!["--new-sample", "--sheet-sample"],
         vec!["--sheet-sample", "[Content_Types].xml"],
+        // And with M2 part 1 P4's.
+        vec!["--remove-sample", "--sheet-sample"],
+        vec!["--sheet-sample", "--remove-sample"],
+        vec!["--remove-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2596,6 +2600,65 @@ fn the_sheet_sample_adds_a_first_sheet_and_moves_the_active_tab() {
             "new-cells.xlsx".to_string(),
             "new.xlsx".to_string(),
             "once.xlsx".to_string(),
+            "twice.xlsx".to_string()
+        ],
+        "no temporary is left"
+    );
+}
+
+#[test]
+fn the_remove_sample_removes_the_last_sheet_or_nothing() {
+    // `specs/0016-new-workbook-and-sheets.md`, "Harness runs",
+    // `--remove-sample`: a new workbook's one sheet is not removed and the
+    // output is the input's bytes; after the sheet sample twice the list is
+    // emend2, emend, Sheet1 with Sheet1 active at 2, and removing Sheet1
+    // takes its part and sends the active tab to the first visible sheet, 0.
+    let dir = TempDir::new("remove-sample");
+    let new = dir.path("new.xlsx");
+    let cells = dir.path("new-cells.xlsx");
+    let ran = emend_copy_with(&new, &cells, &["--new-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let kept = dir.path("kept.xlsx");
+    let ran = emend_copy_with(&new, &kept, &["--remove-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(ran.stderr, "");
+    assert_eq!(
+        ran.stdout,
+        "remove\tsheets_before=1\tsheets_after=1\tremoved=0\tparts=0\tchain_before=0\
+         \tchain_after=0\tnames_before=0\tnames_after=0\tlocal_removed=0\tactive_before=0\
+         \tactive_after=0\n",
+        "the one-sheet line"
+    );
+    assert_eq!(
+        fs::read(&kept).expect("read"),
+        fs::read(&new).expect("read")
+    );
+
+    let once = dir.path("once.xlsx");
+    let twice = dir.path("twice.xlsx");
+    assert_eq!(emend_copy_with(&new, &once, &["--sheet-sample"]).status, 0);
+    assert_eq!(
+        emend_copy_with(&once, &twice, &["--sheet-sample"]).status,
+        0
+    );
+    let removed = dir.path("removed.xlsx");
+    let ran = emend_copy_with(&twice, &removed, &["--remove-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "remove\tsheets_before=3\tsheets_after=2\tremoved=1\tparts=1\tchain_before=0\
+         \tchain_after=0\tnames_before=0\tnames_after=0\tlocal_removed=0\tactive_before=2\
+         \tactive_after=0\n",
+        "the removal line"
+    );
+    assert_eq!(
+        dir.names(),
+        vec![
+            "kept.xlsx".to_string(),
+            "new-cells.xlsx".to_string(),
+            "new.xlsx".to_string(),
+            "once.xlsx".to_string(),
+            "removed.xlsx".to_string(),
             "twice.xlsx".to_string()
         ],
         "no temporary is left"
