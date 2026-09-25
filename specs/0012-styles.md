@@ -306,7 +306,14 @@ any `s` does; a cell shown as a date is a number with a date format,
 and what a consumer shows for a format code is the consumer's;
 `dxfs`, `cellStyles`, `fonts`, `fills` and `borders` are never
 touched; a number format's `count`, when it disagreed with the
-children, is corrected.
+children, is corrected. Added 2026-09-24 from Excel check 1
+(`specs/0015`, "Planning rulings on the Excel check", ruling 4): a
+style edit assumes the styles part carries the font, fill, border
+and cell-style collections and `cellXfs` entries that name them, as
+every workbook Excel or LibreOffice wrote does; a new `xf` names
+font 0, fill 0, border 0 and cell style 0, and Excel refuses a cell
+whose `s` names an `xf` in a part without those collections. The
+crate's `styles` module header states it from Milestone 2 part 1 P2.
 
 ### Module `dates` (feature `dates`)
 

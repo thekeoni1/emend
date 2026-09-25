@@ -366,7 +366,10 @@ corpus run; the template carries the automated fixture procedure
 on, read-only) and an input column; `specs/0012`'s limits state
 the styles-part precondition (font, fill, border and cell-style
 collections present). Excel check 2 runs on that list and its
-filled record is retained.
+filled record is retained. Scoped 2026-09-24 into Milestone 2 part
+1 P1 (`specs/0016`, "The carried items"), scripts only, before any
+crate change, so the check runs on Milestone 1's code; the
+`specs/0012` sentence is in part 1's first doc commit.
 
 Excel check 1 (2026-09-24, `records/excel-check-m1-2026-09-24.md`,
 PROVISIONAL): 27 of 27 corpus rows pass with their values (7
@@ -413,8 +416,45 @@ after part 6 is 80404, and parts 7 and 8 add no core code.
 Stays out by CLAUDE.md's definition: formula evaluation, rendering,
 autofit, and reference fixup on row or column insertion. Corpus P5
 and P6 (Google Sheets exports; a macro file, threaded comments,
-chartex) are wanted before part 1, since removing a sheet can
-orphan the parts they cover.
+chartex) were wanted before part 1, since removing a sheet can
+orphan the parts they cover; the maintainer chose on 2026-09-24
+not to supply them yet, so part 1 P4 runs with the gap recorded
+(`specs/0016` decision 4).
+
+### Part 1: a new workbook and the sheet list (`specs/0016-new-workbook-and-sheets.md`)
+
+Approved by the maintainer 2026-09-24 and sent to implementation,
+decisions 1 to 4 taken as planning recommended in the maintainer's
+reply to the plan and decision 5 (the PowerShell script opens the
+corpus rows too and reads the sample values through COM) with the
+spec's approval. A new
+workbook is six fictional template parts held as XML text in the
+crate, recorded as additions on an empty archive and written
+through the existing write, then opened back: no writer. Sheet
+edits (`add_sheet`, `rename_sheet`, `move_sheet`, `remove_sheet`,
+and `sheets` for the projected list) are recorded and applied by
+`write_to` as one rewrite of the workbook part's `<sheets>`,
+`<definedNames>` and `<bookViews>` regions with the package
+layer's relationship, override and entry edits; removal takes the
+parts only the removed sheet reaches and drops the calculation
+chain. Names are checked by Excel's rules. Not fixed, as openpyxl:
+formula and defined-name text naming a renamed or removed sheet,
+pivot sources, the document-properties title list. Estimate 25 KB
+of the 80404 headroom. P1 is scripts only and carries part 8's
+items and the Excel check 2 list; the close-out push carries the
+four local commits f6c2dba, 065f3e4, a49f2d3 and d4ab367.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | the carried part 8 items in `scripts/edit-open-check.sh`, `scripts/excel-check-list.py` (`--run-plain`, input rows, umask, IndexError), `scripts/excel-check-open.ps1` and the record template; the style-sample corpus run on the host at HEAD; the keep on both targets and the edit open check; the Excel check 2 list from part 6 P3's run, the style-sample run and the keep, staged as one zip | READY (sent 2026-09-24) |
+| P2 | the six template files and the empty-archive constant; `Package::new`; the `styles` header's precondition sentence; `--new-sample` with the pair diffed, compared across targets and opened | PLANNED |
+| P3 | `Package::sheets`, the name rules, `add_sheet`, `rename_sheet`, `move_sheet`; the three-region workbook rewrite; `--sheet-sample` over the corpus with the run log's comparison | PLANNED |
+| P4 | the reachability walk, `remove_sheet`, the chain rule; the catalogue and limits; `probe-emend-sheets-write-xml` and the size record; `--remove-sample` over the corpus with the independent walk in the run log | PLANNED |
+| Close | close-out push after P4 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | PLANNED |
+
+Excel check 2 (after P1, the maintainer's, retained record):
+confirms Milestone 1 when every corpus row passes with its values
+and no fixture output is refused on an accepted input.
 
 ## Unscoped
 
