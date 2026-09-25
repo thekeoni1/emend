@@ -1264,10 +1264,17 @@ impl Package<Cursor<Vec<u8>>> {
 impl<R: Read + Seek> Package<R> {
     /// Opens the archive and parses no XML.
     ///
+    /// The reader must be `'static`, as [`Archive::open`] says: a borrowed
+    /// reader such as `&mut File` is not accepted (`specs/0016`, "Planning
+    /// rulings during P5", ruling 2).
+    ///
     /// # Errors
     ///
     /// Whatever [`Archive::open`] refuses.
-    pub fn open(reader: R) -> Result<Self, Error> {
+    pub fn open(reader: R) -> Result<Self, Error>
+    where
+        R: 'static,
+    {
         Ok(Package {
             archive: Archive::open(reader)?,
             content_types: None,

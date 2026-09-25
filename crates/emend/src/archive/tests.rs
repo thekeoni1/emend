@@ -1678,7 +1678,7 @@ fn a_temporary_archive_of_two_entries_is_refused() {
     // exercised on the helper it lives in.
     let build = Build::new(vec![Spec::new(b"a", b"1"), Spec::new(b"b", b"2")]);
     let archive = Archive::open(Cursor::new(build.bytes())).expect("open");
-    let err = sole_entry_fields(&archive).expect_err("two entries must be refused");
+    let err = sole_entry_fields(&archive.core).expect_err("two entries must be refused");
     assert_eq!(
         unsupported_message(err),
         "the zip crate wrote something other than one entry"
@@ -1686,7 +1686,7 @@ fn a_temporary_archive_of_two_entries_is_refused() {
     // And the control: one entry is accepted.
     let one = Build::new(vec![Spec::new(b"a", b"1")]);
     let one = Archive::open(Cursor::new(one.bytes())).expect("open");
-    assert!(sole_entry_fields(&one).is_ok());
+    assert!(sole_entry_fields(&one.core).is_ok());
 }
 
 #[test]
@@ -1738,7 +1738,7 @@ fn a_replacement_too_large_for_a_plain_local_header_is_refused() {
         .open(&temp.0)
         .expect("a temporary file");
     let made = Made {
-        file,
+        file: Box::new(file),
         data_start: 0,
         crc32: 0,
         compressed_size: u64::from(u32::MAX) + 1,

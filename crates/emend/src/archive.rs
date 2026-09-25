@@ -17,6 +17,18 @@
 //! [`Archive::read`] borrows it, and [`Archive::write_to`] takes it out,
 //! recovers the reader, copies the spans, and puts a fresh one back.
 //!
+//! # One copy of the read and write paths
+//!
+//! [`Archive::open`] boxes the caller's reader once, as a trait object, and
+//! [`Archive::write_to`] hands its writer on as `&mut dyn Write`. Every body
+//! below those two points lives in a private, non-generic core, so it is
+//! compiled once however many reader and writer types a consumer uses; the
+//! public methods are thin forwards. Before this, a consumer that also called
+//! `Package::new`, which reads and writes through a
+//! `Cursor<Vec<u8>>` of its own, carried the read and write paths twice
+//! (`specs/0016-new-workbook-and-sheets.md`, "Planning rulings during P4",
+//! rulings 10 and 11, and "P5").
+//!
 //! # Why spans, and not entry-by-entry reconstruction
 //!
 //! An untouched entry is copied from its local header to the next local
@@ -154,6 +166,15 @@
 //!   reader is checked out" rather than panicking again.
 //! - The replacement temporary is created with mode 0600 on Unix only;
 //!   elsewhere it takes the process's default permissions.
+//! - The reader given to [`Archive::open`] must be `'static`, since it is boxed
+//!   as a trait object with no lifetime. A borrowed reader such as
+//!   `&mut File` is not accepted; an owned one (`File`, `BufReader<File>`,
+//!   `Cursor<Vec<u8>>`) is (`specs/0016`, "Planning rulings during P5",
+//!   ruling 2).
+//! - For the same reason an [`Archive`] is neither `Send` nor `Sync`, nor
+//!   `UnwindSafe` nor `RefUnwindSafe`, whatever its reader is: the boxed
+//!   reader carries none of those traits (ruling 3). `Package` and `Cells`
+//!   never had them.
 //!
 //! Every offset, size and count here is `u64`. `usize` is 32 bits on
 //! `i686-unknown-linux-musl`.
@@ -162,6 +183,7 @@ use std::env;
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -454,17 +476,40 @@ impl Edits {
     }
 }
 
+/// A reader the layer can both read and seek, whatever its type.
+///
+/// The one place the caller's reader type is erased (`specs/0016`, "P5").
+pub(crate) trait ReadSeek: Read + Seek {}
+
+impl<T: Read + Seek + ?Sized> ReadSeek for T {}
+
+/// The caller's reader, boxed once at [`Archive::open`], so that everything
+/// below it is compiled once however many reader types a consumer uses.
+pub(crate) type Reader = Box<dyn ReadSeek>;
+
 /// An opened zip archive, indexed and ready to be written back.
+///
+/// The type parameter names the reader the archive was opened with. The
+/// reader itself is held boxed, as a trait object, by the archive's `Core`,
+/// where every body lives; the methods here forward to it.
 pub struct Archive<R: Read + Seek> {
+    /// Everything the archive holds, the reader included.
+    pub(crate) core: Core,
+    /// The reader's type, owned as far as variance and the drop check go.
+    reader: PhantomData<R>,
+}
+
+/// The body of an [`Archive`], compiled once for every reader type.
+pub(crate) struct Core {
     /// The reader, held plain until a [`Archive::read`] needs the `zip` crate.
     /// Exactly one of `reader` and `inner` is `Some` at any time.
     ///
     /// `open` no longer constructs a `ZipArchive`, so what this layer accepts
     /// is decided by this layer's parser alone, as the module header says
     /// (`specs/0008-zip-layer.md`, the P1 rulings of 2026-09-17, item 4).
-    reader: Option<R>,
+    reader: Option<Reader>,
     /// Built on the first `read`, from `reader`.
-    inner: Option<zip::ZipArchive<R>>,
+    inner: Option<zip::ZipArchive<Reader>>,
     /// Entries in central directory order.
     entries: Vec<Entry>,
     /// Indices into `entries`, ordered by `span_start`. T1 P6 showed file
@@ -498,7 +543,72 @@ impl<R: Read + Seek> Archive<R> {
     ///
     /// The index holds, per entry, the name bytes, the central record bytes
     /// and the local header bytes, and nothing of the data.
-    pub fn open(mut reader: R) -> Result<Self, Error> {
+    ///
+    /// The reader must be `'static`: it is boxed here, once, so that the
+    /// layer's bodies are compiled once for every reader type. A borrowed
+    /// reader such as `&mut File` is not accepted (`specs/0016`, "Planning
+    /// rulings during P5", ruling 2).
+    pub fn open(reader: R) -> Result<Self, Error>
+    where
+        R: 'static,
+    {
+        Ok(Archive {
+            core: Core::open(Box::new(reader))?,
+            reader: PhantomData,
+        })
+    }
+
+    /// Every entry, in central directory order.
+    pub fn entries(&self) -> &[Entry] {
+        self.core.entries()
+    }
+
+    /// The index of the entry with this raw name, if there is one. Names are
+    /// unique: [`Archive::open`] refuses an archive whose central directory
+    /// repeats one.
+    pub fn index_of(&self, name: &[u8]) -> Option<usize> {
+        self.core.index_of(name)
+    }
+
+    /// The archive comment.
+    pub fn comment(&self) -> &[u8] {
+        self.core.comment()
+    }
+
+    /// The number of bytes before the first local header in file order, or
+    /// the bytes before the central directory when the archive has no
+    /// entries.
+    ///
+    /// This is a measured position, not `central_start - central_offset`:
+    /// the two differ whenever a producer records file-absolute offsets.
+    pub fn prefix_len(&self) -> u64 {
+        self.core.prefix_len()
+    }
+
+    /// The entry's decompressed bytes, through the `zip` crate.
+    pub fn read(&mut self, index: usize) -> Result<impl Read + '_, Error> {
+        self.core.read(index)
+    }
+
+    /// Writes the archive to `out`.
+    ///
+    /// The output is a plain [`Write`]: offsets are computed as bytes go out,
+    /// so it can be a pipe.
+    ///
+    /// With an empty `edits` the output is byte-identical to the input, prefix
+    /// and comment included. With changes, every entry the changes do not name
+    /// is still copied verbatim, so only what was asked for moves.
+    ///
+    /// The edits are validated in full BEFORE anything is written, so a
+    /// rejected set leaves the output untouched rather than half-written.
+    pub fn write_to(&mut self, mut out: impl Write, edits: Edits) -> Result<(), Error> {
+        self.core.write_to(&mut out, edits)
+    }
+}
+
+impl Core {
+    /// The body of [`Archive::open`], over the boxed reader.
+    pub(crate) fn open(mut reader: Reader) -> Result<Self, Error> {
         let file_len = reader.seek(SeekFrom::End(0))?;
 
         let (eocd_pos, eocd_raw) = find_eocd(&mut reader, file_len)?;
@@ -625,7 +735,7 @@ impl<R: Read + Seek> Archive<R> {
             None => (None, None),
         };
 
-        Ok(Archive {
+        Ok(Core {
             reader: Some(reader),
             inner: None,
             entries,
@@ -639,35 +749,28 @@ impl<R: Read + Seek> Archive<R> {
         })
     }
 
-    /// Every entry, in central directory order.
-    pub fn entries(&self) -> &[Entry] {
+    /// The body of [`Archive::entries`].
+    pub(crate) fn entries(&self) -> &[Entry] {
         &self.entries
     }
 
-    /// The index of the entry with this raw name, if there is one. Names are
-    /// unique: [`Archive::open`] refuses an archive whose central directory
-    /// repeats one.
-    pub fn index_of(&self, name: &[u8]) -> Option<usize> {
+    /// The body of [`Archive::index_of`].
+    pub(crate) fn index_of(&self, name: &[u8]) -> Option<usize> {
         self.entries.iter().position(|e| e.name == name)
     }
 
-    /// The archive comment.
-    pub fn comment(&self) -> &[u8] {
+    /// The body of [`Archive::comment`].
+    pub(crate) fn comment(&self) -> &[u8] {
         &self.comment
     }
 
-    /// The number of bytes before the first local header in file order, or
-    /// the bytes before the central directory when the archive has no
-    /// entries.
-    ///
-    /// This is a measured position, not `central_start - central_offset`:
-    /// the two differ whenever a producer records file-absolute offsets.
-    pub fn prefix_len(&self) -> u64 {
+    /// The body of [`Archive::prefix_len`].
+    pub(crate) fn prefix_len(&self) -> u64 {
         self.prefix_len
     }
 
-    /// The entry's decompressed bytes, through the `zip` crate.
-    pub fn read(&mut self, index: usize) -> Result<impl Read + '_, Error> {
+    /// The body of [`Archive::read`].
+    pub(crate) fn read(&mut self, index: usize) -> Result<zip::read::ZipFile<'_, Reader>, Error> {
         if index >= self.entries.len() {
             return Err(Error::NoSuchEntry(index));
         }
@@ -693,22 +796,12 @@ impl<R: Read + Seek> Archive<R> {
             .map_err(|err| zip_read_error(err, index))
     }
 
-    /// Writes the archive to `out`.
-    ///
-    /// The output is a plain [`Write`]: offsets are computed as bytes go out,
-    /// so it can be a pipe.
-    ///
-    /// With an empty `edits` the output is byte-identical to the input, prefix
-    /// and comment included. With changes, every entry the changes do not name
-    /// is still copied verbatim, so only what was asked for moves.
-    ///
-    /// The edits are validated in full BEFORE anything is written, so a
-    /// rejected set leaves the output untouched rather than half-written.
-    pub fn write_to(&mut self, mut out: impl Write, edits: Edits) -> Result<(), Error> {
+    /// The body of [`Archive::write_to`], over the writer as a trait object.
+    pub(crate) fn write_to(&mut self, out: &mut dyn Write, edits: Edits) -> Result<(), Error> {
         let (actions, additions) = self.plan(edits)?;
 
         let mut reader = self.take_reader()?;
-        let result = self.write_all_parts(&mut reader, &mut out, actions, additions);
+        let result = self.write_all_parts(&mut reader, out, actions, additions);
         // The reader goes back plain, whatever happened, so a failed write
         // leaves a usable Archive rather than one that has lost it. Nothing
         // is rebuilt here, so no recovery failure can mask the write's own
@@ -723,7 +816,7 @@ impl<R: Read + Seek> Archive<R> {
     /// Exactly one of `reader` and `inner` holds it. Both being `None` means
     /// a previous call panicked between taking and returning it, which no
     /// path here does.
-    fn take_reader(&mut self) -> Result<R, Error> {
+    fn take_reader(&mut self) -> Result<Reader, Error> {
         if let Some(reader) = self.reader.take() {
             return Ok(reader);
         }
@@ -801,7 +894,7 @@ impl<R: Read + Seek> Archive<R> {
     /// data descriptor and then padding or orphaned bytes. The descriptor is
     /// re-emitted with the new values in the ORIGINAL's form; the padding is
     /// copied verbatim.
-    fn gap_of(&self, reader: &mut R, entry: &Entry) -> Result<Gap, Error> {
+    fn gap_of(&self, reader: &mut Reader, entry: &Entry) -> Result<Gap, Error> {
         let data_end = entry
             .span_start
             .checked_add(entry.local_header.len() as u64)
@@ -842,8 +935,8 @@ impl<R: Read + Seek> Archive<R> {
     /// The write itself, with the reader in hand.
     fn write_all_parts(
         &self,
-        reader: &mut R,
-        out: &mut impl Write,
+        reader: &mut Reader,
+        out: &mut dyn Write,
         actions: Vec<Action>,
         additions: Vec<Addition>,
     ) -> Result<(), Error> {
@@ -1547,7 +1640,11 @@ fn clamp_u32(value: u64) -> u32 {
 
 /// Copies exactly `len` bytes through a fixed buffer, so a large entry never
 /// lands in memory whole.
-fn copy_exact<R: Read, W: Write>(reader: &mut R, out: &mut W, len: u64) -> Result<(), Error> {
+fn copy_exact<R: Read + ?Sized, W: Write + ?Sized>(
+    reader: &mut R,
+    out: &mut W,
+    len: u64,
+) -> Result<(), Error> {
     // On the heap, not the stack: `usize` is 32 bits on
     // i686-unknown-linux-musl and a musl thread's default stack is far
     // smaller than the main thread's, so a 64 KiB frame leaves a consumer
@@ -1703,7 +1800,7 @@ impl Drop for TempFile {
 
 /// A replacement's compressed bytes, waiting in a temporary file.
 struct Made {
-    file: File,
+    file: Reader,
     /// Where the compressed bytes start in that file.
     data_start: u64,
     crc32: u32,
@@ -1715,7 +1812,7 @@ struct Made {
 
 impl Made {
     /// Copies the compressed bytes to the output, through a fixed buffer.
-    fn copy_data(&mut self, out: &mut impl Write) -> Result<(), Error> {
+    fn copy_data(&mut self, out: &mut dyn Write) -> Result<(), Error> {
         self.file.seek(SeekFrom::Start(self.data_start))?;
         copy_exact(&mut self.file, out, self.compressed_size)
     }
@@ -1754,7 +1851,7 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let file = options.open(&temp.0)?;
+    let file: File = options.open(&temp.0)?;
     let file_options = zip::write::SimpleFileOptions::default()
         .compression_method(compression)
         .large_file(true)
@@ -1768,7 +1865,7 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
 
     // Read back with THIS layer's parser: the central record is authoritative
     // for the CRC-32 and the sizes, whatever the local header holds.
-    let mut inner = Archive::open(file)?;
+    let mut inner = Core::open(Box::new(file))?;
     let (data_start, crc32, compressed_size, uncompressed_size) = sole_entry_fields(&inner)?;
     // The same handle, taken back rather than the file opened a second time.
     let file = inner.take_reader()?;
@@ -1788,7 +1885,7 @@ fn compress_replacement(replacement: Replacement, method: u16) -> Result<Made, E
 /// A separate function so that its refusal can be tested: a [`Replacement`]
 /// is handed a `&mut dyn Write` and cannot start a second entry, so nothing
 /// that reaches this through [`compress_replacement`] can produce one.
-fn sole_entry_fields<R: Read + Seek>(archive: &Archive<R>) -> Result<(u64, u32, u64, u64), Error> {
+fn sole_entry_fields(archive: &Core) -> Result<(u64, u32, u64, u64), Error> {
     let [entry] = archive.entries() else {
         return Err(Error::Unsupported(
             "the zip crate wrote something other than one entry",
