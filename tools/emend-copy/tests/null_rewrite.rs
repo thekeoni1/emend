@@ -676,6 +676,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--insert-rows-sample", "--delete-rows-sample"],
         vec!["--delete-rows-sample", "--format-sample"],
         vec!["--insert-rows-sample", "[Content_Types].xml"],
+        // And with M2 part 3 P3's.
+        vec!["--insert-columns-sample", "--delete-columns-sample"],
+        vec!["--delete-columns-sample", "--insert-rows-sample"],
+        vec!["--insert-columns-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -3053,6 +3057,64 @@ fn the_delete_rows_sample_removes_row_two() {
 fn the_row_samples_refuse_a_shared_formula_straddling_row_two_and_leave_nothing() {
     let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\">B1</f><v>1</v></c></row></sheetData>";
     for flag in ["--insert-rows-sample", "--delete-rows-sample"] {
+        styled_run_refused(
+            flag,
+            &edit_specs(body),
+            "an insertion or deletion cuts a shared, array or data table formula",
+            flag,
+        );
+    }
+}
+
+// ------------------------------------------------ the column samples
+
+#[test]
+fn the_insert_columns_sample_moves_the_columns_from_two_on() {
+    // No table: c is 2. The formula at column 2 moves, so the workbook part
+    // gains its flag.
+    let dir = TempDir::new("insert-columns-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&edit_specs(ROW_SAMPLE))).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--insert-columns-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "insert_columns\tat=2\tcount=1\tcells_before=4\tcells_after=4\tfrom_c_before=1\
+         \tfrom_c1_after=1\tformulas_moved=1\tchain_before=0\tchain_after=0\tfull_calc=1\n",
+        "the line"
+    );
+}
+
+#[test]
+fn the_delete_columns_sample_removes_column_two() {
+    // No formula, so the workbook part is untouched and the sheet alone
+    // changes: column 2's two cells go, column 3 moves left, every row stays.
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c><c r=\"B1\"><v>2</v></c>\
+                <c r=\"C1\"><v>3</v></c></row>\
+                <row r=\"2\"><c r=\"B2\"><v>4</v></c></row></sheetData>";
+    let (line, sheet) = sample_run("delete-columns-sample", body, "--delete-columns-sample");
+    assert_eq!(
+        line,
+        "delete_columns\tat=2\tcount=1\tcells_before=4\tcells_after=2\tfrom_c1_before=1\
+         \tfrom_c_after=1\tformulas_moved=0\tchain_before=0\tchain_after=0\tfull_calc=0\n",
+        "the line"
+    );
+    assert_eq!(
+        sheet,
+        edited(
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c>\
+                <c r=\"B1\"><v>3</v></c></row>\
+                <row r=\"2\"></row></sheetData>"
+        ),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_column_samples_refuse_a_shared_formula_straddling_column_two_and_leave_nothing() {
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:C1\" si=\"0\">B1</f><v>1</v></c></row></sheetData>";
+    for flag in ["--insert-columns-sample", "--delete-columns-sample"] {
         styled_run_refused(
             flag,
             &edit_specs(body),

@@ -177,6 +177,18 @@
 //!   on to k + 2 on; a deletion loses row k's cells and moves those after it
 //!   up by one. A failure is exit 2 with the message and no output, and so is
 //!   the layer's refusal of a workbook the rule refuses.
+//! - `--insert-columns-sample` and `--delete-columns-sample`: the column
+//!   samples of `specs/0018-rows-and-columns.md`, "Harness runs", with P3
+//!   ruling 3, the row samples over columns. c is `max(2, U + 1)`, U the
+//!   largest last column of the same ranges; one column is inserted at c, or
+//!   column c is deleted. One line goes to stdout: the word `insert_columns`
+//!   then `at`, `count`, `cells_before`, `cells_after`, `from_c_before`,
+//!   `from_c1_after`, `formulas_moved`, `chain_before`, `chain_after` and
+//!   `full_calc`; or `delete_columns` then `at`, `count`, `cells_before`,
+//!   `cells_after`, `from_c1_before`, `from_c_after`, `formulas_moved`,
+//!   `chain_before`, `chain_after` and `full_calc`. COUNTS ONLY. Asserted as
+//!   the row samples assert, over columns. The tool turns on the layer's
+//!   `rowcol` feature for the four shift samples.
 //!
 //! - `--new-sample`: the new workbook sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The first path
@@ -265,7 +277,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
-| --delete-rows-sample]";
+| --delete-rows-sample | --insert-columns-sample | --delete-columns-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -316,6 +328,10 @@ enum Operation {
     InsertRowsSample,
     /// One row deleted at the sample point, and the counts.
     DeleteRowsSample,
+    /// One column inserted at the sample point, and the counts.
+    InsertColumnsSample,
+    /// One column deleted at the sample point, and the counts.
+    DeleteColumnsSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -457,6 +473,16 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::DeleteRowsSample,
         ),
+        [input, output, flag] if flag == "--insert-columns-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::InsertColumnsSample,
+        ),
+        [input, output, flag] if flag == "--delete-columns-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::DeleteColumnsSample,
+        ),
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -538,10 +564,16 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         return format_sample(input, output);
     }
     if matches!(operation, Operation::InsertRowsSample) {
-        return rows_sample(input, output, true);
+        return shift_sample(input, output, true, false);
     }
     if matches!(operation, Operation::DeleteRowsSample) {
-        return rows_sample(input, output, false);
+        return shift_sample(input, output, false, false);
+    }
+    if matches!(operation, Operation::InsertColumnsSample) {
+        return shift_sample(input, output, true, true);
+    }
+    if matches!(operation, Operation::DeleteColumnsSample) {
+        return shift_sample(input, output, false, true);
     }
 
     // Both reading operations run first, so a package the layer cannot read
@@ -577,8 +609,11 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::SheetSample => unreachable!("the sheet sample has its own path"),
         Operation::RemoveSample => unreachable!("the removal sample has its own path"),
         Operation::FormatSample => unreachable!("the format sample has its own path"),
-        Operation::InsertRowsSample | Operation::DeleteRowsSample => {
-            unreachable!("the row samples have their own path")
+        Operation::InsertRowsSample
+        | Operation::DeleteRowsSample
+        | Operation::InsertColumnsSample
+        | Operation::DeleteColumnsSample => {
+            unreachable!("the row and column samples have their own path")
         }
         Operation::None
         | Operation::Survey
@@ -2167,18 +2202,22 @@ fn format_sample(input: &Path, output: &Path) -> Result<(), Error> {
     )
 }
 
-/// The row samples (`specs/0018-rows-and-columns.md`, "Harness runs",
-/// `--insert-rows-sample` and `--delete-rows-sample`, with P2 ruling 6).
+/// The row and column samples (`specs/0018-rows-and-columns.md`, "Harness
+/// runs", `--insert-rows-sample` and `--delete-rows-sample`, with P2 ruling
+/// 6, and `--insert-columns-sample` and `--delete-columns-sample`, with P3
+/// ruling 3).
 ///
-/// W is the first sheet of kind `Worksheet`; T the largest last row of the
-/// table and pivot table ranges W's relationships name ([`table_rows`]), 0
-/// when there are none; k is `max(2, T + 1)`. An insertion puts two rows at
-/// k and a deletion removes row k. The output is reopened and read again:
-/// an insertion keeps every cell and the cells from k on are the output's
-/// from k + 2 on; a deletion loses the cells of row k and the cells from
-/// k + 1 on are the output's from k on. A failure after the output is in
-/// place removes it; a refusal by the layer is exit 2 with no output.
-fn rows_sample(input: &Path, output: &Path, insert: bool) -> Result<(), Error> {
+/// W is the first sheet of kind `Worksheet`; T (U on the column axis) the
+/// largest last row (column) of the table and pivot table ranges W's
+/// relationships name ([`table_last`]), 0 when there are none; k (c) is
+/// `max(2, T + 1)`. A row insertion puts two rows at k, a column insertion
+/// one column at c, and a deletion removes row k or column c. The output is
+/// reopened and read again: an insertion keeps every cell and the cells
+/// from the point on are the output's from the point plus the count on; a
+/// deletion loses the cells at the point and the cells after it are the
+/// output's from the point on. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn shift_sample(input: &Path, output: &Path, insert: bool, columns: bool) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let part = package
@@ -2189,21 +2228,58 @@ fn rows_sample(input: &Path, output: &Path, insert: bool) -> Result<(), Error> {
         .map(|sheet| sheet.part.clone())
         .ok_or(Error::NoWorksheet)?;
     let chain_before = u64::from(package.workbook()?.calc_chain.is_some());
-    let at = table_rows(&mut package, &part)?.saturating_add(1).max(2);
-    let count: u32 = if insert { 2 } else { 1 };
-    let before = row_counts(&mut package, &part, at)?;
-    if insert {
-        package.insert_rows(&part, at, count)?;
-    } else {
-        package.delete_rows(&part, at, count)?;
+    let at = table_last(&mut package, &part, columns)?
+        .saturating_add(1)
+        .max(2);
+    let count: u32 = if insert && !columns { 2 } else { 1 };
+    let before = axis_counts(&mut package, &part, at, count, columns)?;
+    match (insert, columns) {
+        (true, false) => package.insert_rows(&part, at, count)?,
+        (false, false) => package.delete_rows(&part, at, count)?,
+        (true, true) => package.insert_columns(&part, at, count)?,
+        (false, true) => package.delete_columns(&part, at, count)?,
     }
     write_into(package, output)?;
     // The output is in place: a failure from here on removes it.
-    let checked = rows_read_back(output, &part, at, insert, &before);
+    let checked = shift_read_back(output, &part, at, count, insert, columns, &before);
     if checked.is_err() {
         let _ = fs::remove_file(output);
     }
     let (after, chain_after, full_calc) = checked?;
+    if columns {
+        let (name, moved) = if insert {
+            (
+                "insert_columns",
+                [
+                    ("from_c_before", before.from_k),
+                    ("from_c1_after", after.from_k_count),
+                ],
+            )
+        } else {
+            (
+                "delete_columns",
+                [
+                    ("from_c1_before", before.from_k1),
+                    ("from_c_after", after.from_k),
+                ],
+            )
+        };
+        return edit_line_named(
+            name,
+            &[
+                ("at", u64::from(at)),
+                ("count", u64::from(count)),
+                ("cells_before", before.cells),
+                ("cells_after", after.cells),
+                moved[0],
+                moved[1],
+                ("formulas_moved", before.formulas_from_k),
+                ("chain_before", chain_before),
+                ("chain_after", chain_after),
+                ("full_calc", full_calc),
+            ],
+        );
+    }
     if insert {
         edit_line_named(
             "insert_rows",
@@ -2213,7 +2289,7 @@ fn rows_sample(input: &Path, output: &Path, insert: bool) -> Result<(), Error> {
                 ("cells_before", before.cells),
                 ("cells_after", after.cells),
                 ("from_k_before", before.from_k),
-                ("from_k2_after", after.from_k2),
+                ("from_k2_after", after.from_k_count),
                 ("formulas_moved", before.formulas_from_k),
                 ("chain_before", chain_before),
                 ("chain_after", chain_after),
@@ -2239,61 +2315,71 @@ fn rows_sample(input: &Path, output: &Path, insert: bool) -> Result<(), Error> {
     }
 }
 
-/// A sheet's cells counted about a row k.
-struct RowCounts {
+/// A sheet's cells counted about an index k on one axis, the row or the
+/// column.
+struct AxisCounts {
     cells: u64,
-    /// Cells in row k.
+    /// Cells at index k.
     at_k: u64,
-    /// Cells at row k or after, k + 1 or after, k + 2 or after.
+    /// Cells at k or after, k + 1 or after, and k + count or after.
     from_k: u64,
     from_k1: u64,
-    from_k2: u64,
-    /// Cells with a formula at row k or after.
+    from_k_count: u64,
+    /// Cells with a formula at k or after.
     formulas_from_k: u64,
 }
 
-/// Counts the cells of `part` about row `at` through the layer's reader.
-fn row_counts<R: io::Read + io::Seek>(
+/// Counts the cells of `part` about index `at` on the row or column axis
+/// through the layer's reader.
+fn axis_counts<R: io::Read + io::Seek>(
     package: &mut Package<R>,
     part: &[u8],
     at: u32,
-) -> Result<RowCounts, Error> {
-    let mut counts = RowCounts {
+    count: u32,
+    columns: bool,
+) -> Result<AxisCounts, Error> {
+    let mut counts = AxisCounts {
         cells: 0,
         at_k: 0,
         from_k: 0,
         from_k1: 0,
-        from_k2: 0,
+        from_k_count: 0,
         formulas_from_k: 0,
     };
     let at = u64::from(at);
     for cell in package.cells(part)? {
         let cell = cell?;
-        let row = u64::from(cell.reference.row);
+        let index = u64::from(if columns {
+            cell.reference.col
+        } else {
+            cell.reference.row
+        });
         counts.cells += 1;
-        counts.at_k += u64::from(row == at);
-        counts.from_k += u64::from(row >= at);
-        counts.from_k1 += u64::from(row > at);
-        counts.from_k2 += u64::from(row >= at + 2);
-        counts.formulas_from_k += u64::from(row >= at && cell.formula.is_some());
+        counts.at_k += u64::from(index == at);
+        counts.from_k += u64::from(index >= at);
+        counts.from_k1 += u64::from(index > at);
+        counts.from_k_count += u64::from(index >= at + u64::from(count));
+        counts.formulas_from_k += u64::from(index >= at && cell.formula.is_some());
     }
     Ok(counts)
 }
 
-/// Reopens a row sample's output, asserts what the shift implies and reads
-/// the chain and the full calculation flag.
-fn rows_read_back(
+/// Reopens a row or column sample's output, asserts what the shift implies
+/// and reads the chain and the full calculation flag.
+fn shift_read_back(
     output: &Path,
     part: &[u8],
     at: u32,
+    count: u32,
     insert: bool,
-    before: &RowCounts,
-) -> Result<(RowCounts, u64, u64), Error> {
+    columns: bool,
+    before: &AxisCounts,
+) -> Result<(AxisCounts, u64, u64), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut written = Package::open(BufReader::new(file))?;
-    let after = row_counts(&mut written, part, at)?;
+    let after = axis_counts(&mut written, part, at, count, columns)?;
     let (expected, moved_before, moved_after) = if insert {
-        (before.cells, before.from_k, after.from_k2)
+        (before.cells, before.from_k, after.from_k_count)
     } else {
         (before.cells - before.at_k, before.from_k1, after.from_k)
     };
@@ -2311,12 +2397,17 @@ fn rows_read_back(
     Ok((after, chain_after, full_calc))
 }
 
-/// T of the row samples: the largest last row of the `ref` of every table
-/// part and the `location ref` of every pivot table part that `part`'s
-/// relationships name, read by this tool's own pass over each part's tokens
-/// (`emend::xml::Stream`, quick-xml underneath); 0 when there are none. A
-/// range that does not read is 0 here: the layer refuses it at the write.
-fn table_rows<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Result<u32, Error> {
+/// T of the row samples, or U of the column samples: the largest last row,
+/// or column, of the `ref` of every table part and the `location ref` of
+/// every pivot table part that `part`'s relationships name, read by this
+/// tool's own pass over each part's tokens (`emend::xml::Stream`, quick-xml
+/// underneath); 0 when there are none. A range that does not read is 0
+/// here: the layer refuses it at the write.
+fn table_last<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    columns: bool,
+) -> Result<u32, Error> {
     let rels = package.relationships(part)?;
     let mut targets: Vec<(Vec<u8>, bool)> = Vec::new();
     for (kind, location) in [(TABLE, false), (PIVOT_TABLE, true)] {
@@ -2353,7 +2444,13 @@ fn table_rows<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> 
             if wanted {
                 let last = tag_attribute(raw, b"ref")
                     .and_then(|value| Area::parse(&value))
-                    .map_or(0, |area| area.last.row);
+                    .map_or(0, |area| {
+                        if columns {
+                            area.last.col
+                        } else {
+                            area.last.row
+                        }
+                    });
                 top = top.max(last);
                 break;
             }
