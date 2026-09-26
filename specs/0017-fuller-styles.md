@@ -940,6 +940,145 @@ Verified by planning from primaries, never from the report alone:
    carries ruling 5's test and sentence before any P3 change; P3's
    scripts carry ruling 6.
 
+## Planning rulings during P3 (2026-09-25)
+
+1. A correction of "P3": the runner takes one `--label`, host or
+   i686, and the record script reads one run directory with those
+   two labels (`scripts/passthrough-run.sh`, the `--label` check;
+   `scripts/passthrough-record.py`, `LABELS`), so the two samples
+   cannot share a run directory and one record pair cannot cover
+   both. P3 runs `--font-sample` into `runs/<date>-<sha>-font` and
+   `--border-sample` into `runs/<date>-<sha>-border`, on both
+   targets each, from one run log; the records are
+   `records/m2p2-p3-font-<utc-date>-<shortsha>.md` and `.txt` and
+   `records/m2p2-p3-border-<utc-date>-<shortsha>.md` and `.txt`;
+   every font output is byte-identical by sha256 to P1's run
+   directory's output for the same corpus file and every border
+   output to P2's; the run log runs the font and border comparisons
+   again, the border one with ruling 6's reorder plant; the keep and
+   the edit open check run once, recorded as
+   `records/m2p2-open-<utc-date>-<shortsha>.md` and `.txt`. No
+   script changes.
+
+2. The checkpoint figure. "Size" names the part's own cost as the
+   new probe over `probe-emend-sheets-write-xml`, which the size log
+   measured at 2036 section bytes; that figure understates the part,
+   since `add_cell_style` now runs through `add_style` and every
+   probe that adds a style links the composers, so the part's cost
+   shows as drift of the earlier probes. The figure the checkpoint
+   and the maintainer's decision 1 judge is the whole growth of the
+   budget figure since part 1's record, as `specs/0013` P3
+   verification ruling 9 defines a part's cost: 399176 less 375984,
+   23192 section bytes (2036 over the sheets probe plus that probe's
+   drift of 21156; `probe-zip-xml`'s drift 0), planning's arithmetic
+   from the log's figures. 23192 is under the 25000 checkpoint by
+   1808 and above planning's expectation of 20000; the checkpoint is
+   not tripped and no re-ruling is needed. The budget figure 399176
+   is 59576 under the Milestone 2 ceiling of 458752. The committed
+   record states 2036 as "the part's own cost" with the split
+   beside it; this ruling, not a size-log rerun, says which figure
+   is judged, and the ROADMAP row carries 23192.
+
+## Planning verification and rulings on P3 (2026-09-26)
+
+Verified by planning from primaries, never from the report alone:
+
+1. Commits, from git: 1f85cba (docs, the two files at planning's
+   hashes), ff76e34 (the unbound-prefix sentence and test), f64063e
+   (the limits, doc only), 1fc8327 (the probe, the phase commit),
+   76f4461 (the record, fourteen files), a chain from ebfe711; every
+   message ASCII, ending with the Co-Authored-By line, no session
+   link; each commit planning docs alone, code alone or records
+   alone; nothing pushed. The seven committed logs, the check answer
+   and the size record at the sha256 the report gives. Planning's
+   own `scripts/privacy.sh --range ebfe711..HEAD`: 5 commits, 626
+   blobs, 0 findings; no log or record names the home directory;
+   the three `specs/0001` shape greps over every printed script find
+   0, 0 and 0; `ANTHROPIC_API_KEY` unset.
+2. The logs at their verdict lines: gate attempt 2 "checks all as
+   expected: yes" (attempt 1 failed three checks of its own script,
+   one caught by the stderr count, kept and hashed); test "yes", 634
+   passed on each target, 1 added, 0 removed; size attempt 2 "yes"
+   with root lines for `<repo>` and `<home>` (attempt 1 lacked them,
+   the gap `specs/0016` P5 verification ruling 3 named in the script
+   this one was carried from, kept and hashed, its five hash lines
+   and every figure identical); negative "yes", the two controls, the
+   three collection refusals and the widened message, exit 2 and no
+   output each; run attempt 2 "yes" (attempt 1 failed only its own
+   new-pairs check, widened to "no new pair, or every new pair kept
+   by a test this phase adds"), both samples 27 of 27 on both
+   targets, every output byte-identical to P1's or P2's run directory
+   by sha256, 22 of 22 and 18 of 18 plants turning their own flag,
+   the reorder plant showing the tree half alone, the keep 220 pairs
+   with P2's 220 found and 0 new, the open record 220 pairs and 0
+   findings; scan final stage PASS, 0 hits. Each of the six logs
+   prints its own stderr as 0 bytes with the one-byte control.
+3. Planning's own measurements: the workspace tests on planning's
+   build at 1fc8327, 634 passed, 0 failed, 2 ignored; clippy with
+   `-D warnings` and `cargo doc` clean; planning's own comparison
+   readers over both run directories, 27 of 27 with no problem on
+   both labels for each sample, and every output equal by sha256 to
+   P1's or P2's, 54 of 54 for each; planning's own rebuild of
+   `probe-emend-fullstyles-write-xml` and `probe-zip-xml` at 1fc8327
+   in the `size` profile reproducing the log's sha256 for the new
+   probe (021d75bf...) and the figures 932392 and 533216 section
+   bytes, 399176 apart. The budget figure is 399176, 59576 under the
+   Milestone 2 ceiling of 458752; the part's whole growth 23192 is
+   under the 25000 checkpoint (P3 ruling 2); the headroom for part 3
+   is 59576.
+4. Check 1's F7 and F17: "P3" said the negative log runs every
+   refusal of the part the binary reaches, and its parenthesis left
+   out the unbound-prefix refusal, which P2 introduced and either
+   sample reaches on a fixture with such an `xf` child; the log's
+   own line says so and defers to the crate test. The parenthesis
+   was planning's, wrong as exhaustive. Ruled: the case goes into
+   part 3's first negative log (a fixture from the template with an
+   `xf` child whose prefix no declaration binds, either sample, exit
+   2, the message, no output); the close-out adds no log.
+5. Check 1's F10 and F19: `run.log` ran against size attempt 1 and
+   cites its hash; the committed size log is attempt 2, whose five
+   hash lines are byte-identical to attempt 1's, as the implementing
+   session and the checker each found by diff and planning by
+   reading the four binary hashes out of both logs. Accepted, with
+   this ruling as the record of the comparison; from part 3, a size
+   log rerun after the run log prints, as a check, that its hash
+   lines equal those of the attempt the run log cites.
+6. Check 1's F9 and F16: attempt 1's keep was moved, never removed,
+   and named but not hashed; the run directories are represented by
+   their summary hashes and file counts; the installed record copies
+   were removed after a byte comparison with the moved copies, which
+   are kept and hashed. Accepted; from part 3 a moved keep is listed
+   by its pair count and the hash of its listing, as a run directory
+   is.
+7. Check 1's F11: the logs pinned the spec at the hash planning gave
+   when each started, 609a94f9 (rulings 1 to 5 during P1 and P3
+   ruling 1) for gate, run and size attempt 1, and bcab8a1f (P3
+   ruling 2 added) for size attempt 2 and the scan; planning restored
+   the earlier copy for the run log's duration and re-applied the
+   ruling after it, as the messages of the day record. Lawful: a
+   mid-phase ruling edits the uncommitted spec while the implementing
+   session holds, and each log names the copy it checked.
+8. Check 1's F14: the size record's install into `records/` was
+   unlogged and the checker found it identical to the record the
+   size log printed; from part 3 the size log installs its record
+   and prints the installed file's sha256, as the run log installs
+   its record pairs.
+9. The remaining items are remarks, answered in the report; the `-b`
+   suffix on the rerun's directories was unneeded once the date had
+   rolled and is harmless. The carried gap in the P5 size script is
+   the implementing session's finding, recorded in the size log's
+   rerun header.
+10. P3 is DONE and the part's code is complete. The close-out
+   follows "Close-out push (after P3)": a doc commit with this spec
+   (P3 rulings 1 and 2 and this section) and `ROADMAP.md` unedited
+   at the hashes planning sends; the push of e81bf5b and this part's
+   commits on planning's word and the maintainer's authorisation
+   typed in the implementing session, with the push and ci-run
+   scripts' self-scan; the ci-run log; one record commit after the
+   push under `records/logs/m2p2-close/`; the scan rerun last; the
+   `ANTHROPIC_API_KEY` check. Carried into part 3's spec: rulings 4
+   to 6 and 8 here, and the Milestone 2 ceiling's headroom of 59576.
+
 ## Out of scope
 
 - Reading fonts, fills, borders, alignment or protection back as
