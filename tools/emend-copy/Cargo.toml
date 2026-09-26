@@ -12,5 +12,7 @@ publish = false
 #
 # It enables the core's `dates` feature for --date-sample
 # (specs/0012-styles.md, "Harness runs"); the feature has no dependency.
+# It enables the core's `rowcol` feature for the row and column samples
+# (specs/0018-rows-and-columns.md, decision 7 A), which has none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol"] }

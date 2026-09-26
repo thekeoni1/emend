@@ -7330,4 +7330,5 @@ fn a_rotation_out_of_range_refuses_the_addition_and_records_nothing() {
 }
 
 mod rowcol;
+#[cfg(feature = "rowcol")]
 mod shift;

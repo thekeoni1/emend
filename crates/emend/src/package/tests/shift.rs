@@ -516,3 +516,110 @@ fn a_count_of_zero_or_rows_past_the_grid_are_refused_at_the_call() {
         .delete_rows(b"xl/worksheets/other.xml", 1, 1_048_576)
         .expect("every row");
 }
+
+// --- the cases carried from P2's check 1 (`specs/0018-rows-and-columns.md`,
+// "Planning verification and rulings on P2", rulings 1 and 3) ---
+
+#[test]
+fn an_array_formula_before_the_point_stays_and_a_deletion_inside_it_is_refused() {
+    // Ruling 1, F4: the two array cases the shared test has and the array
+    // test did not.
+    let parts = with_body(
+        "<sheetData><row r=\"2\"><c r=\"A2\"><f t=\"array\" ref=\"A2:B4\">X</f><v>1</v></c></row></sheetData>",
+    );
+    let out = edited_output(parts.clone(), insert(5, 1));
+    assert_untouched(&out, &parts, &[]);
+    assert_package(refused_on(parts.clone(), delete(3, 1)), CUTS);
+    assert_package(refused_on(parts, delete(4, 1)), CUTS);
+}
+
+#[test]
+fn list_ranges_cut_an_emptied_filter_dropped_and_each_list_unparsed_refused() {
+    // Ruling 1, F5: a conditional format's and a validation's range cut, a
+    // filter dropped when its range goes, and the validation, hyperlink and
+    // filter attributes each refused when they do not parse.
+    let body = "<sheetData/><autoFilter ref=\"A3:C4\"/>\
+                <conditionalFormatting sqref=\"A3:A6\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>\
+                <dataValidations count=\"1\"><dataValidation sqref=\"B2:B5\"/></dataValidations>";
+    assert_eq!(
+        shifted(body, delete(3, 2)),
+        worksheet(
+            "<sheetData/>\
+             <conditionalFormatting sqref=\"A3:A4\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>\
+             <dataValidations count=\"1\"><dataValidation sqref=\"B2:B3\"/></dataValidations>"
+        )
+    );
+    for bad in [
+        "<sheetData/><dataValidations count=\"1\"><dataValidation sqref=\"B\"/></dataValidations>",
+        "<sheetData/><hyperlinks><hyperlink ref=\"C1:\"/></hyperlinks>",
+        "<sheetData/><autoFilter ref=\"A1:\"/>",
+    ] {
+        assert_package(refused_on(with_body(bad), insert(1, 1)), UNPARSED);
+    }
+}
+
+#[test]
+fn a_second_insertion_for_the_part_is_refused() {
+    // Ruling 1, F6: two insertions, where the existing test pairs an
+    // insertion with a deletion.
+    let error = refused_on(with_body("<sheetData/>"), |p| {
+        p.insert_rows(SHEET, 2, 1).expect("recorded");
+        p.insert_rows(SHEET, 5, 1).expect("recorded");
+    });
+    assert_package(
+        error,
+        "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
+    );
+}
+
+#[test]
+fn a_deletion_that_moves_or_removes_a_formula_sets_the_flag() {
+    // Ruling 1, F7: the flag asserted beside the chain on deletions, one
+    // that removes the formula's row and one that moves it.
+    let rows_after = "<row r=\"1\"><c r=\"A1\"><v>2</v></c></row><row r=\"3\"><c r=\"B3\"><f>A1*2</f><v>4</v></c></row>";
+    let mut parts = with_a_calc_chain();
+    set(&mut parts, SHEET, sheet_with(rows_after));
+    for edit in [delete(3, 1), delete(2, 1)] {
+        let out = edited_output(parts.clone(), edit);
+        assert_chain_gone(&out);
+        assert_part(&out, WORKBOOK, &flagged_workbook());
+    }
+}
+
+#[test]
+fn a_table_ref_absent_a_table_part_missing_or_a_pivot_ref_unparsed_is_refused() {
+    // Ruling 1, F8: the three forms the catalogue names beside the
+    // unparsed table ref.
+    let moved = "an insertion or deletion would move a table or a pivot table";
+    let mut absent = with_tables("A1:B2", "D1:E2");
+    set(
+        &mut absent,
+        b"xl/tables/table1.xml",
+        format!("<table xmlns=\"{MAIN_NS}\" id=\"1\"/>"),
+    );
+    assert_package(refused_on(absent, insert(5, 1)), moved);
+    let mut missing = with_tables("A1:B2", "D1:E2");
+    missing.retain(|(name, _)| name.as_slice() != b"xl/tables/table1.xml");
+    assert_package(refused_on(missing, insert(5, 1)), moved);
+    assert_package(refused_on(with_tables("A1:B2", "D1:"), insert(5, 1)), moved);
+    // The control: the same package with every ref whole is allowed.
+    let parts = with_tables("A1:B2", "D1:E2");
+    let out = edited_output(parts.clone(), insert(5, 1));
+    assert_untouched(&out, &parts, &[]);
+}
+
+#[test]
+fn a_range_moved_wholly_past_the_grid_is_dropped_and_the_dimension_becomes_a1() {
+    // Ruling 3, F10: what clipping leaves empty is dropped (a merge, a list
+    // range) and an emptied dimension becomes A1.
+    let body = "<dimension ref=\"A1048575:B1048576\"/><sheetData/>\
+                <mergeCells count=\"1\"><mergeCell ref=\"A1048575:B1048576\"/></mergeCells>\
+                <conditionalFormatting sqref=\"A1 A1048576\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>";
+    assert_eq!(
+        shifted(body, insert(2, 2)),
+        worksheet(
+            "<dimension ref=\"A1\"/><sheetData/>\
+             <conditionalFormatting sqref=\"A1\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>"
+        )
+    );
+}

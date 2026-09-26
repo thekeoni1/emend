@@ -272,7 +272,9 @@
 //!   P1 ruling 2).
 //!
 //! Inserting and deleting rows adds these (`specs/0018-rows-and-columns.md`,
-//! "Errors", and P2 rulings 1, 2 and 5), raised by [`Package::write_to`];
+//! "Errors", and P2 rulings 1, 2 and 5), the Cargo feature `rowcol`'s
+//! messages (decision 7 A: without the feature no call records a shift and
+//! none of them is raised), raised by [`Package::write_to`];
 //! the calls refuse a count of 0 or rows past the grid with "a row or column
 //! index or count is out of range", and the write meets the order and
 //! explicit-reference refusals of the cell edits
@@ -280,23 +282,27 @@
 //! `the_order_rule_holds_on_the_input`):
 //!
 //! - "a worksheet with a row or column insertion or deletion takes no other edit in the same write"
-//!   (`shift::a_second_shift_or_any_other_edit_for_the_part_is_refused`).
+//!   (`shift::a_second_shift_or_any_other_edit_for_the_part_is_refused`,
+//!   `a_second_insertion_for_the_part_is_refused`).
 //! - "a row or column would be moved off the worksheet"
 //!   (`shift::a_row_moved_off_the_grid_is_refused`,
 //!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
 //! - "an insertion or deletion cuts a shared, array or data table formula"
 //!   (`shift::a_shared_formula_before_after_straddling_inside_and_deleted_whole`,
 //!   `an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
+//!   `an_array_formula_before_the_point_stays_and_a_deletion_inside_it_is_refused`,
 //!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
 //! - "an insertion or deletion would move a table or a pivot table"
 //!   (`shift::a_table_or_pivot_before_the_point_stays_and_one_at_or_after_it_is_refused`),
 //!   also for a table or pivot `ref` that is absent or does not parse and a
-//!   part that is not there (P2 ruling 2).
+//!   part that is not there (P2 ruling 2,
+//!   `a_table_ref_absent_a_table_part_missing_or_a_pivot_ref_unparsed_is_refused`).
 //! - "a range an insertion or deletion would move does not parse"
 //!   (`shift::an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
 //!   `a_dimension_moved_grown_cut_and_emptied`,
 //!   `merges_moved_grown_cut_dropped_and_the_container_dropped`,
-//!   `the_four_lists_move_are_cut_lose_ranges_and_drop_their_elements`).
+//!   `the_four_lists_move_are_cut_lose_ranges_and_drop_their_elements`,
+//!   `list_ranges_cut_an_emptied_filter_dropped_and_each_list_unparsed_refused`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -424,11 +430,14 @@
 //!   validation and conditional formatting raw and never adjusts them; only
 //!   the column formats and the merge calls of
 //!   `specs/0018-rows-and-columns.md` rewrite `<cols>` and `<mergeCells>`.
-//!   A cell edit inserts and deletes no row; [`Package::insert_rows`] and
-//!   [`Package::delete_rows`] move the grid and the ranges "The shift rule"
-//!   names, and no formula text is fixed up. A hyperlink the rule drops
-//!   leaves its relationship in the worksheet's rels part, unused (P2
-//!   ruling 3).
+//!   A cell edit inserts and deletes no row; `Package::insert_rows` and
+//!   `Package::delete_rows`, the Cargo feature `rowcol`'s, move the grid and
+//!   the ranges "The shift rule" names, and no formula text is fixed up. A
+//!   hyperlink the rule drops leaves its relationship in the worksheet's
+//!   rels part, unused (P2 ruling 3). A recorded shift rewrites its part
+//!   whether or not it moves anything: a shift past every row, cell, merge,
+//!   `dimension` and range of the sheet writes the input's bytes again, and
+//!   the entry is rewritten and recompressed all the same (P2 ruling 13).
 //! - A worksheet the rewrite cannot place an edit in safely is refused, not
 //!   repaired: a row or cell without `r`, rows or cells out of order, an
 //!   array or data table `ref` whose extent does not parse (edited or not),
@@ -729,13 +738,16 @@ pub const THEME: [&[u8]; 2] = [
 ];
 
 /// The `table` relationship type, transitional then strict
-/// (`specs/0018-rows-and-columns.md`, "The shift rule").
+/// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`).
+#[cfg(feature = "rowcol")]
 pub const TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/table",
 ];
 
-/// The `pivotTable` relationship type, transitional then strict.
+/// The `pivotTable` relationship type, transitional then strict (feature
+/// `rowcol`).
+#[cfg(feature = "rowcol")]
 pub const PIVOT_TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotTable",
@@ -1075,6 +1087,7 @@ struct Recorded {
     unmerges: Vec<(Vec<u8>, Area)>,
     /// `(part, shift)`: an insertion or deletion, in record order; a write
     /// takes one per part and nothing else for it (decision 5).
+    #[cfg(feature = "rowcol")]
     shifts: Vec<(Vec<u8>, Shift)>,
 }
 
@@ -1337,7 +1350,21 @@ impl Recorded {
             && self.panes.is_empty()
             && self.merges.is_empty()
             && self.unmerges.is_empty()
-            && self.shifts.is_empty()
+            && self.no_shifts()
+    }
+
+    /// Whether no insertion or deletion is recorded; always, without the
+    /// feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    fn no_shifts(&self) -> bool {
+        self.shifts.is_empty()
+    }
+
+    /// Whether no insertion or deletion is recorded; always, without the
+    /// feature `rowcol`.
+    #[cfg(not(feature = "rowcol"))]
+    fn no_shifts(&self) -> bool {
+        true
     }
 
     /// The entries [`Package::add_sheet`] recorded, in record order, whose
@@ -1384,8 +1411,9 @@ impl Recorded {
             .chain(self.row_formats.iter().map(|(part, _, _)| part))
             .chain(self.panes.iter().map(|(part, _)| part))
             .chain(self.merges.iter().map(|(part, _)| part))
-            .chain(self.unmerges.iter().map(|(part, _)| part))
-            .chain(self.shifts.iter().map(|(part, _)| part));
+            .chain(self.unmerges.iter().map(|(part, _)| part));
+        #[cfg(feature = "rowcol")]
+        let named = named.chain(self.shifts.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -2071,13 +2099,14 @@ impl<R: Read + Seek> Package<R> {
     /// text, defined names, comments, drawings and views stay where they
     /// were. A worksheet takes one insertion or deletion per write and no
     /// other edit in that write: a caller that wants to insert and then fill
-    /// writes twice.
+    /// writes twice. The Cargo feature `rowcol` (decision 7 A).
     ///
     /// # Errors
     ///
     /// [`Error::Package`] "a row or column index or count is out of range"
     /// for a `count` of 0 or rows past 1048576. Nothing is recorded when
     /// this fails. The write refuses what "The shift rule" refuses.
+    #[cfg(feature = "rowcol")]
     pub fn insert_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
         self.parts().shift(part, at, count, true)
     }
@@ -2089,6 +2118,7 @@ impl<R: Read + Seek> Package<R> {
     /// # Errors
     ///
     /// As [`Package::insert_rows`].
+    #[cfg(feature = "rowcol")]
     pub fn delete_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
         self.parts().shift(part, at, count, false)
     }
@@ -2781,6 +2811,7 @@ impl<'a> Parts<'a> {
     }
 
     /// The body of [`Package::insert_rows`] and [`Package::delete_rows`].
+    #[cfg(feature = "rowcol")]
     fn shift(&mut self, part: &[u8], at: u32, count: u32, insert: bool) -> Result<(), Error> {
         let last = u64::from(at) + u64::from(count);
         if at == 0 || count == 0 || last - 1 > u64::from(GRID_ROWS) {
@@ -3089,6 +3120,7 @@ impl<'a> Parts<'a> {
         self.edits.panes.retain(|(at, _)| at != part);
         self.edits.merges.retain(|(at, _)| at != part);
         self.edits.unmerges.retain(|(at, _)| at != part);
+        #[cfg(feature = "rowcol")]
         self.edits.shifts.retain(|(at, _)| at != part);
     }
 
@@ -3108,6 +3140,7 @@ impl<'a> Parts<'a> {
         let added_sheets = self.edits.added_sheet_parts();
         for part in self.edits.cell_parts() {
             let work = self.edits.sheet_work(&part);
+            #[cfg(feature = "rowcol")]
             let shift = self
                 .edits
                 .shifts
@@ -3116,10 +3149,14 @@ impl<'a> Parts<'a> {
                 .map(|(_, shift)| *shift);
             match self.archive.index_of(&part) {
                 Some(index) => {
-                    let (temp, replacement, removed) = match shift {
-                        Some(shift) => shift_worksheet(self.archive, index, &shift)?,
-                        None => rewrite_worksheet(self.archive, index, &work)?,
+                    #[cfg(feature = "rowcol")]
+                    let rewritten = match shift {
+                        Some(shift) => shift_worksheet(self.archive, index, &shift),
+                        None => rewrite_worksheet(self.archive, index, &work),
                     };
+                    #[cfg(not(feature = "rowcol"))]
+                    let rewritten = rewrite_worksheet(self.archive, index, &work);
+                    let (temp, replacement, removed) = rewritten?;
                     changed_formula |= removed;
                     temporaries.push(temp);
                     edits.replace(index, replacement);
@@ -3136,10 +3173,14 @@ impl<'a> Parts<'a> {
                         .position(|(added, _)| *added == part)
                         .ok_or(NO_SUCH_PART)?;
                     let index = self.archive.entries().len() + slot;
-                    let (temp, replacement, removed) = match shift {
-                        Some(shift) => shift_worksheet_from(BLANK_WORKSHEET, index, &shift)?,
-                        None => rewrite_worksheet_from(BLANK_WORKSHEET, index, &work)?,
+                    #[cfg(feature = "rowcol")]
+                    let rewritten = match shift {
+                        Some(shift) => shift_worksheet_from(BLANK_WORKSHEET, index, &shift),
+                        None => rewrite_worksheet_from(BLANK_WORKSHEET, index, &work),
                     };
+                    #[cfg(not(feature = "rowcol"))]
+                    let rewritten = rewrite_worksheet_from(BLANK_WORKSHEET, index, &work);
+                    let (temp, replacement, removed) = rewritten?;
                     changed_formula |= removed;
                     temporaries.push(temp);
                     self.edits.part_additions[slot].1 = replacement;
@@ -3471,26 +3512,8 @@ impl<'a> Parts<'a> {
             // One insertion or deletion per part and nothing else for it
             // (`specs/0018-rows-and-columns.md`, decision 5), and no table or
             // pivot table it would move or cut ("The shift rule").
-            let shifts: Vec<Shift> = self
-                .edits
-                .shifts
-                .iter()
-                .filter(|(at, _)| *at == part)
-                .map(|(_, shift)| *shift)
-                .collect();
-            if let Some(shift) = shifts.first() {
-                let alone = shifts.len() == 1
-                    && work.cells.is_empty()
-                    && work.rows.is_empty()
-                    && work.columns.is_empty()
-                    && work.pane.is_none()
-                    && work.merges.is_empty()
-                    && work.unmerges.is_empty();
-                if !alone {
-                    return Err(SHIFT_ALONE);
-                }
-                self.tables_before(&part, shift)?;
-            }
+            #[cfg(feature = "rowcol")]
+            self.shift_alone(&part, &work)?;
         }
 
         // A style edit names a cell format the part has or this package
@@ -3556,12 +3579,41 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// Refuses a second insertion or deletion for `part`, or one beside any
+    /// other edit of it (`specs/0018-rows-and-columns.md`, decision 5), and
+    /// one that would move or cut a table or a pivot table.
+    #[cfg(feature = "rowcol")]
+    fn shift_alone(&mut self, part: &[u8], work: &SheetWork) -> Result<(), Error> {
+        let shifts: Vec<Shift> = self
+            .edits
+            .shifts
+            .iter()
+            .filter(|(at, _)| *at == part)
+            .map(|(_, shift)| *shift)
+            .collect();
+        if let Some(shift) = shifts.first() {
+            let alone = shifts.len() == 1
+                && work.cells.is_empty()
+                && work.rows.is_empty()
+                && work.columns.is_empty()
+                && work.pane.is_none()
+                && work.merges.is_empty()
+                && work.unmerges.is_empty();
+            if !alone {
+                return Err(SHIFT_ALONE);
+            }
+            self.tables_before(part, shift)?;
+        }
+        Ok(())
+    }
+
     /// Refuses a shift that would move or cut a table or a pivot table the
     /// worksheet `part` names (`specs/0018-rows-and-columns.md`, "The shift
     /// rule", and P2 ruling 2): each `table` relationship's part's root `ref`
     /// and each `pivotTable` relationship's part's `<location ref>` must lie
     /// wholly before the point. A part that is not there, or a `ref` that is
     /// absent or does not parse, is refused the same way.
+    #[cfg(feature = "rowcol")]
     fn tables_before(&mut self, part: &[u8], shift: &Shift) -> Result<(), Error> {
         if self.archive.index_of(part).is_none() {
             // A sheet this write adds has no relationships part yet.
@@ -3883,14 +3935,19 @@ const TWO_ELEMENTS: Error = Error::Package(
     "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView",
 );
 
+#[cfg(feature = "rowcol")]
 const SHIFT_ALONE: Error = Error::Package(
     "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
 );
+#[cfg(feature = "rowcol")]
 const OFF_GRID: Error = Error::Package("a row or column would be moved off the worksheet");
+#[cfg(feature = "rowcol")]
 const CUTS_FORMULA: Error =
     Error::Package("an insertion or deletion cuts a shared, array or data table formula");
+#[cfg(feature = "rowcol")]
 const TABLE_MOVED: Error =
     Error::Package("an insertion or deletion would move a table or a pivot table");
+#[cfg(feature = "rowcol")]
 const RANGE_UNPARSED: Error =
     Error::Package("a range an insertion or deletion would move does not parse");
 
@@ -6190,6 +6247,7 @@ fn cols_written(
 /// One insertion or deletion of rows (`specs/0018-rows-and-columns.md`,
 /// "The shift rule"): `count` indices at `at`, on an axis whose last index
 /// is `limit`.
+#[cfg(feature = "rowcol")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Shift {
     insert: bool,
@@ -6199,6 +6257,7 @@ struct Shift {
 }
 
 /// What the shift rule does to an interval `[a, b]` on its axis.
+#[cfg(feature = "rowcol")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Moved {
     /// Unchanged or moved whole, to these bounds (which may pass the
@@ -6211,6 +6270,7 @@ enum Moved {
     Gone,
 }
 
+#[cfg(feature = "rowcol")]
 impl Shift {
     /// Where the index `i` goes, `None` when a deletion removes it. The
     /// answer may pass the grid; the caller refuses or clips.
@@ -6285,6 +6345,7 @@ impl Shift {
 }
 
 /// A range the rule reads, parsed, or the P2 ruling 2 refusal.
+#[cfg(feature = "rowcol")]
 fn shift_area(value: &[u8]) -> Result<Area, Error> {
     Area::parse(value).ok_or(RANGE_UNPARSED)
 }
@@ -6292,6 +6353,7 @@ fn shift_area(value: &[u8]) -> Result<Area, Error> {
 /// A space-separated list of ranges through the rule: `None` when every
 /// range is removed, else the list as P2 ruling 4 writes it, the input's
 /// own bytes when nothing changed.
+#[cfg(feature = "rowcol")]
 fn shifted_list(value: &[u8], shift: &Shift) -> Result<Option<Vec<u8>>, Error> {
     let mut kept: Vec<Vec<u8>> = Vec::new();
     let mut changed = false;
@@ -6322,6 +6384,7 @@ fn shifted_list(value: &[u8], shift: &Shift) -> Result<Option<Vec<u8>>, Error> {
 /// A start tag with the unprefixed attribute `name`, when it has one, run
 /// through the list rule: `Ok(None)` when the list empties, the tag
 /// unchanged when it has no such attribute.
+#[cfg(feature = "rowcol")]
 fn list_tag(
     raw: &[u8],
     name: &[u8],
@@ -6340,6 +6403,7 @@ fn list_tag(
 
 /// A counted container held whole while its children go through the rule:
 /// `mergeCells` or `dataValidations` (P1 verification ruling 4).
+#[cfg(feature = "rowcol")]
 struct CountedBuffer {
     depth: usize,
     start: Vec<u8>,
@@ -6348,6 +6412,7 @@ struct CountedBuffer {
     kept: u64,
 }
 
+#[cfg(feature = "rowcol")]
 impl CountedBuffer {
     /// The container with `count` set to the children it keeps, or nothing
     /// when it keeps none.
@@ -6371,6 +6436,7 @@ impl CountedBuffer {
 /// written when the first kept hyperlink arrives, and the bytes held since
 /// the last kept child, so an emptied container is dropped without being
 /// held whole.
+#[cfg(feature = "rowcol")]
 struct LinksBuffer {
     depth: usize,
     start: Vec<u8>,
@@ -6389,6 +6455,7 @@ struct LinksBuffer {
 /// `autoFilter ref`) through the rule, dropped when it removes them, the
 /// counts following and an emptied container dropped. Every other byte is
 /// the input's.
+#[cfg(feature = "rowcol")]
 fn shift_worksheet(
     archive: &mut Core,
     index: usize,
@@ -6398,6 +6465,7 @@ fn shift_worksheet(
 }
 
 /// [`shift_worksheet`]'s work on any reader of a worksheet's bytes.
+#[cfg(feature = "rowcol")]
 fn shift_worksheet_from(
     input: impl Read,
     index: usize,
@@ -6709,6 +6777,7 @@ fn shift_worksheet_from(
 /// unchanged when it lies wholly inside a deletion (the row is dropped
 /// with it, P2 ruling 1); a moved end past the grid is a grow (P2 ruling
 /// 5). Every other formula tag is its bytes.
+#[cfg(feature = "rowcol")]
 fn shifted_formula(
     raw: &[u8],
     shift: &Shift,
@@ -6759,6 +6828,7 @@ fn shifted_formula(
 
 /// The `ref` a table part's root carries, or a pivot table part's first
 /// `<location>`, read by a pass over the part's tokens.
+#[cfg(feature = "rowcol")]
 fn part_ref(archive: &mut Core, index: usize, location: bool) -> Result<Option<Vec<u8>>, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
