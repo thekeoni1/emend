@@ -426,11 +426,12 @@ impl Area {
         }
     }
 
-    /// The number of cells the area covers.
+    /// The number of cells the area covers, `u64::MAX` for an area built by
+    /// hand so large that `u64` cannot count it.
     pub fn cells(&self) -> u64 {
         let rows = u64::from(self.last.row.abs_diff(self.first.row)) + 1;
         let cols = u64::from(self.last.col.abs_diff(self.first.col)) + 1;
-        rows * cols
+        rows.saturating_mul(cols)
     }
 
     /// The same area with `first` the smaller row and column.

@@ -405,9 +405,11 @@
 //!   attribute this layer does not model, and a set on a worksheet without
 //!   `<sheetData>`. An unedited cell is copied raw, whatever it carries.
 //! - A worksheet is rewritten at most once per write, in one streaming pass
-//!   that holds one token and the sorted edits, and, when a write edits
-//!   them, the part's `<cols>` and `<mergeCells>` elements whole
-//!   (`specs/0018-rows-and-columns.md`). The edits themselves are
+//!   that holds one token and the sorted edits. A root child the write
+//!   counts or reorders is held whole, bounded by that element's own size
+//!   and never by the sheet's rows: `<cols>` and `<mergeCells>` when a write
+//!   edits them; no row is held whole (`specs/0018-rows-and-columns.md`, P1
+//!   verification ruling 4). The edits themselves are
 //!   held in memory, in a `Vec` in call order, so a caller that records more
 //!   edits than its address space holds cannot.
 //!

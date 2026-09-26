@@ -797,7 +797,12 @@ fn indices_sizes_and_a_freeze_at_a1_are_refused_at_the_call() {
             .expect_err("off the grid"),
         index,
     );
-    // The limits themselves are accepted, and nothing refused was recorded.
+    // Nothing refused was recorded: the write is the input's bytes
+    // (specs/0018 P1 verification ruling 6, F7).
+    let out = written(package);
+    assert_untouched(&out, &smallest(), &[]);
+    // The limits themselves are accepted.
+    let (_, mut package) = opened(smallest());
     package
         .set_column_width(SHEET, 16_384, Some(255.0))
         .expect("the last column");
@@ -841,4 +846,53 @@ fn an_edit_on_a_removed_or_replaced_part_is_refused() {
             "a cell edit to a part this write replaces",
         );
     }
+}
+
+#[test]
+fn an_area_cell_count_saturates_rather_than_overflowing() {
+    // specs/0018 P1 verification ruling 6 (F6): a hand-built area can make
+    // each side 2^32, whose product u64 cannot hold.
+    let wide = Area {
+        first: CellRef { row: 0, col: 0 },
+        last: CellRef {
+            row: u32::MAX,
+            col: u32::MAX,
+        },
+    };
+    assert_eq!(wide.cells(), u64::MAX);
+    let grid = Area {
+        first: at("A1"),
+        last: CellRef {
+            row: 1_048_576,
+            col: 16_384,
+        },
+    };
+    assert_eq!(grid.cells(), 1_048_576 * 16_384);
+}
+
+#[test]
+fn a_pending_sheet_removed_drops_its_format_pane_and_merge_edits() {
+    // specs/0018 P1 verification ruling 6 (F5): the edits recorded on a
+    // sheet added and removed again go with it, so the write is the input.
+    let (parts, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add");
+    package
+        .set_column_width(&part, 2, Some(9.0))
+        .expect("recorded");
+    package.set_column_hidden(&part, 3, true).expect("recorded");
+    package
+        .set_row_height(&part, 2, Some(30.0))
+        .expect("recorded");
+    package.set_row_hidden(&part, 3, true).expect("recorded");
+    package
+        .freeze_panes(&part, Some(at("B2")))
+        .expect("recorded");
+    package.merge_cells(&part, area("A1:B1")).expect("recorded");
+    package
+        .unmerge_cells(&part, area("C1:D1"))
+        .expect("recorded");
+    package.remove_sheet("Two").expect("remove");
+    let out = written(package);
+    assert_names(&out, &part_names(&parts));
+    assert_untouched(&out, &parts, &[]);
 }
