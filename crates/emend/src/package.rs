@@ -230,6 +230,47 @@
 //! (`new_is_the_empty_archive_with_the_template_added` shows the bytes it
 //! opens are the ones its recipe writes).
 //!
+//! Rows and columns add these (`specs/0018-rows-and-columns.md`, "Errors",
+//! and P1 rulings 3, 4 and 6); the first four are raised by the calls that
+//! record an edit, the rest by [`Package::write_to`]. The formats, panes and
+//! merges also meet "a worksheet without sheetData cannot be edited", "a cell
+//! in a shared, array or data table formula cannot be edited", "a cell
+//! carries an attribute this layer does not model", "an edit to a removed
+//! part" and "a cell edit to a part this write replaces" (P1 rulings 7 and 8;
+//! `rowcol::a_row_format_on_a_part_without_sheet_data_is_refused`,
+//! `a_covered_cell_in_an_array_or_with_an_unmodelled_attribute_is_refused`,
+//! `an_edit_on_a_removed_or_replaced_part_is_refused`):
+//!
+//! - "a row or column index or count is out of range"
+//!   (`rowcol::indices_sizes_and_a_freeze_at_a1_are_refused_at_the_call`,
+//!   `a_merge_of_one_cell_or_off_the_grid_is_refused_at_the_call`).
+//! - "a column width or a row height is out of range"
+//!   (`rowcol::indices_sizes_and_a_freeze_at_a1_are_refused_at_the_call`).
+//! - "a freeze at A1 freezes nothing"
+//!   (`rowcol::indices_sizes_and_a_freeze_at_a1_are_refused_at_the_call`).
+//! - "a merge needs more than one cell"
+//!   (`rowcol::a_merge_of_one_cell_or_off_the_grid_is_refused_at_the_call`).
+//! - "a merge overlaps a merge the worksheet has, or a mergeCell ref does not parse"
+//!   (`rowcol::a_merge_overlapping_a_merge_is_refused`), for a merge the part
+//!   has, one recorded earlier in the same write, and a `<mergeCell>` whose
+//!   `ref` is not an area (P1 ruling 4).
+//! - "no merge of that range"
+//!   (`rowcol::an_unmerge_removes_its_merge_refuses_an_absent_one_and_drops_the_last`),
+//!   the file's merges alone being matched (P1 ruling 5).
+//! - "a cell edit inside a merge this write records"
+//!   (`rowcol::a_cell_edit_inside_a_pending_merge_is_refused_and_the_top_left_is_not`).
+//! - "a worksheet whose cols are out of order or overlap cannot be edited"
+//!   (`rowcol::cols_out_of_order_overlapping_malformed_or_doubled_are_refused`),
+//!   also for a `<col>` lacking `min` or `max`, with either not a decimal
+//!   `u32`, a `min` of 0 or a `min` above `max` (P1 ruling 3).
+//! - "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView"
+//!   (`rowcol::cols_out_of_order_overlapping_malformed_or_doubled_are_refused`,
+//!   `sheet_views_without_a_sheet_view_or_doubled_is_refused`,
+//!   `an_unmerge_removes_its_merge_refuses_an_absent_one_and_drops_the_last`,
+//!   and for an element the write created and then met in an input out of
+//!   schema order, `an_element_created_and_then_met_in_the_input_is_refused`,
+//!   P1 ruling 2).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -352,9 +393,11 @@
 //!   [`Package::drop_calc_chain`]'s recipe: the chain would otherwise name a
 //!   cell with no formula. Nothing else about calculation changes.
 //! - `<dimension>` and a row's `spans` are not updated when a new cell lies
-//!   outside them. `<cols>`, merged cells, tables, data validation and
-//!   conditional formatting are copied raw and never adjusted. No row or
-//!   column is inserted or deleted, so no reference is fixed up.
+//!   outside them. A cell edit copies `<cols>`, merged cells, tables, data
+//!   validation and conditional formatting raw and never adjusts them; only
+//!   the column formats and the merge calls of
+//!   `specs/0018-rows-and-columns.md` rewrite `<cols>` and `<mergeCells>`.
+//!   No row or column is inserted or deleted, so no reference is fixed up.
 //! - A worksheet the rewrite cannot place an edit in safely is refused, not
 //!   repaired: a row or cell without `r`, rows or cells out of order, an
 //!   array or data table `ref` whose extent does not parse (edited or not),
@@ -362,7 +405,9 @@
 //!   attribute this layer does not model, and a set on a worksheet without
 //!   `<sheetData>`. An unedited cell is copied raw, whatever it carries.
 //! - A worksheet is rewritten at most once per write, in one streaming pass
-//!   that holds one token and the sorted edits. The edits themselves are
+//!   that holds one token and the sorted edits, and, when a write edits
+//!   them, the part's `<cols>` and `<mergeCells>` elements whole
+//!   (`specs/0018-rows-and-columns.md`). The edits themselves are
 //!   held in memory, in a `Vec` in call order, so a caller that records more
 //!   edits than its address space holds cannot.
 //!
@@ -571,7 +616,9 @@ use quick_xml::escape::escape;
 use quick_xml::events::{BytesStart, Event};
 
 use crate::archive::{Archive, Core, Edits, Error, Replacement, TempFile, replacement_from_reader};
-use crate::cells::{CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml};
+use crate::cells::{
+    Area, CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml, number_text,
+};
 use crate::styles::{
     Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
     Styles, counted, num_fmt_element, scan_start_tag,
@@ -965,6 +1012,69 @@ struct Recorded {
     /// the list the ones before it project
     /// (`specs/0016-new-workbook-and-sheets.md`, "The projected sheet list").
     sheet_edits: Vec<SheetEdit>,
+    /// `(part, column, field)`: a column's width or hidden flag, in record
+    /// order, so the last for a column wins per field
+    /// (`specs/0018-rows-and-columns.md`, "Module `package`: the calls").
+    column_formats: Vec<(Vec<u8>, u32, LineField)>,
+    /// `(part, row, field)`: a row's height or hidden flag, as
+    /// `column_formats`.
+    row_formats: Vec<(Vec<u8>, u32, LineField)>,
+    /// `(part, at)`: a freeze at `Some(cell)` or an unfreeze, the last for
+    /// a part winning.
+    panes: Vec<(Vec<u8>, Option<CellRef>)>,
+    /// `(part, area)`: a merge, normalised, in record order.
+    merges: Vec<(Vec<u8>, Area)>,
+    /// `(part, area)`: an unmerge, normalised, in record order.
+    unmerges: Vec<(Vec<u8>, Area)>,
+}
+
+/// One field of a column's or a row's format as a call records it.
+#[derive(Clone, Copy)]
+enum LineField {
+    /// A width or a height, `None` to remove it.
+    Size(Option<f64>),
+    Hidden(bool),
+}
+
+/// A column's or a row's format edits in one write, each field the last
+/// recorded: `Some(Some(size))` a size, `Some(None)` its removal, `None` no
+/// size edit; `Some(flag)` the hidden flag set or removed.
+#[derive(Clone, Copy, Default)]
+struct LineFormat {
+    size: Option<Option<f64>>,
+    hidden: Option<bool>,
+}
+
+impl LineFormat {
+    /// Whether the format writes an attribute where there is no element:
+    /// a size, or the hidden flag set.
+    fn writes_when_absent(&self) -> bool {
+        matches!(self.size, Some(Some(_))) || self.hidden == Some(true)
+    }
+}
+
+/// What one worksheet's rewrite applies: its cell edits, sorted, and the
+/// formats, pane and merges recorded for it.
+#[derive(Default)]
+struct SheetWork {
+    cells: Vec<(CellRef, CellEdit)>,
+    /// Row formats by row, ascending.
+    rows: Vec<(u32, LineFormat)>,
+    /// Column formats by column, ascending.
+    columns: Vec<(u32, LineFormat)>,
+    /// `Some(at)` when a freeze or an unfreeze is recorded.
+    pane: Option<Option<CellRef>>,
+    merges: Vec<Area>,
+    unmerges: Vec<Area>,
+}
+
+impl SheetWork {
+    /// The merge other than at its top-left that covers `cell`, if any.
+    fn covers(&self, cell: CellRef) -> bool {
+        self.merges
+            .iter()
+            .any(|area| area.holds(cell) && area.first != cell)
+    }
 }
 
 /// One recorded change to the workbook's list of sheets.
@@ -1172,6 +1282,11 @@ impl Recorded {
             && self.xf_additions.is_empty()
             && !self.recalculate
             && self.sheet_edits.is_empty()
+            && self.column_formats.is_empty()
+            && self.row_formats.is_empty()
+            && self.panes.is_empty()
+            && self.merges.is_empty()
+            && self.unmerges.is_empty()
     }
 
     /// The entries [`Package::add_sheet`] recorded, in record order, whose
@@ -1202,16 +1317,23 @@ impl Recorded {
         })
     }
 
-    /// Every worksheet part with a cell edit, a value edit or a style edit,
-    /// once each: the value edits' parts in the order of each part's first,
-    /// then the style edits' parts not already listed.
+    /// Every worksheet part with an edit, once each: the value edits' parts
+    /// in the order of each part's first, then the style edits' parts, then
+    /// those of the formats, panes, merges and unmerges
+    /// (`specs/0018-rows-and-columns.md`, P1 ruling 7), each not already
+    /// listed.
     fn cell_parts(&self) -> Vec<Vec<u8>> {
         let mut parts: Vec<Vec<u8>> = Vec::new();
         let named = self
             .cell_edits
             .iter()
             .map(|(part, _, _)| part)
-            .chain(self.style_edits.iter().map(|(part, _, _)| part));
+            .chain(self.style_edits.iter().map(|(part, _, _)| part))
+            .chain(self.column_formats.iter().map(|(part, _, _)| part))
+            .chain(self.row_formats.iter().map(|(part, _, _)| part))
+            .chain(self.panes.iter().map(|(part, _)| part))
+            .chain(self.merges.iter().map(|(part, _)| part))
+            .chain(self.unmerges.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -1236,6 +1358,43 @@ impl Recorded {
             }
         }
         sorted.into_iter().collect()
+    }
+
+    /// Everything one worksheet's rewrite applies.
+    fn sheet_work(&self, part: &[u8]) -> SheetWork {
+        let lines = |recorded: &[(Vec<u8>, u32, LineField)]| {
+            let mut sorted: BTreeMap<u32, LineFormat> = BTreeMap::new();
+            for (at, index, field) in recorded {
+                if at.as_slice() == part {
+                    let format = sorted.entry(*index).or_default();
+                    match field {
+                        LineField::Size(size) => format.size = Some(*size),
+                        LineField::Hidden(hidden) => format.hidden = Some(*hidden),
+                    }
+                }
+            }
+            sorted.into_iter().collect()
+        };
+        let areas = |recorded: &[(Vec<u8>, Area)]| -> Vec<Area> {
+            recorded
+                .iter()
+                .filter(|(at, _)| at.as_slice() == part)
+                .map(|(_, area)| *area)
+                .collect()
+        };
+        SheetWork {
+            cells: self.cell_edits_of(part),
+            rows: lines(&self.row_formats),
+            columns: lines(&self.column_formats),
+            pane: self
+                .panes
+                .iter()
+                .rev()
+                .find(|(at, _)| at.as_slice() == part)
+                .map(|(_, pane)| *pane),
+            merges: areas(&self.merges),
+            unmerges: areas(&self.unmerges),
+        }
     }
 
     /// Every source whose rels part this set changes, once each, in order.
@@ -1713,6 +1872,141 @@ impl<R: Read + Seek> Package<R> {
     /// part.
     pub fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
         self.parts().set_cell_style(part, reference, style)
+    }
+
+    /// Records the width of `column` in the worksheet part `part`:
+    /// `Some(w)` writes `width="w" customWidth="1"` on the `<col>` that
+    /// covers the column, `None` removes both.
+    ///
+    /// `specs/0018-rows-and-columns.md`, "Module `package`: the calls". The
+    /// column is 1-based. Nothing is read here; the last width recorded for
+    /// a column wins. [`Package::write_to`] splits a `<col>` that covers
+    /// more than the column so that the column alone carries the change,
+    /// creates one where none covers it, and drops one left with `min` and
+    /// `max` alone.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a column outside `1..=16384`; "a column width or a row height is
+    /// out of range" for a width that is not finite or lies outside
+    /// `0..=255`. Nothing is recorded when this fails.
+    pub fn set_column_width(
+        &mut self,
+        part: &[u8],
+        column: u32,
+        width: Option<f64>,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, column, LineField::Size(width), false)
+    }
+
+    /// Records `column` in the worksheet part `part` hidden or shown:
+    /// `hidden="1"` set on, or removed from, the `<col>` that covers it, as
+    /// [`Package::set_column_width`] places a width.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a column outside `1..=16384`. Nothing is recorded when this fails.
+    pub fn set_column_hidden(
+        &mut self,
+        part: &[u8],
+        column: u32,
+        hidden: bool,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, column, LineField::Hidden(hidden), false)
+    }
+
+    /// Records the height of `row` in the worksheet part `part`: `Some(h)`
+    /// writes `ht="h" customHeight="1"` on the `<row>`, `None` removes both.
+    ///
+    /// A row the part does not have is created, empty unless a cell edit
+    /// falls in it; a row present is retagged, its other attributes and its
+    /// children kept. Nothing is read here; the last height recorded for a
+    /// row wins.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a row outside `1..=1048576`; "a column width or a row height is
+    /// out of range" for a height that is not finite or lies outside
+    /// `0..=409`. Nothing is recorded when this fails.
+    pub fn set_row_height(
+        &mut self,
+        part: &[u8],
+        row: u32,
+        height: Option<f64>,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, row, LineField::Size(height), true)
+    }
+
+    /// Records `row` in the worksheet part `part` hidden or shown:
+    /// `hidden="1"` set on, or removed from, the `<row>`, placed as
+    /// [`Package::set_row_height`] places a height.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a row outside `1..=1048576`. Nothing is recorded when this fails.
+    pub fn set_row_hidden(&mut self, part: &[u8], row: u32, hidden: bool) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, row, LineField::Hidden(hidden), true)
+    }
+
+    /// Records the worksheet part `part` frozen at `at`: `Some(c)` freezes
+    /// the rows above `c` and the columns left of it, `None` unfreezes.
+    ///
+    /// `specs/0018-rows-and-columns.md`, "Module `package`: the calls". The
+    /// write replaces the first `<sheetView>`'s `<pane>` and every
+    /// `<selection>` in it with a frozen pane and one selection naming the
+    /// pane, or for `None` removes them and writes nothing; a `<sheetViews>`
+    /// that is absent is created for `Some`. The last recorded for a part
+    /// wins.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a freeze at A1 freezes nothing"; "a row or column
+    /// index or count is out of range" for a cell outside the grid. Nothing
+    /// is recorded when this fails.
+    pub fn freeze_panes(&mut self, part: &[u8], at: Option<CellRef>) -> Result<(), Error> {
+        self.parts().freeze_panes(part, at)
+    }
+
+    /// Records `area` in the worksheet part `part` merged.
+    ///
+    /// `specs/0018-rows-and-columns.md`, "Module `package`: the calls". The
+    /// write appends a `<mergeCell>` to `<mergeCells>`, created when absent,
+    /// and sets its `count`. The covered cells other than the top-left lose
+    /// their value and formula and keep their `s`, as
+    /// [`Package::clear_cell`] leaves a cell. The corners are normalised
+    /// here.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a merge needs more than one cell"; "a row or
+    /// column index or count is out of range" for an area outside the grid.
+    /// Nothing is recorded when this fails. The write refuses an area that
+    /// overlaps a merge the part has or one recorded before it, and a cell
+    /// edit recorded for a covered cell other than the top-left.
+    pub fn merge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
+        self.parts().merge_cells(part, area)
+    }
+
+    /// Records the merge of exactly `area` in the worksheet part `part`
+    /// removed; nothing is written into the cells. A `<mergeCells>` left
+    /// empty is dropped. The corners are normalised here.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for an area outside the grid. Nothing is recorded when this fails.
+    /// The write refuses an area the file's merges do not hold, "no merge of
+    /// that range".
+    pub fn unmerge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
+        self.parts().unmerge_cells(part, area)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -2347,6 +2641,71 @@ impl<'a> Parts<'a> {
             .push((part.to_vec(), reference, style));
     }
 
+    /// The body of the four format calls: a column's (`row` false) or a
+    /// row's width, height or hidden flag.
+    fn line_format(
+        &mut self,
+        part: &[u8],
+        index: u32,
+        field: LineField,
+        row: bool,
+    ) -> Result<(), Error> {
+        let limit = if row { GRID_ROWS } else { GRID_COLUMNS };
+        if !(1..=limit).contains(&index) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        if let LineField::Size(Some(size)) = field {
+            let most = if row { 409.0 } else { 255.0 };
+            if !size.is_finite() || !(0.0..=most).contains(&size) {
+                return Err(SIZE_OUT_OF_RANGE);
+            }
+        }
+        let recorded = if row {
+            &mut self.edits.row_formats
+        } else {
+            &mut self.edits.column_formats
+        };
+        recorded.push((part.to_vec(), index, field));
+        Ok(())
+    }
+
+    /// The body of [`Package::freeze_panes`].
+    fn freeze_panes(&mut self, part: &[u8], at: Option<CellRef>) -> Result<(), Error> {
+        if let Some(cell) = at {
+            if !in_grid(cell) {
+                return Err(INDEX_OUT_OF_RANGE);
+            }
+            if cell.row == 1 && cell.col == 1 {
+                return Err(FREEZE_AT_A1);
+            }
+        }
+        self.edits.panes.push((part.to_vec(), at));
+        Ok(())
+    }
+
+    /// The body of [`Package::merge_cells`].
+    fn merge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
+        let area = area.normalised();
+        if !in_grid(area.first) || !in_grid(area.last) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        if area.cells() < 2 {
+            return Err(MERGE_ONE_CELL);
+        }
+        self.edits.merges.push((part.to_vec(), area));
+        Ok(())
+    }
+
+    /// The body of [`Package::unmerge_cells`].
+    fn unmerge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
+        let area = area.normalised();
+        if !in_grid(area.first) || !in_grid(area.last) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        self.edits.unmerges.push((part.to_vec(), area));
+        Ok(())
+    }
+
     /// The body of [`Package::recalculate_on_open`].
     fn recalculate_on_open(&mut self) {
         self.edits.recalculate = true;
@@ -2623,6 +2982,11 @@ impl<'a> Parts<'a> {
             .retain(|(source, rel)| !(source == workbook && rel.id == sheet.rel_id));
         self.edits.cell_edits.retain(|(at, _, _)| at != part);
         self.edits.style_edits.retain(|(at, _, _)| at != part);
+        self.edits.column_formats.retain(|(at, _, _)| at != part);
+        self.edits.row_formats.retain(|(at, _, _)| at != part);
+        self.edits.panes.retain(|(at, _)| at != part);
+        self.edits.merges.retain(|(at, _)| at != part);
+        self.edits.unmerges.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -2640,11 +3004,11 @@ impl<'a> Parts<'a> {
         let mut changed_formula = self.edits.writes_formula();
         let added_sheets = self.edits.added_sheet_parts();
         for part in self.edits.cell_parts() {
-            let sorted = self.edits.cell_edits_of(&part);
+            let work = self.edits.sheet_work(&part);
             match self.archive.index_of(&part) {
                 Some(index) => {
                     let (temp, replacement, removed) =
-                        rewrite_worksheet(self.archive, index, &sorted)?;
+                        rewrite_worksheet(self.archive, index, &work)?;
                     changed_formula |= removed;
                     temporaries.push(temp);
                     edits.replace(index, replacement);
@@ -2662,7 +3026,7 @@ impl<'a> Parts<'a> {
                         .ok_or(NO_SUCH_PART)?;
                     let index = self.archive.entries().len() + slot;
                     let (temp, replacement, removed) =
-                        rewrite_worksheet_from(BLANK_WORKSHEET, index, &sorted)?;
+                        rewrite_worksheet_from(BLANK_WORKSHEET, index, &work)?;
                     changed_formula |= removed;
                     temporaries.push(temp);
                     self.edits.part_additions[slot].1 = replacement;
@@ -2967,6 +3331,29 @@ impl<'a> Parts<'a> {
         for (_, _, value) in &self.edits.cell_edits {
             if let Some(value) = value {
                 value.check()?;
+            }
+        }
+
+        // A merge overlaps no merge recorded before it for its part, and no
+        // cell edit is recorded for a cell a merge covers other than its
+        // top-left (`specs/0018-rows-and-columns.md`, "Merges", and P1 ruling
+        // 5). The file's own merges are checked by the rewrite.
+        for part in self.edits.cell_parts() {
+            let work = self.edits.sheet_work(&part);
+            for (at, merge) in work.merges.iter().enumerate() {
+                if work.merges[..at]
+                    .iter()
+                    .any(|before| before.overlaps(merge))
+                {
+                    return Err(MERGE_OVERLAP);
+                }
+            }
+            if work
+                .cells
+                .iter()
+                .any(|(reference, _)| work.covers(*reference))
+            {
+                return Err(EDIT_IN_MERGE);
             }
         }
 
@@ -3315,6 +3702,31 @@ const SHEETS_NOT_SHEETS: Error =
 const SHEET_ADDED_TO_PREFIXED: Error =
     Error::Package("a sheet cannot be added to a prefixed workbook");
 const SHEET_EDIT_STALE: Error = Error::Package("a sheet edit no longer applies at the write");
+const INDEX_OUT_OF_RANGE: Error = Error::Package("a row or column index or count is out of range");
+const SIZE_OUT_OF_RANGE: Error = Error::Package("a column width or a row height is out of range");
+const FREEZE_AT_A1: Error = Error::Package("a freeze at A1 freezes nothing");
+const MERGE_ONE_CELL: Error = Error::Package("a merge needs more than one cell");
+const MERGE_OVERLAP: Error =
+    Error::Package("a merge overlaps a merge the worksheet has, or a mergeCell ref does not parse");
+const NO_SUCH_MERGE: Error = Error::Package("no merge of that range");
+const EDIT_IN_MERGE: Error = Error::Package("a cell edit inside a merge this write records");
+const COLS_DISORDER: Error =
+    Error::Package("a worksheet whose cols are out of order or overlap cannot be edited");
+const TWO_ELEMENTS: Error = Error::Package(
+    "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView",
+);
+
+/// The grid a worksheet's indices lie in, as the `xlsx` format's
+/// applications bound it (`specs/0018-rows-and-columns.md`, "Module
+/// `package`: the calls").
+const GRID_ROWS: u32 = 1_048_576;
+const GRID_COLUMNS: u32 = 16_384;
+
+/// Whether a cell lies inside the grid.
+fn in_grid(cell: CellRef) -> bool {
+    (1..=GRID_ROWS).contains(&cell.row) && (1..=GRID_COLUMNS).contains(&cell.col)
+}
+
 const WORKBOOK_REPLACED: Error =
     Error::Package("the workbook part cannot be edited in a package that replaces or removes it");
 
@@ -4334,45 +4746,16 @@ fn full_calc_tag(raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
     Ok(out)
 }
 
-/// A rectangle of cells, both corners included: an array formula's `ref`.
-#[derive(Clone, Copy)]
-struct Area {
-    first: CellRef,
-    last: CellRef,
-}
-
-impl Area {
-    /// Reads `A1:B2` or `A1`; `None` for anything else, so the caller refuses
-    /// a formula whose extent it cannot know.
-    fn parse(value: &[u8]) -> Option<Self> {
-        let mut halves = value.splitn(2, |byte| *byte == b':');
-        let a = CellRef::parse(halves.next()?)?;
-        let b = match halves.next() {
-            Some(half) => CellRef::parse(half)?,
-            None => a,
-        };
-        Some(Area {
-            first: CellRef {
-                row: a.row.min(b.row),
-                col: a.col.min(b.col),
-            },
-            last: CellRef {
-                row: a.row.max(b.row),
-                col: a.col.max(b.col),
-            },
-        })
-    }
-
-    fn holds(&self, cell: CellRef) -> bool {
-        (self.first.row..=self.last.row).contains(&cell.row)
-            && (self.first.col..=self.last.col).contains(&cell.col)
-    }
-}
-
-/// One worksheet's cell edits, sorted, and how far the rewrite has come.
+/// One worksheet's cell edits and row formats, sorted, and how far the
+/// rewrite has come through each.
 struct Pending<'e> {
     edits: &'e [(CellRef, CellEdit)],
     next: usize,
+    /// The row formats by row (`specs/0018-rows-and-columns.md`).
+    rows: &'e [(u32, LineFormat)],
+    next_row: usize,
+    /// The entry's index, for an error.
+    index: usize,
 }
 
 impl Pending<'_> {
@@ -4386,6 +4769,28 @@ impl Pending<'_> {
         self.edits[self.next..].iter().any(|(reference, edit)| {
             edit.writes_when_absent() && row.is_none_or(|r| reference.row == r)
         })
+    }
+
+    /// Whether anything still pending writes a row where there is none: a
+    /// cell a set or a style writes, or a row format that writes an
+    /// attribute.
+    fn opens_rows(&self) -> bool {
+        self.sets(None)
+            || self.rows[self.next_row..]
+                .iter()
+                .any(|(_, format)| format.writes_when_absent())
+    }
+
+    /// The format recorded for `row`, taken, when the next pending one is
+    /// for it.
+    fn take_row_format(&mut self, row: u32) -> Option<LineFormat> {
+        match self.rows.get(self.next_row) {
+            Some((at, format)) if *at == row => {
+                self.next_row += 1;
+                Some(*format)
+            }
+            _ => None,
+        }
     }
 
     /// Writes the cells pending in `row` before column `before` (all of the
@@ -4422,8 +4827,10 @@ impl Pending<'_> {
     }
 
     /// Writes a new `<row>` for every pending row before `row` (every row
-    /// left with `None`) that sets a cell; one with clears alone writes
-    /// nothing. `prefix` is the `<sheetData>`'s, which the rows take.
+    /// left with `None`) that sets a cell or whose format writes an
+    /// attribute; one with clears alone, or a format that only removes,
+    /// writes nothing. A row with a format and no cell is written empty.
+    /// `prefix` is the `<sheetData>`'s, which the rows take.
     fn write_rows(
         &mut self,
         out: &mut impl Write,
@@ -4431,25 +4838,110 @@ impl Pending<'_> {
         arrays: &[Area],
         prefix: &[u8],
     ) -> Result<(), Error> {
-        while let Some(next) = self.peek() {
-            if row.is_some_and(|r| next.row >= r) {
+        loop {
+            let cell_row = self.peek().map(|reference| reference.row);
+            let format_row = self.rows.get(self.next_row).map(|(at, _)| *at);
+            let next = match (cell_row, format_row) {
+                (Some(a), Some(b)) => a.min(b),
+                (Some(a), None) => a,
+                (None, Some(b)) => b,
+                (None, None) => break,
+            };
+            if row.is_some_and(|r| next >= r) {
                 break;
             }
-            let opens = self.sets(Some(next.row));
-            if opens {
-                out.write_all(b"<")?;
-                out.write_all(prefix)?;
-                out.write_all(format!("row r=\"{}\">", next.row).as_bytes())?;
-            }
-            self.write_row(out, next.row, None, arrays, prefix)?;
-            if opens {
-                out.write_all(b"</")?;
-                out.write_all(prefix)?;
-                out.write_all(b"row>")?;
+            let format = self.take_row_format(next);
+            let sets = self.sets(Some(next));
+            if sets || format.is_some_and(|format| format.writes_when_absent()) {
+                let close: &[u8] = if sets { b">" } else { b"/>" };
+                let mut tag = [b"<".as_slice(), prefix, b"row r=\""].concat();
+                tag.extend_from_slice(next.to_string().as_bytes());
+                tag.push(b'"');
+                tag.extend_from_slice(close);
+                if let Some(format) = format {
+                    tag = line_formatted(&tag, &format, ROW_SIZE, self.index)?;
+                }
+                out.write_all(&tag)?;
+                if sets {
+                    self.write_row(out, next, None, arrays, prefix)?;
+                    out.write_all(&[b"</".as_slice(), prefix, b"row>"].concat())?;
+                }
+            } else {
+                self.write_row(out, next, None, arrays, prefix)?;
             }
         }
         Ok(())
     }
+}
+
+/// The size attribute and its custom flag of a row, and of a column.
+const ROW_SIZE: [&[u8]; 2] = [b"ht", b"customHeight"];
+const COLUMN_SIZE: [&[u8]; 2] = [b"width", b"customWidth"];
+
+/// A `<row>` or `<col>` start tag with a format applied, every other byte
+/// kept: a size set writes `size` and `custom="1"` (replaced in place or
+/// appended), a size removed drops both, and the hidden flag is set as
+/// `hidden="1"` or dropped (`specs/0018-rows-and-columns.md`, "Module
+/// `package`: the calls").
+fn line_formatted(
+    raw: &[u8],
+    format: &LineFormat,
+    names: [&[u8]; 2],
+    index: usize,
+) -> Result<Vec<u8>, Error> {
+    let mut tag = raw.to_vec();
+    match format.size {
+        Some(Some(size)) => {
+            tag = with_attribute(&tag, names[0], number_text(size).as_bytes(), index)?;
+            tag = with_attribute(&tag, names[1], b"1", index)?;
+        }
+        Some(None) => {
+            tag = without_attribute(&tag, names[0], index)?;
+            tag = without_attribute(&tag, names[1], index)?;
+        }
+        None => {}
+    }
+    match format.hidden {
+        Some(true) => tag = with_attribute(&tag, b"hidden", b"1", index)?,
+        Some(false) => tag = without_attribute(&tag, b"hidden", index)?,
+        None => {}
+    }
+    Ok(tag)
+}
+
+/// A start tag without the unprefixed attribute `name` and the whitespace
+/// before it, every other byte kept; the tag as it is when `name` is absent.
+fn without_attribute(raw: &[u8], name: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    let Some(present) = tag
+        .attributes
+        .iter()
+        .find(|attribute| &raw[attribute.name.clone()] == name)
+    else {
+        return Ok(raw.to_vec());
+    };
+    let mut from = present.name.start;
+    while from > 0 && matches!(raw[from - 1], b' ' | b'\t' | b'\n' | b'\r') {
+        from -= 1;
+    }
+    let mut out = raw[..from].to_vec();
+    // The closing quote follows the value.
+    out.extend_from_slice(&raw[present.value.end + 1..]);
+    Ok(out)
+}
+
+/// The value of the unprefixed attribute `name` in a start tag, as written.
+fn attribute_value<'r>(
+    raw: &'r [u8],
+    name: &[u8],
+    index: usize,
+) -> Result<Option<&'r [u8]>, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    Ok(tag
+        .attributes
+        .iter()
+        .find(|attribute| &raw[attribute.name.clone()] == name)
+        .map(|attribute| &raw[attribute.value.clone()]))
 }
 
 /// What the rewrite does with the `<c>` it is inside.
@@ -4632,8 +5124,345 @@ fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Fo
     }
 }
 
-/// Rewrites one worksheet part with its cell edits into a temporary file,
-/// and says whether any edit removed a formula.
+/// The root children of a worksheet in the order ECMA-376 Part 1,
+/// 18.3.1.99 gives them: an element the rewrite creates goes immediately
+/// before the first root child of the main namespace that comes later here,
+/// or before the root's end tag when none does
+/// (`specs/0018-rows-and-columns.md`, "Creating an element").
+const WORKSHEET_CHILDREN: [&[u8]; 39] = [
+    b"sheetPr",
+    b"dimension",
+    b"sheetViews",
+    b"sheetFormatPr",
+    b"cols",
+    b"sheetData",
+    b"sheetCalcPr",
+    b"sheetProtection",
+    b"protectedRanges",
+    b"scenarios",
+    b"autoFilter",
+    b"sortState",
+    b"dataConsolidate",
+    b"customSheetViews",
+    b"mergeCells",
+    b"phoneticPr",
+    b"conditionalFormatting",
+    b"dataValidations",
+    b"hyperlinks",
+    b"printOptions",
+    b"pageMargins",
+    b"pageSetup",
+    b"headerFooter",
+    b"rowBreaks",
+    b"colBreaks",
+    b"customProperties",
+    b"cellWatches",
+    b"ignoredErrors",
+    b"smartTags",
+    b"drawing",
+    b"legacyDrawing",
+    b"legacyDrawingHF",
+    b"drawingHF",
+    b"picture",
+    b"oleObjects",
+    b"controls",
+    b"webPublishItems",
+    b"tableParts",
+    b"extLst",
+];
+
+/// The three root children a worksheet rewrite may create, in schema order.
+const CREATED: [&[u8]; 3] = [b"sheetViews", b"cols", b"mergeCells"];
+const VIEWS: usize = 0;
+const COLS: usize = 1;
+const MERGES: usize = 2;
+
+/// A root child's place in [`WORKSHEET_CHILDREN`].
+fn schema_position(local: &[u8]) -> Option<usize> {
+    WORKSHEET_CHILDREN.iter().position(|name| *name == local)
+}
+
+/// The frozen pane and its one selection for a freeze at `at`, with
+/// `prefix` on both names (`specs/0018-rows-and-columns.md`, "Panes").
+fn pane_elements(at: CellRef, prefix: &[u8]) -> Vec<u8> {
+    let active: &[u8] = match (at.col > 1, at.row > 1) {
+        (true, true) => b"bottomRight",
+        (true, false) => b"topRight",
+        (false, _) => b"bottomLeft",
+    };
+    let mut out = [b"<".as_slice(), prefix, b"pane"].concat();
+    if at.col > 1 {
+        out.extend_from_slice(format!(" xSplit=\"{}\"", at.col - 1).as_bytes());
+    }
+    if at.row > 1 {
+        out.extend_from_slice(format!(" ySplit=\"{}\"", at.row - 1).as_bytes());
+    }
+    out.extend_from_slice(b" topLeftCell=\"");
+    out.extend_from_slice(at.a1().as_bytes());
+    out.extend_from_slice(b"\" activePane=\"");
+    out.extend_from_slice(active);
+    out.extend_from_slice(b"\" state=\"frozen\"/><");
+    out.extend_from_slice(prefix);
+    out.extend_from_slice(b"selection pane=\"");
+    out.extend_from_slice(active);
+    out.extend_from_slice(b"\"/>");
+    out
+}
+
+/// A `<mergeCell>` for `area`, with `prefix` on its name.
+fn merge_element(area: &Area, prefix: &[u8]) -> Vec<u8> {
+    let mut out = [b"<".as_slice(), prefix, b"mergeCell ref=\""].concat();
+    out.extend_from_slice(area.a1().as_bytes());
+    out.extend_from_slice(b"\"/>");
+    out
+}
+
+/// One piece of a `<cols>` held while it is rewritten.
+enum ColItem {
+    /// A `<col>`: its start tag, whatever follows up to and including its
+    /// end tag (nothing for an empty element), and its interval.
+    Col {
+        start: Vec<u8>,
+        rest: Vec<u8>,
+        min: u32,
+        max: u32,
+    },
+    /// Anything else among the children, copied.
+    Other(Vec<u8>),
+}
+
+/// A `<cols>` being read: its start tag, its prefix, its children so far,
+/// and whether the last `<col>` is still open.
+struct ColsBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    items: Vec<ColItem>,
+    open: bool,
+}
+
+impl ColsBuffer {
+    /// Where a token's bytes go: the open `<col>`'s tail, or a piece of its
+    /// own.
+    fn push(&mut self, raw: &[u8]) {
+        match self.items.last_mut() {
+            Some(ColItem::Col { rest, .. }) if self.open => rest.extend_from_slice(raw),
+            _ => self.items.push(ColItem::Other(raw.to_vec())),
+        }
+    }
+}
+
+/// A `<col>`'s `min` and `max`, refused as P1 ruling 3 gives: absent, not a
+/// decimal `u32`, a `min` of 0 or a `min` above `max`.
+fn col_interval(raw: &[u8], index: usize) -> Result<(u32, u32), Error> {
+    let number = |name: &[u8]| -> Result<u32, Error> {
+        attribute_value(raw, name, index)?
+            .and_then(|value| str::from_utf8(value).ok())
+            .and_then(decimal)
+            .ok_or(COLS_DISORDER)
+    };
+    let (min, max) = (number(b"min")?, number(b"max")?);
+    if min == 0 || min > max {
+        return Err(COLS_DISORDER);
+    }
+    Ok((min, max))
+}
+
+/// A `<col>` start tag with `min` and `max` set.
+fn col_retagged(raw: &[u8], min: u32, max: u32, index: usize) -> Result<Vec<u8>, Error> {
+    let tag = with_attribute(raw, b"min", min.to_string().as_bytes(), index)?;
+    with_attribute(&tag, b"max", max.to_string().as_bytes(), index)
+}
+
+/// Whether a start tag carries no attribute but `min` and `max`.
+fn bare_col(raw: &[u8], index: usize) -> Result<bool, Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    Ok(tag
+        .attributes
+        .iter()
+        .all(|attribute| matches!(&raw[attribute.name.clone()], b"min" | b"max")))
+}
+
+/// The children of a `<cols>` with the column formats applied, and whether
+/// any `<col>` is left (`specs/0018-rows-and-columns.md`, "Module
+/// `package`: the calls"): a covering `<col>` split so the edited column
+/// alone carries the change, the other pieces keeping every attribute with
+/// `min` and `max` set; a column no `<col>` covers given one of its own,
+/// placed by `min`, when the format writes something; an edited piece left
+/// with `min` and `max` alone dropped. The elements are refused when out of
+/// order or overlapping.
+fn cols_content(
+    items: &[ColItem],
+    formats: &[(u32, LineFormat)],
+    prefix: &[u8],
+    index: usize,
+) -> Result<(Vec<u8>, bool), Error> {
+    let mut out = Vec::new();
+    let mut any = false;
+    let mut next = 0usize;
+    let mut last_max = 0u32;
+    let created = |column: u32, format: &LineFormat| -> Result<Vec<u8>, Error> {
+        let base = [b"<".as_slice(), prefix, b"col/>"].concat();
+        let tag = col_retagged(&base, column, column, index)?;
+        line_formatted(&tag, format, COLUMN_SIZE, index)
+    };
+    for item in items {
+        match item {
+            ColItem::Other(raw) => out.extend_from_slice(raw),
+            ColItem::Col {
+                start,
+                rest,
+                min,
+                max,
+            } => {
+                if *min <= last_max {
+                    return Err(COLS_DISORDER);
+                }
+                last_max = *max;
+                while let Some((column, format)) = formats.get(next)
+                    && *column < *min
+                {
+                    if format.writes_when_absent() {
+                        out.extend_from_slice(&created(*column, format)?);
+                        any = true;
+                    }
+                    next += 1;
+                }
+                let mut from = *min;
+                while let Some((column, format)) = formats.get(next)
+                    && *column <= *max
+                {
+                    if *column > from {
+                        out.extend_from_slice(&col_retagged(start, from, column - 1, index)?);
+                        out.extend_from_slice(rest);
+                        any = true;
+                    }
+                    let edited = line_formatted(
+                        &col_retagged(start, *column, *column, index)?,
+                        format,
+                        COLUMN_SIZE,
+                        index,
+                    )?;
+                    if !bare_col(&edited, index)? {
+                        out.extend_from_slice(&edited);
+                        out.extend_from_slice(rest);
+                        any = true;
+                    }
+                    from = column + 1;
+                    next += 1;
+                }
+                if from <= *max {
+                    if from == *min {
+                        out.extend_from_slice(start);
+                    } else {
+                        out.extend_from_slice(&col_retagged(start, from, *max, index)?);
+                    }
+                    out.extend_from_slice(rest);
+                    any = true;
+                }
+            }
+        }
+    }
+    for (column, format) in &formats[next..] {
+        if format.writes_when_absent() {
+            out.extend_from_slice(&created(*column, format)?);
+            any = true;
+        }
+    }
+    Ok((out, any))
+}
+
+/// A `<mergeCells>` being read: its start tag, its prefix, the bytes of the
+/// children it keeps, and how many `<mergeCell>` elements those are.
+struct MergesBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    content: Vec<u8>,
+    kept: u64,
+}
+
+/// The `<mergeCells>` element for `kept` bytes of kept children plus the
+/// merges this write adds, with `count` set to all of them; nothing when
+/// none is left.
+fn merges_element(buffer: &MergesBuffer, merges: &[Area], index: usize) -> Result<Vec<u8>, Error> {
+    let count = buffer.kept + merges.len() as u64;
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+    let start = with_attribute(&buffer.start, b"count", count.to_string().as_bytes(), index)?;
+    let mut out = if buffer.empty {
+        opened_up(&start, index)?
+    } else {
+        start
+    };
+    out.extend_from_slice(&buffer.content);
+    for area in merges {
+        out.extend_from_slice(&merge_element(area, &buffer.prefix));
+    }
+    out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
+    Ok(out)
+}
+
+/// What a worksheet rewrite creates for one of [`CREATED`], with the root's
+/// `prefix`, or nothing when the write needs no such element.
+fn created_element(
+    which: usize,
+    work: &SheetWork,
+    prefix: &[u8],
+    index: usize,
+) -> Result<Vec<u8>, Error> {
+    let p = prefix;
+    match which {
+        VIEWS => match work.pane {
+            Some(Some(at)) => {
+                let mut out = [
+                    b"<".as_slice(),
+                    p,
+                    b"sheetViews><",
+                    p,
+                    b"sheetView workbookViewId=\"0\">",
+                ]
+                .concat();
+                out.extend_from_slice(&pane_elements(at, p));
+                out.extend_from_slice(
+                    &[b"</".as_slice(), p, b"sheetView></", p, b"sheetViews>"].concat(),
+                );
+                Ok(out)
+            }
+            _ => Ok(Vec::new()),
+        },
+        COLS => {
+            let (content, any) = cols_content(&[], &work.columns, p, index)?;
+            if !any {
+                return Ok(Vec::new());
+            }
+            let mut out = [b"<".as_slice(), p, b"cols>"].concat();
+            out.extend_from_slice(&content);
+            out.extend_from_slice(&[b"</".as_slice(), p, b"cols>"].concat());
+            Ok(out)
+        }
+        _ => {
+            let buffer = MergesBuffer {
+                depth: 0,
+                start: [b"<".as_slice(), p, b"mergeCells>"].concat(),
+                empty: false,
+                name: [p, b"mergeCells".as_slice()].concat(),
+                prefix: p.to_vec(),
+                content: Vec::new(),
+                kept: 0,
+            };
+            merges_element(&buffer, &work.merges, index)
+        }
+    }
+}
+
+/// Rewrites one worksheet part with its edits into a temporary file, and
+/// says whether any edit removed a formula.
 ///
 /// `specs/0011-editing-cells.md`, "Module `package`": every token's `raw` is
 /// copied except that an edited `<c>` (start tag, children and end tag, or
@@ -4641,17 +5470,23 @@ fn formula_tag(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Fo
 /// the first cell of its row with a greater column, or before `</row>`; a new
 /// row goes before the first `<row>` with a greater number, or before
 /// `</sheetData>`; an empty `<sheetData/>` or `<row/>` that gains content is
-/// opened up as part 2 opens an empty root. Everything else is the input's
-/// bytes, so nothing outside `<sheetData>` changes.
+/// opened up as part 2 opens an empty root.
 ///
-/// `edits` is sorted by row then column, as [`Recorded::cell_edits_of`]
-/// gives it.
+/// `specs/0018-rows-and-columns.md` adds the formats, the pane and the
+/// merges: a `<row>` with a format is retagged and one that is absent
+/// created; `<cols>` is rewritten whole when a column has a format; the first
+/// `<sheetView>` loses its `<pane>` and `<selection>` children and, for a
+/// freeze, gains the frozen pane first; `<mergeCells>` keeps its children
+/// less the unmerged ones and gains the merges, `count` set; a covered cell
+/// is cleared; and `<sheetViews>`, `<cols>` and `<mergeCells>` are created in
+/// schema position when the write needs one the part lacks. Everything else
+/// is the input's bytes.
 fn rewrite_worksheet(
     archive: &mut Core,
     index: usize,
-    edits: &[(CellRef, CellEdit)],
+    work: &SheetWork,
 ) -> Result<(TempFile, Replacement, bool), Error> {
-    rewrite_worksheet_from(archive.read(index)?, index, edits)
+    rewrite_worksheet_from(archive.read(index)?, index, work)
 }
 
 /// [`rewrite_worksheet`]'s work on any reader of a worksheet's bytes: the
@@ -4661,7 +5496,7 @@ fn rewrite_worksheet(
 fn rewrite_worksheet_from(
     input: impl Read,
     index: usize,
-    edits: &[(CellRef, CellEdit)],
+    work: &SheetWork,
 ) -> Result<(TempFile, Replacement, bool), Error> {
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -4669,10 +5504,17 @@ fn rewrite_worksheet_from(
     if stream.bom() {
         out.write_all(&BYTE_ORDER_MARK)?;
     }
-    let mut pending = Pending { edits, next: 0 };
+    let mut pending = Pending {
+        edits: &work.cells,
+        next: 0,
+        rows: &work.rows,
+        next_row: 0,
+        index,
+    };
     let mut scope = Scope::new(index);
     let mut depth = 0usize;
     let mut root = false;
+    let mut root_prefix: Vec<u8> = Vec::new();
     // The depth of the open `<sheetData>`; its rows are one deeper.
     let mut data: Option<usize> = None;
     let mut seen_data = false;
@@ -4690,6 +5532,30 @@ fn rewrite_worksheet_from(
     let mut arrays: Vec<Area> = Vec::new();
     let mut removed_formula = false;
 
+    // Which of `CREATED` the write touches, which it must create when the
+    // part lacks it, and which the pass has met or created.
+    let touched = [
+        work.pane.is_some(),
+        !work.columns.is_empty(),
+        !work.merges.is_empty() || !work.unmerges.is_empty(),
+    ];
+    let needed = [
+        matches!(work.pane, Some(Some(_))),
+        work.columns
+            .iter()
+            .any(|(_, format)| format.writes_when_absent()),
+        !work.merges.is_empty(),
+    ];
+    let mut met = [false; 3];
+    // The open `<sheetViews>`'s depth and whether it has shown a
+    // `<sheetView>`; the first `<sheetView>`'s depth while it is open.
+    let mut views: Option<usize> = None;
+    let mut has_view = false;
+    let mut first_view: Option<usize> = None;
+    let mut cols: Option<ColsBuffer> = None;
+    let mut merges: Option<MergesBuffer> = None;
+    let mut unmerged = vec![false; work.unmerges.len()];
+
     while let Some(token) = stream.next()? {
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
@@ -4698,12 +5564,161 @@ fn rewrite_worksheet_from(
                 scope.start(start)?;
                 let (namespace, local) = scope.resolve_element(start.name())?;
                 let ours = is_main(namespace);
+                if root && depth == 2 && ours {
+                    // Creation in schema position, and the refusal of an
+                    // element met twice or after it was created (P1 ruling
+                    // 2).
+                    if let Some(position) = schema_position(local) {
+                        for which in 0..CREATED.len() {
+                            let at = schema_position(CREATED[which]).unwrap_or(0);
+                            if needed[which] && !met[which] && at < position {
+                                out.write_all(&created_element(which, work, &root_prefix, index)?)?;
+                                met[which] = true;
+                            }
+                        }
+                    }
+                    if let Some(which) = CREATED.iter().position(|name| *name == local)
+                        && touched[which]
+                    {
+                        if met[which] {
+                            return Err(TWO_ELEMENTS);
+                        }
+                        met[which] = true;
+                    }
+                }
                 if !root {
                     if !ours || local != b"worksheet" {
                         return Err(Error::Package("the worksheet part's root is not worksheet"));
                     }
                     root = true;
+                    root_prefix = prefix_of(start);
+                    if empty && needed.iter().any(|need| *need) {
+                        out.write_all(&opened_up(token.raw, index)?)?;
+                        for which in 0..CREATED.len() {
+                            if needed[which] {
+                                out.write_all(&created_element(which, work, &root_prefix, index)?)?;
+                                met[which] = true;
+                            }
+                        }
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                    } else {
+                        out.write_all(token.raw)?;
+                    }
+                } else if let Some(buffer) = cols.as_mut() {
+                    if depth == buffer.depth + 1 && ours && local == b"col" {
+                        let (min, max) = col_interval(token.raw, index)?;
+                        buffer.items.push(ColItem::Col {
+                            start: token.raw.to_vec(),
+                            rest: Vec::new(),
+                            min,
+                            max,
+                        });
+                        buffer.open = !empty;
+                    } else {
+                        buffer.push(token.raw);
+                    }
+                } else if let Some(buffer) = merges.as_mut() {
+                    if depth == buffer.depth + 1 && ours && local == b"mergeCell" {
+                        let area = attribute_value(token.raw, b"ref", index)?
+                            .and_then(Area::parse)
+                            .ok_or(MERGE_OVERLAP)?;
+                        let mut gone = false;
+                        for (at, unmerge) in work.unmerges.iter().enumerate() {
+                            if *unmerge == area {
+                                unmerged[at] = true;
+                                gone = true;
+                            }
+                        }
+                        if gone {
+                            // The unmerged element goes, its content with it.
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                        if work.merges.iter().any(|merge| merge.overlaps(&area)) {
+                            return Err(MERGE_OVERLAP);
+                        }
+                        buffer.kept += 1;
+                    }
+                    buffer.content.extend_from_slice(token.raw);
+                } else if first_view.is_some_and(|at| depth == at + 1)
+                    && ours
+                    && (local == b"pane" || local == b"selection")
+                {
+                    // The view's pane and selections go (`specs/0018-rows-
+                    // and-columns.md`, "Panes"); the freeze wrote its own.
+                    if !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                } else if views.is_some_and(|at| depth == at + 1)
+                    && ours
+                    && local == b"sheetView"
+                    && !has_view
+                {
+                    has_view = true;
+                    let prefix = prefix_of(start);
+                    match (work.pane, empty) {
+                        (Some(Some(at)), true) => {
+                            out.write_all(&opened_up(token.raw, index)?)?;
+                            out.write_all(&pane_elements(at, &prefix))?;
+                            out.write_all(b"</")?;
+                            out.write_all(start.name().into_inner().as_bytes())?;
+                            out.write_all(b">")?;
+                        }
+                        (pane, _) => {
+                            out.write_all(token.raw)?;
+                            if let Some(Some(at)) = pane {
+                                out.write_all(&pane_elements(at, &prefix))?;
+                            }
+                            if !empty {
+                                first_view = Some(depth);
+                            }
+                        }
+                    }
+                } else if depth == 2 && ours && local == b"sheetViews" && touched[VIEWS] {
+                    if empty {
+                        return Err(TWO_ELEMENTS);
+                    }
                     out.write_all(token.raw)?;
+                    views = Some(depth);
+                } else if depth == 2 && ours && local == b"cols" && touched[COLS] {
+                    let buffer = ColsBuffer {
+                        depth,
+                        start: token.raw.to_vec(),
+                        empty,
+                        name: start.name().into_inner().as_bytes().to_vec(),
+                        prefix: prefix_of(start),
+                        items: Vec::new(),
+                        open: false,
+                    };
+                    if empty {
+                        out.write_all(&cols_written(&buffer, &work.columns, index)?)?;
+                    } else {
+                        cols = Some(buffer);
+                    }
+                } else if depth == 2 && ours && local == b"mergeCells" && touched[MERGES] {
+                    let buffer = MergesBuffer {
+                        depth,
+                        start: token.raw.to_vec(),
+                        empty,
+                        name: start.name().into_inner().as_bytes().to_vec(),
+                        prefix: prefix_of(start),
+                        content: Vec::new(),
+                        kept: 0,
+                    };
+                    if empty {
+                        out.write_all(&merges_element(&buffer, &work.merges, index)?)?;
+                    } else {
+                        merges = Some(buffer);
+                    }
                 } else if let Some((at, ref mut inside)) = cell {
                     // Inside a cell: only its own `<f>` matters.
                     if depth == at + 1 && ours && local == b"f" {
@@ -4733,14 +5748,20 @@ fn rewrite_worksheet_from(
                     last_row = number;
                     pending.write_rows(&mut out, Some(number), &arrays, &data_prefix)?;
                     row_prefix = prefix_of(start);
+                    // A row with a format is retagged, every other byte kept
+                    // (`specs/0018-rows-and-columns.md`).
+                    let raw = match pending.take_row_format(number) {
+                        Some(format) => line_formatted(token.raw, &format, ROW_SIZE, index)?,
+                        None => token.raw.to_vec(),
+                    };
                     if empty && pending.sets(Some(number)) {
-                        out.write_all(&opened_up(token.raw, index)?)?;
+                        out.write_all(&opened_up(&raw, index)?)?;
                         pending.write_row(&mut out, number, None, &arrays, &row_prefix)?;
                         out.write_all(b"</")?;
                         out.write_all(start.name().into_inner().as_bytes())?;
                         out.write_all(b">")?;
                     } else {
-                        out.write_all(token.raw)?;
+                        out.write_all(&raw)?;
                         if empty {
                             // Clears of cells a `<row/>` does not hold.
                             pending.write_row(&mut out, number, None, &arrays, &row_prefix)?;
@@ -4761,9 +5782,22 @@ fn rewrite_worksheet_from(
                     }
                     last_col = reference.col;
                     pending.write_row(&mut out, open, Some(reference.col), &arrays, &row_prefix)?;
-                    if pending.peek() == Some(reference) {
+                    // An edit recorded for the cell, or the clear a merge
+                    // covering it asks for (`specs/0018-rows-and-columns.md`,
+                    // decision 6 and P1 ruling 8).
+                    let edit = if pending.peek() == Some(reference) {
                         let edit = pending.edits[pending.next].1.clone();
                         pending.next += 1;
+                        Some(edit)
+                    } else if work.covers(reference) {
+                        Some(CellEdit {
+                            value: Some(None),
+                            style: None,
+                        })
+                    } else {
+                        None
+                    };
+                    if let Some(edit) = edit {
                         if tag.unmodelled {
                             return Err(UNMODELLED_ATTRIBUTE);
                         }
@@ -4818,7 +5852,7 @@ fn rewrite_worksheet_from(
                 } else if depth == 2 && ours && local == b"sheetData" && !seen_data {
                     seen_data = true;
                     data_prefix = prefix_of(start);
-                    if empty && pending.sets(None) {
+                    if empty && pending.opens_rows() {
                         out.write_all(&opened_up(token.raw, index)?)?;
                         pending.write_rows(&mut out, None, &arrays, &data_prefix)?;
                         out.write_all(b"</")?;
@@ -4839,66 +5873,140 @@ fn rewrite_worksheet_from(
                 }
             }
             Event::End(_) => {
-                match cell {
-                    Some((at, InCell::Copy)) => {
-                        out.write_all(token.raw)?;
-                        if depth == at {
-                            cell = None;
+                if let Some(buffer) = cols.as_mut() {
+                    if depth == buffer.depth {
+                        if let Some(buffer) = cols.take() {
+                            out.write_all(&cols_written(&buffer, &work.columns, index)?)?;
+                        }
+                    } else {
+                        buffer.push(token.raw);
+                        if depth == buffer.depth + 1 {
+                            buffer.open = false;
                         }
                     }
-                    Some((at, InCell::Replace { .. })) => {
-                        if depth == at
-                            && let Some((
-                                _,
-                                InCell::Replace {
+                } else if let Some(buffer) = merges.as_mut() {
+                    if depth == buffer.depth {
+                        if let Some(buffer) = merges.take() {
+                            out.write_all(&merges_element(&buffer, &work.merges, index)?)?;
+                        }
+                    } else {
+                        buffer.content.extend_from_slice(token.raw);
+                    }
+                } else {
+                    match cell {
+                        Some((at, InCell::Copy)) => {
+                            out.write_all(token.raw)?;
+                            if depth == at {
+                                cell = None;
+                            }
+                        }
+                        Some((at, InCell::Replace { .. })) => {
+                            if depth == at
+                                && let Some((
+                                    _,
+                                    InCell::Replace {
+                                        reference,
+                                        style,
+                                        prefix,
+                                        value,
+                                        formula,
+                                    },
+                                )) = cell.take()
+                            {
+                                removed_formula |= formula;
+                                out.write_all(&replaced_cell(
                                     reference,
-                                    style,
-                                    prefix,
-                                    value,
-                                    formula,
-                                },
-                            )) = cell.take()
-                        {
-                            removed_formula |= formula;
-                            out.write_all(&replaced_cell(
-                                reference,
-                                style.as_deref(),
-                                value.as_ref(),
-                                &prefix,
-                            ))?;
+                                    style.as_deref(),
+                                    value.as_ref(),
+                                    &prefix,
+                                ))?;
+                            }
                         }
-                    }
-                    None => {
-                        if let Some(open) = row
-                            && data.is_some_and(|at| depth == at + 1)
-                        {
-                            pending.write_row(&mut out, open, None, &arrays, &row_prefix)?;
-                            row = None;
-                        } else if data == Some(depth) {
-                            pending.write_rows(&mut out, None, &arrays, &data_prefix)?;
-                            data = None;
+                        None => {
+                            if let Some(open) = row
+                                && data.is_some_and(|at| depth == at + 1)
+                            {
+                                pending.write_row(&mut out, open, None, &arrays, &row_prefix)?;
+                                row = None;
+                            } else if data == Some(depth) {
+                                pending.write_rows(&mut out, None, &arrays, &data_prefix)?;
+                                data = None;
+                            } else if first_view == Some(depth) {
+                                first_view = None;
+                            } else if views == Some(depth) {
+                                if !has_view {
+                                    return Err(TWO_ELEMENTS);
+                                }
+                                views = None;
+                            } else if depth == 1 {
+                                // The root's end: whatever the write needs and
+                                // the part still lacks goes here.
+                                for which in 0..CREATED.len() {
+                                    if needed[which] && !met[which] {
+                                        out.write_all(&created_element(
+                                            which,
+                                            work,
+                                            &root_prefix,
+                                            index,
+                                        )?)?;
+                                        met[which] = true;
+                                    }
+                                }
+                            }
+                            out.write_all(token.raw)?;
                         }
-                        out.write_all(token.raw)?;
                     }
                 }
                 scope.end();
                 depth -= 1;
             }
             _ => {
-                if !matches!(cell, Some((_, InCell::Replace { .. }))) {
+                if let Some(buffer) = cols.as_mut() {
+                    buffer.push(token.raw);
+                } else if let Some(buffer) = merges.as_mut() {
+                    buffer.content.extend_from_slice(token.raw);
+                } else if !matches!(cell, Some((_, InCell::Replace { .. }))) {
                     out.write_all(token.raw)?;
                 }
             }
         }
     }
-    // A set that found no `<sheetData>` to go into (P1 ruling 2); a clear
-    // alone has nothing to remove there.
-    if pending.sets(None) {
+    // A set, or a row format that writes, that found no `<sheetData>` to go
+    // into (P1 ruling 2 of `specs/0011-editing-cells.md`); a clear alone has
+    // nothing to remove there.
+    if pending.opens_rows() {
         return Err(NO_SHEET_DATA);
+    }
+    // An unmerge the file's merges did not hold (`specs/0018-rows-and-
+    // columns.md`, P1 ruling 5).
+    if unmerged.iter().any(|found| !found) {
+        return Err(NO_SUCH_MERGE);
     }
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
     Ok((temp, replacement, removed_formula))
+}
+
+/// A `<cols>` with the column formats applied: its start tag (opened up
+/// when it was empty), the children [`cols_content`] gives and its end tag,
+/// or nothing when no `<col>` is left.
+fn cols_written(
+    buffer: &ColsBuffer,
+    formats: &[(u32, LineFormat)],
+    index: usize,
+) -> Result<Vec<u8>, Error> {
+    let (content, any) = cols_content(&buffer.items, formats, &buffer.prefix, index)?;
+    if !any {
+        return Ok(Vec::new());
+    }
+    let mut out = if buffer.empty {
+        opened_up(&buffer.start, index)?
+    } else {
+        buffer.start.clone()
+    };
+    out.extend_from_slice(&content);
+    out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
+    Ok(out)
 }
 
 /// What a created rels part begins with when the package has no

@@ -389,6 +389,79 @@ impl CellRef {
     }
 }
 
+/// A rectangle of cells, both corners included: a merge, or an array
+/// formula's `ref` (`specs/0018-rows-and-columns.md`, "Module `cells`:
+/// `Area`").
+///
+/// [`Area::parse`] gives the corners normalised, `first` the smaller row and
+/// the smaller column; a value built by hand may not be, and the calls that
+/// take one normalise it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Area {
+    /// The top-left corner.
+    pub first: CellRef,
+    /// The bottom-right corner.
+    pub last: CellRef,
+}
+
+impl Area {
+    /// Reads `A1:B2` or `A1` (one cell), each half as [`CellRef::parse`]
+    /// reads it; `None` for anything else.
+    pub fn parse(value: &[u8]) -> Option<Self> {
+        let mut halves = value.splitn(2, |byte| *byte == b':');
+        let a = CellRef::parse(halves.next()?)?;
+        let b = match halves.next() {
+            Some(half) => CellRef::parse(half)?,
+            None => a,
+        };
+        Some(Area { first: a, last: b }.normalised())
+    }
+
+    /// Writes `A1:B2`, or `A1` when the corners coincide.
+    pub fn a1(&self) -> String {
+        if self.first == self.last {
+            self.first.a1()
+        } else {
+            format!("{}:{}", self.first.a1(), self.last.a1())
+        }
+    }
+
+    /// The number of cells the area covers.
+    pub fn cells(&self) -> u64 {
+        let rows = u64::from(self.last.row.abs_diff(self.first.row)) + 1;
+        let cols = u64::from(self.last.col.abs_diff(self.first.col)) + 1;
+        rows * cols
+    }
+
+    /// The same area with `first` the smaller row and column.
+    pub(crate) fn normalised(self) -> Self {
+        Area {
+            first: CellRef {
+                row: self.first.row.min(self.last.row),
+                col: self.first.col.min(self.last.col),
+            },
+            last: CellRef {
+                row: self.first.row.max(self.last.row),
+                col: self.first.col.max(self.last.col),
+            },
+        }
+    }
+
+    /// Whether `cell` lies inside the area.
+    pub(crate) fn holds(&self, cell: CellRef) -> bool {
+        (self.first.row..=self.last.row).contains(&cell.row)
+            && (self.first.col..=self.last.col).contains(&cell.col)
+    }
+
+    /// Whether the two areas share a cell.
+    pub(crate) fn overlaps(&self, other: &Area) -> bool {
+        self.first.row <= other.last.row
+            && other.first.row <= self.last.row
+            && self.first.col <= other.last.col
+            && other.first.col <= self.last.col
+    }
+}
+
 /// What a cell's `t` attribute says its value is.
 ///
 /// Any other `t` is refused with "a cell has a type this layer does not

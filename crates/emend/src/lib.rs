@@ -45,7 +45,7 @@ mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
-pub use cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
+pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
 pub use styles::{
