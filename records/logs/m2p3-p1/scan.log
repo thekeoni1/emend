@@ -1,0 +1,1584 @@
+command: git rev-parse HEAD
+invocation: bash <scratch>/p1/m2p3-p1-scan.sh b8595ce025fbe05cb3ac6437d3d51adbb1813f21 final
+about: M2 part 3 P1 phase diff d0f8f7246891d7596a76348a4a9a636b2370c9ef..b8595ce025fbe05cb3ac6437d3d51adbb1813f21; HEAD at run: b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+
+## the three shape greps over this script's own source, before it is printed (change E)
+specs/0001: the shape greps run over a script before its log does. They
+run here, each with a control fixture that must score 1, and each must
+score 0 on this script's source.
+  the first pattern, assembled at run time:  [$][(](yn|is|isnot) .*(&&|[|][|])
+  the second pattern, assembled at run time: [$][(](yn|is|isnot) [!]
+  the third pattern, assembled at run time:  [$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*=
+  control f_shape on a fixture holding the chained form count=1 expected=1: as-expected
+  control f_bang on a fixture holding the leading-bang form count=1 expected=1: as-expected
+  control f_assign on a fixture holding the assignment-prefix form count=1 expected=1: as-expected
+  over this script's source: chained=0 leading-bang=0 assignment=0
+this script's own source holds none of the three shapes, checked before it is printed: yes
+
+## the phase's commits by role
+  the phase commit given to this script: b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+  git rev-parse HEAD at this run:        b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+the phase commit given to this script is HEAD: yes
+control: the same form refuses a commit that is not HEAD: yes
+control: the same form refuses a short sha of the real commit: yes
+command: git log --format='%H' --grep='^M2 part 3 P1: commit planning docs [(]the part 2 close-out verification, the part 3 spec[)]'
+  commits matching the pattern: 1
+  the doc commit resolves to fd6bbf80727bcfa35fe4ebdafd4a8764dd4e5e36; its parent is the base, d0f8f7246891d7596a76348a4a9a636b2370c9ef
+command: git log -1 --format='%s' d0f8f7246891d7596a76348a4a9a636b2370c9ef
+    M2 part 2 close-out record: the push, the CI run and the scan
+command: git log --reverse --format='%H %s' d0f8f7246891d7596a76348a4a9a636b2370c9ef..b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+    fd6bbf80727bcfa35fe4ebdafd4a8764dd4e5e36 M2 part 3 P1: commit planning docs (the part 2 close-out verification, the part 3 spec)
+    d03ed7b6ab8b224ad293e6072ff4bb676977064d M2 part 3 P1: Area public, column and row formats, panes and merges
+    b8595ce025fbe05cb3ac6437d3d51adbb1813f21 M2 part 3 P1: emend-copy --format-sample
+  commits in the range: 3; doc commits: 1; code commits: 2; without the phase prefix: 0
+  the doc commits, as git lists them:
+    fd6bbf80727bcfa35fe4ebdafd4a8764dd4e5e36
+  the code commits, as git lists them:
+    d03ed7b6ab8b224ad293e6072ff4bb676977064d
+    b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+phase: Milestone 2 part 3 P1 (specs/0018-rows-and-columns.md) scan.log, stage final; run at 2026-09-26T15:04:55Z
+SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo processes at entry: 0; rustc processes at entry: 0
+no cargo or rustc process was running at entry: yes
+root: <scratch>/w stands for this run's mktemp -d working directory (the fixtures, copies and message files), deleted on exit
+root: <scratch> stands for the directory above this script's own
+root: <scratch>/p1 stands for this script's own directory, which holds the script the invocation names and, in <scratch>/p1/out, its own standard error (changes R and Q)
+root: <repo> stands for the repository's top level, the directory this script cds to; scripts/counting.sh is sourced from it and every file scanned is read from it or from git
+the script's own directory is <scratch>/p1: yes
+the two roots are distinct directories, neither inside the other: yes
+control: the same form refuses a root inside the other: yes
+the doc commit pattern matches exactly one commit: yes
+the base is part 2's close-out record commit, by its subject: yes
+control: the same form refuses a part 2 P3 code subject: yes
+every commit of the range carries the phase's subject prefix: yes
+the range holds at least one doc commit: yes
+the first doc commit listed is the one the pattern found: yes
+the range holds at least one code commit: yes
+no doc commit follows a code commit: yes
+the phase commit given is the last code commit of the range: yes
+control: the same form refuses the null commit as the last code commit: yes
+control: the same form refuses the first code commit, which is not the last: yes
+
+## this script's own source, scanned before it is printed
+specs/0001 "Rules for every phase": a scan script runs the pre-P6d forms
+over its own source before printing itself, because no scan reads the log
+it writes, and a bare shape written by a COMMENT OF MY OWN in the part 2
+P3 scan script survived every form that phase ran and was committed in
+its scan.log. Planning ruled that a true finding. This block is the rule
+that came out of it, and the zero it reports is the claim that log could
+not make.
+  pre-P6d forms over this script's source: count=0
+this script's own source writes no bare shape: yes
+  the same form over a copy with one concatenated shape appended: count=1
+the self-scan can report a hit, so the zero above means something: yes
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 2 part 3 P1 scan.log (specs/0018-rows-and-columns.md, "Phases" and
+    # "P1"): the phase diff, each commit's files and message, the FOUR sibling
+    # logs, the phase's two record pairs, the check answers, planning's files
+    # should any stand uncommitted, the pre-P6d bare-shape control, the THREE
+    # shape greps over every printed script, every placeholder each log prints
+    # declared in a root line of that log, and this script's own stderr.
+    #
+    # Usage: m2p3-p1-scan.sh <phase commit> <stage> > <scratch file>, where
+    # <stage> is "pre-check" or "final". The caller moves the final output to
+    # records/logs/m2p3-p1/scan.log. Never prints matched text, an email address,
+    # a denylist entry or a pattern.
+    #
+    # CARRIED TO M2 part 3 P1 from part 2 P3's final scan script (printed in
+    # records/logs/m2p3-p1/scan.log; its change list R to T is there), standing
+    # but for these:
+    #  U. The phase is P1's of part 3: the doc commit pattern and subjects "M2
+    #     part 3 P1: ", the base's subject part 2's close-out record commit's
+    #     ("M2 part 2 close-out record: "), with a control that refuses a part 2
+    #     P3 code subject; the log directory records/logs/m2p3-p1; the script's
+    #     directory <scratch>/p1.
+    #  V. The sibling logs are FOUR, gate, test, negative and run (P1 has no size
+    #     log), in every loop that lists them. The records are four: the corpus
+    #     record pair and the open-check pair at P1's short sha.
+    #  W. Planning's files: specs/0018-rows-and-columns.md (pinned to the hash
+    #     planning's message gave, PLANNING_GAVE), specs/0017-fuller-styles.md and
+    #     ROADMAP.md, should any stand uncommitted.
+    set -uo pipefail
+    set -uo pipefail
+    set -uo pipefail
+    set -uo pipefail
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    SELF_DIR0=$(cd "$(dirname "$0")" && pwd)
+    mkdir -p "$SELF_DIR0/out" || exit 2
+    ERR=$SELF_DIR0/out/scan-${2:-none}.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    . scripts/counting.sh
+    
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR='Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>'
+    # The close-out's other line, which this range does not carry (change C): a
+    # refusal control, never an accepted line.
+    COAUTHOR_OTHER='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    # coauthor_ok <line>: the line is the one this range carries (change C).
+    coauthor_ok() { [ "$1" = "$COAUTHOR" ]; }
+    coauthor_refused() { if coauthor_ok "$1"; then return 1; else return 0; fi; }
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT INT TERM HUP
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    DOC_PATTERN='^M2 part 3 P1: commit planning docs [(]the part 2 close-out verification, the part 3 spec[)]'
+    git log --format='%H' --grep="$DOC_PATTERN" >"$T/doc-matches"
+    NDOC=$(count_lines "$T/doc-matches")
+    DOC=$(git log --format='%H' --grep="$DOC_PATTERN" -n 1)
+    [ -n "$DOC" ] || { echo "the phase's doc commit was not found" >&2; exit 2; }
+    BASE=$(git rev-parse --verify "$DOC^") || { echo "cannot resolve the base" >&2; exit 2; }
+    C=${1:?phase commit required}
+    SHORT=$(git rev-parse --short=7 "$C")
+    STAGE=${2:?stage required: pre-check or final}
+    case $STAGE in pre-check | final) ;; *) echo "the stage must be pre-check or final" >&2; exit 2 ;; esac
+    HEAD_SHA=$(git rev-parse HEAD)
+    # specs/0001 "Rules for every phase" (M1 part 3 P1 ruling 11): the phase
+    # commit is GIVEN to the script and compared with HEAD, with a control that
+    # refuses a fabricated commit, and the header prints both values and the
+    # comparison. A header that reads HEAD and prints it twice asserts nothing.
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() {
+      # /usr/bin/grep explicitly: in this tool shell `grep` is a different
+      # program (specs/0001, "Rules for every phase").
+      printf '%s' "$1" | LC_ALL=C /usr/bin/grep -qE '^[0-9a-f]{40}$'
+    }
+    is_head() { full_sha "$1" && [ "$1" = "$HEAD_SHA" ]; }
+    not_head() { if is_head "$1"; then return 1; else return 0; fi; }
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    
+    P6=()
+    while IFS= read -r line; do P6+=("$line"); done < scripts/privacy-patterns.txt
+    printf '%s\n' "${P6[@]}" >"$T/p6-patterns"
+    PRE_COMMIT=$(git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1)
+    [ -n "$PRE_COMMIT" ] || { echo "cannot find the P6d narrowing commit" >&2; exit 2; }
+    git show "$PRE_COMMIT^:scripts/privacy-patterns.txt" >"$T/pre-all" ||
+      { echo "cannot read the pre-P6d patterns" >&2; exit 2; }
+    sed -n '8p'  "$T/pre-all" >"$T/pre1"
+    sed -n '10p' "$T/pre-all" >"$T/pre2"
+    sed -n '11p' "$T/pre-all" >"$T/pre3"
+    cat "$T/pre1" "$T/pre2" "$T/pre3" >"$T/pre-patterns"
+    printf '%s\n%s\n' "$HOST" "$FQDN" | sort -u >"$T/host-patterns"
+    # f_home came in with part 2 P3 and is inherited here, not new in this run.
+    # The two sentences that stood here claimed it was new and claimed that both
+    # independent checks of THIS phase had found an absolute path in negative.log
+    # and observed that no form could catch it. Neither was true of part 3 P1:
+    # those were part 2 P3's findings, and the comment was carried over verbatim
+    # from that phase's script, where it was true; part 3 P1's independent
+    # check 3 found it committed there. A comment that asserts what a check found is a claim like
+    # any other and goes stale when the script is reused, so this one now says
+    # what the form DOES rather than who asked for it.
+    #
+    # What the form is for: the P6d patterns are narrowed to one host's
+    # user-directory prefix, named here by description and not written out, and
+    # the three pre-P6d forms are bare shapes, so a path under this machine's
+    # home directory would otherwise match nothing. The description rather than
+    # the shape is deliberate: the self-scan
+    # above ran the pre-P6d forms over this source and caught an inherited copy of
+    # this very comment that spelled the prefix, which is the same defect the part
+    # 2 P3 scan.log was committed carrying. The form asks the property the T0 P6d ruling
+    # states: no log or check answer names this machine's home directory. The
+    # pattern is $HOME, read from the environment and never printed, so the
+    # scan cannot leak what it is looking for.
+    #
+    # ONE EXEMPTION, and the reason it is not a hole. A first version of this
+    # form counted every occurrence of $HOME and failed the scan on ROADMAP.md,
+    # which names the private corpus directory. That is not a leak: CLAUDE.md
+    # and ROADMAP.md both name that directory deliberately, committed by the
+    # maintainer long before this phase, and the corpus rule quotes
+    # it as the place the corpus lives. So the form exempts $HOME/$CORPUS_DIR
+    # and nothing else. It counts OCCURRENCES, not lines, because the helpers
+    # here use grep -c: subtracting line counts would let one line holding both
+    # the corpus root and a real leak net out to zero. A control covers exactly
+    # that line, and another proves the exemption is one directory deep, since
+    # the repository itself sits beside the corpus under the same parent.
+    CORPUS_DIR=emend-testing
+    # The exemption is a whole path SEGMENT, not a prefix: a directory beside the
+    # corpus whose name merely begins with the corpus name is a leak like any
+    # other, and a control asserts that. The boundary is "not a filename
+    # character" rather than "a slash or the end of the line", because the two
+    # committed mentions are followed by a backtick and by a full stop, and a
+    # boundary of slash-or-end would have failed the scan on ROADMAP.md while
+    # still exempting the sibling directory. That needs the exemption as a regex,
+    # the one pattern here built with -E, so the home directory must contain no
+    # ERE metacharacter. Rather than escape it and hope, the run refuses to
+    # proceed if it does: an unescaped metacharacter would silently widen the
+    # exemption, which is the one direction this form must not fail in.
+    case $HOME in
+      *[][.^\$*+?\(\)\{\}\|\\]*)
+        echo "the home directory holds a regex metacharacter; f_home would" >&2
+        echo "  widen its exemption silently. Stopping rather than guessing." >&2
+        exit 2 ;;
+    esac
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_emdash()   { count_matches -F "$EMDASH" "$1"; }
+    f_session()  { count_matches -E '^Claude-Session:' "$1"; }
+    f_p6()       { count_from_file -E "$T/p6-patterns" "$1"; }
+    f_pre()      { count_from_file -E "$T/pre-patterns" "$1"; }
+    f_pre1()     { count_from_file -E "$T/pre1" "$1"; }
+    f_pre2()     { count_from_file -E "$T/pre2" "$1"; }
+    f_pre3()     { count_from_file -E "$T/pre3" "$1"; }
+    f_host()     { count_from_file -F "$T/host-patterns" "$1"; }
+    f_home() {
+      local out rc all corpus
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/[-A-Za-z0-9._]" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      all=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/$CORPUS_DIR([^-A-Za-z0-9._]|\$)" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      corpus=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      printf '%s' "$((all - corpus))"
+    }
+    f_deny()     { count_from_file -F "$T/deny" "$1"; }
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      if [ "$rc" -eq 1 ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0 }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_home f_host f_deny f_email"
+    
+    run() {
+      local n
+      n=$("$1" "$2")
+      echo "  form=$1 count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    }
+    check_ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    # bad COUNTS the failing structural checks (independent check 1 F7: it was a
+    # 0/1 flag printed as a count); the verdict still reads it as "0 or not".
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=$((bad + 1)); }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    
+    # The scratch root, the directory above this script's own (change I).
+    SROOT=$(cd "$(dirname "$0")/.." && pwd)
+    echo "command: git rev-parse HEAD"
+    # The invocation as run, the script's directory written as <repo> or <scratch>:
+    # an absolute machine path in a log is a defect (T0 P6d ruling).
+    MAIN=$(pwd)
+    inv_path=$0
+    case "$inv_path" in
+      "$MAIN"/*) inv_path="<repo>/${inv_path#"$MAIN"/}" ;;
+      "$SROOT"/*) inv_path="<scratch>/${inv_path#"$SROOT"/}" ;;
+      /*) inv_path="<scratch>/$(basename "$inv_path")" ;;
+    esac
+    echo "invocation: bash $inv_path $*"
+    echo "about: M2 part 3 P1 phase diff $BASE..$C; HEAD at run: $HEAD_SHA"
+    echo
+    echo "## the three shape greps over this script's own source, before it is printed (change E)"
+    echo "specs/0001: the shape greps run over a script before its log does. They"
+    echo "run here, each with a control fixture that must score 1, and each must"
+    echo "score 0 on this script's source."
+    SHAPE='[$][(](yn|is|isnot) .*(&&|[|][|])'
+    BANG='[$][(](yn|is|isnot) [!]'
+    ASSIGN='[$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*='
+    echo "  the first pattern, assembled at run time:  $SHAPE"
+    echo "  the second pattern, assembled at run time: $BANG"
+    echo "  the third pattern, assembled at run time:  $ASSIGN"
+    f_shape() { count_matches -E "$SHAPE" "$1"; }
+    f_bang() { count_matches -E "$BANG" "$1"; }
+    f_assign() { count_matches -E "$ASSIGN" "$1"; }
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$T/g-shape"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$T/g-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$T/g-assign"
+    check_ctl "f_shape on a fixture holding the chained form" 1 f_shape "$T/g-shape"
+    check_ctl "f_bang on a fixture holding the leading-bang form" 1 f_bang "$T/g-bang"
+    check_ctl "f_assign on a fixture holding the assignment-prefix form" 1 f_assign "$T/g-assign"
+    g_shape=$(f_shape "$0"); g_bang=$(f_bang "$0"); g_assign=$(f_assign "$0")
+    echo "  over this script's source: chained=$g_shape leading-bang=$g_bang assignment=$g_assign"
+    self_shapes_clean() { [ "$g_shape" = 0 ] && [ "$g_bang" = 0 ] && [ "$g_assign" = 0 ]; }
+    structural "this script's own source holds none of the three shapes, checked before it is printed" \
+      "$(yn self_shapes_clean)"
+    echo
+    echo "## the phase's commits by role"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    structural "the phase commit given to this script is HEAD" "$(yn is_head "$C")"
+    structural "control: the same form refuses a commit that is not HEAD" \
+      "$(yn not_head "$NULL_SHA")"
+    structural "control: the same form refuses a short sha of the real commit" \
+      "$(yn not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo "command: git log --format='%H' --grep='$DOC_PATTERN'"
+    echo "  commits matching the pattern: $NDOC"
+    echo "  the doc commit resolves to $DOC; its parent is the base, $BASE"
+    echo "command: git log -1 --format='%s' $BASE"
+    BASE_SUBJECT=$(git log -1 --format='%s' "$BASE")
+    echo "    $BASE_SUBJECT"
+    BASE_PREFIX='M2 part 2 close-out record: '
+    base_is_closeout_record() { case "$1" in "$BASE_PREFIX"*) return 0 ;; *) return 1 ;; esac; }
+    not_closeout_record() { if base_is_closeout_record "$1"; then return 1; else return 0; fi; }
+    echo "command: git log --reverse --format='%H %s' $BASE..$C"
+    git log --reverse --format='%H %s' "$BASE..$C" >"$T/phase-commits"
+    sed 's/^/    /' "$T/phase-commits"
+    PHASE_PREFIX='M2 part 3 P1: '
+    DOC_SUBJECT='M2 part 3 P1: commit planning docs '
+    : >"$T/phase-docs"; : >"$T/phase-code"; nforeign=0; doc_after_code=0; last_code=
+    while IFS=' ' read -r sha subj; do
+      case "$subj" in
+        "$DOC_SUBJECT"*)
+          printf '%s\n' "$sha" >>"$T/phase-docs"
+          if [ -s "$T/phase-code" ]; then doc_after_code=$((doc_after_code + 1)); fi ;;
+        "$PHASE_PREFIX"*) printf '%s\n' "$sha" >>"$T/phase-code"; last_code=$sha ;;
+        *) nforeign=$((nforeign + 1)) ;;
+      esac
+    done <"$T/phase-commits"
+    NDOCS=$(count_lines "$T/phase-docs"); NCODE=$(count_lines "$T/phase-code")
+    echo "  commits in the range: $(count_lines "$T/phase-commits"); doc commits: $NDOCS; code commits: $NCODE; without the phase prefix: $nforeign"
+    echo "  the doc commits, as git lists them:"; sed 's/^/    /' "$T/phase-docs"
+    echo "  the code commits, as git lists them:"; sed 's/^/    /' "$T/phase-code"
+    FIRST_LISTED=$(sed -n 1p "$T/phase-docs")
+    first_doc_is_pattern() { [ -n "$FIRST_LISTED" ] && [ "$FIRST_LISTED" = "$DOC" ]; }
+    last_code_is() { full_sha "$1" && [ "$1" = "$last_code" ]; }
+    not_last_code() { if last_code_is "$1"; then return 1; else return 0; fi; }
+    code_present() { [ "$NCODE" != error ] && [ "$NCODE" -ge 1 ]; }
+    echo "phase: Milestone 2 part 3 P1 (specs/0018-rows-and-columns.md) scan.log, stage $STAGE; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0001 "Rules for every phase": every sha256 a log cites, a superseded
+      # attempt's included, is PRINTED BY A COMMAND run over a file that exists at
+      # run time, never typed from memory. The note above names its predecessors;
+      # these lines are what make those names evidence. An attempt that was not
+      # kept is named as having no hash, and why.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    # SERIALIZED as the coordinator arranged, with the measurement at entry
+    # (change I, P2 verification ruling 6).
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight (the coordinator's arrangement); cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc"
+    structural "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    # One line per root (change I, P2 verification ruling 5).
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory (the fixtures, copies and message files), deleted on exit"
+    echo "root: <scratch> stands for the directory above this script's own"
+    echo "root: <scratch>/p1 stands for this script's own directory, which holds the script the invocation names and, in <scratch>/p1/out, its own standard error (changes R and Q)"
+    echo "root: <repo> stands for the repository's top level, the directory this script cds to; scripts/counting.sh is sourced from it and every file scanned is read from it or from git"
+    script_dir_is_p1() { [ "$(cd "$(dirname "$0")" && pwd)" = "$SROOT/p1" ]; }
+    structural "the script's own directory is <scratch>/p1" "$(yn script_dir_is_p1)"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    together() { if apart "$1" "$2"; then return 1; else return 0; fi; }
+    structural "the two roots are distinct directories, neither inside the other" "$(yn apart "$T" "$SROOT")"
+    structural "control: the same form refuses a root inside the other" "$(yn together "$SROOT/p1" "$SROOT")"
+    structural "the doc commit pattern matches exactly one commit" "$(yn [ "$NDOC" = 1 ])"
+    structural "the base is part 2's close-out record commit, by its subject" "$(yn base_is_closeout_record "$BASE_SUBJECT")"
+    structural "control: the same form refuses a part 2 P3 code subject" \
+      "$(yn not_closeout_record "M2 part 2 P3: probe-emend-fullstyles-write-xml")"
+    structural "every commit of the range carries the phase's subject prefix" "$(yn [ "$nforeign" = 0 ])"
+    docs_present() { [ "$NDOCS" != error ] && [ "$NDOCS" -ge 1 ]; }
+    structural "the range holds at least one doc commit" "$(yn docs_present)"
+    structural "the first doc commit listed is the one the pattern found" "$(yn first_doc_is_pattern)"
+    structural "the range holds at least one code commit" "$(yn code_present)"
+    structural "no doc commit follows a code commit" "$(yn [ "$doc_after_code" = 0 ])"
+    structural "the phase commit given is the last code commit of the range" "$(yn last_code_is "$C")"
+    structural "control: the same form refuses the null commit as the last code commit" \
+      "$(yn not_last_code "$NULL_SHA")"
+    FIRST_CODE=$(sed -n 1p "$T/phase-code")
+    first_code_distinct() { [ "$NCODE" != error ] && [ "$NCODE" -ge 2 ]; }
+    if first_code_distinct; then
+      structural "control: the same form refuses the first code commit, which is not the last" \
+        "$(yn not_last_code "$FIRST_CODE")"
+    fi
+    echo
+    echo "## this script's own source, scanned before it is printed"
+    echo "specs/0001 \"Rules for every phase\": a scan script runs the pre-P6d forms"
+    echo "over its own source before printing itself, because no scan reads the log"
+    echo "it writes, and a bare shape written by a COMMENT OF MY OWN in the part 2"
+    echo "P3 scan script survived every form that phase ran and was committed in"
+    echo "its scan.log. Planning ruled that a true finding. This block is the rule"
+    echo "that came out of it, and the zero it reports is the claim that log could"
+    echo "not make."
+    self_n=$(f_pre "$0")
+    echo "  pre-P6d forms over this script's source: count=$self_n"
+    self_clean() { [ "$1" != error ] && [ "$1" = 0 ]; }
+    structural "this script's own source writes no bare shape" "$(yn self_clean "$self_n")"
+    # The control plants ONE shape, built by concatenation, in a COPY of the source,
+    # so a count of 0 above means the form looked and found nothing rather than that
+    # it could not look. The copy is never printed and never leaves the scratch
+    # directory.
+    cp "$0" "$T/self-copy"
+    printf '# %s%s%s\n' '/mnt/' 'c/' 'Users/' >>"$T/self-copy"
+    ctl_n=$(f_pre "$T/self-copy")
+    echo "  the same form over a copy with one concatenated shape appended: count=$ctl_n"
+    structural "the self-scan can report a hit, so the zero above means something" "$(yn [ "$ctl_n" = 1 ])"
+    
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    
+    echo
+    echo "## counting controls"
+    counting_controls
+    structural "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE")"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >"$T/deny"
+    NDENY=$(count_lines "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    denylist_usable() { [ "$NDENY" != error ] && [ "$NDENY" -gt 0 ]; }
+    structural "the denylist is readable and not empty" "$(yn denylist_usable)"
+    # The read and the comparison are two statements, not one and-chain: a failed
+    # git show used to skip this check instead of failing it (independent check 1
+    # of M1 part 2 P1, which is where the finding was made). patterns_match is
+    # one function returning yes or no, and it reports no when the file cannot
+    # be read.
+    patterns_match() {
+      git show "$C:scripts/privacy-patterns.txt" >"$T/patterns-at-c" 2>/dev/null || return 1
+      cmp -s "$T/p6-patterns" "$T/patterns-at-c"
+    }
+    structural "this script's patterns equal scripts/privacy-patterns.txt at $C" \
+      "$(yn patterns_match)"
+    echo "command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1"
+    echo "  the narrowing commit resolves to $PRE_COMMIT; the pre-P6d patterns are read from its parent"
+    structural "the three pre-P6d forms were read from git, not typed (lines read: $(count_lines "$T/pre-patterns"))" \
+      "$(yn [ "$(count_lines "$T/pre-patterns")" = 3 ])"
+    
+    echo
+    echo "## controls (the same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' >"$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$T/c-ctrl"
+    printf 'plain\ttab\r\n' >"$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" >"$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' >"$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$T/c-p6"
+    printf 'x %s%s%s%s y\n' '/mnt/' 'c/' 'Users/' 'bob' >"$T/c-p6-path"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$T/c-bare"
+    printf 'x %s y\n' "$HOST" >"$T/c-host"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' >"$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" >"$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' >"$T/c-clean"
+    sed -n 1p "$T/deny" | awk '{ print "x " $0 " y" }' >"$T/c-deny"
+    check_ctl "f_nonascii on a two-byte character" 2 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl on tab and CR only" 0 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash on U+2014" 1 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash on another non-ASCII byte" 0 f_emdash "$T/c-nonascii"
+    check_ctl "f_session on the trailer" 1 f_session "$T/c-session"
+    check_ctl "f_p6 on a token shape" 1 f_p6 "$T/c-p6"
+    check_ctl "f_p6 on a real path of the narrowed form" 1 f_p6 "$T/c-p6-path"
+    check_ctl "f_p6 on a bare shape (P6d: must not match)" 0 f_p6 "$T/c-bare"
+    check_ctl "f_pre on the same bare shape (the pre-P6d form does match)" 1 f_pre "$T/c-bare"
+    printf 'x C%s%sUsers%s y\n' ':' '\' '\' >"$T/c-bare2"
+    printf 'x %s%s y\n' '.claude' '/projects/' >"$T/c-bare3"
+    check_ctl "f_pre1 on the bare /mnt form" 1 f_pre1 "$T/c-bare"
+    check_ctl "f_pre2 on the bare drive-letter form" 1 f_pre2 "$T/c-bare2"
+    check_ctl "f_pre3 on the bare projects form" 1 f_pre3 "$T/c-bare3"
+    check_ctl "f_p6 on the bare drive-letter form (P6d: must not match)" 0 f_p6 "$T/c-bare2"
+    check_ctl "f_p6 on the bare projects form (P6d: must not match)" 0 f_p6 "$T/c-bare3"
+    check_ctl "f_host on a file naming this host" 1 f_host "$T/c-host"
+    # f_home's controls. The positive fixture holds this machine's home
+    # directory; the label says so without printing it. The two negatives are
+    # the shapes that must NOT be flagged: the synthetic control path P1 and P2
+    # already committed in their run logs, which names an account this machine
+    # does not have, and the repo-relative form the T0 P6d ruling asks for,
+    # which is the shape the corrected negative.log now prints on that line.
+    printf 'x %s/crates/emend/src/lib.rs y\n' "$HOME" >"$T/c-home"
+    printf 'x %s%s y\n' '/home/' 'someone/emend-testing/corpus/x.xlsx' >"$T/c-home-other"
+    printf 'x %s y\n' '<repo>/crates/emend/src/package/tests.rs' >"$T/c-home-rel"
+    printf 'x %s/%s/corpus/x.xlsx y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-corpus"
+    printf 'x %s/%s/a and %s/crates/b y\n' "$HOME" "$CORPUS_DIR" "$HOME" >"$T/c-home-both"
+    printf 'x %s/%s-notes/a y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-prefix"
+    printf 'Private, in `%s/%s`. Nothing from it is committed.\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-roadmap"
+    check_ctl "f_home on a path under this machine's home directory" 1 f_home "$T/c-home"
+    check_ctl "f_home on a home path of another account (must not match)" 0 f_home "$T/c-home-other"
+    check_ctl "f_home on the repo-relative form (must not match)" 0 f_home "$T/c-home-rel"
+    check_ctl "f_home on the documented corpus directory (exempt, must not match)" 0 f_home "$T/c-home-corpus"
+    check_ctl "f_home on one line holding the corpus root AND a real leak" 1 f_home "$T/c-home-both"
+    check_ctl "f_home on a sibling whose name merely starts with the corpus name" 1 f_home "$T/c-home-prefix"
+    check_ctl "f_home on the committed sentence's shape, corpus root then punctuation" 0 f_home "$T/c-home-roadmap"
+    check_ctl "f_host on the same path under this home directory" 0 f_host "$T/c-home"
+    check_ctl "f_p6 on the same path (the narrowed patterns do not reach it)" 0 f_p6 "$T/c-home"
+    check_ctl "f_pre on the same path (nor do the pre-P6d forms)" 0 f_pre "$T/c-home"
+    check_ctl "f_deny on one denylist entry (not printed)" 1 f_deny "$T/c-deny"
+    check_ctl "f_email on an address outside the allowlist" 1 f_email "$T/c-email-bad"
+    check_ctl "f_email on only allowed addresses" 0 f_email "$T/c-email-ok"
+    for f in $FORMS; do check_ctl "$f on a clean file" 0 "$f" "$T/c-clean"; done
+    check_ctl "f_pre on a clean file" 0 f_pre "$T/c-clean"
+    # The count's control (change J): two planted failing structural checks and one
+    # passing one, inside a function whose local bad shadows the run's, count 2.
+    struct_count_control() {
+      local bad=0
+      structural "planted failing check one" no >/dev/null
+      structural "planted failing check two" no >/dev/null
+      structural "planted passing check" yes >/dev/null
+      [ "$bad" = 2 ]
+    }
+    structural "control: two planted failing structural checks count 2" "$(yn struct_count_control)"
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the phase range"
+    echo "command: git log --reverse --format='%H %s' $BASE..$C"
+    git log --reverse --format='    %H %s' "$BASE..$C"
+    
+    echo
+    echo "## files changed in the phase diff (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf + 1))
+      if git show "$C:$f" >"$T/f" 2>/dev/null; then nread=$((nread + 1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum <"$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    git diff --name-only --diff-filter=d "$BASE" "$C" >"$T/difffiles"
+    want=$(count_lines "$T/difffiles")
+    files_complete() { [ "$want" != error ] && [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in the diff: $want; scanned: $nf; read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the phase range"
+    # The Co-Authored-By check's controls (change C), before it is used.
+    structural "control: the check accepts the Opus 5.5 line" "$(yn coauthor_ok "$COAUTHOR")"
+    structural "control: the check refuses the Opus 5 line, which this range does not carry" "$(yn coauthor_refused "$COAUTHOR_OTHER")"
+    structural "control: the check refuses a similar third line" "$(yn coauthor_refused 'Co-Authored-By: Claude Opus 5.1 (1M context) <noreply@anthropic.com>')"
+    structural "control: the check refuses a session trailer" "$(yn coauthor_refused 'Claude-Session: control')"
+    nm=0; nb=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm + 1))
+      if ! git cat-file commit "$c" >"$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" >"$T/m"
+      last=$(awk 'NF { l = $0 } END { print l }' "$T/m")
+      echo "message $c"
+      case "$last" in
+        "$COAUTHOR") echo "  ends with the Opus 5.5 line"; nb=$((nb + 1)) ;;
+      esac
+      structural "  last non-empty line is the Co-Authored-By line this range carries" "$(yn coauthor_ok "$last")"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    echo "  messages ending with the Opus 5.5 line: $nb"
+    split_complete() { [ "$nb" -eq "$nm" ]; }
+    structural "the count sums to the messages scanned" "$(yn split_complete)"
+    
+    echo
+    echo "## the sibling logs, the check answers and the records (a log cannot scan itself)"
+    echo "The four sibling logs are always present: this phase writes gate, test,"
+    echo "negative and run logs. It writes no self-test log, because it changed"
+    echo "no gate file, which is measured below rather than assumed. The check"
+    echo "answers are present only"
+    echo "in the FINAL run of this"
+    echo "scan, which specs/0001 requires to be the last log written; the count"
+    echo "below says which run this is."
+    echo "command: wc -c and sha256sum over each file scanned below"
+    nl=0; nans=0
+    SIBLINGS="records/logs/m2p3-p1/gate.log records/logs/m2p3-p1/test.log records/logs/m2p3-p1/negative.log records/logs/m2p3-p1/run.log"
+    for f in $SIBLINGS; do
+      if [ ! -f "$f" ]; then echo "file $f: MISSING"; bad=$((bad + 1)); continue; fi
+      nl=$((nl + 1))
+      echo "scanned $f ($(wc -c <"$f") bytes, sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    structural "sibling logs scanned: $nl (expected 4; scan.log cannot scan itself)" "$(yn [ "$nl" -eq 4 ])"
+    # The self-test log is absent, and that is a PROPERTY of the phase diff and not
+    # an assumption: specs/0001 asks for one only from a phase that changes a gate
+    # file. The ten names are the spec's, and they are scored against the diff this
+    # scan already read, with a control that the same search finds a name the diff
+    # does hold.
+    cat >"$T/gate-files" <<'EOF'
+    scripts/check.sh
+    scripts/privacy.sh
+    scripts/privacy-patterns.txt
+    scripts/privacy-identity.txt
+    scripts/sys-allowlist.txt
+    scripts/install-hooks.sh
+    scripts/counting.sh
+    scripts/gate-self-test.sh
+    .gitignore
+    .github/workflows/ci.yml
+    EOF
+    gate_touched=0
+    while IFS= read -r g; do
+      hit=$(count_matches -Fx "$g" "$T/difffiles")
+      if [ "$hit" = error ]; then err=1; continue; fi
+      if [ "$hit" -gt 0 ]; then
+        echo "  gate file in the phase diff: $g"
+        gate_touched=$((gate_touched + hit))
+      fi
+    done <"$T/gate-files"
+    echo "  gate files checked against the diff: $(count_lines "$T/gate-files"); of them in it: $gate_touched"
+    structural "no gate file is in the phase diff, so no self-test log is due" \
+      "$(yn [ "$gate_touched" = 0 ])"
+    FIRST_DIFF=$(sed -n '1p' "$T/difffiles")
+    first_hit=$(count_matches -Fx "$FIRST_DIFF" "$T/difffiles")
+    echo "  control: a file that IS in the diff, taken from the diff, is found $first_hit time(s)"
+    structural "control: the same search finds a name the diff does hold" \
+      "$(yn [ "$first_hit" -ge 1 ])"
+    structural "no self-test log is present in this phase's log directory" \
+      "$(yn [ ! -f records/logs/m2p3-p1/self-test.log ])"
+    for f in records/logs/m2p3-p1/independent-check-*.md; do
+      [ -f "$f" ] || continue
+      nans=$((nans + 1))
+      echo "scanned $f ($(wc -c <"$f") bytes, sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    echo "check answers scanned: $nans"
+    # None before the checks, one or two in the final run (change C): at most two
+    # independent checks per phase.
+    answers_count_ok() { if [ "$STAGE" = pre-check ]; then [ "$nans" -eq 0 ]; else [ "$nans" -ge 1 ] && [ "$nans" -le 2 ]; fi; }
+    structural "check answers present: $nans (stage $STAGE: none before the checks, one or two in the final run)" "$(yn answers_count_ok)"
+    nrec=0
+    for f in records/m2p3-p1-*-"$SHORT".md records/m2p3-p1-*-"$SHORT".txt records/m2p3-open-*-"$SHORT".md records/m2p3-open-*-"$SHORT".txt; do
+      [ -f "$f" ] || continue
+      nrec=$((nrec + 1))
+      echo "scanned $f ($(wc -c <"$f") bytes, sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    echo "records scanned: $nrec"
+    # Four: the two record pairs (change V).
+    structural "the phase's two record pairs were scanned: $nrec (expected 4)" "$(yn [ "$nrec" -eq 4 ])"
+    
+    echo
+    echo "## planning's uncommitted files, as they stand (change D)"
+    echo "Part 5 P2 ruling 8: planning's files modified and uncommitted, should any stand,"
+    echo "are planning's text, not this phase's; each is scanned here so a hit is"
+    echo "reported before a later commit carries it."
+    echo "command: git status --porcelain (every line printed), and of them the lines naming specs/0018-rows-and-columns.md, specs/0017-fuller-styles.md or ROADMAP.md as modified"
+    git status --porcelain | sed 's/^/    /'
+    git status --porcelain | LC_ALL=C "$G" -E '^ M (specs/0018-rows-and-columns[.]md|specs/0017-fuller-styles[.]md|ROADMAP[.]md)$' | cut -c4- >"$T/planning-files"
+    nplan=0
+    while IFS= read -r f; do
+      nplan=$((nplan + 1))
+      echo "scanned $f as it stands in the working tree ($(wc -c <"$f") bytes, sha256 $(sha256sum "$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+      n=$(f_pre "$f")
+      echo "  pre-P6d forms in $f: count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    done <"$T/planning-files"
+    echo "planning's modified, uncommitted files scanned: $nplan"
+    # Pinned (P3): planning's spec, should it stand uncommitted, is the file
+    # planning's message hashed (PLANNING_GAVE).
+    PLANNING_GAVE=${PLANNING_GAVE:-none given}
+    echo "  the hash planning gave for specs/0018-rows-and-columns.md uncommitted: $PLANNING_GAVE"
+    spec_pinned() { if LC_ALL=C "$G" -qFx specs/0018-rows-and-columns.md "$T/planning-files"; then [ "$(sha256sum <specs/0018-rows-and-columns.md | cut -d' ' -f1)" = "$PLANNING_GAVE" ]; else return 0; fi; }
+    structural "planning's spec is committed, or its uncommitted copy is the file planning hashed" "$(yn spec_pinned)"
+    
+    echo
+    echo "## the pre-P6d bare-shape control over this phase's files"
+    echo "The narrowed patterns are blind to a bare shape by design, so this scan's"
+    echo "own zero hits cannot establish that no bare shape was committed. The three"
+    echo "pre-P6d forms are run here for that, with the controls above."
+    # EVERY file in the phase diff, not a hand-listed subset. An earlier version
+    # named four sources and the runner, so three files the phase ADDS
+    # (crates/emend/Cargo.toml, tools/emend-copy/Cargo.toml and this spec) were
+    # seen only by the narrowed live patterns, which specs/0001 says are blind to
+    # a bare shape by design. Both independent checks of an earlier phase
+    # found it: the omission was exactly the gap this control exists to
+    # close.
+    pre_hits=0; pre_err=0; pre_files=0
+    # The diff's files are read at the phase commit.
+    while IFS= read -r f; do
+      if ! git show "$C:$f" >"$T/pre-f" 2>/dev/null; then echo "  $f at $C: READ ERROR"; pre_err=1; continue; fi
+      pre_files=$((pre_files + 1))
+      n=$(f_pre "$T/pre-f")
+      echo "  pre-P6d forms in $f at the phase commit: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done <"$T/difffiles"
+    : >"$T/pre-targets"
+    for extra in $SIBLINGS \
+                 records/logs/m2p3-p1/independent-check-1.md \
+                 records/logs/m2p3-p1/independent-check-2.md \
+                 records/m2p3-p1-*-"$SHORT".md records/m2p3-p1-*-"$SHORT".txt \
+                 records/m2p3-open-*-"$SHORT".md records/m2p3-open-*-"$SHORT".txt; do
+      [ -f "$extra" ] && printf '%s\n' "$extra" >>"$T/pre-targets"
+    done
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      pre_files=$((pre_files + 1))
+      n=$(f_pre "$f")
+      echo "  pre-P6d forms in $f: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done <"$T/pre-targets"
+    echo "  files run through the pre-P6d forms: $pre_files"
+    ndiff=$(count_lines "$T/difffiles")
+    pre_covers_diff() { [ "$ndiff" != error ] && [ "$pre_files" -ge "$ndiff" ]; }
+    structural "every file in the phase diff went through the bare-shape control (diff files: $ndiff)" \
+      "$(yn pre_covers_diff)"
+    pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
+    structural "bare shapes found by the pre-P6d forms: $pre_hits (expect 0); errors: $pre_err" "$(yn pre_clean)"
+    
+    echo
+    echo "## the three shapes specs/0001 forbids, over every printed script"
+    # The part 1 P3 repair-round rulings (specs/0008-zip-layer.md) require the
+    # phase's scan log to run this itself: planning found 31 instances of the form
+    # across six phases that no check had caught, because the rule had been
+    # enforced by reading rather than by a grep. The form calls the yn or is helper
+    # on a test and then chains another test after it with an and- or or-operator
+    # inside ONE command substitution; the helper runs its arguments, the operator
+    # binds outside the substitution, and only the first test is ever captured.
+    #
+    # The pattern is ASSEMBLED here rather than written out, so this script's own
+    # printed text cannot trip the check it performs. It is unanchored, as the
+    # ruling words it.
+    # The pattern and both control fixtures are ASSEMBLED from pieces, so the
+    # literal form never appears in this script's own text and the check cannot
+    # trip on the script that performs it.
+    #
+    # THE THIRD FORM is the one specs/0001 gained from part 3 P1 ruling 11: the
+    # helper is handed an ASSIGNMENT where the command should be, as in a check
+    # that wanted a locale set for one search. The shell looks for a command named
+    # by the assignment, fails, and the check reports as-expected whatever the
+    # file held: the same defect as the leading bang, reached by another spelling.
+    # It was part 3 P1's own run script that tripped over it, and neither of the two
+    # older forms could see it.
+    # The three patterns and their count functions are defined in the first
+    # block after the opening lines (change E) and used here unchanged.
+    echo "  the three patterns, as the first block printed them, are used again here"
+    # Four controls, all through the same command forms: a fixture holding each
+    # forbidden form must score 1, and a fixture doing the same work correctly,
+    # with a named function and with the negating helper, must score 0 for both.
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$T/c-shape"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$T/c-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$T/c-assign"
+    printf 'ok() { [ a = a ] || return 1; [ b = b ] || return 1; }\nnote "x" "%s(is ok)"\nnote "y" "%s(isnot ok)"\n' '$' '$' >"$T/c-shape-ok"
+    check_ctl "f_shape on a fixture holding the chained form" 1 f_shape "$T/c-shape"
+    check_ctl "f_shape on a named function doing the same work" 0 f_shape "$T/c-shape-ok"
+    check_ctl "f_bang on a fixture holding the leading-bang form" 1 f_bang "$T/c-bang"
+    check_ctl "f_bang on a named function and the negating helper" 0 f_bang "$T/c-shape-ok"
+    # And the cross controls, so neither pattern is silently matching the other's
+    # form: each scores 0 on the other's fixture.
+    check_ctl "f_assign on a fixture holding the assignment-prefix form" 1 f_assign "$T/c-assign"
+    check_ctl "f_assign on a named function doing the same work" 0 f_assign "$T/c-shape-ok"
+    # The cross controls, so no pattern is silently matching another's form: each
+    # scores 0 on the other two fixtures. Six pairs, all through the same command
+    # form as the scans themselves.
+    check_ctl "f_shape on the leading-bang fixture" 0 f_shape "$T/c-bang"
+    check_ctl "f_bang on the chained fixture" 0 f_bang "$T/c-shape"
+    check_ctl "f_shape on the assignment-prefix fixture" 0 f_shape "$T/c-assign"
+    check_ctl "f_bang on the assignment-prefix fixture" 0 f_bang "$T/c-assign"
+    check_ctl "f_assign on the chained fixture" 0 f_assign "$T/c-shape"
+    check_ctl "f_assign on the leading-bang fixture" 0 f_assign "$T/c-bang"
+    shape_hits=0; shape_err=0; shape_files=0
+    # One place where a count is taken, so no file goes through two of the three
+    # forms and not the third.
+    shape_scan() {
+      local f=$1 n b a
+      n=$(f_shape "$f")
+      b=$(f_bang "$f")
+      a=$(f_assign "$f")
+      echo "  the forbidden shapes in $2: chained=$n leading-bang=$b assignment=$a"
+      shape_files=$((shape_files + 1))
+      for one in "$n" "$b" "$a"; do
+        if [ "$one" = error ]; then shape_err=1
+        elif [ "$one" != 0 ]; then shape_hits=$((shape_hits + one)); fi
+      done
+    }
+    # Every printed script goes through all three greps, which for this phase
+    # means FIVE logs: gate, test, size, negative and run, each of which prints a
+    # script of its own (change S), and the count is asserted below so a list
+    # left at an older phase's length would fail.
+    for f in $SIBLINGS; do
+      [ -f "$f" ] || { echo "  $f: MISSING"; bad=$((bad + 1)); continue; }
+      shape_scan "$f" "$f"
+    done
+    # This script's own source, which no log can grep while it is being written:
+    # scan.log prints this script, so "every printed script" is only true if this
+    # file goes through the same three greps as the rest. An independent check of
+    # an earlier phase found the loop above covered the sibling logs and the check
+    # answers and stopped there, while the heading claimed every printed script. The pre-P6d
+    # self-scan higher up is a different form and does not stand in for these three.
+    shape_scan "$0" "this script's own source"
+    
+    # The check answers are scripts' readers, not scripts, but they quote them, so
+    # they go through the same greps when they exist.
+    # THE CHECK ANSWERS ARE PROSE, and prose about these very forms. An answer
+    # that says which form it looked for, or quotes a line of a log that carries a
+    # helper call, matches the pattern as surely as a script would, and a match
+    # there is not a defect: nothing in an answer is executed. So the answers go
+    # through all three greps, their counts are printed, and each matching LINE
+    # NUMBER is named so a reader can look at it, but they are not added to the
+    # hit total. specs/0001 puts the forms over the phase's printed SCRIPTS, which
+    # is what the loop above covers, this script's own source included.
+    ans_files=0
+    ans_hits=0
+    for f in records/logs/m2p3-p1/independent-check-*.md; do
+      [ -f "$f" ] || continue
+      ans_files=$((ans_files + 1))
+      n=$(f_shape "$f")
+      b=$(f_bang "$f")
+      a=$(f_assign "$f")
+      echo "  the forms QUOTED in $f: chained=$n leading-bang=$b assignment=$a"
+      for one in "$n" "$b" "$a"; do
+        if [ "$one" = error ]; then err=1
+        elif [ "$one" != 0 ]; then ans_hits=$((ans_hits + one)); fi
+      done
+      if [ "$n" != 0 ] && [ "$n" != error ]; then
+        echo "    lines quoting the chained form: $(LC_ALL=C "$G" -nE "$SHAPE" "$f" | cut -d: -f1 | tr '\n' ' ')"
+      fi
+      if [ "$b" != 0 ] && [ "$b" != error ]; then
+        echo "    lines quoting the leading-bang form: $(LC_ALL=C "$G" -nE "$BANG" "$f" | cut -d: -f1 | tr '\n' ' ')"
+      fi
+      if [ "$a" != 0 ] && [ "$a" != error ]; then
+        echo "    lines quoting the assignment form: $(LC_ALL=C "$G" -nE "$ASSIGN" "$f" | cut -d: -f1 | tr '\n' ' ')"
+      fi
+    done
+    echo "  check answers run through the three greps: $ans_files; forms quoted in them: $ans_hits"
+    # The answers are scanned, so a reader is told whether the greps looked at
+    # them at all; the count above is a quotation count and not a hit.
+    answers_scanned() { if [ "$STAGE" = pre-check ]; then [ "$ans_files" -eq 0 ]; else [ "$ans_files" -ge 1 ]; fi; }
+    structural "the check answers went through all three greps as prose (stage $STAGE; none before the checks)" \
+      "$(yn answers_scanned)"
+    # And the record pairs, which quote figures out of the scripts and is a file
+    # the phase commits like any other (change B).
+    for f in records/m2p3-p1-*-"$SHORT".md records/m2p3-p1-*-"$SHORT".txt records/m2p3-open-*-"$SHORT".md records/m2p3-open-*-"$SHORT".txt; do
+      [ -f "$f" ] || continue
+      shape_scan "$f" "$f"
+    done
+    echo "  files run through the three shape greps: $shape_files"
+    # The four logs and this script are always among them, so a list that lost one
+    # would show here rather than in a smaller total nobody reads.
+    shape_covered() { [ "$shape_files" -ge 5 ]; }
+    structural "every printed script went through all three greps: $shape_files files" \
+      "$(yn shape_covered)"
+    shape_clean() { [ "$shape_hits" -eq 0 ] && [ "$shape_err" -eq 0 ]; }
+    structural "instances of any of the three forbidden shapes: $shape_hits (expect 0); errors: $shape_err" \
+      "$(yn shape_clean)"
+    
+    echo
+    echo "## every placeholder a log prints is declared by its root lines (change N)"
+    echo "specs/0016 P5 verification ruling 3, carried by specs/0017 \"Phases\": a"
+    echo "placeholder is a token a log's printed scrub writes in place of a path, or"
+    echo "a lower-case angle-bracketed word printed immediately before a slash; it"
+    echo "is declared when a root line says the word stands for something. Tokens are"
+    echo "counted, never their lines."
+    # placeholders_used <file>: the sorted tokens, one per line.
+    placeholders_used() {
+      {
+        LC_ALL=C "$G" -a -o -E 's#[^#]*#<[a-z][a-z0-9_-]*>' "$1" | LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>$'
+        LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>/' "$1" | sed 's#/$##'
+      } | LC_ALL=C sort -u
+    }
+    # placeholders_declared <file>: the tokens a root line says stand for
+    # something, at its head or later in it.
+    placeholders_declared() {
+      LC_ALL=C "$G" -a -E '(^|echo ")root: ' "$1" | LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>(/[a-z0-9]+)? stands for' |
+        LC_ALL=C "$G" -a -o -E '^<[a-z][a-z0-9_-]*>' | LC_ALL=C sort -u
+    }
+    undeclared() { LC_ALL=C comm -23 <(placeholders_used "$1") <(placeholders_declared "$1") | count_lines /dev/stdin; }
+    # The fixtures' tokens are assembled from pieces, so this source spells none.
+    L='<'
+    printf 'root: %srepo> stands for x\nread %srepo>/a and %sbld>/b\n' "$L" "$L" "$L" >"$T/c-ph-bad"
+    printf 'root: %srepo> stands for x; %sbld> stands for y\nread %srepo>/a and %sbld>/b\n' "$L" "$L" "$L" "$L" >"$T/c-ph-ok"
+    printf '  sed -e "s#$X#%sgbld>#g"\nroot: %srepo> stands for x\n' "$L" "$L" >"$T/c-ph-scrub"
+    check_ctl "undeclared on a log printing a token before a slash with no root line for it" 1 undeclared "$T/c-ph-bad"
+    check_ctl "undeclared on the same log with the token declared later in a root line" 0 undeclared "$T/c-ph-ok"
+    check_ctl "undeclared on a scrub target with no root line" 1 undeclared "$T/c-ph-scrub"
+    nph_files=0
+    for f in $SIBLINGS "$0"; do
+      [ -f "$f" ] || { echo "  $f: MISSING"; bad=$((bad + 1)); continue; }
+      nph_files=$((nph_files + 1))
+      name=$f; [ "$f" = "$0" ] && name="this script's own source"
+      used=$(placeholders_used "$f" | tr '\n' ' ')
+      decl=$(placeholders_declared "$f" | tr '\n' ' ')
+      n=$(undeclared "$f")
+      echo "  $name: placeholders printed: $used; declared by root lines: $decl; undeclared: $n"
+      structural "every placeholder $name prints is declared by a root line" "$(yn [ "$n" = 0 ])"
+    done
+    structural "the four sibling logs and this script went through the placeholder check" "$(yn [ "$nph_files" = 5 ])"
+    
+    echo
+    echo "## this script's own standard error (change Q, specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$T/c-err"; printf 'x' >>"$T/c-err"
+    nerr_ctl=$(wc -c <"$T/c-err")
+    echo "  command: wc -c <scratch>/p1/out/scan-$STAGE.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    structural "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    structural "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    
+    echo
+    echo "total hits: $hits"
+    echo "read or counting errors: $err"
+    echo "structural checks failed: $bad"
+    scan_passed() {
+      [ "$ctl_fail" -eq 0 ] || return 1
+      [ "$err" -eq 0 ] || return 1
+      [ "$hits" -eq 0 ] || return 1
+      [ "$bad" -eq 0 ] || return 1
+      [ "$shape_hits" -eq 0 ] || return 1
+      [ "$shape_err" -eq 0 ] || return 1
+    }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+    
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+the denylist is readable and not empty: yes
+this script's patterns equal scripts/privacy-patterns.txt at b8595ce025fbe05cb3ac6437d3d51adbb1813f21: yes
+command: git log --format='%H' --grep='^T0 P6d: narrow the three path patterns' -n 1
+  the narrowing commit resolves to 721e86323e41fe6090b95ce3e26876e81e27b464; the pre-P6d patterns are read from its parent
+the three pre-P6d forms were read from git, not typed (lines read: 3): yes
+
+## controls (the same command forms as the scans)
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_ctrl on tab and CR only count=0 expected=0: as-expected
+  control f_emdash on U+2014 count=1 expected=1: as-expected
+  control f_emdash on another non-ASCII byte count=0 expected=0: as-expected
+  control f_session on the trailer count=1 expected=1: as-expected
+  control f_p6 on a token shape count=1 expected=1: as-expected
+  control f_p6 on a real path of the narrowed form count=1 expected=1: as-expected
+  control f_p6 on a bare shape (P6d: must not match) count=0 expected=0: as-expected
+  control f_pre on the same bare shape (the pre-P6d form does match) count=1 expected=1: as-expected
+  control f_pre1 on the bare /mnt form count=1 expected=1: as-expected
+  control f_pre2 on the bare drive-letter form count=1 expected=1: as-expected
+  control f_pre3 on the bare projects form count=1 expected=1: as-expected
+  control f_p6 on the bare drive-letter form (P6d: must not match) count=0 expected=0: as-expected
+  control f_p6 on the bare projects form (P6d: must not match) count=0 expected=0: as-expected
+  control f_host on a file naming this host count=1 expected=1: as-expected
+  control f_home on a path under this machine's home directory count=1 expected=1: as-expected
+  control f_home on a home path of another account (must not match) count=0 expected=0: as-expected
+  control f_home on the repo-relative form (must not match) count=0 expected=0: as-expected
+  control f_home on the documented corpus directory (exempt, must not match) count=0 expected=0: as-expected
+  control f_home on one line holding the corpus root AND a real leak count=1 expected=1: as-expected
+  control f_home on a sibling whose name merely starts with the corpus name count=1 expected=1: as-expected
+  control f_home on the committed sentence's shape, corpus root then punctuation count=0 expected=0: as-expected
+  control f_host on the same path under this home directory count=0 expected=0: as-expected
+  control f_p6 on the same path (the narrowed patterns do not reach it) count=0 expected=0: as-expected
+  control f_pre on the same path (nor do the pre-P6d forms) count=0 expected=0: as-expected
+  control f_deny on one denylist entry (not printed) count=1 expected=1: as-expected
+  control f_email on an address outside the allowlist count=1 expected=1: as-expected
+  control f_email on only allowed addresses count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_emdash on a clean file count=0 expected=0: as-expected
+  control f_session on a clean file count=0 expected=0: as-expected
+  control f_p6 on a clean file count=0 expected=0: as-expected
+  control f_home on a clean file count=0 expected=0: as-expected
+  control f_host on a clean file count=0 expected=0: as-expected
+  control f_deny on a clean file count=0 expected=0: as-expected
+  control f_email on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+control: two planted failing structural checks count 2: yes
+controls: all as expected
+
+## commits in the phase range
+command: git log --reverse --format='%H %s' d0f8f7246891d7596a76348a4a9a636b2370c9ef..b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+    fd6bbf80727bcfa35fe4ebdafd4a8764dd4e5e36 M2 part 3 P1: commit planning docs (the part 2 close-out verification, the part 3 spec)
+    d03ed7b6ab8b224ad293e6072ff4bb676977064d M2 part 3 P1: Area public, column and row formats, panes and merges
+    b8595ce025fbe05cb3ac6437d3d51adbb1813f21 M2 part 3 P1: emend-copy --format-sample
+
+## files changed in the phase diff (contents at b8595ce025fbe05cb3ac6437d3d51adbb1813f21)
+command: git diff --name-status d0f8f7246891d7596a76348a4a9a636b2370c9ef b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+    M	ROADMAP.md
+    M	crates/emend/src/cells.rs
+    M	crates/emend/src/lib.rs
+    M	crates/emend/src/package.rs
+    M	crates/emend/src/package/tests.rs
+    A	crates/emend/src/package/tests/rowcol.rs
+    M	specs/0017-fuller-styles.md
+    A	specs/0018-rows-and-columns.md
+    M	tools/emend-copy/src/main.rs
+    M	tools/emend-copy/tests/null_rewrite.rs
+file ROADMAP.md (sha256 4e4c42184cf86d6401028c921210d9b321f872762f365cee140619012d3ff736)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/cells.rs (sha256 6744f057284ca8f6a26b7d40578d1cf4e510a5148a0433fa64897396affa3814)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/lib.rs (sha256 d76a27013d852b493a444e2c95cf1653393b7dedf854445e83e79c8b6f42dd64)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package.rs (sha256 4db4e2722c16a0f5bbed52d12012fdd1b614318c4d22afe7d07ee5aa9f8f213d)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests.rs (sha256 a57f856564f777e982c6db11763f91fb4c50743e6c041af13348b8826ddde623)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests/rowcol.rs (sha256 1f0a97eb07e0325877c399598c48c156d13553d328db866ffb39790c42d68341)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0017-fuller-styles.md (sha256 f880aeaacedb4903885e56ab0a98d1523f864098bf4b05d96507ce737c599958)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0018-rows-and-columns.md (sha256 c50d89095fda6c425d02f1b72061bea752a4091989f9f8febfe047ddc36b06f0)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/src/main.rs (sha256 b8de4bb1c46a84315d088dae7e3a743c2be4a0d863cca1ccc3927e6ebe72ae88)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/tests/null_rewrite.rs (sha256 c03b65b0612334b7dc7931419ce9c7188986815201869bcc8908220f95e36b09)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+files in the diff: 10; scanned: 10; read: 10: yes
+
+## commit messages in the phase range
+control: the check accepts the Opus 5.5 line: yes
+control: the check refuses the Opus 5 line, which this range does not carry: yes
+control: the check refuses a similar third line: yes
+control: the check refuses a session trailer: yes
+message b8595ce025fbe05cb3ac6437d3d51adbb1813f21
+  ends with the Opus 5.5 line
+  last non-empty line is the Co-Authored-By line this range carries: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message d03ed7b6ab8b224ad293e6072ff4bb676977064d
+  ends with the Opus 5.5 line
+  last non-empty line is the Co-Authored-By line this range carries: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message fd6bbf80727bcfa35fe4ebdafd4a8764dd4e5e36
+  ends with the Opus 5.5 line
+  last non-empty line is the Co-Authored-By line this range carries: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+messages scanned: 3; commits in range: 3: yes
+  messages ending with the Opus 5.5 line: 3
+the count sums to the messages scanned: yes
+
+## the sibling logs, the check answers and the records (a log cannot scan itself)
+The four sibling logs are always present: this phase writes gate, test,
+negative and run logs. It writes no self-test log, because it changed
+no gate file, which is measured below rather than assumed. The check
+answers are present only
+in the FINAL run of this
+scan, which specs/0001 requires to be the last log written; the count
+below says which run this is.
+command: wc -c and sha256sum over each file scanned below
+scanned records/logs/m2p3-p1/gate.log (100399 bytes, sha256 b7256dc377a9214c57ff9c6597f1f8b722dd26f8d414a4eb5bb24891bb3b9240)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m2p3-p1/test.log (174590 bytes, sha256 e73bbb04cd8386f914034bb60facdda5bea8efb662e8458b81908ad8612036bb)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m2p3-p1/negative.log (46011 bytes, sha256 be40977466d839b80fd0c69de161073ce874a3715df2e85579717f623801e56a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/logs/m2p3-p1/run.log (239923 bytes, sha256 cf9372652f3239d73c126b6fa6e4b049fe83ce1325d5951d5955d59e3562bfe0)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+sibling logs scanned: 4 (expected 4; scan.log cannot scan itself): yes
+  gate files checked against the diff: 10; of them in it: 0
+no gate file is in the phase diff, so no self-test log is due: yes
+  control: a file that IS in the diff, taken from the diff, is found 1 time(s)
+control: the same search finds a name the diff does hold: yes
+no self-test log is present in this phase's log directory: yes
+scanned records/logs/m2p3-p1/independent-check-1.md (13107 bytes, sha256 7f24eea45d1614eb19fb300b0b750d25d20874962089e8f0a19b86d03086235a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+check answers scanned: 1
+check answers present: 1 (stage final: none before the checks, one or two in the final run): yes
+scanned records/m2p3-p1-2026-09-26-b8595ce.md (15588 bytes, sha256 94623053b9d2a5d1d2732699d390605da8a1a098fcb675517a82153bb3c93204)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/m2p3-p1-2026-09-26-b8595ce.txt (319323 bytes, sha256 b5f3e455e76eed84e3853638d764d2af5949ea41dacce82cd90d1713e1e92e32)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/m2p3-open-2026-09-26-b8595ce.md (68705 bytes, sha256 a5fb522aa3408fe365908828a0b558299ff5e84849ed4c195675bb472e13e1f1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+scanned records/m2p3-open-2026-09-26-b8595ce.txt (60526 bytes, sha256 0cff42e8582b6cc61a7626cfa33eb2e542d8971af84bb8c69185e8acaaff39c9)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+records scanned: 4
+the phase's two record pairs were scanned: 4 (expected 4): yes
+
+## planning's uncommitted files, as they stand (change D)
+Part 5 P2 ruling 8: planning's files modified and uncommitted, should any stand,
+are planning's text, not this phase's; each is scanned here so a hit is
+reported before a later commit carries it.
+command: git status --porcelain (every line printed), and of them the lines naming specs/0018-rows-and-columns.md, specs/0017-fuller-styles.md or ROADMAP.md as modified
+     M specs/0018-rows-and-columns.md
+    ?? records/logs/m2p3-p1/
+    ?? records/m2p3-open-2026-09-26-b8595ce.md
+    ?? records/m2p3-open-2026-09-26-b8595ce.txt
+    ?? records/m2p3-p1-2026-09-26-b8595ce.md
+    ?? records/m2p3-p1-2026-09-26-b8595ce.txt
+scanned specs/0018-rows-and-columns.md as it stands in the working tree (45789 bytes, sha256 09c5c539f2563b4556e8038a7dd2259d7957b47fc9e8a1dfc9ed78a86298a52e)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+  pre-P6d forms in specs/0018-rows-and-columns.md: count=0
+planning's modified, uncommitted files scanned: 1
+  the hash planning gave for specs/0018-rows-and-columns.md uncommitted: 09c5c539f2563b4556e8038a7dd2259d7957b47fc9e8a1dfc9ed78a86298a52e
+planning's spec is committed, or its uncommitted copy is the file planning hashed: yes
+
+## the pre-P6d bare-shape control over this phase's files
+The narrowed patterns are blind to a bare shape by design, so this scan's
+own zero hits cannot establish that no bare shape was committed. The three
+pre-P6d forms are run here for that, with the controls above.
+  pre-P6d forms in ROADMAP.md at the phase commit: count=0
+  pre-P6d forms in crates/emend/src/cells.rs at the phase commit: count=0
+  pre-P6d forms in crates/emend/src/lib.rs at the phase commit: count=0
+  pre-P6d forms in crates/emend/src/package.rs at the phase commit: count=0
+  pre-P6d forms in crates/emend/src/package/tests.rs at the phase commit: count=0
+  pre-P6d forms in crates/emend/src/package/tests/rowcol.rs at the phase commit: count=0
+  pre-P6d forms in specs/0017-fuller-styles.md at the phase commit: count=0
+  pre-P6d forms in specs/0018-rows-and-columns.md at the phase commit: count=0
+  pre-P6d forms in tools/emend-copy/src/main.rs at the phase commit: count=0
+  pre-P6d forms in tools/emend-copy/tests/null_rewrite.rs at the phase commit: count=0
+  pre-P6d forms in records/logs/m2p3-p1/gate.log: count=0
+  pre-P6d forms in records/logs/m2p3-p1/test.log: count=0
+  pre-P6d forms in records/logs/m2p3-p1/negative.log: count=0
+  pre-P6d forms in records/logs/m2p3-p1/run.log: count=0
+  pre-P6d forms in records/logs/m2p3-p1/independent-check-1.md: count=0
+  pre-P6d forms in records/m2p3-p1-2026-09-26-b8595ce.md: count=0
+  pre-P6d forms in records/m2p3-p1-2026-09-26-b8595ce.txt: count=0
+  pre-P6d forms in records/m2p3-open-2026-09-26-b8595ce.md: count=0
+  pre-P6d forms in records/m2p3-open-2026-09-26-b8595ce.txt: count=0
+  files run through the pre-P6d forms: 19
+every file in the phase diff went through the bare-shape control (diff files: 10): yes
+bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
+
+## the three shapes specs/0001 forbids, over every printed script
+  the three patterns, as the first block printed them, are used again here
+  control f_shape on a fixture holding the chained form count=1 expected=1: as-expected
+  control f_shape on a named function doing the same work count=0 expected=0: as-expected
+  control f_bang on a fixture holding the leading-bang form count=1 expected=1: as-expected
+  control f_bang on a named function and the negating helper count=0 expected=0: as-expected
+  control f_assign on a fixture holding the assignment-prefix form count=1 expected=1: as-expected
+  control f_assign on a named function doing the same work count=0 expected=0: as-expected
+  control f_shape on the leading-bang fixture count=0 expected=0: as-expected
+  control f_bang on the chained fixture count=0 expected=0: as-expected
+  control f_shape on the assignment-prefix fixture count=0 expected=0: as-expected
+  control f_bang on the assignment-prefix fixture count=0 expected=0: as-expected
+  control f_assign on the chained fixture count=0 expected=0: as-expected
+  control f_assign on the leading-bang fixture count=0 expected=0: as-expected
+  the forbidden shapes in records/logs/m2p3-p1/gate.log: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/logs/m2p3-p1/test.log: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/logs/m2p3-p1/negative.log: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/logs/m2p3-p1/run.log: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in this script's own source: chained=0 leading-bang=0 assignment=0
+  the forms QUOTED in records/logs/m2p3-p1/independent-check-1.md: chained=0 leading-bang=0 assignment=0
+  check answers run through the three greps: 1; forms quoted in them: 0
+the check answers went through all three greps as prose (stage final; none before the checks): yes
+  the forbidden shapes in records/m2p3-p1-2026-09-26-b8595ce.md: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/m2p3-p1-2026-09-26-b8595ce.txt: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/m2p3-open-2026-09-26-b8595ce.md: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in records/m2p3-open-2026-09-26-b8595ce.txt: chained=0 leading-bang=0 assignment=0
+  files run through the three shape greps: 9
+every printed script went through all three greps: 9 files: yes
+instances of any of the three forbidden shapes: 0 (expect 0); errors: 0: yes
+
+## every placeholder a log prints is declared by its root lines (change N)
+specs/0016 P5 verification ruling 3, carried by specs/0017 "Phases": a
+placeholder is a token a log's printed scrub writes in place of a path, or
+a lower-case angle-bracketed word printed immediately before a slash; it
+is declared when a root line says the word stands for something. Tokens are
+counted, never their lines.
+  control undeclared on a log printing a token before a slash with no root line for it count=1 expected=1: as-expected
+  control undeclared on the same log with the token declared later in a root line count=0 expected=0: as-expected
+  control undeclared on a scrub target with no root line count=1 expected=1: as-expected
+  records/logs/m2p3-p1/gate.log: placeholders printed: <build> <home> <repo> <scratch> ; declared by root lines: <build> <home> <repo> <scratch> ; undeclared: 0
+every placeholder records/logs/m2p3-p1/gate.log prints is declared by a root line: yes
+  records/logs/m2p3-p1/test.log: placeholders printed: <build> <home> <repo> <scratch> ; declared by root lines: <build> <home> <repo> <scratch> ; undeclared: 0
+every placeholder records/logs/m2p3-p1/test.log prints is declared by a root line: yes
+  records/logs/m2p3-p1/negative.log: placeholders printed: <build> <gatebuild> <home> <repo> <scratch> <tree> ; declared by root lines: <build> <gatebuild> <home> <repo> <scratch> <tree> ; undeclared: 0
+every placeholder records/logs/m2p3-p1/negative.log prints is declared by a root line: yes
+  records/logs/m2p3-p1/run.log: placeholders printed: <build> <corpus> <home> <keep> <repo> <scratch> ; declared by root lines: <build> <corpus> <home> <keep> <repo> <scratch> ; undeclared: 0
+every placeholder records/logs/m2p3-p1/run.log prints is declared by a root line: yes
+  this script's own source: placeholders printed: <repo> <scratch> ; declared by root lines: <repo> <scratch> ; undeclared: 0
+every placeholder this script's own source prints is declared by a root line: yes
+the four sibling logs and this script went through the placeholder check: yes
+
+## this script's own standard error (change Q, specs/0017 P1 verification ruling 7)
+  command: wc -c <scratch>/p1/out/scan-final.stderr: 0 bytes; a copy with one byte appended: 1
+this script wrote nothing to its standard error: yes
+control: the same count reads one byte more in the copy: yes
+
+total hits: 0
+read or counting errors: 0
+structural checks failed: 0
+run ended at 2026-09-26T15:04:57Z
+RESULT: PASS
