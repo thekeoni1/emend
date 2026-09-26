@@ -18,19 +18,24 @@ emend = { path = "../../crates/emend", optional = true }
 # probe-emend-edit-xml, probe-emend-package-xml, probe-emend-cells-xml,
 # probe-emend-cells-write-xml, probe-emend-styles-write-xml,
 # probe-emend-formulas-write-xml, probe-emend-dates-write-xml,
-# probe-emend-sheets-write-xml and probe-emend-fullstyles-write-xml;
-# probe-zip is built without it.
+# probe-emend-sheets-write-xml, probe-emend-fullstyles-write-xml and
+# probe-emend-format-write-xml; probe-zip is built without it.
 xml = ["dep:quick-xml"]
 # Enables emend, for probe-emend-copy, probe-emend-edit,
 # probe-emend-edit-xml, probe-emend-package-xml, probe-emend-cells-xml,
 # probe-emend-cells-write-xml, probe-emend-styles-write-xml,
 # probe-emend-formulas-write-xml, probe-emend-dates-write-xml,
-# probe-emend-sheets-write-xml and probe-emend-fullstyles-write-xml.
+# probe-emend-sheets-write-xml, probe-emend-fullstyles-write-xml and
+# probe-emend-format-write-xml.
 emend = ["dep:emend"]
 # Enables emend's own `dates` feature, for probe-emend-dates-write-xml alone
 # (specs/0012-styles.md, "Planning rulings during P3", ruling 7). Each probe
 # is built with its own feature set, so no other probe links it.
 dates = ["emend", "xml", "emend/dates"]
+# Enables emend's own `rowcol` feature, for probe-emend-rowcol-write-xml
+# alone (specs/0018-rows-and-columns.md, "Size", under decision 7 A), built
+# with its own feature set as the dates probe is.
+rowcol = ["emend", "xml", "emend/rowcol"]
 
 [[bin]]
 name = "probe-zip"
@@ -100,3 +105,13 @@ required-features = ["emend", "xml"]
 name = "probe-emend-fullstyles-write-xml"
 path = "src/bin/probe-emend-fullstyles-write-xml.rs"
 required-features = ["emend", "xml"]
+
+[[bin]]
+name = "probe-emend-format-write-xml"
+path = "src/bin/probe-emend-format-write-xml.rs"
+required-features = ["emend", "xml"]
+
+[[bin]]
+name = "probe-emend-rowcol-write-xml"
+path = "src/bin/probe-emend-rowcol-write-xml.rs"
+required-features = ["rowcol"]
