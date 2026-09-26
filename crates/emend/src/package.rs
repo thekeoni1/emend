@@ -665,6 +665,65 @@
 //! - Sheet edits have not been through an Excel check yet: the harness
 //!   opens their outputs in LibreOffice, and Excel check 2 covers
 //!   Milestone 1's edits alone.
+//!
+//! Rows and columns add these (`specs/0018-rows-and-columns.md`, "Design",
+//! decisions 2 to 7 and the P1 to P3 rulings), the caller's picture:
+//!
+//! - Formats: [`Package::set_column_width`] and
+//!   [`Package::set_column_hidden`] change the `<col>` covering the column,
+//!   split so that the edited column alone carries the change and every
+//!   other column keeps every attribute it had; a column no `<col>` covers
+//!   gets an element of its own, and a width of `None` there writes nothing.
+//!   [`Package::set_row_height`] and [`Package::set_row_hidden`] retag the
+//!   `<row>`, every other attribute and child kept, or create it empty in
+//!   row order. A number is written by the cell edits' form. Styles on rows
+//!   and columns (`<row s>`, `<col style>`), outline levels and
+//!   `sheetFormatPr` defaults are kept when present and never set.
+//! - Panes: [`Package::freeze_panes`] replaces the first `<sheetView>`'s
+//!   `<pane>` and every `<selection>` with the frozen pane and one
+//!   selection, or removes both for `None`; the view's other children and
+//!   every other view are copied raw. Split (unfrozen) panes and selections
+//!   are not modelled.
+//! - Merges: [`Package::merge_cells`] appends a `<mergeCell>` and sets
+//!   `count`; the covered cells other than the top-left lose their value
+//!   and formula and keep their `s`, as a cleared cell does, and a formula
+//!   cleared so is a formula change. [`Package::unmerge_cells`] removes a
+//!   merge of the file whose range is exactly the area and writes nothing
+//!   into the cells, so values the merge cleared do not come back.
+//! - An absent `<cols>`, `<sheetViews>` or `<mergeCells>` the write needs is
+//!   created in schema position, before the first root child of the main
+//!   namespace that the worksheet's order puts later.
+//! - Insertions and deletions, the Cargo feature `rowcol`: what moves with
+//!   the rows or columns is the grid (every `<row r>` and `<c r>`), a
+//!   deleted row's or column's cells going whole and every row kept on a
+//!   column deletion; `dimension`; the merges; on the column axis the
+//!   `<col>` intervals and a row's `spans`; the shared, array and data table
+//!   formulas' `ref`; and the ranges of conditional formats, data
+//!   validations, hyperlinks and the filter. Each is moved, grown, cut,
+//!   clipped to the grid or dropped as "The shift rule" gives, and the
+//!   counts follow.
+//! - What stays where it was: the text of every formula, in cells, defined
+//!   names, conditional formats, data validations and tables; defined names,
+//!   print areas and filter databases; the views; outline levels and
+//!   `collapsed`, which travel with their row or column; comments and their
+//!   anchors; drawings and charts; `extLst` content with its own ranges;
+//!   ignored errors, protected ranges, breaks, sort state and pivot caches;
+//!   a row's `spans` on a row shift. A caller inserting above a formula's
+//!   input, a comment or a chart gets openpyxl's result: the cells move and
+//!   the rest points where it did. A table or pivot table not wholly before
+//!   the point on the edit's axis is refused rather than moved, since moving
+//!   their parts is later work.
+//! - One insertion or deletion per worksheet per write, and no other edit
+//!   of that worksheet in the same write (decision 5): every recorded edit
+//!   is in the input file's coordinates. A caller who wants to insert and
+//!   then fill writes twice: `write_to` into a `Cursor<Vec<u8>>`,
+//!   [`Package::open`] on its bytes, the edits, the second write.
+//! - Nothing of this is read back as a typed value: widths, heights, panes
+//!   and merges stay unmodelled on the read side, and a merged range reads
+//!   as its cells.
+//! - Rows and columns have not been through an Excel check yet: the harness
+//!   opens every output in LibreOffice, and the Excel check of Milestone 2
+//!   follows its close-out push.
 
 #[cfg(test)]
 mod tests;

@@ -123,6 +123,18 @@
 //!   format's, so a reference past it is read rather than refused, and
 //!   [`CellRef`]'s two `u32` fields are what a consumer checks.
 //!
+//! What [`Area`] reads and writes (`specs/0018-rows-and-columns.md`,
+//! "Module `cells`: `Area`"):
+//!
+//! - `A1:B2` or `A1`, each half as [`CellRef::parse`] reads it: no `$`, no
+//!   whole row or column (`A:A`, `1:1`), no sheet name and no list; a
+//!   caller with one of those splits it first.
+//! - The corners normalised when parsed, so `B2:A1` reads as `A1:B2`, and
+//!   written back as `A1` when they coincide; [`Area::cells`] saturates at
+//!   `u64::MAX` for an area built by hand that large.
+//! - It is what the merge calls take and what a shared or array formula's
+//!   `ref` is read as; no reader here yields a merge.
+//!
 //! What [`Value`] writes, each a decision of `specs/0011-editing-cells.md`,
 //! "Module `cells`":
 //!
