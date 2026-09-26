@@ -672,6 +672,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--format-sample", "--border-sample"],
         vec!["--border-sample", "--format-sample"],
         vec!["--format-sample", "[Content_Types].xml"],
+        // And with M2 part 3 P2's.
+        vec!["--insert-rows-sample", "--delete-rows-sample"],
+        vec!["--delete-rows-sample", "--format-sample"],
+        vec!["--insert-rows-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2871,6 +2875,12 @@ fn the_remove_sample_removes_the_last_sheet_or_nothing() {
 /// the output's sheet part, every other entry asserted as it went in.
 #[track_caller]
 fn format_run(label: &str, body: &str) -> (String, String) {
+    sample_run(label, body, "--format-sample")
+}
+
+/// [`format_run`] for any sample flag that edits the sheet alone.
+#[track_caller]
+fn sample_run(label: &str, body: &str, flag: &str) -> (String, String) {
     let specs = edit_specs(body);
     let dir = TempDir::new(label);
     let input = dir.path("in.xlsx");
@@ -2878,7 +2888,7 @@ fn format_run(label: &str, body: &str) -> (String, String) {
     let bytes = build(&specs);
     fs::write(&input, &bytes).expect("write the input");
 
-    let ran = emend_copy_with(&input, &output, &["--format-sample"]);
+    let ran = emend_copy_with(&input, &output, &[flag]);
     assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
     assert_eq!(
         dir.names(),
@@ -2987,5 +2997,67 @@ fn the_format_sample_refuses_overlapping_cols_or_two_merge_cells_and_leaves_noth
         ),
     ] {
         styled_run_refused(label, &edit_specs(body), message, "--format-sample");
+    }
+}
+
+// ------------------------------------------------ the row samples
+
+/// Three rows, the second with a formula; the dimension is edit_specs's.
+const ROW_SAMPLE: &str = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+                          <row r=\"2\"><c r=\"A2\"><v>2</v></c><c r=\"B2\"><f>A2*2</f><v>4</v></c></row>\
+                          <row r=\"3\"><c r=\"A3\"><v>3</v></c></row></sheetData>";
+
+#[test]
+fn the_insert_rows_sample_moves_the_rows_from_two_on() {
+    // No table: k is 2. The dimension A1 lies before it and is unchanged;
+    // the formula at row 2 moves, so the workbook part gains its flag.
+    let dir = TempDir::new("insert-rows-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&edit_specs(ROW_SAMPLE))).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--insert-rows-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "insert_rows\tat=2\tcount=2\tcells_before=4\tcells_after=4\tfrom_k_before=3\
+         \tfrom_k2_after=3\tformulas_moved=1\tchain_before=0\tchain_after=0\tfull_calc=1\n",
+        "the line"
+    );
+}
+
+#[test]
+fn the_delete_rows_sample_removes_row_two() {
+    // No formula, so the workbook part is untouched and the sheet alone
+    // changes: row 2's two cells go and row 3 moves up.
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><v>2</v></c><c r=\"B2\"><v>4</v></c></row>\
+                <row r=\"3\"><c r=\"A3\"><v>3</v></c></row></sheetData>";
+    let (line, sheet) = sample_run("delete-rows-sample", body, "--delete-rows-sample");
+    assert_eq!(
+        line,
+        "delete_rows\tat=2\tcount=1\tcells_before=4\tcells_after=2\tfrom_k1_before=1\
+         \tfrom_k_after=1\tformulas_moved=0\tchain_before=0\tchain_after=0\tfull_calc=0\n",
+        "the line"
+    );
+    assert_eq!(
+        sheet,
+        edited(
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><v>3</v></c></row></sheetData>"
+        ),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_row_samples_refuse_a_shared_formula_straddling_row_two_and_leave_nothing() {
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\">B1</f><v>1</v></c></row></sheetData>";
+    for flag in ["--insert-rows-sample", "--delete-rows-sample"] {
+        styled_run_refused(
+            flag,
+            &edit_specs(body),
+            "an insertion or deletion cuts a shared, array or data table formula",
+            flag,
+        );
     }
 }
