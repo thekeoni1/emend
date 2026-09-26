@@ -262,7 +262,10 @@
 //! - "a worksheet whose cols are out of order or overlap cannot be edited"
 //!   (`rowcol::cols_out_of_order_overlapping_malformed_or_doubled_are_refused`),
 //!   also for a `<col>` lacking `min` or `max`, with either not a decimal
-//!   `u32`, a `min` of 0 or a `min` above `max` (P1 ruling 3).
+//!   `u32`, a `min` of 0 or a `min` above `max` (P1 ruling 3), and for
+//!   those malformed forms under a column insertion or deletion, which checks
+//!   no order or overlap (P3 ruling 1,
+//!   `shift::cols_moved_grown_cut_clipped_dropped_and_the_container_dropped`).
 //! - "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView"
 //!   (`rowcol::cols_out_of_order_overlapping_malformed_or_doubled_are_refused`,
 //!   `sheet_views_without_a_sheet_view_or_doubled_is_refused`,
@@ -271,29 +274,35 @@
 //!   schema order, `an_element_created_and_then_met_in_the_input_is_refused`,
 //!   P1 ruling 2).
 //!
-//! Inserting and deleting rows adds these (`specs/0018-rows-and-columns.md`,
-//! "Errors", and P2 rulings 1, 2 and 5), the Cargo feature `rowcol`'s
+//! Inserting and deleting rows and columns adds these
+//! (`specs/0018-rows-and-columns.md`, "Errors", P2 rulings 1, 2 and 5, and
+//! P3 rulings 1 and 2), the Cargo feature `rowcol`'s
 //! messages (decision 7 A: without the feature no call records a shift and
 //! none of them is raised), raised by [`Package::write_to`];
-//! the calls refuse a count of 0 or rows past the grid with "a row or column
-//! index or count is out of range", and the write meets the order and
-//! explicit-reference refusals of the cell edits
+//! the calls refuse a count of 0 or rows or columns past the grid with "a row
+//! or column index or count is out of range", and the write meets the order
+//! and explicit-reference refusals of the cell edits
 //! (`shift::a_count_of_zero_or_rows_past_the_grid_are_refused_at_the_call`,
+//! `a_count_of_zero_or_columns_past_the_grid_are_refused_at_the_call`,
 //! `the_order_rule_holds_on_the_input`):
 //!
 //! - "a worksheet with a row or column insertion or deletion takes no other edit in the same write"
 //!   (`shift::a_second_shift_or_any_other_edit_for_the_part_is_refused`,
-//!   `a_second_insertion_for_the_part_is_refused`).
+//!   `a_second_insertion_for_the_part_is_refused`,
+//!   `a_row_and_a_column_shift_on_one_part_are_refused`).
 //! - "a row or column would be moved off the worksheet"
 //!   (`shift::a_row_moved_off_the_grid_is_refused`,
-//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
+//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`,
+//!   `a_col_to_the_last_column_is_clipped_and_a_cell_there_is_refused`).
 //! - "an insertion or deletion cuts a shared, array or data table formula"
 //!   (`shift::a_shared_formula_before_after_straddling_inside_and_deleted_whole`,
 //!   `an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
 //!   `an_array_formula_before_the_point_stays_and_a_deletion_inside_it_is_refused`,
-//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
+//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`,
+//!   `formulas_on_the_column_axis_move_are_refused_when_cut_and_go_with_their_cells`).
 //! - "an insertion or deletion would move a table or a pivot table"
-//!   (`shift::a_table_or_pivot_before_the_point_stays_and_one_at_or_after_it_is_refused`),
+//!   (`shift::a_table_or_pivot_before_the_point_stays_and_one_at_or_after_it_is_refused`,
+//!   `a_table_or_pivot_on_the_column_axis_before_the_point_stays_and_one_at_or_after_it_is_refused`),
 //!   also for a table or pivot `ref` that is absent or does not parse and a
 //!   part that is not there (P2 ruling 2,
 //!   `a_table_ref_absent_a_table_part_missing_or_a_pivot_ref_unparsed_is_refused`).
@@ -302,7 +311,10 @@
 //!   `a_dimension_moved_grown_cut_and_emptied`,
 //!   `merges_moved_grown_cut_dropped_and_the_container_dropped`,
 //!   `the_four_lists_move_are_cut_lose_ranges_and_drop_their_elements`,
-//!   `list_ranges_cut_an_emptied_filter_dropped_and_each_list_unparsed_refused`).
+//!   `list_ranges_cut_an_emptied_filter_dropped_and_each_list_unparsed_refused`),
+//!   and for a row's `spans` item under a column insertion or deletion (P3
+//!   ruling 2,
+//!   `spans_moved_grown_cut_and_dropped_and_one_that_does_not_parse_refused`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -430,9 +442,16 @@
 //!   validation and conditional formatting raw and never adjusts them; only
 //!   the column formats and the merge calls of
 //!   `specs/0018-rows-and-columns.md` rewrite `<cols>` and `<mergeCells>`.
-//!   A cell edit inserts and deletes no row; `Package::insert_rows` and
-//!   `Package::delete_rows`, the Cargo feature `rowcol`'s, move the grid and
-//!   the ranges "The shift rule" names, and no formula text is fixed up. A
+//!   A cell edit inserts and deletes no row or column; `Package::insert_rows`,
+//!   `Package::delete_rows`, `Package::insert_columns` and
+//!   `Package::delete_columns`, the Cargo feature `rowcol`'s, move the grid
+//!   and the ranges "The shift rule" names, and no formula text is fixed up.
+//!   On the column axis they also move a row's `spans` (each item, the
+//!   attribute dropped when none is left) and the `<col>` intervals (an
+//!   emptied `<cols>` dropped, streamed and never held whole); they check a
+//!   `<col>`'s `min` and `max` but not the order, overlap or number of
+//!   `<cols>`, which move element by element as they stand (P3 rulings 1 and
+//!   2). A
 //!   hyperlink the rule drops leaves its relationship in the worksheet's
 //!   rels part, unused (P2 ruling 3). A recorded shift rewrites its part
 //!   whether or not it moves anything: a shift past every row, cell, merge,
@@ -1088,7 +1107,7 @@ struct Recorded {
     /// `(part, shift)`: an insertion or deletion, in record order; a write
     /// takes one per part and nothing else for it (decision 5).
     #[cfg(feature = "rowcol")]
-    shifts: Vec<(Vec<u8>, Shift)>,
+    shifts: Vec<(Vec<u8>, AxisShift)>,
 }
 
 /// One field of a column's or a row's format as a call records it.
@@ -2108,7 +2127,7 @@ impl<R: Read + Seek> Package<R> {
     /// this fails. The write refuses what "The shift rule" refuses.
     #[cfg(feature = "rowcol")]
     pub fn insert_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
-        self.parts().shift(part, at, count, true)
+        self.parts().shift(part, at, count, true, false)
     }
 
     /// Records `count` rows deleted from the worksheet part `part` from row
@@ -2120,7 +2139,39 @@ impl<R: Read + Seek> Package<R> {
     /// As [`Package::insert_rows`].
     #[cfg(feature = "rowcol")]
     pub fn delete_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
-        self.parts().shift(part, at, count, false)
+        self.parts().shift(part, at, count, false, false)
+    }
+
+    /// Records `count` columns inserted in the worksheet part `part` at
+    /// column `at`: the columns from `at` on move right by `count`.
+    ///
+    /// `specs/0018-rows-and-columns.md`, "The shift rule", on the column
+    /// axis: every cell, `spans`, the `<col>` intervals, `dimension`, the
+    /// merges, the shared, array and data table `ref`s and the four range
+    /// lists move as [`Package::insert_rows`] moves them on the row axis,
+    /// with the same limits and the same one-shift rule. The Cargo feature
+    /// `rowcol`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a `count` of 0 or columns past 16384. Nothing is recorded when
+    /// this fails. The write refuses what "The shift rule" refuses.
+    #[cfg(feature = "rowcol")]
+    pub fn insert_columns(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
+        self.parts().shift(part, at, count, true, true)
+    }
+
+    /// Records `count` columns deleted from the worksheet part `part` from
+    /// column `at`: their cells go, every row stays, and the columns after
+    /// them move left by `count`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Package::insert_columns`].
+    #[cfg(feature = "rowcol")]
+    pub fn delete_columns(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
+        self.parts().shift(part, at, count, false, true)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -2810,20 +2861,32 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
-    /// The body of [`Package::insert_rows`] and [`Package::delete_rows`].
+    /// The body of [`Package::insert_rows`], [`Package::delete_rows`],
+    /// [`Package::insert_columns`] and [`Package::delete_columns`].
     #[cfg(feature = "rowcol")]
-    fn shift(&mut self, part: &[u8], at: u32, count: u32, insert: bool) -> Result<(), Error> {
+    fn shift(
+        &mut self,
+        part: &[u8],
+        at: u32,
+        count: u32,
+        insert: bool,
+        columns: bool,
+    ) -> Result<(), Error> {
+        let limit = if columns { GRID_COLUMNS } else { GRID_ROWS };
         let last = u64::from(at) + u64::from(count);
-        if at == 0 || count == 0 || last - 1 > u64::from(GRID_ROWS) {
+        if at == 0 || count == 0 || last - 1 > u64::from(limit) {
             return Err(INDEX_OUT_OF_RANGE);
         }
         self.edits.shifts.push((
             part.to_vec(),
-            Shift {
-                insert,
-                at,
-                count,
-                limit: GRID_ROWS,
+            AxisShift {
+                shift: Shift {
+                    insert,
+                    at,
+                    count,
+                    limit,
+                },
+                columns,
             },
         ));
         Ok(())
@@ -3584,7 +3647,7 @@ impl<'a> Parts<'a> {
     /// one that would move or cut a table or a pivot table.
     #[cfg(feature = "rowcol")]
     fn shift_alone(&mut self, part: &[u8], work: &SheetWork) -> Result<(), Error> {
-        let shifts: Vec<Shift> = self
+        let shifts: Vec<AxisShift> = self
             .edits
             .shifts
             .iter()
@@ -3614,7 +3677,7 @@ impl<'a> Parts<'a> {
     /// wholly before the point. A part that is not there, or a `ref` that is
     /// absent or does not parse, is refused the same way.
     #[cfg(feature = "rowcol")]
-    fn tables_before(&mut self, part: &[u8], shift: &Shift) -> Result<(), Error> {
+    fn tables_before(&mut self, part: &[u8], shift: &AxisShift) -> Result<(), Error> {
         if self.archive.index_of(part).is_none() {
             // A sheet this write adds has no relationships part yet.
             return Ok(());
@@ -3632,7 +3695,7 @@ impl<'a> Parts<'a> {
             let index = self.archive.index_of(&target).ok_or(TABLE_MOVED)?;
             let value = part_ref(self.archive, index, location)?.ok_or(TABLE_MOVED)?;
             let area = Area::parse(&value).ok_or(TABLE_MOVED)?;
-            if area.last.row >= shift.at {
+            if shift.of(area.last) >= shift.shift.at {
                 return Err(TABLE_MOVED);
             }
         }
@@ -6344,6 +6407,144 @@ impl Shift {
     }
 }
 
+/// A [`Shift`] and the axis it runs on (`specs/0018-rows-and-columns.md`, P3
+/// ruling 5): the arithmetic is the row form's, and an area on the column
+/// axis goes through it transposed.
+#[cfg(feature = "rowcol")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AxisShift {
+    shift: Shift,
+    columns: bool,
+}
+
+#[cfg(feature = "rowcol")]
+impl AxisShift {
+    /// A cell's index on the axis.
+    fn of(&self, cell: CellRef) -> u32 {
+        if self.columns { cell.col } else { cell.row }
+    }
+
+    /// A cell with its index on the axis replaced.
+    fn moved(&self, cell: CellRef, to: u32) -> CellRef {
+        if self.columns {
+            CellRef {
+                row: cell.row,
+                col: to,
+            }
+        } else {
+            CellRef {
+                row: to,
+                col: cell.col,
+            }
+        }
+    }
+
+    /// An area in the row form the arithmetic reads, transposed on the
+    /// column axis; applied twice it gives the area back.
+    fn rowwise(&self, area: Area) -> Area {
+        if !self.columns {
+            return area;
+        }
+        let flip = |cell: CellRef| CellRef {
+            row: cell.col,
+            col: cell.row,
+        };
+        Area {
+            first: flip(area.first),
+            last: flip(area.last),
+        }
+    }
+
+    /// [`Shift::area_clipped`] on the axis.
+    fn area_clipped(&self, area: Area) -> Option<Area> {
+        self.shift
+            .area_clipped(self.rowwise(area))
+            .map(|moved| self.rowwise(moved))
+    }
+
+    /// [`Shift::index`] on the axis.
+    fn index(&self, i: u32) -> Option<u64> {
+        self.shift.index(i)
+    }
+
+    /// [`Shift::reaches`] on the axis.
+    fn reaches(&self, i: u32) -> bool {
+        self.shift.reaches(i)
+    }
+
+    /// The axis's last index.
+    fn limit(&self) -> u64 {
+        u64::from(self.shift.limit)
+    }
+
+    /// An interval `[a, b]` through the rule and the clip: `None` when the
+    /// rule removes it or it lies wholly past the grid.
+    fn interval_clipped(&self, a: u32, b: u32) -> Option<(u32, u32)> {
+        let (a, b) = match self.shift.interval(a, b) {
+            Moved::Whole(a, b) | Moved::Changed(a, b) => (a, b),
+            Moved::Gone => return None,
+        };
+        if a > self.limit() {
+            return None;
+        }
+        Some((a as u32, b.min(self.limit()) as u32))
+    }
+}
+
+/// A `<row>` start tag with its `spans` through the column rule (P3 ruling
+/// 2): each `a:b` item moved, grown, cut or clipped, an item the rule
+/// removes dropped, the attribute dropped when none is left, the tag's own
+/// bytes when nothing changes; an item that does not parse is refused.
+#[cfg(feature = "rowcol")]
+fn spans_tag(raw: &[u8], shift: &AxisShift, index: usize) -> Result<Vec<u8>, Error> {
+    let Some(value) = attribute_value(raw, b"spans", index)? else {
+        return Ok(raw.to_vec());
+    };
+    let mut kept: Vec<Vec<u8>> = Vec::new();
+    let mut changed = false;
+    for item in value
+        .split(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r'))
+        .filter(|item| !item.is_empty())
+    {
+        let bounds = str::from_utf8(item).ok().and_then(|text| {
+            let (a, b) = text.split_once(':')?;
+            let (a, b) = (decimal(a)?, decimal(b)?);
+            (a >= 1 && a <= b).then_some((a, b))
+        });
+        let (a, b) = bounds.ok_or(RANGE_UNPARSED)?;
+        match shift.interval_clipped(a, b) {
+            Some(moved) if moved == (a, b) => kept.push(item.to_vec()),
+            Some((a, b)) => {
+                changed = true;
+                kept.push(format!("{a}:{b}").into_bytes());
+            }
+            None => changed = true,
+        }
+    }
+    if !changed {
+        Ok(raw.to_vec())
+    } else if kept.is_empty() {
+        without_attribute(raw, b"spans", index)
+    } else {
+        with_attribute(raw, b"spans", &kept.join(&b' '), index)
+    }
+}
+
+/// A `<col>` start tag through the column rule: `None` when the rule
+/// removes its interval or moves it wholly past the grid, else the tag
+/// with `min` and `max` moved, grown, cut or clipped, its own bytes when
+/// they do not change. A malformed `min` or `max` is refused with the cols
+/// message (P3 ruling 1).
+#[cfg(feature = "rowcol")]
+fn col_tag(raw: &[u8], shift: &AxisShift, index: usize) -> Result<Option<Vec<u8>>, Error> {
+    let (min, max) = col_interval(raw, index)?;
+    Ok(match shift.interval_clipped(min, max) {
+        None => None,
+        Some(moved) if moved == (min, max) => Some(raw.to_vec()),
+        Some((a, b)) => Some(col_retagged(raw, a, b, index)?),
+    })
+}
+
 /// A range the rule reads, parsed, or the P2 ruling 2 refusal.
 #[cfg(feature = "rowcol")]
 fn shift_area(value: &[u8]) -> Result<Area, Error> {
@@ -6354,7 +6555,7 @@ fn shift_area(value: &[u8]) -> Result<Area, Error> {
 /// range is removed, else the list as P2 ruling 4 writes it, the input's
 /// own bytes when nothing changed.
 #[cfg(feature = "rowcol")]
-fn shifted_list(value: &[u8], shift: &Shift) -> Result<Option<Vec<u8>>, Error> {
+fn shifted_list(value: &[u8], shift: &AxisShift) -> Result<Option<Vec<u8>>, Error> {
     let mut kept: Vec<Vec<u8>> = Vec::new();
     let mut changed = false;
     for range in value
@@ -6388,7 +6589,7 @@ fn shifted_list(value: &[u8], shift: &Shift) -> Result<Option<Vec<u8>>, Error> {
 fn list_tag(
     raw: &[u8],
     name: &[u8],
-    shift: &Shift,
+    shift: &AxisShift,
     index: usize,
 ) -> Result<Option<Vec<u8>>, Error> {
     let Some(value) = attribute_value(raw, name, index)? else {
@@ -6432,16 +6633,18 @@ impl CountedBuffer {
     }
 }
 
-/// An open `<hyperlinks>` under the rule (P2 ruling 8): its start tag,
-/// written when the first kept hyperlink arrives, and the bytes held since
-/// the last kept child, so an emptied container is dropped without being
-/// held whole.
+/// An open `<hyperlinks>` under the rule (P2 ruling 8), or an open `<cols>`
+/// under the column rule: its start tag, written when the first kept child
+/// arrives, and the bytes held since the last kept child, so an emptied
+/// container is dropped without being held whole.
 #[cfg(feature = "rowcol")]
 struct LinksBuffer {
     depth: usize,
     start: Vec<u8>,
     started: bool,
     held: Vec<u8>,
+    /// The child the rule reads: `hyperlink` or `col`.
+    child: &'static [u8],
 }
 
 /// Rewrites one worksheet part through one insertion or deletion of rows,
@@ -6459,7 +6662,7 @@ struct LinksBuffer {
 fn shift_worksheet(
     archive: &mut Core,
     index: usize,
-    shift: &Shift,
+    shift: &AxisShift,
 ) -> Result<(TempFile, Replacement, bool), Error> {
     shift_worksheet_from(archive.read(index)?, index, shift)
 }
@@ -6469,7 +6672,7 @@ fn shift_worksheet(
 fn shift_worksheet_from(
     input: impl Read,
     index: usize,
-    shift: &Shift,
+    shift: &AxisShift,
 ) -> Result<(TempFile, Replacement, bool), Error> {
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -6543,27 +6746,40 @@ fn shift_worksheet_from(
                         return Err(OUT_OF_ORDER);
                     }
                     last_row = number;
-                    match shift.index(number) {
-                        None => {
-                            if !empty {
-                                dropping = Some(depth);
-                                row = Some(number);
-                                last_col = 0;
-                            }
+                    if shift.columns {
+                        out.write_all(&spans_tag(token.raw, shift, index)?)?;
+                        if !empty {
+                            row = Some(number);
+                            last_col = 0;
                         }
-                        Some(to) => {
-                            if to > u64::from(shift.limit) {
-                                return Err(OFF_GRID);
+                    } else {
+                        match shift.index(number) {
+                            None => {
+                                if !empty {
+                                    dropping = Some(depth);
+                                    row = Some(number);
+                                    last_col = 0;
+                                }
                             }
-                            let raw = if to == u64::from(number) {
-                                token.raw.to_vec()
-                            } else {
-                                with_attribute(token.raw, b"r", to.to_string().as_bytes(), index)?
-                            };
-                            out.write_all(&raw)?;
-                            if !empty {
-                                row = Some(number);
-                                last_col = 0;
+                            Some(to) => {
+                                if to > shift.limit() {
+                                    return Err(OFF_GRID);
+                                }
+                                let raw = if to == u64::from(number) {
+                                    token.raw.to_vec()
+                                } else {
+                                    with_attribute(
+                                        token.raw,
+                                        b"r",
+                                        to.to_string().as_bytes(),
+                                        index,
+                                    )?
+                                };
+                                out.write_all(&raw)?;
+                                if !empty {
+                                    row = Some(number);
+                                    last_col = 0;
+                                }
                             }
                         }
                     }
@@ -6578,19 +6794,29 @@ fn shift_worksheet_from(
                         return Err(OUT_OF_ORDER);
                     }
                     last_col = reference.col;
-                    let raw = match shift.index(reference.row) {
-                        Some(to) if to != u64::from(reference.row) => {
-                            let moved = CellRef {
-                                row: to as u32,
-                                col: reference.col,
-                            };
-                            with_attribute(token.raw, b"r", moved.a1().as_bytes(), index)?
+                    let on_axis = shift.of(reference);
+                    match shift.index(on_axis) {
+                        Some(to) if to > shift.limit() => return Err(OFF_GRID),
+                        Some(to) if to != u64::from(on_axis) => {
+                            let moved = shift.moved(reference, to as u32);
+                            emit!(&with_attribute(
+                                token.raw,
+                                b"r",
+                                moved.a1().as_bytes(),
+                                index
+                            )?);
                         }
-                        _ => token.raw.to_vec(),
-                    };
-                    emit!(&raw);
+                        Some(_) => emit!(token.raw),
+                        // A deleted row's cell goes with the row; a deleted
+                        // column's cell goes alone, its formula still read.
+                        None => {
+                            if dropping.is_none() && !empty {
+                                dropping = Some(depth);
+                            }
+                        }
+                    }
                     if !empty {
-                        cell = Some((depth, shift.reaches(reference.row)));
+                        cell = Some((depth, shift.reaches(on_axis)));
                     }
                 } else if dropping.is_some() {
                     // Anything else inside a deleted row goes with it.
@@ -6671,7 +6897,11 @@ fn shift_worksheet_from(
                             continue;
                         }
                     }
-                } else if depth == 2 && ours && local == b"hyperlinks" && links.is_none() {
+                } else if depth == 2
+                    && ours
+                    && (local == b"hyperlinks" || local == b"cols" && shift.columns)
+                    && links.is_none()
+                {
                     if empty {
                         out.write_all(token.raw)?;
                     } else {
@@ -6680,14 +6910,24 @@ fn shift_worksheet_from(
                             start: token.raw.to_vec(),
                             started: false,
                             held: Vec::new(),
+                            child: if local == b"cols" {
+                                b"col"
+                            } else {
+                                b"hyperlink"
+                            },
                         });
                     }
                 } else if let Some(open) = links.as_mut()
                     && depth == open.depth + 1
                     && ours
-                    && local == b"hyperlink"
+                    && local == open.child
                 {
-                    match list_tag(token.raw, b"ref", shift, index)? {
+                    let kept = if local == b"col" {
+                        col_tag(token.raw, shift, index)?
+                    } else {
+                        list_tag(token.raw, b"ref", shift, index)?
+                    };
+                    match kept {
                         Some(raw) => {
                             if !open.started {
                                 out.write_all(&open.start)?;
@@ -6738,6 +6978,9 @@ fn shift_worksheet_from(
                 if cell.is_some_and(|(at, _)| at == depth) {
                     emit!(token.raw);
                     cell = None;
+                    if dropping == Some(depth) {
+                        dropping = None;
+                    }
                 } else if dropping == Some(depth) {
                     dropping = None;
                     row = None;
@@ -6780,7 +7023,7 @@ fn shift_worksheet_from(
 #[cfg(feature = "rowcol")]
 fn shifted_formula(
     raw: &[u8],
-    shift: &Shift,
+    shift: &AxisShift,
     dropping: bool,
     index: usize,
 ) -> Result<Vec<u8>, Error> {
@@ -6791,8 +7034,8 @@ fn shifted_formula(
     let Some(value) = attribute_value(raw, b"ref", index)? else {
         return Ok(raw.to_vec());
     };
-    let area = shift_area(value)?;
-    match shift.interval(area.first.row, area.last.row) {
+    let area = shift.rowwise(shift_area(value)?);
+    match shift.shift.interval(area.first.row, area.last.row) {
         Moved::Gone => Ok(raw.to_vec()),
         Moved::Changed(..) => Err(CUTS_FORMULA),
         Moved::Whole(a, b) => {
@@ -6801,8 +7044,8 @@ fn shifted_formula(
                 // cannot be: the ref starts at the master.
                 return Err(CUTS_FORMULA);
             }
-            if b > u64::from(shift.limit) {
-                return Err(if a > u64::from(shift.limit) {
+            if b > shift.limit() {
+                return Err(if a > shift.limit() {
                     OFF_GRID
                 } else {
                     CUTS_FORMULA
@@ -6821,7 +7064,7 @@ fn shifted_formula(
                     col: area.last.col,
                 },
             };
-            with_attribute(raw, b"ref", moved.a1().as_bytes(), index)
+            with_attribute(raw, b"ref", shift.rowwise(moved).a1().as_bytes(), index)
         }
     }
 }

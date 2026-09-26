@@ -623,3 +623,281 @@ fn a_range_moved_wholly_past_the_grid_is_dropped_and_the_dimension_becomes_a1() 
         )
     );
 }
+
+// --- the column axis (`specs/0018-rows-and-columns.md`, "P3", and the P3
+// rulings) ---
+
+fn insert_cols(at: u32, count: u32) -> ShiftEdit {
+    Box::new(move |p| p.insert_columns(SHEET, at, count).expect("recorded"))
+}
+
+fn delete_cols(at: u32, count: u32) -> ShiftEdit {
+    Box::new(move |p| p.delete_columns(SHEET, at, count).expect("recorded"))
+}
+
+const OFF: &str = "a row or column would be moved off the worksheet";
+const COLS_MESSAGE: &str = "a worksheet whose cols are out of order or overlap cannot be edited";
+
+#[test]
+fn cells_move_across_every_row_and_a_deleted_columns_cells_go_with_their_rows_kept() {
+    assert_eq!(
+        shifted(ROWS, insert_cols(2, 1)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"1\" spans=\"1:3\"><c r=\"A1\"><v>1</v></c></row>\
+             <row r=\"2\" ht=\"20\" customHeight=\"1\"><c r=\"A2\" s=\"3\" t=\"s\"><v>0</v></c><c r=\"C2\"/></row>\
+             <row r=\"3\"/>\
+             <row r=\"4\"><c r=\"D4\"><v>4</v></c></row>\
+             </sheetData>"
+        )
+    );
+    assert_eq!(
+        shifted(ROWS, delete_cols(1, 1)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"1\" spans=\"1:1\"></row>\
+             <row r=\"2\" ht=\"20\" customHeight=\"1\"><c r=\"A2\"/></row>\
+             <row r=\"3\"/>\
+             <row r=\"4\"><c r=\"B4\"><v>4</v></c></row>\
+             </sheetData>"
+        )
+    );
+    // A deletion past every cell changes no byte.
+    assert_eq!(shifted(ROWS, delete_cols(9, 1)), worksheet(ROWS));
+}
+
+#[test]
+fn spans_moved_grown_cut_and_dropped_and_one_that_does_not_parse_refused() {
+    // P3 ruling 2.
+    let row = |spans: &str| format!("<sheetData><row r=\"1\" spans=\"{spans}\"/></sheetData>");
+    for (spans, edit, want) in [
+        ("3:4", insert_cols(2, 2), row("5:6")),
+        ("1:4", insert_cols(2, 2), row("1:6")),
+        ("1:4", delete_cols(2, 2), row("1:2")),
+        ("1:1", insert_cols(2, 1), row("1:1")),
+        ("1:2 5:6", delete_cols(5, 2), row("1:2")),
+        ("1:2 16384:16384", insert_cols(3, 1), row("1:2")),
+        (
+            "2:3",
+            delete_cols(2, 2),
+            "<sheetData><row r=\"1\"/></sheetData>".to_string(),
+        ),
+    ] {
+        assert_eq!(shifted(&row(spans), edit), worksheet(&want), "{spans}");
+    }
+    for bad in ["1-2", "0:1", "3:2", "1:"] {
+        assert_package(
+            refused_on(with_body(&row(bad)), insert_cols(1, 1)),
+            UNPARSED,
+        );
+    }
+    // A row shift copies spans raw.
+    assert_eq!(shifted(&row("1-2"), insert(5, 1)), worksheet(&row("1-2")));
+}
+
+#[test]
+fn cols_moved_grown_cut_clipped_dropped_and_the_container_dropped() {
+    let body = |cols: &str| format!("{cols}<sheetData/>");
+    let input = body(
+        "<cols><col min=\"1\" max=\"1\" width=\"5\"/><col min=\"3\" max=\"4\" width=\"6\"/>\
+         <col min=\"6\" max=\"16384\" width=\"7\"/></cols>",
+    );
+    assert_eq!(
+        shifted(&input, insert_cols(3, 1)),
+        worksheet(&body(
+            "<cols><col min=\"1\" max=\"1\" width=\"5\"/><col min=\"4\" max=\"5\" width=\"6\"/>\
+             <col min=\"7\" max=\"16384\" width=\"7\"/></cols>"
+        ))
+    );
+    assert_eq!(
+        shifted(&input, insert_cols(4, 1)),
+        worksheet(&body(
+            "<cols><col min=\"1\" max=\"1\" width=\"5\"/><col min=\"3\" max=\"5\" width=\"6\"/>\
+             <col min=\"7\" max=\"16384\" width=\"7\"/></cols>"
+        ))
+    );
+    assert_eq!(
+        shifted(&input, delete_cols(4, 3)),
+        worksheet(&body(
+            "<cols><col min=\"1\" max=\"1\" width=\"5\"/><col min=\"3\" max=\"3\" width=\"6\"/>\
+             <col min=\"4\" max=\"16381\" width=\"7\"/></cols>"
+        ))
+    );
+    // Every element removed: the container goes.
+    assert_eq!(
+        shifted(
+            &body("<cols><col min=\"2\" max=\"3\" width=\"5\"/></cols>"),
+            delete_cols(2, 2)
+        ),
+        worksheet(&body(""))
+    );
+    // A row shift copies cols raw.
+    assert_eq!(shifted(&input, insert(1, 1)), worksheet(&input));
+    // P3 ruling 1: a malformed col is refused with the cols message.
+    for bad in [
+        "<col max=\"2\"/>",
+        "<col min=\"0\" max=\"2\"/>",
+        "<col min=\"3\" max=\"2\"/>",
+        "<col min=\"x\" max=\"2\"/>",
+    ] {
+        assert_package(
+            refused_on(
+                with_body(&body(&format!("<cols>{bad}</cols>"))),
+                insert_cols(1, 1),
+            ),
+            COLS_MESSAGE,
+        );
+    }
+}
+
+#[test]
+fn a_col_to_the_last_column_is_clipped_and_a_cell_there_is_refused() {
+    let cols = "<cols><col min=\"1\" max=\"16384\" width=\"9\"/></cols>";
+    assert_eq!(
+        shifted(&format!("{cols}<sheetData/>"), insert_cols(1, 1)),
+        worksheet("<cols><col min=\"2\" max=\"16384\" width=\"9\"/></cols><sheetData/>")
+    );
+    let parts = with_body(&format!(
+        "{cols}<sheetData><row r=\"1\"><c r=\"XFD1\"><v>1</v></c></row></sheetData>"
+    ));
+    assert_package(refused_on(parts, insert_cols(1, 1)), OFF);
+}
+
+#[test]
+fn formulas_on_the_column_axis_move_are_refused_when_cut_and_go_with_their_cells() {
+    let parts = with_body(
+        "<sheetData><row r=\"2\"><c r=\"B2\"><f t=\"array\" ref=\"B2:C3\">X</f><v>1</v></c></row></sheetData>",
+    );
+    let got = String::from_utf8(stored_data(
+        &edited_output(parts.clone(), insert_cols(1, 1)),
+        SHEET,
+    ))
+    .expect("UTF-8");
+    assert_eq!(
+        got,
+        worksheet(
+            "<sheetData><row r=\"2\"><c r=\"C2\"><f t=\"array\" ref=\"C2:D3\">X</f><v>1</v></c></row></sheetData>"
+        )
+    );
+    assert_package(refused_on(parts.clone(), insert_cols(3, 1)), CUTS);
+    assert_package(refused_on(parts.clone(), delete_cols(3, 1)), CUTS);
+    let got = String::from_utf8(stored_data(&edited_output(parts, delete_cols(2, 2)), SHEET))
+        .expect("UTF-8");
+    assert_eq!(got, worksheet("<sheetData><row r=\"2\"></row></sheetData>"));
+}
+
+#[test]
+fn the_chain_rule_fires_on_the_column_axis_when_a_formula_moves_and_not_otherwise() {
+    let rows_after = "<row r=\"1\"><c r=\"A1\"><v>2</v></c></row><row r=\"3\"><c r=\"B3\"><f>A1*2</f><v>4</v></c></row>";
+    let mut parts = with_a_calc_chain();
+    set(&mut parts, SHEET, sheet_with(rows_after));
+    for edit in [insert_cols(2, 1), delete_cols(2, 1), delete_cols(1, 1)] {
+        let out = edited_output(parts.clone(), edit);
+        assert_chain_gone(&out);
+        assert_part(&out, WORKBOOK, &flagged_workbook());
+    }
+    let out = edited_output(parts.clone(), insert_cols(3, 1));
+    assert_untouched(&out, &parts, &[]);
+}
+
+#[test]
+fn dimension_merges_and_lists_on_the_column_axis() {
+    let body = "<dimension ref=\"A1:D5\"/><sheetData/>\
+                <mergeCells count=\"2\"><mergeCell ref=\"B1:C1\"/><mergeCell ref=\"D2:E2\"/></mergeCells>\
+                <conditionalFormatting sqref=\"B1 C3:D4\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>\
+                <dataValidations count=\"1\"><dataValidation sqref=\"A1:E1\"/></dataValidations>\
+                <hyperlinks><hyperlink ref=\"C1\"/></hyperlinks>";
+    assert_eq!(
+        shifted(body, delete_cols(3, 1)),
+        worksheet(
+            "<dimension ref=\"A1:C5\"/><sheetData/>\
+             <mergeCells count=\"1\"><mergeCell ref=\"C2:D2\"/></mergeCells>\
+             <conditionalFormatting sqref=\"B1 C3:C4\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>\
+             <dataValidations count=\"1\"><dataValidation sqref=\"A1:D1\"/></dataValidations>"
+        )
+    );
+    assert_eq!(
+        shifted(body, insert_cols(2, 1)),
+        worksheet(
+            "<dimension ref=\"A1:E5\"/><sheetData/>\
+             <mergeCells count=\"2\"><mergeCell ref=\"C1:D1\"/><mergeCell ref=\"E2:F2\"/></mergeCells>\
+             <conditionalFormatting sqref=\"C1 D3:E4\"><cfRule type=\"x\" priority=\"1\"/></conditionalFormatting>\
+             <dataValidations count=\"1\"><dataValidation sqref=\"A1:F1\"/></dataValidations>\
+             <hyperlinks><hyperlink ref=\"D1\"/></hyperlinks>"
+        )
+    );
+}
+
+#[test]
+fn a_table_or_pivot_on_the_column_axis_before_the_point_stays_and_one_at_or_after_it_is_refused() {
+    let moved = "an insertion or deletion would move a table or a pivot table";
+    // Rows do not matter on the column axis: both wholly left of column F.
+    let parts = with_tables("A5:B9", "D1:E4");
+    let out = edited_output(parts.clone(), insert_cols(6, 1));
+    assert_untouched(&out, &parts, &[]);
+    for (table, pivot) in [
+        ("C1:D2", "A9:A9"),
+        ("E1:F2", "A9:A9"),
+        ("A1:B2", "C9:D9"),
+        ("A1:B2", "H1:H1"),
+    ] {
+        assert_package(
+            refused_on(with_tables(table, pivot), insert_cols(3, 1)),
+            moved,
+        );
+        assert_package(
+            refused_on(with_tables(table, pivot), delete_cols(3, 1)),
+            moved,
+        );
+    }
+}
+
+#[test]
+fn a_row_and_a_column_shift_on_one_part_are_refused() {
+    let alone = "a worksheet with a row or column insertion or deletion takes no other edit in the same write";
+    let error = refused_on(with_body("<sheetData/>"), |p| {
+        p.insert_rows(SHEET, 2, 1).expect("recorded");
+        p.insert_columns(SHEET, 2, 1).expect("recorded");
+    });
+    assert_package(error, alone);
+    let error = refused_on(with_body("<sheetData/>"), |p| {
+        p.delete_columns(SHEET, 2, 1).expect("recorded");
+        p.set_column_hidden(SHEET, 1, true).expect("recorded");
+    });
+    assert_package(error, alone);
+}
+
+#[test]
+fn a_count_of_zero_or_columns_past_the_grid_are_refused_at_the_call() {
+    let index = "a row or column index or count is out of range";
+    let (_, mut package) = opened(smallest());
+    for (at, count) in [
+        (0, 1),
+        (1, 0),
+        (16_384, 2),
+        (16_385, 1),
+        (u32::MAX, u32::MAX),
+    ] {
+        assert_package(
+            package
+                .insert_columns(SHEET, at, count)
+                .expect_err("insert"),
+            index,
+        );
+        assert_package(
+            package
+                .delete_columns(SHEET, at, count)
+                .expect_err("delete"),
+            index,
+        );
+    }
+    let out = written(package);
+    assert_untouched(&out, &smallest(), &[]);
+    let (_, mut package) = opened(smallest());
+    package
+        .insert_columns(SHEET, 16_384, 1)
+        .expect("the last column");
+    package
+        .delete_columns(b"xl/worksheets/other.xml", 1, 16_384)
+        .expect("every column");
+}
