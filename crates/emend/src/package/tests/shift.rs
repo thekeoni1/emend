@@ -901,3 +901,40 @@ fn a_count_of_zero_or_columns_past_the_grid_are_refused_at_the_call() {
         .delete_columns(b"xl/worksheets/other.xml", 1, 16_384)
         .expect("every column");
 }
+
+// --- the cases carried from P3's checks (`specs/0018-rows-and-columns.md`,
+// "Planning verification and rulings on P3", ruling 2) ---
+
+#[test]
+fn a_col_dropped_while_other_cols_survive() {
+    let body = |cols: &str| format!("<cols>{cols}</cols><sheetData/>");
+    assert_eq!(
+        shifted(
+            &body(
+                "<col min=\"1\" max=\"1\" width=\"5\"/><col min=\"3\" max=\"3\" width=\"6\"/>\
+                 <col min=\"5\" max=\"6\" width=\"7\"/>"
+            ),
+            delete_cols(3, 1)
+        ),
+        worksheet(&body(
+            "<col min=\"1\" max=\"1\" width=\"5\"/><col min=\"4\" max=\"5\" width=\"7\"/>"
+        ))
+    );
+}
+
+#[test]
+fn an_auto_filter_on_the_column_axis_moves_is_cut_and_dropped() {
+    let body = |range: &str| format!("<sheetData/><autoFilter ref=\"{range}\"/>");
+    assert_eq!(
+        shifted(&body("B1:D5"), insert_cols(1, 1)),
+        worksheet(&body("C1:E5"))
+    );
+    assert_eq!(
+        shifted(&body("B1:D5"), delete_cols(3, 1)),
+        worksheet(&body("B1:C5"))
+    );
+    assert_eq!(
+        shifted(&body("B1:D5"), delete_cols(2, 3)),
+        worksheet("<sheetData/>")
+    );
+}

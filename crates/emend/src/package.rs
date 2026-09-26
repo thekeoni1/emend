@@ -468,8 +468,9 @@
 //!   counts or reorders is held whole, bounded by that element's own size
 //!   and never by the sheet's rows: `<cols>` and `<mergeCells>` when a write
 //!   edits them, and `<mergeCells>` and `<dataValidations>` when it inserts
-//!   or deletes rows; no row is held whole (`specs/0018-rows-and-columns.md`, P1
-//!   verification ruling 4). The edits themselves are
+//!   or deletes rows or columns (a column shift streams `<cols>`); no row is
+//!   held whole (`specs/0018-rows-and-columns.md`, P1 verification ruling 4,
+//!   and P3 verification ruling 2). The edits themselves are
 //!   held in memory, in a `Vec` in call order, so a caller that records more
 //!   edits than its address space holds cannot.
 //!
