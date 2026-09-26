@@ -488,7 +488,11 @@ bytes.
 Approved by the maintainer 2026-09-26 and sent to implementation,
 decisions 1 to 6 as planning recommended: built in the core (A)
 with an interim measurement after P2 against a 40000 checkpoint
-and the Milestone 2 ceiling of 458752 judged at P4's size record;
+and the Milestone 2 ceiling of 458752 judged at P4's size record
+(the checkpoint tripped at 57868; decision 7 A, taken 2026-09-26,
+puts the insertions and deletions behind the Cargo feature `rowcol`
+from P3's first code commit and judges the ceiling on the core
+probe with the feature off);
 the shift rule moves the grid, `dimension`, merges, `cols`,
 `spans`, shared and array `ref`s and the four range lists (A);
 tables and pivot tables refused when an edit would move or cut
@@ -507,9 +511,9 @@ estimate 30000 to 40000 section bytes against 59576 of headroom.
 | Phase | Part | Status |
 |-------|------|--------|
 | P1 | `Area` public; the schema-position table and creation rule; the four format calls with `<cols>` splitting and row retagging; `freeze_panes`; `merge_cells` and `unmerge_cells`; `--format-sample` over the corpus; the negative log with the unbound-prefix case carried from part 2 | DONE 2026-09-26 (b8595ce, records 2e54f33, local; nine P1 rulings before code, two of them corrections of the spec; every log attempt 1; verified by planning from primaries, its own privacy scan, tests on both targets, clippy and doc on its own build, and its own comparison over the run directory agreeing on 27 of 27 on both labels; records `records/m2p3-p1-2026-09-26-b8595ce.md` and `.txt`; open record `records/m2p3-open-2026-09-26-b8595ce.md` and `.txt`, 266 pairs, 0 findings; check 1's F3 to F9 ruled, F3 a correction of the spec's streaming sentence, F5 to F7 into P2's first code commit; `specs/0018` "Planning verification and rulings on P1") |
-| P2 | the shift rule on the row axis: rows, cells, `<f ref>`, `dimension`, merges, the four range lists; the table and pivot refusal; the one-shift rule; the formula-change rule; `--insert-rows-sample` and `--delete-rows-sample`; the interim size measurement against the 40000 checkpoint | PROPOSED |
-| P3 | the rule on the column axis: cells, `spans`, `<col>` intervals, `dimension`, merges, the lists; `--insert-columns-sample` and `--delete-columns-sample` | PROPOSED |
-| P4 | the catalogue and limits; `probe-emend-rowcol-write-xml` and the size record with the Milestone 2 ceiling judged; the negative log through the binary; all five samples again with the release binaries | PROPOSED |
+| P2 | the shift rule on the row axis: rows, cells, `<f ref>`, `dimension`, merges, the four range lists; the table and pivot refusal; the one-shift rule; the formula-change rule; `--insert-rows-sample` and `--delete-rows-sample`; the interim size measurement against the 40000 checkpoint | DONE 2026-09-26 (a4b55f0, records dd7062b, local; fourteen P2 rulings, run log at attempt 3 after ruling 13 corrected an unconditional expectation and ruling 14 accepted a wrong derived count beside a right listing hash; the 40000 checkpoint TRIPPED at 57868 whole growth (P1 31196, P2 26672), 1708 under the ceiling, decision 7 with the maintainer before P3's code; verified by planning from primaries, its own privacy scan, tests and clippy on its own build, its own probe rebuild reproducing every size figure, and its own byte-level model of the shift agreeing on 27 of 27 for both samples on both labels; records `records/m2p3-p2-insert-2026-09-26-a4b55f0.md`, `records/m2p3-p2-delete-2026-09-26-a4b55f0.md` and `.txt`; open record `records/m2p3-open-2026-09-26-a4b55f0.md` and `.txt`, 297 pairs, 0 regressions; check 1's F4 to F10 and F12 ruled, five tests and two doc corrections carried to P3; `specs/0018` "Planning verification and rulings on P2") |
+| P3 | decision 7 A first: the shifts (`insert_rows`, `delete_rows`, `TABLE`, `PIVOT_TABLE`, the pass and its messages) behind the Cargo feature `rowcol`, off by default, the P1 calls in core, the carried P2 tests and script rules; then the rule on the column axis: cells, `spans`, `<col>` intervals, `dimension`, merges, the lists; `--insert-columns-sample` and `--delete-columns-sample`; a size log showing the core figure with the feature off | PROPOSED |
+| P4 | the catalogue and limits; `probe-emend-format-write-xml` (core) and `probe-emend-rowcol-write-xml` (the feature) and the size record with the Milestone 2 ceiling judged; the negative log through the binary; all five samples again with the release binaries | PROPOSED |
 | Close | close-out push after P4, carrying part 2's record commit d0f8f72 and this part's commits, with the push and ci-run self-scan rule (`specs/0001`) | PROPOSED |
 
 Excel check 2 (after P1, the maintainer's, retained record):

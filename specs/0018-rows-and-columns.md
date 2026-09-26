@@ -89,9 +89,11 @@ guess is a guess.
   recommended unless A's P2 checkpoint trips, where it becomes the
   natural re-ruling.
 
-Taken: A, 2026-09-26. Under B or C, "Crate" below would name the
-feature and the items behind it; the probe, tests and samples would
-run with the feature on.
+Taken: A, 2026-09-26. The P2 checkpoint tripped (P2 ruling 12,
+57868 whole against 40000), and the maintainer took decision 7's A,
+which is this C, on 2026-09-26: the formats, panes and merges stay
+in the core; the insertions and deletions go behind `rowcol`.
+"Crate", "Size", "P3" and "P4" read with that.
 
 ## Facts planning checked (2026-09-26)
 
@@ -159,10 +161,19 @@ text, a formula or a name:
 
 ### Crate
 
-Everything below is in the core, `zip` and `quick-xml` only (under
-decision 1 A). No new dependency. The public surface grows by
-`cells::Area` and eleven `Package` calls; nothing existing changes
-signature.
+`zip` and `quick-xml` only; no new dependency. The public surface
+grows by `cells::Area`, eleven `Package` calls and two `package`
+constants, `TABLE` and `PIVOT_TABLE` (the relationship type names
+the refusal reads); nothing existing changes signature. Under
+decision 7 A (2026-09-26): `Area`, the six format, pane and merge
+calls and `unmerge_cells` are in the core; `insert_rows`,
+`delete_rows`, `insert_columns`, `delete_columns`, the two
+constants and the shift pass they need sit behind a Cargo feature
+`rowcol`, off by default, declared beside `dates` with no
+dependency of its own. The core builds, tests and links without
+it; the tool `emend-copy` turns it on as it does `dates`. The
+messages of the shift stay in the catalogue, marked as the
+feature's.
 
 ### Module `cells`: `Area`
 
@@ -312,8 +323,11 @@ What the rule is applied to, in the one worksheet pass:
   past the grid is refused ("a row or column would be moved off
   the worksheet"); an interval (`dimension`, a merge, a `<col>`,
   `spans`, a list range) that would extend past the grid is
-  clipped to it, since a `<col max="16384">` means "to the end".
-  The order rule of part 4 holds on the input.
+  clipped to it, since a `<col max="16384">` means "to the end";
+  an interval the rule would move wholly past the grid is what
+  clipping leaves empty, so it is dropped (a merge, a `<col>`, a
+  list range) or, for `dimension`, becomes `A1` (P2 verification
+  ruling 3). The order rule of part 4 holds on the input.
 - A shared, array or data table formula's `ref`: moved whole when
   the rule moves it whole; refused when the rule would grow, cut or
   remove it ("an insertion or deletion cuts a shared, array or data
@@ -430,8 +444,9 @@ this part retags carries one.
 ### 32-bit and streaming
 
 Every index is `u32` and every count `u64`; the rule's arithmetic
-is checked (`checked_add`, `checked_sub`), and the grid check makes
-an overflow unreachable in practice. The worksheet pass streams as
+widens to `u64`, where no sum or difference of two `u32` values
+can overflow (P2 verification ruling 2), and the grid check bounds
+every result. The worksheet pass streams as
 today: one token at a time, the output through the temporary file,
 no row held beyond its own tag except a deleted element's tokens
 skipped as they arrive. The table and pivot refusal reads two
@@ -441,24 +456,31 @@ containers that are).
 
 ### Size
 
-`probe-emend-rowcol-write-xml`: `probe-emend-fullstyles-write-
-xml`'s work, unchanged, then on the same package before its write
+Two probes, under decision 7 A. `probe-emend-format-write-xml`
+(core, features `emend,xml`): `probe-emend-fullstyles-write-xml`'s
+work, unchanged, then on the same package before its write
 `set_column_width`, `set_column_hidden`, `set_row_height`,
 `set_row_hidden`, `freeze_panes` and `merge_cells` on the sheet,
-with the column, row, cell and area from the command line; after
-that write, the output opened and written a fourth time with
-`insert_rows` at a row from the command line, then opened and
-written a fifth time with `delete_columns` at a column from the
-command line, and after each the cell count read back and the
-number cell's reference read back (`moved_row`, `moved_col`, as
-printed indices), so both axes and both directions of the rule
-are linked and nothing is dead. The size log measures it as part
-2's did, classifies every probe against `records/size-m2p2-2026-
-09-26-1fc8327.md`, prints the part's own cost (the new probe minus
-`probe-emend-fullstyles-write-xml` rebuilt at the same commit), the
-whole growth since 1fc8327, and the budget figure (the new probe
-minus `probe-zip-xml`) against 458752. The P2 interim measurement
-is "The size question", A.
+with the column, row, cell and area from the command line, and the
+merge count read back. `probe-emend-rowcol-write-xml` (feature
+`rowcol` of the probe crate, which turns on `emend/rowcol` as
+`dates` does `emend/dates`, built alone with its own feature set):
+the format probe's work, then the output opened and written a
+fourth time with `insert_rows` at a row from the command line,
+then opened and written a fifth time with `delete_columns` at a
+column from the command line, and after each the cell count read
+back and the number cell's reference read back (`moved_row`,
+`moved_col`, as printed indices), so both axes and both directions
+of the rule are linked and nothing is dead. The size log measures
+both as part 2's did, classifies every probe against `records/
+size-m2p2-2026-09-26-1fc8327.md` (sixteen probes), prints the
+core's own cost for this part (the format probe minus `probe-
+emend-fullstyles-write-xml` rebuilt at the same commit), the
+feature's cost (the rowcol probe minus the format probe), the
+whole core growth since 1fc8327, and the budget figure (the format
+probe minus `probe-zip-xml`) against 458752. The P2 interim
+measurement is "The size question", A, which tripped; P3's size
+log (below) shows the gating took the shift out of the core.
 
 ### Harness runs
 
@@ -677,21 +699,44 @@ states the figure.
 
 ### P3: columns inserted and deleted
 
-The doc commit (the P2 rulings and verification, and the
-maintainer's checkpoint ruling if the figure tripped it); then the
+The doc commit (the P2 rulings and verification, decision 7 A).
+The first code commit, before any column: the feature `rowcol`
+declared in the crate, `insert_rows`, `delete_rows`, `TABLE`,
+`PIVOT_TABLE`, the shift pass, its five messages and its tests
+behind it (`cfg(feature = "rowcol")`; the P1 calls untouched), the
+tool's dependency turning it on, the header sentence of P2 ruling
+13 (a recorded shift rewrites the part whether or not it moves
+anything), and the carried tests of P2 verification rulings 1 and
+3 (the five cases and the wholly-past-grid range). The second: the
 rule applied on the column axis to cells, `spans`, `<col>`
-intervals, `dimension`, merges and the list attributes, and the two
-column samples. Tests: cells retagged across every row, a deleted
-column's cells gone and its rows kept, `spans` moved, grown, cut
-and dropped, `<col>` moved, grown, cut, dropped and the container
-dropped, a `<col max="16384">` on an insertion (clipped, not
-refused) beside a cell at column 16384 (refused: moved off the
-grid), the table and pivot refusal on the column axis, the
-one-shift rule between a row and a column shift; the P2 tests
-unedited; the tool's two lines. The negative log: the column forms
-of P2's three fixtures. The run log: both column samples in two run
-directories, recorded as `records/m2p3-p3-insert-...` and
-`records/m2p3-p3-delete-...`.
+intervals, `dimension`, merges and the list attributes,
+`insert_columns` and `delete_columns` behind the same feature.
+Then the two column samples. Tests: cells retagged across every
+row, a deleted column's cells gone and its rows kept, `spans`
+moved, grown, cut and dropped, `<col>` moved, grown, cut, dropped
+and the container dropped, a `<col max="16384">` on an insertion
+(clipped, not refused) beside a cell at column 16384 (refused:
+moved off the grid), the table and pivot refusal on the column
+axis, the one-shift rule between a row and a column shift; the P2
+tests unedited beyond the gating attribute and the carried cases;
+the tool's two lines. The gate: the crate built and tested with
+the feature off and on, on both targets, and the `pub fn` and
+`pub const` first lines listed with it off (the four shift calls
+and two constants absent) and on (present); every later log runs
+the crate's tests with the feature on. The negative log: the column
+forms of P2's three fixtures. The run log: both column samples in
+two run directories, recorded as `records/m2p3-p3-insert-...` and
+`records/m2p3-p3-delete-...`. The size log: `probe-emend-
+fullstyles-write-xml` and `probe-zip-xml` rebuilt at the phase
+commit with the feature off, the budget figure printed beside P1's
+430372 (the shift's cost gone from the core is the expectation,
+stated as a comparison, not a check that fails), no record file;
+the report states the figure. Scripts from this phase on: the
+moved-keep pattern fixed and its pair count read by a check
+("pairs times two equals files"); a moved run directory listed and
+hashed as the keep is; a count in a commit message printed by a
+log or the message saying the diff alone carries it (P2
+verification rulings 4, 5 and 7).
 
 ### P4: the catalogue and limits, the probe, the size record
 
@@ -699,14 +744,15 @@ The doc commit (the P3 rulings and verification); then the
 catalogue and the limits in the `package` and `cells` module
 headers (the caller's picture: what moves, what stays, the
 two-writes pattern, what is not read back, the Excel check
-pending), `probe-emend-rowcol-write-xml` measured as "Size" says,
+pending), the two probes of "Size" measured as it says,
 recorded as `records/size-m2p3-<utc-date>-<shortsha>.md` with
 `size.log` printing every figure the record carries, installing
-the record and printing its sha256, and the fifteen probes
+the record and printing its sha256, and the sixteen probes
 classified against part 2's record; the judgment of the Milestone
-2 ceiling stated in the record as a fact (under or over 458752,
-by how much); the negative log through the binary with every
-refusal of this part reachable through the binary run once (the
+2 ceiling stated in the record as a fact on the core probe (under
+or over 458752, by how much), the feature's cost beside it; the
+negative log through the binary with every refusal of this part
+reachable through the binary run once (the
 six fixture cases of P1 to P3, the doubled-element and no-
 `sheetView` cases; the at-call refusals are not reachable, since
 the tool's constants are fixed, and the log says so); the corpus
@@ -771,6 +817,35 @@ recommended.
    kept (recommended; Excel and openpyxl both do); the alternative
    leaves them, and the hidden values come back on unmerge.
 
+7. The checkpoint re-ruling (P2 ruling 12; the figures are the
+   interim ones, `size.log` and P2's verification confirm them).
+   Rows alone cost 57868 whole against a checkpoint of 40000 and an
+   estimate of 30000 to 40000 for the whole part; 1708 remains
+   under 458752 with columns (P3) and the probe (P4) to come. The
+   outline said of this part "becomes a feature if measurements say
+   so". Options:
+   - A (recommended): decision 1's C, taken now that the
+     measurement is in: the insertions and deletions (P2's shift
+     rule and P3's columns) go behind a Cargo feature `rowcol`, off
+     by default, in P3's first code commit before the columns are
+     added; the formats, panes and merges (P1) stay in the core.
+     The core budget figure is then measured on the core probe with
+     the feature off, and the feature's cost beside it with the
+     feature on, as `dates` is; the Milestone 2 ceiling of 458752
+     is judged on the core probe at P4. P1's own cost, which
+     `size.log` prints, is the core's growth for this part.
+   - B: the ceiling raised to 524288 section bytes (512 KiB over
+     `probe-zip-xml`) and the part continues in the core; planning
+     guesses P3 at 10000 to 15000 and P4's probe growth at 3000 to
+     5000, so about 475000, and a second overrun would be the third
+     ceiling in two milestones.
+   - C: as A, and a size pass on the shift rule's code before P3,
+     as part 1's P5 was, hunting for a generic instantiation or a
+     duplicated path; planning has no attribution yet that says one
+     exists, so this is a guess against a measurement.
+
+   Taken: A, 2026-09-26, by the maintainer in the planning session.
+   "Crate", "Size", "P3" and "P4" read with it.
 ## Planning rulings during P1 (2026-09-26)
 
 Ruled on the implementing session's hold before its first code
@@ -897,6 +972,206 @@ Verified by planning from primaries, never from the report alone:
    by pattern-checked pid, and never again by pattern.
 9. P1 is DONE. P2 follows "P2" with rulings 4 to 6 in its first
    code commit.
+
+## Planning rulings during P2 (2026-09-26)
+
+Ruled on the implementing session's hold before the shift-rule
+commit, after planning verified the doc commit b2fa1e5 (the two
+files at the hashes sent) and the first code commit 94cf3b6 (P1
+verification rulings 4 to 6, nothing else):
+
+1. A shared, array or data table `ref` wholly inside a deletion
+   goes with its cells (allowed); one the rule would grow or cut is
+   refused (Q1). "The shift rule" says "grow, cut or remove"; the
+   "remove" was planning's, wrong beside "P2"'s "the master deleted
+   with its whole range (allowed)", and "inside a deletion (refused)"
+   there means a deletion lying inside the ref. This ruling
+   corrects the rule's text: refused when grown or cut.
+2. A range the rule would move that does not parse (Q2): a
+   fourteenth message, "a range an insertion or deletion would move
+   does not parse", raised at the write for `dimension`, a
+   `mergeCell`, a list item, a hyperlink or autoFilter `ref` and an
+   `f ref`; a table or pivot `ref` that does not parse is refused
+   with the table message. The corpus has none (the implementing
+   session's count, 0 of 951 ranges). Copying such a range raw
+   would leave a range pointing at moved cells, the silent case.
+3. A dropped hyperlink's relationship stays in the rels part (Q3):
+   an unused relationship is legal, and the limits say so; no rels
+   rewrite.
+4. A rewritten list is written back with single spaces, unchanged
+   ranges in their own text and a moved or cut range as `Area::a1`
+   (Q4). Confirmed.
+5. An `f ref` moved whole past the grid is refused as its master
+   cell is ("a row or column would be moved off the worksheet"); a
+   `ref` whose master stays but whose end would pass the grid on an
+   insertion is a grow, refused with the cuts message; the clip
+   rule applies to `dimension`, merges, `cols`, `spans` and the four
+   lists only (Q5). Confirmed; "The shift rule" reads with this.
+6. A refused workbook's runner outcome is `error` (Q6): the runner
+   records exit 2 so, unchanged; "Harness runs" said `refused`, which
+   was planning's, wrong. The run log expects outcome `error`, no
+   output and the tool's message for exactly the computed refusal
+   set.
+7. The formula-change rule fires when any `<f>`, a shared child's
+   included, sits in a cell at row k or after in the input (Q7).
+   Confirmed.
+8. `hyperlinks` is streamed, its start tag written when the first
+   kept hyperlink arrives, so an emptied container is dropped
+   without holding the element; `dataValidations` and `mergeCells`
+   are held whole for their counts (Q8). Confirmed; P1 verification
+   ruling 4's list reads `cols`, `mergeCells` and `dataValidations`.
+
+9. The negative log's table case (the hold before the negative log,
+   after 7578ee0 and a4b55f0): "P2" asked for a fixture with a table
+   `ref` covering row 2, but the sample's k steps past every
+   parseable table, so that fixture succeeds; the case as planning
+   wrote it is unreachable through the sample. Ruled: the fixture's
+   table `ref` does not parse, so the tool's T is 0, k is 2, and the
+   layer refuses with "an insertion or deletion would move a table or
+   a pivot table" (ruling 2); its control is the same fixture with a
+   parseable table `ref` covering row 2, exit 0 with `at` T + 1,
+   which shows the step. The parseable-ref refusal stays the crate
+   test's. The other two cases are reachable as written.
+10. Disclosed with the hold, accepted: the tool test helper's body
+   moved into one `sample_run` shared with the row samples, no test
+   body changed; the gate's base-test filter now covers
+   `crates/emend/src/package/tests/`, which P1's missed, so the F7
+   edit of 94cf3b6 shows as changed, which it is.
+
+11. The row samples' expected changed set (the hold before the run
+   log): "Harness runs" left out a workbook with formulas moved and
+   no chain, where the formula-change rule still sets
+   `fullCalcOnLoad` and the workbook part changes, as
+   `--formula-sample` expects. Planning's omission. Ruled, per
+   workbook: W changed; the workbook part changed when
+   `formulas_moved` is above 0; its rels part and
+   `[Content_Types].xml` changed and the chain entry removed when
+   the input also has a chain; everything else identical,
+   `descriptor` alone allowed on a changed entry; the record check's
+   family list follows the same rule. The dry run's counts, as the
+   implementing session recounted them: 12 of 27 first sheets with
+   formulas at or after k, 2 of them with a chain.
+12. The interim figure, reported unlogged before `size.log`:
+   `probe-emend-fullstyles-write-xml` 990260 and `probe-zip-xml`
+   533216 section bytes at a4b55f0, a budget figure of 457044, the
+   whole growth since 1fc8327 57868 against the 40000 checkpoint:
+   TRIPPED, with 1708 under the ceiling before P3 and P4. The
+   maintainer re-rules before P3's code (decision 7 below). So the
+   re-ruling rests on a measurement of each phase, `size.log` also
+   rebuilds `probe-emend-fullstyles-write-xml` at b8595ce (P1's
+   phase commit) in the same profile and prints P1's growth over
+   1fc8327 and P2's growth over b8595ce beside the whole. P2's logs,
+   record and report complete as specified; P3 waits.
+
+13. Run log attempt 2 (the hold before its rerun): in 4 workbooks,
+   the same 4 in both samples on both labels, W came out
+   `recompressed`, not `changed`: no row, cell, merge, `dimension`
+   or list range of the sheet lies at or after k, so the rule
+   changes nothing and the rewritten part's bytes equal the input's,
+   while the pass still rewrites and recompresses the entry. Ruling
+   11's "W changed" was unconditional, which is wrong for a shift
+   that is a no-op on W: a finding about the expectation, not the
+   layer. Ruled: ruling 11 reads "W `changed`, or `recompressed`
+   (`descriptor` alone allowed) exactly when the comparison's model
+   of W equals the input part's bytes"; the rerun is attempt 3 into
+   `-c` run directories with attempt 2's directories, records and
+   keep moved, never removed, and hashed. The layer is not changed
+   in P2: skipping the rewrite of a part a shift leaves unchanged
+   would need a pre-pass or a byte comparison of the temporary, and
+   the module header states that a recorded shift rewrites the part
+   whether or not it moves anything. Everything else in attempt 2
+   passed: 27 of 27 ok on both targets for both samples, the
+   comparison's flags all yes, 8 of 8 plants per sample, host and
+   i686 equal, no refusal predicted or seen, 12 of 27 with formulas
+   at or after k and 2 chained.
+
+14. Run log attempt 3 (the hold before its record commit): the
+   moved-keep line printed "pairs 0; files 594; listing sha256
+   694d553d..." because the script's pattern sat in single quotes,
+   so its tab placeholder was never expanded and matched nothing;
+   no check read the count, so the log passed. Planning recounted
+   the moved keep from the implementing session's scratch: the
+   listing hashes to the log's value, 594 files, 297 `.in.xlsx` and
+   297 `.out.xlsx`. Ruled: attempt 3 stands, no rerun. The rule's
+   evidence is the listing hash, which is right and pins the moved
+   keep; the pair count is derived from that listing and is stated
+   as 297 in the report and the record commit's message, with the
+   defect named as this ruling. Carried into P3's scripts and every
+   later one: the pattern is fixed, and the printed pair count is
+   read by a check ("pairs times two equals files"), because a
+   count no check reads is a count the log does not prove. The
+   ruling-13 module-header sentence goes in P3's first code commit:
+   no P2 code commit is open, and a new one would put code after
+   the logs were taken.
+
+## Planning verification and rulings on P2 (2026-09-26)
+
+Verified from primaries, never from the report alone: five commits
+over 2e54f33 (b2fa1e5 doc, 94cf3b6, 7578ee0, a4b55f0 the phase
+commit, dd7062b the record with 13 files), the doc commit's blobs
+at 8cbe6a47 and 5c28004f, every message ASCII with the one trailer;
+planning's own privacy scan over the range (5 commits, 656 blobs, 0
+findings); the six log hashes as reported, every stderr at 0 bytes
+with its control; the gate's hash 4a7726f4 is the one planning's
+message gave; test and negative print no spec hash, size and run
+attempt 3 pin bf49e9c7, the final scan pins 7e600cc7. Planning's
+own build of dd7062b in a detached worktree: 685 tests passed on
+each target, 0 failed, 2 ignored; clippy and doc clean. Planning's
+own rebuild of the two probes at 1fc8327, b8595ce and a4b55f0 in
+the size profile reproduced every figure of `size.log` (533216;
+932392, 963588, 990260), so the budget figures 399176, 430372 and
+457044 and the split 31196 + 26672 = 57868 stand. Planning's own
+byte-level model of the row shift (dimension, rows, cells, `<f
+ref>`, merges, the four lists, the chain and the flag), a different
+lineage from the crate and the run log's comparison, agreed with
+the output part byte for byte in 27 of 27 workbooks for each sample
+on each label, with W unchanged by the rule in the 4 ruling 13
+names, the workbook part changed in 12 and the chain removed in 2,
+and every tool line's fields; a plant that moves one row number
+was caught in 27 of 27. The open record: 297 pairs, no pair whose
+input opens and whose output does not. Every number in the report
+is in a primary. P2 is DONE.
+
+Rulings on check 1 (its answer stands verbatim in
+`records/logs/m2p3-p2/independent-check-1.md`):
+
+1. F4 to F8 (tests missing or partial): all five in P3's first
+   code commit: an array `ref` before the point and a deletion
+   inside it (refused); a `conditionalFormatting` and a
+   `dataValidation` range cut, an `autoFilter` dropped when its
+   range goes, and the `dataValidation`, `hyperlink` and
+   `autoFilter` attributes each unparsed (refused with the
+   fourteenth message); a second insertion refused; the flag
+   asserted on the deletion chain case; a table `ref` absent, a
+   table part missing and a pivot `location ref` unparsed, each
+   refused with the table message.
+2. F9: the u64 form is accepted. With u32 inputs no sum or
+   difference the rule forms can overflow a u64, so the checked
+   calls the spec named would never take their `None` arm. The
+   "32-bit and streaming" sentence is corrected in the P3 doc
+   commit (planning's slip): the arithmetic widens to u64.
+3. F10: a range the rule moves wholly past the grid is what
+   clipping leaves empty, so it is dropped (a merge, a list range)
+   and the dimension becomes `A1`, as the rule already says of an
+   emptied one; "The shift rule" says so in the P3 doc commit, with
+   a test in P3's first code commit. `TABLE` and `PIVOT_TABLE`: the
+   "Crate" sentence names them in the P3 doc commit, and from P3
+   the gate lists `pub const` first lines beside `pub fn`.
+4. F12(b): ruling 13 said "hashed" without a form, and attempt 2's
+   two run directories are pinned by their two summary hashes and
+   a file count, which stand. From P3 a moved run directory is
+   listed and hashed as the keep is (change I's form).
+5. F12(c): "Five messages" in 7578ee0's message is true of the
+   diff (planning counted the five constants) and no log prints
+   it; a slip recorded, the commit not rewritten. Carried: a count
+   in a commit message is printed by a log, or the message says
+   the diff alone carries it.
+6. F13 to F15: the draft's spec-hash attributions were wrong and
+   the report corrected them as the logs read; planning confirmed
+   each in the logs above. No further action.
+7. Carried from ruling 14 into P3's scripts: the fixed pattern and
+   the "pairs times two equals files" check; and the ruling 13
+   module-header sentence in P3's first code commit.
 
 ## Out of scope
 
