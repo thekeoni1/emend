@@ -668,6 +668,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--border-sample", "--font-sample"],
         vec!["--font-sample", "--border-sample"],
         vec!["--border-sample", "[Content_Types].xml"],
+        // And with M2 part 3 P1's.
+        vec!["--format-sample", "--border-sample"],
+        vec!["--border-sample", "--format-sample"],
+        vec!["--format-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -2858,4 +2862,130 @@ fn the_remove_sample_removes_the_last_sheet_or_nothing() {
         ],
         "no temporary is left"
     );
+}
+
+// ------------------------------------------------------- --format-sample
+
+/// Runs `--format-sample` on the edit package whose sheet holds `body`
+/// between its `dimension` and its `pageMargins`, and returns the line and
+/// the output's sheet part, every other entry asserted as it went in.
+#[track_caller]
+fn format_run(label: &str, body: &str) -> (String, String) {
+    let specs = edit_specs(body);
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&specs);
+    fs::write(&input, &bytes).expect("write the input");
+
+    let ran = emend_copy_with(&input, &output, &["--format-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    let before = parse_independently(&bytes);
+    let after = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        after.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        before.iter().map(|e| e.name.clone()).collect::<Vec<_>>(),
+        "the entry names and their order"
+    );
+    let mut sheet = None;
+    for (was, now) in before.iter().zip(&after) {
+        if now.name == b"xl/worksheets/sheet1.xml" {
+            assert_eq!(now.method, 0, "the sheet stays stored");
+            sheet = Some(String::from_utf8(now.compressed.clone()).expect("UTF-8"));
+        } else {
+            assert_eq!(
+                (now.method, now.crc32, &now.compressed),
+                (was.method, was.crc32, &was.compressed),
+                "{} changed",
+                String::from_utf8_lossy(&now.name)
+            );
+        }
+    }
+    (ran.stdout, sheet.expect("the sheet is in the output"))
+}
+
+/// The pane and selection a freeze at B2 writes.
+const PANE_B2: &str = "<pane xSplit=\"1\" ySplit=\"1\" topLeftCell=\"B2\" \
+                       activePane=\"bottomRight\" state=\"frozen\"/>\
+                       <selection pane=\"bottomRight\"/>";
+
+#[test]
+fn the_format_sample_formats_freezes_and_merges_below_the_data() {
+    // M is 4; row 2 is present and retagged, row 3 absent and created; the
+    // one col covering 1 to 5 is split three ways; the merge goes on row 5.
+    let body = "<sheetViews><sheetView workbookViewId=\"0\"><selection activeCell=\"A1\" \
+                sqref=\"A1\"/></sheetView></sheetViews>\
+                <cols><col min=\"1\" max=\"5\" width=\"9\" customWidth=\"1\"/></cols>\
+                <sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+                <row r=\"2\" spans=\"1:2\"><c r=\"B2\"><v>2</v></c></row>\
+                <row r=\"4\"><c r=\"A4\"><v>4</v></c></row></sheetData>\
+                <mergeCells count=\"1\"><mergeCell ref=\"C1:D1\"/></mergeCells>";
+    let (line, sheet) = format_run("format-sample", body);
+    assert_eq!(
+        line,
+        "format\tcells_before=3\tcells_after=3\trows_before=3\trows_after=4\tmerges_before=1\
+         \tmerges_after=2\n",
+        "the format line"
+    );
+    let want = format!(
+        "<sheetViews><sheetView workbookViewId=\"0\">{PANE_B2}</sheetView></sheetViews>\
+         <cols><col min=\"1\" max=\"1\" width=\"9\" customWidth=\"1\"/>\
+         <col min=\"2\" max=\"2\" width=\"20.5\" customWidth=\"1\"/>\
+         <col min=\"3\" max=\"3\" width=\"9\" customWidth=\"1\" hidden=\"1\"/>\
+         <col min=\"4\" max=\"5\" width=\"9\" customWidth=\"1\"/></cols>\
+         <sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
+         <row r=\"2\" spans=\"1:2\" ht=\"30\" customHeight=\"1\"><c r=\"B2\"><v>2</v></c></row>\
+         <row r=\"3\" hidden=\"1\"/>\
+         <row r=\"4\"><c r=\"A4\"><v>4</v></c></row></sheetData>\
+         <mergeCells count=\"2\"><mergeCell ref=\"C1:D1\"/><mergeCell ref=\"A5:B5\"/></mergeCells>"
+    );
+    assert_eq!(sheet, edited(&want), "the sheet");
+}
+
+#[test]
+fn the_format_sample_creates_what_an_empty_sheet_lacks() {
+    // No cell: M is 0, so the merge is on row 1; sheetViews, cols, both rows
+    // and mergeCells are created in schema position.
+    let (line, sheet) = format_run("format-sample-empty", "<sheetData/>");
+    assert_eq!(
+        line,
+        "format\tcells_before=0\tcells_after=0\trows_before=0\trows_after=2\tmerges_before=0\
+         \tmerges_after=1\n",
+        "the format line"
+    );
+    let want = format!(
+        "<sheetViews><sheetView workbookViewId=\"0\">{PANE_B2}</sheetView></sheetViews>\
+         <cols><col min=\"2\" max=\"2\" width=\"20.5\" customWidth=\"1\"/>\
+         <col min=\"3\" max=\"3\" hidden=\"1\"/></cols>\
+         <sheetData><row r=\"2\" ht=\"30\" customHeight=\"1\"/><row r=\"3\" hidden=\"1\"/></sheetData>\
+         <mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells>"
+    );
+    assert_eq!(sheet, edited(&want), "the sheet");
+}
+
+#[test]
+fn the_format_sample_refuses_overlapping_cols_or_two_merge_cells_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0018-rows-and-columns.md`, "P1").
+    for (label, body, message) in [
+        (
+            "format-sample-cols",
+            "<cols><col min=\"1\" max=\"3\"/><col min=\"3\" max=\"4\"/></cols><sheetData/>",
+            "a worksheet whose cols are out of order or overlap cannot be edited",
+        ),
+        (
+            "format-sample-merges",
+            "<sheetData/><mergeCells count=\"1\"><mergeCell ref=\"C1:D1\"/></mergeCells>\
+             <mergeCells count=\"1\"><mergeCell ref=\"C3:D3\"/></mergeCells>",
+            "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews \
+             without a sheetView",
+        ),
+    ] {
+        styled_run_refused(label, &edit_specs(body), message, "--format-sample");
+    }
 }

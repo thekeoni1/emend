@@ -146,6 +146,22 @@
 //!   `read_back`, counts only. `xfs_after` and `cells_after` are asserted as
 //!   `--style-sample`'s are. A styles part without `borders` is refused by
 //!   the layer with no output.
+//! - `--format-sample`: the sample formats, pane and merge of
+//!   `specs/0018-rows-and-columns.md`, "Harness runs", with P1 ruling 1: on
+//!   the first sheet of kind `Worksheet`, column 2 takes width 20.5, column
+//!   3 is hidden, row 2 takes height 30, row 3 is hidden, the panes are
+//!   frozen at B2, and the two cells of the row past the last row with a
+//!   cell, columns 1 and 2, are merged, so no cell is cleared. One line goes
+//!   to stdout: the word `format` then `cells_before`, `cells_after`,
+//!   `rows_before`, `rows_after`, `merges_before` and `merges_after`. COUNTS
+//!   ONLY, and every index is this tool's own constant or M. The cells come
+//!   from the layer's reader; the `<row>` elements of the first main-
+//!   namespace `sheetData` and the `<mergeCell>` elements of `mergeCells`
+//!   are counted by this tool's own pass over the part's tokens, as
+//!   `--sheet-sample` counts the workbook's. Asserted: `cells_after` equal
+//!   to `cells_before`, `rows_after` equal to `rows_before` plus rows 2 and 3
+//!   where they were absent, `merges_after` one more; a failure is exit 2
+//!   with the message and no output, and so is a refusal by the layer.
 //!
 //! - `--new-sample`: the new workbook sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The first path
@@ -218,9 +234,9 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
-use emend::cells::{CellRef, FormulaKind, Kind, Value};
+use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
-use emend::package::{CONTENT_TYPES_PART, Package, SheetKind, rels_part_source};
+use emend::package::{CONTENT_TYPES_PART, MAIN, Package, SheetKind, rels_part_source};
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
     Protection, Side, Style, Vertical,
@@ -231,7 +247,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
-| --remove-sample | --font-sample | --border-sample]";
+| --remove-sample | --font-sample | --border-sample | --format-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -276,6 +292,8 @@ enum Operation {
     SheetSample,
     /// The removal sample, and its counts on stdout.
     RemoveSample,
+    /// The sample column and row formats, pane and merge, and their counts.
+    FormatSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -404,6 +422,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--border-sample" => {
             run(Path::new(input), Path::new(output), Operation::BorderSample)
         }
+        [input, output, flag] if flag == "--format-sample" => {
+            run(Path::new(input), Path::new(output), Operation::FormatSample)
+        }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -481,6 +502,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RemoveSample) {
         return remove_sample(input, output);
     }
+    if matches!(operation, Operation::FormatSample) {
+        return format_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -514,6 +538,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
         Operation::SheetSample => unreachable!("the sheet sample has its own path"),
         Operation::RemoveSample => unreachable!("the removal sample has its own path"),
+        Operation::FormatSample => unreachable!("the format sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -2034,6 +2059,223 @@ fn tag_number(raw: &[u8], attribute: &[u8]) -> Option<u64> {
         let value = &rest[1..];
         let end = value.iter().position(|byte| *byte == quote)?;
         return std::str::from_utf8(&value[..end]).ok()?.parse().ok();
+    }
+    None
+}
+
+/// The format sample (`specs/0018-rows-and-columns.md`, "Harness runs",
+/// `--format-sample`, and P1 ruling 1).
+///
+/// W, the first sheet of kind `Worksheet`, is read once for its cells and
+/// its largest row number M, and counted by [`sheet_counts`]; column 2 gets
+/// width 20.5, column 3 is hidden, row 2 gets height 30, row 3 is hidden,
+/// the panes are frozen at B2 and `(M + 1, 1)..(M + 1, 2)` is merged, below
+/// the data so no cell is cleared. The output is reopened for the same
+/// counts, and `cells_after` equal to `cells_before`, `rows_after` equal to
+/// `rows_before` plus rows 2 and 3 where they were absent, and
+/// `merges_after` equal to `merges_before` plus one are asserted; a failure
+/// after the output is in place removes it.
+fn format_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let before = sample(&mut package, &part)?;
+    let counts = sheet_counts(&mut package, &part)?;
+    let merge_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    package.set_column_width(&part, 2, Some(20.5))?;
+    package.set_column_hidden(&part, 3, true)?;
+    package.set_row_height(&part, 2, Some(30.0))?;
+    package.set_row_hidden(&part, 3, true)?;
+    package.freeze_panes(&part, Some(CellRef { row: 2, col: 2 }))?;
+    package.merge_cells(
+        &part,
+        Area {
+            first: CellRef {
+                row: merge_row,
+                col: 1,
+            },
+            last: CellRef {
+                row: merge_row,
+                col: 2,
+            },
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = format_read_back(output, &part, before.cells, &counts);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (cells_after, after) = checked?;
+    edit_line_named(
+        "format",
+        &[
+            ("cells_before", before.cells),
+            ("cells_after", cells_after),
+            ("rows_before", counts.rows),
+            ("rows_after", after.rows),
+            ("merges_before", counts.merges),
+            ("merges_after", after.merges),
+        ],
+    )
+}
+
+/// Reopens the format sample's output and asserts its three counts.
+fn format_read_back(
+    output: &Path,
+    part: &[u8],
+    cells_before: u64,
+    before: &SheetCounts,
+) -> Result<(u64, SheetCounts), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let mut cells = 0u64;
+    for cell in written.cells(part)? {
+        cell?;
+        cells += 1;
+    }
+    if cells != cells_before {
+        return Err(Error::CellsAfter {
+            expected: cells_before,
+            found: cells,
+        });
+    }
+    let after = sheet_counts(&mut written, part)?;
+    let created = u64::from(!before.row_two) + u64::from(!before.row_three);
+    if after.rows != before.rows + created || !after.row_two || !after.row_three {
+        return Err(Error::SheetSample("row count"));
+    }
+    if after.merges != before.merges + 1 {
+        return Err(Error::SheetSample("merge count"));
+    }
+    Ok((cells, after))
+}
+
+/// What [`sheet_counts`] reads off a worksheet part.
+struct SheetCounts {
+    /// `<row>` elements in the first `sheetData` of the main namespace.
+    rows: u64,
+    /// Whether rows 2 and 3 are among them.
+    row_two: bool,
+    row_three: bool,
+    /// `<mergeCell>` elements in every `mergeCells` of the main namespace.
+    merges: u64,
+}
+
+/// Counts a worksheet's rows and merges by this tool's own pass over the
+/// part's tokens (`emend::xml::Stream`, quick-xml underneath), as
+/// [`workbook_counts`] counts the workbook's (`specs/0018-rows-and-
+/// columns.md`, P1 ruling 1). A root child is in the main namespace when
+/// the namespace its prefix, or its lack of one, is bound to, on the child
+/// itself or else on the root, is one of the two main forms; the rows and
+/// merges inside are counted by local name.
+fn sheet_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<SheetCounts, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut counts = SheetCounts {
+        rows: 0,
+        row_two: false,
+        row_three: false,
+        merges: 0,
+    };
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let mut region: Vec<u8> = Vec::new();
+    let mut seen_data = false;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            if depth < 2 {
+                region.clear();
+            }
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let local = tag_local_name(raw);
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            let main = MAIN.contains(&element_namespace(raw, &root).as_slice());
+            region = match local {
+                b"sheetData" if main && !seen_data => {
+                    seen_data = true;
+                    local.to_vec()
+                }
+                b"mergeCells" if main => local.to_vec(),
+                _ => Vec::new(),
+            };
+        } else if depth == 3 && region == b"sheetData" && local == b"row" {
+            counts.rows += 1;
+            match tag_number(raw, b"r") {
+                Some(2) => counts.row_two = true,
+                Some(3) => counts.row_three = true,
+                _ => {}
+            }
+        } else if depth == 3 && region == b"mergeCells" && local == b"mergeCell" {
+            counts.merges += 1;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+            if depth < 2 {
+                region.clear();
+            }
+        }
+    }
+    Ok(counts)
+}
+
+/// The namespace an element's name is in: the declaration for its prefix
+/// (`xmlns` for none) on its own start tag, else on `root`'s, else empty.
+fn element_namespace(raw: &[u8], root: &[u8]) -> Vec<u8> {
+    let prefix = raw[1..]
+        .iter()
+        .take_while(|byte| !matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'>'))
+        .position(|byte| *byte == b':')
+        .map(|colon| &raw[1..1 + colon]);
+    let attribute = match prefix {
+        Some(prefix) => [b"xmlns:".as_slice(), prefix].concat(),
+        None => b"xmlns".to_vec(),
+    };
+    tag_attribute(raw, &attribute)
+        .or_else(|| tag_attribute(root, &attribute))
+        .unwrap_or_default()
+}
+
+/// An attribute's value in a start tag, as written, when the tag holds an
+/// attribute of exactly that name.
+fn tag_attribute(raw: &[u8], attribute: &[u8]) -> Option<Vec<u8>> {
+    let mut at = 0;
+    while let Some(found) = raw[at..]
+        .windows(attribute.len())
+        .position(|window| window == attribute)
+    {
+        let start = at + found;
+        at = start + attribute.len();
+        let before = raw.get(start.wrapping_sub(1)).copied().unwrap_or(b'<');
+        if !matches!(before, b' ' | b'\t' | b'\n' | b'\r') {
+            continue;
+        }
+        let Some(rest) = raw[at..].trim_ascii_start().strip_prefix(b"=") else {
+            continue;
+        };
+        let rest = rest.trim_ascii_start();
+        let quote = *rest.first()?;
+        let value = &rest[1..];
+        let end = value.iter().position(|byte| *byte == quote)?;
+        return Some(value[..end].to_vec());
     }
     None
 }
