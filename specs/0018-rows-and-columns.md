@@ -1173,6 +1173,124 @@ Rulings on check 1 (its answer stands verbatim in
    the "pairs times two equals files" check; and the ruling 13
    module-header sentence in P3's first code commit.
 
+## Planning rulings during P3 (2026-09-26)
+
+Ruled on the implementing session's hold before the column-axis
+commit, after planning verified the doc commit ec68ccd (both files
+at the hashes sent; its message amended once before any log pinned
+it, the tree unchanged, which is accepted) and the gating commit
+b675f3d (the feature, the tool's dependency, the header sentence,
+six carried tests, nothing else; planning's own scan of the range
+PASS):
+
+1. A malformed `<col>` under a column shift (Q1): the forms P1
+   ruling 3 names (`min` or `max` missing, not a decimal u32, `min`
+   0, `min` above `max`) are refused with the cols message, since
+   the shift edits `cols`. Order, overlap and a doubled `<cols>` are
+   not checked by the shift: a well-formed list keeps its order and
+   disjointness under the rule, and a disordered one moves element
+   by element as it stood, as P2's pass moves a doubled
+   `mergeCells`. The module header says so.
+2. `spans` under a column shift (Q2): a space-separated list of
+   `a:b` items, each through the rule and the clip, an item the
+   rule removes dropped, the attribute dropped when the list
+   empties, an unchanged value kept as its own bytes, and an item
+   that does not parse refused with the fourteenth message (P2
+   ruling 2's reason). The corpus has 1104 values, none a list and
+   none malformed (the implementing session's unlogged count).
+3. The column samples' tool lines (Q3): `insert_columns` prints
+   `at`, `count` (1), `cells_before`, `cells_after`,
+   `from_c_before`, `from_c1_after`, `formulas_moved`,
+   `chain_before`, `chain_after`, `full_calc`; `delete_columns`
+   prints `at`, `count` (1), `cells_before`, `cells_after`,
+   `from_c1_before`, `from_c_after` and the same four;
+   `formulas_moved` counts input cells with a formula at column c
+   or after (P2 ruling 7 on the column axis). The read-back
+   assertions are the row samples' over columns.
+4. The gate's listing with the feature off and on (Q4): both. (a)
+   The source listing of `pub fn` and `pub const` first lines, each
+   printed beside the attribute line before it, so the six gated
+   items show their `cfg`. (b) A measurement: a scratch consumer
+   crate under `<build>`, depending on the crate by path, whose one
+   function names the four calls and the two constants; `cargo
+   check` with the feature off fails and the log counts the errors
+   that name each of the six items (six), and with the feature on
+   is clean (the control). The crate's tests are counted with the
+   feature off and on beside it (the unlogged figures were 512 and
+   533).
+5. The axis in the code (Q5): the wrapper carrying `Shift` and the
+   axis, with an area transposed through the row-form helpers, is
+   accepted; the P2 literals stay unedited. Told, not asked, and
+   right to be.
+
+## Planning verification and rulings on P3 (2026-09-26)
+
+Verified from primaries: five commits over dd7062b (ec68ccd doc,
+b675f3d the gating, c3b5bbd the column axis, f52684c the phase
+commit, 3cd9696 the record with 14 files), every message ASCII
+with the one trailer; planning's own privacy scan over the range
+(5 commits, 672 blobs, 0 findings); the eight files of the record
+at the hashes reported; each log's verdict line "yes" and the scan
+PASS with 0 hits; every log's stderr at 0 bytes with its control;
+the spec pinned at 59c50efe in gate, negative, run and scan; the
+test log at attempt 2 with attempt 1 and its script hashed in the
+rerun header. Planning's own build of 3cd9696 in a detached
+worktree: the crate's tests 512 with the feature off and 543 with
+it on, on each target, 0 failed; the workspace 704 passed, 0
+failed, 2 ignored on each target; clippy and doc clean with the
+feature on (the workspace) and off (the crate alone), which the
+report withdrew as an unlogged claim and planning now states as
+its own measurement. Planning's own rebuild of the two probes at
+f52684c with the feature off reproduced 963588 and 533216, so the
+core figure 430372 stands: equal to P1's, the whole shift cost
+gone from the core, 28380 under 458752 before P4. Planning's own
+byte-level model of the column shift (the row model of P2's
+verification generalised to the axis: cells' column letters,
+`spans` per P3 ruling 2, `<col>` intervals, `dimension`, merges,
+the four lists, `<f ref>`, the chain and the flag) agreed with the
+output part byte for byte in 27 of 27 workbooks for each sample on
+each label, with no W left unchanged by the rule, the workbook
+part changed in 11 and the chain removed in 1, and every tool
+line's fields; a plant that moves one cell's column was caught in
+27 of 27 for each sample. The open record: 332 pairs, no pair whose
+input opens and whose output does not. Every number in the report
+is in a primary. P3 is DONE.
+
+Rulings on the report's findings and the two checks (their answers
+stand verbatim in `records/logs/m2p3-p3/independent-check-1.md`
+and `-2.md`):
+
+1. The report's four corrections (check 1 F21 to F23, check 2 G10
+   and G11) are accepted as the report states them; the amended
+   doc-commit message and the tree comparison were verified by
+   planning at the hold, which is the primary for that claim.
+2. Carried to P4's first code commit: a `<col>` dropped while
+   other `<col>` elements survive; `autoFilter` on the column axis
+   (check F6, G6); the header sentence on the containers held
+   whole extended to the column axis. Carried to P4's scripts: a
+   control for the "pairs times two equals files" check and for
+   the moved run directory listing that runs every time (F16, F17,
+   G7); clippy and doc with the feature off in the gate (F20); the
+   commit-message count rule checked on every commit of the phase,
+   the doc commit included (G8); the test log printing the
+   workspace's crate-binary count beside the gate's with the
+   difference attributed to `dates` (F12); the repeated `set -uo
+   pipefail` lines cleaned (F19).
+3. G9: a plant whose failure is a panic outside an assertion
+   prints its panic line, which is that failure's output; the
+   named test and its FAILED line print for every plant. Accepted.
+4. F4 and G4: the catalogue and limits written ahead of P4 in
+   b675f3d and c3b5bbd are accepted; P4 completes them.
+5. F5: two row-axis arms the shared cell code cannot reach (a cell
+   past the limit is refused by its row first; a `None` arm needs
+   a row already dropped) are accepted as the shared code's shape;
+   the P2 tests pass unedited, which is the measurement.
+6. The comparison's three corrections of P2's model (an element
+   with an end tag and no content keeps its end tag; a container
+   written as an empty-element tag copied as it stands; a missing
+   table part a predicted refusal) are accepted; planning's own
+   model, written separately, agreed with the same outputs.
+
 ## Out of scope
 
 - Reading widths, heights, panes or merges back as typed values.
