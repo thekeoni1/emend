@@ -435,8 +435,9 @@ an overflow unreachable in practice. The worksheet pass streams as
 today: one token at a time, the output through the temporary file,
 no row held beyond its own tag except a deleted element's tokens
 skipped as they arrive. The table and pivot refusal reads two
-small parts before the pass. Nothing of a worksheet is held in
-memory whole.
+small parts before the pass. No row of a worksheet is held in
+memory whole (P1 verification ruling 4 names the counted
+containers that are).
 
 ### Size
 
@@ -769,6 +770,133 @@ recommended.
 6. A merge clears the covered cells other than the top-left, `s`
    kept (recommended; Excel and openpyxl both do); the alternative
    leaves them, and the hidden values come back on unmerge.
+
+## Planning rulings during P1 (2026-09-26)
+
+Ruled on the implementing session's hold before its first code
+commit, after planning verified the doc commit fd6bbf8 (parent
+d0f8f72, the three blobs at the hashes sent):
+
+1. `rows_before` and `rows_after` (Q1): the reader yields cells and
+   counts no rows, so the tool counts `<row>` elements in the first
+   main-namespace `sheetData` with `quick-xml`, as it counts
+   `mergeCell`, and records whether rows 2 and 3 were present for
+   the assertion. "As the reader counts them" in "Harness runs" was
+   planning's slip; this ruling replaces it.
+2. Creation against an input out of schema order (Q2): the pass
+   creates `cols`, `sheetViews` or `mergeCells` before the first
+   later-sequence child, and an element of that name met afterwards
+   in the input is refused with the doubled-elements message ("a
+   worksheet has two cols, sheetViews or mergeCells elements, or a
+   sheetViews without a sheetView"). No corpus sheet is out of
+   order; the refusal is the defence.
+3. A malformed `<col>` (Q3): one lacking `min` or `max`, a `min` or
+   `max` that is not a decimal `u32`, a `min` of 0 or a `min` above
+   `max`, when the write edits `cols`, is refused with "a worksheet
+   whose cols are out of order or overlap cannot be edited". No new
+   message; the module header lists the forms.
+4. A `<mergeCell>` whose `ref` does not parse as an `Area` (Q4),
+   when the write merges or unmerges on that part, is refused, and
+   the message is widened so it says why: "a merge overlaps a merge
+   the worksheet has, or a mergeCell ref does not parse". "Errors"
+   reads with this text.
+5. Merge and unmerge in one write (Q5): an unmerge matches the
+   file's merges only, and unmerging a pending merge is "no merge
+   of that range"; a merge is checked for overlap against the
+   file's merges less those this write unmerges, and against the
+   merges recorded before it; two unmerges of one area remove it
+   once. As proposed.
+6. `unmerge_cells` returns `Result<(), Error>` (Q6), refusing an
+   area outside the grid at the call; `merge_cells` and
+   `freeze_panes` refuse an out-of-grid area or cell at the call,
+   all three with "a row or column index or count is out of range";
+   an `Area` given with unnormalised corners is normalised at the
+   call. "Module `package`: the calls" reads with this.
+7. Removed against replaced parts (Q7): the new edits join
+   `cell_parts` and take the two existing messages as cell edits
+   do, "an edit to a removed part" for a removed part and "a cell
+   edit to a part this write replaces" for a replaced one. The
+   sentence in "Errors" that put both under the second message was
+   planning's, wrong; this ruling corrects it.
+8. The merge's clear (Q8): confirmed. It meets the cells present in
+   the file, writes nothing for an absent one, and refuses a
+   covered cell carrying an attribute other than `r`, `s` and `t`
+   with "a cell carries an attribute this layer does not model",
+   exactly as `clear_cell` does.
+9. A `<sheetViews>` with no `<sheetView>` (Q9): refused for `None`
+   as for `Some`, the check being structural. Confirmed.
+
+## Planning verification and rulings on P1 (2026-09-26)
+
+Verified by planning from primaries, never from the report alone:
+
+1. Commits, from git: fd6bbf8 (docs, the three files at planning's
+   hashes), d03ed7b (the crate), b8595ce (the tool, the phase
+   commit), 2e54f33 (the record, ten files), a chain from d0f8f72;
+   every message ASCII, ending with the Co-Authored-By line, no
+   session link; each commit planning docs alone, code alone or
+   records alone; nothing pushed. The six committed logs and the
+   four record files at the sha256 the report gives. Planning's own
+   `scripts/privacy.sh --range d0f8f72..HEAD`: 4 commits, 641
+   blobs, 0 findings; no log names the home directory (the two
+   `/home/` strings in the scan and run scripts are a control
+   fixture's text and a grep pattern); `ANTHROPIC_API_KEY` unset.
+2. The logs at their verdict lines, every one attempt 1 (no rerun
+   header): gate "checks all as expected: yes"; test "yes", 665
+   passed on each target, 0 failed, 2 ignored, 31 added; negative
+   "yes", N1 the carried unbound-prefix case, N3 and N4 the two
+   fixture refusals, exit 2 and no output each, the controls
+   turning; run "yes", 27 of 27 on both targets, its comparison's
+   flags all yes with 12 of 12 plants turning their own flag, the
+   host and i686 outputs equal, the keep 266 pairs with part 2 P3's
+   220 byte for byte and 46 new all from this phase's tests, the
+   open record 0 findings; scan final stage PASS, 0 hits. Each log
+   counts its own stderr at 0 bytes with the one-byte control. The
+   spec pinned at 09c5c539 in gate, test, run and scan.
+3. Planning's own measurements: the workspace tests on planning's
+   build at b8595ce, 665 passed, 0 failed, 2 ignored on the host and
+   the crate's tests passing on i686; clippy with `-D warnings` and
+   `cargo doc` clean; planning's own comparison reader over the run
+   directory (a byte-span model of the root's children, the pane
+   and selection bytes, the `cols` intervals' effective attributes,
+   rows 2 and 3, the cells, the merge appended with its `count` and
+   its schema position), 27 of 27 on both labels with no problem,
+   a planted change to the pane caught, host and i686 outputs equal
+   in 27 of 27; its created counts (4 rows, 16 `mergeCells`, no
+   `sheetViews` or `cols`) equal to the run log's per label.
+4. Check 1's F3: the rewrite holds `<mergeCells>` whole because its
+   `count` sits in its start tag, and `<cols>` whole by choice. The
+   sentence in "32-bit and streaming" that nothing of a worksheet is
+   held whole was planning's, wrong for a counted container; ruled:
+   a root child the write counts or reorders (`cols`, `mergeCells`
+   and, in P2, `dataValidations`) is held whole, bounded by that
+   element's own size and never by the sheet's rows; the sentence
+   reads "no row of a worksheet is held in memory whole", and the
+   module header says which elements are.
+5. Check 1's F4: `with_attribute` replaces a present attribute where
+   it stands, so a row with `customHeight` and no `ht` comes out
+   with `ht` after it; the design's order applies to attributes the
+   write adds. Accepted as `with_attribute`'s rule (every other
+   byte kept); no corpus row has the shape.
+6. Check 1's F6 and F7: `Area::cells` multiplies two `u64` that a
+   hand-built area can make 2^32 each; ruled `saturating_mul` with
+   a test, and the write assertion the comment in the indices test
+   claims, both in P2's first code commit. F5: a test that a sheet
+   removal drops the part's format, pane and merge edits, in P2.
+   F8 (the tool counts through `emend::xml::Stream`, quick-xml
+   underneath, as `--sheet-sample` does) and F9 (one control for
+   N3 and N4) are remarks, accepted.
+7. Check 1's F14 to F18 are report wording, answered in the
+   implementing session's message; from P2 a report states each
+   log's attempt number outright rather than by the absence of a
+   rerun line.
+8. The implementing session reports one unlogged dry run of a
+   script that killed itself through `pkill -f`, repeated once and
+   recorded in its gotchas; nothing was lost and no log cites it.
+   Noted; a dry run of a script that kills processes is run once,
+   by pattern-checked pid, and never again by pattern.
+9. P1 is DONE. P2 follows "P2" with rulings 4 to 6 in its first
+   code commit.
 
 ## Out of scope
 
