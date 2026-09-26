@@ -271,6 +271,33 @@
 //!   schema order, `an_element_created_and_then_met_in_the_input_is_refused`,
 //!   P1 ruling 2).
 //!
+//! Inserting and deleting rows adds these (`specs/0018-rows-and-columns.md`,
+//! "Errors", and P2 rulings 1, 2 and 5), raised by [`Package::write_to`];
+//! the calls refuse a count of 0 or rows past the grid with "a row or column
+//! index or count is out of range", and the write meets the order and
+//! explicit-reference refusals of the cell edits
+//! (`shift::a_count_of_zero_or_rows_past_the_grid_are_refused_at_the_call`,
+//! `the_order_rule_holds_on_the_input`):
+//!
+//! - "a worksheet with a row or column insertion or deletion takes no other edit in the same write"
+//!   (`shift::a_second_shift_or_any_other_edit_for_the_part_is_refused`).
+//! - "a row or column would be moved off the worksheet"
+//!   (`shift::a_row_moved_off_the_grid_is_refused`,
+//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
+//! - "an insertion or deletion cuts a shared, array or data table formula"
+//!   (`shift::a_shared_formula_before_after_straddling_inside_and_deleted_whole`,
+//!   `an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
+//!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`).
+//! - "an insertion or deletion would move a table or a pivot table"
+//!   (`shift::a_table_or_pivot_before_the_point_stays_and_one_at_or_after_it_is_refused`),
+//!   also for a table or pivot `ref` that is absent or does not parse and a
+//!   part that is not there (P2 ruling 2).
+//! - "a range an insertion or deletion would move does not parse"
+//!   (`shift::an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
+//!   `a_dimension_moved_grown_cut_and_emptied`,
+//!   `merges_moved_grown_cut_dropped_and_the_container_dropped`,
+//!   `the_four_lists_move_are_cut_lose_ranges_and_drop_their_elements`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -397,7 +424,11 @@
 //!   validation and conditional formatting raw and never adjusts them; only
 //!   the column formats and the merge calls of
 //!   `specs/0018-rows-and-columns.md` rewrite `<cols>` and `<mergeCells>`.
-//!   No row or column is inserted or deleted, so no reference is fixed up.
+//!   A cell edit inserts and deletes no row; [`Package::insert_rows`] and
+//!   [`Package::delete_rows`] move the grid and the ranges "The shift rule"
+//!   names, and no formula text is fixed up. A hyperlink the rule drops
+//!   leaves its relationship in the worksheet's rels part, unused (P2
+//!   ruling 3).
 //! - A worksheet the rewrite cannot place an edit in safely is refused, not
 //!   repaired: a row or cell without `r`, rows or cells out of order, an
 //!   array or data table `ref` whose extent does not parse (edited or not),
@@ -408,7 +439,8 @@
 //!   that holds one token and the sorted edits. A root child the write
 //!   counts or reorders is held whole, bounded by that element's own size
 //!   and never by the sheet's rows: `<cols>` and `<mergeCells>` when a write
-//!   edits them; no row is held whole (`specs/0018-rows-and-columns.md`, P1
+//!   edits them, and `<mergeCells>` and `<dataValidations>` when it inserts
+//!   or deletes rows; no row is held whole (`specs/0018-rows-and-columns.md`, P1
 //!   verification ruling 4). The edits themselves are
 //!   held in memory, in a `Vec` in call order, so a caller that records more
 //!   edits than its address space holds cannot.
@@ -694,6 +726,19 @@ pub const CALC_CHAIN: [&[u8]; 2] = [
 pub const THEME: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/theme",
+];
+
+/// The `table` relationship type, transitional then strict
+/// (`specs/0018-rows-and-columns.md`, "The shift rule").
+pub const TABLE: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/table",
+];
+
+/// The `pivotTable` relationship type, transitional then strict.
+pub const PIVOT_TABLE: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotTable",
 ];
 
 /// One `Default` element of `[Content_Types].xml`, bytes as written.
@@ -1028,6 +1073,9 @@ struct Recorded {
     merges: Vec<(Vec<u8>, Area)>,
     /// `(part, area)`: an unmerge, normalised, in record order.
     unmerges: Vec<(Vec<u8>, Area)>,
+    /// `(part, shift)`: an insertion or deletion, in record order; a write
+    /// takes one per part and nothing else for it (decision 5).
+    shifts: Vec<(Vec<u8>, Shift)>,
 }
 
 /// One field of a column's or a row's format as a call records it.
@@ -1289,6 +1337,7 @@ impl Recorded {
             && self.panes.is_empty()
             && self.merges.is_empty()
             && self.unmerges.is_empty()
+            && self.shifts.is_empty()
     }
 
     /// The entries [`Package::add_sheet`] recorded, in record order, whose
@@ -1335,7 +1384,8 @@ impl Recorded {
             .chain(self.row_formats.iter().map(|(part, _, _)| part))
             .chain(self.panes.iter().map(|(part, _)| part))
             .chain(self.merges.iter().map(|(part, _)| part))
-            .chain(self.unmerges.iter().map(|(part, _)| part));
+            .chain(self.unmerges.iter().map(|(part, _)| part))
+            .chain(self.shifts.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -2009,6 +2059,38 @@ impl<R: Read + Seek> Package<R> {
     /// that range".
     pub fn unmerge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
         self.parts().unmerge_cells(part, area)
+    }
+
+    /// Records `count` rows inserted in the worksheet part `part` at row
+    /// `at`: the rows from `at` on move down by `count`.
+    ///
+    /// `specs/0018-rows-and-columns.md`, "Insert and delete" and "The shift
+    /// rule". The write moves every row and cell, the merges, `dimension`,
+    /// the shared, array and data table `ref`s and the conditional format,
+    /// data validation, hyperlink and filter ranges with them; formula
+    /// text, defined names, comments, drawings and views stay where they
+    /// were. A worksheet takes one insertion or deletion per write and no
+    /// other edit in that write: a caller that wants to insert and then fill
+    /// writes twice.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a `count` of 0 or rows past 1048576. Nothing is recorded when
+    /// this fails. The write refuses what "The shift rule" refuses.
+    pub fn insert_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
+        self.parts().shift(part, at, count, true)
+    }
+
+    /// Records `count` rows deleted from the worksheet part `part` from row
+    /// `at`: those rows and their cells go, and the rows after them move up
+    /// by `count`, as [`Package::insert_rows`] moves them down.
+    ///
+    /// # Errors
+    ///
+    /// As [`Package::insert_rows`].
+    pub fn delete_rows(&mut self, part: &[u8], at: u32, count: u32) -> Result<(), Error> {
+        self.parts().shift(part, at, count, false)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -2698,6 +2780,24 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::insert_rows`] and [`Package::delete_rows`].
+    fn shift(&mut self, part: &[u8], at: u32, count: u32, insert: bool) -> Result<(), Error> {
+        let last = u64::from(at) + u64::from(count);
+        if at == 0 || count == 0 || last - 1 > u64::from(GRID_ROWS) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        self.edits.shifts.push((
+            part.to_vec(),
+            Shift {
+                insert,
+                at,
+                count,
+                limit: GRID_ROWS,
+            },
+        ));
+        Ok(())
+    }
+
     /// The body of [`Package::unmerge_cells`].
     fn unmerge_cells(&mut self, part: &[u8], area: Area) -> Result<(), Error> {
         let area = area.normalised();
@@ -2989,6 +3089,7 @@ impl<'a> Parts<'a> {
         self.edits.panes.retain(|(at, _)| at != part);
         self.edits.merges.retain(|(at, _)| at != part);
         self.edits.unmerges.retain(|(at, _)| at != part);
+        self.edits.shifts.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -3007,10 +3108,18 @@ impl<'a> Parts<'a> {
         let added_sheets = self.edits.added_sheet_parts();
         for part in self.edits.cell_parts() {
             let work = self.edits.sheet_work(&part);
+            let shift = self
+                .edits
+                .shifts
+                .iter()
+                .find(|(at, _)| *at == part)
+                .map(|(_, shift)| *shift);
             match self.archive.index_of(&part) {
                 Some(index) => {
-                    let (temp, replacement, removed) =
-                        rewrite_worksheet(self.archive, index, &work)?;
+                    let (temp, replacement, removed) = match shift {
+                        Some(shift) => shift_worksheet(self.archive, index, &shift)?,
+                        None => rewrite_worksheet(self.archive, index, &work)?,
+                    };
                     changed_formula |= removed;
                     temporaries.push(temp);
                     edits.replace(index, replacement);
@@ -3027,8 +3136,10 @@ impl<'a> Parts<'a> {
                         .position(|(added, _)| *added == part)
                         .ok_or(NO_SUCH_PART)?;
                     let index = self.archive.entries().len() + slot;
-                    let (temp, replacement, removed) =
-                        rewrite_worksheet_from(BLANK_WORKSHEET, index, &work)?;
+                    let (temp, replacement, removed) = match shift {
+                        Some(shift) => shift_worksheet_from(BLANK_WORKSHEET, index, &shift)?,
+                        None => rewrite_worksheet_from(BLANK_WORKSHEET, index, &work)?,
+                    };
                     changed_formula |= removed;
                     temporaries.push(temp);
                     self.edits.part_additions[slot].1 = replacement;
@@ -3357,6 +3468,29 @@ impl<'a> Parts<'a> {
             {
                 return Err(EDIT_IN_MERGE);
             }
+            // One insertion or deletion per part and nothing else for it
+            // (`specs/0018-rows-and-columns.md`, decision 5), and no table or
+            // pivot table it would move or cut ("The shift rule").
+            let shifts: Vec<Shift> = self
+                .edits
+                .shifts
+                .iter()
+                .filter(|(at, _)| *at == part)
+                .map(|(_, shift)| *shift)
+                .collect();
+            if let Some(shift) = shifts.first() {
+                let alone = shifts.len() == 1
+                    && work.cells.is_empty()
+                    && work.rows.is_empty()
+                    && work.columns.is_empty()
+                    && work.pane.is_none()
+                    && work.merges.is_empty()
+                    && work.unmerges.is_empty();
+                if !alone {
+                    return Err(SHIFT_ALONE);
+                }
+                self.tables_before(&part, shift)?;
+            }
         }
 
         // A style edit names a cell format the part has or this package
@@ -3418,6 +3552,37 @@ impl<'a> Parts<'a> {
         // projected sheet list").
         if sheets {
             self.projected()?;
+        }
+        Ok(())
+    }
+
+    /// Refuses a shift that would move or cut a table or a pivot table the
+    /// worksheet `part` names (`specs/0018-rows-and-columns.md`, "The shift
+    /// rule", and P2 ruling 2): each `table` relationship's part's root `ref`
+    /// and each `pivotTable` relationship's part's `<location ref>` must lie
+    /// wholly before the point. A part that is not there, or a `ref` that is
+    /// absent or does not parse, is refused the same way.
+    fn tables_before(&mut self, part: &[u8], shift: &Shift) -> Result<(), Error> {
+        if self.archive.index_of(part).is_none() {
+            // A sheet this write adds has no relationships part yet.
+            return Ok(());
+        }
+        let rels = self.relationships(part)?;
+        let mut targets: Vec<(Vec<u8>, bool)> = Vec::new();
+        for (kind, location) in [(TABLE, false), (PIVOT_TABLE, true)] {
+            for form in kind {
+                for rel in rels.of_kind(form) {
+                    targets.push((rels.target_part(rel).map_err(|_| TABLE_MOVED)?, location));
+                }
+            }
+        }
+        for (target, location) in targets {
+            let index = self.archive.index_of(&target).ok_or(TABLE_MOVED)?;
+            let value = part_ref(self.archive, index, location)?.ok_or(TABLE_MOVED)?;
+            let area = Area::parse(&value).ok_or(TABLE_MOVED)?;
+            if area.last.row >= shift.at {
+                return Err(TABLE_MOVED);
+            }
         }
         Ok(())
     }
@@ -3717,6 +3882,17 @@ const COLS_DISORDER: Error =
 const TWO_ELEMENTS: Error = Error::Package(
     "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView",
 );
+
+const SHIFT_ALONE: Error = Error::Package(
+    "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
+);
+const OFF_GRID: Error = Error::Package("a row or column would be moved off the worksheet");
+const CUTS_FORMULA: Error =
+    Error::Package("an insertion or deletion cuts a shared, array or data table formula");
+const TABLE_MOVED: Error =
+    Error::Package("an insertion or deletion would move a table or a pivot table");
+const RANGE_UNPARSED: Error =
+    Error::Package("a range an insertion or deletion would move does not parse");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -6009,6 +6185,611 @@ fn cols_written(
     out.extend_from_slice(&content);
     out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
     Ok(out)
+}
+
+/// One insertion or deletion of rows (`specs/0018-rows-and-columns.md`,
+/// "The shift rule"): `count` indices at `at`, on an axis whose last index
+/// is `limit`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Shift {
+    insert: bool,
+    at: u32,
+    count: u32,
+    limit: u32,
+}
+
+/// What the shift rule does to an interval `[a, b]` on its axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Moved {
+    /// Unchanged or moved whole, to these bounds (which may pass the
+    /// grid).
+    Whole(u64, u64),
+    /// Grown by an insertion inside it, or cut by a deletion that
+    /// overlaps it, to these bounds.
+    Changed(u64, u64),
+    /// Wholly inside a deletion.
+    Gone,
+}
+
+impl Shift {
+    /// Where the index `i` goes, `None` when a deletion removes it. The
+    /// answer may pass the grid; the caller refuses or clips.
+    fn index(&self, i: u32) -> Option<u64> {
+        let (i, k, n) = (u64::from(i), u64::from(self.at), u64::from(self.count));
+        if i < k {
+            Some(i)
+        } else if self.insert {
+            Some(i + n)
+        } else if i < k + n {
+            None
+        } else {
+            Some(i - n)
+        }
+    }
+
+    /// What happens to the interval `[a, b]`, `a <= b`.
+    fn interval(&self, a: u32, b: u32) -> Moved {
+        let (a, b) = (u64::from(a), u64::from(b));
+        let (k, n) = (u64::from(self.at), u64::from(self.count));
+        if b < k {
+            return Moved::Whole(a, b);
+        }
+        if self.insert {
+            return if a >= k {
+                Moved::Whole(a + n, b + n)
+            } else {
+                Moved::Changed(a, b + n)
+            };
+        }
+        let last = k + n - 1;
+        if a > last {
+            Moved::Whole(a - n, b - n)
+        } else if a >= k && b <= last {
+            Moved::Gone
+        } else {
+            let start = if a < k { a } else { k };
+            let end = if b > last { b - n } else { k - 1 };
+            Moved::Changed(start, end)
+        }
+    }
+
+    /// An area's rows through the rule, clipped to the grid: `None` when the
+    /// rule removes it or it lies wholly past the grid.
+    fn area_clipped(&self, area: Area) -> Option<Area> {
+        let (a, b) = match self.interval(area.first.row, area.last.row) {
+            Moved::Whole(a, b) | Moved::Changed(a, b) => (a, b),
+            Moved::Gone => return None,
+        };
+        let limit = u64::from(self.limit);
+        if a > limit {
+            return None;
+        }
+        Some(Area {
+            first: CellRef {
+                row: a as u32,
+                col: area.first.col,
+            },
+            last: CellRef {
+                row: b.min(limit) as u32,
+                col: area.last.col,
+            },
+        })
+    }
+
+    /// Whether an index is at or after the point in the input, so a formula
+    /// there is moved or removed (`specs/0018-rows-and-columns.md`, P2
+    /// ruling 7).
+    fn reaches(&self, i: u32) -> bool {
+        i >= self.at
+    }
+}
+
+/// A range the rule reads, parsed, or the P2 ruling 2 refusal.
+fn shift_area(value: &[u8]) -> Result<Area, Error> {
+    Area::parse(value).ok_or(RANGE_UNPARSED)
+}
+
+/// A space-separated list of ranges through the rule: `None` when every
+/// range is removed, else the list as P2 ruling 4 writes it, the input's
+/// own bytes when nothing changed.
+fn shifted_list(value: &[u8], shift: &Shift) -> Result<Option<Vec<u8>>, Error> {
+    let mut kept: Vec<Vec<u8>> = Vec::new();
+    let mut changed = false;
+    for range in value
+        .split(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r'))
+        .filter(|range| !range.is_empty())
+    {
+        let area = shift_area(range)?;
+        match shift.area_clipped(area) {
+            Some(moved) if moved == area => kept.push(range.to_vec()),
+            Some(moved) => {
+                changed = true;
+                kept.push(moved.a1().into_bytes());
+            }
+            None => changed = true,
+        }
+    }
+    if kept.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(if changed {
+        kept.join(&b' ')
+    } else {
+        value.to_vec()
+    }))
+}
+
+/// A start tag with the unprefixed attribute `name`, when it has one, run
+/// through the list rule: `Ok(None)` when the list empties, the tag
+/// unchanged when it has no such attribute.
+fn list_tag(
+    raw: &[u8],
+    name: &[u8],
+    shift: &Shift,
+    index: usize,
+) -> Result<Option<Vec<u8>>, Error> {
+    let Some(value) = attribute_value(raw, name, index)? else {
+        return Ok(Some(raw.to_vec()));
+    };
+    match shifted_list(value, shift)? {
+        None => Ok(None),
+        Some(list) if list == value => Ok(Some(raw.to_vec())),
+        Some(list) => Ok(Some(with_attribute(raw, name, &list, index)?)),
+    }
+}
+
+/// A counted container held whole while its children go through the rule:
+/// `mergeCells` or `dataValidations` (P1 verification ruling 4).
+struct CountedBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    name: Vec<u8>,
+    content: Vec<u8>,
+    kept: u64,
+}
+
+impl CountedBuffer {
+    /// The container with `count` set to the children it keeps, or nothing
+    /// when it keeps none.
+    fn written(&self, index: usize) -> Result<Vec<u8>, Error> {
+        if self.kept == 0 {
+            return Ok(Vec::new());
+        }
+        let mut out = with_attribute(
+            &self.start,
+            b"count",
+            self.kept.to_string().as_bytes(),
+            index,
+        )?;
+        out.extend_from_slice(&self.content);
+        out.extend_from_slice(&[b"</".as_slice(), &self.name, b">"].concat());
+        Ok(out)
+    }
+}
+
+/// An open `<hyperlinks>` under the rule (P2 ruling 8): its start tag,
+/// written when the first kept hyperlink arrives, and the bytes held since
+/// the last kept child, so an emptied container is dropped without being
+/// held whole.
+struct LinksBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    started: bool,
+    held: Vec<u8>,
+}
+
+/// Rewrites one worksheet part through one insertion or deletion of rows,
+/// and says whether a formula was moved or removed.
+///
+/// `specs/0018-rows-and-columns.md`, "The shift rule", with the P2 rulings:
+/// every `<row r>` and `<c r>` is retagged, a deleted row skipped whole; a
+/// shared, array or data table `ref` moved whole, or refused when grown or
+/// cut; `<dimension>`, every `<mergeCell>` and the four list attributes
+/// (`conditionalFormatting sqref`, `dataValidation sqref`, `hyperlink ref`,
+/// `autoFilter ref`) through the rule, dropped when it removes them, the
+/// counts following and an emptied container dropped. Every other byte is
+/// the input's.
+fn shift_worksheet(
+    archive: &mut Core,
+    index: usize,
+    shift: &Shift,
+) -> Result<(TempFile, Replacement, bool), Error> {
+    shift_worksheet_from(archive.read(index)?, index, shift)
+}
+
+/// [`shift_worksheet`]'s work on any reader of a worksheet's bytes.
+fn shift_worksheet_from(
+    input: impl Read,
+    index: usize,
+    shift: &Shift,
+) -> Result<(TempFile, Replacement, bool), Error> {
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(input, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root = false;
+    let mut data: Option<usize> = None;
+    let mut seen_data = false;
+    // The open row's input number and its last column, for the order rule.
+    let mut row: Option<u32> = None;
+    let mut last_row = 0u32;
+    let mut last_col = 0u32;
+    // The depth of a deleted row being read: its tokens are not written,
+    // but its formulas are still read.
+    let mut dropping: Option<usize> = None;
+    // The open cell's depth, and whether it is at or after the point.
+    let mut cell: Option<(usize, bool)> = None;
+    let mut moved_formula = false;
+    let mut counted: Option<CountedBuffer> = None;
+    // The open `<hyperlinks>`: its depth, its start tag and name, whether
+    // the start tag has been written, and the bytes held since the last
+    // kept child (P2 ruling 8).
+    let mut links: Option<LinksBuffer> = None;
+
+    // Where a token's bytes go: nowhere inside a deleted row, the counted
+    // container's content, the held hyperlinks bytes, or the output.
+    macro_rules! emit {
+        ($bytes:expr) => {{
+            let bytes: &[u8] = $bytes;
+            if dropping.is_some() {
+            } else if let Some(buffer) = counted.as_mut() {
+                buffer.content.extend_from_slice(bytes);
+            } else if let Some(links) = links.as_mut() {
+                links.held.extend_from_slice(bytes);
+            } else {
+                out.write_all(bytes)?;
+            }
+        }};
+    }
+
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if !root {
+                    if !ours || local != b"worksheet" {
+                        return Err(Error::Package("the worksheet part's root is not worksheet"));
+                    }
+                    root = true;
+                    out.write_all(token.raw)?;
+                } else if let Some((at, reaches)) = cell {
+                    // Inside a cell: its own `<f>` is read, whether the row
+                    // is kept or deleted.
+                    let mut raw = token.raw.to_vec();
+                    if depth == at + 1 && ours && local == b"f" {
+                        moved_formula |= reaches;
+                        raw = shifted_formula(token.raw, shift, dropping.is_some(), index)?;
+                    }
+                    emit!(&raw);
+                } else if data.is_some_and(|at| depth == at + 1) && ours && local == b"row" {
+                    let number = explicit_row(start, &scope, index)?;
+                    if number <= last_row {
+                        return Err(OUT_OF_ORDER);
+                    }
+                    last_row = number;
+                    match shift.index(number) {
+                        None => {
+                            if !empty {
+                                dropping = Some(depth);
+                                row = Some(number);
+                                last_col = 0;
+                            }
+                        }
+                        Some(to) => {
+                            if to > u64::from(shift.limit) {
+                                return Err(OFF_GRID);
+                            }
+                            let raw = if to == u64::from(number) {
+                                token.raw.to_vec()
+                            } else {
+                                with_attribute(token.raw, b"r", to.to_string().as_bytes(), index)?
+                            };
+                            out.write_all(&raw)?;
+                            if !empty {
+                                row = Some(number);
+                                last_col = 0;
+                            }
+                        }
+                    }
+                } else if let Some(open) = row
+                    && data.is_some_and(|at| depth == at + 2)
+                    && ours
+                    && local == b"c"
+                {
+                    let tag = cell_tag(start, &scope, index)?;
+                    let reference = tag.reference.ok_or(NO_EXPLICIT_REFERENCES)?;
+                    if reference.row != open || reference.col <= last_col {
+                        return Err(OUT_OF_ORDER);
+                    }
+                    last_col = reference.col;
+                    let raw = match shift.index(reference.row) {
+                        Some(to) if to != u64::from(reference.row) => {
+                            let moved = CellRef {
+                                row: to as u32,
+                                col: reference.col,
+                            };
+                            with_attribute(token.raw, b"r", moved.a1().as_bytes(), index)?
+                        }
+                        _ => token.raw.to_vec(),
+                    };
+                    emit!(&raw);
+                    if !empty {
+                        cell = Some((depth, shift.reaches(reference.row)));
+                    }
+                } else if dropping.is_some() {
+                    // Anything else inside a deleted row goes with it.
+                } else if depth == 2 && ours && local == b"sheetData" && !seen_data {
+                    seen_data = true;
+                    out.write_all(token.raw)?;
+                    if !empty {
+                        data = Some(depth);
+                    }
+                } else if depth == 2 && ours && local == b"dimension" {
+                    let raw = match attribute_value(token.raw, b"ref", index)? {
+                        Some(value) => {
+                            let area = shift_area(value)?;
+                            match shift.area_clipped(area) {
+                                Some(moved) if moved == area => token.raw.to_vec(),
+                                Some(moved) => {
+                                    with_attribute(token.raw, b"ref", moved.a1().as_bytes(), index)?
+                                }
+                                None => with_attribute(token.raw, b"ref", b"A1", index)?,
+                            }
+                        }
+                        None => token.raw.to_vec(),
+                    };
+                    out.write_all(&raw)?;
+                } else if depth == 2
+                    && ours
+                    && (local == b"mergeCells" || local == b"dataValidations")
+                    && counted.is_none()
+                {
+                    let buffer = CountedBuffer {
+                        depth,
+                        start: token.raw.to_vec(),
+                        name: start.name().into_inner().as_bytes().to_vec(),
+                        content: Vec::new(),
+                        kept: 0,
+                    };
+                    if empty {
+                        out.write_all(token.raw)?;
+                    } else {
+                        counted = Some(buffer);
+                    }
+                } else if let Some(buffer) = counted.as_mut()
+                    && depth == buffer.depth + 1
+                    && ours
+                    && (local == b"mergeCell" || local == b"dataValidation")
+                {
+                    let kept = if local == b"mergeCell" {
+                        match attribute_value(token.raw, b"ref", index)? {
+                            Some(value) => {
+                                let area = shift_area(value)?;
+                                match shift.area_clipped(area) {
+                                    Some(moved) if moved == area => Some(token.raw.to_vec()),
+                                    Some(moved) if moved.cells() > 1 => Some(with_attribute(
+                                        token.raw,
+                                        b"ref",
+                                        moved.a1().as_bytes(),
+                                        index,
+                                    )?),
+                                    _ => None,
+                                }
+                            }
+                            None => Some(token.raw.to_vec()),
+                        }
+                    } else {
+                        list_tag(token.raw, b"sqref", shift, index)?
+                    };
+                    match kept {
+                        Some(raw) => {
+                            buffer.kept += 1;
+                            buffer.content.extend_from_slice(&raw);
+                        }
+                        None => {
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                    }
+                } else if depth == 2 && ours && local == b"hyperlinks" && links.is_none() {
+                    if empty {
+                        out.write_all(token.raw)?;
+                    } else {
+                        links = Some(LinksBuffer {
+                            depth,
+                            start: token.raw.to_vec(),
+                            started: false,
+                            held: Vec::new(),
+                        });
+                    }
+                } else if let Some(open) = links.as_mut()
+                    && depth == open.depth + 1
+                    && ours
+                    && local == b"hyperlink"
+                {
+                    match list_tag(token.raw, b"ref", shift, index)? {
+                        Some(raw) => {
+                            if !open.started {
+                                out.write_all(&open.start)?;
+                                open.started = true;
+                            }
+                            out.write_all(&open.held)?;
+                            open.held.clear();
+                            out.write_all(&raw)?;
+                        }
+                        None => {
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                    }
+                } else if depth == 2
+                    && ours
+                    && (local == b"conditionalFormatting" || local == b"autoFilter")
+                {
+                    let name: &[u8] = if local == b"autoFilter" {
+                        b"ref"
+                    } else {
+                        b"sqref"
+                    };
+                    match list_tag(token.raw, name, shift, index)? {
+                        Some(raw) => out.write_all(&raw)?,
+                        None => {
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                    }
+                } else {
+                    emit!(token.raw);
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if cell.is_some_and(|(at, _)| at == depth) {
+                    emit!(token.raw);
+                    cell = None;
+                } else if dropping == Some(depth) {
+                    dropping = None;
+                    row = None;
+                } else if row.is_some() && data.is_some_and(|at| depth == at + 1) {
+                    emit!(token.raw);
+                    row = None;
+                } else if data == Some(depth) {
+                    out.write_all(token.raw)?;
+                    data = None;
+                } else if counted.as_ref().is_some_and(|buffer| buffer.depth == depth) {
+                    if let Some(buffer) = counted.take() {
+                        out.write_all(&buffer.written(index)?)?;
+                    }
+                } else if links.as_ref().is_some_and(|open| open.depth == depth) {
+                    if let Some(open) = links.take()
+                        && open.started
+                    {
+                        out.write_all(&open.held)?;
+                        out.write_all(token.raw)?;
+                    }
+                } else {
+                    emit!(token.raw);
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => emit!(token.raw),
+        }
+    }
+    let (temp, replacement) =
+        written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
+    Ok((temp, replacement, moved_formula))
+}
+
+/// An `<f>` start tag through the rule: a shared, array or data table
+/// `ref` moved whole, refused when the rule grows or cuts it, and
+/// unchanged when it lies wholly inside a deletion (the row is dropped
+/// with it, P2 ruling 1); a moved end past the grid is a grow (P2 ruling
+/// 5). Every other formula tag is its bytes.
+fn shifted_formula(
+    raw: &[u8],
+    shift: &Shift,
+    dropping: bool,
+    index: usize,
+) -> Result<Vec<u8>, Error> {
+    let kind = attribute_value(raw, b"t", index)?;
+    if !matches!(kind, Some(b"shared") | Some(b"array") | Some(b"dataTable")) {
+        return Ok(raw.to_vec());
+    }
+    let Some(value) = attribute_value(raw, b"ref", index)? else {
+        return Ok(raw.to_vec());
+    };
+    let area = shift_area(value)?;
+    match shift.interval(area.first.row, area.last.row) {
+        Moved::Gone => Ok(raw.to_vec()),
+        Moved::Changed(..) => Err(CUTS_FORMULA),
+        Moved::Whole(a, b) => {
+            if dropping {
+                // A master in a deleted row whose ref the rule keeps whole
+                // cannot be: the ref starts at the master.
+                return Err(CUTS_FORMULA);
+            }
+            if b > u64::from(shift.limit) {
+                return Err(if a > u64::from(shift.limit) {
+                    OFF_GRID
+                } else {
+                    CUTS_FORMULA
+                });
+            }
+            if a == u64::from(area.first.row) {
+                return Ok(raw.to_vec());
+            }
+            let moved = Area {
+                first: CellRef {
+                    row: a as u32,
+                    col: area.first.col,
+                },
+                last: CellRef {
+                    row: b as u32,
+                    col: area.last.col,
+                },
+            };
+            with_attribute(raw, b"ref", moved.a1().as_bytes(), index)
+        }
+    }
+}
+
+/// The `ref` a table part's root carries, or a pivot table part's first
+/// `<location>`, read by a pass over the part's tokens.
+fn part_ref(archive: &mut Core, index: usize, location: bool) -> Result<Option<Vec<u8>>, Error> {
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let wanted = if location {
+                    is_main(namespace) && local == b"location"
+                } else {
+                    depth == 1
+                };
+                if wanted {
+                    return Ok(attribute_value(token.raw, b"ref", index)?.map(<[u8]>::to_vec));
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(None)
 }
 
 /// What a created rels part begins with when the package has no
