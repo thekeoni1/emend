@@ -459,7 +459,7 @@ four local commits f6c2dba, 065f3e4, a49f2d3 and d4ab367.
 | Close | close-out push after P5 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | DONE 2026-09-25 (pushed b06e0a7..c115d45, 28 commits, 0 findings; CI run 36158180907 success; the post-push scan PASS with the m1p8-close finding run again and passed; one record commit e81bf5b local, goes with the next push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0016` "Planning verification and rulings on the close-out") |
 | Close | close-out push after P4 with the push and ci-run self-scan rule (`specs/0001`, planning's doc edit) and the scan header naming the m1p8-close finding | SUPERSEDED 2026-09-25 (decision 6: the push followed P5, the row above) |
 
-### Part 2: fuller cell styles (`specs/0017-fuller-styles.md`)
+### Part 2: fuller cell styles (`specs/0017-fuller-styles.md`), DONE and PUSHED 2026-09-26
 
 Approved by the maintainer 2026-09-25 and sent to implementation,
 decision 1 taken as A (a Milestone 2 ceiling of 458752 section
@@ -481,7 +481,36 @@ bytes.
 | P1 | the counts and accessors; the types and composers; `add_style` with `add_cell_style` over it; the rewrite over five containers; the three messages; `--font-sample` over the corpus | DONE 2026-09-25 (cc81810, records 6080f2a, local; five P1 rulings, two of them corrections of the spec, ruling 3 wiring borders in P1; verified by planning from primaries, its own privacy scan, tests and clippy on its own build, and its own comparison over the run directory agreeing on 27 of 27 on both labels; records `records/m2p2-p1-2026-09-25-cc81810.md` and `.txt`; open record `records/m2p2-open-2026-09-25-cc81810.md` and `.txt`, 210 pairs, 0 findings; check 1's F1, F2, F7, F8, F9 and F12 ruled, four of them into P2's first code commit; `specs/0017` "Planning verification and rulings on P1") |
 | P2 | the `xf` content replacement (`alignment`, `protection`); the P1 verification items (the font name's references, the count wording and test, the stderr and `removed_in` script rules); `--border-sample` over the corpus | DONE 2026-09-25 (09c941f, records ebfe711, local; every log attempt 1 with its own stderr counted at 0; verified by planning from primaries, its own privacy scan, tests and clippy on its own build, and its own comparison over the run directory agreeing on 27 of 27 on both labels; records `records/m2p2-p2-2026-09-25-09c941f.md` and `.txt`; open record `records/m2p2-open-2026-09-25-09c941f.md` and `.txt`, 220 pairs, 0 findings; check 1's F1, F3, F7, F9 and F10 ruled, F3's unbound-prefix refusal kept with a P3 test; `specs/0017` "Planning verification and rulings on P2") |
 | P3 | the P2 verification items (the unbound-prefix test and sentence, the gate and run script fixes); the catalogue and limits; `probe-emend-fullstyles-write-xml` and the size record against the Milestone 2 ceiling 458752 with the checkpoint at 25000 for the part; the negative log through the binary; both samples again with the release binaries | DONE 2026-09-26 (1fc8327, records 76f4461, local; two P3 rulings, the samples in two run directories and the checkpoint judged on the whole growth; verified by planning from primaries, its own privacy scan, tests, clippy and doc on its own build, its own rebuild of the two budget probes reproducing the hash and the figures, and its own comparisons over both run directories agreeing on 27 of 27 on both labels; the budget figure 399176 section bytes, 59576 under the Milestone 2 ceiling 458752; the part's whole growth 23192, under the 25000 checkpoint; records `records/size-m2p2-2026-09-26-1fc8327.md`, `records/m2p2-p3-font-2026-09-26-1fc8327.md`, `records/m2p2-p3-border-2026-09-26-1fc8327.md` and `.txt`, open record `records/m2p2-open-2026-09-26-1fc8327.md` and `.txt`, 220 pairs, 0 findings; check 1's F7, F10, F9, F11 and F14 ruled, three rules carried to part 3; `specs/0017` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, carrying part 1's record commit e81bf5b and this part's fifteen commits, with the push and ci-run self-scan rule (`specs/0001`) | READY 2026-09-26 |
+| Close | close-out push after P3, carrying part 1's record commit e81bf5b and this part's fifteen commits, with the push and ci-run self-scan rule (`specs/0001`) | DONE 2026-09-26 (pushed c115d45..42588cc, 17 commits, 654 blobs, 0 findings; CI run 36209039533 success; the post-push scan PASS; one record commit d0f8f72 local, goes with the next push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0017` "Planning verification and rulings on the close-out") |
+
+### Part 3: rows and columns (`specs/0018-rows-and-columns.md`)
+
+Approved by the maintainer 2026-09-26 and sent to implementation,
+decisions 1 to 6 as planning recommended: built in the core (A)
+with an interim measurement after P2 against a 40000 checkpoint
+and the Milestone 2 ceiling of 458752 judged at P4's size record;
+the shift rule moves the grid, `dimension`, merges, `cols`,
+`spans`, shared and array `ref`s and the four range lists (A);
+tables and pivot tables refused when an edit would move or cut
+one; comments, drawings, views, defined names and every formula
+copied raw and stated in the limits; one insertion or deletion per
+worksheet per write and no other edit to that worksheet in the
+same write; a merge clears the covered cells except the top-left.
+The design: `cells::Area` public; `set_column_width`,
+`set_column_hidden`, `set_row_height`, `set_row_hidden`,
+`freeze_panes`, `merge_cells`, `unmerge_cells`, `insert_rows`,
+`delete_rows`, `insert_columns`, `delete_columns` on `Package`;
+absent `sheetViews`, `cols` and `mergeCells` created in schema
+position by one table of the root's child order. Planning's
+estimate 30000 to 40000 section bytes against 59576 of headroom.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | `Area` public; the schema-position table and creation rule; the four format calls with `<cols>` splitting and row retagging; `freeze_panes`; `merge_cells` and `unmerge_cells`; `--format-sample` over the corpus; the negative log with the unbound-prefix case carried from part 2 | PROPOSED |
+| P2 | the shift rule on the row axis: rows, cells, `<f ref>`, `dimension`, merges, the four range lists; the table and pivot refusal; the one-shift rule; the formula-change rule; `--insert-rows-sample` and `--delete-rows-sample`; the interim size measurement against the 40000 checkpoint | PROPOSED |
+| P3 | the rule on the column axis: cells, `spans`, `<col>` intervals, `dimension`, merges, the lists; `--insert-columns-sample` and `--delete-columns-sample` | PROPOSED |
+| P4 | the catalogue and limits; `probe-emend-rowcol-write-xml` and the size record with the Milestone 2 ceiling judged; the negative log through the binary; all five samples again with the release binaries | PROPOSED |
+| Close | close-out push after P4, carrying part 2's record commit d0f8f72 and this part's commits, with the push and ci-run self-scan rule (`specs/0001`) | PROPOSED |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values

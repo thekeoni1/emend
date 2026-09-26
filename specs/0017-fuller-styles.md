@@ -1079,6 +1079,45 @@ Verified by planning from primaries, never from the report alone:
    `ANTHROPIC_API_KEY` check. Carried into part 3's spec: rulings 4
    to 6 and 8 here, and the Milestone 2 ceiling's headroom of 59576.
 
+## Planning verification and rulings on the close-out (2026-09-26)
+
+1. Verified by planning from git and `gh`: origin/main is
+   42588cc4e5bc0d6d7cd15d14a49947c87edf012a, the close-out doc
+   commit; the pushed range c115d45..42588cc holds 17 commits, part
+   1's record commit e81bf5b among them; 18 of 18 messages from
+   c115d45 to the record commit end with the Co-Authored-By line
+   only, no session link, ASCII throughout; CI run 36209039533 on
+   42588cc, `push` on `main`, completed with conclusion success; the
+   repository PRIVATE; planning's own `scripts/privacy.sh --range
+   c115d45..HEAD`, 18 commits, 0 findings; `ANTHROPIC_API_KEY` unset
+   in planning's shell; the working tree clean.
+2. The three logs at the reported hashes. `push.log`: pre mode over
+   the base found by its subject, 17 commits, the identity check, the
+   hook's 654 blobs with 0 findings, the full gate, the self-scan 0
+   of each shape with the controls at 1, "pre checks all as expected:
+   yes"; push mode after the maintainer's typed authorisation,
+   ls-remote at the recorded base before and at 42588cc after, still
+   PRIVATE, "push checks all as expected: yes". `ci-run.log` attempt
+   2, the run polled to success, "checks all as expected: yes";
+   attempt 1 superseded because a comment in its printed script
+   carried a placeholder-shaped path the post scan reads as
+   undeclared, reworded and rerun, the attempt kept and hashed.
+   `scan.log` post stage attempt 2, 0 hits, 0 structural failures,
+   RESULT: PASS, after attempt 1 failed on that comment. Each log
+   counts its own stderr at 0 bytes. No log names the home
+   directory.
+3. The record commit d0f8f72, parent 42588cc, exactly the three logs,
+   trailer correct, local: it goes with the next push. Accepted.
+4. Carried into part 3's spec: P3 verification rulings 4 (the
+   unbound-prefix case in the first negative log), 5 (a size rerun
+   after the run log prints the hash-line comparison), 6 (a moved
+   keep listed by count and listing hash) and 8 (the size log
+   installs its record and prints its hash); a comment in a script
+   never spells a placeholder-shaped path it does not declare; the
+   Milestone 2 headroom of 59576 section bytes for part 3 against
+   458752, judged at the close of part 3 on the last core probe.
+5. The close-out is DONE and Milestone 2 part 2 is DONE.
+
 ## Out of scope
 
 - Reading fonts, fills, borders, alignment or protection back as
