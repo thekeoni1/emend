@@ -493,7 +493,12 @@ tool's cell read gives them; T is the largest last row, and U the
 largest last column, over the `ref` of every table part and the
 `location ref` of every pivot table part W's relationships name,
 read by the tool with `quick-xml` (0 when there are none). A
-refusal exits 2 with no output, as every sample does.
+refusal exits 2 with no output, as every sample does. M, T and U
+come from the file, so a worksheet whose M sits at the grid's last
+row, or whose T or U sits at the grid's last row or column, puts
+the merge row or the shift point past the grid and the sample is
+refused whole with "a row or column index or count is out of
+range" (P4 ruling 5); no corpus workbook has that shape.
 
 - `--format-sample <in> <out>` (P1): `set_column_width(W, 2,
   Some(20.5))`, `set_column_hidden(W, 3, true)`,
@@ -754,8 +759,10 @@ or over 458752, by how much), the feature's cost beside it; the
 negative log through the binary with every refusal of this part
 reachable through the binary run once (the
 six fixture cases of P1 to P3, the doubled-element and no-
-`sheetView` cases; the at-call refusals are not reachable, since
-the tool's constants are fixed, and the log says so); the corpus
+`sheetView` cases; the index message once, since the merge row
+and the shift points come from the file; the other three at-call
+refusals are not reachable, since their inputs are the tool's
+constants, and the log says so; P4 rulings 4 and 5); the corpus
 run of all five samples again on both targets with the release
 binaries the size log hashed, every output byte-identical to the
 phase run directories' outputs by sha256, in five run directories,
@@ -1290,6 +1297,185 @@ and `-2.md`):
    written as an empty-element tag copied as it stands; a missing
    table part a predicted refusal) are accepted; planning's own
    model, written separately, agreed with the same outputs.
+
+## Planning rulings during P4 (2026-09-26)
+
+Ruled on the implementing session's hold before P4's first code
+commit, after planning verified the doc commit e7a6f72 (both files
+at the hashes sent, nothing else; planning's own scan PASS). The
+three proposed commits (the carried tests and sentence; the
+catalogue and limits; the two probes with the probe crate's
+`rowcol` feature as the phase commit) are as "P4" reads.
+
+1. "Sixteen probes" (Q1): part 2's record lists fourteen; the
+   count was planning's, made as fourteen plus two. Ruled: sixteen
+   measured at the phase commit, the fourteen of part 2's record
+   classified against it, the two new probes stated as new with no
+   row there, and the part 3 record carries all sixteen.
+2. The format probe's merge count (Q2): no read side exists for
+   merges, so the probe counts the `<mergeCell>` elements of the
+   output's sheet part through the crate's own `Stream`, which it
+   links already; the tool counts the same way. Confirmed.
+3. The rowcol probe's read-back (Q3): the cell set to the number is
+   found by its value after the fourth write and its row printed as
+   `moved_row`, and after the fifth write its column printed as
+   `moved_col`; the size log chooses r and c so the cell moves on
+   both axes and is not deleted, and the two further output paths
+   come from the command line. The fourth write opens the second
+   output, which carries the probe's merge and pane: allowed, a
+   shift in a new write. Confirmed.
+4. The negative log's set (Q4): "six fixture cases" was planning's
+   count, wrong (eight: P1's two, P2's three, P3's three). Ruled as
+   proposed, wider than the list as written: every write-time
+   message of this part a sample can reach is run once through the
+   binary with a control (cols disorder; the doubled-element
+   message three ways, two `mergeCells`, two `sheetViews`, a
+   `sheetViews` without a `sheetView`; merge overlap; the table,
+   cuts and off-grid messages each on rows and columns; the
+   range-unparsed message through a `dimension` that does not
+   parse), and the log states the unreachable ones with the reason
+   (the four at-call messages; no merge of that range; a cell edit
+   inside a recorded merge; the one-shift message). Corrected by
+   ruling 5: three at-call messages, not four.
+5. The index message is reachable (impl's finding, held before the
+   negative log): "P4" and ruling 4 said the at-call refusals are
+   unreachable because the tool's constants are fixed. False for
+   "a row or column index or count is out of range": the format
+   sample's merge row is M + 1 and the shift samples' points are
+   max(2, T + 1) and max(2, U + 1), all read from the file, and
+   `merge_cells` and `shift` refuse an area or a shift past the
+   grid with that message (`package.rs` at b728fdf, planning's
+   reading). Ruled as proposed: the negative log reaches it once,
+   through `--format-sample` on a fixture whose last cell is in
+   row 1048576 (case F8), with the same fixture one row up as the
+   control (F9, exit 0); the other three at-call messages (width
+   or height, freeze at A1, one-cell merge) are stated unreachable
+   with the reason that their inputs are the tool's constants.
+   The set check reads 8 reached and 6 stated unreachable, the
+   union the 14 constants of this part read from the source. The
+   shift samples reach the same message on a table ending at the
+   grid's last row or column (impl's unlogged dry run, four
+   cases); one case in the log is enough, the message being one
+   constant. "Harness runs" gains the sentence that M, T or U at
+   the grid's edge refuses the sample whole; no code change. The
+   "P4" sentence is corrected in place; the log pins this hash.
+6. The scan's placeholder check on size.log (impl's finding, held
+   before the scan log after the disk-space restart): size.log
+   line 3351 echoes a sed command in which a lower-case angle-
+   bracketed single letter stands in for the capture group and its
+   back-reference, printed twice in the log (the printed script and
+   the echoed command) and nowhere else in this phase's files; it
+   sits before a slash, so it has the placeholder form of specs/0016
+   P5 ruling 3 and no root line declares it. It is a regex stand-in,
+   not a path, and every check of size.log held. Ruled (b), narrow:
+   size.log stands as attempt 1, and the scan declares that one
+   token, in that one log, as a known non-placeholder with its
+   expected count 2, the check failing on any other undeclared token
+   or on a third occurrence, with a control that a copy of the log
+   carrying the token a third time fails and a control that the
+   same token in another log fails. The exemption is keyed to the
+   log's sha256, which the scan prints. Not (a): a size.log attempt
+   2 would leave run.log citing a superseded attempt and cost the
+   run log a rerun for a printed spelling; not (c): a FAIL is not
+   committed when the defect is in a printed line's form. Carried
+   from the close-out: a log prints no regex stand-in in the
+   placeholder form; a capture group is printed as it is written or
+   as an upper-case letter.
+7. The superseded attempts (impl's note): gate.log and test.log are
+   attempt 2, each because attempt 1 ran while a dry run of another
+   script was building with cargo, the script unchanged; accepted,
+   the reasons read in their rerun lines. The kept attempt-1 files
+   and their scripts were on the session scratchpad under tmpfs and
+   are gone with the restart; their hashes stand in the logs as the
+   record of them, and the independent checks are given the logs'
+   rerun lines and told the files are gone, which their answers
+   state. Carried from the close-out: a superseded attempt and its
+   script are kept under `<home>/.cache/emend-build/<phase>/`, on
+   disk, never on the scratchpad, until the record commit is made.
+   Planning's own build ran during impl's scan pre-check; it is
+   finished, and planning runs no cargo while a logged script or its
+   pre-check runs.
+
+## Planning verification and rulings on P4 (2026-09-27)
+
+Verified from primaries: five commits over 3cd9696 (e7a6f72 doc,
+24fb07a the carried tests, af1e585 the catalogue, b728fdf the two
+probes and the phase commit, d0073cd the record with 21 files),
+every message ASCII with the one trailer; planning's own privacy
+scan over 42588cc..HEAD (20 commits, 721 blobs, 0 findings); the
+eight files of records/logs/m2p3-p4 and the thirteen records at
+the hashes reported, the size record at 85375314 as size.log
+installed it; each log's verdict line "yes" and the scan PASS
+with 0 hits and 0 structural failures, ruling 6's three keys and
+three controls as expected; every log's stderr at 0 bytes with
+its control; the spec pinned at 52fcf673 in negative, size and
+run, at e2a69b86 and 52fcf673 in the gate, at fc6acfed in the
+scan; gate and test at attempt 2 with attempt 1 hashed in the
+rerun header (ruling 7), the other four at attempt 1; no
+ANTHROPIC_API_KEY. Planning's own build of b728fdf in a detached
+worktree: the crate's tests 512 with the feature off and 545 with
+it on, on each target, 0 failed; the workspace 706 passed, 0
+failed, 2 ignored on each target; clippy and doc clean with the
+feature off and on. Planning's own rebuild of all sixteen probes
+at b728fdf with the size profile reproduced every section figure
+of the record, probe for probe. Planning's own byte comparison
+over the five rerun directories against the phase run directories
+(b8595ce; a4b55f0-c-insert and -delete; f52684c-insert and
+-delete): 54 outputs identical, 0 different, 0 missing for each
+of the five, agreeing with run.log's 27 of 27 on each target. The
+open record: 336 pairs, 0 outputs refused on an accepted input.
+
+The Milestone 2 result, on the core probe with the feature off:
+the budget figure is 434668 section bytes against the ceiling
+458752, 24084 under. The part's own cost is 4296 (the format probe
+over the fullstyles probe); the whole growth since part 2's record
+is 35492, of which 31196 is the fullstyles probe's drift, P1's
+format calls in the shared worksheet rewrite. Outside the budget:
+the `rowcol` feature 34704 and the `dates` feature 4776. P4 is
+DONE; Milestone 2's size ceiling holds.
+
+Rulings on the two checks (check 1's F1 to F13, check 2's G1 to
+G11 and G15; each verified by planning in the tree or the logs):
+
+1. F1, G1 (defect, confirmed): the two probes' USAGE constants
+   name the fullstyles probe. Printed only on a bad command line;
+   no figure depends on it. Carried to part 4's first code commit.
+   No code commit precedes the close-out push: nothing unlogged
+   goes out, and the fix changes both probes' bytes, which part
+   4's size log classifies.
+2. F4, G2 (gap, confirmed): the package header's chain sentences
+   cover a removed or edited formula, not a shift that moves or
+   removes an `<f>`; "The shift rule" says the header states the
+   formula-change rule. One sentence, carried with ruling 1. G2's
+   other items are in the tree already: the cuts and off-grid
+   refusals in the header's refusal list, the kept hyperlink
+   relationship and the unchecked `<col>` order in the catalogue
+   (planning's reading of package.rs at b728fdf).
+3. F2, G3 (remark): the probes' `+ 1` on command-line values are
+   unchecked. The size log passes 2 and 2. Checked additions,
+   carried with ruling 1.
+4. F3, G4 (remark): "a column shift streams `<cols>`" is a source
+   reading, planning's at P3 (c3b5bbd), not a measurement, and
+   stands as the header's description; `Area::cells` saturating is
+   read in the source and gets a test, carried with ruling 1.
+5. F7, G5 and F9, G6 (remarks, script rules carried to part 4):
+   every log pins the spec's hash; a figure labelled another log's
+   is read from that log or labelled as measured here.
+6. F12, G3a, G11 (remarks on ruling 6): size.log carries the token
+   on 2 lines, twice on each, 2 of the 4 in the placeholder form;
+   the exemption's line count and the form's token count are both
+   2, ruling 6's count. Accepted as the scan stands. A later
+   exemption counts tokens in the form, never lines. scan.log
+   spells the token once in size.log's placeholder list, not in
+   the form: accepted.
+7. F5, F11: resolved by check 2's diff from 3cd9696 at the gate's
+   hash. F8, G15: the final scan.log is verified above. F10: fixed
+   in draft 2. F13, G8, G9: statements, not figures; accepted. G7:
+   ruling 7 stands. G10: not a quote; accepted.
+8. The report's proposal of one code commit before the push:
+   declined, ruling 1.
+9. The close-out is released as "Close-out push (after P4)" reads,
+   with the doc commit carrying this section and the ROADMAP row.
 
 ## Out of scope
 
