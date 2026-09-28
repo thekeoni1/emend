@@ -69,14 +69,18 @@
 //! - "an override for that part already exists"
 //!   (`adding_an_override_that_exists`).
 //! - "an edit to a removed part" (`editing_a_removed_part`,
-//!   `editing_a_removed_rels_part`, `editing_removed_content_types`).
+//!   `editing_a_removed_rels_part`, `editing_removed_content_types`, and
+//!   with the Cargo feature `metadata`
+//!   `properties::a_core_part_removed_or_replaced_refuses_a_property_edit`).
 //! - "no such part" (`removing_an_absent_part`, `replacing_an_absent_part`,
 //!   `a_relationship_on_a_part_that_is_not_there`,
 //!   `a_relationship_removal_on_a_part_that_is_not_there`,
 //!   `cells::tests::a_relationship_naming_no_entry_is_refused`,
 //!   `cells::tests::cells_on_a_part_that_is_not_there_is_refused`,
 //!   `styles::tests::a_styles_relationship_naming_no_entry_is_refused`,
-//!   `cells_on_a_sheet_added_and_not_yet_written_is_refused`).
+//!   `cells_on_a_sheet_added_and_not_yet_written_is_refused`, and with the
+//!   Cargo feature `metadata`
+//!   `properties::a_property_edit_on_a_missing_core_part_is_refused_at_the_write`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The cell edits add eight (`specs/0011-editing-cells.md`, "Errors"); the
@@ -367,7 +371,8 @@
 //! - "a password is not valid"
 //!   (`protection::a_password_outside_printable_ascii_or_past_255_characters_is_refused`).
 //! - "a core properties part binds no prefix for a namespace the edit needs"
-//!   (`properties::a_root_binding_no_dcterms_prefix_refuses_an_append_and_allows_a_replace`).
+//!   (`properties::a_root_binding_no_dcterms_prefix_refuses_an_append_and_allows_a_replace`,
+//!   `properties::xsi_bound_only_as_the_default_namespace_refuses_an_appended_date`).
 //! - "a core properties part has two elements of one property"
 //!   (`properties::a_second_element_of_one_property_is_refused_at_the_read_and_the_write`).
 //!
@@ -4879,6 +4884,17 @@ impl<'a> Parts<'a> {
         if sheets {
             self.projected()?;
         }
+        // A property edit, a set or a removal, on a package whose
+        // core-properties relationship names a part the archive lacks is
+        // refused, as the read refuses it, rather than lost at the write
+        // (`specs/0019-names-links-properties-protection.md`, P3 ruling 1).
+        #[cfg(feature = "metadata")]
+        if !self.edits.properties.is_empty()
+            && let Some(part) = self.core_part()?
+            && self.archive.index_of(&part).is_none()
+        {
+            return Err(NO_SUCH_PART);
+        }
         // A core-properties part the edits rewrite is one this write
         // neither removes nor replaces (`specs/0019-names-links-properties-
         // protection.md`, "Document properties").
@@ -8333,9 +8349,15 @@ fn rewrite_core(
                 2
             };
             let prefix = prefixes[which].as_ref().ok_or(CORE_NO_PREFIX)?;
+            // `xsi` bound only as the default namespace gives no prefix an
+            // attribute can take, so an appended date is refused as for no
+            // binding (P3 ruling 6).
             let (xsi, dcterms): (&[u8], &[u8]) = if property.dated() {
                 (
-                    prefixes[3].as_deref().ok_or(CORE_NO_PREFIX)?,
+                    prefixes[3]
+                        .as_deref()
+                        .filter(|prefix| !prefix.is_empty())
+                        .ok_or(CORE_NO_PREFIX)?,
                     prefixes[2].as_deref().ok_or(CORE_NO_PREFIX)?,
                 )
             } else {

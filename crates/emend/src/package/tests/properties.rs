@@ -310,3 +310,131 @@ fn a_date_value_must_be_the_one_form_and_every_value_xml_can_carry() {
         .set_property(Property::Title, Some("2026"))
         .expect("title");
 }
+
+#[test]
+fn a_property_edit_on_a_missing_core_part_is_refused_at_the_write() {
+    // P3 ruling 1: the relationship names a part the archive lacks; a set
+    // and a removal, each alone, are refused as the read refuses them.
+    for value in [Some("t"), None] {
+        let mut parts = with_core(core(""));
+        drop_part(&mut parts, CORE);
+        let (_, mut package) = opened(parts);
+        package
+            .set_property(Property::Title, value)
+            .expect("recorded");
+        assert_package(refused(package), "no such part");
+    }
+}
+
+#[test]
+fn a_core_part_removed_or_replaced_refuses_a_property_edit() {
+    // P3 ruling 5.
+    let (_, mut package) = opened(with_core(core("")));
+    package.remove_part(CORE);
+    package
+        .set_property(Property::Title, Some("t"))
+        .expect("recorded");
+    assert_package(refused(package), "an edit to a removed part");
+    let (_, mut package) = opened(with_core(core("")));
+    package.replace_part(CORE, replacement_from_reader(b"<x/>".as_slice()));
+    package
+        .set_property(Property::Title, Some("t"))
+        .expect("recorded");
+    assert_package(refused(package), "an edit to a removed part");
+}
+
+#[test]
+fn xsi_bound_only_as_the_default_namespace_refuses_an_appended_date() {
+    // P3 ruling 6: an attribute cannot take the default namespace.
+    let part = format!(
+        "{DECLARATION}\n<cp:coreProperties xmlns:cp=\"{CP}\" xmlns:dc=\"{DC}\" \
+         xmlns:dcterms=\"{DCTERMS}\" xmlns=\"{XSI}\"></cp:coreProperties>"
+    );
+    let (_, mut package) = opened(with_core(part.clone()));
+    package
+        .set_property(Property::Created, Some("2026-01-01T00:00:00Z"))
+        .expect("recorded");
+    assert_package(
+        refused(package),
+        "a core properties part binds no prefix for a namespace the edit needs",
+    );
+    // The control: an append that needs no xsi prefix is written.
+    let got = edited_core(part.clone(), |p| {
+        p.set_property(Property::Title, Some("t")).expect("title")
+    });
+    assert_eq!(
+        got,
+        part.replace(
+            "</cp:coreProperties>",
+            "<dc:title>t</dc:title></cp:coreProperties>"
+        )
+    );
+}
+
+#[test]
+fn all_thirteen_properties_are_written_in_each_of_replace_remove_and_append() {
+    // P3 ruling 8: every property, each mode, against expected bytes. The
+    // properties in the order ALL writes them, with their elements' names.
+    let order: [(Property, &str); 13] = [
+        (Property::Title, "dc:title"),
+        (Property::Subject, "dc:subject"),
+        (Property::Creator, "dc:creator"),
+        (Property::Keywords, "cp:keywords"),
+        (Property::Description, "dc:description"),
+        (Property::LastModifiedBy, "cp:lastModifiedBy"),
+        (Property::Revision, "cp:revision"),
+        (Property::Created, "dcterms:created"),
+        (Property::Modified, "dcterms:modified"),
+        (Property::Category, "cp:category"),
+        (Property::ContentStatus, "cp:contentStatus"),
+        (Property::Language, "dc:language"),
+        (Property::Version, "cp:version"),
+    ];
+    let value = |property: Property| match property {
+        Property::Created => "2030-01-01T00:00:00Z".to_string(),
+        Property::Modified => "2031-02-02T01:02:03Z".to_string(),
+        other => format!("new {other:?} & <x>"),
+    };
+    let escaped = |text: &str| {
+        text.replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+    };
+    let element = |property: Property, name: &str| {
+        let open = if matches!(property, Property::Created | Property::Modified) {
+            format!("<{name} xsi:type=\"dcterms:W3CDTF\">")
+        } else {
+            format!("<{name}>")
+        };
+        format!("{open}{}</{name}>", escaped(&value(property)))
+    };
+    let set_all = |p: &mut Package<Cursor<Vec<u8>>>| {
+        for (property, _) in order {
+            p.set_property(property, Some(&value(property)))
+                .expect("set");
+        }
+    };
+    let every: String = order
+        .iter()
+        .map(|(property, name)| element(*property, name))
+        .collect();
+    // Replace: each in place, its start tag kept, the unknown child kept.
+    assert_eq!(
+        edited_core(core(ALL), set_all),
+        core(&format!("{every}<cp:other>not read</cp:other>"))
+    );
+    // Remove: each dropped whole, the unknown child kept.
+    assert_eq!(
+        edited_core(core(ALL), |p| {
+            for (property, _) in order {
+                p.set_property(property, None).expect("remove");
+            }
+        }),
+        core("<cp:other>not read</cp:other>")
+    );
+    // Append: each after what the part holds, in record order.
+    assert_eq!(
+        edited_core(core("<cp:other>kept</cp:other>"), set_all),
+        core(&format!("<cp:other>kept</cp:other>{every}"))
+    );
+}
