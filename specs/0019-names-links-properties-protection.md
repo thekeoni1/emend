@@ -235,9 +235,12 @@ defined name, written as the `location` attribute). Derived
   LinkTarget, tooltip: Option<&str>) -> Result<(), Error>`: records
   a link on one cell of a worksheet part (`part` as `set_cell`
   names it). An empty target or location is refused at the call
-  ("a hyperlink target or location is empty"); nothing else about
-  the text is checked (a URL is not parsed), and it is written
-  escaped as an attribute. The last record for a cell in one write
+  ("a hyperlink target or location is empty"), as are a target or
+  tooltip holding a character XML cannot carry (part 4's message)
+  and a cell off the grid (part 3's index message; P2 verification
+  ruling 1); nothing else about the text is checked (a URL is not
+  parsed), and it is written escaped as an attribute. The last
+  record for a cell in one write
   wins.
 - `remove_hyperlink(&mut self, part, reference: CellRef) ->
   Result<(), Error>`: records the removal of the link whose `ref`
@@ -260,10 +263,21 @@ location=".." tooltip=".."/>` for a location; `tooltip` only when
 given; no `display`, which is optional in 18.3.1.47 and which Excel
 fills from the cell when it saves. The `r:id` attribute takes the
 prefix the root binds to the relationships namespace; when the
-root binds none (the template worksheet, and any sheet
-`add_sheet` created), the root's start tag is retagged
+root binds none (the template worksheet, and any sheet an earlier
+write's `add_sheet` created), the root's start tag is retagged
 (`with_attribute`, part 3's helper) with `xmlns:r` bound to it and
-the attribute is written `r:id` (decision 3). A `<hyperlinks>`
+the attribute is written `r:id` (decision 3), or `xmlns:r1`,
+`r2` and so on when `r` is bound to another namespace (P2
+verification ruling 3). The relationship type's form and the
+declaration's namespace form (transitional or strict) both follow
+the form of the worksheet's own relationship in the workbook's
+rels part, one signal for both (P2 verification ruling 2). A
+sheet `add_sheet` adds in the same write takes a location link,
+written onto its template part, and refuses an external one with
+the existing rule that a relationship's source is a part the
+package holds, since the part is not yet in the archive; the
+caller writes twice, as for a shift (P2 verification ruling 4).
+A `<hyperlinks>`
 left empty is dropped; one that is absent is created in schema
 position (part 3's table); a second is refused. The cell itself is
 not touched: no value, no style (Excel's `Hyperlink` cell style is
@@ -433,6 +447,8 @@ Reused: part 1's "no sheet of that name" (a scope or a removal
 naming no sheet), "a cell edit to a part this write replaces"
 (every worksheet edit here on a replaced or removed part), the
 missing-part refusal of a relationship whose target is absent,
+part 4's "a text holds a character XML cannot carry" and part 3's
+index message at a name's or a link's call,
 part 3's one-shift message, part 2's unbound-prefix refusal
 wherever an element this part retags carries one, and `Error::Xml`
 for a value that is not UTF-8.
@@ -442,7 +458,11 @@ for a value that is not UTF-8.
 Every sheet index is `u32`; an element ordinal within a part is
 `usize`, as elsewhere. The worksheet and workbook passes stream as
 today, one token at a time through the temporary file; a removed
-`<hyperlink>` or `<definedName>` is skipped as its tokens arrive;
+`<definedName>` is skipped as its tokens arrive; the kept content
+of an edited `<hyperlinks>` is held until its end tag, as part 3
+holds `<mergeCells>`, so a container left empty can be dropped
+(bounded by one container: 60 links at most in the corpus; P2
+verification ruling 5);
 the appended elements are the recorded edits, held as they were
 recorded. The core properties part is small (under 2 KB in every
 corpus workbook) and is still streamed by the same pass shape,
@@ -511,7 +531,8 @@ the sample is refused whole with part 3's index message (P4 ruling
   asserted), `links_before`, `links_after` (`hyperlink` elements in
   W, counted by the tool with `quick-xml`; `+ 2`, asserted),
   `external_rels_before`, `external_rels_after` (relationships of
-  type `HYPERLINK` in W's rels; `+ 1`, asserted), `r_bound_before`
+  type `HYPERLINK` with `TargetMode="External"` in W's rels, all
+  198 corpus ones; `+ 1`, asserted), `r_bound_before`
   (1 when W's root binds a relationships prefix, else 0).
 - `--props-sample <in> <out>` (P3): `set_property(Title,
   Some("emend sample"))`, `set_property(Keywords, Some("emend"))`,
@@ -909,6 +930,89 @@ for byte the phase run's host output.
     main-namespace child outside the table counting as after every
     name in it; part 1's test gated with a feature-on sibling):
     accepted. P1 is DONE.
+
+## Planning verification and rulings on P2 (2026-09-28)
+
+Verified by planning from primaries: five commits over 4c3485a
+(95e5fe3 doc, exactly the two files at planning's hashes; 4e62e76
+the three carried items with the fixture renames the name rule
+forced and one catalogue line; a791e2c the crate; cced544 the
+tool; a9e5cb6 the record, 11 files), every message ASCII with the
+one trailer, no session link; the seven logs and checks at the
+reported hashes, every log pinning the spec at 3c4c26c7, no rerun,
+stderr 0 bytes in each; gate.log's doc blobs checked, nine PASS
+lines, 512 off and 535 on per target; test.log 735 passed, 0
+failed, 2 ignored per target, seven plants each failing its test;
+negative.log's two cases with controls; run.log 27 of 27 on both
+targets, entries identical 822, changed 48, dropped 0, added 6,
+12 of 12 flags turned by a plant, links 176 in and 230 out, the
+container created in 20, no root retagged (every corpus root
+binds a prefix), the outputs identical across targets, the keep
+381 pairs with one P1 pair changed by the fixture rename, 0
+outputs refused in the open check; scan.log PASS, 0 hits, 0
+structural failures. Planning's own privacy scan over
+4c3485a..HEAD: 0 findings; origin/main still 6dbb4a0;
+`ANTHROPIC_API_KEY` unset. Planning's own build of cced544 in a
+detached worktree: the crate's tests 512 off and 535 on, on both
+targets; the workspace 735, 0, 2; clippy and doc on clean; its own
+release build of the tool run with `--link-sample` over the 27
+corpus workbooks, every output byte for byte the phase run's host
+output.
+
+1. F1 (check 1), at-call refusals the spec did not list (a
+   forbidden character in a target or tooltip, a cell off the
+   grid): accepted, consistent with `set_cell` and P1 ruling 10;
+   "Hyperlinks" and "Errors" corrected in place.
+2. F2, G3 (both checks), the relationship type's form taken from
+   the rels part's existing relationships while the retag's
+   namespace form comes from the root: two signals, and a strict
+   root with no hyperlink relationship gets a mixed pair. Ruled:
+   both follow the form of the worksheet's own relationship in the
+   workbook's rels part, which the package reads already; corrected
+   in place, the change and a strict-form test in P3's first code
+   commit. `set_elements` choosing by `rel_id` rather than
+   `external`: accepted, unreachable by construction.
+3. F3 (check 1), `r1`, `r2` and so on when `r` is bound elsewhere:
+   accepted, corrected in place; the crate test pins it.
+4. F4, F14, G8 (both checks), a link on a sheet added in the same
+   write: ruled as "Hyperlinks" now reads (a location link written,
+   an external one refused by the existing source rule, the caller
+   writes twice); two tests pinning each case, with the message the
+   external case meets read from the test and not from the report,
+   in P3's first code commit; P4's catalogue states it.
+5. G1 (check 2), the kept content of `<hyperlinks>` held until its
+   end tag: accepted, as part 3 holds `<mergeCells>`; "32-bit and
+   streaming" corrected in place.
+6. F5 (check 1): a relationship removed while a kept `<hyperlink>`
+   names the same `r:id` leaves a dangling id; the pass holds the
+   container, so it knows the kept ids. Ruled: a relationship is
+   removed only when no kept `<hyperlink>` names it; the change and
+   a test in P3's first code commit. A container whose only
+   children are not `<hyperlink>` elements is dropped with them:
+   accepted as stated (18.3.1.48 admits no other child). The
+   `unwrap_or(0)`: unreachable, the name is in the table; accepted.
+   The `no_links` doc comment (G10): corrected in P3's first code
+   commit.
+7. G2 (check 2): `write_to` consumes the package, so no second
+   write exists; accepted, no action. G4: the tool counts external
+   hyperlink relationships, "Harness runs" corrected in place. G7:
+   lower-case `r` and `c` pinned in P3's first code commit. F15: a
+   test of two external sets on one cell in P3's first code commit.
+8. Logs. F6 (both checks): from P3 the run script plants the retag
+   on a byte-built workbook whose root binds no relationships
+   prefix, since the corpus never exercises that branch. G5: from
+   P3 every script prints `HOME` and `ANTHROPIC_API_KEY` on
+   labelled input lines. F11: the stale "uncommitted" label fixed
+   in P3's run script. F7, F8, F9, F10, G6: accepted as remarks; the
+   `rowcol`-gated link test runs in the workspace run, which is
+   where the gate's figure does not reach, accepted.
+9. P1's committed scan.log carried `set -uo pipefail` inside a
+   comment, so it never took effect there; its checks ran and
+   printed as they did, and P2's scan puts the line on its own.
+   Accepted as measured; P1 is not rerun. The catalogue line placed
+   in 4e62e76 rather than P4: accepted. F12, F13, G9, G11, G12:
+   report matters, accepted.
+10. P2 is DONE.
 
 ## Out of scope
 
