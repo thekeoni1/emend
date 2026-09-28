@@ -29,7 +29,7 @@ use emend::{BYTE_ORDER_MARK, Replacement, Stream};
 use quick_xml::Reader;
 use quick_xml::events::Event;
 
-const USAGE: &str = "usage: probe-emend-fullstyles-write-xml <archive> <output> \
+const USAGE: &str = "usage: probe-emend-format-write-xml <archive> <output> \
 <part to replace> <override part name> <content type> <sheet part> \
 <number at> <text at> <boolean at> <clear at> <second output> <format code> \
 <formula at> <formula text> <sheet name> <new sheet name> <third output> <font name> \
@@ -300,17 +300,22 @@ fn edit(
         .add_style(Some(0), &full_style(&edits.font_name))
         .map_err(|e| e.to_string())?;
     package.set_cell_style(sheet, edits.number_at, Some(full));
+    let next_column = edits
+        .column
+        .checked_add(1)
+        .ok_or("the column is the last u32")?;
+    let next_row = edits.row.checked_add(1).ok_or("the row is the last u32")?;
     package
         .set_column_width(sheet, edits.column, Some(20.5))
         .map_err(|e| e.to_string())?;
     package
-        .set_column_hidden(sheet, edits.column + 1, true)
+        .set_column_hidden(sheet, next_column, true)
         .map_err(|e| e.to_string())?;
     package
         .set_row_height(sheet, edits.row, Some(30.0))
         .map_err(|e| e.to_string())?;
     package
-        .set_row_hidden(sheet, edits.row + 1, true)
+        .set_row_hidden(sheet, next_row, true)
         .map_err(|e| e.to_string())?;
     package
         .freeze_panes(sheet, Some(edits.freeze_at))

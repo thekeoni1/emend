@@ -562,9 +562,13 @@
 //!   already recorded it) and sets `fullCalcOnLoad="1"` on the workbook's
 //!   `calcPr`, whether or not there was a chain. The file then computes on
 //!   its next open in an application that honours the flag or that
-//!   recalculates on load anyway. A caller whose edit changed an input of
-//!   existing formulas without touching a formula calls
-//!   [`Package::recalculate_on_open`] itself: emend cannot know the
+//!   recalculates on load anyway. A row or column insertion or deletion
+//!   (the Cargo feature `rowcol`'s) that moves or removes at least one
+//!   `<f>` is a formula change too, with the same effect; one that meets no
+//!   `<f>` at or after its point leaves the chain and the flag alone
+//!   (`specs/0018-rows-and-columns.md`, "The shift rule"). A caller whose
+//!   edit changed an input of existing formulas without touching a formula
+//!   calls [`Package::recalculate_on_open`] itself: emend cannot know the
 //!   dependency graph without the chain it drops. Whether Excel honours the
 //!   flag is not measured by this part; that check is the milestone's.
 //! - The workbook part is rewritten once, copying every byte except the
