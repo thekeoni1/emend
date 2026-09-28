@@ -183,7 +183,9 @@ refused at the write.
   `_xlnm.`-prefixed (the built-in names have rules of their own and
   are out of scope); not a cell reference (`CellRef::parse` accepts
   it, ignoring case) and not of the `R1C1` form (`R` or `r`,
-  optional digits, `C` or `c`, optional digits, ignoring case);
+  optional digits, `C` or `c`, optional digits, ignoring case),
+  nor `R` or `C` alone, which Excel reserves (P1 verification
+  ruling 4);
   "letter" and "digit" by `char::is_alphabetic` and
   `char::is_numeric`, an approximation of Excel's rule as part 1's
   case folding is. `text` is non-empty and is written as a cell's
@@ -388,9 +390,14 @@ shift on one worksheet in one write: refused as "any other edit".
 `<definedNames>` and `<workbookProtection>` can be absent (11 and
 10 corpus workbooks; the template has neither). An absent element
 the write needs is created in schema position by part 3's rule
-applied to the workbook root: written immediately before the first
-root child of the main namespace whose name comes later in the
-sequence of 18.2.27, or before the root's end tag when none does.
+applied to the workbook root: written immediately after the end of
+the last root child of the main namespace whose name comes earlier
+in the sequence of 18.2.27, or after the root's start tag when
+none does, which is part 6's placement for `calcPr`, kept so its
+bytes do not change (P1 verification ruling 1: whitespace, a
+comment or another namespace's child between two children stays
+after the created element, where the earlier wording put it
+before).
 The sequence is one static table of the 19 names (`fileVersion`,
 `fileSharing`, `workbookPr`, `workbookProtection`, `bookViews`,
 `sheets`, `functionGroups`, `externalReferences`, `definedNames`,
@@ -432,7 +439,8 @@ for a value that is not UTF-8.
 
 ### 32-bit and streaming
 
-Every index is `u32`. The worksheet and workbook passes stream as
+Every sheet index is `u32`; an element ordinal within a part is
+`usize`, as elsewhere. The worksheet and workbook passes stream as
 today, one token at a time through the temporary file; a removed
 `<hyperlink>` or `<definedName>` is skipped as its tokens arrive;
 the appended elements are the recorded edits, held as they were
@@ -459,8 +467,11 @@ it as part 3's did, classifies every probe against `records/size-
 m2p3-2026-09-27-b728fdf.md` (sixteen probes), prints the feature's
 cost (the metadata probe minus `probe-emend-format-write-xml`
 rebuilt at the same commit), the core's growth for the part (the
-format probe at the commit minus 967884, expected near 0), the
-whole core growth since b728fdf, and the budget figure (the format
+format probe at the commit minus the same probe rebuilt at
+bcaa31d, the commit that changed the probe's own source, both
+printed; expected near 0; P1 verification ruling 8), the whole
+growth since b728fdf (the format probe at the commit minus 967884,
+probe bytes included), and the budget figure (the format
 probe minus `probe-zip-xml`) against 458752, which this part does
 not move by design.
 
@@ -550,7 +561,8 @@ no value and no reference from the corpus:
   `localSheetId` W's index) and text of the expected length; the
   container created in schema position when absent (checked
   against the table); `calcPr` as `--formula-sample`'s check has
-  it, exactly when the input has a chain or a formula.
+  it, in every workbook (decision 2 A: the flag set whether or not
+  the input has a chain or a formula; P1 verification ruling 5).
 - P2: every root child of W other than `hyperlinks`, `sheetData`
   and (when created) the root start tag byte-identical; the input's
   `hyperlink` elements a byte-identical prefix; two more with the
@@ -633,8 +645,9 @@ every part 6 `calcPr` test unedited and passing; the tool's line.
 The gate: the crate built and tested with the feature off and on,
 on both targets, and the `pub fn` and `pub const` first lines
 listed with it off (the part's calls absent) and on (present), as
-part 3's P3 did; every later log runs the crate's tests with the
-feature on. The negative log through the binary: `--names-sample`
+part 3's P3 did; every later log that runs the crate's tests runs
+them with the feature on. The negative log through the binary:
+`--names-sample`
 on a fixture from the template holding `emend_global` already
 (refused as a duplicate) and on one with two `<definedNames>`
 (refused), each with a control. The run log: `--names-sample` on
@@ -776,6 +789,126 @@ each), in the reply "i agree with recs"; 6 recorded.
    maintainer ("can i skip laptop check for now"), to run before
    this part's close-out push at the latest, or be deferred again
    by a decision recorded here. Recorded, not asked.
+
+## Planning rulings during P1 (2026-09-27)
+
+1. Q1, carried item 4 (the `Area::cells` saturation test): A. The
+   test exists in the tree, `an_area_cell_count_saturates_rather_
+   than_overflowing` in `package/tests/rowcol.rs`, added in 94cf3b6
+   (part 3 P2, from P1 verification ruling 6), compiled without the
+   feature and passing in `records/logs/m2p3-p4/test.log` (lines
+   1344 and 2099); planning verified all three from the tree and
+   the log. Check 1's F3 spoke of the P4 diff, and planning's
+   close-out ruling 4 of `specs/0018` carried it as if it spoke of
+   the tree: planning's error. The first code commit carries items
+   1 to 3 alone and its message names the existing test and 94cf3b6
+   as the reason item 4 adds nothing; no duplicate test. Carried:
+   a carried item is checked against the tree before it is carried,
+   not against the check's remark alone.
+2. Q2, counts in three P1 commit messages (the rule of `specs/0018`
+   P2 verification ruling 5): A. The messages are rewritten now,
+   while every commit is local and no log cites one, by a
+   non-interactive rebase that changes messages alone; `specs/0001`
+   P1R is the precedent for rewriting an unpushed message, and
+   part 3's 7578ee0 was kept only because its logs already cited
+   it. Each rewritten commit's tree hash is checked equal to its
+   original's, the old and new ids both printed, in `gate.log`, and
+   the doc commit's three blobs rechecked against planning's hashes
+   there. The doc message drops its count; each code message says
+   "No log prints a count for this commit; the diff alone carries
+   what it changes."; a clause citation is worded so no numeral
+   stands where the scan's form counts one (the workbook root's
+   children in schema order, by name). From the gate on, every log
+   and record cites the new ids alone; the old ids appear in the
+   gate's rewrite lines and nowhere else. The tool commit, whose
+   message passes, is rewritten only in its parent.
+
+## Planning verification and rulings on P1 (2026-09-28)
+
+Verified by planning from primaries: five commits over 5e57db1
+(07b359a doc, exactly the three files at planning's hashes;
+bcaa31d the three carried items and nothing else; 2634ecd the
+crate; e981810 the tool; 4c3485a the record, 11 files), every
+message ASCII with the one trailer, no session link; the seven
+logs and checks at the reported hashes, every log pinning the spec
+at 827b3e33, stderr 0 bytes in each; gate.log's rewrite lines with
+the four old ids from the reflog and each new commit's tree equal
+to its old one, nine PASS lines; test.log 512 off and 523 on per
+target, the workspace 720 passed, 0 failed, 2 ignored per target,
+six plants each failing its test; negative.log's four cases with
+controls; run.log 27 of 27 on both targets, entries identical 816,
+changed 45, dropped 9, added 0, 10 of 10 flags turned by a plant,
+160 names in the inputs, the container created in 11, the outputs
+identical across targets, the keep 367 pairs with part 3 P4's 336
+unchanged, 0 outputs refused in the open check; scan.log PASS, 0
+hits, 0 structural failures. Planning's own privacy scan over
+5e57db1..HEAD: 5 commits, 714 blobs, 0 findings; origin/main still
+6dbb4a0; `ANTHROPIC_API_KEY` unset. Planning's own build of e981810
+in a detached worktree: the crate's tests 512 off and 523 on, on
+both targets; the workspace 720, 0, 2; clippy off and on and doc
+on clean; its own release build of the tool run with
+`--names-sample` over the 27 corpus workbooks, every output byte
+for byte the phase run's host output.
+
+1. F1 (check 1), the creation rule's wording: the code's placement
+   (part 6's, immediately after the last earlier child) stands and
+   the spec's sentence is corrected in place; the two readings
+   differ only in where whitespace, a comment or a foreign child
+   between two children lands. The run log's check and the test
+   `a_created_container_goes_in_schema_position` pin the placement.
+2. F2 (check 1), the core-side extras (`text_of` `pub(crate)`, the
+   `BookEdits` refactor, the test wrapper, part 1's test gated):
+   accepted; P4's size log measures what they cost.
+3. F3 (check 1): ordinals are `usize`, the "32-bit" sentence
+   corrected in place; the "before the root's end" case is the
+   root-end path part 6's `calcPr` tests already take, accepted; the
+   `names.rs` comment claiming both containers' names are read
+   where the second is empty: corrected in P2's first code commit.
+4. G4 (check 2): `R` and `C` alone are Excel's reserved shorthand
+   and the rule refuses them; the rule is corrected in place and
+   the code and the test's two pins follow in P2's first code
+   commit.
+5. F8 (check 1): the "exactly when" clause was written before
+   decision 2 A and is obsolete; corrected in place. The flag is set
+   in every workbook, the chain dropped in the 9 that have one.
+6. F9 (check 1): the first half was met by the rerun (N7 and N8);
+   the second half's sentence meant every log that runs the crate's
+   tests, corrected in place. G3 (check 2): with the feature on the
+   read refuses a `definedName` with an unbound attribute prefix or
+   a text the cell reader refuses, for every caller: accepted as
+   the feature's read, consistent with part 2's rule; a crate test
+   pinning the refusal at the read goes in P2's first code commit,
+   and P4's catalogue states it.
+7. G1 (check 2): the scan script declares the phase's directory as
+   `<scratch>`, which `specs/0001` reserves; accepted for P1, since
+   the root line declares it, and from P2 the scan declares it
+   `<phase>` as the other logs do. G2, F6: from P2 the run log's
+   spec check accepts one hash, given on a labelled input line, and
+   the scan's pin count counts lines outside the printed scripts.
+   G6: from P2 the gate's status pattern names the open-check
+   record stem. G7: from P2 every environment input a script reads
+   is printed on a labelled line after its invocation line; the
+   awk public list is accepted beside the consumer crate. G9(b):
+   from P2 a rerun line names the directory its superseded files
+   are kept in. G5, G11: accepted as they stand.
+8. G8 (check 2): bcaa31d changed the format probe's own source, so
+   "Size" now measures the core's growth against the probe rebuilt
+   at bcaa31d, corrected in place; `Workbook` gaining `pub(crate)`
+   fields under the feature is accepted and P4's catalogue says it
+   is not constructible outside the crate with the feature on.
+9. G9(a), (c), (d) and G10 (check 2): the push state is planning's
+   to verify (nothing pushed, verified); "in its parent alone" is
+   ruling 2's wording, shown by the equal subject and tree; the
+   quotation's case is a report matter, accepted; a committed check
+   answer is verbatim by `CLAUDE.md` and is outside ruling 2's
+   "nowhere else", which covers the logs, records and messages the
+   implementing session writes.
+10. The design choices of 2634ecd (the scope stored as the sheet's
+    part; an empty text refused as "not valid"; a forbidden
+    character refused at the call with part 4's message; a
+    main-namespace child outside the table counting as after every
+    name in it; part 1's test gated with a feature-on sibling):
+    accepted. P1 is DONE.
 
 ## Out of scope
 

@@ -553,7 +553,7 @@ close-out push follows P4 and carries 5e57db1.
 
 | Phase | Part | Status |
 |-------|------|--------|
-| P1 | the feature; `DefinedName`, the read, the two name calls, the workbook table with `calcPr` moved onto it, the formula-change rule; `--names-sample`; the first code commit carries part 3's four close-out items | RELEASED 2026-09-27 |
+| P1 | the feature; `DefinedName`, the read, the two name calls, the workbook table with `calcPr` moved onto it, the formula-change rule; `--names-sample`; the first code commit carries part 3's close-out items (three, ruling 1: the fourth already in the tree) | DONE 2026-09-28 (e981810, records 4c3485a, local; two P1 rulings during the phase, the second a message-only rewrite of three unpushed commits with trees checked equal; verified by planning from primaries, its own privacy scan, tests off and on on both targets, clippy and doc on its own build, and its own tool run over the corpus with every output byte-identical to the phase run's; corpus run 27 of 27, 816 identical, 45 changed, 9 dropped; keep 367 pairs; two checks, ten verification rulings, three code items and six script rules carried to P2; `specs/0019` "Planning verification and rulings on P1") |
 | P2 | `LinkTarget`, `HYPERLINK`, the two link calls, the relationship removal, the root retag; `--link-sample` | planned |
 | P3 | `Property`, `Properties`, the read and `set_property` with the part's creation; `SheetProtection`, the hash, the four protection calls; `--props-sample`, `--protect-sample` | planned |
 | P4 | the catalogue and limits; `probe-emend-metadata-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all four samples again with the release binaries | planned |
