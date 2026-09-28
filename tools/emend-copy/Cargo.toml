@@ -14,5 +14,8 @@ publish = false
 # (specs/0012-styles.md, "Harness runs"); the feature has no dependency.
 # It enables the core's `rowcol` feature for the row and column samples
 # (specs/0018-rows-and-columns.md, decision 7 A), which has none either.
+# It enables the core's `metadata` feature for --names-sample
+# (specs/0019-names-links-properties-protection.md, decision 1 A), which has
+# none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata"] }

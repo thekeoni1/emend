@@ -242,6 +242,24 @@
 //!   2 with the message and no output. The counts come from the same pass
 //!   as `--sheet-sample`'s.
 //!
+//! - `--names-sample`: the names sample of
+//!   `specs/0019-names-links-properties-protection.md`, "Harness runs". W is
+//!   the first sheet of kind `Worksheet` and S its name; a reference to S is
+//!   built here as `'S'!` with every apostrophe in S doubled and is never
+//!   printed. `emend_global` with the text `'S'!$A$1` for the workbook and
+//!   `emend_local` with `'S'!$B$2` for S are added and the package written.
+//!   The output is reopened and one line goes to stdout: the word `names`
+//!   then `names_before`, `names_after`, `local_after` (the names whose scope
+//!   is W's index), `chain_before`, `chain_after`, `full_calc` (the output's
+//!   flag) and `names_removed`: on the reopened output, in memory,
+//!   `emend_local` for S is removed, the package written into a buffer and
+//!   that reopened, and its names counted. COUNTS ONLY, and the names and
+//!   texts are this tool's own constants. Asserted: `names_after` two more
+//!   than `names_before`, `local_after` one more than the input's, and
+//!   `names_removed` one more than `names_before`; a failure is exit 2 with
+//!   the message and no output, and so is a refusal by the layer. The tool
+//!   turns on the layer's `metadata` feature for it.
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -277,7 +295,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
-| --delete-rows-sample | --insert-columns-sample | --delete-columns-sample]";
+| --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -332,6 +350,8 @@ enum Operation {
     InsertColumnsSample,
     /// One column deleted at the sample point, and the counts.
     DeleteColumnsSample,
+    /// Two defined names added and one removed again, and the counts.
+    NamesSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -360,6 +380,7 @@ enum Error {
     SheetSample(&'static str),
     NoFreeName,
     RemoveSample(&'static str),
+    NamesSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -401,6 +422,9 @@ impl fmt::Display for Error {
             Error::NoFreeName => f.write_str("no free sheet name of the sample's form"),
             Error::RemoveSample(what) => {
                 write!(f, "the output's {what} is not what the removal implies")
+            }
+            Error::NamesSample(what) => {
+                write!(f, "the output's {what} is not what the names imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -483,6 +507,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::DeleteColumnsSample,
         ),
+        [input, output, flag] if flag == "--names-sample" => {
+            run(Path::new(input), Path::new(output), Operation::NamesSample)
+        }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -575,6 +602,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::DeleteColumnsSample) {
         return shift_sample(input, output, false, true);
     }
+    if matches!(operation, Operation::NamesSample) {
+        return names_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -615,6 +645,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         | Operation::DeleteColumnsSample => {
             unreachable!("the row and column samples have their own path")
         }
+        Operation::NamesSample => unreachable!("the names sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -2632,6 +2663,98 @@ fn write_into<R: io::Read + io::Seek>(package: Package<R>, output: &Path) -> Res
         let _ = fs::remove_file(&temporary);
     }
     result
+}
+
+/// The names sample (`specs/0019-names-links-properties-protection.md`,
+/// "Harness runs", `--names-sample`): the two names added on W's sheet name,
+/// the output written and read back, then the local name removed in memory
+/// and that read back. A failure after the output is in place removes it; a
+/// refusal by the layer is exit 2 with no output.
+fn names_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let (at, sheet) = workbook
+        .sheets
+        .iter()
+        .enumerate()
+        .find(|(_, sheet)| sheet.kind == SheetKind::Worksheet)
+        .map(|(at, sheet)| (at, sheet.name.clone()))
+        .ok_or(Error::NoWorksheet)?;
+    let at = u32::try_from(at).map_err(|_| Error::NamesSample("sheet index"))?;
+    let names_before = workbook.defined_names().len() as u64;
+    let local_before = local_names(workbook.defined_names(), at);
+    let chain_before = workbook.calc_chain.is_some();
+    let quoted = format!("'{}'!", sheet.replace('\'', "''"));
+    package.add_defined_name("emend_global", &format!("{quoted}$A$1"), None)?;
+    package.add_defined_name("emend_local", &format!("{quoted}$B$2"), Some(&sheet))?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = names_read_back(output, at, &sheet, names_before, local_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (names_after, local_after, chain_after, full_calc, names_removed) = checked?;
+    edit_line_named(
+        "names",
+        &[
+            ("names_before", names_before),
+            ("names_after", names_after),
+            ("local_after", local_after),
+            ("chain_before", u64::from(chain_before)),
+            ("chain_after", u64::from(chain_after)),
+            ("full_calc", u64::from(full_calc)),
+            ("names_removed", names_removed),
+        ],
+    )
+}
+
+/// The defined names whose scope is the sheet at index `at`.
+fn local_names(names: &[emend::package::DefinedName], at: u32) -> u64 {
+    names.iter().filter(|name| name.sheet == Some(at)).count() as u64
+}
+
+/// Reopens the names sample's output: its name count, asserted two more
+/// than `names_before`; the names scoped to W, asserted one more than
+/// `local_before`; the chain and the flag; and, after `emend_local` for
+/// `sheet` is removed and the package written into memory and reopened, the
+/// name count there, asserted one more than `names_before`.
+fn names_read_back(
+    output: &Path,
+    at: u32,
+    sheet: &str,
+    names_before: u64,
+    local_before: u64,
+) -> Result<(u64, u64, bool, bool, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let names_after = workbook.defined_names().len() as u64;
+    let local_after = local_names(workbook.defined_names(), at);
+    let chain_after = workbook.calc_chain.is_some();
+    let full_calc = workbook.full_calc_on_load;
+    if names_after != names_before + 2 {
+        return Err(Error::NamesSample("defined name count"));
+    }
+    if local_after != local_before + 1 {
+        return Err(Error::NamesSample("count of names scoped to the sheet"));
+    }
+    package.remove_defined_name("emend_local", Some(sheet))?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut removed = Package::open(buffer)?;
+    let names_removed = removed.workbook()?.defined_names().len() as u64;
+    if names_removed != names_before + 1 {
+        return Err(Error::NamesSample("defined name count after the removal"));
+    }
+    Ok((
+        names_after,
+        local_after,
+        chain_after,
+        full_calc,
+        names_removed,
+    ))
 }
 
 /// The date and time the date sample writes: its serial is 45351.5 in the

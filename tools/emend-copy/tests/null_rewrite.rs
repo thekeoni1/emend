@@ -680,6 +680,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--insert-columns-sample", "--delete-columns-sample"],
         vec!["--delete-columns-sample", "--insert-rows-sample"],
         vec!["--insert-columns-sample", "[Content_Types].xml"],
+        // And with M2 part 4a P1's.
+        vec!["--names-sample", "--format-sample"],
+        vec!["--format-sample", "--names-sample"],
+        vec!["--names-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -3121,5 +3125,143 @@ fn the_column_samples_refuse_a_shared_formula_straddling_column_two_and_leave_no
             "an insertion or deletion cuts a shared, array or data table formula",
             flag,
         );
+    }
+}
+
+// ---------------------------------------------------------- --names-sample
+
+/// `package_specs_with_a_chain()` when `chain`, else `package_specs()`, with
+/// the workbook part STORED and holding `after` after its `<sheets>`, whose
+/// one sheet is named `It's`, so the reference the sample builds doubles an
+/// apostrophe.
+fn names_specs(after: &str, chain: bool) -> Vec<Spec> {
+    let workbook = format!(
+        "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+         <sheets><sheet name=\"It&apos;s\" sheetId=\"1\" r:id=\"rId1\"/></sheets>{after}</workbook>"
+    );
+    let mut specs = if chain {
+        package_specs_with_a_chain()
+    } else {
+        package_specs()
+    };
+    for spec in &mut specs {
+        if spec.name == b"xl/workbook.xml" {
+            *spec = Spec::stored(b"xl/workbook.xml", workbook.as_bytes());
+        }
+    }
+    specs
+}
+
+/// The two names the sample adds, as the workbook rewrite writes them for a
+/// sheet named `It's` at index 0.
+const SAMPLE_NAMES: &str = "<definedName name=\"emend_global\">&apos;It&apos;&apos;s&apos;!$A$1\
+                            </definedName><definedName name=\"emend_local\" localSheetId=\"0\">\
+                            &apos;It&apos;&apos;s&apos;!$B$2</definedName>";
+
+#[test]
+fn the_names_sample_adds_two_names_drops_the_chain_and_removes_one_in_memory() {
+    // `specs/0019-names-links-properties-protection.md`, "Harness runs": the
+    // file has a global and a local name; two are appended, the chain goes,
+    // the flag is set, and the in-memory removal leaves one more than the
+    // input had.
+    let specs = names_specs(
+        "<definedNames><definedName name=\"g\">1</definedName>\
+         <definedName name=\"l\" localSheetId=\"0\">2</definedName></definedNames>",
+        true,
+    );
+    let dir = TempDir::new("names-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--names-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "names\tnames_before=2\tnames_after=4\tlocal_after=2\tchain_before=1\tchain_after=0\
+         \tfull_calc=1\tnames_removed=3\n",
+        "the line"
+    );
+    assert_eq!(
+        dir.names(),
+        vec!["in.xlsx".to_string(), "out.xlsx".to_string()],
+        "a temporary was left behind"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        String::from_utf8(entry_named(&entries, b"xl/workbook.xml").compressed.clone())
+            .expect("UTF-8"),
+        format!(
+            "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <sheets><sheet name=\"It&apos;s\" sheetId=\"1\" r:id=\"rId1\"/></sheets>\
+             <definedNames><definedName name=\"g\">1</definedName>\
+             <definedName name=\"l\" localSheetId=\"0\">2</definedName>{SAMPLE_NAMES}\
+             </definedNames><calcPr fullCalcOnLoad=\"1\"/></workbook>"
+        ),
+        "the workbook part"
+    );
+    assert!(
+        entries
+            .iter()
+            .all(|entry| entry.name != b"xl/calcChain.xml"),
+        "the chain's entry is gone"
+    );
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"[Content_Types].xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"xl/calcChain.xml",
+            b"xl/workbook.xml",
+        ],
+    );
+}
+
+#[test]
+fn the_names_sample_creates_the_container_where_there_is_none() {
+    let specs = names_specs("", false);
+    let dir = TempDir::new("names-sample-none");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--names-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "names\tnames_before=0\tnames_after=2\tlocal_after=1\tchain_before=0\tchain_after=0\
+         \tfull_calc=1\tnames_removed=1\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        String::from_utf8(entry_named(&entries, b"xl/workbook.xml").compressed.clone())
+            .expect("UTF-8"),
+        format!(
+            "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <sheets><sheet name=\"It&apos;s\" sheetId=\"1\" r:id=\"rId1\"/></sheets>\
+             <definedNames>{SAMPLE_NAMES}</definedNames><calcPr fullCalcOnLoad=\"1\"/></workbook>"
+        ),
+        "the workbook part"
+    );
+    untouched_but(&entries, &specs, &[b"xl/workbook.xml"]);
+}
+
+#[test]
+fn the_names_sample_refuses_a_duplicate_or_two_containers_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0019-names-links-properties-protection.md`, "P1").
+    for (label, after, message) in [
+        (
+            "names-sample-duplicate",
+            "<definedNames><definedName name=\"EMEND_GLOBAL\">1</definedName></definedNames>",
+            "a defined name of that name and scope already exists",
+        ),
+        (
+            "names-sample-two",
+            "<definedNames/><definedNames/>",
+            "a workbook has two definedNames or workbookProtection elements",
+        ),
+    ] {
+        styled_run_refused(label, &names_specs(after, false), message, "--names-sample");
     }
 }
