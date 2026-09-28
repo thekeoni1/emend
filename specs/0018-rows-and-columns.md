@@ -1477,6 +1477,54 @@ G11 and G15; each verified by planning in the tree or the logs):
 9. The close-out is released as "Close-out push (after P4)" reads,
    with the doc commit carrying this section and the ROADMAP row.
 
+## Planning verification and rulings on the close-out (2026-09-27)
+
+1. Verified by planning from git and `gh`: origin/main is
+   6dbb4a0ca7b810631102db1d9c799d0bccd36ca3, the close-out doc
+   commit; the pushed range 42588cc..6dbb4a0 holds 21 commits, part
+   2's record commit d0f8f72 among them once; 22 of 22 messages from
+   42588cc to the record commit end with the Co-Authored-By line
+   only, no session link, ASCII throughout; CI run 36327723486 on
+   6dbb4a0, `push` on `main`, completed with conclusion success; the
+   repository PRIVATE; planning's own `scripts/privacy.sh --range
+   42588cc..HEAD`, 22 commits, 726 blobs, 0 findings;
+   `ANTHROPIC_API_KEY` unset in planning's shell; the working tree
+   clean.
+2. The three logs at the reported hashes, each attempt 1. `push.log`
+   (397955d8): pre mode over the base found by its subject, 21
+   commits, the identity check, the hook's 723 blobs with 0
+   findings, the nine gate lines in order, "pre checks all as
+   expected: yes"; push mode after the maintainer's typed
+   authorisation, ls-remote at the recorded base before and at
+   6dbb4a0 after, the hook's 21 commits with 0 findings, still
+   PRIVATE, "push checks all as expected: yes". `ci-run.log`
+   (4c259f86): the run polled to completion, every step success,
+   "checks all as expected: yes". `scan.log` (598605e5) post stage,
+   run last over 42588cc..6dbb4a0 with push.log and ci-run.log as
+   its siblings, 77 of 77 files, 0 hits, 0 structural failures,
+   every printed placeholder declared, RESULT: PASS. Each log counts
+   its own stderr at 0 bytes and pins the spec at 81afb25b, the doc
+   commit's blob. No log names the home directory. No superseded
+   attempt.
+3. The record commit 5e57db1, parent 6dbb4a0, exactly the three logs,
+   trailer correct, local: it goes with the next push. Accepted.
+4. Carried into part 4's spec, unchanged from P4 ruling 1 to 7 of the
+   verification above: the probes' USAGE strings; the package
+   header's formula-change sentence for a shift; checked additions
+   in both probes; the `Area::cells` saturation test; every log pins
+   the spec's hash; a labelled figure is read from the named log or
+   labelled as measured here; a later exemption counts tokens in the
+   form; superseded attempts stay on disk under
+   `<home>/.cache/emend-build/<phase>/`; no regex stand-in in the
+   placeholder form; planning runs no cargo while a logged script or
+   a pre-check runs. Milestone 2's headroom for part 4 is 24084
+   section bytes against 458752, judged at the close of part 4 on
+   `probe-emend-format-write-xml` with `rowcol` off, the `rowcol`
+   and `dates` features outside the budget.
+5. The close-out is DONE and Milestone 2 part 3 is DONE. The Excel
+   check for Milestone 2 (every corpus row of every sample of parts
+   1 to 3, on the laptop) is the maintainer's.
+
 ## Out of scope
 
 - Reading widths, heights, panes or merges back as typed values.

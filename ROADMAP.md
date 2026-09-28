@@ -514,7 +514,50 @@ estimate 30000 to 40000 section bytes against 59576 of headroom.
 | P2 | the shift rule on the row axis: rows, cells, `<f ref>`, `dimension`, merges, the four range lists; the table and pivot refusal; the one-shift rule; the formula-change rule; `--insert-rows-sample` and `--delete-rows-sample`; the interim size measurement against the 40000 checkpoint | DONE 2026-09-26 (a4b55f0, records dd7062b, local; fourteen P2 rulings, run log at attempt 3 after ruling 13 corrected an unconditional expectation and ruling 14 accepted a wrong derived count beside a right listing hash; the 40000 checkpoint TRIPPED at 57868 whole growth (P1 31196, P2 26672), 1708 under the ceiling, decision 7 with the maintainer before P3's code; verified by planning from primaries, its own privacy scan, tests and clippy on its own build, its own probe rebuild reproducing every size figure, and its own byte-level model of the shift agreeing on 27 of 27 for both samples on both labels; records `records/m2p3-p2-insert-2026-09-26-a4b55f0.md`, `records/m2p3-p2-delete-2026-09-26-a4b55f0.md` and `.txt`; open record `records/m2p3-open-2026-09-26-a4b55f0.md` and `.txt`, 297 pairs, 0 regressions; check 1's F4 to F10 and F12 ruled, five tests and two doc corrections carried to P3; `specs/0018` "Planning verification and rulings on P2") |
 | P3 | decision 7 A first: the shifts (`insert_rows`, `delete_rows`, `TABLE`, `PIVOT_TABLE`, the pass and its messages) behind the Cargo feature `rowcol`, off by default, the P1 calls in core, the carried P2 tests and script rules; then the rule on the column axis: cells, `spans`, `<col>` intervals, `dimension`, merges, the lists; `--insert-columns-sample` and `--delete-columns-sample`; a size log showing the core figure with the feature off | DONE 2026-09-26 (f52684c, records 3cd9696, local; the shifts behind `rowcol` from b675f3d; the core figure with the feature off 430372, equal to P1's, 28380 under the ceiling; five P3 rulings before the column code; verified by planning from primaries, its own privacy scan, tests off and on, clippy and doc off and on, its own probe rebuild reproducing the core figure, and its own byte-level model of the column shift agreeing on 27 of 27 for both samples on both labels; records `records/m2p3-p3-insert-2026-09-26-f52684c.md`, `records/m2p3-p3-delete-2026-09-26-f52684c.md` and `.txt`; open record `records/m2p3-open-2026-09-26-f52684c.md` and `.txt`, 332 pairs, 0 regressions; two checks, no code defect; two tests, one header sentence and six script rules carried to P4; `specs/0018` "Planning verification and rulings on P3") |
 | P4 | the catalogue and limits; `probe-emend-format-write-xml` (core) and `probe-emend-rowcol-write-xml` (the feature) and the size record with the Milestone 2 ceiling judged; the negative log through the binary; all five samples again with the release binaries | DONE 2026-09-27 (b728fdf, records d0073cd, local; seven P4 rulings, two of them corrections of planning's counts, ruling 5 a correction of the spec's "unreachable" claim, rulings 6 and 7 after the implementing session's disk-space restart; gate and test at attempt 2; verified by planning from primaries, its own privacy scan, tests off and on, clippy and doc off and on on its own build, its own rebuild of all sixteen probes reproducing every section figure, and its own byte comparison of the five rerun directories against the phase runs, 54 of 54 identical each; the Milestone 2 result: the budget figure 434668 section bytes on the core probe, 24084 under the ceiling 458752; the part's own cost 4296, the `rowcol` feature 34704 outside the budget; records `records/size-m2p3-2026-09-27-b728fdf.md`, `records/m2p3-p4-<sample>-2026-09-27-b728fdf.md` and `.txt` for the five samples, open record `records/m2p3-open-2026-09-27-b728fdf.md` and `.txt`, 336 pairs, 0 findings; two checks, one code defect (the probes' usage strings) and one header gap, both carried to part 4's first code commit with two remarks; `specs/0018` "Planning verification and rulings on P4") |
-| Close | close-out push after P4, carrying part 2's record commit d0f8f72 and this part's commits, with the push and ci-run self-scan rule (`specs/0001`) | RELEASED 2026-09-27 (awaiting the maintainer's typed authorisation in the implementing session) |
+| Close | close-out push after P4, carrying part 2's record commit d0f8f72 and this part's commits, with the push and ci-run self-scan rule (`specs/0001`) | DONE 2026-09-27 (pushed 6dbb4a0, 21 commits; run 36327723486 success; record 5e57db1 local; five close-out rulings in `specs/0018`; part 4 headroom 24084 section bytes) |
+
+### Part 4: the openpyxl features, in sub-parts (planning split 2026-09-27)
+
+The outline's item 4 lists nine capabilities. Planning split it on
+2026-09-27 into sub-parts with their own specs, each behind its own
+Cargo feature off by default, measured beside the core as `dates`
+and `rowcol` are, with the Milestone 2 ceiling untouched by design:
+4a names, links, properties and protection (`specs/0019`); 4b data
+validation and conditional formatting; 4c tables; 4d comments and
+images. The order is the maintainer's to change; 4b to 4d are
+scoped when their turn comes. The Excel check for parts 1 to 3 was
+deferred by the maintainer on 2026-09-27 to before part 4a's
+close-out push at the latest (`specs/0019` decision 6).
+
+### Part 4a: names, links, properties, protection (`specs/0019-names-links-properties-protection.md`)
+
+Approved by the maintainer 2026-09-27 and sent to implementation,
+decisions 1 to 5 as planning recommended: one Cargo feature
+`metadata` holding all four capabilities, one probe; a defined name
+added or removed is a formula change; a worksheet root that binds
+no relationships prefix is retagged for a hyperlink; the legacy
+sixteen-bit password hash, printable ASCII passwords; the core
+properties part created for a workbook without one. `DefinedName`
+and `Workbook::defined_names`, `add_defined_name`,
+`remove_defined_name`; `LinkTarget`, `set_hyperlink`,
+`remove_hyperlink`; `Property`, `Properties`, `properties`,
+`set_property`; `SheetProtection`, `legacy_password_hash`,
+`protect_sheet`, `unprotect_sheet`, `protect_workbook`,
+`unprotect_workbook`; the workbook root's schema-position table
+(the one core change). Acceptance: over the corpus each sample
+leaves every other entry byte-identical and the edited part
+identical outside the elements the edit names, by an independent
+parser in the run script; every output opens in LibreOffice; the
+names and properties read back. No push during the part; the
+close-out push follows P4 and carries 5e57db1.
+
+| Phase | Part | Status |
+|-------|------|--------|
+| P1 | the feature; `DefinedName`, the read, the two name calls, the workbook table with `calcPr` moved onto it, the formula-change rule; `--names-sample`; the first code commit carries part 3's four close-out items | RELEASED 2026-09-27 |
+| P2 | `LinkTarget`, `HYPERLINK`, the two link calls, the relationship removal, the root retag; `--link-sample` | planned |
+| P3 | `Property`, `Properties`, the read and `set_property` with the part's creation; `SheetProtection`, the hash, the four protection calls; `--props-sample`, `--protect-sample` | planned |
+| P4 | the catalogue and limits; `probe-emend-metadata-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all four samples again with the release binaries | planned |
+| Close | close-out push after P4, carrying 5e57db1 and this part's commits; the Excel check for parts 1 to 3 run or deferred again before it | planned |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values
