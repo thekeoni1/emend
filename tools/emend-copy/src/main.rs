@@ -260,6 +260,25 @@
 //!   the message and no output, and so is a refusal by the layer. The tool
 //!   turns on the layer's `metadata` feature for it.
 //!
+//! - `--link-sample`: the link sample of
+//!   `specs/0019-names-links-properties-protection.md`, "Harness runs". W is
+//!   the first sheet of kind `Worksheet`, S its name and M its largest row
+//!   number as the layer's cell read gives it. `(M + 1, 1)` is set to
+//!   `Text("emend link")` and takes an external link to
+//!   `https://example.com/` with the tooltip `emend sample`, and `(M + 1, 2)`
+//!   a link to the location `'S'!A1`, S's apostrophes doubled and never
+//!   printed; the package is written. The output is reopened and one line
+//!   goes to stdout: the word `link` then `cells_before`, `cells_after`,
+//!   `links_before`, `links_after` (the `hyperlink` elements of W's main-
+//!   namespace `hyperlinks`, counted by this tool's own pass over the part's
+//!   tokens), `external_rels_before`, `external_rels_after` (the external
+//!   relationships of the hyperlink type in W's rels part) and
+//!   `r_bound_before` (1 when W's root binds a prefix to the relationships
+//!   namespace). COUNTS ONLY. Asserted: one more cell, two more links and
+//!   one more external relationship; a failure is exit 2 with the message
+//!   and no output, and so is a refusal by the layer, a cell past the grid
+//!   included.
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -282,7 +301,8 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    CONTENT_TYPES_PART, MAIN, PIVOT_TABLE, Package, SheetKind, TABLE, rels_part_source,
+    CONTENT_TYPES_PART, HYPERLINK, LinkTarget, MAIN, PIVOT_TABLE, Package, RELATIONSHIPS_ATTRIBUTE,
+    SheetKind, TABLE, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -295,7 +315,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
-| --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample]";
+| --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
+| --link-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -352,6 +373,8 @@ enum Operation {
     DeleteColumnsSample,
     /// Two defined names added and one removed again, and the counts.
     NamesSample,
+    /// A cell and two hyperlinks past the last row, and the counts.
+    LinkSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -381,6 +404,7 @@ enum Error {
     NoFreeName,
     RemoveSample(&'static str),
     NamesSample(&'static str),
+    LinkSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -425,6 +449,9 @@ impl fmt::Display for Error {
             }
             Error::NamesSample(what) => {
                 write!(f, "the output's {what} is not what the names imply")
+            }
+            Error::LinkSample(what) => {
+                write!(f, "the output's {what} is not what the links imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -509,6 +536,9 @@ fn main() -> ExitCode {
         ),
         [input, output, flag] if flag == "--names-sample" => {
             run(Path::new(input), Path::new(output), Operation::NamesSample)
+        }
+        [input, output, flag] if flag == "--link-sample" => {
+            run(Path::new(input), Path::new(output), Operation::LinkSample)
         }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
@@ -605,6 +635,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::NamesSample) {
         return names_sample(input, output);
     }
+    if matches!(operation, Operation::LinkSample) {
+        return link_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -646,6 +679,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
             unreachable!("the row and column samples have their own path")
         }
         Operation::NamesSample => unreachable!("the names sample has its own path"),
+        Operation::LinkSample => unreachable!("the link sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -2707,6 +2741,164 @@ fn names_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("names_removed", names_removed),
         ],
     )
+}
+
+/// The link sample (`specs/0019-names-links-properties-protection.md`,
+/// "Harness runs", `--link-sample`): a text cell and two links on the row
+/// past W's last, the output written and read back. A failure after the
+/// output is in place removes it; a refusal by the layer is exit 2 with no
+/// output.
+fn link_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (part, sheet) = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| (sheet.part.clone(), sheet.name.clone()))
+        .ok_or(Error::NoWorksheet)?;
+    let before = sample(&mut package, &part)?;
+    let (links_before, r_bound_before) = link_counts(&mut package, &part)?;
+    let external_before = external_links(&mut package, &part)?;
+    let row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let first = CellRef { row, col: 1 };
+    let second = CellRef { row, col: 2 };
+    let location = format!("'{}'!A1", sheet.replace('\'', "''"));
+    package.set_cell(&part, first, Value::Text("emend link".to_string()));
+    package.set_hyperlink(
+        &part,
+        first,
+        LinkTarget::External("https://example.com/"),
+        Some("emend sample"),
+    )?;
+    package.set_hyperlink(&part, second, LinkTarget::Location(&location), None)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = link_read_back(output, &part, before.cells, links_before, external_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (cells_after, links_after, external_after) = checked?;
+    edit_line_named(
+        "link",
+        &[
+            ("cells_before", before.cells),
+            ("cells_after", cells_after),
+            ("links_before", links_before),
+            ("links_after", links_after),
+            ("external_rels_before", external_before),
+            ("external_rels_after", external_after),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// Reopens the link sample's output and asserts one more cell in W, two more
+/// `hyperlink` elements and one more external hyperlink relationship.
+fn link_read_back(
+    output: &Path,
+    part: &[u8],
+    cells_before: u64,
+    links_before: u64,
+    external_before: u64,
+) -> Result<(u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let cells_after = sample(&mut package, part)?.cells;
+    let (links_after, _) = link_counts(&mut package, part)?;
+    let external_after = external_links(&mut package, part)?;
+    if cells_after != cells_before + 1 {
+        return Err(Error::LinkSample("cell count"));
+    }
+    if links_after != links_before + 2 {
+        return Err(Error::LinkSample("hyperlink count"));
+    }
+    if external_after != external_before + 1 {
+        return Err(Error::LinkSample("external hyperlink relationship count"));
+    }
+    Ok((cells_after, links_after, external_after))
+}
+
+/// The `hyperlink` elements of the part's main-namespace `hyperlinks`
+/// children of the root, and whether the root binds a prefix to the
+/// relationships namespace, by this tool's own pass over the part's tokens.
+fn link_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(u64, bool), Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let mut in_links = false;
+    let mut links = 0u64;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            if depth < 2 {
+                in_links = false;
+            }
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let local = tag_local_name(raw);
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            in_links =
+                local == b"hyperlinks" && MAIN.contains(&element_namespace(raw, &root).as_slice());
+        } else if depth == 3 && in_links && local == b"hyperlink" {
+            links += 1;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+            if depth < 2 {
+                in_links = false;
+            }
+        }
+    }
+    Ok((links, binds_relationships(&root)))
+}
+
+/// Whether a start tag declares a prefix bound to the relationships
+/// namespace, in either form.
+fn binds_relationships(tag: &[u8]) -> bool {
+    let mut at = 0;
+    while let Some(found) = tag[at..]
+        .windows(b"xmlns:".len())
+        .position(|window| window == b"xmlns:")
+    {
+        let start = at + found;
+        at = start + b"xmlns:".len();
+        let name_len = tag[at..]
+            .iter()
+            .position(|byte| matches!(byte, b'=' | b' ' | b'\t' | b'\n' | b'\r'))
+            .unwrap_or(0);
+        let attribute = [b"xmlns:".as_slice(), &tag[at..at + name_len]].concat();
+        if tag_attribute(tag, &attribute)
+            .is_some_and(|value| RELATIONSHIPS_ATTRIBUTE.contains(&value.as_slice()))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// The part's external relationships of the hyperlink type, in either form.
+fn external_links<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<u64, Error> {
+    let rels = package.relationships(part)?;
+    Ok(HYPERLINK
+        .into_iter()
+        .map(|form| rels.of_kind(form).filter(|rel| rel.external).count() as u64)
+        .sum())
 }
 
 /// The defined names whose scope is the sheet at index `at`.

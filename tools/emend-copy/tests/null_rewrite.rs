@@ -684,6 +684,10 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--names-sample", "--format-sample"],
         vec!["--format-sample", "--names-sample"],
         vec!["--names-sample", "[Content_Types].xml"],
+        // And with M2 part 4a P2's.
+        vec!["--link-sample", "--names-sample"],
+        vec!["--names-sample", "--link-sample"],
+        vec!["--link-sample", "[Content_Types].xml"],
         // And with M2 part 1 P2's.
         vec!["--new-sample", "--formula-sample"],
         vec!["--formula-sample", "--new-sample"],
@@ -3263,5 +3267,79 @@ fn the_names_sample_refuses_a_duplicate_or_two_containers_and_leaves_nothing() {
         ),
     ] {
         styled_run_refused(label, &names_specs(after, false), message, "--names-sample");
+    }
+}
+
+// ----------------------------------------------------------- --link-sample
+
+#[test]
+fn the_link_sample_adds_a_cell_and_two_links_and_retags_a_root_with_no_r_prefix() {
+    // `specs/0019-names-links-properties-protection.md`, "Harness runs": M is
+    // 1, so row 2 takes the text cell, the external link on A2 and the
+    // location link on B2. The sheet binds no relationships prefix and has
+    // no rels part: the root gains xmlns:r, the container is created before
+    // pageMargins, and the rels part is created with the one relationship.
+    let specs = edit_specs(A_CELL);
+    let dir = TempDir::new("link-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--link-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "link\tcells_before=1\tcells_after=2\tlinks_before=0\tlinks_after=2\
+         \texternal_rels_before=0\texternal_rels_after=1\tr_bound_before=0\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let sheet = String::from_utf8(
+        entry_named(&entries, b"xl/worksheets/sheet1.xml")
+            .compressed
+            .clone(),
+    )
+    .expect("UTF-8");
+    let want = edited(
+        "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"2\"><c r=\"A2\" \
+         t=\"inlineStr\"><is><t xml:space=\"preserve\">emend link</t></is></c></row></sheetData>\
+         <hyperlinks><hyperlink ref=\"A2\" r:id=\"rId1\" tooltip=\"emend sample\"/>\
+         <hyperlink ref=\"B2\" location=\"&apos;Sheet1&apos;!A1\"/></hyperlinks>",
+    )
+    .replace(
+        &format!("<worksheet xmlns=\"{MAIN_NS}\">"),
+        &format!("<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">"),
+    );
+    assert_eq!(sheet, want, "the sheet");
+    let rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" \
+         Type=\"{ATTR_NS}/hyperlink\" Target=\"https://example.com/\" \
+         TargetMode=\"External\"/></Relationships>"
+    );
+    let created = entry_named(&entries, b"xl/worksheets/_rels/sheet1.xml.rels");
+    assert_eq!(
+        (created.crc32, created.uncompressed_size),
+        (crc32(rels.as_bytes()), rels.len() as u64),
+        "the created rels part"
+    );
+    untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+}
+
+#[test]
+fn the_link_sample_refuses_two_hyperlinks_or_an_unbound_prefix_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0019-names-links-properties-protection.md`, "P2").
+    for (label, body, message) in [
+        (
+            "link-sample-two",
+            "<sheetData/><hyperlinks/><hyperlinks/>",
+            "a worksheet has two hyperlinks or sheetProtection elements",
+        ),
+        (
+            "link-sample-unbound",
+            "<sheetData/><q:hyperlinks/>",
+            "an element or attribute uses a prefix its document does not bind",
+        ),
+    ] {
+        styled_run_refused(label, &edit_specs(body), message, "--link-sample");
     }
 }
