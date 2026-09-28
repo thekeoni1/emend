@@ -36,6 +36,11 @@ dates = ["emend", "xml", "emend/dates"]
 # alone (specs/0018-rows-and-columns.md, "Size", under decision 7 A), built
 # with its own feature set as the dates probe is.
 rowcol = ["emend", "xml", "emend/rowcol"]
+# Enables emend's own `metadata` feature, for
+# probe-emend-metadata-write-xml alone
+# (specs/0019-names-links-properties-protection.md, "Size", under decision
+# 1 A), built with its own feature set as the rowcol probe is.
+metadata = ["emend", "xml", "emend/metadata"]
 
 [[bin]]
 name = "probe-zip"
@@ -115,3 +120,8 @@ required-features = ["emend", "xml"]
 name = "probe-emend-rowcol-write-xml"
 path = "src/bin/probe-emend-rowcol-write-xml.rs"
 required-features = ["rowcol"]
+
+[[bin]]
+name = "probe-emend-metadata-write-xml"
+path = "src/bin/probe-emend-metadata-write-xml.rs"
+required-features = ["metadata"]
