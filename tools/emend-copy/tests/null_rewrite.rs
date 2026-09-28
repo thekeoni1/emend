@@ -684,6 +684,11 @@ fn the_operations_are_refused_unless_exactly_one_follows_the_paths() {
         vec!["--names-sample", "--format-sample"],
         vec!["--format-sample", "--names-sample"],
         vec!["--names-sample", "[Content_Types].xml"],
+        // And with M2 part 4a P3's.
+        vec!["--props-sample", "--protect-sample"],
+        vec!["--protect-sample", "--props-sample"],
+        vec!["--props-sample", "[Content_Types].xml"],
+        vec!["--protect-sample", "[Content_Types].xml"],
         // And with M2 part 4a P2's.
         vec!["--link-sample", "--names-sample"],
         vec!["--names-sample", "--link-sample"],
@@ -3342,4 +3347,122 @@ fn the_link_sample_refuses_two_hyperlinks_or_an_unbound_prefix_and_leaves_nothin
     ] {
         styled_run_refused(label, &edit_specs(body), message, "--link-sample");
     }
+}
+
+// ------------------------------------------- --props-sample, --protect-sample
+
+const CORE_NS: &str = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+
+/// `package_specs()` with a STORED `docProps/core.xml` whose root is
+/// `root` (holding `body`) and the package relationship to it.
+fn core_specs(root_attributes: &str, body: &str) -> Vec<Spec> {
+    let core = format!(
+        "<cp:coreProperties xmlns:cp=\"{CORE_NS}\"{root_attributes}>{body}</cp:coreProperties>"
+    );
+    let package_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/officeDocument\" Target=\"xl/workbook.xml\"/>\
+         <Relationship Id=\"rId2\" \
+         Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" \
+         Target=\"docProps/core.xml\"/></Relationships>"
+    );
+    let mut specs = package_specs();
+    for spec in &mut specs {
+        if spec.name == b"_rels/.rels" {
+            *spec = Spec::stored(b"_rels/.rels", package_rels.as_bytes());
+        }
+    }
+    specs.push(Spec::stored(b"docProps/core.xml", core.as_bytes()));
+    specs
+}
+
+/// The namespace declarations Excel's core root carries beyond `cp`.
+const CORE_DECLARATIONS: &str = " xmlns:dc=\"http://purl.org/dc/elements/1.1/\" \
+                                 xmlns:dcterms=\"http://purl.org/dc/terms/\" \
+                                 xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
+
+#[test]
+fn the_props_sample_sets_three_properties_in_place_and_appended() {
+    let specs = core_specs(
+        CORE_DECLARATIONS,
+        "<dc:title>old</dc:title><dc:creator>c</dc:creator>",
+    );
+    let dir = TempDir::new("props-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--props-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "props\tcore_before=1\ttitle_after=1\tkeywords_after=1\tmodified_after=1\
+         \tprops_before=2\tprops_after=4\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    assert_eq!(
+        String::from_utf8(
+            entry_named(&entries, b"docProps/core.xml")
+                .compressed
+                .clone()
+        )
+        .expect("UTF-8"),
+        format!(
+            "<cp:coreProperties xmlns:cp=\"{CORE_NS}\"{CORE_DECLARATIONS}>\
+             <dc:title>emend sample</dc:title><dc:creator>c</dc:creator>\
+             <cp:keywords>emend</cp:keywords><dcterms:modified xsi:type=\"dcterms:W3CDTF\">\
+             2026-01-01T00:00:00Z</dcterms:modified></cp:coreProperties>"
+        ),
+        "the core part"
+    );
+    untouched_but(&entries, &specs, &[b"docProps/core.xml"]);
+}
+
+#[test]
+fn the_protect_sample_protects_the_first_sheet_and_the_workbook() {
+    let specs = edit_specs(A_CELL);
+    let dir = TempDir::new("protect-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--protect-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "protect\tsheet_prot_before=0\tsheet_prot_after=1\tbook_prot_before=0\tbook_prot_after=1\
+         \thash=C678\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let sheet = String::from_utf8(
+        entry_named(&entries, b"xl/worksheets/sheet1.xml")
+            .compressed
+            .clone(),
+    )
+    .expect("UTF-8");
+    assert_eq!(
+        sheet,
+        edited(&format!(
+            "{A_CELL}<sheetProtection password=\"C678\" sheet=\"1\" sort=\"0\" autoFilter=\"0\"/>"
+        )),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_props_and_protect_samples_refuse_their_fixtures_and_leave_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0019-names-links-properties-protection.md`, "P3").
+    styled_run_refused(
+        "props-sample-no-dcterms",
+        &core_specs(" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"", ""),
+        "a core properties part binds no prefix for a namespace the edit needs",
+        "--props-sample",
+    );
+    styled_run_refused(
+        "protect-sample-two",
+        &edit_specs("<sheetData/><sheetProtection sheet=\"1\"/><sheetProtection sheet=\"1\"/>"),
+        "a worksheet has two hyperlinks or sheetProtection elements",
+        "--protect-sample",
+    );
 }

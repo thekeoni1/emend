@@ -279,6 +279,29 @@
 //!   and no output, and so is a refusal by the layer, a cell past the grid
 //!   included.
 //!
+//! - `--props-sample`: the properties sample of
+//!   `specs/0019-names-links-properties-protection.md`, "Harness runs": the
+//!   title `emend sample`, the keywords `emend` and the modified date
+//!   `2026-01-01T00:00:00Z` set, the package written and reopened. One line
+//!   goes to stdout: the word `props` then `core_before` (1 when the input
+//!   has a core-properties relationship), `title_after`, `keywords_after`
+//!   and `modified_after` (1 when the reopened value is the one set), and
+//!   `props_before` and `props_after` (how many of the thirteen properties
+//!   the part holds). COUNTS ONLY, the values being this tool's own.
+//!   Asserted: the three read back; a failure is exit 2 with the message and
+//!   no output, and so is a refusal by the layer.
+//!
+//! - `--protect-sample`: the protection sample of the same section: W, the
+//!   first sheet of kind `Worksheet`, protected with the password `emend`
+//!   and the default options but `sort` and `autoFilter` unlocked, and the
+//!   workbook's structure locked with the same password. One line: the
+//!   word `protect` then `sheet_prot_before`, `sheet_prot_after` (the
+//!   `sheetProtection` children of W's root in the main namespace, counted
+//!   by this tool's own pass), `book_prot_before`, `book_prot_after` (the
+//!   workbook root's `workbookProtection` children, likewise) and `hash`
+//!   (the password's hash as four hex digits, a constant). Asserted: one of
+//!   each after; a failure is exit 2 with the message and no output.
+//!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
 //! memory: a corpus entry can be tens of megabytes and `usize` is 32 bits on
@@ -301,8 +324,9 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    CONTENT_TYPES_PART, HYPERLINK, LinkTarget, MAIN, PIVOT_TABLE, Package, RELATIONSHIPS_ATTRIBUTE,
-    SheetKind, TABLE, rels_part_source,
+    CONTENT_TYPES_PART, CORE_PROPERTIES, HYPERLINK, LinkTarget, MAIN, PIVOT_TABLE, Package,
+    Properties, Property, RELATIONSHIPS_ATTRIBUTE, SheetKind, SheetProtection, TABLE,
+    legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -316,7 +340,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
-| --link-sample]";
+| --link-sample | --props-sample | --protect-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -375,6 +399,10 @@ enum Operation {
     NamesSample,
     /// A cell and two hyperlinks past the last row, and the counts.
     LinkSample,
+    /// Three core properties set, and the counts.
+    PropsSample,
+    /// The first worksheet and the workbook protected, and the counts.
+    ProtectSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -405,6 +433,8 @@ enum Error {
     RemoveSample(&'static str),
     NamesSample(&'static str),
     LinkSample(&'static str),
+    PropsSample(&'static str),
+    ProtectSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -452,6 +482,12 @@ impl fmt::Display for Error {
             }
             Error::LinkSample(what) => {
                 write!(f, "the output's {what} is not what the links imply")
+            }
+            Error::PropsSample(what) => {
+                write!(f, "the output's {what} is not what the properties imply")
+            }
+            Error::ProtectSample(what) => {
+                write!(f, "the output's {what} is not what the protection implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -540,6 +576,14 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--link-sample" => {
             run(Path::new(input), Path::new(output), Operation::LinkSample)
         }
+        [input, output, flag] if flag == "--props-sample" => {
+            run(Path::new(input), Path::new(output), Operation::PropsSample)
+        }
+        [input, output, flag] if flag == "--protect-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ProtectSample,
+        ),
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -638,6 +682,12 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::LinkSample) {
         return link_sample(input, output);
     }
+    if matches!(operation, Operation::PropsSample) {
+        return props_sample(input, output);
+    }
+    if matches!(operation, Operation::ProtectSample) {
+        return protect_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -680,6 +730,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         }
         Operation::NamesSample => unreachable!("the names sample has its own path"),
         Operation::LinkSample => unreachable!("the link sample has its own path"),
+        Operation::PropsSample => unreachable!("the properties sample has its own path"),
+        Operation::ProtectSample => unreachable!("the protection sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -2899,6 +2951,185 @@ fn external_links<R: io::Read + io::Seek>(
         .into_iter()
         .map(|form| rels.of_kind(form).filter(|rel| rel.external).count() as u64)
         .sum())
+}
+
+/// The thirteen core properties, for the counts.
+const PROPERTIES: [Property; 13] = [
+    Property::Title,
+    Property::Subject,
+    Property::Creator,
+    Property::Description,
+    Property::Language,
+    Property::Keywords,
+    Property::LastModifiedBy,
+    Property::Revision,
+    Property::Category,
+    Property::ContentStatus,
+    Property::Version,
+    Property::Created,
+    Property::Modified,
+];
+
+/// The values the properties sample sets.
+const SAMPLE_PROPERTIES: [(Property, &str); 3] = [
+    (Property::Title, "emend sample"),
+    (Property::Keywords, "emend"),
+    (Property::Modified, "2026-01-01T00:00:00Z"),
+];
+
+/// How many of the thirteen properties `properties` holds.
+fn property_count(properties: &Properties) -> u64 {
+    PROPERTIES
+        .iter()
+        .filter(|property| properties.get(**property).is_some())
+        .count() as u64
+}
+
+/// The properties sample (`specs/0019-names-links-properties-protection.md`,
+/// "Harness runs", `--props-sample`): three properties set, the output
+/// written and read back. A failure after the output is in place removes
+/// it; a refusal by the layer is exit 2 with no output.
+fn props_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let core_before = package
+        .relationships(b"")?
+        .first_of(CORE_PROPERTIES)
+        .is_some();
+    let props_before = property_count(&package.properties()?);
+    for (property, value) in SAMPLE_PROPERTIES {
+        package.set_property(property, Some(value))?;
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = props_read_back(output);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (read_back, props_after) = checked?;
+    edit_line_named(
+        "props",
+        &[
+            ("core_before", u64::from(core_before)),
+            ("title_after", read_back[0]),
+            ("keywords_after", read_back[1]),
+            ("modified_after", read_back[2]),
+            ("props_before", props_before),
+            ("props_after", props_after),
+        ],
+    )
+}
+
+/// Reopens the properties sample's output: 1 for each of the three values
+/// read back as set, each asserted, and the count of properties held.
+fn props_read_back(output: &Path) -> Result<([u64; 3], u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let properties = package.properties()?;
+    let mut read_back = [0u64; 3];
+    for (at, (property, value)) in SAMPLE_PROPERTIES.iter().enumerate() {
+        read_back[at] = u64::from(properties.get(*property) == Some(*value));
+        if read_back[at] != 1 {
+            return Err(Error::PropsSample("property read back"));
+        }
+    }
+    Ok((read_back, property_count(&properties)))
+}
+
+/// The protection sample (`specs/0019-names-links-properties-protection.md`,
+/// "Harness runs", `--protect-sample`): W and the workbook protected with
+/// the password `emend`, the output written and read back.
+fn protect_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let book = workbook.part.clone();
+    let part = workbook
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sheet_before = root_children(&mut package, &part, b"sheetProtection")?;
+    let book_before = root_children(&mut package, &book, b"workbookProtection")?;
+    let options = SheetProtection {
+        sort: false,
+        auto_filter: false,
+        ..SheetProtection::default()
+    };
+    package.protect_sheet(&part, Some("emend"), options)?;
+    package.protect_workbook(Some("emend"), true, false)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = protect_read_back(output, &part, &book);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (sheet_after, book_after) = checked?;
+    let mut line = String::from("protect");
+    for (key, value) in [
+        ("sheet_prot_before", sheet_before),
+        ("sheet_prot_after", sheet_after),
+        ("book_prot_before", book_before),
+        ("book_prot_after", book_after),
+    ] {
+        line.push_str(&format!("\t{key}={value}"));
+    }
+    line.push_str(&format!("\thash={:04X}", legacy_password_hash("emend")));
+    print_line(&line)
+}
+
+/// Reopens the protection sample's output: one `sheetProtection` in W and
+/// one `workbookProtection` in the workbook, each asserted.
+fn protect_read_back(output: &Path, part: &[u8], book: &[u8]) -> Result<(u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let sheet_after = root_children(&mut package, part, b"sheetProtection")?;
+    let book_after = root_children(&mut package, book, b"workbookProtection")?;
+    if sheet_after != 1 {
+        return Err(Error::ProtectSample("sheetProtection count"));
+    }
+    if book_after != 1 {
+        return Err(Error::ProtectSample("workbookProtection count"));
+    }
+    Ok((sheet_after, book_after))
+}
+
+/// The main-namespace children of a part's root named `local`, by this
+/// tool's own pass over the part's tokens.
+fn root_children<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    local: &[u8],
+) -> Result<u64, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let mut count = 0u64;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2
+            && tag_local_name(raw) == local
+            && MAIN.contains(&element_namespace(raw, &root).as_slice())
+        {
+            count += 1;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(count)
 }
 
 /// The defined names whose scope is the sheet at index `at`.
