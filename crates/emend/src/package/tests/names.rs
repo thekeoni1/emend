@@ -416,6 +416,8 @@ fn the_name_rule_refuses_each_clause_and_records_nothing() {
         "a-b",
         "R",
         "C",
+        "r",
+        "c",
         long.as_str(),
     ] {
         let (parts, mut package) = opened(book(1, ""));

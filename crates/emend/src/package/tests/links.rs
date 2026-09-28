@@ -425,3 +425,141 @@ fn a_link_on_a_part_with_a_row_insertion_is_refused() {
         "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
     );
 }
+
+#[test]
+fn a_relationship_a_kept_link_also_names_is_not_removed() {
+    // P2 verification ruling 6: two links naming one r:id, one removed; the
+    // relationship stays for the one kept.
+    let shared = "<sheetData/><hyperlinks><hyperlink ref=\"B2\" r:id=\"rId3\"/>\
+                  <hyperlink ref=\"C3\" r:id=\"rId3\"/></hyperlinks>";
+    let output = linked(&with_sheet(sheet_r(shared), true), |p| {
+        p.remove_hyperlink(SHEET, at("B2")).expect("remove")
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r("<sheetData/><hyperlinks><hyperlink ref=\"C3\" r:id=\"rId3\"/></hyperlinks>")
+    );
+    assert_eq!(text_of(&output, SHEET_RELS), rels(&sheet_rels_body()));
+}
+
+#[test]
+fn two_external_sets_on_one_cell_record_one_relationship_for_the_last() {
+    // P2 verification ruling 7 (F15): the earlier set leaves no relationship.
+    let parts = with_sheet(sheet_r(ONE_LINK), true);
+    let output = linked(&parts, |p| {
+        p.set_hyperlink(
+            SHEET,
+            at("A1"),
+            LinkTarget::External("https://first.example/"),
+            None,
+        )
+        .expect("first");
+        p.set_hyperlink(
+            SHEET,
+            at("A1"),
+            LinkTarget::External("https://last.example/"),
+            None,
+        )
+        .expect("last");
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r(
+            "<sheetData/><hyperlinks><hyperlink ref=\"B2\" r:id=\"rId3\"/>\
+             <hyperlink ref=\"A1\" r:id=\"rId8\"/></hyperlinks><pageMargins left=\"0.7\"/>"
+        )
+    );
+    assert_eq!(
+        text_of(&output, SHEET_RELS),
+        rels(&format!(
+            "{}{}",
+            sheet_rels_body(),
+            external("rId8", "https://last.example/")
+        ))
+    );
+}
+
+#[test]
+fn a_strict_worksheet_relationship_gives_the_strict_type_and_declaration() {
+    // P2 verification ruling 2: the worksheet's own relationship in the
+    // workbook's rels part is strict, so the link's relationship type and
+    // the retag's namespace are the strict forms, whatever the root's own.
+    const STRICT: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+    let mut parts = with_sheet(worksheet("<sheetData/>"), false);
+    let workbook_rels = part_text(&parts, b"xl/_rels/workbook.xml.rels").replace(
+        &format!("{ATTR_NS}/worksheet"),
+        &format!("{STRICT}/worksheet"),
+    );
+    set(&mut parts, b"xl/_rels/workbook.xml.rels", workbook_rels);
+    let output = linked(&parts, |p| {
+        p.set_hyperlink(
+            SHEET,
+            at("A1"),
+            LinkTarget::External("https://x.example/"),
+            None,
+        )
+        .expect("set")
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{STRICT}\"><sheetData/>\
+             <hyperlinks><hyperlink ref=\"A1\" r:id=\"rId1\"/></hyperlinks></worksheet>"
+        )
+    );
+    let rel = format!(
+        "<Relationship Id=\"rId1\" Type=\"{STRICT}/hyperlink\" Target=\"https://x.example/\" \
+         TargetMode=\"External\"/>"
+    );
+    assert_added_part(
+        &output,
+        SHEET_RELS,
+        format!("{DECLARATION}\n<Relationships xmlns=\"{RELS_NS}\">{rel}</Relationships>")
+            .as_bytes(),
+    );
+}
+
+#[test]
+fn a_sheet_added_in_the_same_write_takes_a_location_link() {
+    // P2 verification ruling 4: the added part is the template's worksheet,
+    // and a location link needs no relationship.
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add_sheet");
+    package
+        .set_hyperlink(&part, at("A1"), LinkTarget::Location("Two!B1"), None)
+        .expect("set");
+    let out = written(package);
+    let mut reopened = Package::open(Cursor::new(out)).expect("open the output");
+    let index = reopened.part(&part).expect("the added part");
+    let mut text = String::new();
+    reopened
+        .read_part(index)
+        .expect("read_part")
+        .read_to_string(&mut text)
+        .expect("UTF-8");
+    let template = String::from_utf8(BLANK_WORKSHEET.to_vec()).expect("UTF-8");
+    assert_eq!(
+        text,
+        template.replace(
+            "</worksheet>",
+            "<hyperlinks><hyperlink ref=\"A1\" location=\"Two!B1\"/></hyperlinks></worksheet>"
+        )
+    );
+}
+
+#[test]
+fn a_sheet_added_in_the_same_write_refuses_an_external_link() {
+    // P2 verification ruling 4: the relationship's source is not yet a part
+    // the package holds; the caller writes twice.
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add_sheet");
+    package
+        .set_hyperlink(
+            &part,
+            at("A1"),
+            LinkTarget::External("https://x.example/"),
+            None,
+        )
+        .expect("recorded");
+    assert_package(refused(package), "no such part");
+}

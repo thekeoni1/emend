@@ -1266,6 +1266,12 @@ struct Recorded {
     /// external link, filled by [`Package::write_to`] before it validates.
     #[cfg(feature = "metadata")]
     link_ids: Vec<(Vec<u8>, CellRef, Vec<u8>)>,
+    /// `(part, strict)`: for each part with a link edit, whether the
+    /// worksheet's own relationship in the workbook's rels part is of the
+    /// strict form, which the link's relationship type and a retag's
+    /// declaration both follow (P2 verification ruling 2).
+    #[cfg(feature = "metadata")]
+    link_strict: Vec<(Vec<u8>, bool)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1334,6 +1340,10 @@ struct SheetWork {
     /// write removes their relationships.
     #[cfg(feature = "metadata")]
     dropped_ids: std::cell::RefCell<Vec<Vec<u8>>>,
+    /// Whether the part's links take the strict forms (the relationship
+    /// type and a retag's namespace).
+    #[cfg(feature = "metadata")]
+    links_strict: bool,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -1376,8 +1386,8 @@ enum LinkEdit {
     Remove,
 }
 
-/// Whether the part's rewrite carries no hyperlink edit; always, without the
-/// feature `metadata`.
+/// Whether the part's rewrite carries no hyperlink edit (the Cargo feature
+/// `metadata`).
 #[cfg(all(feature = "rowcol", feature = "metadata"))]
 fn no_links(work: &SheetWork) -> bool {
     work.links.is_empty()
@@ -1821,6 +1831,11 @@ impl Recorded {
             links: self.links_of(part),
             #[cfg(feature = "metadata")]
             dropped_ids: std::cell::RefCell::new(Vec::new()),
+            #[cfg(feature = "metadata")]
+            links_strict: self
+                .link_strict
+                .iter()
+                .any(|(at, strict)| at.as_slice() == part && *strict),
         }
     }
 
@@ -3467,8 +3482,9 @@ impl<'a> Parts<'a> {
 
     /// Records the relationship of every external link the write will
     /// append, each cell's last set, on its part's rels part, and keeps the
-    /// id for the worksheet pass; the type's form follows the part's own
-    /// hyperlink relationships, transitional when it has none.
+    /// id for the worksheet pass; the type's form, and a retag's namespace
+    /// form, follow the worksheet's own relationship in the workbook's rels
+    /// part (P2 verification ruling 2).
     #[cfg(feature = "metadata")]
     fn record_link_relationships(&mut self) -> Result<(), Error> {
         let mut parts: Vec<Vec<u8>> = Vec::new();
@@ -3478,6 +3494,8 @@ impl<'a> Parts<'a> {
             }
         }
         for part in parts {
+            let strict = self.sheet_is_strict(&part)?;
+            self.edits.link_strict.push((part.clone(), strict));
             let wanted: Vec<(CellRef, String)> = self
                 .edits
                 .links_of(&part)
@@ -3490,22 +3508,39 @@ impl<'a> Parts<'a> {
             if wanted.is_empty() {
                 continue;
             }
-            let kind = if self
-                .relationships(&part)?
-                .of_kind(HYPERLINK[1])
-                .next()
-                .is_some()
-            {
-                HYPERLINK[1]
-            } else {
-                HYPERLINK[0]
-            };
+            let kind = HYPERLINK[usize::from(strict)];
             for (cell, target) in wanted {
                 let id = self.add_relationship(&part, kind, target.as_bytes(), true)?;
                 self.edits.link_ids.push((part.clone(), cell, id));
             }
         }
         Ok(())
+    }
+
+    /// Whether the workbook's relationship to the worksheet part `part` is
+    /// of the strict form: the file's relationship whose target is the part,
+    /// or the one this write adds for a sheet it adds; transitional when
+    /// there is none.
+    #[cfg(feature = "metadata")]
+    fn sheet_is_strict(&mut self, part: &[u8]) -> Result<bool, Error> {
+        let workbook = self.workbook()?.part.clone();
+        let added: Vec<Relationship> = self
+            .edits
+            .rel_additions
+            .iter()
+            .filter(|(source, _)| *source == workbook)
+            .map(|(_, rel)| rel.clone())
+            .collect();
+        let rels = self.relationships(&workbook)?;
+        for rel in rels.all().iter().chain(added.iter()) {
+            if !rel.external
+                && WORKSHEET.contains(&rel.kind.as_slice())
+                && rels.target_part(rel).is_ok_and(|target| target == part)
+            {
+                return Ok(rel.kind.as_slice() == WORKSHEET[1]);
+            }
+        }
+        Ok(false)
     }
 
     /// A defined name's scope as recorded: the entry name of the sheet
@@ -6938,8 +6973,7 @@ fn rewrite_worksheet_from(
                     // The root's start tag, retagged with a relationships
                     // prefix when an external link needs one (decision 3 A).
                     #[cfg(feature = "metadata")]
-                    let root_raw =
-                        links.root_tag(token.raw, start, namespace == Some(MAIN[1]), index)?;
+                    let root_raw = links.root_tag(token.raw, start, work.links_strict, index)?;
                     #[cfg(not(feature = "metadata"))]
                     let root_raw = token.raw.to_vec();
                     #[cfg(feature = "metadata")]
@@ -7407,6 +7441,9 @@ struct LinksPass<'w> {
     found: Vec<bool>,
     /// The `r:id`s of the links skipped.
     dropped: Vec<Vec<u8>>,
+    /// The `r:id`s of the links kept, whose relationships stay (P2
+    /// verification ruling 6).
+    kept_ids: Vec<Vec<u8>>,
 }
 
 /// A `<hyperlinks>` being read: its start tag, its prefix and the bytes of
@@ -7440,6 +7477,7 @@ impl<'w> LinksPass<'w> {
             buffer: None,
             found: vec![false; links.len()],
             dropped: Vec::new(),
+            kept_ids: Vec::new(),
         }
     }
 
@@ -7447,7 +7485,8 @@ impl<'w> LinksPass<'w> {
     /// external link is appended and the root binds no prefix to the
     /// relationships namespace, with one bound (`r`, or the first of `r1`,
     /// `r2` and so on that the tag does not declare), in the namespace form
-    /// of the root's own (decision 3 A).
+    /// of the worksheet's own relationship (decision 3 A; P2 verification
+    /// ruling 2).
     fn root_tag(
         &mut self,
         raw: &[u8],
@@ -7613,24 +7652,27 @@ impl<'w> LinksPass<'w> {
                 .filter(|(_, (at, _))| Some(*at) == cell)
                 .map(|(which, _)| which)
                 .collect();
+            let mut ids: Vec<Vec<u8>> = Vec::new();
+            for attribute in start.attributes() {
+                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                if attribute.key.as_namespace_binding().is_some() {
+                    continue;
+                }
+                let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                if name == b"id"
+                    && namespace.is_some_and(|ns| RELATIONSHIPS_ATTRIBUTE.contains(&ns))
+                {
+                    ids.push(attribute.value.as_bytes().to_vec());
+                }
+            }
             if !edited.is_empty() {
                 for which in edited {
                     self.found[which] = true;
                 }
-                for attribute in start.attributes() {
-                    let attribute = attribute.map_err(|_| Error::Xml(index))?;
-                    if attribute.key.as_namespace_binding().is_some() {
-                        continue;
-                    }
-                    let (namespace, name) = scope.resolve_attribute(attribute.key)?;
-                    if name == b"id"
-                        && namespace.is_some_and(|ns| RELATIONSHIPS_ATTRIBUTE.contains(&ns))
-                    {
-                        self.dropped.push(attribute.value.as_bytes().to_vec());
-                    }
-                }
+                self.dropped.extend(ids);
                 return Ok(true);
             }
+            self.kept_ids.extend(ids);
             buffer.kept += 1;
         }
         buffer.content.extend_from_slice(token_raw);
@@ -7680,14 +7722,18 @@ impl<'w> LinksPass<'w> {
     }
 
     /// After the pass: a removal the part had no link for is refused, and
-    /// the dropped `r:id`s are handed back.
+    /// the dropped `r:id`s that no kept link also names are handed back
+    /// (P2 verification ruling 6).
     fn finish(self, work: &SheetWork) -> Result<(), Error> {
         for (which, (_, edit)) in self.links.iter().enumerate() {
             if matches!(edit, LinkEdit::Remove) && !self.found[which] {
                 return Err(NO_SUCH_LINK);
             }
         }
-        work.dropped_ids.borrow_mut().extend(self.dropped);
+        let kept = self.kept_ids;
+        work.dropped_ids
+            .borrow_mut()
+            .extend(self.dropped.into_iter().filter(|id| !kept.contains(id)));
         Ok(())
     }
 }
