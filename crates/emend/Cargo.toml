@@ -29,3 +29,8 @@ dates = []
 # dependency of its own, measured beside the core as `dates` is. The column
 # formats, panes and merges of the same part stay in the core.
 rowcol = []
+# The defined names, hyperlinks, document properties and protection of
+# specs/0019-names-links-properties-protection.md (decision 1 A): off by
+# default, with no dependency of its own, measured beside the core as `dates`
+# and `rowcol` are.
+metadata = []

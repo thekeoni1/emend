@@ -1472,7 +1472,7 @@ fn skip_subtree<R: Read>(
 /// the text, and "a cell holds a reference this layer cannot expand" for a
 /// reference [`expand`] does not know. [`Error::Xml`] when the part ends
 /// before the end tag.
-fn text_of<R: Read>(
+pub(crate) fn text_of<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,

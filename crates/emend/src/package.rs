@@ -316,6 +316,25 @@
 //!   ruling 2,
 //!   `spans_moved_grown_cut_and_dropped_and_one_that_does_not_parse_refused`).
 //!
+//! Defined names add these (`specs/0019-names-links-properties-protection.md`,
+//! "Errors"), the Cargo feature `metadata`'s messages (decision 1 A: without
+//! the feature no call records a name edit and none of them is raised); the
+//! first is raised by `Package::add_defined_name`, the rest by
+//! [`Package::write_to`]. The calls also meet "no sheet of that name" and "a
+//! text holds a character XML cannot carry", and the write "the workbook part
+//! cannot be edited in a package that replaces or removes it" and "a workbook
+//! has two calcPr elements", through the formula-change rule a name edit
+//! fires:
+//!
+//! - "a defined name is not valid"
+//!   (`names::the_name_rule_refuses_each_clause_and_records_nothing`).
+//! - "a defined name of that name and scope already exists"
+//!   (`names::a_duplicate_against_the_file_or_a_pending_edit_is_refused`).
+//! - "no defined name of that name and scope"
+//!   (`names::a_removal_drops_a_name_by_scope_and_refuses_an_absent_one`).
+//! - "a workbook has two definedNames or workbookProtection elements"
+//!   (`names::a_second_defined_names_is_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1077,6 +1096,15 @@ pub struct Workbook {
     /// (`specs/0013-formulas.md`, "Module `package`"). The first `<calcPr>`
     /// among the root's children is the one read, as for `date1904`.
     pub full_calc_on_load: bool,
+    /// The `<definedName>` elements of the root's `<definedNames>`, in
+    /// document order (`specs/0019-names-links-properties-protection.md`,
+    /// "Defined names"); [`Workbook::defined_names`] answers with them.
+    #[cfg(feature = "metadata")]
+    pub(crate) defined_names: Vec<DefinedName>,
+    /// How many `<definedNames>` elements the root has; a write that edits
+    /// a name refuses two.
+    #[cfg(feature = "metadata")]
+    pub(crate) defined_names_containers: usize,
 }
 
 impl Workbook {
@@ -1084,6 +1112,33 @@ impl Workbook {
     pub fn sheet(&self, name: &str) -> Option<&Sheet> {
         self.sheets.iter().find(|sheet| sheet.name == name)
     }
+
+    /// The file's defined names, in document order: every `<definedName>`
+    /// of the root's `<definedNames>`, read with the sheets. A snapshot of
+    /// the file, not of the pending edits. The Cargo feature `metadata`
+    /// (`specs/0019-names-links-properties-protection.md`, "Defined names").
+    #[cfg(feature = "metadata")]
+    pub fn defined_names(&self) -> &[DefinedName] {
+        &self.defined_names
+    }
+}
+
+/// One `<definedName>` of the workbook part, as [`Workbook::defined_names`]
+/// reads it (`specs/0019-names-links-properties-protection.md`, "Defined
+/// names"). The Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefinedName {
+    /// The `name` attribute, unescaped and normalized as a sheet name is.
+    pub name: String,
+    /// The element's content, unescaped, with XML's line-end normalisation:
+    /// stored, never parsed or evaluated.
+    pub text: String,
+    /// The `localSheetId`, an index into the file's sheet list
+    /// ([`Workbook::sheets`]), or `None` for a workbook-level name.
+    pub sheet: Option<u32>,
+    /// Whether `hidden` is written as `1` or `true`.
+    pub hidden: bool,
 }
 
 /// A spreadsheet package: the archive, and the parts it names.
@@ -1172,6 +1227,29 @@ struct Recorded {
     /// takes one per part and nothing else for it (decision 5).
     #[cfg(feature = "rowcol")]
     shifts: Vec<(Vec<u8>, AxisShift)>,
+    /// The defined names added and removed, in record order
+    /// (`specs/0019-names-links-properties-protection.md`, "Defined names").
+    #[cfg(feature = "metadata")]
+    name_edits: Vec<NameEdit>,
+}
+
+/// One recorded change to the workbook's defined names. A scope is the
+/// entry name of the sheet the call named, so it follows that sheet through
+/// a rename, a move or a removal in the same write; `None` is the workbook.
+#[cfg(feature = "metadata")]
+#[derive(Clone)]
+enum NameEdit {
+    /// A name, its text and its scope, written at the end of `<definedNames>`.
+    Add {
+        name: String,
+        text: String,
+        sheet: Option<Vec<u8>>,
+    },
+    /// The file's names of that name, ignoring case, and that scope, dropped.
+    Remove {
+        name: String,
+        sheet: Option<Vec<u8>>,
+    },
 }
 
 /// One field of a column's or a row's format as a call records it.
@@ -1329,6 +1407,55 @@ fn folded(name: &str) -> String {
     name.chars().flat_map(char::to_lowercase).collect()
 }
 
+/// Checks a defined name against the rule of
+/// `specs/0019-names-links-properties-protection.md`, "Defined names": 1 to
+/// 255 characters; the first a letter, `_` or `\`; the rest letters, digits,
+/// `.`, `_`, `\` or `?` ("letter" and "digit" by `char::is_alphabetic` and
+/// `char::is_numeric`); not `_xlnm.`-prefixed; not a cell reference and not of
+/// the `R1C1` form, each ignoring case.
+#[cfg(feature = "metadata")]
+fn check_defined_name(name: &str) -> Result<(), Error> {
+    let mut chars = name.chars();
+    let first_ok = chars
+        .next()
+        .is_some_and(|first| first.is_alphabetic() || first == '_' || first == '\\');
+    let rest_ok =
+        chars.all(|c| c.is_alphabetic() || c.is_numeric() || matches!(c, '.' | '_' | '\\' | '?'));
+    let built_in = name
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("_xlnm."));
+    let reference = CellRef::parse(name.to_ascii_uppercase().as_bytes()).is_some();
+    if !first_ok
+        || !rest_ok
+        || name.chars().count() > 255
+        || built_in
+        || reference
+        || is_r1c1_form(name)
+    {
+        return Err(DEFINED_NAME_INVALID);
+    }
+    Ok(())
+}
+
+/// Whether `name` is `R` or `r`, optional digits, `C` or `c`, optional
+/// digits, and nothing else.
+#[cfg(feature = "metadata")]
+fn is_r1c1_form(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    let Some(rest) = bytes
+        .strip_prefix(b"R")
+        .or_else(|| bytes.strip_prefix(b"r"))
+    else {
+        return false;
+    };
+    let digits = rest.iter().take_while(|byte| byte.is_ascii_digit()).count();
+    let rest = &rest[digits..];
+    let Some(rest) = rest.strip_prefix(b"C").or_else(|| rest.strip_prefix(b"c")) else {
+        return false;
+    };
+    rest.iter().all(u8::is_ascii_digit)
+}
+
 /// Checks a name a caller gives against the rules Excel enforces on entry
 /// and against every other sheet of `list`, `except` being the renamed
 /// sheet's own position (`specs/0016-new-workbook-and-sheets.md`, "Sheet
@@ -1434,6 +1561,21 @@ impl Recorded {
             && self.merges.is_empty()
             && self.unmerges.is_empty()
             && self.no_shifts()
+            && self.no_name_edits()
+    }
+
+    /// Whether no defined name is added or removed; always, without the
+    /// feature `metadata`.
+    #[cfg(feature = "metadata")]
+    fn no_name_edits(&self) -> bool {
+        self.name_edits.is_empty()
+    }
+
+    /// Whether no defined name is added or removed; always, without the
+    /// feature `metadata`.
+    #[cfg(not(feature = "metadata"))]
+    fn no_name_edits(&self) -> bool {
+        true
     }
 
     /// Whether no insertion or deletion is recorded; always, without the
@@ -2238,6 +2380,69 @@ impl<R: Read + Seek> Package<R> {
         self.parts().shift(part, at, count, false, true)
     }
 
+    /// Records a defined name: `name` with the content `text`, for the whole
+    /// workbook (`sheet` `None`) or for the sheet named `sheet` in
+    /// [`Package::sheets`]'s list. The Cargo feature `metadata`
+    /// (`specs/0019-names-links-properties-protection.md`, "Defined names").
+    ///
+    /// The text is stored, never parsed or checked as a formula, and is
+    /// written as a cell's text is, escaped; Excel stores it without a
+    /// leading `=`, which is the caller's to leave out. The scope follows its
+    /// sheet through a rename, a move or a removal recorded in the same
+    /// write and becomes the sheet's index in the output's list. The write
+    /// appends the name at the end of `<definedNames>`, creating that
+    /// element in schema position when the workbook has none, and applies
+    /// the formula-change rule: the calculation chain dropped once when the
+    /// workbook has one, `fullCalcOnLoad` set (decision 2 A). Nothing that
+    /// uses a name is touched or checked.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a defined name is not valid" for a `name` outside
+    /// the rule (1 to 255 characters, the first a letter, `_` or `\`, the
+    /// rest letters, digits, `.`, `_`, `\` or `?`, not `_xlnm.`-prefixed,
+    /// not a cell reference and not of the `R1C1` form, each ignoring case)
+    /// or an empty `text`; "a text holds a character XML cannot carry" for a
+    /// `text` holding one; "no sheet of that name" for a `sheet` the list
+    /// does not hold; and whatever [`Package::workbook`] refuses. Nothing is
+    /// recorded when this fails. The write refuses a name and scope the file
+    /// has, or that this write adds or removes already, ignoring case, "a
+    /// defined name of that name and scope already exists"; a scope whose
+    /// sheet a later edit removed, "no sheet of that name"; and a workbook
+    /// part with two `<definedNames>`, "a workbook has two definedNames or
+    /// workbookProtection elements".
+    #[cfg(feature = "metadata")]
+    pub fn add_defined_name(
+        &mut self,
+        name: &str,
+        text: &str,
+        sheet: Option<&str>,
+    ) -> Result<(), Error> {
+        self.parts().add_defined_name(name, text, sheet)
+    }
+
+    /// Records the removal of the file's defined name `name`, compared
+    /// ignoring case, with the scope `sheet` (`None` for a workbook-level
+    /// name, else a sheet named in [`Package::sheets`]'s list, matched
+    /// against the file's `localSheetId`). The write drops the element and
+    /// applies the formula-change rule, as [`Package::add_defined_name`]
+    /// says; a `<definedNames>` left empty is dropped. The Cargo feature
+    /// `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no sheet of that name" for a `sheet` the list does
+    /// not hold, and whatever [`Package::workbook`] refuses; nothing is
+    /// recorded when this fails. The write refuses a name and scope the file
+    /// does not have, "no defined name of that name and scope"; a name and
+    /// scope this write also adds, "a defined name of that name and scope
+    /// already exists" (the caller writes twice); and a workbook part with
+    /// two `<definedNames>`.
+    #[cfg(feature = "metadata")]
+    pub fn remove_defined_name(&mut self, name: &str, sheet: Option<&str>) -> Result<(), Error> {
+        self.parts().remove_defined_name(name, sheet)
+    }
+
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
     /// `<calcPr>`, asking an application to recalculate every formula when
     /// it opens the file.
@@ -2576,6 +2781,10 @@ impl<'a> Parts<'a> {
             theme: resolved_first(rels, THEME)?,
             date1904: read.date1904,
             full_calc_on_load: read.full_calc_on_load,
+            #[cfg(feature = "metadata")]
+            defined_names: read.defined_names,
+            #[cfg(feature = "metadata")]
+            defined_names_containers: read.defined_names_containers,
         })
     }
 
@@ -2971,6 +3180,55 @@ impl<'a> Parts<'a> {
         self.edits.recalculate = true;
     }
 
+    /// The body of [`Package::add_defined_name`].
+    #[cfg(feature = "metadata")]
+    fn add_defined_name(
+        &mut self,
+        name: &str,
+        text: &str,
+        sheet: Option<&str>,
+    ) -> Result<(), Error> {
+        check_defined_name(name)?;
+        if text.is_empty() {
+            return Err(DEFINED_NAME_INVALID);
+        }
+        if text.chars().any(crate::cells::forbidden_in_xml) {
+            return Err(TEXT_NOT_XML);
+        }
+        let sheet = self.name_scope(sheet)?;
+        self.edits.name_edits.push(NameEdit::Add {
+            name: name.to_string(),
+            text: text.to_string(),
+            sheet,
+        });
+        Ok(())
+    }
+
+    /// The body of [`Package::remove_defined_name`].
+    #[cfg(feature = "metadata")]
+    fn remove_defined_name(&mut self, name: &str, sheet: Option<&str>) -> Result<(), Error> {
+        let sheet = self.name_scope(sheet)?;
+        self.edits.name_edits.push(NameEdit::Remove {
+            name: name.to_string(),
+            sheet,
+        });
+        Ok(())
+    }
+
+    /// A defined name's scope as recorded: the entry name of the sheet
+    /// named `sheet` in the projected list, or `None` for the workbook.
+    #[cfg(feature = "metadata")]
+    fn name_scope(&mut self, sheet: Option<&str>) -> Result<Option<Vec<u8>>, Error> {
+        let list = self.projected()?;
+        match sheet {
+            None => Ok(None),
+            Some(name) => {
+                let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
+                Ok(Some(list[at].sheet.part.clone()))
+            }
+        }
+    }
+
     /// The body of [`Package::sheets`].
     fn sheets(&mut self) -> Result<Vec<Sheet>, Error> {
         Ok(self
@@ -3315,7 +3573,9 @@ impl<'a> Parts<'a> {
                 None => return Err(NO_SUCH_PART),
             }
         }
-        if changed_formula {
+        // A defined name added or removed is a formula change too
+        // (`specs/0019-names-links-properties-protection.md`, decision 2 A).
+        if changed_formula || !self.edits.no_name_edits() {
             self.formula_change_rule()?;
         }
 
@@ -3360,11 +3620,22 @@ impl<'a> Parts<'a> {
             let file_count = self.workbook()?.sheets.len();
             Some(SheetPlan::new(self.projected()?, file_count)).filter(SheetPlan::changes)
         };
+        #[cfg(feature = "metadata")]
+        let names = if self.edits.name_edits.is_empty() {
+            None
+        } else {
+            Some(self.name_plan()?)
+        };
         if self.edits.recalculate || plan.is_some() {
             let part = self.workbook()?.part.clone();
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
-            let calc = self.edits.recalculate.then_some(*self.calc_prs > 0);
-            let (temp, replacement) = rewrite_workbook(self.archive, index, calc, plan.as_ref())?;
+            let book = BookEdits {
+                calc: self.edits.recalculate.then_some(*self.calc_prs > 0),
+                plan: plan.as_ref(),
+                #[cfg(feature = "metadata")]
+                names: names.as_ref(),
+            };
+            let (temp, replacement) = rewrite_workbook_part(self.archive, index, &book)?;
             temporaries.push(temp);
             edits.replace(index, replacement);
         }
@@ -3679,7 +3950,8 @@ impl<'a> Parts<'a> {
         // part this write neither removes nor replaces and that has at most
         // one `calcPr` (`specs/0013-formulas.md`, P1 ruling 3). A rule fired
         // by a removed formula is checked when the rule validates again.
-        let calc = self.edits.recalculate || self.edits.writes_formula();
+        let calc =
+            self.edits.recalculate || self.edits.writes_formula() || !self.edits.no_name_edits();
         let sheets = !self.edits.sheet_edits.is_empty();
         if calc || sheets {
             let part = self.workbook()?.part.clone();
@@ -3703,7 +3975,117 @@ impl<'a> Parts<'a> {
         if sheets {
             self.projected()?;
         }
+        // The defined names resolve and are neither doubled nor missing
+        // (`specs/0019-names-links-properties-protection.md`, "Defined
+        // names").
+        #[cfg(feature = "metadata")]
+        if !self.edits.name_edits.is_empty() {
+            self.name_plan()?;
+        }
         Ok(())
+    }
+
+    /// The defined-name edits checked against the file and one another and
+    /// resolved for the workbook rewrite: a second `<definedNames>`, an
+    /// addition whose name and scope the file has or another edit of this
+    /// write names (the additions first, so an addition and a removal of one
+    /// name and scope are a duplicate whatever their order), an addition's
+    /// scope no longer in the projected list, and a removal matching none of
+    /// the file's names, are each refused.
+    #[cfg(feature = "metadata")]
+    fn name_plan(&mut self) -> Result<NamePlan, Error> {
+        let workbook = self.workbook()?;
+        if workbook.defined_names_containers > 1 {
+            return Err(TWO_BOOK_ELEMENTS);
+        }
+        let containers = workbook.defined_names_containers;
+        let file = workbook.defined_names.clone();
+        let sheets: Vec<Vec<u8>> = workbook.sheets.iter().map(|s| s.part.clone()).collect();
+        let plan = SheetPlan::new(self.projected()?, sheets.len());
+        let edits = self.edits.name_edits.clone();
+        // Whether a file name has that scope: its `localSheetId` names the
+        // sheet whose entry is `scope`, or it has none and `scope` is `None`.
+        let file_scope = |sheet: Option<u32>, scope: &Option<Vec<u8>>| match (sheet, scope) {
+            (None, None) => true,
+            (Some(at), Some(part)) => {
+                usize::try_from(at).is_ok_and(|at| sheets.get(at) == Some(part))
+            }
+            _ => false,
+        };
+        let key = |edit: &NameEdit| match edit {
+            NameEdit::Add { name, sheet, .. } | NameEdit::Remove { name, sheet } => {
+                (folded(name), sheet.clone())
+            }
+        };
+        let mut added = Vec::new();
+        for (at, edit) in edits.iter().enumerate() {
+            let NameEdit::Add { name, text, sheet } = edit else {
+                continue;
+            };
+            let (folded_name, _) = key(edit);
+            if file
+                .iter()
+                .any(|have| folded(&have.name) == folded_name && file_scope(have.sheet, sheet))
+            {
+                return Err(NAME_EXISTS);
+            }
+            let doubled = edits.iter().enumerate().any(|(other, earlier)| {
+                other != at
+                    && key(earlier) == key(edit)
+                    && (other < at || matches!(earlier, NameEdit::Remove { .. }))
+            });
+            if doubled {
+                return Err(NAME_EXISTS);
+            }
+            let index = match sheet {
+                None => None,
+                Some(part) => {
+                    let at = plan
+                        .list
+                        .iter()
+                        .position(|entry| entry.sheet.part == *part)
+                        .ok_or(NO_SUCH_SHEET)?;
+                    Some(u32::try_from(at).map_err(|_| SHEET_EDIT_STALE)?)
+                }
+            };
+            added.push((name.clone(), text.clone(), index));
+        }
+        let mut removed: Vec<usize> = Vec::new();
+        for edit in &edits {
+            let NameEdit::Remove { name, sheet } = edit else {
+                continue;
+            };
+            let folded_name = folded(name);
+            let before = removed.len();
+            for (ordinal, have) in file.iter().enumerate() {
+                if folded(&have.name) == folded_name && file_scope(have.sheet, sheet) {
+                    removed.push(ordinal);
+                }
+            }
+            if removed.len() == before {
+                return Err(NO_SUCH_NAME);
+            }
+        }
+        // A name whose sheet the write removes goes with it, as the rewrite
+        // drops it (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 5).
+        let kept = file
+            .iter()
+            .enumerate()
+            .filter(|(ordinal, have)| {
+                let with_sheet = plan.reindexed
+                    && have.sheet.is_some_and(|at| {
+                        usize::try_from(at)
+                            .is_ok_and(|at| at < plan.file_count && plan.positions[at].is_none())
+                    });
+                !removed.contains(ordinal) && !with_sheet
+            })
+            .count();
+        Ok(NamePlan {
+            drop: containers == 1 && kept == 0 && added.is_empty(),
+            create: containers == 0 && !added.is_empty(),
+            removed,
+            added,
+        })
     }
 
     /// Refuses a second insertion or deletion for `part`, or one beside any
@@ -4077,6 +4459,15 @@ const TABLE_MOVED: Error =
 #[cfg(feature = "rowcol")]
 const RANGE_UNPARSED: Error =
     Error::Package("a range an insertion or deletion would move does not parse");
+#[cfg(feature = "metadata")]
+const DEFINED_NAME_INVALID: Error = Error::Package("a defined name is not valid");
+#[cfg(feature = "metadata")]
+const NAME_EXISTS: Error = Error::Package("a defined name of that name and scope already exists");
+#[cfg(feature = "metadata")]
+const NO_SUCH_NAME: Error = Error::Package("no defined name of that name and scope");
+#[cfg(feature = "metadata")]
+const TWO_BOOK_ELEMENTS: Error =
+    Error::Package("a workbook has two definedNames or workbookProtection elements");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -4584,23 +4975,49 @@ impl SheetPlan {
     }
 }
 
+/// What one rewrite of the workbook part applies: `calcPr` when `calc` is
+/// `Some(has_calc_pr)`, the sheet list when `plan` is, and the defined names
+/// when `names` is.
+struct BookEdits<'a> {
+    calc: Option<bool>,
+    plan: Option<&'a SheetPlan>,
+    #[cfg(feature = "metadata")]
+    names: Option<&'a NamePlan>,
+}
+
+/// [`rewrite_workbook_part`] with no defined-name edit, the form the part 6
+/// backstop test calls directly.
+#[cfg(test)]
+fn rewrite_workbook(
+    archive: &mut Core,
+    index: usize,
+    calc: Option<bool>,
+    plan: Option<&SheetPlan>,
+) -> Result<(TempFile, Replacement), Error> {
+    let edits = BookEdits {
+        calc,
+        plan,
+        #[cfg(feature = "metadata")]
+        names: None,
+    };
+    rewrite_workbook_part(archive, index, &edits)
+}
+
 /// Rewrites the workbook part into a temporary file: `calcPr` when `calc`
-/// is `Some`, and the `<sheets>`, `<definedNames>` and `<bookViews>` regions
+/// is `Some`, the `<sheets>`, `<definedNames>` and `<bookViews>` regions
 /// when `plan` is (`specs/0013-formulas.md`, "Module `package`";
 /// `specs/0016-new-workbook-and-sheets.md`, "The workbook rewrite", and P3
-/// rulings 4, 5, 6 and 8). One pass; every token's `raw` is copied, the mark
-/// included, except:
+/// rulings 4, 5, 6 and 8), and the defined names when `names` is
+/// (`specs/0019-names-links-properties-protection.md`, "Defined names"). One
+/// pass; every token's `raw` is copied, the mark included, except:
 ///
 /// - `calcPr` (`calc` is `Some(has_calc_pr)`): the start tag of the one
 ///   `<calcPr>` among the root's children keeps every byte but the value of
 ///   an unprefixed `fullCalcOnLoad` (now `1`, in its own quotes) or gains
 ///   ` fullCalcOnLoad="1"` right after its last attribute. With no
-///   `<calcPr>`, `<calcPr fullCalcOnLoad="1"/>` with the root's prefix goes
-///   immediately after the end of the last root child among
-///   [`BEFORE_CALC_PR`], or after the root start tag when there is none: the
-///   tokens that follow such an end at the root's level are held back until
-///   the next child of the root in the main namespace shows whether it is
-///   one of those. A second `<calcPr>` is refused, leaving no output.
+///   `<calcPr>`, `<calcPr fullCalcOnLoad="1"/>` is created as "Creating an
+///   element in the workbook" says, below. A second `<calcPr>` is refused,
+///   leaving no output.
 /// - `<sheets>`: its children become the projected list, back to back, an
 ///   existing `<sheet>` element copied byte for byte with a renamed sheet's
 ///   `name` value replaced between its own quotes, a new one written as
@@ -4609,16 +5026,30 @@ impl SheetPlan {
 ///   `<sheet>` elements and whitespace is refused.
 /// - `<definedNames>`, when a sheet moved or was removed: a `<definedName>`'s
 ///   `localSheetId` is remapped between its own quotes, or the element
-///   dropped when its sheet was removed.
+///   dropped when its sheet was removed. With `names`, a `<definedName>`
+///   recorded for removal is skipped whole, the additions go back to back
+///   before the container's end tag, a container left empty is dropped
+///   whole, one that is absent is created, and a second is refused.
 /// - `<bookViews>`, when a sheet moved or was removed: a `<workbookView>`'s
 ///   `activeTab` is remapped, an absent one appended when it maps away from
 ///   0, and a present `firstSheet` follows P3 ruling 8.
-fn rewrite_workbook(
+///
+/// Creating an element in the workbook: an absent element the write needs
+/// goes, with the root's prefix, immediately after the end of the last root
+/// child of the main namespace that [`WORKBOOK_CHILDREN`] puts before it, or
+/// after the root start tag when there is none. The tokens that follow such
+/// an end at the root's level are held back until the next child of the
+/// root in the main namespace shows, by its place in the table, whether the
+/// element goes before it; a main-namespace name outside the table counts as
+/// after every name in it. Two created elements go in the table's order.
+fn rewrite_workbook_part(
     archive: &mut Core,
     index: usize,
-    calc: Option<bool>,
-    plan: Option<&SheetPlan>,
+    edits: &BookEdits<'_>,
 ) -> Result<(TempFile, Replacement), Error> {
+    let (calc, plan) = (edits.calc, edits.plan);
+    #[cfg(feature = "metadata")]
+    let names = edits.names;
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
     let mut stream = Stream::new(archive.read(index)?, index)?;
@@ -4630,12 +5061,17 @@ fn rewrite_workbook(
     let mut root_prefix: Vec<u8> = Vec::new();
     let mut rels_prefix: Option<Vec<u8>> = None;
     let mut calc_prs = 0usize;
-    // Whether the new `<calcPr>` is still to be written, and the bytes held
-    // back since the last point it could go.
-    let mut inserting = calc == Some(false);
+    // The elements still to be created, in the table's order, and the bytes
+    // held back since the last point they could go.
+    let mut pending: Vec<&'static [u8]> = Vec::new();
+    #[cfg(feature = "metadata")]
+    if names.is_some_and(|names| names.create) {
+        pending.push(b"definedNames");
+    }
+    if calc == Some(false) {
+        pending.push(b"calcPr");
+    }
     let mut held: Vec<u8> = Vec::new();
-    let new_calc_pr =
-        |prefix: &[u8]| [b"<".as_slice(), prefix, b"calcPr fullCalcOnLoad=\"1\"/>"].concat();
     // The root child being walked when it is one of the three regions.
     let mut region: Option<&'static [u8]> = None;
     // Inside `<sheets>`: the file's `<sheet>` elements' bytes, the one being
@@ -4644,6 +5080,12 @@ fn rewrite_workbook(
     let mut current: Option<Vec<u8>> = None;
     let mut sheets_prefix: Vec<u8> = Vec::new();
     let mut sheets_seen = false;
+    // The `<definedName>` elements met so far, the ordinal a removal names,
+    // and the `<definedNames>` containers.
+    #[cfg(feature = "metadata")]
+    let mut name_ordinal = 0usize;
+    #[cfg(feature = "metadata")]
+    let mut name_containers = 0usize;
     while let Some(token) = stream.next()? {
         // A sheet element being read is kept whole, whatever it holds.
         if let Some(bytes) = current.as_mut() {
@@ -4668,6 +5110,7 @@ fn rewrite_workbook(
             }
             continue;
         }
+        let inserting = !pending.is_empty();
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
                 let empty = matches!(token.event, Event::Empty(_));
@@ -4702,6 +5145,22 @@ fn rewrite_workbook(
                     }
                     continue;
                 }
+                // A defined name recorded for removal goes, its content with
+                // it; the ordinal counts every one the file has.
+                #[cfg(feature = "metadata")]
+                if depth == 3 && region == Some(b"definedNames") && ours && local == b"definedName"
+                {
+                    let ordinal = name_ordinal;
+                    name_ordinal += 1;
+                    if names.is_some_and(|names| names.removed.contains(&ordinal)) {
+                        if !empty {
+                            skip_element(&mut stream, &mut scope)?;
+                        }
+                        scope.end();
+                        depth -= 1;
+                        continue;
+                    }
+                }
                 // The bytes this token writes: its own, or its start tag
                 // with an attribute remapped.
                 let raw: std::borrow::Cow<'_, [u8]> = match (plan, region, depth) {
@@ -4729,21 +5188,67 @@ fn rewrite_workbook(
                     }
                     _ => token.raw.into(),
                 };
-                if depth == 2 && ours && plan.is_some() {
-                    region = [b"sheets".as_slice(), b"definedNames", b"bookViews"]
-                        .into_iter()
+                if depth == 2 && ours {
+                    region = regions(plan.is_some(), names_edited(edits))
+                        .iter()
+                        .copied()
                         .find(|name| *name == local);
                 }
-                if depth == 1 {
-                    if inserting && empty {
-                        // A root with no children at all: opened up as part 2
-                        // opens an empty root, with the new element inside.
+                if depth == 2 && ours && inserting {
+                    // The elements that go before this child are written,
+                    // then what was held back since the last child.
+                    let at = book_position(local);
+                    for which in pending.iter().filter(|which| book_position(which) < at) {
+                        out.write_all(&created_book_element(which, &root_prefix, edits))?;
+                    }
+                    pending.retain(|which| book_position(which) >= at);
+                    out.write_all(&held)?;
+                    held.clear();
+                }
+                #[cfg(feature = "metadata")]
+                if depth == 2 && region == Some(b"definedNames") && names.is_some() {
+                    name_containers += 1;
+                    if name_containers > 1 {
+                        return Err(TWO_BOOK_ELEMENTS);
+                    }
+                    if names.is_some_and(|names| names.drop) {
+                        // Left empty: the container goes whole.
+                        if !empty {
+                            skip_element(&mut stream, &mut scope)?;
+                        }
+                        region = None;
+                        scope.end();
+                        depth -= 1;
+                        continue;
+                    }
+                    if let Some(names) = names
+                        && empty
+                        && !names.added.is_empty()
+                    {
                         out.write_all(&opened_up(&raw, index)?)?;
-                        out.write_all(&new_calc_pr(&root_prefix))?;
+                        out.write_all(&name_elements(&names.added, &root_prefix))?;
                         out.write_all(b"</")?;
                         out.write_all(start.name().into_inner().as_bytes())?;
                         out.write_all(b">")?;
-                        inserting = false;
+                        region = None;
+                        scope.end();
+                        depth -= 1;
+                        continue;
+                    }
+                }
+                let inserting = !pending.is_empty();
+                if depth == 1 {
+                    if inserting && empty {
+                        // A root with no children at all: opened up as part 2
+                        // opens an empty root, with the new elements inside.
+                        out.write_all(&opened_up(&raw, index)?)?;
+                        for which in &pending {
+                            out.write_all(&created_book_element(which, &root_prefix, edits))?;
+                        }
+                        pending.clear();
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
                     } else {
                         out.write_all(&raw)?;
                     }
@@ -4755,19 +5260,12 @@ fn rewrite_workbook(
                     out.write_all(&held)?;
                     held.clear();
                     out.write_all(&full_calc_tag(&raw, index)?)?;
-                } else if depth == 2 && inserting && ours {
-                    if !BEFORE_CALC_PR.contains(&local) {
-                        out.write_all(&new_calc_pr(&root_prefix))?;
-                        inserting = false;
-                    }
-                    out.write_all(&held)?;
-                    held.clear();
-                    write_region_start(&mut out, &raw, region, empty, index)?;
                 } else if depth >= 2 && inserting && !held.is_empty() {
                     held.extend_from_slice(&raw);
                 } else if depth == 2 && inserting && !ours {
                     // Another namespace's child of the root is held with what
-                    // follows it, since a child among the nine may come after.
+                    // follows it, since a child the table puts before a
+                    // pending element may come after.
                     held.extend_from_slice(&raw);
                 } else if depth == 2 {
                     write_region_start(&mut out, &raw, region, empty, index)?;
@@ -4802,6 +5300,13 @@ fn rewrite_workbook(
                 }
             }
             Event::End(_) => {
+                #[cfg(feature = "metadata")]
+                if depth == 2
+                    && region == Some(b"definedNames")
+                    && let Some(names) = names
+                {
+                    out.write_all(&name_elements(&names.added, &root_prefix))?;
+                }
                 if depth == 2 && region == Some(b"sheets") {
                     if let Some(plan) = plan {
                         write_sheets(
@@ -4815,8 +5320,10 @@ fn rewrite_workbook(
                     }
                     out.write_all(token.raw)?;
                 } else if depth == 1 && inserting {
-                    out.write_all(&new_calc_pr(&root_prefix))?;
-                    inserting = false;
+                    for which in &pending {
+                        out.write_all(&created_book_element(which, &root_prefix, edits))?;
+                    }
+                    pending.clear();
                     out.write_all(&held)?;
                     held.clear();
                     out.write_all(token.raw)?;
@@ -4855,6 +5362,96 @@ fn rewrite_workbook(
         return Err(SHEET_EDIT_STALE);
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// The workbook root children whose content the rewrite walks: the three
+/// regions of the sheet plan, `<definedNames>` alone for a name edit.
+fn regions(plan: bool, names: bool) -> &'static [&'static [u8]] {
+    const REGIONS: [&[u8]; 3] = [b"sheets", b"definedNames", b"bookViews"];
+    if plan {
+        &REGIONS
+    } else if names {
+        &REGIONS[1..2]
+    } else {
+        &[]
+    }
+}
+
+/// Whether the rewrite carries a defined-name edit; never without the
+/// feature `metadata`.
+fn names_edited(edits: &BookEdits<'_>) -> bool {
+    #[cfg(feature = "metadata")]
+    return edits.names.is_some();
+    #[cfg(not(feature = "metadata"))]
+    {
+        let _ = edits;
+        false
+    }
+}
+
+/// The bytes of a workbook root child the rewrite creates, with the root's
+/// prefix: `<calcPr fullCalcOnLoad="1"/>`, or `<definedNames>` holding the
+/// added names.
+fn created_book_element(which: &[u8], prefix: &[u8], edits: &BookEdits<'_>) -> Vec<u8> {
+    #[cfg(feature = "metadata")]
+    if which == b"definedNames"
+        && let Some(names) = edits.names
+    {
+        return [
+            b"<".as_slice(),
+            prefix,
+            b"definedNames>",
+            &name_elements(&names.added, prefix),
+            b"</",
+            prefix,
+            b"definedNames>",
+        ]
+        .concat();
+    }
+    let _ = (which, edits);
+    [b"<".as_slice(), prefix, b"calcPr fullCalcOnLoad=\"1\"/>"].concat()
+}
+
+/// The added `<definedName>` elements, back to back, with `prefix`: `name`
+/// escaped as an attribute, `localSheetId` when the name has a scope, and
+/// the text escaped as a cell's text is (`specs/0011-editing-cells.md`).
+#[cfg(feature = "metadata")]
+fn name_elements(added: &[(String, String, Option<u32>)], prefix: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for (name, text, sheet) in added {
+        out.extend_from_slice(b"<");
+        out.extend_from_slice(prefix);
+        out.extend_from_slice(b"definedName name=\"");
+        out.extend_from_slice(&attribute_escaped(name));
+        out.push(b'"');
+        if let Some(sheet) = sheet {
+            out.extend_from_slice(b" localSheetId=\"");
+            out.extend_from_slice(sheet.to_string().as_bytes());
+            out.push(b'"');
+        }
+        out.push(b'>');
+        out.extend_from_slice(escape(text.as_str()).replace('\r', "&#13;").as_bytes());
+        out.extend_from_slice(b"</");
+        out.extend_from_slice(prefix);
+        out.extend_from_slice(b"definedName>");
+    }
+    out
+}
+
+/// What the workbook rewrite does to the defined names
+/// (`specs/0019-names-links-properties-protection.md`, "Defined names").
+#[cfg(feature = "metadata")]
+struct NamePlan {
+    /// The ordinals, in document order among the root's `<definedNames>`
+    /// children, of the file's names recorded for removal.
+    removed: Vec<usize>,
+    /// The additions in record order: name, text and the scope's index in
+    /// the output's sheet list.
+    added: Vec<(String, String, Option<u32>)>,
+    /// Whether the file's `<definedNames>` is left empty and dropped.
+    drop: bool,
+    /// Whether the workbook has no `<definedNames>` and one is created.
+    create: bool,
 }
 
 /// Writes a root child's start tag. `<sheets/>` with sheets to write is
@@ -5066,9 +5663,13 @@ fn skip_element<R: Read>(stream: &mut Stream<R>, scope: &mut Scope) -> Result<()
     Ok(())
 }
 
-/// The root children ECMA-376 Part 1, 18.2.27 orders before `calcPr`
-/// (`specs/0013-formulas.md`, P1 ruling 1).
-const BEFORE_CALC_PR: [&[u8]; 9] = [
+/// The root children of a workbook in the order ECMA-376 Part 1, 18.2.27
+/// gives them: an element the workbook rewrite creates goes immediately
+/// after the last root child of the main namespace that comes before it
+/// here (`specs/0019-names-links-properties-protection.md`, "Creating an
+/// element in the workbook"). `calcPr`'s place is after the first nine,
+/// which is where part 6 put it (`specs/0013-formulas.md`, P1 ruling 1).
+const WORKBOOK_CHILDREN: [&[u8]; 19] = [
     b"fileVersion",
     b"fileSharing",
     b"workbookPr",
@@ -5078,7 +5679,28 @@ const BEFORE_CALC_PR: [&[u8]; 9] = [
     b"functionGroups",
     b"externalReferences",
     b"definedNames",
+    b"calcPr",
+    b"oleSize",
+    b"customWorkbookViews",
+    b"pivotCaches",
+    b"smartTagPr",
+    b"smartTagTypes",
+    b"webPublishing",
+    b"fileRecoveryPr",
+    b"webPublishObjects",
+    b"extLst",
 ];
+
+/// A workbook root child's place in [`WORKBOOK_CHILDREN`]. A name outside
+/// the table counts as after every name in it, so a created element goes
+/// before it, as part 6's `calcPr` went before any main-namespace child that
+/// was not one of the nine before it.
+fn book_position(local: &[u8]) -> usize {
+    WORKBOOK_CHILDREN
+        .iter()
+        .position(|name| *name == local)
+        .unwrap_or(WORKBOOK_CHILDREN.len())
+}
 
 /// A `<calcPr>` start tag's bytes with `fullCalcOnLoad` set to `1`: an
 /// unprefixed one present has its value replaced between its own quotes,
@@ -7365,11 +7987,18 @@ struct RawWorkbook {
     full_calc_on_load: bool,
     /// The `<calcPr>` elements among the root's children, counted.
     calc_prs: usize,
+    /// The `<definedName>` elements of the root's `<definedNames>`.
+    #[cfg(feature = "metadata")]
+    defined_names: Vec<DefinedName>,
+    /// The `<definedNames>` elements among the root's children, counted.
+    #[cfg(feature = "metadata")]
+    defined_names_containers: usize,
 }
 
 /// Reads the workbook part's `<sheets>`, its first `<workbookPr>`'s
 /// `date1904` and its first `<calcPr>`'s `fullCalcOnLoad`, and counts its
-/// `<calcPr>` elements, skipping everything else.
+/// `<calcPr>` elements, skipping everything else; with the feature
+/// `metadata`, also its defined names and `<definedNames>` elements.
 fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
@@ -7384,6 +8013,13 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
     // `None` until the first `<calcPr>` is read.
     let mut full_calc_on_load: Option<bool> = None;
     let mut calc_prs = 0usize;
+    #[cfg(feature = "metadata")]
+    let mut names: Vec<DefinedName> = Vec::new();
+    #[cfg(feature = "metadata")]
+    let mut names_containers = 0usize;
+    // The depth of the `<definedNames>` being read, as `sheets_at`.
+    #[cfg(feature = "metadata")]
+    let mut names_at: Option<usize> = None;
     while let Some(token) = stream.next()? {
         let (start, empty) = match token.event {
             Event::Start(ref start) => (start, false),
@@ -7392,6 +8028,10 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
                 scope.end();
                 if sheets_at == Some(depth) {
                     sheets_at = None;
+                }
+                #[cfg(feature = "metadata")]
+                if names_at == Some(depth) {
+                    names_at = None;
                 }
                 depth = depth.saturating_sub(1);
                 continue;
@@ -7421,10 +8061,38 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
                 full_calc_on_load = Some(matches!(value.as_deref(), Some(b"1") | Some(b"true")));
             }
         }
+        #[cfg(feature = "metadata")]
+        if root && ours && local == b"definedNames" && depth == ROOT_DEPTH + 1 {
+            names_containers += 1;
+            names_at = Some(depth);
+        } else if root && ours && local == b"definedName" && names_at == Some(depth - 1) {
+            let (name, sheet, hidden) = read_defined_name(start, &scope, index)?;
+            let text = if empty {
+                String::new()
+            } else {
+                // The text read consumes the end tag and closes the scope.
+                let text = crate::cells::text_of(&mut stream, &mut scope, index)?;
+                depth -= 1;
+                text
+            };
+            names.push(DefinedName {
+                name,
+                text,
+                sheet,
+                hidden,
+            });
+            if !empty {
+                continue;
+            }
+        }
         if empty {
             scope.end();
             if sheets_at == Some(depth) {
                 sheets_at = None;
+            }
+            #[cfg(feature = "metadata")]
+            if names_at == Some(depth) {
+                names_at = None;
             }
             depth = depth.saturating_sub(1);
         }
@@ -7434,7 +8102,60 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
         date1904: date1904.unwrap_or(false),
         full_calc_on_load: full_calc_on_load.unwrap_or(false),
         calc_prs,
+        #[cfg(feature = "metadata")]
+        defined_names: names,
+        #[cfg(feature = "metadata")]
+        defined_names_containers: names_containers,
     })
+}
+
+/// Reads one `<definedName>` start tag: its `name`, unescaped and normalized
+/// as a sheet name is; its `localSheetId`, refused with "a sheet edit no
+/// longer applies at the write" when it is not a decimal `u32`
+/// (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 10); and whether
+/// `hidden` is `1` or `true`. An absent `name` reads as empty.
+#[cfg(feature = "metadata")]
+fn read_defined_name(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<(String, Option<u32>, bool), Error> {
+    let mut name = String::new();
+    let mut sheet: Option<u32> = None;
+    let mut hidden = false;
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_some() {
+            continue;
+        }
+        match local {
+            b"name" => {
+                name = attribute
+                    .normalized_value(XmlVersion::Implicit1_0)
+                    .map_err(|_| Error::Xml(index))?
+                    .into_owned();
+            }
+            b"localSheetId" => {
+                let value = attribute.value.as_bytes();
+                if value.is_empty() || !value.iter().all(u8::is_ascii_digit) {
+                    return Err(SHEET_EDIT_STALE);
+                }
+                sheet = Some(
+                    str::from_utf8(value)
+                        .ok()
+                        .and_then(|text| text.parse::<u32>().ok())
+                        .ok_or(SHEET_EDIT_STALE)?,
+                );
+            }
+            b"hidden" => hidden = matches!(attribute.value.as_bytes(), b"1" | b"true"),
+            _ => {}
+        }
+    }
+    Ok((name, sheet, hidden))
 }
 
 /// Reads one `<sheet>` element's attributes.

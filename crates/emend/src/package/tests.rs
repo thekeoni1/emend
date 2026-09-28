@@ -5447,6 +5447,11 @@ fn an_add_alone_leaves_defined_names_and_book_views_as_they_are() {
     );
 }
 
+// With the feature `metadata` the names are read with the sheets, so the
+// same workbook is refused at the read instead
+// (`specs/0019-names-links-properties-protection.md`, "Defined names";
+// `names::a_local_sheet_id_that_is_not_a_number_is_refused_at_the_read`).
+#[cfg(not(feature = "metadata"))]
 #[test]
 fn a_local_sheet_id_that_is_not_a_number_refuses_a_move_at_the_write() {
     let names =
@@ -7329,6 +7334,8 @@ fn a_rotation_out_of_range_refuses_the_addition_and_records_nothing() {
     assert_nothing_recorded(&package);
 }
 
+#[cfg(feature = "metadata")]
+mod names;
 mod rowcol;
 #[cfg(feature = "rowcol")]
 mod shift;
