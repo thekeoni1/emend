@@ -788,6 +788,66 @@
 //! - Rows and columns have not been through an Excel check yet: the harness
 //!   opens every output in LibreOffice, and the Excel check of Milestone 2
 //!   follows its close-out push.
+//!
+//! Names, links, properties and protection add these, all the Cargo feature
+//! `metadata`'s (`specs/0019-names-links-properties-protection.md`,
+//! "Design", decisions 1 to 5 and the P1 to P3 rulings), the caller's
+//! picture:
+//!
+//! - Defined names: `Package::add_defined_name` appends a
+//!   `<definedName>` to `<definedNames>`, created in schema position when
+//!   absent, its text stored as given and never parsed; a scope names a
+//!   sheet of the projected list and follows it to its index in the output.
+//!   `Package::remove_defined_name` drops the file's names of that name
+//!   (ignoring case) and scope, and a container left empty. Either is a
+//!   formula change: the chain dropped once, `fullCalcOnLoad` set. Nothing
+//!   that uses a name (a formula, a validation, a print setting) is touched
+//!   or checked, and the built-in `_xlnm.` names are out of scope.
+//! - Hyperlinks: `Package::set_hyperlink` replaces the link whose `ref` is
+//!   exactly the cell, or appends one, as `r:id` for an external target
+//!   (its relationship on the worksheet's rels part, `TargetMode` external)
+//!   or `location` for a place in the workbook; `Package::remove_hyperlink`
+//!   drops it and, when no kept link names the same `r:id`, its
+//!   relationship. The cell's value and style are not touched and no
+//!   `display` is written. A root binding no prefix to the relationships
+//!   namespace gains `xmlns:r` (or `r1`, `r2`, ...), in the form of the
+//!   worksheet's own relationship. A sheet added in the same write takes a
+//!   location link and refuses an external one ("no such part"); the
+//!   caller writes twice. A link whose `ref` is a range is never matched.
+//! - Core properties: `Package::set_property` replaces an element's
+//!   content in place (its start tag kept; an empty-element tag given
+//!   content is opened up), removes it, or appends it with the prefix the
+//!   root binds to its namespace, refusing an append the root binds no
+//!   prefix for (`xsi` bound only as the default namespace counts as none).
+//!   With no core-properties relationship the write adds
+//!   `docProps/core.xml`, its package relationship and its `Override`; a
+//!   relationship naming a part the archive lacks refuses the edit ("no such
+//!   part"), as the read does. `app.xml` and `custom.xml` are never touched:
+//!   `TitlesOfParts`, `Company` and the custom properties stay as they are.
+//! - Protection: `Package::protect_sheet` writes `<sheetProtection>` with
+//!   each option that differs from the schema's default, so the default
+//!   options write `<sheetProtection sheet="1"/>` and `sheet` false with
+//!   the rest at their defaults writes `<sheetProtection/>`;
+//!   `Package::protect_workbook` writes `<workbookProtection>` with its
+//!   locks. Each replaces the part's element or creates one in schema
+//!   position; an unprotect drops it. An unprotect of a sheet with no
+//!   element still rewrites the worksheet part, to its own bytes (the
+//!   harness lists it recompressed); the workbook's does not rewrite the
+//!   workbook part. The password is stored as the legacy sixteen-bit hash
+//!   (`legacy_password_hash`), which is Excel's advisory lock and not
+//!   encryption: the hash is trivially reversed and Excel removes the lock
+//!   on request. `protectedRanges` and the SHA-512 form are out of scope.
+//! - Read back as typed values: the defined names (`Workbook::defined_names`,
+//!   read with the sheets, so with the feature on the workbook read refuses
+//!   a `definedName` whose `localSheetId` is not a decimal `u32`, whose
+//!   attribute carries a prefix nothing binds, or whose text the cell
+//!   reader refuses, for every caller) and the core properties
+//!   (`Package::properties`). Hyperlinks and protection are not read back.
+//! - With the feature on, [`Workbook`] holds `pub(crate)` fields for the
+//!   names it reads, so it is not constructible outside the crate.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice, and the Excel check of Milestone 2 is
+//!   pending, run or deferred again before the close-out push.
 
 #[cfg(test)]
 mod tests;
