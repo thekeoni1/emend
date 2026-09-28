@@ -338,6 +338,19 @@
 //! - "a workbook has two definedNames or workbookProtection elements"
 //!   (`names::a_second_defined_names_is_refused`).
 //!
+//! Hyperlinks add these, the feature `metadata`'s too; the first is raised
+//! by `Package::set_hyperlink`, the rest by [`Package::write_to`]. The calls
+//! also meet "a text holds a character XML cannot carry" and "a row or
+//! column index or count is out of range", and the write part 3's one-shift
+//! message and what a cell edit to the part meets:
+//!
+//! - "a hyperlink target or location is empty"
+//!   (`links::the_calls_refuse_an_empty_target_a_forbidden_character_or_a_cell_off_the_grid`).
+//! - "no hyperlink on that cell"
+//!   (`links::a_removal_of_an_absent_link_or_of_one_whose_ref_is_a_range_is_refused`).
+//! - "a worksheet has two hyperlinks or sheetProtection elements"
+//!   (`links::a_second_hyperlinks_is_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -858,6 +871,16 @@ pub const PIVOT_TABLE: [&[u8]; 2] = [
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotTable",
 ];
 
+/// The `hyperlink` relationship type, transitional then strict, the type a
+/// link to a target outside the package is written with (the Cargo feature
+/// `metadata`; `specs/0019-names-links-properties-protection.md`,
+/// "Hyperlinks").
+#[cfg(feature = "metadata")]
+pub const HYPERLINK: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/hyperlink",
+];
+
 /// One `Default` element of `[Content_Types].xml`, bytes as written.
 ///
 /// The name shadows the prelude's `Default` trait inside this module, which
@@ -1234,6 +1257,15 @@ struct Recorded {
     /// (`specs/0019-names-links-properties-protection.md`, "Defined names").
     #[cfg(feature = "metadata")]
     name_edits: Vec<NameEdit>,
+    /// `(part, cell, link)`: a hyperlink set, or removed when `None`, in
+    /// record order, so the last for a cell wins
+    /// (`specs/0019-names-links-properties-protection.md`, "Hyperlinks").
+    #[cfg(feature = "metadata")]
+    links: Vec<(Vec<u8>, CellRef, Option<LinkSet>)>,
+    /// `(part, cell, id)`: the relationship the write recorded for each
+    /// external link, filled by [`Package::write_to`] before it validates.
+    #[cfg(feature = "metadata")]
+    link_ids: Vec<(Vec<u8>, CellRef, Vec<u8>)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1293,6 +1325,69 @@ struct SheetWork {
     pane: Option<Option<CellRef>>,
     merges: Vec<Area>,
     unmerges: Vec<Area>,
+    /// The hyperlinks recorded for the part, each cell's last record, in
+    /// record order (`specs/0019-names-links-properties-protection.md`,
+    /// "Hyperlinks").
+    #[cfg(feature = "metadata")]
+    links: Vec<(CellRef, LinkEdit)>,
+    /// The `r:id`s of the links the rewrite drops, filled by the pass, so the
+    /// write removes their relationships.
+    #[cfg(feature = "metadata")]
+    dropped_ids: std::cell::RefCell<Vec<Vec<u8>>>,
+}
+
+/// A hyperlink's target as a caller gives it
+/// (`specs/0019-names-links-properties-protection.md`, "Hyperlinks"). The
+/// Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkTarget<'a> {
+    /// A URL, a file path or a `mailto:` address outside the package,
+    /// written as a relationship with `TargetMode="External"`.
+    External(&'a str),
+    /// A place in the workbook, `'Sheet 1'!A1` or a defined name, written as
+    /// the `location` attribute.
+    Location(&'a str),
+}
+
+/// One recorded hyperlink edit: a link to set, or `None` in
+/// [`Recorded`]'s list for a removal.
+#[cfg(feature = "metadata")]
+#[derive(Clone)]
+struct LinkSet {
+    /// `true` for an external target, whose text is the relationship's.
+    external: bool,
+    /// The target or the location.
+    text: String,
+    tooltip: Option<String>,
+}
+
+/// What the worksheet pass does for one cell's hyperlink.
+#[cfg(feature = "metadata")]
+#[derive(Clone)]
+enum LinkEdit {
+    /// Write this link, `rel_id` the relationship an external target was
+    /// given at the write.
+    Set {
+        set: LinkSet,
+        rel_id: Option<Vec<u8>>,
+    },
+    /// Drop the link the part has on the cell.
+    Remove,
+}
+
+/// Whether the part's rewrite carries no hyperlink edit; always, without the
+/// feature `metadata`.
+#[cfg(all(feature = "rowcol", feature = "metadata"))]
+fn no_links(work: &SheetWork) -> bool {
+    work.links.is_empty()
+}
+
+/// Whether the part's rewrite carries no hyperlink edit; always, without the
+/// feature `metadata`.
+#[cfg(all(feature = "rowcol", not(feature = "metadata")))]
+fn no_links(_: &SheetWork) -> bool {
+    true
 }
 
 impl SheetWork {
@@ -1568,6 +1663,7 @@ impl Recorded {
             && self.unmerges.is_empty()
             && self.no_shifts()
             && self.no_name_edits()
+            && self.no_link_edits()
     }
 
     /// Whether no defined name is added or removed; always, without the
@@ -1575,6 +1671,20 @@ impl Recorded {
     #[cfg(feature = "metadata")]
     fn no_name_edits(&self) -> bool {
         self.name_edits.is_empty()
+    }
+
+    /// Whether no hyperlink is set or removed; always, without the feature
+    /// `metadata`.
+    #[cfg(feature = "metadata")]
+    fn no_link_edits(&self) -> bool {
+        self.links.is_empty()
+    }
+
+    /// Whether no hyperlink is set or removed; always, without the feature
+    /// `metadata`.
+    #[cfg(not(feature = "metadata"))]
+    fn no_link_edits(&self) -> bool {
+        true
     }
 
     /// Whether no defined name is added or removed; always, without the
@@ -1645,6 +1755,8 @@ impl Recorded {
             .chain(self.unmerges.iter().map(|(part, _)| part));
         #[cfg(feature = "rowcol")]
         let named = named.chain(self.shifts.iter().map(|(part, _)| part));
+        #[cfg(feature = "metadata")]
+        let named = named.chain(self.links.iter().map(|(part, _, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -1705,7 +1817,40 @@ impl Recorded {
                 .map(|(_, pane)| *pane),
             merges: areas(&self.merges),
             unmerges: areas(&self.unmerges),
+            #[cfg(feature = "metadata")]
+            links: self.links_of(part),
+            #[cfg(feature = "metadata")]
+            dropped_ids: std::cell::RefCell::new(Vec::new()),
         }
+    }
+
+    /// One part's hyperlink edits: each cell's last record, in the order of
+    /// those records, an external set carrying the relationship id the write
+    /// gave it.
+    #[cfg(feature = "metadata")]
+    fn links_of(&self, part: &[u8]) -> Vec<(CellRef, LinkEdit)> {
+        let mut out: Vec<(CellRef, LinkEdit)> = Vec::new();
+        for (at, (source, reference, set)) in self.links.iter().enumerate() {
+            let last = !self.links[at + 1..]
+                .iter()
+                .any(|(other, cell, _)| other == source && cell == reference);
+            if source.as_slice() != part || !last {
+                continue;
+            }
+            let edit = match set {
+                None => LinkEdit::Remove,
+                Some(set) => LinkEdit::Set {
+                    set: set.clone(),
+                    rel_id: self
+                        .link_ids
+                        .iter()
+                        .find(|(p, cell, _)| p.as_slice() == part && cell == reference)
+                        .map(|(_, _, id)| id.clone()),
+                },
+            };
+            out.push((*reference, edit));
+        }
+        out
     }
 
     /// Every source whose rels part this set changes, once each, in order.
@@ -2447,6 +2592,60 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "metadata")]
     pub fn remove_defined_name(&mut self, name: &str, sheet: Option<&str>) -> Result<(), Error> {
         self.parts().remove_defined_name(name, sheet)
+    }
+
+    /// Records a hyperlink on the cell `reference` of the worksheet part
+    /// `part`: to `target`, with `tooltip` when given. The last record for a
+    /// cell in one write wins. The Cargo feature `metadata`
+    /// (`specs/0019-names-links-properties-protection.md`, "Hyperlinks").
+    ///
+    /// The write drops a link the part has whose `ref` is exactly that cell
+    /// (and the relationship its `r:id` names), and appends
+    /// `<hyperlink ref=".." r:id=".." tooltip=".."/>` for an external target,
+    /// whose relationship of type [`HYPERLINK`] it records on the part's rels
+    /// part with `TargetMode="External"`, or
+    /// `<hyperlink ref=".." location=".." tooltip=".."/>` for a location, at
+    /// the end of `<hyperlinks>`, creating that element in schema position
+    /// when the part has none. A root binding no prefix to the relationships
+    /// namespace is retagged with one (decision 3 A). The cell itself, its
+    /// value and style, is not touched; no `display` is written. The text is
+    /// not parsed: a URL is written as given, escaped.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a hyperlink target or location is empty" for an
+    /// empty target, "a text holds a character XML cannot carry" for a
+    /// target or tooltip holding one, and "a row or column index or count is
+    /// out of range" for a cell off the grid. Nothing is recorded when this
+    /// fails. The write refuses a part with two `<hyperlinks>`, "a worksheet
+    /// has two hyperlinks or sheetProtection elements"; a part with a row or
+    /// column insertion or deletion in the same write, with part 3's
+    /// one-shift message; and what a cell edit to the part would meet.
+    #[cfg(feature = "metadata")]
+    pub fn set_hyperlink(
+        &mut self,
+        part: &[u8],
+        reference: CellRef,
+        target: LinkTarget<'_>,
+        tooltip: Option<&str>,
+    ) -> Result<(), Error> {
+        self.parts().set_hyperlink(part, reference, target, tooltip)
+    }
+
+    /// Records the removal of the hyperlink whose `ref` is exactly the cell
+    /// `reference` in the worksheet part `part`, and of the relationship its
+    /// `r:id` names; a `<hyperlinks>` left empty is dropped. A link whose
+    /// `ref` is a range is never matched. The Cargo feature `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a cell off the grid; nothing is recorded when this fails. The
+    /// write refuses a cell the part has no link on, "no hyperlink on that
+    /// cell", and what [`Package::set_hyperlink`] says it refuses.
+    #[cfg(feature = "metadata")]
+    pub fn remove_hyperlink(&mut self, part: &[u8], reference: CellRef) -> Result<(), Error> {
+        self.parts().remove_hyperlink(part, reference)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -3221,6 +3420,94 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::set_hyperlink`].
+    #[cfg(feature = "metadata")]
+    fn set_hyperlink(
+        &mut self,
+        part: &[u8],
+        reference: CellRef,
+        target: LinkTarget<'_>,
+        tooltip: Option<&str>,
+    ) -> Result<(), Error> {
+        if !in_grid(reference) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let (external, text) = match target {
+            LinkTarget::External(text) => (true, text),
+            LinkTarget::Location(text) => (false, text),
+        };
+        if text.is_empty() {
+            return Err(LINK_EMPTY);
+        }
+        let forbidden = |text: &str| text.chars().any(crate::cells::forbidden_in_xml);
+        if forbidden(text) || tooltip.is_some_and(forbidden) {
+            return Err(TEXT_NOT_XML);
+        }
+        self.edits.links.push((
+            part.to_vec(),
+            reference,
+            Some(LinkSet {
+                external,
+                text: text.to_string(),
+                tooltip: tooltip.map(str::to_string),
+            }),
+        ));
+        Ok(())
+    }
+
+    /// The body of [`Package::remove_hyperlink`].
+    #[cfg(feature = "metadata")]
+    fn remove_hyperlink(&mut self, part: &[u8], reference: CellRef) -> Result<(), Error> {
+        if !in_grid(reference) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        self.edits.links.push((part.to_vec(), reference, None));
+        Ok(())
+    }
+
+    /// Records the relationship of every external link the write will
+    /// append, each cell's last set, on its part's rels part, and keeps the
+    /// id for the worksheet pass; the type's form follows the part's own
+    /// hyperlink relationships, transitional when it has none.
+    #[cfg(feature = "metadata")]
+    fn record_link_relationships(&mut self) -> Result<(), Error> {
+        let mut parts: Vec<Vec<u8>> = Vec::new();
+        for (part, _, _) in &self.edits.links {
+            if !parts.contains(part) {
+                parts.push(part.clone());
+            }
+        }
+        for part in parts {
+            let wanted: Vec<(CellRef, String)> = self
+                .edits
+                .links_of(&part)
+                .into_iter()
+                .filter_map(|(cell, edit)| match edit {
+                    LinkEdit::Set { set, .. } if set.external => Some((cell, set.text)),
+                    _ => None,
+                })
+                .collect();
+            if wanted.is_empty() {
+                continue;
+            }
+            let kind = if self
+                .relationships(&part)?
+                .of_kind(HYPERLINK[1])
+                .next()
+                .is_some()
+            {
+                HYPERLINK[1]
+            } else {
+                HYPERLINK[0]
+            };
+            for (cell, target) in wanted {
+                let id = self.add_relationship(&part, kind, target.as_bytes(), true)?;
+                self.edits.link_ids.push((part.clone(), cell, id));
+            }
+        }
+        Ok(())
+    }
+
     /// A defined name's scope as recorded: the entry name of the sheet
     /// named `sheet` in the projected list, or `None` for the workbook.
     #[cfg(feature = "metadata")]
@@ -3513,10 +3800,16 @@ impl<'a> Parts<'a> {
         self.edits.unmerges.retain(|(at, _)| at != part);
         #[cfg(feature = "rowcol")]
         self.edits.shifts.retain(|(at, _)| at != part);
+        #[cfg(feature = "metadata")]
+        self.edits.links.retain(|(at, _, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
     fn write_to(mut self, out: &mut dyn Write) -> Result<(), Error> {
+        // An external link's relationship is recorded before validation, so
+        // the rels part it goes into is checked as any other edit's is.
+        #[cfg(feature = "metadata")]
+        self.record_link_relationships()?;
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -3551,6 +3844,8 @@ impl<'a> Parts<'a> {
                     changed_formula |= removed;
                     temporaries.push(temp);
                     edits.replace(index, replacement);
+                    #[cfg(feature = "metadata")]
+                    self.drop_link_relationships(&part, &work)?;
                 }
                 None if added_sheets.contains(&part) => {
                     // A sheet this write adds: its edits go onto the template's
@@ -3728,6 +4023,26 @@ impl<'a> Parts<'a> {
         let result = self.archive.write_to(out, edits);
         drop(temporaries);
         result
+    }
+
+    /// Records the removal of each relationship a dropped link's `r:id`
+    /// named, when the part's rels part has it and nothing removes it
+    /// already (`specs/0019-names-links-properties-protection.md`,
+    /// "Hyperlinks").
+    #[cfg(feature = "metadata")]
+    fn drop_link_relationships(&mut self, part: &[u8], work: &SheetWork) -> Result<(), Error> {
+        for id in work.dropped_ids.take() {
+            let present = self.relationships(part)?.by_id(&id).is_some();
+            let pending = self
+                .edits
+                .rel_removals
+                .iter()
+                .any(|(source, gone)| source == part && *gone == id);
+            if present && !pending {
+                self.remove_relationship(part, &id);
+            }
+        }
+        Ok(())
     }
 
     /// The formula-change rule of [`Package::write_to`], for a write whose
@@ -4113,7 +4428,8 @@ impl<'a> Parts<'a> {
                 && work.columns.is_empty()
                 && work.pane.is_none()
                 && work.merges.is_empty()
-                && work.unmerges.is_empty();
+                && work.unmerges.is_empty()
+                && no_links(work);
             if !alone {
                 return Err(SHIFT_ALONE);
             }
@@ -4474,6 +4790,13 @@ const NO_SUCH_NAME: Error = Error::Package("no defined name of that name and sco
 #[cfg(feature = "metadata")]
 const TWO_BOOK_ELEMENTS: Error =
     Error::Package("a workbook has two definedNames or workbookProtection elements");
+#[cfg(feature = "metadata")]
+const LINK_EMPTY: Error = Error::Package("a hyperlink target or location is empty");
+#[cfg(feature = "metadata")]
+const NO_SUCH_LINK: Error = Error::Package("no hyperlink on that cell");
+#[cfg(feature = "metadata")]
+const TWO_SHEET_ELEMENTS: Error =
+    Error::Package("a worksheet has two hyperlinks or sheetProtection elements");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -6545,6 +6868,8 @@ fn rewrite_worksheet_from(
     let mut cols: Option<ColsBuffer> = None;
     let mut merges: Option<MergesBuffer> = None;
     let mut unmerged = vec![false; work.unmerges.len()];
+    #[cfg(feature = "metadata")]
+    let mut links = LinksPass::new(&work.links);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -6554,6 +6879,21 @@ fn rewrite_worksheet_from(
                 scope.start(start)?;
                 let (namespace, local) = scope.resolve_element(start.name())?;
                 let ours = is_main(namespace);
+                // Inside a held `<hyperlinks>`: its children are the links
+                // pass's (`specs/0019-names-links-properties-protection.md`).
+                #[cfg(feature = "metadata")]
+                if links.buffer.is_some() {
+                    let skipped =
+                        links.child(token.raw, start, (local, ours, depth), &scope, index)?;
+                    if skipped && !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    if skipped || empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 if root && depth == 2 && ours {
                     // Creation in schema position, and the refusal of an
                     // element met twice or after it was created (P1 ruling
@@ -6566,6 +6906,10 @@ fn rewrite_worksheet_from(
                                 met[which] = true;
                             }
                         }
+                        #[cfg(feature = "metadata")]
+                        if let Some(bytes) = links.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
                     }
                     if let Some(which) = CREATED.iter().position(|name| *name == local)
                         && touched[which]
@@ -6576,25 +6920,49 @@ fn rewrite_worksheet_from(
                         met[which] = true;
                     }
                 }
+                #[cfg(feature = "metadata")]
+                if root && depth == 2 && ours && local == HYPERLINKS && links.touched {
+                    out.write_all(&links.open(token.raw, start, depth, empty, index)?)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 if !root {
                     if !ours || local != b"worksheet" {
                         return Err(Error::Package("the worksheet part's root is not worksheet"));
                     }
                     root = true;
                     root_prefix = prefix_of(start);
-                    if empty && needed.iter().any(|need| *need) {
-                        out.write_all(&opened_up(token.raw, index)?)?;
+                    // The root's start tag, retagged with a relationships
+                    // prefix when an external link needs one (decision 3 A).
+                    #[cfg(feature = "metadata")]
+                    let root_raw =
+                        links.root_tag(token.raw, start, namespace == Some(MAIN[1]), index)?;
+                    #[cfg(not(feature = "metadata"))]
+                    let root_raw = token.raw.to_vec();
+                    #[cfg(feature = "metadata")]
+                    let links_needed = links.needed;
+                    #[cfg(not(feature = "metadata"))]
+                    let links_needed = false;
+                    if empty && (needed.iter().any(|need| *need) || links_needed) {
+                        out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
                             if needed[which] {
                                 out.write_all(&created_element(which, work, &root_prefix, index)?)?;
                                 met[which] = true;
                             }
                         }
+                        #[cfg(feature = "metadata")]
+                        if let Some(bytes) = links.create_at_end(&root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
                         out.write_all(b"</")?;
                         out.write_all(start.name().into_inner().as_bytes())?;
                         out.write_all(b">")?;
                     } else {
-                        out.write_all(token.raw)?;
+                        out.write_all(&root_raw)?;
                     }
                 } else if let Some(buffer) = cols.as_mut() {
                     if depth == buffer.depth + 1 && ours && local == b"col" {
@@ -6863,6 +7231,13 @@ fn rewrite_worksheet_from(
                 }
             }
             Event::End(_) => {
+                #[cfg(feature = "metadata")]
+                if let Some(bytes) = links.held(token.raw, Some(depth), index)? {
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 if let Some(buffer) = cols.as_mut() {
                     if depth == buffer.depth {
                         if let Some(buffer) = cols.take() {
@@ -6942,6 +7317,10 @@ fn rewrite_worksheet_from(
                                         met[which] = true;
                                     }
                                 }
+                                #[cfg(feature = "metadata")]
+                                if let Some(bytes) = links.create_at_end(&root_prefix) {
+                                    out.write_all(&bytes)?;
+                                }
                             }
                             out.write_all(token.raw)?;
                         }
@@ -6951,6 +7330,10 @@ fn rewrite_worksheet_from(
                 depth -= 1;
             }
             _ => {
+                #[cfg(feature = "metadata")]
+                if links.held(token.raw, None, index)?.is_some() {
+                    continue;
+                }
                 if let Some(buffer) = cols.as_mut() {
                     buffer.push(token.raw);
                 } else if let Some(buffer) = merges.as_mut() {
@@ -6972,6 +7355,10 @@ fn rewrite_worksheet_from(
     if unmerged.iter().any(|found| !found) {
         return Err(NO_SUCH_MERGE);
     }
+    // A removal of a link the part does not have (`specs/0019-names-links-
+    // properties-protection.md`, "Hyperlinks").
+    #[cfg(feature = "metadata")]
+    links.finish(work)?;
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
     Ok((temp, replacement, removed_formula))
@@ -6997,6 +7384,312 @@ fn cols_written(
     out.extend_from_slice(&content);
     out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
     Ok(out)
+}
+
+/// The hyperlinks' part of a worksheet rewrite
+/// (`specs/0019-names-links-properties-protection.md`, "Hyperlinks"): which
+/// links the part has are skipped, which are appended, the `<hyperlinks>`
+/// held while it is read, and the prefix `r:id` takes. The Cargo feature
+/// `metadata`.
+#[cfg(feature = "metadata")]
+struct LinksPass<'w> {
+    links: &'w [(CellRef, LinkEdit)],
+    /// Whether the write edits the part's links, sets any, and has met or
+    /// created a `<hyperlinks>`.
+    touched: bool,
+    needed: bool,
+    met: bool,
+    /// The prefix the root binds to the relationships namespace, or the one
+    /// its retag binds; empty until the root is read.
+    rels_prefix: Vec<u8>,
+    buffer: Option<HyperlinksBuffer>,
+    /// For each edit, whether the part had a link on its cell.
+    found: Vec<bool>,
+    /// The `r:id`s of the links skipped.
+    dropped: Vec<Vec<u8>>,
+}
+
+/// A `<hyperlinks>` being read: its start tag, its prefix and the bytes of
+/// the children it keeps, with how many `<hyperlink>` elements those are.
+#[cfg(feature = "metadata")]
+struct HyperlinksBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    content: Vec<u8>,
+    kept: u64,
+}
+
+/// A root child's place in [`WORKSHEET_CHILDREN`] for `<hyperlinks>`.
+#[cfg(feature = "metadata")]
+const HYPERLINKS: &[u8] = b"hyperlinks";
+
+#[cfg(feature = "metadata")]
+impl<'w> LinksPass<'w> {
+    fn new(links: &'w [(CellRef, LinkEdit)]) -> Self {
+        LinksPass {
+            links,
+            touched: !links.is_empty(),
+            needed: links
+                .iter()
+                .any(|(_, edit)| matches!(edit, LinkEdit::Set { .. })),
+            met: false,
+            rels_prefix: Vec::new(),
+            buffer: None,
+            found: vec![false; links.len()],
+            dropped: Vec::new(),
+        }
+    }
+
+    /// The root's start tag as the rewrite writes it: as it is, or, when an
+    /// external link is appended and the root binds no prefix to the
+    /// relationships namespace, with one bound (`r`, or the first of `r1`,
+    /// `r2` and so on that the tag does not declare), in the namespace form
+    /// of the root's own (decision 3 A).
+    fn root_tag(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        strict: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if let Some(prefix) = relationships_prefix(start, index)? {
+            self.rels_prefix = prefix;
+            return Ok(raw.to_vec());
+        }
+        let external = self.links.iter().any(|(_, edit)| {
+            matches!(
+                edit,
+                LinkEdit::Set {
+                    rel_id: Some(_),
+                    ..
+                }
+            )
+        });
+        if !external {
+            return Ok(raw.to_vec());
+        }
+        let mut n = 0u32;
+        let prefix = loop {
+            let candidate = if n == 0 {
+                b"r".to_vec()
+            } else {
+                format!("r{n}").into_bytes()
+            };
+            let declaration = [b"xmlns:".as_slice(), &candidate].concat();
+            if attribute_value(raw, &declaration, index)?.is_none() {
+                break candidate;
+            }
+            n = n.checked_add(1).ok_or(Error::Xml(index))?;
+        };
+        let namespace = RELATIONSHIPS_ATTRIBUTE[usize::from(strict)];
+        let tag = with_attribute(
+            raw,
+            &[b"xmlns:".as_slice(), &prefix].concat(),
+            namespace,
+            index,
+        )?;
+        self.rels_prefix = prefix;
+        Ok(tag)
+    }
+
+    /// The `<hyperlinks>` the write creates, when it needs one the part
+    /// lacks and a root child at `position` comes after it in schema order.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        let at = schema_position(HYPERLINKS).unwrap_or(0);
+        if self.needed && !self.met && at < position {
+            self.met = true;
+            return Some(self.container(prefix));
+        }
+        None
+    }
+
+    /// The `<hyperlinks>` the write creates at the root's end, when it needs
+    /// one the part still lacks.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        if self.needed && !self.met {
+            self.met = true;
+            return Some(self.container(prefix));
+        }
+        None
+    }
+
+    /// A new `<hyperlinks>` holding the sets, with `prefix`.
+    fn container(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = [b"<".as_slice(), prefix, b"hyperlinks>"].concat();
+        out.extend_from_slice(&self.set_elements(prefix));
+        out.extend_from_slice(&[b"</".as_slice(), prefix, b"hyperlinks>"].concat());
+        out
+    }
+
+    /// The sets as `<hyperlink>` elements, back to back, with `prefix`.
+    fn set_elements(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for (cell, edit) in self.links {
+            let LinkEdit::Set { set, rel_id } = edit else {
+                continue;
+            };
+            out.extend_from_slice(&[b"<".as_slice(), prefix, b"hyperlink ref=\""].concat());
+            out.extend_from_slice(cell.a1().as_bytes());
+            out.push(b'"');
+            match rel_id {
+                Some(id) => {
+                    out.push(b' ');
+                    out.extend_from_slice(&self.rels_prefix);
+                    out.extend_from_slice(b":id=\"");
+                    out.extend_from_slice(id);
+                    out.push(b'"');
+                }
+                None => {
+                    out.extend_from_slice(b" location=\"");
+                    out.extend_from_slice(&attribute_escaped(&set.text));
+                    out.push(b'"');
+                }
+            }
+            if let Some(tooltip) = &set.tooltip {
+                out.extend_from_slice(b" tooltip=\"");
+                out.extend_from_slice(&attribute_escaped(tooltip));
+                out.push(b'"');
+            }
+            out.extend_from_slice(b"/>");
+        }
+        out
+    }
+
+    /// A `<hyperlinks>` start tag the part has: the second is refused; an
+    /// empty one is written at once with the sets, or dropped when none is
+    /// set; any other is held. Returns the bytes to write now.
+    fn open(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        depth: usize,
+        empty: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if self.met {
+            return Err(TWO_SHEET_ELEMENTS);
+        }
+        self.met = true;
+        let buffer = HyperlinksBuffer {
+            depth,
+            start: raw.to_vec(),
+            empty,
+            name: start.name().into_inner().as_bytes().to_vec(),
+            prefix: prefix_of(start),
+            content: Vec::new(),
+            kept: 0,
+        };
+        if empty {
+            return self.close(buffer, index);
+        }
+        self.buffer = Some(buffer);
+        Ok(Vec::new())
+    }
+
+    /// A start or empty tag inside the held `<hyperlinks>`: a `<hyperlink>`
+    /// whose `ref` is exactly an edited cell is to be skipped whole, its
+    /// `r:id` kept for the removal of its relationship; anything else is
+    /// held. Returns whether the caller skips the element.
+    fn child(
+        &mut self,
+        token_raw: &[u8],
+        start: &BytesStart<'_>,
+        (local, ours, depth): (&[u8], bool, usize),
+        scope: &Scope,
+        index: usize,
+    ) -> Result<bool, Error> {
+        let Some(buffer) = self.buffer.as_mut() else {
+            return Ok(false);
+        };
+        if depth == buffer.depth + 1 && ours && local == b"hyperlink" {
+            let cell = attribute_value(token_raw, b"ref", index)?.and_then(CellRef::parse);
+            let edited: Vec<usize> = self
+                .links
+                .iter()
+                .enumerate()
+                .filter(|(_, (at, _))| Some(*at) == cell)
+                .map(|(which, _)| which)
+                .collect();
+            if !edited.is_empty() {
+                for which in edited {
+                    self.found[which] = true;
+                }
+                for attribute in start.attributes() {
+                    let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                    if attribute.key.as_namespace_binding().is_some() {
+                        continue;
+                    }
+                    let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                    if name == b"id"
+                        && namespace.is_some_and(|ns| RELATIONSHIPS_ATTRIBUTE.contains(&ns))
+                    {
+                        self.dropped.push(attribute.value.as_bytes().to_vec());
+                    }
+                }
+                return Ok(true);
+            }
+            buffer.kept += 1;
+        }
+        buffer.content.extend_from_slice(token_raw);
+        Ok(false)
+    }
+
+    /// An end tag or any other token inside the held `<hyperlinks>`; at the
+    /// container's own end tag, the bytes it is written as.
+    fn held(
+        &mut self,
+        raw: &[u8],
+        end_depth: Option<usize>,
+        index: usize,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let Some(depth) = self.buffer.as_ref().map(|buffer| buffer.depth) else {
+            return Ok(None);
+        };
+        if end_depth == Some(depth) {
+            return match self.buffer.take() {
+                Some(buffer) => Ok(Some(self.close(buffer, index)?)),
+                None => Ok(None),
+            };
+        }
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.content.extend_from_slice(raw);
+        }
+        Ok(Some(Vec::new()))
+    }
+
+    /// The held container written: its start tag (opened up when it was
+    /// empty), the kept children, the sets and its end tag; nothing when no
+    /// link is left.
+    fn close(&self, buffer: HyperlinksBuffer, index: usize) -> Result<Vec<u8>, Error> {
+        let sets = self.set_elements(&buffer.prefix);
+        if buffer.kept == 0 && sets.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut out = if buffer.empty {
+            opened_up(&buffer.start, index)?
+        } else {
+            buffer.start
+        };
+        out.extend_from_slice(&buffer.content);
+        out.extend_from_slice(&sets);
+        out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
+        Ok(out)
+    }
+
+    /// After the pass: a removal the part had no link for is refused, and
+    /// the dropped `r:id`s are handed back.
+    fn finish(self, work: &SheetWork) -> Result<(), Error> {
+        for (which, (_, edit)) in self.links.iter().enumerate() {
+            if matches!(edit, LinkEdit::Remove) && !self.found[which] {
+                return Err(NO_SUCH_LINK);
+            }
+        }
+        work.dropped_ids.borrow_mut().extend(self.dropped);
+        Ok(())
+    }
 }
 
 /// One insertion or deletion of rows (`specs/0018-rows-and-columns.md`,
