@@ -103,13 +103,35 @@ fn a_local_sheet_id_that_is_not_a_number_is_refused_at_the_read() {
 }
 
 #[test]
+fn a_defined_name_attribute_with_an_unbound_prefix_is_refused_at_the_read() {
+    // P1 verification ruling 6 (G3): with the feature the names are read
+    // with the sheets and their attributes resolved, so a prefix nothing
+    // binds is refused at the read, for every caller, with part 2's message.
+    let (_, mut package) = opened(book(
+        1,
+        "<definedNames><definedName name=\"a\" q:x=\"1\">1</definedName></definedNames>",
+    ));
+    assert_package(
+        package.workbook().expect_err("refused"),
+        "an element or attribute uses a prefix its document does not bind",
+    );
+    // The control: the same attribute with its prefix bound is read.
+    let (_, mut package) = opened(book(
+        1,
+        "<definedNames><definedName name=\"a\" xmlns:q=\"urn:q\" q:x=\"1\">1\
+         </definedName></definedNames>",
+    ));
+    assert_eq!(names_of(&mut package), vec![name("a", "1", None, false)]);
+}
+
+#[test]
 fn a_name_added_to_a_container_is_appended_and_the_file_children_kept() {
     let file = "<definedNames>\n  <definedName name=\"a\" localSheetId=\"0\">1</definedName>\n\
                 </definedNames><calcPr calcId=\"1\"/>";
     let got = edited_book(2, file, |p| {
         p.add_defined_name("b", "S1!$A$1", None).expect("add b");
-        p.add_defined_name("c", "'S 2'!$B$2&\"x\"", Some("S2"))
-            .expect("add c");
+        p.add_defined_name("cn", "'S 2'!$B$2&\"x\"", Some("S2"))
+            .expect("add cn");
     });
     assert_eq!(
         got,
@@ -117,7 +139,7 @@ fn a_name_added_to_a_container_is_appended_and_the_file_children_kept() {
             2,
             "<definedNames>\n  <definedName name=\"a\" localSheetId=\"0\">1</definedName>\n\
              <definedName name=\"b\">S1!$A$1</definedName>\
-             <definedName name=\"c\" localSheetId=\"1\">&apos;S 2&apos;!$B$2&amp;&quot;x&quot;\
+             <definedName name=\"cn\" localSheetId=\"1\">&apos;S 2&apos;!$B$2&amp;&quot;x&quot;\
              </definedName></definedNames><calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>"
         )
     );
@@ -366,8 +388,8 @@ fn a_duplicate_against_the_file_or_a_pending_edit_is_refused() {
     );
     assert_package(
         refused_book(1, "", |p| {
-            p.add_defined_name("c", "2", None).expect("recorded");
-            p.remove_defined_name("c", None).expect("recorded");
+            p.add_defined_name("cn", "2", None).expect("recorded");
+            p.remove_defined_name("cn", None).expect("recorded");
         }),
         "a defined name of that name and scope already exists",
     );
@@ -392,6 +414,8 @@ fn the_name_rule_refuses_each_clause_and_records_nothing() {
         "?a",
         "a b",
         "a-b",
+        "R",
+        "C",
         long.as_str(),
     ] {
         let (parts, mut package) = opened(book(1, ""));
@@ -423,8 +447,6 @@ fn the_name_rule_refuses_each_clause_and_records_nothing() {
         "\\a",
         "a.b?c_1",
         "\u{e9}t\u{e9}",
-        "R",
-        "C",
         "RC1x",
         "A01",
         long.as_str(),
@@ -482,7 +504,8 @@ fn a_name_edit_drops_the_chain_and_sets_the_flag() {
 fn a_second_defined_names_is_refused() {
     let two = "<definedNames><definedName name=\"a\">1</definedName></definedNames>\
                <definedNames/>";
-    // Reading does not refuse; both containers' names are read.
+    // Reading does not refuse a second container; the first's name is read
+    // (the second is empty).
     let (_, mut package) = opened(book(1, two));
     assert_eq!(names_of(&mut package), vec![name("a", "1", None, false)]);
     for remove in [false, true] {

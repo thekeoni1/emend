@@ -58,9 +58,12 @@
 //! - "a sheet's relationship is missing" (`sheet_relationship_missing`).
 //! - "an element or attribute uses a prefix its document does not bind",
 //!   raised by [`Scope`] and reached from here through an `r:id` whose prefix
-//!   nothing binds (`rel_id_prefix_unbound`), and from the styles reader
+//!   nothing binds (`rel_id_prefix_unbound`), from the styles reader
 //!   through a cell format's child whose prefix nothing binds
-//!   (`styles::tests::an_xf_child_with_an_unbound_prefix_is_refused`).
+//!   (`styles::tests::an_xf_child_with_an_unbound_prefix_is_refused`), and,
+//!   with the Cargo feature `metadata`, from the workbook read through a
+//!   `definedName` attribute whose prefix nothing binds
+//!   (`names::a_defined_name_attribute_with_an_unbound_prefix_is_refused_at_the_read`).
 //! - "no such relationship" (`removing_an_absent_relationship`).
 //! - "no such override" (`removing_an_absent_override`).
 //! - "an override for that part already exists"
@@ -1411,8 +1414,9 @@ fn folded(name: &str) -> String {
 /// `specs/0019-names-links-properties-protection.md`, "Defined names": 1 to
 /// 255 characters; the first a letter, `_` or `\`; the rest letters, digits,
 /// `.`, `_`, `\` or `?` ("letter" and "digit" by `char::is_alphabetic` and
-/// `char::is_numeric`); not `_xlnm.`-prefixed; not a cell reference and not of
-/// the `R1C1` form, each ignoring case.
+/// `char::is_numeric`); not `_xlnm.`-prefixed; not a cell reference, not of
+/// the `R1C1` form, and not `R` or `C` alone, which Excel reserves (P1
+/// verification ruling 4), each ignoring case.
 #[cfg(feature = "metadata")]
 fn check_defined_name(name: &str) -> Result<(), Error> {
     let mut chars = name.chars();
@@ -1431,6 +1435,8 @@ fn check_defined_name(name: &str) -> Result<(), Error> {
         || built_in
         || reference
         || is_r1c1_form(name)
+        || name.eq_ignore_ascii_case("r")
+        || name.eq_ignore_ascii_case("c")
     {
         return Err(DEFINED_NAME_INVALID);
     }
