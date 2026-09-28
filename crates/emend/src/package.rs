@@ -349,7 +349,27 @@
 //! - "no hyperlink on that cell"
 //!   (`links::a_removal_of_an_absent_link_or_of_one_whose_ref_is_a_range_is_refused`).
 //! - "a worksheet has two hyperlinks or sheetProtection elements"
-//!   (`links::a_second_hyperlinks_is_refused`).
+//!   (`links::a_second_hyperlinks_is_refused`,
+//!   `protection::a_second_sheet_protection_is_refused`).
+//!
+//! Document properties and protection add these, the feature `metadata`'s
+//! too; the first two are raised by the calls that record an edit, the
+//! rest by [`Package::write_to`] and the properties read. The workbook's
+//! second `<workbookProtection>` meets "a workbook has two definedNames or
+//! workbookProtection elements"
+//! (`protection::a_second_workbook_protection_is_refused`), a property value
+//! holding a character XML forbids "a text holds a character XML cannot
+//! carry", and a core part the write removes or replaces "an edit to a
+//! removed part":
+//!
+//! - "a property value is not valid"
+//!   (`properties::a_date_value_must_be_the_one_form_and_every_value_xml_can_carry`).
+//! - "a password is not valid"
+//!   (`protection::a_password_outside_printable_ascii_or_past_255_characters_is_refused`).
+//! - "a core properties part binds no prefix for a namespace the edit needs"
+//!   (`properties::a_root_binding_no_dcterms_prefix_refuses_an_append_and_allows_a_replace`).
+//! - "a core properties part has two elements of one property"
+//!   (`properties::a_second_element_of_one_property_is_refused_at_the_read_and_the_write`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -881,6 +901,257 @@ pub const HYPERLINK: [&[u8]; 2] = [
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/hyperlink",
 ];
 
+/// The core-properties relationship type of the package: the package
+/// form, which every corpus package writes, then the older
+/// `officeDocument` form some producers write (the Cargo feature
+/// `metadata`; `specs/0019-names-links-properties-protection.md`,
+/// "Document properties").
+#[cfg(feature = "metadata")]
+pub const CORE_PROPERTIES: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/metadata/core-properties",
+];
+
+/// The core-properties part's content type.
+#[cfg(feature = "metadata")]
+const CORE_PROPERTIES_TYPE: &[u8] = b"application/vnd.openxmlformats-package.core-properties+xml";
+
+/// The namespaces of the core-properties part (ECMA-376 Part 2, 11).
+#[cfg(feature = "metadata")]
+const CP_NS: &[u8] = b"http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+#[cfg(feature = "metadata")]
+const DC_NS: &[u8] = b"http://purl.org/dc/elements/1.1/";
+#[cfg(feature = "metadata")]
+const DCTERMS_NS: &[u8] = b"http://purl.org/dc/terms/";
+#[cfg(feature = "metadata")]
+const DCMITYPE_NS: &[u8] = b"http://purl.org/dc/dcmitype/";
+#[cfg(feature = "metadata")]
+const XSI_NS: &[u8] = b"http://www.w3.org/2001/XMLSchema-instance";
+
+/// One of the thirteen core properties (ECMA-376 Part 2, 11), each mapped
+/// to its element (`specs/0019-names-links-properties-protection.md`,
+/// "Document properties"). The Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Property {
+    /// `dc:title`.
+    Title,
+    /// `dc:subject`.
+    Subject,
+    /// `dc:creator`.
+    Creator,
+    /// `dc:description`.
+    Description,
+    /// `dc:language`.
+    Language,
+    /// `cp:keywords`.
+    Keywords,
+    /// `cp:lastModifiedBy`.
+    LastModifiedBy,
+    /// `cp:revision`.
+    Revision,
+    /// `cp:category`.
+    Category,
+    /// `cp:contentStatus`.
+    ContentStatus,
+    /// `cp:version`.
+    Version,
+    /// `dcterms:created`, written with `xsi:type="dcterms:W3CDTF"`.
+    Created,
+    /// `dcterms:modified`, written with `xsi:type="dcterms:W3CDTF"`.
+    Modified,
+}
+
+#[cfg(feature = "metadata")]
+impl Property {
+    /// Every property, in the order above.
+    const ALL: [Property; 13] = [
+        Property::Title,
+        Property::Subject,
+        Property::Creator,
+        Property::Description,
+        Property::Language,
+        Property::Keywords,
+        Property::LastModifiedBy,
+        Property::Revision,
+        Property::Category,
+        Property::ContentStatus,
+        Property::Version,
+        Property::Created,
+        Property::Modified,
+    ];
+
+    /// The property's element: its namespace and local name.
+    fn element(self) -> (&'static [u8], &'static [u8]) {
+        match self {
+            Property::Title => (DC_NS, b"title"),
+            Property::Subject => (DC_NS, b"subject"),
+            Property::Creator => (DC_NS, b"creator"),
+            Property::Description => (DC_NS, b"description"),
+            Property::Language => (DC_NS, b"language"),
+            Property::Keywords => (CP_NS, b"keywords"),
+            Property::LastModifiedBy => (CP_NS, b"lastModifiedBy"),
+            Property::Revision => (CP_NS, b"revision"),
+            Property::Category => (CP_NS, b"category"),
+            Property::ContentStatus => (CP_NS, b"contentStatus"),
+            Property::Version => (CP_NS, b"version"),
+            Property::Created => (DCTERMS_NS, b"created"),
+            Property::Modified => (DCTERMS_NS, b"modified"),
+        }
+    }
+
+    /// Whether the property is a date written with `xsi:type`.
+    fn dated(self) -> bool {
+        matches!(self, Property::Created | Property::Modified)
+    }
+
+    /// The property whose element has this namespace and local name.
+    fn of(namespace: Option<&[u8]>, local: &[u8]) -> Option<Property> {
+        Property::ALL.into_iter().find(|property| {
+            Some(property.element().0) == namespace && property.element().1 == local
+        })
+    }
+}
+
+/// The core properties a part holds, as [`Package::properties`] reads them:
+/// a snapshot of the file, not of the pending edits. The Cargo feature
+/// `metadata`.
+#[cfg(feature = "metadata")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Properties {
+    values: Vec<(Property, String)>,
+}
+
+#[cfg(feature = "metadata")]
+impl Properties {
+    /// The property's text, unescaped, or `None` when the part has no
+    /// element for it.
+    pub fn get(&self, property: Property) -> Option<&str> {
+        self.values
+            .iter()
+            .find(|(have, _)| *have == property)
+            .map(|(_, text)| text.as_str())
+    }
+}
+
+/// A worksheet's protection options, the attributes of `<sheetProtection>`
+/// (ECMA-376 Part 1, 18.3.1.85), each `true` when that action is locked
+/// (`specs/0019-names-links-properties-protection.md`, "Protection"). The
+/// default is the protected sheet with every option at the schema's own
+/// default, which writes `<sheetProtection sheet="1"/>`: `objects`,
+/// `scenarios`, `select_locked_cells` and `select_unlocked_cells` unlocked,
+/// every other action locked. The Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub struct SheetProtection {
+    pub sheet: bool,
+    pub objects: bool,
+    pub scenarios: bool,
+    pub format_cells: bool,
+    pub format_columns: bool,
+    pub format_rows: bool,
+    pub insert_columns: bool,
+    pub insert_rows: bool,
+    pub insert_hyperlinks: bool,
+    pub delete_columns: bool,
+    pub delete_rows: bool,
+    pub select_locked_cells: bool,
+    pub sort: bool,
+    pub auto_filter: bool,
+    pub pivot_tables: bool,
+    pub select_unlocked_cells: bool,
+}
+
+#[cfg(feature = "metadata")]
+impl std::default::Default for SheetProtection {
+    fn default() -> Self {
+        SheetProtection {
+            sheet: true,
+            objects: false,
+            scenarios: false,
+            format_cells: true,
+            format_columns: true,
+            format_rows: true,
+            insert_columns: true,
+            insert_rows: true,
+            insert_hyperlinks: true,
+            delete_columns: true,
+            delete_rows: true,
+            select_locked_cells: false,
+            sort: true,
+            auto_filter: true,
+            pivot_tables: true,
+            select_unlocked_cells: false,
+        }
+    }
+}
+
+#[cfg(feature = "metadata")]
+impl SheetProtection {
+    /// Each option's attribute name, its value here and its schema
+    /// default, in the schema's order.
+    fn options(&self) -> [(&'static [u8], bool, bool); 16] {
+        [
+            (b"sheet", self.sheet, false),
+            (b"objects", self.objects, false),
+            (b"scenarios", self.scenarios, false),
+            (b"formatCells", self.format_cells, true),
+            (b"formatColumns", self.format_columns, true),
+            (b"formatRows", self.format_rows, true),
+            (b"insertColumns", self.insert_columns, true),
+            (b"insertRows", self.insert_rows, true),
+            (b"insertHyperlinks", self.insert_hyperlinks, true),
+            (b"deleteColumns", self.delete_columns, true),
+            (b"deleteRows", self.delete_rows, true),
+            (b"selectLockedCells", self.select_locked_cells, false),
+            (b"sort", self.sort, true),
+            (b"autoFilter", self.auto_filter, true),
+            (b"pivotTables", self.pivot_tables, true),
+            (b"selectUnlockedCells", self.select_unlocked_cells, false),
+        ]
+    }
+}
+
+/// A worksheet protection as recorded: the password's hash, when given,
+/// and the options.
+#[cfg(feature = "metadata")]
+type SheetLock = (Option<u16>, SheetProtection);
+
+/// A workbook protection as recorded: the password's hash, when given, and
+/// the structure and windows locks.
+#[cfg(feature = "metadata")]
+type BookLock = (Option<u16>, bool, bool);
+
+/// The legacy password hash Excel stores in `password` and
+/// `workbookPassword` (ECMA-376 first edition Part 4; the algorithm
+/// openpyxl and LibreOffice write): from zero, each character at 1-based
+/// position `i` is rotated left by `i` within fifteen bits and exclusive-ored
+/// in; then the length, then `0xCE4B`
+/// (`specs/0019-names-links-properties-protection.md`, "Protection"). The
+/// callers accept printable ASCII only, where each character is one byte.
+/// The Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+pub fn legacy_password_hash(password: &str) -> u16 {
+    let mut hash: u16 = 0;
+    let mut length: u16 = 0;
+    for (position, byte) in password.bytes().enumerate() {
+        let shift = (position + 1) % 15;
+        let value = u32::from(byte) & 0x7FFF;
+        let rotated = ((value << shift) | (value >> (15 - shift))) & 0x7FFF;
+        hash ^= rotated as u16;
+        length = length.wrapping_add(1);
+    }
+    hash ^ length ^ 0xCE4B
+}
+
+/// Whether a password is 1 to 255 characters, every one printable ASCII.
+#[cfg(feature = "metadata")]
+fn password_ok(password: &str) -> bool {
+    (1..=255).contains(&password.len())
+        && password.bytes().all(|byte| (0x20..=0x7E).contains(&byte))
+}
+
 /// One `Default` element of `[Content_Types].xml`, bytes as written.
 ///
 /// The name shadows the prelude's `Default` trait inside this module, which
@@ -1131,6 +1402,10 @@ pub struct Workbook {
     /// a name refuses two.
     #[cfg(feature = "metadata")]
     pub(crate) defined_names_containers: usize,
+    /// How many `<workbookProtection>` elements the root has; a write that
+    /// protects or unprotects the workbook refuses two.
+    #[cfg(feature = "metadata")]
+    pub(crate) workbook_protections: usize,
 }
 
 impl Workbook {
@@ -1272,6 +1547,21 @@ struct Recorded {
     /// declaration both follow (P2 verification ruling 2).
     #[cfg(feature = "metadata")]
     link_strict: Vec<(Vec<u8>, bool)>,
+    /// `(property, value)`: a core property set, or removed when `None`, in
+    /// record order, so the last for a property wins
+    /// (`specs/0019-names-links-properties-protection.md`, "Document
+    /// properties").
+    #[cfg(feature = "metadata")]
+    properties: Vec<(Property, Option<String>)>,
+    /// `(part, protection)`: a worksheet protected with the hash and
+    /// options, or unprotected when `None`, the last for a part winning
+    /// ("Protection").
+    #[cfg(feature = "metadata")]
+    sheet_protections: Vec<(Vec<u8>, Option<SheetLock>)>,
+    /// The workbook protected with the hash and the structure and windows
+    /// locks, or unprotected when `None`, the last winning.
+    #[cfg(feature = "metadata")]
+    book_protections: Vec<Option<BookLock>>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1344,6 +1634,10 @@ struct SheetWork {
     /// type and a retag's namespace).
     #[cfg(feature = "metadata")]
     links_strict: bool,
+    /// The part's protection edit, the last recorded: `Some(Some(..))` a
+    /// protect, `Some(None)` an unprotect.
+    #[cfg(feature = "metadata")]
+    protection: Option<Option<SheetLock>>,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -1386,11 +1680,11 @@ enum LinkEdit {
     Remove,
 }
 
-/// Whether the part's rewrite carries no hyperlink edit (the Cargo feature
-/// `metadata`).
+/// Whether the part's rewrite carries no hyperlink or protection edit (the
+/// Cargo feature `metadata`).
 #[cfg(all(feature = "rowcol", feature = "metadata"))]
 fn no_links(work: &SheetWork) -> bool {
-    work.links.is_empty()
+    work.links.is_empty() && work.protection.is_none()
 }
 
 /// Whether the part's rewrite carries no hyperlink edit; always, without the
@@ -1683,15 +1977,18 @@ impl Recorded {
         self.name_edits.is_empty()
     }
 
-    /// Whether no hyperlink is set or removed; always, without the feature
-    /// `metadata`.
+    /// Whether no hyperlink, core property or protection is edited;
+    /// always, without the feature `metadata`.
     #[cfg(feature = "metadata")]
     fn no_link_edits(&self) -> bool {
         self.links.is_empty()
+            && self.properties.is_empty()
+            && self.sheet_protections.is_empty()
+            && self.book_protections.is_empty()
     }
 
-    /// Whether no hyperlink is set or removed; always, without the feature
-    /// `metadata`.
+    /// Whether no hyperlink, core property or protection is edited;
+    /// always, without the feature `metadata`.
     #[cfg(not(feature = "metadata"))]
     fn no_link_edits(&self) -> bool {
         true
@@ -1766,7 +2063,9 @@ impl Recorded {
         #[cfg(feature = "rowcol")]
         let named = named.chain(self.shifts.iter().map(|(part, _)| part));
         #[cfg(feature = "metadata")]
-        let named = named.chain(self.links.iter().map(|(part, _, _)| part));
+        let named = named
+            .chain(self.links.iter().map(|(part, _, _)| part))
+            .chain(self.sheet_protections.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -1836,6 +2135,13 @@ impl Recorded {
                 .link_strict
                 .iter()
                 .any(|(at, strict)| at.as_slice() == part && *strict),
+            #[cfg(feature = "metadata")]
+            protection: self
+                .sheet_protections
+                .iter()
+                .rev()
+                .find(|(at, _)| at.as_slice() == part)
+                .map(|(_, protection)| *protection),
         }
     }
 
@@ -2663,6 +2969,126 @@ impl<R: Read + Seek> Package<R> {
         self.parts().remove_hyperlink(part, reference)
     }
 
+    /// The package's core properties: `docProps/core.xml` as the package's
+    /// core-properties relationship names it, each of the thirteen
+    /// [`Property`] elements read by namespace and local name, its text
+    /// unescaped, every other child ignored; empty when the package has no
+    /// such relationship. A snapshot of the file, not of the pending edits.
+    /// The Cargo feature `metadata`
+    /// (`specs/0019-names-links-properties-protection.md`, "Document
+    /// properties").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a relationship whose part is
+    /// missing, "a core properties part has two elements of one property",
+    /// and whatever [`Stream`] refuses.
+    #[cfg(feature = "metadata")]
+    pub fn properties(&mut self) -> Result<Properties, Error> {
+        self.parts().properties()
+    }
+
+    /// Records a core property's value, or its removal when `value` is
+    /// `None`; the last record for a property wins. The write replaces the
+    /// element's content in place (its start tag kept byte for byte), drops
+    /// it, or appends it before the root's end tag with the prefix the root
+    /// binds to its namespace; with no core-properties part it adds
+    /// `docProps/core.xml`, its package relationship and its `Override`
+    /// (decision 5 A). `app.xml` and `custom.xml` are never touched. The
+    /// Cargo feature `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a property value is not valid" for a `Created`
+    /// or `Modified` value not of the form `YYYY-MM-DDThh:mm:ssZ`, and "a
+    /// text holds a character XML cannot carry" for a value holding one;
+    /// nothing is recorded when this fails. The write refuses an append
+    /// the root binds no prefix for, "a core properties part binds no prefix
+    /// for a namespace the edit needs", a part with two elements of one
+    /// property, and a core part this write removes or replaces, "an edit
+    /// to a removed part".
+    #[cfg(feature = "metadata")]
+    pub fn set_property(&mut self, property: Property, value: Option<&str>) -> Result<(), Error> {
+        self.parts().set_property(property, value)
+    }
+
+    /// Records the protection of the worksheet part `part`: `options` as
+    /// its `<sheetProtection>` attributes and, when given, `password`'s
+    /// [`legacy_password_hash`] as four upper-case hex digits; the last
+    /// record for a part wins. The write replaces the part's element whole
+    /// or creates one in schema position. The lock is Excel's advisory one,
+    /// not encryption. The Cargo feature `metadata`
+    /// (`specs/0019-names-links-properties-protection.md`, "Protection").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a password is not valid" for a password that is
+    /// not 1 to 255 printable ASCII characters; nothing is recorded when
+    /// this fails. The write refuses a part with two `<sheetProtection>`, "a
+    /// worksheet has two hyperlinks or sheetProtection elements", a part
+    /// with a row or column shift in the same write, and what a cell edit
+    /// to the part would meet.
+    #[cfg(feature = "metadata")]
+    pub fn protect_sheet(
+        &mut self,
+        part: &[u8],
+        password: Option<&str>,
+        options: SheetProtection,
+    ) -> Result<(), Error> {
+        self.parts().protect_sheet(part, password, options)
+    }
+
+    /// Records the removal of the worksheet part's `<sheetProtection>`;
+    /// a part with none is left as it is. The Cargo feature `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// None at the call; the write refuses what [`Package::protect_sheet`]
+    /// says it refuses.
+    #[cfg(feature = "metadata")]
+    pub fn unprotect_sheet(&mut self, part: &[u8]) -> Result<(), Error> {
+        self.edits.sheet_protections.push((part.to_vec(), None));
+        Ok(())
+    }
+
+    /// Records the protection of the workbook: `lockStructure` when
+    /// `structure`, `lockWindows` when `windows`, and `workbookPassword`
+    /// when a password is given; an element with neither lock and no
+    /// password is still written. The last record wins. The Cargo feature
+    /// `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a password is not valid" as for
+    /// [`Package::protect_sheet`]. The write refuses a workbook part with
+    /// two `<workbookProtection>`, "a workbook has two definedNames or
+    /// workbookProtection elements", and a workbook part this write
+    /// replaces or removes.
+    #[cfg(feature = "metadata")]
+    pub fn protect_workbook(
+        &mut self,
+        password: Option<&str>,
+        structure: bool,
+        windows: bool,
+    ) -> Result<(), Error> {
+        let hash = match password {
+            Some(password) if !password_ok(password) => return Err(PASSWORD_INVALID),
+            Some(password) => Some(legacy_password_hash(password)),
+            None => None,
+        };
+        self.edits
+            .book_protections
+            .push(Some((hash, structure, windows)));
+        Ok(())
+    }
+
+    /// Records the removal of the workbook's `<workbookProtection>`; a
+    /// workbook with none is left as it is. The Cargo feature `metadata`.
+    #[cfg(feature = "metadata")]
+    pub fn unprotect_workbook(&mut self) {
+        self.edits.book_protections.push(None);
+    }
+
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
     /// `<calcPr>`, asking an application to recalculate every formula when
     /// it opens the file.
@@ -3005,6 +3431,8 @@ impl<'a> Parts<'a> {
             defined_names: read.defined_names,
             #[cfg(feature = "metadata")]
             defined_names_containers: read.defined_names_containers,
+            #[cfg(feature = "metadata")]
+            workbook_protections: read.workbook_protections,
         })
     }
 
@@ -3480,6 +3908,87 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// When a property is set and the package has no core-properties
+    /// relationship, records `docProps/core.xml` as an addition holding the
+    /// set properties, its package relationship with the relative target
+    /// and its `Override` (decision 5 A), before validation so each is
+    /// checked as any other edit is.
+    #[cfg(feature = "metadata")]
+    fn record_core_creation(&mut self) -> Result<(), Error> {
+        if self.edits.properties.is_empty() || self.core_part()?.is_some() {
+            return Ok(());
+        }
+        let props = property_edits(&self.edits.properties);
+        if props.iter().all(|(_, value)| value.is_none()) {
+            return Ok(());
+        }
+        let bytes = new_core_part(&props);
+        self.add_part(
+            b"docProps/core.xml",
+            replacement_from_reader(Cursor::new(bytes)),
+        );
+        self.add_relationship(b"", CORE_PROPERTIES[0], b"docProps/core.xml", false)?;
+        self.add_override(b"/docProps/core.xml", CORE_PROPERTIES_TYPE);
+        Ok(())
+    }
+
+    /// The body of [`Package::properties`].
+    #[cfg(feature = "metadata")]
+    fn properties(&mut self) -> Result<Properties, Error> {
+        let Some(part) = self.core_part()? else {
+            return Ok(Properties::default());
+        };
+        let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+        read_core(self.archive, index)
+    }
+
+    /// The entry the package's core-properties relationship names, either
+    /// form, `None` when it has none.
+    #[cfg(feature = "metadata")]
+    fn core_part(&mut self) -> Result<Option<Vec<u8>>, Error> {
+        let rels = self.relationships(b"")?;
+        match rels.first_of(CORE_PROPERTIES) {
+            Some(rel) => Ok(Some(rels.target_part(rel)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// The body of [`Package::set_property`].
+    #[cfg(feature = "metadata")]
+    fn set_property(&mut self, property: Property, value: Option<&str>) -> Result<(), Error> {
+        if let Some(value) = value {
+            if property.dated() && !w3cdtf_ok(value) {
+                return Err(PROPERTY_INVALID);
+            }
+            if value.chars().any(crate::cells::forbidden_in_xml) {
+                return Err(TEXT_NOT_XML);
+            }
+        }
+        self.edits
+            .properties
+            .push((property, value.map(str::to_string)));
+        Ok(())
+    }
+
+    /// The body of [`Package::protect_sheet`].
+    #[cfg(feature = "metadata")]
+    fn protect_sheet(
+        &mut self,
+        part: &[u8],
+        password: Option<&str>,
+        options: SheetProtection,
+    ) -> Result<(), Error> {
+        let hash = match password {
+            Some(password) if !password_ok(password) => return Err(PASSWORD_INVALID),
+            Some(password) => Some(legacy_password_hash(password)),
+            None => None,
+        };
+        self.edits
+            .sheet_protections
+            .push((part.to_vec(), Some((hash, options))));
+        Ok(())
+    }
+
     /// Records the relationship of every external link the write will
     /// append, each cell's last set, on its part's rels part, and keeps the
     /// id for the worksheet pass; the type's form, and a retag's namespace
@@ -3837,6 +4346,8 @@ impl<'a> Parts<'a> {
         self.edits.shifts.retain(|(at, _)| at != part);
         #[cfg(feature = "metadata")]
         self.edits.links.retain(|(at, _, _)| at != part);
+        #[cfg(feature = "metadata")]
+        self.edits.sheet_protections.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -3845,6 +4356,8 @@ impl<'a> Parts<'a> {
         // the rels part it goes into is checked as any other edit's is.
         #[cfg(feature = "metadata")]
         self.record_link_relationships()?;
+        #[cfg(feature = "metadata")]
+        self.record_core_creation()?;
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -3944,6 +4457,20 @@ impl<'a> Parts<'a> {
             edits.replace(index, replacement);
         }
 
+        // The core-properties part, rewritten once when a property is edited
+        // and the package has one (`specs/0019-names-links-properties-
+        // protection.md`, "Document properties").
+        #[cfg(feature = "metadata")]
+        if !self.edits.properties.is_empty()
+            && let Some(part) = self.core_part()?
+            && let Some(index) = self.archive.index_of(&part)
+        {
+            let props = property_edits(&self.edits.properties);
+            let (temp, replacement) = rewrite_core(self.archive, index, &props)?;
+            temporaries.push(temp);
+            edits.replace(index, replacement);
+        }
+
         // The workbook part, rewritten once when a full calculation on load
         // was asked for (`specs/0013-formulas.md`, "Module `package`") or a
         // sheet edit was recorded (`specs/0016-new-workbook-and-sheets.md`,
@@ -3962,7 +4489,18 @@ impl<'a> Parts<'a> {
         } else {
             Some(self.name_plan()?)
         };
-        if self.edits.recalculate || plan.is_some() {
+        #[cfg(feature = "metadata")]
+        let protection = match self.edits.book_protections.last() {
+            Some(protection) => Some((*protection, self.workbook()?.workbook_protections == 0)),
+            None => None,
+        };
+        // An unprotect of a workbook with no element changes nothing, so it
+        // alone does not rewrite the part.
+        #[cfg(feature = "metadata")]
+        let protecting = protection.is_some_and(|edit| edit != (None, true));
+        #[cfg(not(feature = "metadata"))]
+        let protecting = false;
+        if self.edits.recalculate || plan.is_some() || protecting {
             let part = self.workbook()?.part.clone();
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let book = BookEdits {
@@ -3970,6 +4508,8 @@ impl<'a> Parts<'a> {
                 plan: plan.as_ref(),
                 #[cfg(feature = "metadata")]
                 names: names.as_ref(),
+                #[cfg(feature = "metadata")]
+                protection,
             };
             let (temp, replacement) = rewrite_workbook_part(self.archive, index, &book)?;
             temporaries.push(temp);
@@ -4309,7 +4849,15 @@ impl<'a> Parts<'a> {
         let calc =
             self.edits.recalculate || self.edits.writes_formula() || !self.edits.no_name_edits();
         let sheets = !self.edits.sheet_edits.is_empty();
-        if calc || sheets {
+        #[cfg(feature = "metadata")]
+        let protecting = !self.edits.book_protections.is_empty();
+        #[cfg(not(feature = "metadata"))]
+        let protecting = false;
+        #[cfg(feature = "metadata")]
+        if protecting && self.workbook()?.workbook_protections > 1 {
+            return Err(TWO_BOOK_ELEMENTS);
+        }
+        if calc || sheets || protecting {
             let part = self.workbook()?.part.clone();
             if is_removed(&part)
                 || self
@@ -4330,6 +4878,22 @@ impl<'a> Parts<'a> {
         // projected sheet list").
         if sheets {
             self.projected()?;
+        }
+        // A core-properties part the edits rewrite is one this write
+        // neither removes nor replaces (`specs/0019-names-links-properties-
+        // protection.md`, "Document properties").
+        #[cfg(feature = "metadata")]
+        if !self.edits.properties.is_empty()
+            && let Some(part) = self.core_part()?
+            && self.archive.index_of(&part).is_some()
+            && (is_removed(&part)
+                || self
+                    .edits
+                    .part_replacements
+                    .iter()
+                    .any(|(name, _)| *name == part))
+        {
+            return Err(REMOVED_PART_EDITED);
         }
         // The defined names resolve and are neither doubled nor missing
         // (`specs/0019-names-links-properties-protection.md`, "Defined
@@ -4832,6 +5396,15 @@ const NO_SUCH_LINK: Error = Error::Package("no hyperlink on that cell");
 #[cfg(feature = "metadata")]
 const TWO_SHEET_ELEMENTS: Error =
     Error::Package("a worksheet has two hyperlinks or sheetProtection elements");
+#[cfg(feature = "metadata")]
+const PROPERTY_INVALID: Error = Error::Package("a property value is not valid");
+#[cfg(feature = "metadata")]
+const PASSWORD_INVALID: Error = Error::Package("a password is not valid");
+#[cfg(feature = "metadata")]
+const CORE_NO_PREFIX: Error =
+    Error::Package("a core properties part binds no prefix for a namespace the edit needs");
+#[cfg(feature = "metadata")]
+const CORE_TWO: Error = Error::Package("a core properties part has two elements of one property");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -5347,6 +5920,11 @@ struct BookEdits<'a> {
     plan: Option<&'a SheetPlan>,
     #[cfg(feature = "metadata")]
     names: Option<&'a NamePlan>,
+    /// The workbook's protection edit, the last recorded: `Some(Some(..))`
+    /// a protect with the hash and the two locks, `Some(None)` an
+    /// unprotect; and whether the part lacks the element.
+    #[cfg(feature = "metadata")]
+    protection: Option<(Option<BookLock>, bool)>,
 }
 
 /// [`rewrite_workbook_part`] with no defined-name edit, the form the part 6
@@ -5363,6 +5941,8 @@ fn rewrite_workbook(
         plan,
         #[cfg(feature = "metadata")]
         names: None,
+        #[cfg(feature = "metadata")]
+        protection: None,
     };
     rewrite_workbook_part(archive, index, &edits)
 }
@@ -5428,6 +6008,12 @@ fn rewrite_workbook_part(
     // The elements still to be created, in the table's order, and the bytes
     // held back since the last point they could go.
     let mut pending: Vec<&'static [u8]> = Vec::new();
+    #[cfg(feature = "metadata")]
+    if let Some((Some(_), true)) = edits.protection {
+        pending.push(b"workbookProtection");
+    }
+    #[cfg(feature = "metadata")]
+    let mut protections = 0usize;
     #[cfg(feature = "metadata")]
     if names.is_some_and(|names| names.create) {
         pending.push(b"definedNames");
@@ -5568,6 +6154,32 @@ fn rewrite_workbook_part(
                     pending.retain(|which| book_position(which) >= at);
                     out.write_all(&held)?;
                     held.clear();
+                }
+                // The workbook's `<workbookProtection>`: replaced whole or
+                // dropped, a second refused
+                // (`specs/0019-names-links-properties-protection.md`,
+                // "Protection").
+                #[cfg(feature = "metadata")]
+                if depth == 2
+                    && ours
+                    && local == b"workbookProtection"
+                    && let Some((protection, _)) = edits.protection
+                {
+                    protections += 1;
+                    if protections > 1 {
+                        return Err(TWO_BOOK_ELEMENTS);
+                    }
+                    let bytes = match protection {
+                        Some(protection) => book_protection_element(protection, &prefix_of(start)),
+                        None => Vec::new(),
+                    };
+                    if !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
                 }
                 #[cfg(feature = "metadata")]
                 if depth == 2 && region == Some(b"definedNames") && names.is_some() {
@@ -5758,6 +6370,12 @@ fn names_edited(edits: &BookEdits<'_>) -> bool {
 /// added names.
 fn created_book_element(which: &[u8], prefix: &[u8], edits: &BookEdits<'_>) -> Vec<u8> {
     #[cfg(feature = "metadata")]
+    if which == b"workbookProtection"
+        && let Some((Some(protection), _)) = edits.protection
+    {
+        return book_protection_element(protection, prefix);
+    }
+    #[cfg(feature = "metadata")]
     if which == b"definedNames"
         && let Some(names) = edits.names
     {
@@ -5774,6 +6392,26 @@ fn created_book_element(which: &[u8], prefix: &[u8], edits: &BookEdits<'_>) -> V
     }
     let _ = (which, edits);
     [b"<".as_slice(), prefix, b"calcPr fullCalcOnLoad=\"1\"/>"].concat()
+}
+
+/// A `<workbookProtection>` element with `prefix`: `workbookPassword` when a
+/// hash is given, `lockStructure="1"` and `lockWindows="1"` when locked, and
+/// written with no attribute when none applies, as Excel writes it
+/// (`specs/0019-names-links-properties-protection.md`, "Protection").
+#[cfg(feature = "metadata")]
+fn book_protection_element((hash, structure, windows): BookLock, prefix: &[u8]) -> Vec<u8> {
+    let mut out = [b"<".as_slice(), prefix, b"workbookProtection"].concat();
+    if let Some(hash) = hash {
+        out.extend_from_slice(format!(" workbookPassword=\"{hash:04X}\"").as_bytes());
+    }
+    if structure {
+        out.extend_from_slice(b" lockStructure=\"1\"");
+    }
+    if windows {
+        out.extend_from_slice(b" lockWindows=\"1\"");
+    }
+    out.extend_from_slice(b"/>");
+    out
 }
 
 /// The added `<definedName>` elements, back to back, with `prefix`: `name`
@@ -6905,6 +7543,11 @@ fn rewrite_worksheet_from(
     let mut unmerged = vec![false; work.unmerges.len()];
     #[cfg(feature = "metadata")]
     let mut links = LinksPass::new(&work.links);
+    #[cfg(feature = "metadata")]
+    let mut protect = ProtectPass {
+        edit: work.protection,
+        met: false,
+    };
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -6936,10 +7579,22 @@ fn rewrite_worksheet_from(
                     if let Some(position) = schema_position(local) {
                         for which in 0..CREATED.len() {
                             let at = schema_position(CREATED[which]).unwrap_or(0);
+                            // A created `<sheetProtection>` goes in its
+                            // place among the created elements.
+                            #[cfg(feature = "metadata")]
+                            if at > ProtectPass::position()
+                                && let Some(bytes) = protect.create_before(position, &root_prefix)
+                            {
+                                out.write_all(&bytes)?;
+                            }
                             if needed[which] && !met[which] && at < position {
                                 out.write_all(&created_element(which, work, &root_prefix, index)?)?;
                                 met[which] = true;
                             }
+                        }
+                        #[cfg(feature = "metadata")]
+                        if let Some(bytes) = protect.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = links.create_before(position, &root_prefix) {
@@ -6954,6 +7609,28 @@ fn rewrite_worksheet_from(
                         }
                         met[which] = true;
                     }
+                }
+                // The part's `<sheetProtection>`: replaced whole or dropped,
+                // a second refused.
+                #[cfg(feature = "metadata")]
+                if root
+                    && depth == 2
+                    && ours
+                    && local == b"sheetProtection"
+                    && protect.edit.is_some()
+                {
+                    if protect.met {
+                        return Err(TWO_SHEET_ELEMENTS);
+                    }
+                    protect.met = true;
+                    let bytes = protect.element(&prefix_of(start));
+                    if !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
                 }
                 #[cfg(feature = "metadata")]
                 if root && depth == 2 && ours && local == HYPERLINKS && links.touched {
@@ -6977,16 +7654,27 @@ fn rewrite_worksheet_from(
                     #[cfg(not(feature = "metadata"))]
                     let root_raw = token.raw.to_vec();
                     #[cfg(feature = "metadata")]
-                    let links_needed = links.needed;
+                    let links_needed = links.needed || matches!(protect.edit, Some(Some(_)));
                     #[cfg(not(feature = "metadata"))]
                     let links_needed = false;
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
+                            #[cfg(feature = "metadata")]
+                            if schema_position(CREATED[which]).unwrap_or(0)
+                                > ProtectPass::position()
+                                && let Some(bytes) = protect.create_before(usize::MAX, &root_prefix)
+                            {
+                                out.write_all(&bytes)?;
+                            }
                             if needed[which] {
                                 out.write_all(&created_element(which, work, &root_prefix, index)?)?;
                                 met[which] = true;
                             }
+                        }
+                        #[cfg(feature = "metadata")]
+                        if let Some(bytes) = protect.create_before(usize::MAX, &root_prefix) {
+                            out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = links.create_at_end(&root_prefix) {
@@ -7341,6 +8029,14 @@ fn rewrite_worksheet_from(
                                 // The root's end: whatever the write needs and
                                 // the part still lacks goes here.
                                 for which in 0..CREATED.len() {
+                                    #[cfg(feature = "metadata")]
+                                    if schema_position(CREATED[which]).unwrap_or(0)
+                                        > ProtectPass::position()
+                                        && let Some(bytes) =
+                                            protect.create_before(usize::MAX, &root_prefix)
+                                    {
+                                        out.write_all(&bytes)?;
+                                    }
                                     if needed[which] && !met[which] {
                                         out.write_all(&created_element(
                                             which,
@@ -7350,6 +8046,11 @@ fn rewrite_worksheet_from(
                                         )?)?;
                                         met[which] = true;
                                     }
+                                }
+                                #[cfg(feature = "metadata")]
+                                if let Some(bytes) = protect.create_before(usize::MAX, &root_prefix)
+                                {
+                                    out.write_all(&bytes)?;
                                 }
                                 #[cfg(feature = "metadata")]
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
@@ -7418,6 +8119,368 @@ fn cols_written(
     out.extend_from_slice(&content);
     out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
     Ok(out)
+}
+
+/// Whether a date property's value is exactly `YYYY-MM-DDThh:mm:ssZ`: a
+/// digit in every digit position and the other characters as written
+/// (`specs/0019-names-links-properties-protection.md`, "Document
+/// properties").
+#[cfg(feature = "metadata")]
+fn w3cdtf_ok(value: &str) -> bool {
+    const FORM: &[u8; 20] = b"0000-00-00T00:00:00Z";
+    let bytes = value.as_bytes();
+    bytes.len() == FORM.len()
+        && bytes
+            .iter()
+            .zip(FORM.iter())
+            .all(|(byte, form)| match form {
+                b'0' => byte.is_ascii_digit(),
+                _ => byte == form,
+            })
+}
+
+/// Reads a core-properties part: each child of the root that is one of the
+/// thirteen properties, its text; a second element of one property is
+/// refused.
+#[cfg(feature = "metadata")]
+fn read_core(archive: &mut Core, index: usize) -> Result<Properties, Error> {
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut values: Vec<(Property, String)> = Vec::new();
+    while let Some(token) = stream.next()? {
+        let (start, empty) = match token.event {
+            Event::Start(ref start) => (start, false),
+            Event::Empty(ref start) => (start, true),
+            Event::End(_) => {
+                scope.end();
+                depth = depth.saturating_sub(1);
+                continue;
+            }
+            _ => continue,
+        };
+        depth += 1;
+        scope.start(start)?;
+        let (namespace, local) = scope.resolve_element(start.name())?;
+        if depth == 2
+            && let Some(property) = Property::of(namespace, local)
+        {
+            if values.iter().any(|(have, _)| *have == property) {
+                return Err(CORE_TWO);
+            }
+            let text = if empty {
+                String::new()
+            } else {
+                let text = crate::cells::text_of(&mut stream, &mut scope, index)?;
+                depth -= 1;
+                values.push((property, text));
+                continue;
+            };
+            values.push((property, text));
+        }
+        if empty {
+            scope.end();
+            depth -= 1;
+        }
+    }
+    Ok(Properties { values })
+}
+
+/// The prefix a start tag declares for `namespace`: `Some(b"")` for the
+/// default namespace, `Some(p)` for `xmlns:p`, `None` when it declares none.
+#[cfg(feature = "metadata")]
+fn declared_prefix(
+    start: &BytesStart<'_>,
+    namespace: &[u8],
+    index: usize,
+) -> Result<Option<Vec<u8>>, Error> {
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.value.as_bytes() != namespace {
+            continue;
+        }
+        let key = attribute.key.as_ref().as_bytes();
+        if key == b"xmlns" {
+            return Ok(Some(Vec::new()));
+        }
+        if let Some(prefix) = key.strip_prefix(b"xmlns:") {
+            return Ok(Some(prefix.to_vec()));
+        }
+    }
+    Ok(None)
+}
+
+/// One core property element: `<p:name>text</p:name>`, a date with
+/// `xsi:type="dcterms:W3CDTF"`, `prefix` and the others with their colons,
+/// or bare when empty.
+#[cfg(feature = "metadata")]
+fn core_element(
+    property: Property,
+    text: &str,
+    prefix: &[u8],
+    xsi: &[u8],
+    dcterms: &[u8],
+) -> Vec<u8> {
+    let colon = |p: &[u8]| -> Vec<u8> {
+        if p.is_empty() {
+            Vec::new()
+        } else {
+            [p, b":"].concat()
+        }
+    };
+    let name = [colon(prefix).as_slice(), property.element().1].concat();
+    let mut out = [b"<".as_slice(), &name].concat();
+    if property.dated() {
+        out.extend_from_slice(b" ");
+        out.extend_from_slice(&colon(xsi));
+        out.extend_from_slice(b"type=\"");
+        out.extend_from_slice(&colon(dcterms));
+        out.extend_from_slice(b"W3CDTF\"");
+    }
+    out.push(b'>');
+    out.extend_from_slice(escape(text).replace('\r', "&#13;").as_bytes());
+    out.extend_from_slice(&[b"</".as_slice(), &name, b">"].concat());
+    out
+}
+
+/// The core properties this write sets or removes, each property's last
+/// record, in the order of those records.
+#[cfg(feature = "metadata")]
+fn property_edits(recorded: &[(Property, Option<String>)]) -> Vec<(Property, Option<String>)> {
+    recorded
+        .iter()
+        .enumerate()
+        .filter(|(at, (property, _))| {
+            !recorded[at + 1..]
+                .iter()
+                .any(|(later, _)| later == property)
+        })
+        .map(|(_, edit)| edit.clone())
+        .collect()
+}
+
+/// A new `docProps/core.xml` holding the set properties, with the fixed
+/// root binding `cp`, `dc`, `dcterms`, `dcmitype` and `xsi`, the prefixes
+/// Excel writes (decision 5 A): the declaration, one line feed and the root,
+/// as the template's parts are.
+#[cfg(feature = "metadata")]
+fn new_core_part(edits: &[(Property, Option<String>)]) -> Vec<u8> {
+    let mut out = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<cp:coreProperties xmlns:cp=\"".to_vec();
+    out.extend_from_slice(CP_NS);
+    out.extend_from_slice(b"\" xmlns:dc=\"");
+    out.extend_from_slice(DC_NS);
+    out.extend_from_slice(b"\" xmlns:dcterms=\"");
+    out.extend_from_slice(DCTERMS_NS);
+    out.extend_from_slice(b"\" xmlns:dcmitype=\"");
+    out.extend_from_slice(DCMITYPE_NS);
+    out.extend_from_slice(b"\" xmlns:xsi=\"");
+    out.extend_from_slice(XSI_NS);
+    out.extend_from_slice(b"\">");
+    for (property, value) in edits {
+        if let Some(text) = value {
+            let prefix: &[u8] = match property.element().0 {
+                ns if ns == DC_NS => b"dc",
+                ns if ns == DCTERMS_NS => b"dcterms",
+                _ => b"cp",
+            };
+            out.extend_from_slice(&core_element(*property, text, prefix, b"xsi", b"dcterms"));
+        }
+    }
+    out.extend_from_slice(b"</cp:coreProperties>");
+    out
+}
+
+/// Rewrites a core-properties part with the property edits: the root's
+/// start tag copied raw; a child that is an edited property replaced (its
+/// start tag kept, opened up when empty, its content the new text) or
+/// skipped whole; every other token copied; each set property the part
+/// lacks appended before the root's end tag with the prefix the root binds
+/// to its namespace, refused when it binds none
+/// (`specs/0019-names-links-properties-protection.md`, "Document
+/// properties").
+#[cfg(feature = "metadata")]
+fn rewrite_core(
+    archive: &mut Core,
+    index: usize,
+    edits: &[(Property, Option<String>)],
+) -> Result<(TempFile, Replacement), Error> {
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut met: Vec<Property> = Vec::new();
+    // The prefixes the root binds, for the appended elements.
+    let mut prefixes: [Option<Vec<u8>>; 4] = [None, None, None, None];
+    let appended = |prefixes: &[Option<Vec<u8>>; 4], met: &[Property]| -> Result<Vec<u8>, Error> {
+        let mut out = Vec::new();
+        for (property, value) in edits {
+            let Some(text) = value else {
+                continue;
+            };
+            if met.contains(property) {
+                continue;
+            }
+            let ns = property.element().0;
+            let which = if ns == CP_NS {
+                0
+            } else if ns == DC_NS {
+                1
+            } else {
+                2
+            };
+            let prefix = prefixes[which].as_ref().ok_or(CORE_NO_PREFIX)?;
+            let (xsi, dcterms): (&[u8], &[u8]) = if property.dated() {
+                (
+                    prefixes[3].as_deref().ok_or(CORE_NO_PREFIX)?,
+                    prefixes[2].as_deref().ok_or(CORE_NO_PREFIX)?,
+                )
+            } else {
+                (b"", b"")
+            };
+            out.extend_from_slice(&core_element(*property, text, prefix, xsi, dcterms));
+        }
+        Ok(out)
+    };
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                if depth == 1 {
+                    for (at, ns) in [CP_NS, DC_NS, DCTERMS_NS, XSI_NS].into_iter().enumerate() {
+                        prefixes[at] = declared_prefix(start, ns, index)?;
+                    }
+                    if empty {
+                        out.write_all(&opened_up(token.raw, index)?)?;
+                        out.write_all(&appended(&prefixes, &met)?)?;
+                        out.write_all(b"</")?;
+                        out.write_all(start.name().into_inner().as_bytes())?;
+                        out.write_all(b">")?;
+                    } else {
+                        out.write_all(token.raw)?;
+                    }
+                } else if depth == 2
+                    && let Some(property) = Property::of(namespace, local)
+                {
+                    if met.contains(&property) {
+                        return Err(CORE_TWO);
+                    }
+                    met.push(property);
+                    let name = start.name().into_inner().as_bytes().to_vec();
+                    match edits.iter().find(|(edited, _)| *edited == property) {
+                        None => out.write_all(token.raw)?,
+                        Some((_, value)) => {
+                            let raw = token.raw.to_vec();
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            if let Some(text) = value {
+                                if empty {
+                                    out.write_all(&opened_up(&raw, index)?)?;
+                                } else {
+                                    out.write_all(&raw)?;
+                                }
+                                out.write_all(
+                                    escape(text.as_str()).replace('\r', "&#13;").as_bytes(),
+                                )?;
+                                out.write_all(b"</")?;
+                                out.write_all(&name)?;
+                                out.write_all(b">")?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                    }
+                } else {
+                    out.write_all(token.raw)?;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 1 {
+                    out.write_all(&appended(&prefixes, &met)?)?;
+                }
+                out.write_all(token.raw)?;
+                scope.end();
+                depth -= 1;
+            }
+            _ => out.write_all(token.raw)?,
+        }
+    }
+    written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// The `<sheetProtection>` part of a worksheet rewrite
+/// (`specs/0019-names-links-properties-protection.md`, "Protection"): the
+/// part's element replaced whole or dropped, or one created in schema
+/// position. The Cargo feature `metadata`.
+#[cfg(feature = "metadata")]
+struct ProtectPass {
+    edit: Option<Option<SheetLock>>,
+    met: bool,
+}
+
+#[cfg(feature = "metadata")]
+impl ProtectPass {
+    /// The element's place in [`WORKSHEET_CHILDREN`].
+    fn position() -> usize {
+        schema_position(b"sheetProtection").unwrap_or(0)
+    }
+
+    /// The element the edit writes, with `prefix`, or nothing for an
+    /// unprotect.
+    fn element(&self, prefix: &[u8]) -> Vec<u8> {
+        match self.edit {
+            Some(Some((hash, options))) => sheet_protection_element(hash, &options, prefix),
+            _ => Vec::new(),
+        }
+    }
+
+    /// The element the write creates, when it protects a part that lacks
+    /// one and a root child at `position` comes after it.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        if matches!(self.edit, Some(Some(_))) && !self.met && Self::position() < position {
+            self.met = true;
+            return Some(self.element(prefix));
+        }
+        None
+    }
+}
+
+/// A `<sheetProtection>` element: `password` first when a hash is given,
+/// then, in the schema's order, `name="1"` for each option locked that the
+/// schema leaves unlocked by default and `name="0"` for each unlocked that
+/// it locks by default, so the default options write
+/// `<sheetProtection sheet="1"/>`.
+#[cfg(feature = "metadata")]
+fn sheet_protection_element(
+    hash: Option<u16>,
+    options: &SheetProtection,
+    prefix: &[u8],
+) -> Vec<u8> {
+    let mut out = [b"<".as_slice(), prefix, b"sheetProtection"].concat();
+    if let Some(hash) = hash {
+        out.extend_from_slice(format!(" password=\"{hash:04X}\"").as_bytes());
+    }
+    for (name, locked, default) in options.options() {
+        if locked != default {
+            out.push(b' ');
+            out.extend_from_slice(name);
+            out.extend_from_slice(if locked { b"=\"1\"" } else { b"=\"0\"" });
+        }
+    }
+    out.extend_from_slice(b"/>");
+    out
 }
 
 /// The hyperlinks' part of a worksheet rewrite
@@ -8738,6 +9801,9 @@ struct RawWorkbook {
     /// The `<definedNames>` elements among the root's children, counted.
     #[cfg(feature = "metadata")]
     defined_names_containers: usize,
+    /// The `<workbookProtection>` elements among the root's children.
+    #[cfg(feature = "metadata")]
+    workbook_protections: usize,
 }
 
 /// Reads the workbook part's `<sheets>`, its first `<workbookPr>`'s
@@ -8762,6 +9828,8 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
     let mut names: Vec<DefinedName> = Vec::new();
     #[cfg(feature = "metadata")]
     let mut names_containers = 0usize;
+    #[cfg(feature = "metadata")]
+    let mut protections = 0usize;
     // The depth of the `<definedNames>` being read, as `sheets_at`.
     #[cfg(feature = "metadata")]
     let mut names_at: Option<usize> = None;
@@ -8805,6 +9873,10 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
                 let value = written_attribute(start, b"fullCalcOnLoad", index)?;
                 full_calc_on_load = Some(matches!(value.as_deref(), Some(b"1") | Some(b"true")));
             }
+        }
+        #[cfg(feature = "metadata")]
+        if root && ours && local == b"workbookProtection" && depth == ROOT_DEPTH + 1 {
+            protections += 1;
         }
         #[cfg(feature = "metadata")]
         if root && ours && local == b"definedNames" && depth == ROOT_DEPTH + 1 {
@@ -8851,6 +9923,8 @@ fn parse_workbook_sheets(archive: &mut Core, index: usize) -> Result<RawWorkbook
         defined_names: names,
         #[cfg(feature = "metadata")]
         defined_names_containers: names_containers,
+        #[cfg(feature = "metadata")]
+        workbook_protections: protections,
     })
 }
 

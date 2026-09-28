@@ -281,6 +281,8 @@ fn the_epoch_is_the_workbooks_date1904() {
         defined_names: Vec::new(),
         #[cfg(feature = "metadata")]
         defined_names_containers: 0,
+        #[cfg(feature = "metadata")]
+        workbook_protections: 0,
     };
     assert_eq!(Epoch::of(&workbook(false)), Epoch::Y1900);
     assert_eq!(Epoch::of(&workbook(true)), Epoch::Y1904);

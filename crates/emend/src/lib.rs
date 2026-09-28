@@ -49,7 +49,9 @@ pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedSt
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
 #[cfg(feature = "metadata")]
-pub use package::{DefinedName, LinkTarget};
+pub use package::{
+    DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
+};
 pub use styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,
     Protection, Scheme, Side, Style, Styles, Underline, Vertical, VerticalAlign, Xf,
