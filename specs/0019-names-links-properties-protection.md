@@ -152,9 +152,10 @@ text, a link's target, a property's value or a cell's text:
 everything below sits behind a Cargo feature `metadata`, off by
 default: the types `DefinedName`, `LinkTarget`, `Property`,
 `Properties` and `SheetProtection`, ten `Package` calls, one
-`Workbook` accessor, one function `legacy_password_hash`, and one
-`package` constant, `HYPERLINK` (the relationship type name the
-link writes), with the messages of this part in the catalogue
+`Workbook` accessor, one function `legacy_password_hash`, and two
+`package` constants, `HYPERLINK` (the relationship type name the
+link writes) and `CORE_PROPERTIES` (P3 verification ruling 3),
+with the messages of this part in the catalogue
 marked as the feature's. The core builds, tests and links without
 it; the tool `emend-copy` turns it on as it does `dates` and
 `rowcol`. Nothing existing changes signature. One core change: the
@@ -305,10 +306,14 @@ Property) -> Option<&str>`, derived `Clone`, `Default`, `PartialEq`,
 - `properties(&mut self) -> Result<Properties, Error>`: reads
   `docProps/core.xml`, found through the package relationship of
   type core-properties (`_rels/.rels`, source empty; the type
-  constant joins the catalogue's eight), the target resolved by
-  `target_part` (both corpus forms); an empty `Properties` when
-  there is no such relationship (`Package::new()`); a relationship
-  whose part is missing refused with part 1's message. Each element
+  constant joins the catalogue's eight as a two-form array like
+  them, the package form every corpus package writes first, then
+  the `officeDocument` form; the creation writes the first; P3
+  ruling 4), the target resolved by `target_part` (both corpus
+  forms); an empty `Properties` when there is no such relationship
+  (`Package::new()`); a relationship whose part is missing refused
+  with part 1's message, by the read and by a write that edits a
+  property (P3 ruling 1). Each element
   of the thirteen is read by namespace and local name, its text
   unescaped; unknown children are ignored; a second element of one
   name is refused ("a core properties part has two elements of one
@@ -320,12 +325,14 @@ Property) -> Option<&str>`, derived `Clone`, `Default`, `PartialEq`,
   `Created` or `Modified` value must be exactly the form
   `YYYY-MM-DDThh:mm:ssZ` (digits in every digit position, the
   letters as written), checked at the call ("a property value is
-  not valid"); any other property takes text as a cell does.
+  not valid"); any other property takes text as a cell does, a
+  forbidden character refused at the call (P3 ruling 5).
 
 The write: when the workbook has a core-properties relationship,
 the part is rewritten in one pass, the root's start tag copied
 raw, each child of one of the thirteen names replaced (its start
-tag kept byte for byte, its content the new text escaped) or
+tag kept byte for byte, an empty-element tag opened up to take
+content, its content the new text escaped) or
 skipped whole (a `None`), every other child copied raw, and each
 recorded property the part lacks appended before the root's end
 tag as `<p:name>text</p:name>`, or `<dcterms:created
@@ -334,7 +341,11 @@ the root binds to those namespaces (the order of children is free,
 `coreProperties` being an `all` group); a root that binds no
 prefix for a namespace an appended element needs is refused ("a
 core properties part binds no prefix for a namespace the edit
-needs"). When the workbook has no such relationship (decision 5),
+needs"); the `xsi` namespace bound only as the root's default
+namespace is no prefix an attribute can take, so an appended date
+is refused the same way (P3 ruling 6). A core part this write
+removes or replaces: "an edit to a removed part", as a cell edit
+would be. When the workbook has no such relationship (decision 5),
 the write adds `docProps/core.xml` with `add_part` as a fixed root
 binding `cp`, `dc`, `dcterms`, `dcmitype` and `xsi` (the prefixes
 Excel writes) around the recorded elements, the relationship on
@@ -352,8 +363,11 @@ fields named as the attributes are (`sheet`, `objects`,
 `delete_columns`, `delete_rows`, `select_locked_cells`, `sort`,
 `auto_filter`, `pivot_tables`, `select_unlocked_cells`), each
 `true` when that action is locked; `SheetProtection::default()` is
-Excel's dialog default (everything locked but selecting locked and
-unlocked cells), derived `Clone`, `Copy`, `PartialEq`, `Eq`,
+the schema's default (everything locked but `objects`, `scenarios`
+and selecting locked and unlocked cells, so it writes exactly
+`<sheetProtection sheet="1"/>`; P3 ruling 3, where the earlier
+wording said Excel's dialog default, which locks `objects` and
+`scenarios` too), derived `Clone`, `Copy`, `PartialEq`, `Eq`,
 `Debug`.
 
 - `protect_sheet(&mut self, part, password: Option<&str>, options:
@@ -377,10 +391,13 @@ unlocked cells), derived `Clone`, `Copy`, `PartialEq`, `Eq`,
   legacy hash is defined on single-byte characters and this keeps
   every input inside that (decision 4).
 
-The write: `<sheetProtection>` written in the worksheet pass as
-`sheet="1"` followed by, for each option locked by default in the
+The write: `<sheetProtection>` written in the worksheet pass with,
+in the schema's order, for each option locked by default in the
 schema that the caller unlocked, `name="0"`, and for each option
-unlocked by default that the caller locked, `name="1"`, so
+unlocked by default that the caller locked, `name="1"` (`sheet`
+is one of the latter, so `sheet="1"` when `sheet` and nothing
+when the caller clears it: the element is then the schema's
+unprotected one with options, written as asked; P3 ruling 3), so
 `SheetProtection::default()` with no password is exactly
 `<sheetProtection sheet="1"/>` and the corpus's commonest form
 (`sheet`, `objects`, `scenarios`) is the default with `objects`
@@ -447,11 +464,13 @@ Reused: part 1's "no sheet of that name" (a scope or a removal
 naming no sheet), "a cell edit to a part this write replaces"
 (every worksheet edit here on a replaced or removed part), the
 missing-part refusal of a relationship whose target is absent,
-part 4's "a text holds a character XML cannot carry" and part 3's
-index message at a name's or a link's call,
-part 3's one-shift message, part 2's unbound-prefix refusal
-wherever an element this part retags carries one, and `Error::Xml`
-for a value that is not UTF-8.
+part 4's "a text holds a character XML cannot carry" at a name's,
+a link's or a property's call and part 3's index message at a
+name's or a link's call, part 3's one-shift message, part 2's
+unbound-prefix refusal wherever an element this part reads or
+retags carries one (a kept `<hyperlink>` is read for its `r:id`
+since P2 ruling 6; P3 ruling 7), and `Error::Xml` for a value that
+is not UTF-8.
 
 ### 32-bit and streaming
 
@@ -738,7 +757,9 @@ recorded as `records/m2p4a-p3-props-<utc-date>-<shortsha>.md`,
 
 ### P4: the catalogue and limits, the probe, the size record
 
-The doc commit (the P3 rulings and verification); then the
+The doc commit (the P3 rulings and verification); then the first
+code commit with the items P3's rulings carry (the missing core
+part refused on the write, ruling 1, first among them); then the
 catalogue and the limits in the `package` module header (the
 caller's picture: what a name, a link, a property and a protection
 do and do not touch, `app.xml` and `custom.xml` untouched, the
@@ -750,9 +771,15 @@ and printing its sha256, and the seventeen probes classified
 against part 3's record; the feature's cost and the core's growth
 stated in the record as facts, the budget figure against 458752
 beside them; the negative log through the binary with every refusal
-of this part reachable through the binary run once (the six fixture
-cases of P1 to P3; the at-call refusals are not reachable, since
-their inputs are the tool's constants, and the log says so); the
+of this part reachable through the binary run once (the fixture
+cases whose refusals P1 to P3's negative logs reached, five of the
+eleven messages, and the missing core part, `--props-sample` on a
+fixture whose core relationship names a part the archive lacks,
+refused with "no such part", P3 ruling 1; the at-call refusals are
+not reachable, since their inputs are the tool's constants, and
+the log says so; the bare template's created core part compared
+by sha256 to the bytes the crate test pins, P3 verification
+ruling 7); the
 corpus run of all four samples again on both targets with the
 release binaries the size log hashed, every output byte-identical
 to the phase run directories' outputs by sha256, in four run
@@ -1013,6 +1040,171 @@ output.
    in 4e62e76 rather than P4: accepted. F12, F13, G9, G11, G12:
    report matters, accepted.
 10. P2 is DONE.
+
+## Planning rulings during P3 (2026-09-28)
+
+The implementing session held before recording P3 (phase commit
+372bc21; the logs installed, uncommitted, all at attempt 1; check
+1 answered) on check 1's F1, a defect it confirmed in the source
+and planning confirmed again from the source at 51acd32: a package
+whose core-properties relationship names a part the archive lacks
+takes a property edit and writes without it. `record_core_creation`
+sees the relationship and creates nothing, the write's core
+rewrite is skipped when the part has no index, and `validate`
+checks a core part only when it is present; `properties` refuses
+the same package with "no such part". No test covers the write
+side, and no corpus package has the shape (all 27 hold their core
+part), so the logged runs are unaffected. Planning had not yet
+read check 1 itself when ruling; the items below other than F1
+are ruled on the implementing session's statement of them, and
+planning's verification of P3 reads the check and revisits any
+whose statement it finds differs.
+
+1. F1. Ruled: P3 is recorded as measured at 372bc21, the defect
+   stated in the report and the record as a defect of 51acd32 not
+   fixed at the phase commit, as part 3's usage strings were. The
+   fix goes in P4's first code commit: `validate` refuses a write
+   that edits a property (a set or a removal, either alone) when
+   the core relationship names a part the archive lacks, with "no
+   such part", the message the read gives; two tests, one a set
+   and one a removal, each reading the message from the test and
+   not from the report; P4's negative log gains the seventh fixture
+   case through the binary. "Document properties" and "P4" are
+   corrected in place. The logs are not rerun and check 2 runs on
+   372bc21 as planned. The spec's reading (refuse, not create) is
+   kept: the relationship says a part exists, and a write that
+   invented one would hide a broken package.
+2. Why not fix now: the phase's logs measure the tree as built,
+   every one at attempt 1; a fourth code commit would rerun all of
+   them for a branch no corpus package reaches; the fix lands
+   before the close-out push either way, and P4's own logs cover
+   it. The precedent is part 3 P4's usage strings.
+3. F2. `SheetProtection::default()` is the schema's default and
+   writes exactly `<sheetProtection sheet="1"/>`; the spec's
+   "Excel's dialog default" contradicted its own exact-bytes
+   clause (the dialog locks `objects` and `scenarios`, the corpus's
+   commonest form). Accepted as built, "Protection" corrected in
+   place. `sheet: false` writing `<sheetProtection/>` with the
+   options: accepted as built, the schema's unprotected element
+   with options, written as asked; corrected in place; P4's
+   catalogue states it.
+4. F3. `CORE_PROPERTIES` a two-form array with the `officeDocument`
+   form second: accepted, the shape of the catalogue's other eight;
+   "Document properties" corrected in place.
+5. F4. The at-call forbidden-character refusal on a property value:
+   accepted, consistent with P1 ruling 10 and P2 ruling 1;
+   corrected in place. The removed or replaced core part refused as
+   "an edit to a removed part" is in `validate` and in the spec's
+   reading but untested: one test each (a `remove_part` and a
+   `replace_part` of the core part with a property set) in P4's
+   first code commit, the message read from the test.
+6. F5. A root binding the `xsi` namespace only as its default
+   namespace would give an appended date an unprefixed `type`
+   attribute, which is in no namespace: ruled a refusal with the
+   no-prefix message, the change and a test in P4's first code
+   commit; corrected in place. Unreachable by any corpus package.
+7. F7. A kept `<hyperlink>` is read for its `r:id` since P2 ruling
+   6, so an unbound prefix on one is refused where P2 passed it:
+   accepted, the part is not namespace-well-formed and the refusal
+   is part 2's; "Errors" corrected in place.
+8. F8. Five of the thirteen properties never written in a write
+   test, where "P3" asks each replaced, removed and appended: one
+   test in P4's first code commit writing all thirteen in each of
+   the three forms against expected bytes.
+9. Scripts and report. F10, the run script's link comparison still
+   encoding the two form signals P2 ruling 2 replaced: fixed in
+   P4's run script, which runs `--link-sample` again. F9 (the
+   protect comparison's hash flag a self-test), F11 (two printout
+   runs without the feature): fixed in P4's scripts where cheap,
+   else stated in P4's report as remarks. F12 to F15, report
+   wording: accepted as report matters, fixed in P3's report where
+   cheap.
+10. The order stands: check 2 on 372bc21; scan last; one record
+    commit; report; STOP. No push.
+
+## Planning verification and rulings on P3 (2026-09-28)
+
+Verified by planning from primaries: five commits over a9e5cb6
+(c9b313f doc, exactly the two files at planning's hashes e2763566
+and f5c74f60; bc46388 the six carried P2 items; 51acd32 the crate;
+372bc21 the tool; d3bb207 the record, 13 files, its message
+stating F1 as ruling 1 asks), every message ASCII with the one
+trailer, no session link; the seven logs and checks at the
+reported hashes, every log pinning the committed spec at e2763566;
+the four logs at attempt 1; the scan's pre-check at attempt 2
+(change AV admitting planning's modified spec, hashed on a
+labelled input line) and its final at attempt 2 (attempt 1 failed
+one structural check on a cargo process of another project's
+build on the machine; rerun once idle, both attempts hashed in its
+rerun lines); stderr 0 bytes in each; gate.log nine PASS, 512 off
+and 556 on per target; test.log 760 passed, 0 failed, 2 ignored
+per target, the three password hashes printed, the sixteen option
+elements, eight plants each failing its test; negative.log the
+no-`dcterms` root, the doubled title and the doubled
+`<sheetProtection>` refused with their exact messages, each with a
+control, the bare template creating the part through the binary;
+run.log props 27 of 27 on both targets, entries identical 843,
+changed 27, dropped 0, added 0, 9 of 9 flags turned by a plant;
+protect 816, 54, 0, 0, 8 of 8; the outputs identical across
+targets; the retag plant on a byte-built workbook whose root binds
+no relationships prefix, its flag turned by a plant; the keep 431
+pairs, 50 new, none gone; 0 outputs refused in the open check;
+scan.log PASS, 0 hits, 0 structural failures. Planning's own
+privacy scan over a9e5cb6..HEAD: 5 commits, 738 blobs, 0
+findings; origin/main still 6dbb4a0; `ANTHROPIC_API_KEY` unset.
+Planning's own build of 372bc21 in a detached worktree: the
+crate's tests 512 off and 556 on, on both targets; the workspace
+760, 0, 2 on both targets; clippy off, on and over the workspace
+clean; doc clean; its own release build of the tool run with both
+samples over the 27 corpus workbooks, every output and every
+printed line byte for byte the phase run's host output, and the
+run directories' host and i686 outputs identical 27 of 27 for
+each sample.
+
+1. F1 stands as rulings 1 and 2 read; the record commit's message
+   states it (G4 verified).
+2. F6, G1 (both checks): `no_link_edits` widened to properties
+   and both protections. Its one caller is `Recorded::is_empty`,
+   which `validate` uses to return early when nothing is recorded,
+   so the widening is what gets a properties-only or
+   protection-only write validated at all; verified from the
+   source at 372bc21. Accepted, required; its doc comment states
+   the wider meaning.
+3. G2 (check 2): "Crate" corrected in place, two `package`
+   constants.
+4. G7 (check 2): "P4" corrected in place, the fixture cases
+   counted by the messages P1 to P3's negative logs reached (five
+   of the eleven) plus the missing core part.
+5. F9 (check 1): the protect comparison's hash flag compares the
+   log's own hash with a typed value, so no output can turn it.
+   Ruled: in P4's run script the flag compares the output's
+   password attributes, both elements, to the log's own hash of
+   the tool's constant. F10: fixed as ruling 9 of the P3 rulings
+   reads. F11: the two single-test printouts run with the feature
+   on from P4; P1 ruling 6 covers them.
+6. G3 (check 2): from P4 the scan's planning-file check has a
+   control of its own (a listing with another planning file
+   modified refused) and the two labels read as the tree stands.
+   Accepted as a remark for P3.
+7. F12 (check 1): the bare template's created core part goes
+   through the binary unchecked; P4's negative log compares it by
+   sha256 to the bytes the crate test pins; "P4" corrected in
+   place. F15: an unprotect of a sheet with no element rewrites
+   the part to its own bytes (a recompressed entry), the
+   workbook's does not; accepted as built, P4's catalogue states
+   it.
+8. Check 2's remark on `opened_up`: an empty-element tag given
+   content cannot keep its start tag byte for byte; accepted, the
+   only reading; "Document properties" corrected in place.
+9. F13, F14, G5, G6, G8, G9 (both checks): report matters,
+   accepted; the `rowcol`-gated protection test runs in the
+   workspace run, as P2 ruling 8 accepted for the link test.
+10. P3 is DONE. The items P4's first code commit carries: the
+    missing-core-part refusal with two tests (P3 ruling 1); the
+    `remove_part` and `replace_part` core tests (ruling 5); the
+    default-namespace `xsi` refusal with a test (ruling 6); the
+    thirteen-property write test (ruling 8). P4's scripts: F9,
+    F10, F11, G3 and F12 as rulings 5 to 7 above read.
 
 ## Out of scope
 
