@@ -48,13 +48,14 @@ pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_re
 pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
+#[cfg(feature = "rules")]
+pub use package::{
+    Cfvo, CfvoKind, ErrorStyle, IconSetKind, Operator, Rule, RuleEntry, Validation,
+    ValidationEntry, ValidationKind,
+};
 #[cfg(feature = "metadata")]
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
-};
-#[cfg(feature = "rules")]
-pub use package::{
-    ErrorStyle, Operator, Rule, RuleEntry, Validation, ValidationEntry, ValidationKind,
 };
 pub use styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,

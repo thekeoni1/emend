@@ -520,6 +520,17 @@ impl Composed {
     }
 }
 
+/// A colour element named `name`, as a font or a fill writes one, for a
+/// conditional format's visual rule
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+/// formatting"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+pub(crate) fn color_element(name: &str, color: &Color) -> Composed {
+    let mut out = Composed::new();
+    out.color(name, color);
+    out
+}
+
 /// Refuses a tint that is not finite or lies outside `-1.0..=1.0`.
 fn check_color(color: Option<&Color>) -> Result<(), Error> {
     match color {

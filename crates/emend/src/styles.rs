@@ -112,6 +112,8 @@ mod elements;
 mod tests;
 
 pub(crate) use elements::Composed;
+#[cfg(feature = "rules")]
+pub(crate) use elements::color_element;
 pub use elements::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, Pattern, Protection, Scheme,
     Side, Style, Underline, Vertical, VerticalAlign,

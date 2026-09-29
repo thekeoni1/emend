@@ -7351,3 +7351,5 @@ mod rowcol;
 mod shift;
 #[cfg(feature = "rules")]
 mod validation;
+#[cfg(feature = "rules")]
+mod visual;

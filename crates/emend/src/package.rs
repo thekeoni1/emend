@@ -437,7 +437,11 @@
 //! (`conditional::a_conditional_format_edit_on_a_removed_or_replaced_part_is_refused`):
 //!
 //! - "a conditional format rule and its differential style do not agree"
-//!   (`conditional::the_call_refuses_each_rule_and_records_nothing`).
+//!   (`conditional::the_call_refuses_each_rule_and_records_nothing`, and for
+//!   a visual rule given a style
+//!   `visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
+//! - "a colour scale, data bar or icon set value is not valid", at the call
+//!   (`visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
 //! - "no conditional format on those areas"
 //!   (`conditional::a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
 //! - "a conditional format has an extension this part does not remove"
@@ -940,6 +944,8 @@ use crate::styles::{
     Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
     Styles, counted, num_fmt_element, scan_start_tag,
 };
+#[cfg(feature = "rules")]
+use crate::styles::{Color, color_element};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
 /// The part every package must have, by exact bytes.
@@ -2070,9 +2076,9 @@ struct NewValidation {
 /// [`Package::add_conditional_format`], one variant per `type` of ECMA-376
 /// Part 1, 18.18.12 this part writes
 /// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
-/// formatting"). Each takes a differential style. A formula is text, given
-/// without a leading `=`, never parsed and never evaluated. The Cargo
-/// feature `rules`.
+/// formatting"). The first eight take a differential style, the three
+/// visual ones none. A formula is text, given without a leading `=`, never
+/// parsed and never evaluated. The Cargo feature `rules`.
 #[cfg(feature = "rules")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Rule<'a> {
@@ -2114,6 +2120,40 @@ pub enum Rule<'a> {
         /// The average itself included.
         equal: bool,
     },
+    /// `colorScale`: two or three points, each with its colour; the first
+    /// may be `Min` and the last `Max`. A visual rule: no style.
+    ColorScale {
+        /// The first point.
+        min: Cfvo<'a>,
+        /// A middle point, for a three-colour scale.
+        mid: Option<Cfvo<'a>>,
+        /// The last point.
+        max: Cfvo<'a>,
+    },
+    /// `dataBar` in the 2007 form, with no `x14` extension: a solid bar of
+    /// one colour. A visual rule: no style.
+    DataBar {
+        /// The bar's lowest point.
+        min: CfvoKind<'a>,
+        /// The bar's highest point.
+        max: CfvoKind<'a>,
+        /// The bar's colour.
+        color: Color,
+        /// Whether the cell's value is shown beside the bar.
+        show_value: bool,
+    },
+    /// `iconSet`: its thresholds number as the set's icons, the first
+    /// `Percent(0)` by Excel's convention. A visual rule: no style.
+    IconSet {
+        /// The set.
+        set: IconSetKind,
+        /// The thresholds, one per icon.
+        thresholds: &'a [CfvoKind<'a>],
+        /// Whether the icons are in reverse order.
+        reverse: bool,
+        /// Whether the cell's value is shown beside the icon.
+        show_value: bool,
+    },
 }
 
 /// One `<cfRule>` as [`Package::conditional_formats`] reads it, with the
@@ -2146,6 +2186,268 @@ pub struct RuleEntry {
     pub extended: bool,
 }
 
+/// A value point of a colour scale, a data bar or an icon set, ECMA-376
+/// Part 1, 18.3.1.11 and 18.18.13
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+/// formatting"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CfvoKind<'a> {
+    /// The lowest value in the area, `min`: a scale's or a bar's first
+    /// point only.
+    Min,
+    /// The highest value, `max`: a scale's or a bar's last point only.
+    Max,
+    /// A number, `num`.
+    Num(f64),
+    /// A percentage of the range, 0 to 100, `percent`.
+    Percent(f64),
+    /// A percentile, 0 to 100, `percentile`.
+    Percentile(f64),
+    /// A formula's value, `formula`, given without a leading `=`.
+    Formula(&'a str),
+}
+
+/// A colour scale's point: its value and its colour. The Cargo feature
+/// `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cfvo<'a> {
+    /// Where the point is.
+    pub kind: CfvoKind<'a>,
+    /// Its colour, written as a font's colour is.
+    pub color: Color,
+}
+
+/// An icon set, the 17 values of ECMA-376 Part 1, 18.18.42. The Cargo
+/// feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconSetKind {
+    /// `3Arrows`.
+    ThreeArrows,
+    /// `3ArrowsGray`.
+    ThreeArrowsGray,
+    /// `3Flags`.
+    ThreeFlags,
+    /// `3TrafficLights1`.
+    ThreeTrafficLights1,
+    /// `3TrafficLights2`.
+    ThreeTrafficLights2,
+    /// `3Signs`.
+    ThreeSigns,
+    /// `3Symbols`.
+    ThreeSymbols,
+    /// `3Symbols2`.
+    ThreeSymbols2,
+    /// `4Arrows`.
+    FourArrows,
+    /// `4ArrowsGray`.
+    FourArrowsGray,
+    /// `4RedToBlack`.
+    FourRedToBlack,
+    /// `4Rating`.
+    FourRating,
+    /// `4TrafficLights`.
+    FourTrafficLights,
+    /// `5Arrows`.
+    FiveArrows,
+    /// `5ArrowsGray`.
+    FiveArrowsGray,
+    /// `5Rating`.
+    FiveRating,
+    /// `5Quarters`.
+    FiveQuarters,
+}
+
+#[cfg(feature = "rules")]
+impl IconSetKind {
+    /// The `iconSet` attribute's value.
+    fn name(self) -> &'static [u8] {
+        match self {
+            IconSetKind::ThreeArrows => b"3Arrows",
+            IconSetKind::ThreeArrowsGray => b"3ArrowsGray",
+            IconSetKind::ThreeFlags => b"3Flags",
+            IconSetKind::ThreeTrafficLights1 => b"3TrafficLights1",
+            IconSetKind::ThreeTrafficLights2 => b"3TrafficLights2",
+            IconSetKind::ThreeSigns => b"3Signs",
+            IconSetKind::ThreeSymbols => b"3Symbols",
+            IconSetKind::ThreeSymbols2 => b"3Symbols2",
+            IconSetKind::FourArrows => b"4Arrows",
+            IconSetKind::FourArrowsGray => b"4ArrowsGray",
+            IconSetKind::FourRedToBlack => b"4RedToBlack",
+            IconSetKind::FourRating => b"4Rating",
+            IconSetKind::FourTrafficLights => b"4TrafficLights",
+            IconSetKind::FiveArrows => b"5Arrows",
+            IconSetKind::FiveArrowsGray => b"5ArrowsGray",
+            IconSetKind::FiveRating => b"5Rating",
+            IconSetKind::FiveQuarters => b"5Quarters",
+        }
+    }
+
+    /// How many icons the set has, which its thresholds must number: the
+    /// digit its name starts with.
+    fn icons(self) -> usize {
+        usize::from(self.name()[0] - b'0')
+    }
+}
+
+/// A visual rule's child element, composed at the call but for the prefix:
+/// its name, its attributes (escaped, each with its leading space), its
+/// `cfvo` types and values, and its colours.
+#[cfg(feature = "rules")]
+#[derive(Clone)]
+struct VisualChild {
+    name: &'static [u8],
+    attributes: Vec<u8>,
+    cfvos: Vec<(&'static [u8], Option<Vec<u8>>)>,
+    colors: Vec<Color>,
+}
+
+#[cfg(feature = "rules")]
+impl VisualChild {
+    /// The element with `prefix` on every name.
+    fn element(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = [b"<".as_slice(), prefix, self.name].concat();
+        out.extend_from_slice(&self.attributes);
+        out.push(b'>');
+        for (kind, value) in &self.cfvos {
+            out.extend_from_slice(
+                &[b"<".as_slice(), prefix, b"cfvo type=\"", kind, b"\""].concat(),
+            );
+            if let Some(value) = value {
+                out.extend_from_slice(&[b" val=\"".as_slice(), value, b"\""].concat());
+            }
+            out.extend_from_slice(b"/>");
+        }
+        let prefix_text = str::from_utf8(prefix).unwrap_or_default();
+        for color in &self.colors {
+            out.extend_from_slice(
+                &color_element(&format!("{prefix_text}color"), color).element(b""),
+            );
+        }
+        out.extend_from_slice(&[b"</".as_slice(), prefix, self.name, b">"].concat());
+        out
+    }
+}
+
+/// A value point's `type` and `val`, refused when it is not valid where it
+/// stands (`specs/0020-validation-and-conditional-formatting.md`, the value
+/// rule): `Min` only first and `Max` only last, and neither in an icon set;
+/// a percent or percentile 0 to 100; a finite number; a formula not empty,
+/// without a leading `=` and holding no character XML forbids.
+#[cfg(feature = "rules")]
+fn cfvo_parts(
+    kind: CfvoKind<'_>,
+    first: bool,
+    last: bool,
+) -> Result<(&'static [u8], Option<Vec<u8>>), Error> {
+    let number = |value: f64| Some(crate::cells::number_text(value).into_bytes());
+    Ok(match kind {
+        CfvoKind::Min if first => (b"min", None),
+        CfvoKind::Max if last => (b"max", None),
+        CfvoKind::Min | CfvoKind::Max => return Err(VISUAL_VALUE),
+        CfvoKind::Num(value) if value.is_finite() => (b"num", number(value)),
+        CfvoKind::Percent(value) if (0.0..=100.0).contains(&value) => (b"percent", number(value)),
+        CfvoKind::Percentile(value) if (0.0..=100.0).contains(&value) => {
+            (b"percentile", number(value))
+        }
+        CfvoKind::Formula(text) if !text.is_empty() => {
+            rule_formula_ok(text).map_err(|_| VISUAL_VALUE)?;
+            (b"formula", Some(attribute_escaped(text)))
+        }
+        _ => return Err(VISUAL_VALUE),
+    })
+}
+
+/// Refuses a colour a visual rule cannot write: a theme tint that is not
+/// finite or lies outside `-1.0..=1.0`.
+#[cfg(feature = "rules")]
+fn visual_color(color: Color) -> Result<Color, Error> {
+    match color {
+        Color::Theme {
+            tint: Some(tint), ..
+        } if !(-1.0..=1.0).contains(&tint) => Err(VISUAL_VALUE),
+        color => Ok(color),
+    }
+}
+
+/// A visual rule's `type` and child element, or `None` for a dxf rule.
+#[cfg(feature = "rules")]
+fn visual_child(rule: &Rule<'_>) -> Result<Option<(&'static [u8], VisualChild)>, Error> {
+    let show = |show_value: bool| -> Vec<u8> {
+        if show_value {
+            Vec::new()
+        } else {
+            b" showValue=\"0\"".to_vec()
+        }
+    };
+    Ok(Some(match *rule {
+        Rule::ColorScale { min, mid, max } => {
+            let points: Vec<Cfvo<'_>> = [Some(min), mid, Some(max)].into_iter().flatten().collect();
+            let last = points.len() - 1;
+            let mut cfvos = Vec::new();
+            let mut colors = Vec::new();
+            for (at, point) in points.iter().enumerate() {
+                cfvos.push(cfvo_parts(point.kind, at == 0, at == last)?);
+                colors.push(visual_color(point.color)?);
+            }
+            (
+                b"colorScale",
+                VisualChild {
+                    name: b"colorScale",
+                    attributes: Vec::new(),
+                    cfvos,
+                    colors,
+                },
+            )
+        }
+        Rule::DataBar {
+            min,
+            max,
+            color,
+            show_value,
+        } => (
+            b"dataBar",
+            VisualChild {
+                name: b"dataBar",
+                attributes: show(show_value),
+                cfvos: vec![cfvo_parts(min, true, false)?, cfvo_parts(max, false, true)?],
+                colors: vec![visual_color(color)?],
+            },
+        ),
+        Rule::IconSet {
+            set,
+            thresholds,
+            reverse,
+            show_value,
+        } => {
+            if thresholds.len() != set.icons() {
+                return Err(VISUAL_VALUE);
+            }
+            let mut attributes = [b" iconSet=\"".as_slice(), set.name(), b"\""].concat();
+            if reverse {
+                attributes.extend_from_slice(b" reverse=\"1\"");
+            }
+            attributes.extend_from_slice(&show(show_value));
+            let cfvos = thresholds
+                .iter()
+                .map(|kind| cfvo_parts(*kind, false, false))
+                .collect::<Result<_, _>>()?;
+            (
+                b"iconSet",
+                VisualChild {
+                    name: b"iconSet",
+                    attributes,
+                    cfvos,
+                    colors: Vec::new(),
+                },
+            )
+        }
+        _ => return Ok(None),
+    }))
+}
+
 /// One recorded conditional format edit: an addition, composed at the call
 /// but for its priority, or the removal of the file's conditional formats
 /// on a list of areas.
@@ -2169,6 +2471,8 @@ struct NewRule {
     before: Vec<u8>,
     after: Vec<u8>,
     formulas: Vec<String>,
+    /// A visual rule's child element.
+    visual: Option<VisualChild>,
 }
 
 /// Whether the part's rewrite carries no data validation or conditional
@@ -4755,7 +5059,9 @@ impl<'a> Parts<'a> {
         stop_if_true: bool,
     ) -> Result<(), Error> {
         let areas = checked_areas(areas)?;
-        if dxf.is_none() {
+        let visual = visual_child(&rule)?;
+        // A dxf rule needs a style and a visual rule takes none.
+        if dxf.is_none() != visual.is_some() {
             return Err(RULE_STYLE);
         }
         if priority == Some(0) {
@@ -4804,6 +5110,11 @@ impl<'a> Parts<'a> {
             }
             Rule::Top { .. } => (b"top10", None, Vec::new()),
             Rule::AboveAverage { .. } => (b"aboveAverage", None, Vec::new()),
+            Rule::ColorScale { .. } | Rule::DataBar { .. } | Rule::IconSet { .. } => (
+                visual.as_ref().map_or(b"".as_slice(), |(kind, _)| kind),
+                None,
+                Vec::new(),
+            ),
         };
         for formula in &formulas {
             rule_formula_ok(formula)?;
@@ -4858,6 +5169,7 @@ impl<'a> Parts<'a> {
                 before,
                 after,
                 formulas,
+                visual: visual.map(|(_, child)| child),
             }),
         ));
         Ok(())
@@ -6507,6 +6819,9 @@ const RULE_STYLE: Error =
     Error::Package("a conditional format rule and its differential style do not agree");
 #[cfg(feature = "rules")]
 const NO_SUCH_RULE: Error = Error::Package("no conditional format on those areas");
+#[cfg(feature = "rules")]
+const VISUAL_VALUE: Error =
+    Error::Package("a colour scale, data bar or icon set value is not valid");
 #[cfg(feature = "rules")]
 const RULE_EXTENDED: Error =
     Error::Package("a conditional format has an extension this part does not remove");
@@ -10571,7 +10886,7 @@ impl<'w> FormatsPass<'w> {
             out.extend_from_slice(&added.before);
             out.extend_from_slice(format!(" priority=\"{priority}\"").as_bytes());
             out.extend_from_slice(&added.after);
-            if added.formulas.is_empty() {
+            if added.formulas.is_empty() && added.visual.is_none() {
                 out.extend_from_slice(b"/>");
             } else {
                 out.push(b'>');
@@ -10579,6 +10894,9 @@ impl<'w> FormatsPass<'w> {
                     out.extend_from_slice(&[b"<".as_slice(), prefix, b"formula>"].concat());
                     out.extend_from_slice(formula.as_bytes());
                     out.extend_from_slice(&[b"</".as_slice(), prefix, b"formula>"].concat());
+                }
+                if let Some(visual) = &added.visual {
+                    out.extend_from_slice(&visual.element(prefix));
                 }
                 out.extend_from_slice(&[b"</".as_slice(), prefix, b"cfRule>"].concat());
             }
