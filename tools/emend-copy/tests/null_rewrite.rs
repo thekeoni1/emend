@@ -3665,3 +3665,88 @@ fn the_cf_sample_refuses_an_extended_rule_or_an_unparsed_priority_and_leaves_not
         );
     }
 }
+
+// ---------------------------------------------------------- --scale-sample
+
+/// The three visual rules the sample adds on rows `row` to `row + 2`, with
+/// priorities from `first`.
+fn sample_visual(row: u32, first: u32) -> String {
+    let last = row + 2;
+    format!(
+        "<conditionalFormatting sqref=\"A{row}:A{last}\"><cfRule type=\"colorScale\" \
+         priority=\"{first}\"><colorScale><cfvo type=\"min\"/><cfvo type=\"max\"/>\
+         <color rgb=\"00F8696B\"/><color rgb=\"0063BE7B\"/></colorScale></cfRule>\
+         </conditionalFormatting><conditionalFormatting sqref=\"B{row}:B{last}\"><cfRule \
+         type=\"dataBar\" priority=\"{}\"><dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/>\
+         <color rgb=\"00638EC6\"/></dataBar></cfRule></conditionalFormatting>\
+         <conditionalFormatting sqref=\"C{row}:C{last}\"><cfRule type=\"iconSet\" \
+         priority=\"{}\"><iconSet iconSet=\"3Arrows\"><cfvo type=\"percent\" val=\"0\"/>\
+         <cfvo type=\"percent\" val=\"33\"/><cfvo type=\"percent\" val=\"67\"/></iconSet>\
+         </cfRule></conditionalFormatting>",
+        first + 1,
+        first + 2
+    )
+}
+
+#[test]
+fn the_scale_sample_adds_a_colour_scale_a_data_bar_and_an_icon_set() {
+    // `specs/0020-validation-and-conditional-formatting.md`, "Harness runs":
+    // M is 1, so the rules go on rows 2 to 4. With no rule they take 1 to 3;
+    // after a kept data bar with an extension and priority 2 they take 3 to 5,
+    // and the extension is counted.
+    let kept = "<conditionalFormatting sqref=\"D1\"><cfRule type=\"dataBar\" priority=\"2\">\
+                <dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/>\
+                </dataBar><extLst><ext uri=\"x\"/></extLst></cfRule></conditionalFormatting>";
+    for (label, rule, first, line) in [
+        (
+            "scale-sample-none",
+            "",
+            1,
+            "scale\tcf_before=0\tcf_after=3\tvisual_after=3\textended_before=0\n",
+        ),
+        (
+            "scale-sample-kept",
+            kept,
+            3,
+            "scale\tcf_before=1\tcf_after=4\tvisual_after=4\textended_before=1\n",
+        ),
+    ] {
+        let specs = edit_specs(&format!("{A_CELL}{rule}"));
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--scale-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            edited(&format!("{A_CELL}{rule}{}", sample_visual(2, first))),
+            "the sheet"
+        );
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_scale_sample_refuses_an_unparsed_priority_and_leaves_nothing() {
+    // The negative log's one fixture refusal P3 reaches through the binary
+    // (`specs/0020-validation-and-conditional-formatting.md`, "P3").
+    styled_run_refused(
+        "scale-sample-priority",
+        &edit_specs(
+            "<sheetData/><conditionalFormatting sqref=\"D1\"><cfRule type=\"expression\" \
+             dxfId=\"0\" priority=\"high\"><formula>1</formula></cfRule>\
+             </conditionalFormatting>",
+        ),
+        "a conditionalFormatting sqref or a cfRule attribute does not parse",
+        "--scale-sample",
+    );
+}

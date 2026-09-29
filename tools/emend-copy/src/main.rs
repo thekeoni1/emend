@@ -345,6 +345,22 @@
 //!   `priority_first_after` one more than `priority_max_before`, and
 //!   `cf_removed` one more than `cf_before`; a failure is exit 2 with the
 //!   message and no output, and so is a refusal by the layer.
+//! - `--scale-sample`: the visual rule sample of
+//!   `specs/0020-validation-and-conditional-formatting.md`, "Harness runs":
+//!   on W, with M as `--validate-sample` has it, three conditional formats
+//!   with no style and no priority: a colour scale from `Min` in
+//!   `Rgb(0xF8696B)` to `Max` in `Rgb(0x63BE7B)` on rows M + 1 to M + 3 of
+//!   column 1, a data bar from `Min` to `Max` in `Rgb(0x638EC6)` with the
+//!   value shown on the same rows of column 2, and a three-arrow icon set
+//!   with the thresholds 0, 33 and 67 percent on column 3, the colours as the
+//!   spec gives them. The output is reopened. One line: the word `scale`
+//!   then `cf_before` and `cf_after` (the rules `Package::conditional_formats`
+//!   reads from W), `visual_after` (the output's rules of the kinds
+//!   `colorScale`, `dataBar` and `iconSet`) and `extended_before` (the
+//!   input's rules holding an extension). COUNTS ONLY. Asserted: `cf_after`
+//!   three more than `cf_before`, and `visual_after` three more than the
+//!   input's visual rules; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -368,9 +384,10 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    CONTENT_TYPES_PART, CORE_PROPERTIES, ErrorStyle, HYPERLINK, LinkTarget, MAIN, Operator,
-    PIVOT_TABLE, Package, Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind,
-    SheetProtection, TABLE, Validation, ValidationKind, legacy_password_hash, rels_part_source,
+    CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, ErrorStyle, HYPERLINK, IconSetKind,
+    LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties, Property,
+    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Validation, ValidationKind,
+    legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -384,7 +401,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
-| --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample]";
+| --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -453,6 +470,9 @@ enum Operation {
     /// A differential style and two conditional formats past the last row,
     /// one removed again, and the counts.
     CfSample,
+    /// A colour scale, a data bar and an icon set past the last row, and
+    /// the counts.
+    ScaleSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -487,6 +507,7 @@ enum Error {
     ProtectSample(&'static str),
     ValidateSample(&'static str),
     CfSample(&'static str),
+    ScaleSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -549,6 +570,9 @@ impl fmt::Display for Error {
                     f,
                     "the output's {what} is not what the conditional formats imply"
                 )
+            }
+            Error::ScaleSample(what) => {
+                write!(f, "the output's {what} is not what the visual rules imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -650,6 +674,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ValidateSample,
         ),
+        [input, output, flag] if flag == "--scale-sample" => {
+            run(Path::new(input), Path::new(output), Operation::ScaleSample)
+        }
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -763,6 +790,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::CfSample) {
         return cf_sample(input, output);
     }
+    if matches!(operation, Operation::ScaleSample) {
+        return scale_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -809,6 +839,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ProtectSample => unreachable!("the protection sample has its own path"),
         Operation::ValidateSample => unreachable!("the validation sample has its own path"),
         Operation::CfSample => unreachable!("the conditional format sample has its own path"),
+        Operation::ScaleSample => unreachable!("the visual rule sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3372,6 +3403,118 @@ fn dxf_counts<R: io::Read + io::Seek>(
         }
     }
     Ok((present, children))
+}
+
+/// The rule kinds `--scale-sample` counts as visual.
+const VISUAL_KINDS: [&str; 3] = ["colorScale", "dataBar", "iconSet"];
+
+/// The visual rule sample (`specs/0020-validation-and-conditional-
+/// formatting.md`, "Harness runs", `--scale-sample`): a colour scale, a data
+/// bar and an icon set on the rows past W's last, the output written and
+/// read back. A failure after the output is in place removes it; a refusal
+/// by the layer is exit 2 with no output.
+fn scale_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let max_row = sample(&mut package, &part)?.max_row;
+    let rules = package.conditional_formats(&part)?;
+    let cf_before = rules.len() as u64;
+    let visual_before = rules
+        .iter()
+        .filter(|rule| VISUAL_KINDS.contains(&rule.kind.as_str()))
+        .count() as u64;
+    let extended_before = rules.iter().filter(|rule| rule.extended).count() as u64;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let first = max_row.saturating_add(1);
+    let last = max_row.saturating_add(3);
+    let thresholds = [
+        CfvoKind::Percent(0.0),
+        CfvoKind::Percent(33.0),
+        CfvoKind::Percent(67.0),
+    ];
+    let visual = [
+        Rule::ColorScale {
+            min: Cfvo {
+                kind: CfvoKind::Min,
+                color: Color::Rgb(0xF8696B),
+            },
+            mid: None,
+            max: Cfvo {
+                kind: CfvoKind::Max,
+                color: Color::Rgb(0x63BE7B),
+            },
+        },
+        Rule::DataBar {
+            min: CfvoKind::Min,
+            max: CfvoKind::Max,
+            color: Color::Rgb(0x638EC6),
+            show_value: true,
+        },
+        Rule::IconSet {
+            set: IconSetKind::ThreeArrows,
+            thresholds: &thresholds,
+            reverse: false,
+            show_value: true,
+        },
+    ];
+    for (column, rule) in (1u32..).zip(visual) {
+        package.add_conditional_format(
+            &part,
+            &[cell_area(first, column, last, column)],
+            rule,
+            None,
+            None,
+            false,
+        )?;
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = scale_read_back(output, &part, cf_before, visual_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (cf_after, visual_after) = checked?;
+    edit_line_named(
+        "scale",
+        &[
+            ("cf_before", cf_before),
+            ("cf_after", cf_after),
+            ("visual_after", visual_after),
+            ("extended_before", extended_before),
+        ],
+    )
+}
+
+/// Reopens the visual rule sample's output and asserts three more rules,
+/// three more of them visual.
+fn scale_read_back(
+    output: &Path,
+    part: &[u8],
+    cf_before: u64,
+    visual_before: u64,
+) -> Result<(u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let rules = package.conditional_formats(part)?;
+    let cf_after = rules.len() as u64;
+    if cf_after != cf_before + 3 {
+        return Err(Error::ScaleSample("rule count"));
+    }
+    let visual_after = rules
+        .iter()
+        .filter(|rule| VISUAL_KINDS.contains(&rule.kind.as_str()))
+        .count() as u64;
+    if visual_after != visual_before + 3 {
+        return Err(Error::ScaleSample("visual rule count"));
+    }
+    Ok((cf_after, visual_after))
 }
 
 /// The thirteen core properties, for the counts.
