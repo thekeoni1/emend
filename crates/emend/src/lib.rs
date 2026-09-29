@@ -52,6 +52,8 @@ pub use dates::{DateTime, Epoch};
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
 };
+#[cfg(feature = "rules")]
+pub use package::{ErrorStyle, Operator, Validation, ValidationEntry, ValidationKind};
 pub use styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,
     Protection, Scheme, Side, Style, Styles, Underline, Vertical, VerticalAlign, Xf,

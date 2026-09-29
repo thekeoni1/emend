@@ -34,3 +34,7 @@ rowcol = []
 # default, with no dependency of its own, measured beside the core as `dates`
 # and `rowcol` are.
 metadata = []
+# The data validations of specs/0020-validation-and-conditional-formatting.md,
+# and its conditional formats in later phases (decision 1 A): off by default,
+# with no dependency of its own, measured beside the core as `metadata` is.
+rules = []

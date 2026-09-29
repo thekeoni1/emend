@@ -376,6 +376,36 @@
 //! - "a core properties part has two elements of one property"
 //!   (`properties::a_second_element_of_one_property_is_refused_at_the_read_and_the_write`).
 //!
+//! Data validations add these, the Cargo feature `rules`'s messages
+//! (`specs/0020-validation-and-conditional-formatting.md`, "Errors", and the
+//! P1 rulings; without the feature no call records a validation edit and
+//! none of them is raised); the first four are raised by
+//! `Package::add_validation` and `Package::remove_validation`, the rest by
+//! [`Package::write_to`] and by `Package::validations`, which refuses with
+//! the fifth. The calls also meet "a row or column index or count is out of
+//! range", "a text holds a character XML cannot carry" and "a formula text
+//! starts with an equals sign", and the write part 3's one-shift message and
+//! what a cell edit to the part meets
+//! (`validation::the_call_refuses_each_rule_and_records_nothing`,
+//! `a_validation_edit_on_a_removed_or_replaced_part_is_refused`):
+//!
+//! - "a validation or a conditional format has no area"
+//!   (`validation::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a validation or a rule formula is empty or missing"
+//!   (`validation::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a validation message is too long"
+//!   (`validation::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a validation field does not apply to its kind"
+//!   (`validation::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a validation overlaps one the worksheet has, or a dataValidation sqref does not parse"
+//!   (`validation::an_overlap_with_a_kept_validation_or_an_earlier_addition_is_refused`,
+//!   `two_containers_or_a_kept_sqref_that_does_not_parse_are_refused`,
+//!   `a_read_refuses_an_unparsed_sqref_or_an_enumeration_value_it_does_not_name`).
+//! - "no validation on those areas"
+//!   (`validation::a_removal_drops_its_list_in_order_and_the_last_drops_the_container`).
+//! - "a worksheet has two dataValidations elements"
+//!   (`validation::two_containers_or_a_kept_sqref_that_does_not_parse_are_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1627,6 +1657,11 @@ struct Recorded {
     /// locks, or unprotected when `None`, the last winning.
     #[cfg(feature = "metadata")]
     book_protections: Vec<Option<BookLock>>,
+    /// `(part, edit)`: a data validation added or removed, in record order
+    /// (`specs/0020-validation-and-conditional-formatting.md`, "Data
+    /// validation").
+    #[cfg(feature = "rules")]
+    validations: Vec<(Vec<u8>, ValidationEdit)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1703,6 +1738,9 @@ struct SheetWork {
     /// protect, `Some(None)` an unprotect.
     #[cfg(feature = "metadata")]
     protection: Option<Option<SheetLock>>,
+    /// The data validation edits recorded for the part, in record order.
+    #[cfg(feature = "rules")]
+    validations: Vec<ValidationEdit>,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -1743,6 +1781,244 @@ enum LinkEdit {
     },
     /// Drop the link the part has on the cell.
     Remove,
+}
+
+/// The kind of a data validation, the values of ECMA-376 Part 1, 18.18.20
+/// other than `none`, which is an input message alone and is read back as
+/// no kind, never written (`specs/0020-validation-and-conditional-
+/// formatting.md`, "Data validation"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationKind {
+    /// A whole number, `whole`.
+    Whole,
+    /// A decimal number, `decimal`.
+    Decimal,
+    /// A value from a list, `list`.
+    List,
+    /// A date, `date`.
+    Date,
+    /// A time, `time`.
+    Time,
+    /// A text length, `textLength`.
+    TextLength,
+    /// A formula that must be true, `custom`.
+    Custom,
+}
+
+#[cfg(feature = "rules")]
+impl ValidationKind {
+    const ALL: [(ValidationKind, &'static [u8]); 7] = [
+        (ValidationKind::Whole, b"whole"),
+        (ValidationKind::Decimal, b"decimal"),
+        (ValidationKind::List, b"list"),
+        (ValidationKind::Date, b"date"),
+        (ValidationKind::Time, b"time"),
+        (ValidationKind::TextLength, b"textLength"),
+        (ValidationKind::Custom, b"custom"),
+    ];
+
+    /// The `type` attribute's value.
+    fn name(self) -> &'static [u8] {
+        Self::ALL
+            .iter()
+            .find(|(kind, _)| *kind == self)
+            .map_or(b"", |(_, name)| name)
+    }
+
+    /// Whether the kind compares a value with an operator: every kind but
+    /// `List` and `Custom`.
+    fn takes_operator(self) -> bool {
+        !matches!(self, ValidationKind::List | ValidationKind::Custom)
+    }
+}
+
+/// A comparison, the values of ECMA-376 Part 1, 18.18.21, which name
+/// 18.18.15's too (`specs/0020-validation-and-conditional-formatting.md`,
+/// "Data validation"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Operator {
+    /// Between two values, both included, `between`.
+    Between,
+    /// Outside two values, `notBetween`.
+    NotBetween,
+    /// `equal`.
+    Equal,
+    /// `notEqual`.
+    NotEqual,
+    /// `greaterThan`.
+    GreaterThan,
+    /// `lessThan`.
+    LessThan,
+    /// `greaterThanOrEqual`.
+    GreaterThanOrEqual,
+    /// `lessThanOrEqual`.
+    LessThanOrEqual,
+}
+
+#[cfg(feature = "rules")]
+impl Operator {
+    const ALL: [(Operator, &'static [u8]); 8] = [
+        (Operator::Between, b"between"),
+        (Operator::NotBetween, b"notBetween"),
+        (Operator::Equal, b"equal"),
+        (Operator::NotEqual, b"notEqual"),
+        (Operator::GreaterThan, b"greaterThan"),
+        (Operator::LessThan, b"lessThan"),
+        (Operator::GreaterThanOrEqual, b"greaterThanOrEqual"),
+        (Operator::LessThanOrEqual, b"lessThanOrEqual"),
+    ];
+
+    /// The `operator` attribute's value.
+    fn name(self) -> &'static [u8] {
+        Self::ALL
+            .iter()
+            .find(|(operator, _)| *operator == self)
+            .map_or(b"", |(_, name)| name)
+    }
+
+    /// Whether the operator compares with two values.
+    fn two_values(self) -> bool {
+        matches!(self, Operator::Between | Operator::NotBetween)
+    }
+}
+
+/// What a data validation's error message does, ECMA-376 Part 1, 18.18.18.
+/// The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorStyle {
+    /// The entry is refused, `stop`.
+    Stop,
+    /// The user is warned and may keep the entry, `warning`.
+    Warning,
+    /// The user is told and the entry is kept, `information`.
+    Information,
+}
+
+#[cfg(feature = "rules")]
+impl ErrorStyle {
+    const ALL: [(ErrorStyle, &'static [u8]); 3] = [
+        (ErrorStyle::Stop, b"stop"),
+        (ErrorStyle::Warning, b"warning"),
+        (ErrorStyle::Information, b"information"),
+    ];
+
+    /// The `errorStyle` attribute's value.
+    fn name(self) -> &'static [u8] {
+        Self::ALL
+            .iter()
+            .find(|(style, _)| *style == self)
+            .map_or(b"", |(_, name)| name)
+    }
+}
+
+/// The value of an enumeration's attribute, `None` for a value the
+/// enumeration does not name.
+#[cfg(feature = "rules")]
+fn named<T: Copy>(all: &[(T, &'static [u8])], value: &[u8]) -> Option<T> {
+    all.iter()
+        .find(|(_, name)| *name == value)
+        .map(|(item, _)| *item)
+}
+
+/// A data validation as a caller gives it to [`Package::add_validation`]
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Data
+/// validation", and the P1 rulings). The Cargo feature `rules`.
+///
+/// A formula is text, given without a leading `=`, never parsed and never
+/// evaluated; a `List`'s `formula1` is a range or a quoted list of
+/// constants (`"a,b,c"`), which the crate does not tell apart.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Validation<'a> {
+    /// What the cell's value must be.
+    pub kind: ValidationKind,
+    /// The comparison, for a kind other than `List` and `Custom`; `None`
+    /// writes no `operator`, which reads as `Between`.
+    pub operator: Option<Operator>,
+    /// The first formula, or the only one.
+    pub formula1: &'a str,
+    /// The second formula, given with `Between` and `NotBetween` (or no
+    /// operator) and with no other.
+    pub formula2: Option<&'a str>,
+    /// Whether an empty cell passes, `allowBlank`.
+    pub allow_blank: bool,
+    /// Whether a `List`'s drop-down arrow is HIDDEN: written as
+    /// `showDropDown="1"`, the attribute's name saying the opposite of what
+    /// it does.
+    pub hide_drop_down: bool,
+    /// The input message's title and text, shown when the cell is
+    /// selected.
+    pub input: Option<(&'a str, &'a str)>,
+    /// The error message's style, title and text, shown when an entry
+    /// fails.
+    pub error: Option<(ErrorStyle, &'a str, &'a str)>,
+}
+
+/// A data validation as [`Package::validations`] reads it from a worksheet
+/// part (`specs/0020-validation-and-conditional-formatting.md`, "Data
+/// validation"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValidationEntry {
+    /// The `sqref` list, in its order, each area normalised.
+    pub areas: Vec<Area>,
+    /// `None` for a `type` of `none` or none at all: an input message
+    /// alone.
+    pub kind: Option<ValidationKind>,
+    /// `None` when the element writes no `operator`.
+    pub operator: Option<Operator>,
+    /// The `formula1` child's text.
+    pub formula1: Option<String>,
+    /// The `formula2` child's text.
+    pub formula2: Option<String>,
+    /// `allowBlank`.
+    pub allow_blank: bool,
+    /// `showDropDown`, which hides the arrow.
+    pub hide_drop_down: bool,
+    /// Present when `showInputMessage` is `1` or `true`: `promptTitle` and
+    /// `prompt`, each empty when absent.
+    pub input: Option<(String, String)>,
+    /// Present when `showErrorMessage` is `1` or `true`: `errorStyle`
+    /// (`Stop` when absent), `errorTitle` and `error`, each empty when
+    /// absent.
+    pub error: Option<(ErrorStyle, String, String)>,
+}
+
+/// One recorded data validation edit: an addition, composed at the call,
+/// or the removal of the file's validations on a list of areas.
+#[cfg(feature = "rules")]
+#[derive(Clone)]
+enum ValidationEdit {
+    Add(NewValidation),
+    Remove(Vec<Area>),
+}
+
+/// A data validation to append: its areas, its start tag's attributes
+/// before `sqref` (escaped, each with its leading space) and its children's
+/// names and escaped texts.
+#[cfg(feature = "rules")]
+#[derive(Clone)]
+struct NewValidation {
+    areas: Vec<Area>,
+    attributes: Vec<u8>,
+    formulas: Vec<(&'static [u8], String)>,
+}
+
+/// Whether the part's rewrite carries no data validation edit (the Cargo
+/// feature `rules`).
+#[cfg(all(feature = "rowcol", feature = "rules"))]
+fn no_rules(work: &SheetWork) -> bool {
+    work.validations.is_empty()
+}
+
+/// Whether the part's rewrite carries no data validation edit; always,
+/// without the feature `rules`.
+#[cfg(all(feature = "rowcol", not(feature = "rules")))]
+fn no_rules(_: &SheetWork) -> bool {
+    true
 }
 
 /// Whether the part's rewrite carries no hyperlink or protection edit (the
@@ -2033,6 +2309,21 @@ impl Recorded {
             && self.no_shifts()
             && self.no_name_edits()
             && self.no_link_edits()
+            && self.no_rule_edits()
+    }
+
+    /// Whether no data validation is added or removed; always, without the
+    /// feature `rules`.
+    #[cfg(feature = "rules")]
+    fn no_rule_edits(&self) -> bool {
+        self.validations.is_empty()
+    }
+
+    /// Whether no data validation is added or removed; always, without the
+    /// feature `rules`.
+    #[cfg(not(feature = "rules"))]
+    fn no_rule_edits(&self) -> bool {
+        true
     }
 
     /// Whether no defined name is added or removed; always, without the
@@ -2131,6 +2422,8 @@ impl Recorded {
         let named = named
             .chain(self.links.iter().map(|(part, _, _)| part))
             .chain(self.sheet_protections.iter().map(|(part, _)| part));
+        #[cfg(feature = "rules")]
+        let named = named.chain(self.validations.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -2207,6 +2500,13 @@ impl Recorded {
                 .rev()
                 .find(|(at, _)| at.as_slice() == part)
                 .map(|(_, protection)| *protection),
+            #[cfg(feature = "rules")]
+            validations: self
+                .validations
+                .iter()
+                .filter(|(at, _)| at.as_slice() == part)
+                .map(|(_, edit)| edit.clone())
+                .collect(),
         }
     }
 
@@ -3154,6 +3454,97 @@ impl<R: Read + Seek> Package<R> {
         self.edits.book_protections.push(None);
     }
 
+    /// Records a data validation on `areas` of the worksheet part `part`
+    /// (`part` as [`Package::set_cell`] names it). The Cargo feature `rules`
+    /// (`specs/0020-validation-and-conditional-formatting.md`, "Data
+    /// validation", and the P1 rulings).
+    ///
+    /// The write appends `<dataValidation type=".." operator=".."
+    /// allowBlank=".." showDropDown="1" showInputMessage=".."
+    /// showErrorMessage=".." errorStyle=".." errorTitle=".." error=".."
+    /// promptTitle=".." prompt=".." sqref="..">` with its `<formula1>` and
+    /// `<formula2>` to `<dataValidations>`, `operator` only when given,
+    /// `showDropDown` only when the arrow is hidden, the messages' attributes
+    /// only when a message is given, the element and its children taking the
+    /// container's prefix, and sets the container's `count` to its children;
+    /// an absent container is created in schema position. The cells are not
+    /// touched. The areas are written as the `sqref` list, space-separated
+    /// in the order given, each normalised.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a validation or a
+    /// conditional format has no area" for no area; "a row or column index
+    /// or count is out of range" for a corner off the grid; "a validation
+    /// field does not apply to its kind" for an operator on `List` or
+    /// `Custom`, or `hide_drop_down` on another kind than `List`; "a
+    /// validation or a rule formula is empty or missing" for an empty
+    /// formula, a `formula2` missing for `Between` or `NotBetween` (or no
+    /// operator on a kind that takes one) or given with any other; "a
+    /// formula text starts with an equals sign"; "a text holds a character
+    /// XML cannot carry" for a formula or a message holding one; and "a
+    /// validation message is too long" for a title past 32 characters or a
+    /// text past 255. The write refuses an area overlapping a validation
+    /// the part keeps or one this write adds before it, and a kept `sqref`
+    /// that does not parse, "a validation overlaps one the worksheet has,
+    /// or a dataValidation sqref does not parse"; a part with two
+    /// `<dataValidations>`, "a worksheet has two dataValidations elements";
+    /// a part with a row or column insertion or deletion in the same write,
+    /// with part 3's one-shift message; and what a cell edit to the part
+    /// would meet.
+    #[cfg(feature = "rules")]
+    pub fn add_validation(
+        &mut self,
+        part: &[u8],
+        areas: &[Area],
+        validation: Validation<'_>,
+    ) -> Result<(), Error> {
+        self.parts().add_validation(part, areas, validation)
+    }
+
+    /// Records the removal of every `<dataValidation>` of the worksheet
+    /// part `part` whose `sqref`, read as a list, is `areas`, area for area
+    /// in order; a `<dataValidations>` left empty is dropped. Only the
+    /// file's validations are matched, never one this write adds. A removal
+    /// and an addition of one list in one write replace the validation: the
+    /// addition is checked against the part without the removed one. The
+    /// Cargo feature `rules`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a validation or a
+    /// conditional format has no area" and "a row or column index or count
+    /// is out of range", as for [`Package::add_validation`]. The write
+    /// refuses a list the part has no validation on, "no validation on those
+    /// areas", and what [`Package::add_validation`] says it refuses.
+    #[cfg(feature = "rules")]
+    pub fn remove_validation(&mut self, part: &[u8], areas: &[Area]) -> Result<(), Error> {
+        let areas = checked_areas(areas)?;
+        self.edits
+            .validations
+            .push((part.to_vec(), ValidationEdit::Remove(areas)));
+        Ok(())
+    }
+
+    /// The data validations of the worksheet part `part`, in part order,
+    /// read from the file: a snapshot, not of the pending edits. Only the
+    /// main namespace's `<dataValidations>` among the root's children is
+    /// read; an `x14` extension's are not. The Cargo feature `rules`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a part the archive lacks (a
+    /// sheet added and not yet written among them); "a validation overlaps
+    /// one the worksheet has, or a dataValidation sqref does not parse" for
+    /// a `sqref` that does not parse or a `type`, `operator` or
+    /// `errorStyle` the enumerations do not name; part 2's unbound-prefix
+    /// refusal; and whatever [`Stream`] refuses.
+    #[cfg(feature = "rules")]
+    pub fn validations(&mut self, part: &[u8]) -> Result<Vec<ValidationEntry>, Error> {
+        let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        read_validations(self.archive.read(index)?, index)
+    }
+
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
     /// `<calcPr>`, asking an application to recalculate every formula when
     /// it opens the file.
@@ -4054,6 +4445,90 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::add_validation`]: the call's checks, then the
+    /// element's attributes and children composed and recorded.
+    #[cfg(feature = "rules")]
+    fn add_validation(
+        &mut self,
+        part: &[u8],
+        areas: &[Area],
+        validation: Validation<'_>,
+    ) -> Result<(), Error> {
+        let areas = checked_areas(areas)?;
+        let kind = validation.kind;
+        if (validation.operator.is_some() && !kind.takes_operator())
+            || (validation.hide_drop_down && kind != ValidationKind::List)
+        {
+            return Err(FIELD_NOT_OF_KIND);
+        }
+        // `None` on a kind that takes an operator reads as `Between`.
+        let two = kind.takes_operator() && validation.operator.is_none_or(Operator::two_values);
+        if validation.formula1.is_empty()
+            || validation.formula2.is_some_and(str::is_empty)
+            || validation.formula2.is_some() != two
+        {
+            return Err(FORMULA_MISSING);
+        }
+        let formulas: Vec<&str> = [Some(validation.formula1), validation.formula2]
+            .into_iter()
+            .flatten()
+            .collect();
+        for formula in &formulas {
+            rule_formula_ok(formula)?;
+        }
+        let texts = [validation.input, validation.error.map(|(_, t, x)| (t, x))];
+        for (title, text) in texts.into_iter().flatten() {
+            let forbidden = |text: &str| text.chars().any(crate::cells::forbidden_in_xml);
+            if forbidden(title) || forbidden(text) {
+                return Err(TEXT_NOT_XML);
+            }
+            if title.chars().count() > 32 || text.chars().count() > 255 {
+                return Err(MESSAGE_LONG);
+            }
+        }
+        // Each attribute Excel's order gives, its value already escaped
+        // (P1 ruling 5 for `showDropDown`'s place).
+        let flag = |on: bool| -> Vec<u8> { if on { b"1".to_vec() } else { b"0".to_vec() } };
+        let mut written: Vec<(&[u8], Vec<u8>)> = vec![(b"type", kind.name().to_vec())];
+        if let Some(operator) = validation.operator {
+            written.push((b"operator", operator.name().to_vec()));
+        }
+        written.push((b"allowBlank", flag(validation.allow_blank)));
+        if validation.hide_drop_down {
+            written.push((b"showDropDown", flag(true)));
+        }
+        written.push((b"showInputMessage", flag(validation.input.is_some())));
+        written.push((b"showErrorMessage", flag(validation.error.is_some())));
+        if let Some((style, title, text)) = validation.error {
+            written.push((b"errorStyle", style.name().to_vec()));
+            written.push((b"errorTitle", attribute_escaped(title)));
+            written.push((b"error", attribute_escaped(text)));
+        }
+        if let Some((title, text)) = validation.input {
+            written.push((b"promptTitle", attribute_escaped(title)));
+            written.push((b"prompt", attribute_escaped(text)));
+        }
+        let mut attributes = Vec::new();
+        for (name, value) in written {
+            attributes.extend_from_slice(&[b" ".as_slice(), name, b"=\"", &value, b"\""].concat());
+        }
+        let names: [&'static [u8]; 2] = [b"formula1", b"formula2"];
+        let formulas = names
+            .into_iter()
+            .zip(formulas)
+            .map(|(name, text)| (name, quick_xml::escape::partial_escape(text).into_owned()))
+            .collect();
+        self.edits.validations.push((
+            part.to_vec(),
+            ValidationEdit::Add(NewValidation {
+                areas,
+                attributes,
+                formulas,
+            }),
+        ));
+        Ok(())
+    }
+
     /// Records the relationship of every external link the write will
     /// append, each cell's last set, on its part's rels part, and keeps the
     /// id for the worksheet pass; the type's form, and a retag's namespace
@@ -4413,6 +4888,8 @@ impl<'a> Parts<'a> {
         self.edits.links.retain(|(at, _, _)| at != part);
         #[cfg(feature = "metadata")]
         self.edits.sheet_protections.retain(|(at, _)| at != part);
+        #[cfg(feature = "rules")]
+        self.edits.validations.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -4873,6 +5350,28 @@ impl<'a> Parts<'a> {
             // pivot table it would move or cut ("The shift rule").
             #[cfg(feature = "rowcol")]
             self.shift_alone(&part, &work)?;
+            // A validation added overlaps none added before it for its part
+            // (`specs/0020-validation-and-conditional-formatting.md`, "Data
+            // validation"); the part's own are checked by the rewrite.
+            #[cfg(feature = "rules")]
+            {
+                let added: Vec<&[Area]> = work
+                    .validations
+                    .iter()
+                    .filter_map(|edit| match edit {
+                        ValidationEdit::Add(added) => Some(added.areas.as_slice()),
+                        ValidationEdit::Remove(_) => None,
+                    })
+                    .collect();
+                for (at, areas) in added.iter().enumerate() {
+                    if added[..at]
+                        .iter()
+                        .any(|before| lists_overlap(before, areas))
+                    {
+                        return Err(VALIDATION_OVERLAP);
+                    }
+                }
+            }
         }
 
         // A style edit names a cell format the part has or this package
@@ -5104,7 +5603,8 @@ impl<'a> Parts<'a> {
                 && work.pane.is_none()
                 && work.merges.is_empty()
                 && work.unmerges.is_empty()
-                && no_links(work);
+                && no_links(work)
+                && no_rules(work);
             if !alone {
                 return Err(SHIFT_ALONE);
             }
@@ -5481,6 +5981,22 @@ const CORE_NO_PREFIX: Error =
     Error::Package("a core properties part binds no prefix for a namespace the edit needs");
 #[cfg(feature = "metadata")]
 const CORE_TWO: Error = Error::Package("a core properties part has two elements of one property");
+#[cfg(feature = "rules")]
+const NO_AREA: Error = Error::Package("a validation or a conditional format has no area");
+#[cfg(feature = "rules")]
+const FORMULA_MISSING: Error = Error::Package("a validation or a rule formula is empty or missing");
+#[cfg(feature = "rules")]
+const MESSAGE_LONG: Error = Error::Package("a validation message is too long");
+#[cfg(feature = "rules")]
+const FIELD_NOT_OF_KIND: Error = Error::Package("a validation field does not apply to its kind");
+#[cfg(feature = "rules")]
+const VALIDATION_OVERLAP: Error = Error::Package(
+    "a validation overlaps one the worksheet has, or a dataValidation sqref does not parse",
+);
+#[cfg(feature = "rules")]
+const NO_SUCH_VALIDATION: Error = Error::Package("no validation on those areas");
+#[cfg(feature = "rules")]
+const TWO_VALIDATIONS: Error = Error::Package("a worksheet has two dataValidations elements");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -5491,6 +6007,39 @@ const GRID_COLUMNS: u32 = 16_384;
 /// Whether a cell lies inside the grid.
 fn in_grid(cell: CellRef) -> bool {
     (1..=GRID_ROWS).contains(&cell.row) && (1..=GRID_COLUMNS).contains(&cell.col)
+}
+
+/// The areas a validation or a conditional format names, each normalised:
+/// refused when there is none or a corner lies off the grid
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Areas and
+/// formulas", and P1 ruling 5).
+#[cfg(feature = "rules")]
+fn checked_areas(areas: &[Area]) -> Result<Vec<Area>, Error> {
+    if areas.is_empty() {
+        return Err(NO_AREA);
+    }
+    let areas: Vec<Area> = areas.iter().map(|area| area.normalised()).collect();
+    if areas
+        .iter()
+        .any(|area| !in_grid(area.first) || !in_grid(area.last))
+    {
+        return Err(INDEX_OUT_OF_RANGE);
+    }
+    Ok(areas)
+}
+
+/// Refuses a validation's or a rule's formula that starts with `=` (P1
+/// ruling 4) or holds a character XML cannot carry; an empty one is the
+/// caller's to refuse.
+#[cfg(feature = "rules")]
+fn rule_formula_ok(formula: &str) -> Result<(), Error> {
+    if formula.starts_with('=') {
+        return Err(Error::Package("a formula text starts with an equals sign"));
+    }
+    if formula.chars().any(crate::cells::forbidden_in_xml) {
+        return Err(TEXT_NOT_XML);
+    }
+    Ok(())
 }
 
 const WORKBOOK_REPLACED: Error =
@@ -7624,6 +8173,8 @@ fn rewrite_worksheet_from(
         edit: work.protection,
         met: false,
     };
+    #[cfg(feature = "rules")]
+    let mut rules = ValidationsPass::new(&work.validations);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -7639,6 +8190,21 @@ fn rewrite_worksheet_from(
                 if links.buffer.is_some() {
                     let skipped =
                         links.child(token.raw, start, (local, ours, depth), &scope, index)?;
+                    if skipped && !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    if skipped || empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
+                // Inside a held `<dataValidations>`: its children are the
+                // validations pass's (`specs/0020-validation-and-conditional-
+                // formatting.md`, "Data validation").
+                #[cfg(feature = "rules")]
+                if rules.buffer.is_some() {
+                    let skipped = rules.child(token.raw, (local, ours, depth), index)?;
                     if skipped && !empty {
                         skip_element(&mut stream, &mut scope)?;
                     }
@@ -7670,6 +8236,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = protect.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "rules")]
+                        if let Some(bytes) = rules.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "metadata")]
@@ -7708,6 +8278,15 @@ fn rewrite_worksheet_from(
                     depth -= 1;
                     continue;
                 }
+                #[cfg(feature = "rules")]
+                if root && depth == 2 && ours && local == DATA_VALIDATIONS && rules.touched {
+                    out.write_all(&rules.open(token.raw, start, depth, empty, index)?)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 #[cfg(feature = "metadata")]
                 if root && depth == 2 && ours && local == HYPERLINKS && links.touched {
                     out.write_all(&links.open(token.raw, start, depth, empty, index)?)?;
@@ -7733,6 +8312,8 @@ fn rewrite_worksheet_from(
                     let links_needed = links.needed || matches!(protect.edit, Some(Some(_)));
                     #[cfg(not(feature = "metadata"))]
                     let links_needed = false;
+                    #[cfg(feature = "rules")]
+                    let links_needed = links_needed || rules.needed;
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
@@ -7750,6 +8331,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = protect.create_before(usize::MAX, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "rules")]
+                        if let Some(bytes) = rules.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "metadata")]
@@ -8036,6 +8621,13 @@ fn rewrite_worksheet_from(
                     depth -= 1;
                     continue;
                 }
+                #[cfg(feature = "rules")]
+                if let Some(bytes) = rules.held(token.raw, Some(depth), index)? {
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 if let Some(buffer) = cols.as_mut() {
                     if depth == buffer.depth {
                         if let Some(buffer) = cols.take() {
@@ -8128,6 +8720,10 @@ fn rewrite_worksheet_from(
                                 {
                                     out.write_all(&bytes)?;
                                 }
+                                #[cfg(feature = "rules")]
+                                if let Some(bytes) = rules.create_at_end(&root_prefix) {
+                                    out.write_all(&bytes)?;
+                                }
                                 #[cfg(feature = "metadata")]
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
@@ -8143,6 +8739,10 @@ fn rewrite_worksheet_from(
             _ => {
                 #[cfg(feature = "metadata")]
                 if links.held(token.raw, None, index)?.is_some() {
+                    continue;
+                }
+                #[cfg(feature = "rules")]
+                if rules.held(token.raw, None, index)?.is_some() {
                     continue;
                 }
                 if let Some(buffer) = cols.as_mut() {
@@ -8170,6 +8770,10 @@ fn rewrite_worksheet_from(
     // properties-protection.md`, "Hyperlinks").
     #[cfg(feature = "metadata")]
     links.finish(work)?;
+    // A removal of a validation the part does not have (`specs/0020-
+    // validation-and-conditional-formatting.md`, "Data validation").
+    #[cfg(feature = "rules")]
+    rules.finish()?;
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
     Ok((temp, replacement, removed_formula))
@@ -8881,6 +9485,460 @@ impl<'w> LinksPass<'w> {
             .extend(self.dropped.into_iter().filter(|id| !kept.contains(id)));
         Ok(())
     }
+}
+
+/// A `sqref` list read into its areas, in order, each normalised: `None`
+/// when it is empty or an item does not parse (`specs/0020-validation-and-
+/// conditional-formatting.md`, "Data validation").
+#[cfg(feature = "rules")]
+fn parsed_list(value: &[u8]) -> Option<Vec<Area>> {
+    let mut areas = Vec::new();
+    for item in value
+        .split(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r'))
+        .filter(|item| !item.is_empty())
+    {
+        areas.push(Area::parse(item)?);
+    }
+    if areas.is_empty() {
+        return None;
+    }
+    Some(areas)
+}
+
+/// Whether an area of one list shares a cell with an area of the other.
+#[cfg(feature = "rules")]
+fn lists_overlap(one: &[Area], other: &[Area]) -> bool {
+    one.iter().any(|a| other.iter().any(|b| a.overlaps(b)))
+}
+
+/// The `sqref` value for `areas`: each in `A1` form, space-separated.
+#[cfg(feature = "rules")]
+fn sqref_value(areas: &[Area]) -> Vec<u8> {
+    let items: Vec<String> = areas.iter().map(Area::a1).collect();
+    items.join(" ").into_bytes()
+}
+
+/// The `<dataValidations>` of a worksheet name, its place in
+/// [`WORKSHEET_CHILDREN`].
+#[cfg(feature = "rules")]
+const DATA_VALIDATIONS: &[u8] = b"dataValidations";
+
+/// The data validations' part of a worksheet rewrite
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Data
+/// validation"): which validations the part has are skipped, which are
+/// appended, and the `<dataValidations>` held while it is read, bounded by
+/// that one element. The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+struct ValidationsPass<'w> {
+    edits: &'w [ValidationEdit],
+    /// Whether the write edits the part's validations, adds any, and has
+    /// met or created a `<dataValidations>`.
+    touched: bool,
+    needed: bool,
+    met: bool,
+    buffer: Option<ValidationsBuffer>,
+    /// For each edit, whether a removal found the part's validation.
+    found: Vec<bool>,
+}
+
+/// A `<dataValidations>` being read: its start tag, its prefix and the
+/// bytes of the children it keeps, with how many `<dataValidation>`
+/// elements those are.
+#[cfg(feature = "rules")]
+struct ValidationsBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    content: Vec<u8>,
+    kept: u64,
+}
+
+#[cfg(feature = "rules")]
+impl<'w> ValidationsPass<'w> {
+    fn new(edits: &'w [ValidationEdit]) -> Self {
+        ValidationsPass {
+            edits,
+            touched: !edits.is_empty(),
+            needed: edits
+                .iter()
+                .any(|edit| matches!(edit, ValidationEdit::Add(_))),
+            met: false,
+            buffer: None,
+            found: vec![false; edits.len()],
+        }
+    }
+
+    /// The additions, in record order.
+    fn additions(&self) -> impl Iterator<Item = &NewValidation> {
+        self.edits.iter().filter_map(|edit| match edit {
+            ValidationEdit::Add(added) => Some(added),
+            ValidationEdit::Remove(_) => None,
+        })
+    }
+
+    /// The additions as `<dataValidation>` elements, back to back, with
+    /// `prefix`.
+    fn elements(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for added in self.additions() {
+            out.extend_from_slice(&[b"<".as_slice(), prefix, b"dataValidation"].concat());
+            out.extend_from_slice(&added.attributes);
+            out.extend_from_slice(b" sqref=\"");
+            out.extend_from_slice(&sqref_value(&added.areas));
+            out.extend_from_slice(b"\">");
+            for (name, text) in &added.formulas {
+                out.extend_from_slice(&[b"<".as_slice(), prefix, name, b">"].concat());
+                out.extend_from_slice(text.as_bytes());
+                out.extend_from_slice(&[b"</".as_slice(), prefix, name, b">"].concat());
+            }
+            out.extend_from_slice(&[b"</".as_slice(), prefix, b"dataValidation>"].concat());
+        }
+        out
+    }
+
+    /// The `<dataValidations>` the write creates, when it needs one the part
+    /// lacks and a root child at `position` comes after it in schema order.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        let at = schema_position(DATA_VALIDATIONS).unwrap_or(0);
+        if at < position {
+            return self.create_at_end(prefix);
+        }
+        None
+    }
+
+    /// The `<dataValidations>` the write creates at the root's end, when it
+    /// needs one the part still lacks.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        if !self.needed || self.met {
+            return None;
+        }
+        self.met = true;
+        let count = self.additions().count();
+        let mut out = [b"<".as_slice(), prefix, b"dataValidations count=\""].concat();
+        out.extend_from_slice(count.to_string().as_bytes());
+        out.extend_from_slice(b"\">");
+        out.extend_from_slice(&self.elements(prefix));
+        out.extend_from_slice(&[b"</".as_slice(), prefix, b"dataValidations>"].concat());
+        Some(out)
+    }
+
+    /// A `<dataValidations>` start tag the part has: the second is refused;
+    /// an empty one is written at once, or dropped when nothing is added;
+    /// any other is held. Returns the bytes to write now.
+    fn open(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        depth: usize,
+        empty: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if self.met {
+            return Err(TWO_VALIDATIONS);
+        }
+        self.met = true;
+        let buffer = ValidationsBuffer {
+            depth,
+            start: raw.to_vec(),
+            empty,
+            name: start.name().into_inner().as_bytes().to_vec(),
+            prefix: prefix_of(start),
+            content: Vec::new(),
+            kept: 0,
+        };
+        if empty {
+            return self.close(buffer, index);
+        }
+        self.buffer = Some(buffer);
+        Ok(Vec::new())
+    }
+
+    /// A start or empty tag inside the held `<dataValidations>`: a
+    /// `<dataValidation>` whose parsed `sqref` a removal names is to be
+    /// skipped whole; one kept is refused when an addition overlaps it, or
+    /// when its `sqref` does not parse; anything else is held. Returns
+    /// whether the caller skips the element.
+    fn child(
+        &mut self,
+        raw: &[u8],
+        (local, ours, depth): (&[u8], bool, usize),
+        index: usize,
+    ) -> Result<bool, Error> {
+        let Some(at) = self.buffer.as_ref().map(|buffer| buffer.depth) else {
+            return Ok(false);
+        };
+        let element = depth == at + 1 && ours && local == b"dataValidation";
+        if element {
+            let areas = attribute_value(raw, b"sqref", index)?
+                .and_then(parsed_list)
+                .ok_or(VALIDATION_OVERLAP)?;
+            let mut gone = false;
+            for (which, edit) in self.edits.iter().enumerate() {
+                if matches!(edit, ValidationEdit::Remove(list) if *list == areas) {
+                    self.found[which] = true;
+                    gone = true;
+                }
+            }
+            if gone {
+                return Ok(true);
+            }
+            if self
+                .additions()
+                .any(|added| lists_overlap(&added.areas, &areas))
+            {
+                return Err(VALIDATION_OVERLAP);
+            }
+        }
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.kept += u64::from(element);
+            buffer.content.extend_from_slice(raw);
+        }
+        Ok(false)
+    }
+
+    /// An end tag or any other token inside the held `<dataValidations>`;
+    /// at the container's own end tag, the bytes it is written as.
+    fn held(
+        &mut self,
+        raw: &[u8],
+        end_depth: Option<usize>,
+        index: usize,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let Some(depth) = self.buffer.as_ref().map(|buffer| buffer.depth) else {
+            return Ok(None);
+        };
+        if end_depth == Some(depth) {
+            return match self.buffer.take() {
+                Some(buffer) => Ok(Some(self.close(buffer, index)?)),
+                None => Ok(None),
+            };
+        }
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.content.extend_from_slice(raw);
+        }
+        Ok(Some(Vec::new()))
+    }
+
+    /// The held container written: its start tag with `count` set to the
+    /// kept children and the additions (opened up when it was empty), the
+    /// kept children, the additions and its end tag; nothing when no
+    /// validation is left.
+    fn close(&self, buffer: ValidationsBuffer, index: usize) -> Result<Vec<u8>, Error> {
+        let count = buffer.kept + self.additions().count() as u64;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let start = with_attribute(&buffer.start, b"count", count.to_string().as_bytes(), index)?;
+        let mut out = if buffer.empty {
+            opened_up(&start, index)?
+        } else {
+            start
+        };
+        out.extend_from_slice(&buffer.content);
+        out.extend_from_slice(&self.elements(&buffer.prefix));
+        out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
+        Ok(out)
+    }
+
+    /// After the pass: a removal the part had no validation for is refused.
+    fn finish(&self) -> Result<(), Error> {
+        for (which, edit) in self.edits.iter().enumerate() {
+            if matches!(edit, ValidationEdit::Remove(_)) && !self.found[which] {
+                return Err(NO_SUCH_VALIDATION);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Whether a flag attribute's value is on: `1` or `true`.
+#[cfg(feature = "rules")]
+fn flag_on(value: &[u8]) -> bool {
+    matches!(value, b"1" | b"true")
+}
+
+/// Reads a worksheet part's data validations for [`Package::validations`]:
+/// every `<dataValidation>` of the root's main-namespace
+/// `<dataValidations>`, in part order, with its `formula1` and `formula2`;
+/// every other root child is skipped whole.
+#[cfg(feature = "rules")]
+fn read_validations(input: impl Read, index: usize) -> Result<Vec<ValidationEntry>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut inside = false;
+    let mut current: Option<ValidationEntry> = None;
+    let mut out = Vec::new();
+    loop {
+        // A formula child whose text is read once the token is let go:
+        // `Some(true)` for `formula2`.
+        let mut formula: Option<bool> = None;
+        let Some(token) = stream.next()? else {
+            break;
+        };
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                let skip = match depth {
+                    1 => {
+                        if !ours || local != b"worksheet" {
+                            return Err(Error::Package(
+                                "the worksheet part's root is not worksheet",
+                            ));
+                        }
+                        false
+                    }
+                    2 => {
+                        inside = ours && local == DATA_VALIDATIONS && !empty;
+                        !inside
+                    }
+                    3 if inside && ours && local == b"dataValidation" => {
+                        let entry = read_validation(start, &scope, index)?;
+                        if empty {
+                            out.push(entry);
+                        } else {
+                            current = Some(entry);
+                        }
+                        false
+                    }
+                    4 if ours
+                        && (local == b"formula1" || local == b"formula2")
+                        && current.is_some() =>
+                    {
+                        let second = local == b"formula2";
+                        if empty {
+                            if let Some(entry) = current.as_mut() {
+                                *(if second {
+                                    &mut entry.formula2
+                                } else {
+                                    &mut entry.formula1
+                                }) = Some(String::new());
+                            }
+                        } else {
+                            formula = Some(second);
+                        }
+                        false
+                    }
+                    _ => true,
+                };
+                if skip && !empty {
+                    skip_element(&mut stream, &mut scope)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 3
+                    && let Some(entry) = current.take()
+                {
+                    out.push(entry);
+                }
+                if depth == 2 {
+                    inside = false;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+        if let Some(second) = formula {
+            // `text_of` reads up to and including the end tag.
+            let text = crate::cells::text_of(&mut stream, &mut scope, index)?;
+            depth -= 1;
+            if let Some(entry) = current.as_mut() {
+                if second {
+                    entry.formula2 = Some(text);
+                } else {
+                    entry.formula1 = Some(text);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// One `<dataValidation>` start tag read: its unprefixed attributes, a
+/// prefix nothing binds refused, an enumeration value it does not name
+/// refused with the overlap message (P1 ruling 5).
+#[cfg(feature = "rules")]
+fn read_validation(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<ValidationEntry, Error> {
+    let mut areas: Option<Vec<Area>> = None;
+    let mut entry = ValidationEntry {
+        areas: Vec::new(),
+        kind: None,
+        operator: None,
+        formula1: None,
+        formula2: None,
+        allow_blank: false,
+        hide_drop_down: false,
+        input: None,
+        error: None,
+    };
+    let (mut show_input, mut show_error) = (false, false);
+    let mut style = ErrorStyle::Stop;
+    let mut texts: [String; 4] = [String::new(), String::new(), String::new(), String::new()];
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_some() {
+            continue;
+        }
+        let value = attribute.value.as_bytes();
+        let text = |at: usize, texts: &mut [String; 4]| -> Result<(), Error> {
+            texts[at] = attribute
+                .normalized_value(XmlVersion::Implicit1_0)
+                .map_err(|_| Error::Xml(index))?
+                .into_owned();
+            Ok(())
+        };
+        match local {
+            b"sqref" => areas = parsed_list(value),
+            b"type" if value == b"none" => entry.kind = None,
+            b"type" => {
+                entry.kind = Some(named(&ValidationKind::ALL, value).ok_or(VALIDATION_OVERLAP)?);
+            }
+            b"operator" => {
+                entry.operator = Some(named(&Operator::ALL, value).ok_or(VALIDATION_OVERLAP)?);
+            }
+            b"errorStyle" => style = named(&ErrorStyle::ALL, value).ok_or(VALIDATION_OVERLAP)?,
+            b"allowBlank" => entry.allow_blank = flag_on(value),
+            b"showDropDown" => entry.hide_drop_down = flag_on(value),
+            b"showInputMessage" => show_input = flag_on(value),
+            b"showErrorMessage" => show_error = flag_on(value),
+            b"promptTitle" => text(0, &mut texts)?,
+            b"prompt" => text(1, &mut texts)?,
+            b"errorTitle" => text(2, &mut texts)?,
+            b"error" => text(3, &mut texts)?,
+            _ => {}
+        }
+    }
+    entry.areas = areas.ok_or(VALIDATION_OVERLAP)?;
+    let [prompt_title, prompt, error_title, error] = texts;
+    if show_input {
+        entry.input = Some((prompt_title, prompt));
+    }
+    if show_error {
+        entry.error = Some((style, error_title, error));
+    }
+    Ok(entry)
 }
 
 /// One insertion or deletion of rows (`specs/0018-rows-and-columns.md`,
