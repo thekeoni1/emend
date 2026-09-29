@@ -313,7 +313,10 @@ Property) -> Option<&str>`, derived `Clone`, `Default`, `PartialEq`,
   forms); an empty `Properties` when there is no such relationship
   (`Package::new()`); a relationship whose part is missing refused
   with part 1's message, by the read and by a write that edits a
-  property (P3 ruling 1). Each element
+  property (P3 ruling 1); the write reads the input archive, so a
+  write that adds the missing part with `add_part` and edits a
+  property is refused the same way (P4 verification ruling 4).
+  Each element
   of the thirteen is read by namespace and local name, its text
   unescaped; unknown children are ignored; a second element of one
   name is refused ("a core properties part has two elements of one
@@ -767,8 +770,9 @@ legacy hash is not encryption, what is read back, the Excel check
 pending), the probe of "Size" measured as it says, recorded as
 `records/size-m2p4a-<utc-date>-<shortsha>.md` with `size.log`
 printing every figure the record carries, installing the record
-and printing its sha256, and the seventeen probes classified
-against part 3's record; the feature's cost and the core's growth
+and printing its sha256, and the sixteen probes of part 3's record
+classified against it, the seventeenth, the new probe, listed as
+new (P4 verification ruling 6); the feature's cost and the core's growth
 stated in the record as facts, the budget figure against 458752
 beside them; the negative log through the binary with every refusal
 of this part reachable through the binary run once (the fixture
@@ -778,8 +782,10 @@ fixture whose core relationship names a part the archive lacks,
 refused with "no such part", P3 ruling 1; the at-call refusals are
 not reachable, since their inputs are the tool's constants, and
 the log says so; the bare template's created core part compared
-by sha256 to the bytes the crate test pins, P3 verification
-ruling 7); the
+by sha256 to bytes built as `new_core_part` builds them for the
+sample's values, the element bytes literal, the five namespaces
+read from the source, with a control, P3 verification ruling 7 as
+P4 verification ruling 2 reads it); the
 corpus run of all four samples again on both targets with the
 release binaries the size log hashed, every output byte-identical
 to the phase run directories' outputs by sha256, in four run
@@ -836,7 +842,11 @@ each), in the reply "i agree with recs"; 6 recorded.
 6. The Excel check for parts 1 to 3: deferred on 2026-09-27 by the
    maintainer ("can i skip laptop check for now"), to run before
    this part's close-out push at the latest, or be deferred again
-   by a decision recorded here. Recorded, not asked.
+   by a decision recorded here. Recorded, not asked. Deferred
+   again by the maintainer on 2026-09-29 ("defer it again", typed
+   in the planning session after P4's verification), to before
+   part 4b's close-out push at the latest; the list is parts 1 to
+   3 and this part's four samples (P4 verification ruling 15).
 
 ## Planning rulings during P1 (2026-09-27)
 
@@ -1205,6 +1215,133 @@ each sample.
     default-namespace `xsi` refusal with a test (ruling 6); the
     thirteen-property write test (ruling 8). P4's scripts: F9,
     F10, F11, G3 and F12 as rulings 5 to 7 above read.
+
+## Planning verification and rulings on P4 (2026-09-28)
+
+Verified by planning from primaries: five commits over d3bb207
+(ab947b0 doc, exactly the two files at planning's hashes 401326fe
+and fa374eb5; 4ece0f0 the four carried items and three catalogue
+entries naming their tests; fb34ab0 the catalogue, `//!` lines
+only; 3e67745 the probe and its Cargo wiring; b18d967 the record,
+19 files), every message ASCII with the one trailer, no session
+link; the eight files of `records/logs/m2p4a-p4/` at the reported
+hashes, every log pinning the committed spec at 401326fe; the
+five logs at attempt 1; the scan's final stage at attempt 2 (its
+attempt 1 ended FAIL with four hits, the home-directory form in
+each check answer, where the checkers quoted the machine paths
+the prompts gave them; both answers' paths rewritten `<home>` and
+`<repo>` with a header saying so, the answers as they stood kept
+outside the repository and hashed on the rerun lines; attempt 2
+PASS, 0 hits, 0 structural); both checks read in full; planning's
+own privacy scan of d3bb207..b18d967 (5 commits, 753 blobs, 0
+findings); planning's own build at 3e67745 in a detached worktree
+(crate 512 off and 560 on on both targets; workspace 764 passed,
+0 failed, 2 ignored on both; clippy 0 in four feature sets; doc 0
+off and on); planning's own i686 release `emend-copy` and
+`xlsx-diff` hash-identical to the size log's hash lines (89d6f20d,
+99d1661d); planning's own probes in the size profile: the format
+probe 968440 (sha256 883da056, the log's), the metadata probe
+1018844 (33a60e88, the log's), `probe-zip-xml` 533216, the format
+probe rebuilt at bcaa31d 968012, so the feature's cost 50404, the
+core's growth 428, the whole growth 556 and the budget 435224 are
+reproduced to the byte; planning's own run of all four samples
+with its own host and i686 binaries over the 27 corpus workbooks,
+every output and printed line byte-identical to the four run
+directories, host and i686 the same. Rulings:
+
+1. F1 (both checks). Accepted as measured. A test is what it
+   asserts: the set and the removal are each asserted, and so are
+   `remove_part` and `replace_part`; each pair shares one branch of
+   `validate`, which N1 and N4 turn. "Two tests" and "one each"
+   in P3 ruling 1, ruling 5 and verification ruling 10 read as
+   cases from here. No split, no further plant.
+2. Check 1's F6, check 2's F7. Accepted; P3 verification ruling 7
+   misread the crate test, which pins the created part for its
+   own values, not the sample's. The comparison made, P0's part by
+   sha256 against bytes built as `new_core_part` builds them for
+   the sample's values, the element bytes literal, the five
+   namespaces read from the source, a control refusing the bytes
+   without the `dcmitype` binding, is the check; "P4" corrected
+   in place.
+3. Check 1's F7, check 2's F8. Satisfied. The props sample reads
+   the properties before it edits, so the binary shows the
+   refusal a caller meets, the read's; the write's refusal is not
+   reachable through the binary, is pinned by the crate test and
+   N1, and the log says so (change AB). P3 ruling 1's "seventh
+   fixture case" is the read's message, as measured.
+4. F4 (both checks). Accepted as the behaviour: the refusal reads
+   the input archive, so a write that adds the missing part with
+   `add_part` and edits a property is refused, consistent with the
+   read and with the removed-or-replaced rule (a write is one
+   step from the input archive). "Document properties" gains the
+   sentence; a test is carried to part 4b's first code commit.
+5. Check 2's F3. Accepted: under N4 the `remove_part` case is
+   refused in a later layer with another message, not written;
+   "untested" in P3 ruling 5 overstated the risk, and the test
+   pins which message wins.
+6. F9 (both checks). "P4" said seventeen, "Size" sixteen; the log
+   classified part 3's sixteen and listed the new probe as new,
+   the only reading; "P4" corrected in place.
+7. Check 1's F8, check 2's F10. The G3 control offers a two-line
+   listing that `only_spec` refuses on its count alone, so the
+   content comparison is not exercised; and `only_spec` was off
+   this run's path rightly, the spec being committed in the doc
+   commit. Carried to the next scan script (part 4b P1): a
+   one-line control naming a file that is not the spec.
+8. Check 1's F10. The release listed F11 under the run script; it
+   is in the test script, present. Nothing to do.
+9. Check 1's F14. The size record's sentence on the 2000-byte
+   threshold is ungrammatical and stands as hashed; its meaning
+   (the growth is below the figure at which planning is told) is
+   plain.
+10. The scan's attempt 1. Accepted with its disclosure. The
+    rewrite of the two answers' machine paths to placeholders is
+    the one edit the privacy rule requires of a verbatim answer,
+    named in each answer's header, in the rerun lines and in the
+    report; the paths named no person. The next check prompts
+    give the checker its directory as `<phase>/check<n>` and say
+    the answer writes paths so.
+11. The figures, as facts: the feature `metadata` costs 50404
+    section bytes over the core probe, about 2.5 times the top of
+    planning's 15000 to 20000 guess (the guess was a guess and
+    nothing hung on it; part 4b's estimate is made with this
+    ratio in view); the core's growth for the part 428, below the
+    2000 at which planning is told; the whole growth since
+    b728fdf 556, of which 128 is the format probe at bcaa31d over
+    part 3's figure (planning confirms the implementing session's
+    reading: bcaa31d is the only commit between b728fdf and
+    itself touching the crate, the probes, the manifest or the
+    lock, and it changes the probe's own source); the budget
+    figure 435224 against 458752, 23528 of headroom (part 3's
+    434668, moved by the 556 the core grew).
+12. Report matters (check 1's F2, F5, F11 to F13; check 2's F2,
+    F5, F6, F12 to F18): accepted; the final report carries both
+    answers verbatim and states the LibreOffice results, the
+    ratio, the scan and the record commit.
+13. The UTC date turned during the run: the size record and the
+    four run directories carry 2026-09-29, the phase directories
+    compared against keep their 2026-09-28 names. Accepted.
+14. P4 is DONE, and with it the phases of part 4a. What follows is
+    the close-out push: decision 6 run or deferred again by a
+    recorded decision, the maintainer's authorisation typed in
+    the implementing session, planning's word. Carried to part
+    4b's spec: the `add_part` test (ruling 4), the scan control
+    (ruling 7), the check-prompt rule (ruling 10), and the four
+    samples of this part on the Excel check's list.
+15. Decision 6 (2026-09-29): the maintainer, told the figures and
+    rulings above, deferred the Excel check again ("defer it
+    again"), typed in the planning session. Recorded under
+    "Decisions for the maintainer". The close-out push proceeds
+    without it; the check, now for parts 1 to 3 and this part's
+    four samples, runs before part 4b's close-out push at the
+    latest or is deferred again by a decision recorded in part
+    4b's spec. The implementing session reports the maintainer's
+    typed authorisation ("great, i authorize", 2026-09-29, in
+    that session); push.log records it. Planning's word for the
+    close-out is given with this ruling: the doc commit carries
+    this file and `ROADMAP.md` exactly at the hashes planning
+    sends, then push.log pre and push, ci-run.log, the post-stage
+    scan, one record commit, the `ANTHROPIC_API_KEY` check.
 
 ## Out of scope
 
