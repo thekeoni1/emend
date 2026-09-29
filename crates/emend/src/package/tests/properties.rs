@@ -327,6 +327,26 @@ fn a_property_edit_on_a_missing_core_part_is_refused_at_the_write() {
 }
 
 #[test]
+fn a_core_part_added_in_the_same_write_does_not_take_a_property_edit() {
+    // `specs/0019` P4 verification ruling 4: the refusal reads the input
+    // archive, so adding the missing part with `add_part` does not let a
+    // property edit in the same write reach it.
+    for value in [Some("t"), None] {
+        let mut parts = with_core(core(""));
+        drop_part(&mut parts, CORE);
+        let (_, mut package) = opened(parts);
+        package.add_part(
+            CORE,
+            replacement_from_reader(Cursor::new(core("").into_bytes())),
+        );
+        package
+            .set_property(Property::Title, value)
+            .expect("recorded");
+        assert_package(refused(package), "no such part");
+    }
+}
+
+#[test]
 fn a_core_part_removed_or_replaced_refuses_a_property_edit() {
     // P3 ruling 5.
     let (_, mut package) = opened(with_core(core("")));
