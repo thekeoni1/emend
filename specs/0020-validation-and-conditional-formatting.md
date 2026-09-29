@@ -193,7 +193,10 @@ writes it. `Area` is on the grid by construction (part 3).
 
 Every formula is text: `formula1`, `formula2` and a rule's
 `<formula>` children hold what the caller gave, escaped as text,
-without a leading `=`, never parsed, never evaluated, and not a
+never parsed, never evaluated (a leading `=` refused at the call
+with part 4's "a formula text starts with an equals sign", as
+`Value::Formula` refuses it, since Excel repairs a rule whose
+formula carries one; P1 ruling 4), and not a
 formula change under `specs/0013`'s rule, since no cached value
 depends on a validation or a conditional format. An empty formula
 where the kind needs one is refused at the call ("a validation or
@@ -433,13 +436,15 @@ conditional format goes first, as the table orders them.
 
 ### Errors
 
-Fourteen new `Error::Package` messages, in the catalogue as the
+Fifteen new `Error::Package` messages, in the catalogue as the
 earlier parts' are, one constant each:
 
 - "a validation or a conditional format has no area" (at the call)
 - "a validation or a rule formula is empty or missing" (at the
   call)
 - "a validation message is too long" (at the call)
+- "a validation field does not apply to its kind" (at the call; P1
+  ruling 1)
 - "a validation overlaps one the worksheet has, or a
   dataValidation sqref does not parse"
 - "no validation on those areas"
@@ -457,17 +462,20 @@ earlier parts' are, one constant each:
   remove"
 - "a cfRule priority does not parse"
 
-Reused: part 1's "a cell edit to a part this write replaces" for
-every worksheet edit here on a replaced or removed part, part 3's
-"a row or column index or count is out of range" for `priority` 0
-and a `rank` outside 1 to 1000, part 3's one-shift message, part
-4's "a text holds a character XML cannot carry" at every formula's
-and message's call, part 2's unbound-prefix refusal wherever an
-element this part reads carries one, the styles rewrite's refusals
-of a part without its collections, and `Error::Xml` for a value
-that is not UTF-8. A `Validation` or `Rule` field named for a
-count (`rank`, an icon set's thresholds) is checked at the call;
-nothing is checked twice.
+Reused: part 1's "an edit to a removed part" and "a cell edit to a
+part this write replaces" for every worksheet edit here on a
+removed or a replaced part, the two a cell edit meets (P1
+verification ruling 3), part 3's "a row or column index or count
+is out of range" for `priority` 0 and a `rank` outside 1 to 1000,
+part 3's one-shift message, part 4's "a text holds a character XML
+cannot carry" at every formula's and message's call and its "a
+formula text starts with an equals sign" at every formula's (P1
+ruling 4), part 2's unbound-prefix refusal wherever an element
+this part reads carries one, the styles rewrite's refusals of a
+part without its collections, and `Error::Xml` for a value that is
+not UTF-8. A `Validation` or `Rule` field named for a count
+(`rank`, an icon set's thresholds) is checked at the call; nothing
+is checked twice.
 
 ### 32-bit and streaming
 
@@ -692,7 +700,9 @@ edit open check, recorded as `records/m2p4b-p1-<utc-date>-
 ### P2: differential styles and the dxf rules
 
 The doc commit (the P1 rulings and verification); the code
-commits: `add_differential_style` with the styles rewrite's sixth
+commits: first the carry of P1 verification ruling 5 (tests only,
+before any other change), then `add_differential_style` with the
+styles rewrite's sixth
 container and its creation rule; `Rule`'s six dxf variants,
 `RuleEntry`, `add_conditional_format`, `remove_conditional_format`,
 `conditional_formats`, the priority rule, the `extLst` refusal,
@@ -830,6 +840,129 @@ recorded.
    on 2026-09-29 by the maintainer, to run before this part's
    close-out push at the latest, or be deferred again by a
    decision recorded here. Recorded, not asked.
+
+## Planning rulings during P1 (2026-09-29)
+
+Given on the implementing session's four questions and its stated
+readings, with the doc commit 715177a and the carry commit 8b82262
+in place and no P1 code commit yet; the logs pin the committed
+spec (dc4cb485), and this section is committed with P2's doc
+commit.
+
+1. An operator given for `List` or `Custom`, and `hide_drop_down`
+   on a kind other than `List`: a fifteenth message, "a validation
+   field does not apply to its kind", at the call, for both.
+   "Errors" lists it. The P1 test list's "a formula on `List` with
+   an operator" is that case.
+2. `operator` is written only when the caller gives `Some`
+   (`Some(Between)` writes `operator="between"`), omitted for
+   `None`, which the schema's default reads as `between`, as Excel
+   and openpyxl write it; the read gives `None` when the attribute
+   is absent, so a round trip is exact. The sample's second
+   validation is recorded with `Some(Between)`, so the run check
+   sees the attribute.
+3. `ValidationEntry`'s `input` is present when `showInputMessage`
+   is `1` or `true` and absent otherwise, an absent attribute
+   included (the schema's default); `error` likewise on
+   `showErrorMessage`. "Data validation" is read so.
+4. A formula with a leading `=` is refused at the call with part
+   4's "a formula text starts with an equals sign", the rule
+   `Value::Formula` already applies, since Excel repairs a rule
+   whose formula carries one; "Areas and formulas" is read so and
+   the message joins the reused list. The catalogue says a formula
+   is given without it.
+5. The stated readings stand: each area normalised and a corner
+   off the grid refused with part 3's index message, as
+   `merge_cells` does; a removal matches the file's elements only,
+   never an addition of the same write, and drops every file
+   element whose list equals the given one; `showDropDown` after
+   `allowBlank`; lengths counted in characters; an unknown `type`,
+   `operator` or `errorStyle` refuses the read with the overlap
+   message.
+
+## Planning verification and rulings on P1 (2026-09-29)
+
+Verified from primaries after the implementing session's report
+(sha256 cf12c1c2..., HEAD 157c11c, nothing pushed, origin/main
+b9bf28c). Planning's own build of e79739a in its own worktree and
+target directory: the crate's tests 512 with the feature off, 523
+with `rules`, 572 with `metadata,rules`, 622 with every feature,
+on both targets, none failed; the workspace 779 passed, 0 failed,
+2 ignored on both targets; clippy clean with the feature off, on,
+with every feature, and over the workspace; rustdoc clean under
+`-D warnings` off, on and with every feature. The core's format
+probe at e79739a, size profile, i686 musl: 968440 section bytes,
+the figure part 4a's P4 measured at 3e67745, so the core grew by 0
+bytes with the feature off. Planning's own `--validate-sample` run
+over the corpus with its own release binaries: 27 of 27 outputs
+and printed lines byte-identical to the phase run directory's on
+both targets, 0 refused, host and i686 outputs identical; the
+lines' totals 76 validations in W before and 130 after, 12
+containers before (15 created), 103 after the removal (76 plus
+27). Planning's own privacy scan of 335da53..157c11c with the
+denylist: 5 commits, 773 blobs, 0 findings, PASS. The five commit
+messages are ASCII and end with the Co-Authored-By line only; the
+doc commit 715177a holds the three planning files at the hashes
+sent and no later commit touches them; the record commit holds the
+seven logs and the two record pairs and nothing else; the log and
+record hashes are the report's, every log pins dc4cb485 and prints
+the working copy as not the pin; the two checks name their
+directories as `<phase>/check1` and `<phase>/check2`;
+`ANTHROPIC_API_KEY` is unset in planning's shell.
+
+1. Check 2's Q2-1 is accepted as read: run attempt 3's equality
+   on the containers created and its totals check follow from the
+   per-row checks, so they are controls on the script's arithmetic
+   and not evidence; the evidence that a container was created in
+   an output is the per-row `one_each`, `container_place` and
+   `start_tag` flags, each turned by a plant. "Containers created"
+   in the log and the record means inputs with no container. No
+   third check. From P2 on, a figure a per-row check implies is
+   printed as a total, not as a check with a control.
+2. Check 1's Q1-10 reading is confirmed: the template's worksheet
+   has neither `hyperlinks` nor `pageMargins`, so its case is the
+   root's end; the two cases before those children are on
+   byte-built bodies; the log prints all four outputs, as P1 asks.
+3. Check 2's Q1-d: the code stands. A worksheet edit of this part
+   on a removed part meets "an edit to a removed part" and on a
+   replaced part "a cell edit to a part this write replaces", the
+   two messages one check at the write gives a cell edit, a merge
+   and a hyperlink alike; "Errors" read the pair as one and is
+   corrected to name both.
+4. The fifteenth message being in the working spec only
+   (negative.log's `committed=no`) is the mid-phase ruling rule
+   working as written: P1's logs pin dc4cb485, the P1 rulings and
+   this section go in P2's doc commit, and negative.log's line
+   records the state at the run.
+5. The untested paths the checks list are carried to P2's first
+   code commit, before any other change, as tests only: the
+   call-time refusals for `formula2` `None` under `Between` and
+   under `NotBetween` and for `formula2` `Some("")`, and "a
+   validation field does not apply to its kind" for `Custom` with
+   an operator, each in the call-time test; a validation edit on a
+   sheet the same write removes, dropped with the part (the write
+   accepted, the part gone); and P2's test.log plants the write's
+   check between two additions of one write (the `added[..at]`
+   loop) beside its other plants.
+6. Check 1's Q1-1: check 1's code-1 diff was taken from the base
+   and so held the doc commit's files; its header says so and
+   check 2 held the right diff, so nothing is rerun. From P2 each
+   check directory's per-commit diff is the commit against its
+   parent, and the header prints the command.
+7. Check 1's Q2-9 and check 2's Q2-4: run attempt 1's kept
+   standard error holds a machine path; it stays on disk under
+   `<phase>/superseded`, hashed by run.log, never committed. The
+   dry run that left the staged records is not an attempt (it
+   wrote no log) and its moved files need no hash. The final
+   scan.log hashes both pre-check attempts and attempt 2's staged
+   record copies, which closes Q2-4.
+8. The size figures of this phase are the core's growth alone;
+   the feature's cost, the whole growth and the size record are
+   P4's, as "Size" says.
+9. P1 is DONE. P2 is released with the doc-commit hashes planning
+   sends for this spec and `ROADMAP.md`; P2's doc commit carries
+   both unedited, and the carry of ruling 5 is P2's first code
+   commit.
 
 ## Out of scope
 
