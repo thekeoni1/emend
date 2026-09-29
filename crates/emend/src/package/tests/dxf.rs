@@ -213,3 +213,19 @@ fn a_cell_style_and_a_dxf_in_one_write_both_go_in() {
     assert!(part.contains("<cellXfs count=\"2\">"));
     assert!(part.contains("<fonts count=\"2\">"));
 }
+
+#[test]
+fn a_dxf_only_write_recounts_a_fonts_count_that_disagrees_with_its_children() {
+    // P2 verification ruling 6, P2 ruling 3's stated consequence: a styles
+    // rewrite for a differential style alone sets every grown container's
+    // count to its children, so a disagreeing fonts count comes out
+    // corrected.
+    let wrong = BASE.replace("<fonts count=\"1\">", "<fonts count=\"5\">");
+    let part = added_styles(&format!("{wrong}<dxfs count=\"0\"/>"), |p| {
+        dxf(p, &red(), 0)
+    });
+    assert_eq!(
+        part,
+        style_sheet(&format!("{BASE}<dxfs count=\"1\">{}</dxfs>", red_dxf("")))
+    );
+}
