@@ -417,9 +417,35 @@
 //!   (`dxf::a_field_this_part_does_not_write_or_no_field_is_refused_and_records_nothing`).
 //! - "a styles part has two dxfs elements"
 //!   (`dxf::two_dxfs_are_refused_at_the_call_and_a_created_then_met_one_at_the_write`).
-//! - "a differential style index is out of range", for an index `u32`
-//!   cannot hold at the call, which no test reaches (a part would need more
-//!   than `u32::MAX` children).
+//! - "a differential style index is out of range", at the write for a
+//!   conditional format's `dxf` at or past the `dxf` children plus the
+//!   write's differential styles
+//!   (`conditional::a_style_index_at_the_count_plus_additions_is_refused_and_below_it_taken`),
+//!   and at the call for an index `u32` cannot hold, which no test reaches
+//!   (a part would need more than `u32::MAX` children).
+//!
+//! Conditional formats add these, the feature `rules`'s too; the first is
+//! raised by `Package::add_conditional_format`, the rest by
+//! [`Package::write_to`] and by `Package::conditional_formats`, which
+//! refuses with the fourth. The calls also meet "a validation or a
+//! conditional format has no area", "a validation or a rule formula is
+//! empty or missing", "a row or column index or count is out of range", "a
+//! formula text starts with an equals sign" and "a text holds a character
+//! XML cannot carry"
+//! (`conditional::the_call_refuses_each_rule_and_records_nothing`), and the
+//! write part 3's one-shift message and what a cell edit to the part meets
+//! (`conditional::a_conditional_format_edit_on_a_removed_or_replaced_part_is_refused`):
+//!
+//! - "a conditional format rule and its differential style do not agree"
+//!   (`conditional::the_call_refuses_each_rule_and_records_nothing`).
+//! - "no conditional format on those areas"
+//!   (`conditional::a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
+//! - "a conditional format has an extension this part does not remove"
+//!   (`conditional::a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
+//! - "a conditionalFormatting sqref or a cfRule attribute does not parse"
+//!   (`conditional::a_read_refuses_an_attribute_that_does_not_parse`,
+//!   `priorities_follow_the_highest_kept_one_and_a_given_one_is_written_as_given`,
+//!   `a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -1688,6 +1714,10 @@ struct Recorded {
     /// names is a position).
     #[cfg(feature = "rules")]
     dxf_children: Option<u64>,
+    /// `(part, edit)`: a conditional format added or removed, in record
+    /// order ("Conditional formatting").
+    #[cfg(feature = "rules")]
+    rules: Vec<(Vec<u8>, RuleEdit)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1767,6 +1797,9 @@ struct SheetWork {
     /// The data validation edits recorded for the part, in record order.
     #[cfg(feature = "rules")]
     validations: Vec<ValidationEdit>,
+    /// The conditional format edits recorded for the part, in record order.
+    #[cfg(feature = "rules")]
+    rules: Vec<RuleEdit>,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -2033,15 +2066,120 @@ struct NewValidation {
     formulas: Vec<(&'static [u8], String)>,
 }
 
-/// Whether the part's rewrite carries no data validation edit (the Cargo
-/// feature `rules`).
-#[cfg(all(feature = "rowcol", feature = "rules"))]
-fn no_rules(work: &SheetWork) -> bool {
-    work.validations.is_empty()
+/// A conditional format's rule as a caller gives it to
+/// [`Package::add_conditional_format`], one variant per `type` of ECMA-376
+/// Part 1, 18.18.12 this part writes
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+/// formatting"). Each takes a differential style. A formula is text, given
+/// without a leading `=`, never parsed and never evaluated. The Cargo
+/// feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Rule<'a> {
+    /// `cellIs`: the cell's value compared with one formula, or two for
+    /// `Between` and `NotBetween`.
+    CellIs {
+        /// The comparison.
+        operator: Operator,
+        /// The first formula, or the only one.
+        formula1: &'a str,
+        /// The second formula, with `Between` and `NotBetween` alone.
+        formula2: Option<&'a str>,
+    },
+    /// `expression`: a formula that is true for the cells it styles.
+    Expression(&'a str),
+    /// `containsBlanks`, written with Excel's formula for the first area's
+    /// top-left cell.
+    ContainsBlanks,
+    /// `notContainsBlanks`, likewise.
+    NotContainsBlanks,
+    /// `duplicateValues`.
+    DuplicateValues,
+    /// `uniqueValues`.
+    UniqueValues,
+    /// `top10`: the top or bottom `rank` values, or percent.
+    Top {
+        /// 1 to 1000.
+        rank: u32,
+        /// A percentage of the cells rather than a count.
+        percent: bool,
+        /// The bottom values rather than the top.
+        bottom: bool,
+    },
+    /// `aboveAverage`: above (or below) the average, the average itself
+    /// included when `equal`.
+    AboveAverage {
+        /// Above rather than below.
+        above: bool,
+        /// The average itself included.
+        equal: bool,
+    },
 }
 
-/// Whether the part's rewrite carries no data validation edit; always,
-/// without the feature `rules`.
+/// One `<cfRule>` as [`Package::conditional_formats`] reads it, with the
+/// areas of the `<conditionalFormatting>` holding it
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+/// formatting"). The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleEntry {
+    /// The holding element's `sqref` list, in its order, each area
+    /// normalised.
+    pub areas: Vec<Area>,
+    /// The `type` attribute's text, a kind this part does not write
+    /// included.
+    pub kind: String,
+    /// `operator`, when the rule writes one that [`Operator`] names; `None`
+    /// for a text rule's `containsText`, `notContains`, `beginsWith` or
+    /// `endsWith` (P2 ruling 6).
+    pub operator: Option<Operator>,
+    /// The `formula` children's texts, in order.
+    pub formulas: Vec<String>,
+    /// `dxfId`.
+    pub dxf: Option<u32>,
+    /// `priority`.
+    pub priority: u32,
+    /// `stopIfTrue`.
+    pub stop_if_true: bool,
+    /// Whether the rule holds an `extLst`, an extension this part keeps
+    /// and never removes.
+    pub extended: bool,
+}
+
+/// One recorded conditional format edit: an addition, composed at the call
+/// but for its priority, or the removal of the file's conditional formats
+/// on a list of areas.
+#[cfg(feature = "rules")]
+#[derive(Clone)]
+enum RuleEdit {
+    Add(NewRule),
+    Remove(Vec<Area>),
+}
+
+/// A conditional format to append: its areas, its style, the priority
+/// given, its rule's attributes before `priority` and after it (escaped,
+/// each with its leading space), and the `formula` children's escaped
+/// texts.
+#[cfg(feature = "rules")]
+#[derive(Clone)]
+struct NewRule {
+    areas: Vec<Area>,
+    dxf: Option<u32>,
+    priority: Option<u32>,
+    before: Vec<u8>,
+    after: Vec<u8>,
+    formulas: Vec<String>,
+}
+
+/// Whether the part's rewrite carries no data validation or conditional
+/// format edit (the Cargo feature `rules`).
+#[cfg(all(feature = "rowcol", feature = "rules"))]
+fn no_rules(work: &SheetWork) -> bool {
+    work.validations.is_empty() && work.rules.is_empty()
+}
+
+/// Whether the part's rewrite carries no data validation or conditional
+/// format edit; always, without the feature `rules`.
 #[cfg(all(feature = "rowcol", not(feature = "rules")))]
 fn no_rules(_: &SheetWork) -> bool {
     true
@@ -2338,11 +2476,11 @@ impl Recorded {
             && self.no_rule_edits()
     }
 
-    /// Whether no data validation or differential style is added or
-    /// removed; always, without the feature `rules`.
+    /// Whether no data validation, differential style or conditional format
+    /// is added or removed; always, without the feature `rules`.
     #[cfg(feature = "rules")]
     fn no_rule_edits(&self) -> bool {
-        self.validations.is_empty() && self.dxf_additions.is_empty()
+        self.validations.is_empty() && self.dxf_additions.is_empty() && self.rules.is_empty()
     }
 
     /// Whether no data validation is added or removed; always, without the
@@ -2449,7 +2587,9 @@ impl Recorded {
             .chain(self.links.iter().map(|(part, _, _)| part))
             .chain(self.sheet_protections.iter().map(|(part, _)| part));
         #[cfg(feature = "rules")]
-        let named = named.chain(self.validations.iter().map(|(part, _)| part));
+        let named = named
+            .chain(self.validations.iter().map(|(part, _)| part))
+            .chain(self.rules.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -2529,6 +2669,13 @@ impl Recorded {
             #[cfg(feature = "rules")]
             validations: self
                 .validations
+                .iter()
+                .filter(|(at, _)| at.as_slice() == part)
+                .map(|(_, edit)| edit.clone())
+                .collect(),
+            #[cfg(feature = "rules")]
+            rules: self
+                .rules
                 .iter()
                 .filter(|(at, _)| at.as_slice() == part)
                 .map(|(_, edit)| edit.clone())
@@ -3602,6 +3749,99 @@ impl<R: Read + Seek> Package<R> {
         self.parts().add_differential_style(style)
     }
 
+    /// Records a conditional format on `areas` of the worksheet part `part`:
+    /// one `<conditionalFormatting sqref="..">` holding one `<cfRule>` of
+    /// `rule`, styled by the differential style `dxf`, with `priority` when
+    /// given and `stopIfTrue` when `stop_if_true`. The Cargo feature `rules`
+    /// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+    /// formatting", and the P2 rulings).
+    ///
+    /// The write puts the additions, in record order and with the root's
+    /// prefix, immediately before the first root child of the main
+    /// namespace whose schema position follows `conditionalFormatting`'s,
+    /// or before the root's end tag: after the last conditional format on a
+    /// part in schema order. A rule with no formula is written as an empty
+    /// element. A priority not given is the part's highest kept priority
+    /// plus one, and one more for each earlier addition without one, as
+    /// openpyxl assigns it; one given is written as given. The blank rules'
+    /// formula is Excel's, built for the first area's top-left cell. The
+    /// cells are not touched.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a validation or a
+    /// conditional format has no area"; "a row or column index or count is
+    /// out of range" for a corner off the grid, a `priority` of 0 or a
+    /// `rank` outside 1 to 1000; "a conditional format rule and its
+    /// differential style do not agree" for a rule with no `dxf`; "a
+    /// validation or a rule formula is empty or missing" for an empty
+    /// formula, or a `formula2` missing for `Between` or `NotBetween` or
+    /// given with another operator; "a formula text starts with an equals
+    /// sign"; and "a text holds a character XML cannot carry". The write
+    /// refuses a `dxf` at or past the styles part's `dxf` children plus this
+    /// write's differential styles, "a differential style index is out of
+    /// range"; a kept `sqref` or `priority` that does not parse, "a
+    /// conditionalFormatting sqref or a cfRule attribute does not parse"; a
+    /// part with a row or column insertion or deletion in the same write,
+    /// with part 3's one-shift message; and what a cell edit to the part
+    /// would meet.
+    #[cfg(feature = "rules")]
+    pub fn add_conditional_format(
+        &mut self,
+        part: &[u8],
+        areas: &[Area],
+        rule: Rule<'_>,
+        dxf: Option<u32>,
+        priority: Option<u32>,
+        stop_if_true: bool,
+    ) -> Result<(), Error> {
+        self.parts()
+            .add_conditional_format(part, areas, rule, dxf, priority, stop_if_true)
+    }
+
+    /// Records the removal of every `<conditionalFormatting>` of the
+    /// worksheet part `part` whose `sqref`, read as a list, is `areas`,
+    /// area for area in order, with every rule it holds. Only the file's
+    /// conditional formats are matched. The Cargo feature `rules`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a validation or a
+    /// conditional format has no area" and "a row or column index or count
+    /// is out of range". The write refuses a list the part has no
+    /// conditional format on, "no conditional format on those areas"; one
+    /// whose rule holds an `extLst`, "a conditional format has an extension
+    /// this part does not remove"; and what
+    /// [`Package::add_conditional_format`] says it refuses.
+    #[cfg(feature = "rules")]
+    pub fn remove_conditional_format(&mut self, part: &[u8], areas: &[Area]) -> Result<(), Error> {
+        let areas = checked_areas(areas)?;
+        self.edits
+            .rules
+            .push((part.to_vec(), RuleEdit::Remove(areas)));
+        Ok(())
+    }
+
+    /// The conditional formats' rules of the worksheet part `part`, every
+    /// `<cfRule>` of every main-namespace `<conditionalFormatting>` among the
+    /// root's children, in part order, read from the file: a snapshot, not
+    /// of the pending edits. A visual rule's children are not read back. The
+    /// Cargo feature `rules`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a part the archive lacks; "a
+    /// conditionalFormatting sqref or a cfRule attribute does not parse" for
+    /// a `sqref` or a `priority` that does not parse, an `operator` neither
+    /// [`Operator`] nor ECMA-376 Part 1, 18.18.15 names, or a `dxfId` that is
+    /// not a decimal `u32`;
+    /// part 2's unbound-prefix refusal; and whatever [`Stream`] refuses.
+    #[cfg(feature = "rules")]
+    pub fn conditional_formats(&mut self, part: &[u8]) -> Result<Vec<RuleEntry>, Error> {
+        let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        read_rules(self.archive.read(index)?, index)
+    }
+
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
     /// `<calcPr>`, asking an application to recalculate every formula when
     /// it opens the file.
@@ -4502,6 +4742,127 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::add_conditional_format`]: the call's checks,
+    /// then the rule's attributes and formulas composed and recorded.
+    #[cfg(feature = "rules")]
+    fn add_conditional_format(
+        &mut self,
+        part: &[u8],
+        areas: &[Area],
+        rule: Rule<'_>,
+        dxf: Option<u32>,
+        priority: Option<u32>,
+        stop_if_true: bool,
+    ) -> Result<(), Error> {
+        let areas = checked_areas(areas)?;
+        if dxf.is_none() {
+            return Err(RULE_STYLE);
+        }
+        if priority == Some(0) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let top_left = areas[0].first.a1();
+        let (kind, operator, formulas): (&[u8], Option<Operator>, Vec<String>) = match rule {
+            Rule::CellIs {
+                operator,
+                formula1,
+                formula2,
+            } => {
+                if formula1.is_empty()
+                    || formula2.is_some_and(str::is_empty)
+                    || formula2.is_some() != operator.two_values()
+                {
+                    return Err(FORMULA_MISSING);
+                }
+                let formulas = [Some(formula1), formula2].into_iter().flatten();
+                (
+                    b"cellIs",
+                    Some(operator),
+                    formulas.map(str::to_string).collect(),
+                )
+            }
+            Rule::Expression(formula) => {
+                if formula.is_empty() {
+                    return Err(FORMULA_MISSING);
+                }
+                (b"expression", None, vec![formula.to_string()])
+            }
+            Rule::ContainsBlanks => (
+                b"containsBlanks",
+                None,
+                vec![format!("LEN(TRIM({top_left}))=0")],
+            ),
+            Rule::NotContainsBlanks => (
+                b"notContainsBlanks",
+                None,
+                vec![format!("LEN(TRIM({top_left}))>0")],
+            ),
+            Rule::DuplicateValues => (b"duplicateValues", None, Vec::new()),
+            Rule::UniqueValues => (b"uniqueValues", None, Vec::new()),
+            Rule::Top { rank, .. } if !(1..=1000).contains(&rank) => {
+                return Err(INDEX_OUT_OF_RANGE);
+            }
+            Rule::Top { .. } => (b"top10", None, Vec::new()),
+            Rule::AboveAverage { .. } => (b"aboveAverage", None, Vec::new()),
+        };
+        for formula in &formulas {
+            rule_formula_ok(formula)?;
+        }
+        let attribute =
+            |name: &[u8], value: &[u8]| [b" ".as_slice(), name, b"=\"", value, b"\""].concat();
+        let mut before = attribute(b"type", kind);
+        if let Some(dxf) = dxf {
+            before.extend_from_slice(&attribute(b"dxfId", dxf.to_string().as_bytes()));
+        }
+        let mut after = Vec::new();
+        if stop_if_true {
+            after.extend_from_slice(&attribute(b"stopIfTrue", b"1"));
+        }
+        if let Some(operator) = operator {
+            after.extend_from_slice(&attribute(b"operator", operator.name()));
+        }
+        match rule {
+            Rule::Top {
+                rank,
+                percent,
+                bottom,
+            } => {
+                after.extend_from_slice(&attribute(b"rank", rank.to_string().as_bytes()));
+                if percent {
+                    after.extend_from_slice(&attribute(b"percent", b"1"));
+                }
+                if bottom {
+                    after.extend_from_slice(&attribute(b"bottom", b"1"));
+                }
+            }
+            Rule::AboveAverage { above, equal } => {
+                if !above {
+                    after.extend_from_slice(&attribute(b"aboveAverage", b"0"));
+                }
+                if equal {
+                    after.extend_from_slice(&attribute(b"equalAverage", b"1"));
+                }
+            }
+            _ => {}
+        }
+        let formulas = formulas
+            .iter()
+            .map(|text| quick_xml::escape::partial_escape(text).into_owned())
+            .collect();
+        self.edits.rules.push((
+            part.to_vec(),
+            RuleEdit::Add(NewRule {
+                areas,
+                dxf,
+                priority,
+                before,
+                after,
+                formulas,
+            }),
+        ));
+        Ok(())
+    }
+
     /// The body of [`Package::add_differential_style`].
     #[cfg(feature = "rules")]
     fn add_differential_style(&mut self, style: &Style) -> Result<u32, Error> {
@@ -4995,6 +5356,8 @@ impl<'a> Parts<'a> {
         self.edits.sheet_protections.retain(|(at, _)| at != part);
         #[cfg(feature = "rules")]
         self.edits.validations.retain(|(at, _)| at != part);
+        #[cfg(feature = "rules")]
+        self.edits.rules.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -5484,6 +5847,26 @@ impl<'a> Parts<'a> {
                         return Err(VALIDATION_OVERLAP);
                     }
                 }
+            }
+        }
+        // A rule's differential style is one the styles part has or this
+        // write adds ("Conditional formatting").
+        #[cfg(feature = "rules")]
+        {
+            let highest = self
+                .edits
+                .rules
+                .iter()
+                .filter_map(|(_, edit)| match edit {
+                    RuleEdit::Add(added) => added.dxf,
+                    RuleEdit::Remove(_) => None,
+                })
+                .max();
+            if let Some(highest) = highest
+                && u64::from(highest)
+                    >= self.dxf_children()? + self.edits.dxf_additions.len() as u64
+            {
+                return Err(DXF_OUT_OF_RANGE);
             }
         }
 
@@ -6119,6 +6502,17 @@ const DXF_FIELD: Error =
 const TWO_DXFS: Error = Error::Package("a styles part has two dxfs elements");
 #[cfg(feature = "rules")]
 const DXF_OUT_OF_RANGE: Error = Error::Package("a differential style index is out of range");
+#[cfg(feature = "rules")]
+const RULE_STYLE: Error =
+    Error::Package("a conditional format rule and its differential style do not agree");
+#[cfg(feature = "rules")]
+const NO_SUCH_RULE: Error = Error::Package("no conditional format on those areas");
+#[cfg(feature = "rules")]
+const RULE_EXTENDED: Error =
+    Error::Package("a conditional format has an extension this part does not remove");
+#[cfg(feature = "rules")]
+const RULE_UNPARSED: Error =
+    Error::Package("a conditionalFormatting sqref or a cfRule attribute does not parse");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -8472,6 +8866,8 @@ fn rewrite_worksheet_from(
     };
     #[cfg(feature = "rules")]
     let mut rules = ValidationsPass::new(&work.validations);
+    #[cfg(feature = "rules")]
+    let mut formats = FormatsPass::new(&work.rules);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -8499,6 +8895,17 @@ fn rewrite_worksheet_from(
                 // Inside a held `<dataValidations>`: its children are the
                 // validations pass's (`specs/0020-validation-and-conditional-
                 // formatting.md`, "Data validation").
+                // Inside a held `<conditionalFormatting>`: its tokens are the
+                // formats pass's ("Conditional formatting").
+                #[cfg(feature = "rules")]
+                if formats.held.is_some() {
+                    formats.child(token.raw, (local, ours, depth), index)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 #[cfg(feature = "rules")]
                 if rules.buffer.is_some() {
                     let skipped = rules.child(token.raw, (local, ours, depth), index)?;
@@ -8533,6 +8940,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = protect.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "rules")]
+                        if let Some(bytes) = formats.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "rules")]
@@ -8576,6 +8987,16 @@ fn rewrite_worksheet_from(
                     continue;
                 }
                 #[cfg(feature = "rules")]
+                if root && depth == 2 && ours && local == CONDITIONAL_FORMATTING && formats.touched
+                {
+                    out.write_all(&formats.open(token.raw, depth, empty, index)?)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
+                #[cfg(feature = "rules")]
                 if root && depth == 2 && ours && local == DATA_VALIDATIONS && rules.touched {
                     out.write_all(&rules.open(token.raw, start, depth, empty, index)?)?;
                     if empty {
@@ -8610,7 +9031,7 @@ fn rewrite_worksheet_from(
                     #[cfg(not(feature = "metadata"))]
                     let links_needed = false;
                     #[cfg(feature = "rules")]
-                    let links_needed = links_needed || rules.needed;
+                    let links_needed = links_needed || rules.needed || formats.needed;
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
@@ -8628,6 +9049,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = protect.create_before(usize::MAX, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "rules")]
+                        if let Some(bytes) = formats.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "rules")]
@@ -8919,6 +9344,13 @@ fn rewrite_worksheet_from(
                     continue;
                 }
                 #[cfg(feature = "rules")]
+                if let Some(bytes) = formats.held(token.raw, Some(depth))? {
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
+                #[cfg(feature = "rules")]
                 if let Some(bytes) = rules.held(token.raw, Some(depth), index)? {
                     out.write_all(&bytes)?;
                     scope.end();
@@ -9018,6 +9450,10 @@ fn rewrite_worksheet_from(
                                     out.write_all(&bytes)?;
                                 }
                                 #[cfg(feature = "rules")]
+                                if let Some(bytes) = formats.create_at_end(&root_prefix) {
+                                    out.write_all(&bytes)?;
+                                }
+                                #[cfg(feature = "rules")]
                                 if let Some(bytes) = rules.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
@@ -9036,6 +9472,10 @@ fn rewrite_worksheet_from(
             _ => {
                 #[cfg(feature = "metadata")]
                 if links.held(token.raw, None, index)?.is_some() {
+                    continue;
+                }
+                #[cfg(feature = "rules")]
+                if formats.held(token.raw, None)?.is_some() {
                     continue;
                 }
                 #[cfg(feature = "rules")]
@@ -9071,6 +9511,10 @@ fn rewrite_worksheet_from(
     // validation-and-conditional-formatting.md`, "Data validation").
     #[cfg(feature = "rules")]
     rules.finish()?;
+    // A removal of a conditional format the part does not have ("Conditional
+    // formatting").
+    #[cfg(feature = "rules")]
+    formats.finish()?;
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
     Ok((temp, replacement, removed_formula))
@@ -10048,6 +10492,395 @@ impl<'w> ValidationsPass<'w> {
         }
         Ok(())
     }
+}
+
+/// The `<conditionalFormatting>` of a worksheet name, its place in
+/// [`WORKSHEET_CHILDREN`].
+#[cfg(feature = "rules")]
+const CONDITIONAL_FORMATTING: &[u8] = b"conditionalFormatting";
+
+/// The conditional formats' part of a worksheet rewrite
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
+/// formatting", and P2 rulings 4 and 5): each `<conditionalFormatting>` held
+/// while it is read, bounded by that one element, and skipped whole when a
+/// removal names its list; the highest priority the kept ones carry; and the
+/// additions, written once before the first root child that follows them in
+/// schema order. The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+struct FormatsPass<'w> {
+    edits: &'w [RuleEdit],
+    touched: bool,
+    needed: bool,
+    written: bool,
+    held: Option<FormatHold>,
+    /// The highest `priority` of the kept elements' rules.
+    highest: u32,
+    /// For each edit, whether a removal found the part's element.
+    found: Vec<bool>,
+}
+
+/// A `<conditionalFormatting>` being read: its depth, its bytes so far, its
+/// parsed `sqref`, whether a rule holds an `extLst`, its rules' highest
+/// priority, and whether a priority did not parse.
+#[cfg(feature = "rules")]
+struct FormatHold {
+    depth: usize,
+    bytes: Vec<u8>,
+    areas: Vec<Area>,
+    extended: bool,
+    highest: u32,
+    unparsed: bool,
+}
+
+#[cfg(feature = "rules")]
+impl<'w> FormatsPass<'w> {
+    fn new(edits: &'w [RuleEdit]) -> Self {
+        FormatsPass {
+            edits,
+            touched: !edits.is_empty(),
+            needed: edits.iter().any(|edit| matches!(edit, RuleEdit::Add(_))),
+            written: false,
+            held: None,
+            highest: 0,
+            found: vec![false; edits.len()],
+        }
+    }
+
+    /// The additions, each a `<conditionalFormatting>` holding its one
+    /// `<cfRule>`, with `prefix`; a priority not given is the highest kept
+    /// plus one, and one more for each earlier addition without one.
+    fn elements(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut next = u64::from(self.highest);
+        for edit in self.edits {
+            let RuleEdit::Add(added) = edit else {
+                continue;
+            };
+            let priority = match added.priority {
+                Some(priority) => u64::from(priority),
+                None => {
+                    next += 1;
+                    next
+                }
+            };
+            out.extend_from_slice(
+                &[b"<".as_slice(), prefix, b"conditionalFormatting sqref=\""].concat(),
+            );
+            out.extend_from_slice(&sqref_value(&added.areas));
+            out.extend_from_slice(&[b"\"><".as_slice(), prefix, b"cfRule"].concat());
+            out.extend_from_slice(&added.before);
+            out.extend_from_slice(format!(" priority=\"{priority}\"").as_bytes());
+            out.extend_from_slice(&added.after);
+            if added.formulas.is_empty() {
+                out.extend_from_slice(b"/>");
+            } else {
+                out.push(b'>');
+                for formula in &added.formulas {
+                    out.extend_from_slice(&[b"<".as_slice(), prefix, b"formula>"].concat());
+                    out.extend_from_slice(formula.as_bytes());
+                    out.extend_from_slice(&[b"</".as_slice(), prefix, b"formula>"].concat());
+                }
+                out.extend_from_slice(&[b"</".as_slice(), prefix, b"cfRule>"].concat());
+            }
+            out.extend_from_slice(&[b"</".as_slice(), prefix, b"conditionalFormatting>"].concat());
+        }
+        out
+    }
+
+    /// The additions, when they are not written yet and a root child at
+    /// `position` follows `conditionalFormatting` in schema order.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        let at = schema_position(CONDITIONAL_FORMATTING).unwrap_or(0);
+        if at < position {
+            return self.create_at_end(prefix);
+        }
+        None
+    }
+
+    /// The additions, when they are not written yet.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        if !self.needed || self.written {
+            return None;
+        }
+        self.written = true;
+        Some(self.elements(prefix))
+    }
+
+    /// A `<conditionalFormatting>` start tag the part has: its `sqref` read
+    /// and the element held, or, for an empty one, settled at once.
+    fn open(
+        &mut self,
+        raw: &[u8],
+        depth: usize,
+        empty: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        let areas = attribute_value(raw, b"sqref", index)?
+            .and_then(parsed_list)
+            .ok_or(RULE_UNPARSED)?;
+        let hold = FormatHold {
+            depth,
+            bytes: raw.to_vec(),
+            areas,
+            extended: false,
+            highest: 0,
+            unparsed: false,
+        };
+        if empty {
+            return self.settle(hold);
+        }
+        self.held = Some(hold);
+        Ok(Vec::new())
+    }
+
+    /// A start or empty tag inside the held element: a `<cfRule>`'s
+    /// priority read, an `extLst` under a rule noted, the bytes kept.
+    fn child(
+        &mut self,
+        raw: &[u8],
+        (local, ours, depth): (&[u8], bool, usize),
+        index: usize,
+    ) -> Result<(), Error> {
+        let Some(hold) = self.held.as_mut() else {
+            return Ok(());
+        };
+        if depth == hold.depth + 1 && ours && local == b"cfRule" {
+            let priority = attribute_value(raw, b"priority", index)?
+                .and_then(|value| str::from_utf8(value).ok())
+                .and_then(crate::cells::decimal);
+            match priority {
+                Some(priority) => hold.highest = hold.highest.max(priority),
+                None => hold.unparsed = true,
+            }
+        } else if depth == hold.depth + 2 && ours && local == b"extLst" {
+            hold.extended = true;
+        }
+        hold.bytes.extend_from_slice(raw);
+        Ok(())
+    }
+
+    /// An end tag or any other token inside the held element; at the
+    /// element's own end tag, the bytes it is written as.
+    fn held(&mut self, raw: &[u8], end_depth: Option<usize>) -> Result<Option<Vec<u8>>, Error> {
+        let Some(hold) = self.held.as_mut() else {
+            return Ok(None);
+        };
+        hold.bytes.extend_from_slice(raw);
+        if end_depth != Some(hold.depth) {
+            return Ok(Some(Vec::new()));
+        }
+        match self.held.take() {
+            Some(hold) => Ok(Some(self.settle(hold)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// A whole element read: skipped when a removal names its list (refused
+    /// when a rule holds an extension), else kept, a priority that does not
+    /// parse refused and its highest counted.
+    fn settle(&mut self, hold: FormatHold) -> Result<Vec<u8>, Error> {
+        let mut gone = false;
+        for (which, edit) in self.edits.iter().enumerate() {
+            if matches!(edit, RuleEdit::Remove(list) if *list == hold.areas) {
+                self.found[which] = true;
+                gone = true;
+            }
+        }
+        if gone {
+            if hold.extended {
+                return Err(RULE_EXTENDED);
+            }
+            return Ok(Vec::new());
+        }
+        if hold.unparsed {
+            return Err(RULE_UNPARSED);
+        }
+        self.highest = self.highest.max(hold.highest);
+        Ok(hold.bytes)
+    }
+
+    /// After the pass: a removal the part had no element for is refused.
+    fn finish(&self) -> Result<(), Error> {
+        for (which, edit) in self.edits.iter().enumerate() {
+            if matches!(edit, RuleEdit::Remove(_)) && !self.found[which] {
+                return Err(NO_SUCH_RULE);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Reads a worksheet part's conditional formats for
+/// [`Package::conditional_formats`]: every `<cfRule>` of every main-namespace
+/// `<conditionalFormatting>` among the root's children, in part order, with
+/// its `formula` children's texts; every other root child is skipped whole.
+#[cfg(feature = "rules")]
+fn read_rules(input: impl Read, index: usize) -> Result<Vec<RuleEntry>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut areas: Option<Vec<Area>> = None;
+    let mut current: Option<RuleEntry> = None;
+    let mut out = Vec::new();
+    loop {
+        // A formula whose text is read once the token is let go.
+        let mut formula = false;
+        let Some(token) = stream.next()? else {
+            break;
+        };
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                let skip = match depth {
+                    1 => {
+                        if !ours || local != b"worksheet" {
+                            return Err(Error::Package(
+                                "the worksheet part's root is not worksheet",
+                            ));
+                        }
+                        false
+                    }
+                    2 if ours && local == CONDITIONAL_FORMATTING => {
+                        let list = attribute_value(token.raw, b"sqref", index)?
+                            .and_then(parsed_list)
+                            .ok_or(RULE_UNPARSED)?;
+                        areas = (!empty).then_some(list);
+                        false
+                    }
+                    3 if ours && local == b"cfRule" => match areas.as_ref() {
+                        Some(list) => {
+                            let entry = read_rule(start, &scope, list.clone(), index)?;
+                            if empty {
+                                out.push(entry);
+                            } else {
+                                current = Some(entry);
+                            }
+                            false
+                        }
+                        None => true,
+                    },
+                    4 if ours && current.is_some() && local == b"formula" => {
+                        if empty {
+                            if let Some(entry) = current.as_mut() {
+                                entry.formulas.push(String::new());
+                            }
+                        } else {
+                            formula = true;
+                        }
+                        false
+                    }
+                    4 if ours && local == b"extLst" => {
+                        if let Some(entry) = current.as_mut() {
+                            entry.extended = true;
+                        }
+                        true
+                    }
+                    _ => true,
+                };
+                if skip && !empty {
+                    skip_element(&mut stream, &mut scope)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 3
+                    && let Some(entry) = current.take()
+                {
+                    out.push(entry);
+                }
+                if depth == 2 {
+                    areas = None;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+        if formula {
+            // `text_of` reads up to and including the end tag.
+            let text = crate::cells::text_of(&mut stream, &mut scope, index)?;
+            depth -= 1;
+            if let Some(entry) = current.as_mut() {
+                entry.formulas.push(text);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The operators of ECMA-376 Part 1, 18.18.15 that [`Operator`] does not
+/// name, which a text rule carries (P2 ruling 6).
+#[cfg(feature = "rules")]
+const TEXT_OPERATORS: [&[u8]; 4] = [b"containsText", b"notContains", b"beginsWith", b"endsWith"];
+
+/// One `<cfRule>` start tag read: its unprefixed attributes, a prefix
+/// nothing binds refused, and an `operator`, `dxfId` or `priority` that does
+/// not parse refused (P2 rulings 4 and 6).
+#[cfg(feature = "rules")]
+fn read_rule(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    areas: Vec<Area>,
+    index: usize,
+) -> Result<RuleEntry, Error> {
+    let mut entry = RuleEntry {
+        areas,
+        kind: String::new(),
+        operator: None,
+        formulas: Vec::new(),
+        dxf: None,
+        priority: 0,
+        stop_if_true: false,
+        extended: false,
+    };
+    let mut priority = None;
+    let number = |value: &[u8]| {
+        str::from_utf8(value)
+            .ok()
+            .and_then(crate::cells::decimal)
+            .ok_or(RULE_UNPARSED)
+    };
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_some() {
+            continue;
+        }
+        let value = attribute.value.as_bytes();
+        match local {
+            b"type" => {
+                entry.kind = attribute
+                    .normalized_value(XmlVersion::Implicit1_0)
+                    .map_err(|_| Error::Xml(index))?
+                    .into_owned();
+            }
+            // An operator of 18.18.15 that `Operator` does not name reads as
+            // none, the kind saying what the rule is (P2 ruling 6).
+            b"operator" if TEXT_OPERATORS.contains(&value) => entry.operator = None,
+            b"operator" => {
+                entry.operator = Some(named(&Operator::ALL, value).ok_or(RULE_UNPARSED)?);
+            }
+            b"dxfId" => entry.dxf = Some(number(value)?),
+            b"priority" => priority = Some(number(value)?),
+            b"stopIfTrue" => entry.stop_if_true = flag_on(value),
+            _ => {}
+        }
+    }
+    entry.priority = priority.ok_or(RULE_UNPARSED)?;
+    Ok(entry)
 }
 
 /// Whether a flag attribute's value is on: `1` or `true`.
