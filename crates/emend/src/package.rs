@@ -406,6 +406,21 @@
 //! - "a worksheet has two dataValidations elements"
 //!   (`validation::two_containers_or_a_kept_sqref_that_does_not_parse_are_refused`).
 //!
+//! Differential styles add these, the feature `rules`'s too, raised by
+//! `Package::add_differential_style` and, for a second `<dxfs>`, by
+//! [`Package::write_to`] as well; the call also meets the element writers'
+//! refusals and "the workbook has no styles part", and the write "a style
+//! addition to a part this write replaces"
+//! (`dxf::a_dxf_on_a_replaced_styles_part_is_refused`):
+//!
+//! - "a differential style holds a field this part does not write"
+//!   (`dxf::a_field_this_part_does_not_write_or_no_field_is_refused_and_records_nothing`).
+//! - "a styles part has two dxfs elements"
+//!   (`dxf::two_dxfs_are_refused_at_the_call_and_a_created_then_met_one_at_the_write`).
+//! - "a differential style index is out of range", for an index `u32`
+//!   cannot hold at the call, which no test reaches (a part would need more
+//!   than `u32::MAX` children).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1662,6 +1677,17 @@ struct Recorded {
     /// validation").
     #[cfg(feature = "rules")]
     validations: Vec<(Vec<u8>, ValidationEdit)>,
+    /// The differential styles [`Package::add_differential_style`] recorded,
+    /// in record order, each composed at its call
+    /// (`specs/0020-validation-and-conditional-formatting.md`,
+    /// "Differential styles").
+    #[cfg(feature = "rules")]
+    dxf_additions: Vec<Composed>,
+    /// The styles part's `dxf` children, read once per package by the first
+    /// call or write that needs them (P2 ruling 3: the index a `dxfId`
+    /// names is a position).
+    #[cfg(feature = "rules")]
+    dxf_children: Option<u64>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2312,11 +2338,11 @@ impl Recorded {
             && self.no_rule_edits()
     }
 
-    /// Whether no data validation is added or removed; always, without the
-    /// feature `rules`.
+    /// Whether no data validation or differential style is added or
+    /// removed; always, without the feature `rules`.
     #[cfg(feature = "rules")]
     fn no_rule_edits(&self) -> bool {
-        self.validations.is_empty()
+        self.validations.is_empty() && self.dxf_additions.is_empty()
     }
 
     /// Whether no data validation is added or removed; always, without the
@@ -3545,6 +3571,37 @@ impl<R: Read + Seek> Package<R> {
         read_validations(self.archive.read(index)?, index)
     }
 
+    /// Records a differential style, a `<dxf>` appended to the styles part's
+    /// `<dxfs>`, and returns its index, which a conditional format's rule
+    /// names: the part's `dxf` children plus the differential styles recorded
+    /// before it (P2 ruling 3). The Cargo feature `rules`
+    /// (`specs/0020-validation-and-conditional-formatting.md`,
+    /// "Differential styles").
+    ///
+    /// The `<dxf>` holds the style's font, fill and border, in that order, as
+    /// [`Package::add_style`] writes them, with no `apply` flags; nothing is
+    /// deduplicated and a `dxf` is never removed. The write grows `<dxfs>` at
+    /// its end, `count` set to its children, or creates it with the root's
+    /// prefix before the first of `tableStyles`, `colors` and `extLst`, or
+    /// before the root's end tag. Excel reads a differential solid fill's
+    /// colour from `bgColor`, so a caller sets the fill's `background`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a differential style holds a field this part does
+    /// not write" for a number format, an alignment or a protection, or for a
+    /// style with none of a font, a fill and a border; the refusals of the
+    /// three element writers; "the workbook has no styles part"; "a styles
+    /// part has two dxfs elements"; and "a differential style index is out of
+    /// range" for an index `u32` cannot hold. Nothing is recorded when this
+    /// fails. The write refuses what a styles rewrite refuses, a second
+    /// `<dxfs>`, and a styles part this write replaces, "a style addition to
+    /// a part this write replaces".
+    #[cfg(feature = "rules")]
+    pub fn add_differential_style(&mut self, style: &Style) -> Result<u32, Error> {
+        self.parts().add_differential_style(style)
+    }
+
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
     /// `<calcPr>`, asking an application to recalculate every formula when
     /// it opens the file.
@@ -4445,6 +4502,54 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::add_differential_style`].
+    #[cfg(feature = "rules")]
+    fn add_differential_style(&mut self, style: &Style) -> Result<u32, Error> {
+        let written = [
+            style.font.is_some(),
+            style.fill.is_some(),
+            style.border.is_some(),
+        ];
+        if style.number_format.is_some()
+            || style.alignment.is_some()
+            || style.protection.is_some()
+            || !written.contains(&true)
+        {
+            return Err(DXF_FIELD);
+        }
+        let mut dxf = Composed::new();
+        if let Some(font) = &style.font {
+            dxf.append(&font.compose()?);
+        }
+        if let Some(fill) = &style.fill {
+            dxf.append(&fill.compose()?);
+        }
+        if let Some(border) = &style.border {
+            dxf.append(&border.compose()?);
+        }
+        let id = self.dxf_children()? + self.edits.dxf_additions.len() as u64;
+        let id = u32::try_from(id).map_err(|_| DXF_OUT_OF_RANGE)?;
+        self.edits.dxf_additions.push(dxf);
+        Ok(id)
+    }
+
+    /// The styles part's `dxf` children, read once per package; a part
+    /// with two `<dxfs>` is refused.
+    #[cfg(feature = "rules")]
+    fn dxf_children(&mut self) -> Result<u64, Error> {
+        if let Some(children) = self.edits.dxf_children {
+            return Ok(children);
+        }
+        let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
+        let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+        let (children, containers) = read_dxfs(self.archive.read(index)?, index)?;
+        if containers > 1 {
+            return Err(TWO_DXFS);
+        }
+        self.edits.dxf_children = Some(children);
+        Ok(children)
+    }
+
     /// The body of [`Package::add_validation`]: the call's checks, then the
     /// element's attributes and children composed and recorded.
     #[cfg(feature = "rules")]
@@ -4973,7 +5078,13 @@ impl<'a> Parts<'a> {
         // The styles part, rewritten once when a cell format was added
         // (`specs/0012-styles.md`, "Module `package`"). `validate` has read
         // it, so the workbook names it and the counts are cached.
-        if !self.edits.xf_additions.is_empty() {
+        #[cfg(feature = "rules")]
+        let dxfs_added = !self.edits.dxf_additions.is_empty();
+        #[cfg(not(feature = "rules"))]
+        let dxfs_added = false;
+        if !self.edits.xf_additions.is_empty() || dxfs_added {
+            #[cfg(feature = "rules")]
+            let dxf_children = if dxfs_added { self.dxf_children()? } else { 0 };
             let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let styles = self.styles()?;
@@ -4993,6 +5104,8 @@ impl<'a> Parts<'a> {
                 fills: &self.edits.fill_additions,
                 borders: &self.edits.border_additions,
                 xfs: &self.edits.xf_additions,
+                #[cfg(feature = "rules")]
+                dxfs: dxfs_added.then_some((dxf_children, self.edits.dxf_additions.as_slice())),
             };
             let (temp, replacement) = rewrite_styles(self.archive, index, &counts, &additions)?;
             temporaries.push(temp);
@@ -5390,6 +5503,8 @@ impl<'a> Parts<'a> {
                 }
             }
         }
+        #[cfg(feature = "rules")]
+        let additions = additions + self.edits.dxf_additions.len();
         if additions > 0 {
             let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
             if is_removed(&part) {
@@ -5997,6 +6112,13 @@ const VALIDATION_OVERLAP: Error = Error::Package(
 const NO_SUCH_VALIDATION: Error = Error::Package("no validation on those areas");
 #[cfg(feature = "rules")]
 const TWO_VALIDATIONS: Error = Error::Package("a worksheet has two dataValidations elements");
+#[cfg(feature = "rules")]
+const DXF_FIELD: Error =
+    Error::Package("a differential style holds a field this part does not write");
+#[cfg(feature = "rules")]
+const TWO_DXFS: Error = Error::Package("a styles part has two dxfs elements");
+#[cfg(feature = "rules")]
+const DXF_OUT_OF_RANGE: Error = Error::Package("a differential style index is out of range");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -6277,6 +6399,10 @@ struct StyleAdditions<'a> {
     fills: &'a [(Fill, Composed)],
     borders: &'a [(Border, Composed)],
     xfs: &'a [NewXf],
+    /// The styles part's `dxf` children and the differential styles to
+    /// append, when there are any (the Cargo feature `rules`).
+    #[cfg(feature = "rules")]
+    dxfs: Option<(u64, &'a [Composed])>,
 }
 
 /// Rewrites the styles part with the recorded additions into a temporary
@@ -6373,6 +6499,12 @@ fn rewrite_styles(
     let mut seen = [false; 5];
     // The open container among the root's children, with its prefix.
     let mut open: Option<(usize, Vec<u8>)> = None;
+    #[cfg(feature = "rules")]
+    let mut dxfs = DxfsPass {
+        added: additions.dxfs,
+        met: false,
+        open: None,
+    };
     while let Some(token) = stream.next()? {
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
@@ -6383,6 +6515,24 @@ fn rewrite_styles(
                 let ours = is_main(namespace);
                 if depth == 1 {
                     root_prefix = prefix_of(start);
+                }
+                // The differential styles' `<dxfs>`: created before the first
+                // of the children that follow it, or grown in place
+                // (`specs/0020-validation-and-conditional-formatting.md`,
+                // "Differential styles").
+                #[cfg(feature = "rules")]
+                if depth == 2 && ours {
+                    if let Some(bytes) = dxfs.create_before(local, &root_prefix) {
+                        out.write_all(&bytes)?;
+                    }
+                    if local == b"dxfs" && dxfs.added.is_some() {
+                        out.write_all(&dxfs.open(token.raw, start, empty, index)?)?;
+                        if empty {
+                            scope.end();
+                            depth -= 1;
+                        }
+                        continue;
+                    }
                 }
                 if depth == 2 && ours && create_num_fmts && AFTER_NUM_FMTS.contains(&local) {
                     let p = &root_prefix;
@@ -6434,6 +6584,16 @@ fn rewrite_styles(
                 {
                     out.write_all(&elements(container, &prefix))?;
                 }
+                #[cfg(feature = "rules")]
+                if depth == 2 {
+                    out.write_all(&dxfs.close())?;
+                }
+                #[cfg(feature = "rules")]
+                if depth == 1
+                    && let Some(bytes) = dxfs.create_at_end(&root_prefix)
+                {
+                    out.write_all(&bytes)?;
+                }
                 out.write_all(token.raw)?;
                 scope.end();
                 depth -= 1;
@@ -6448,6 +6608,143 @@ fn rewrite_styles(
         return Err(NEEDS_COLLECTION);
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)
+}
+
+/// The `<dxfs>` part of a styles rewrite
+/// (`specs/0020-validation-and-conditional-formatting.md`, "Differential
+/// styles", and P2 ruling 3): the part's `dxf` children and the additions,
+/// whether the part's `<dxfs>` has been met or created, and the open one's
+/// prefix. The Cargo feature `rules`.
+#[cfg(feature = "rules")]
+struct DxfsPass<'a> {
+    added: Option<(u64, &'a [Composed])>,
+    met: bool,
+    open: Option<Vec<u8>>,
+}
+
+#[cfg(feature = "rules")]
+impl DxfsPass<'_> {
+    /// The root's children before the first of which a new `<dxfs>` goes,
+    /// in 18.8.39's order.
+    const BEFORE: [&'static [u8]; 3] = [b"tableStyles", b"colors", b"extLst"];
+
+    /// The new `<dxf>` elements with `prefix`.
+    fn elements(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for dxf in self.added.map_or(&[][..], |(_, added)| added) {
+            out.extend_from_slice(&[b"<".as_slice(), prefix, b"dxf>"].concat());
+            out.extend_from_slice(&dxf.element(prefix));
+            out.extend_from_slice(&[b"</".as_slice(), prefix, b"dxf>"].concat());
+        }
+        out
+    }
+
+    /// The `count` the container is written with.
+    fn count(&self) -> u64 {
+        self.added
+            .map_or(0, |(children, added)| children + added.len() as u64)
+    }
+
+    /// A new `<dxfs>` before the root child `local`, when the part has none
+    /// yet and `local` is one that follows it.
+    fn create_before(&mut self, local: &[u8], prefix: &[u8]) -> Option<Vec<u8>> {
+        if Self::BEFORE.contains(&local) {
+            return self.create_at_end(prefix);
+        }
+        None
+    }
+
+    /// A new `<dxfs>` with the root's `prefix`, when the part still has none.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        if self.added.is_none() || self.met {
+            return None;
+        }
+        self.met = true;
+        let mut out = [b"<".as_slice(), prefix, b"dxfs count=\""].concat();
+        out.extend_from_slice(self.count().to_string().as_bytes());
+        out.extend_from_slice(b"\">");
+        out.extend_from_slice(&self.elements(prefix));
+        out.extend_from_slice(&[b"</".as_slice(), prefix, b"dxfs>"].concat());
+        Some(out)
+    }
+
+    /// The part's `<dxfs>` start tag: a second (or one after a created one)
+    /// refused; `count` set; an empty one opened up and written whole.
+    fn open(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        empty: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if self.met {
+            return Err(TWO_DXFS);
+        }
+        self.met = true;
+        let tag = counted(raw, self.count(), index)?;
+        let prefix = prefix_of(start);
+        if !empty {
+            self.open = Some(prefix);
+            return Ok(tag);
+        }
+        let mut out = opened_up(&tag, index)?;
+        out.extend_from_slice(&self.elements(&prefix));
+        out.extend_from_slice(&[b"</", start.name().into_inner().as_bytes(), b">"].concat());
+        Ok(out)
+    }
+
+    /// At a root child's end tag: the additions, when it is the open
+    /// `<dxfs>`.
+    fn close(&mut self) -> Vec<u8> {
+        match self.open.take() {
+            Some(prefix) => self.elements(&prefix),
+            None => Vec::new(),
+        }
+    }
+}
+
+/// The `dxf` children of a styles part's main-namespace `<dxfs>`, and how
+/// many `<dxfs>` its root has, by one streaming pass.
+#[cfg(feature = "rules")]
+fn read_dxfs(input: impl Read, index: usize) -> Result<(u64, usize), Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut inside = false;
+    let (mut children, mut containers) = (0u64, 0usize);
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 2 {
+                    inside = ours && local == b"dxfs";
+                    containers += usize::from(inside);
+                    if !inside && !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                        scope.end();
+                        depth -= 1;
+                        continue;
+                    }
+                } else if depth == 3 && inside && ours && local == b"dxf" {
+                    children += 1;
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok((children, containers))
 }
 
 /// What the workbook rewrite does to the sheet list
