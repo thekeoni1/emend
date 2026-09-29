@@ -295,9 +295,11 @@ part 1's message for a cell edit, as a hyperlink does.
 
 `add_differential_style(&mut self, style: &Style) -> Result<u32,
 Error>`: records one `<dxf>` to append to the styles part's
-`<dxfs>` and returns its index, the part's `dxfs` count (read from
-the `count` attribute, or the children counted when it is absent
-or does not parse) plus the additions before it. The `Style` is
+`<dxfs>` and returns its index, the part's `dxf` children counted
+(never the `count` attribute, which is read only to be replaced;
+the element's position, which is what a rule's `dxfId` names, as
+part 2 counts `cellXfs`; P2 ruling 3) plus the additions before
+it. The `Style` is
 part 2's: `font`, `fill` and `border` are written by their element
 writers, in 18.8.14's order (`font`, `fill`, `border`), each
 without the `applyX` flags a cell format carries; `number_format`,
@@ -380,8 +382,9 @@ rules. Derived `Clone`, `Copy`, `Debug`, `PartialEq` throughout.
   given is the part's highest kept `priority` plus one, plus one
   again for each earlier addition without one, in record order,
   which is openpyxl's assignment; a kept `priority` that does not
-  parse as a `u32` refuses the write ("a cfRule priority does not
-  parse").
+  parse as a `u32`, like a kept `sqref` that does not parse,
+  refuses the write ("a conditionalFormatting sqref or a cfRule
+  attribute does not parse"; P2 ruling 4).
 - `remove_conditional_format(&mut self, part, areas: &[Area]) ->
   Result<(), Error>`: records the removal of every `<conditional
   Formatting>` whose `sqref`, parsed as a list, equals the given
@@ -397,17 +400,26 @@ rules. Derived `Clone`, `Copy`, `Debug`, `PartialEq` throughout.
   (the `type` attribute's text, so a kind this part does not write
   is still listed), `operator: Option<Operator>`, `formulas: Vec<
   String>`, `dxf: Option<u32>`, `priority: u32`, `stop_if_true:
-  bool`, `extended: bool` (an `extLst` under the rule). A `sqref`
-  that does not parse, an operator the enumeration does not name,
-  or a `priority` that does not parse refuses the read with the
-  messages above. The visual rules' children are not read back.
+  bool`, `extended: bool` (an `extLst` under the rule). An
+  `operator` 18.18.15 names but `Operator` does not (the four text
+  operators `containsText`, `notContains`, `beginsWith`,
+  `endsWith`, which Excel writes on the text rules this part does
+  not write) reads as `None`, the kind saying what it is (P2
+  ruling 6). A `sqref` that does not parse, an `operator` neither
+  names, a `priority` that does not parse or a `dxfId` that is not
+  a decimal `u32` refuses the read with "a conditionalFormatting
+  sqref or a cfRule attribute does not parse" (P2 ruling 4). The
+  visual rules' children are not read back.
 
 The write, in the worksheet pass: a kept `<conditionalFormatting>`
 whose parsed `sqref` a removal names is skipped whole (its `cfRule`
 read first for an `extLst`; the refusal above); every addition is
-written immediately after the last kept `<conditionalFormatting>`
-end tag, in record order, or, when the part keeps none, created in
-schema position (part 3's table), as `<conditionalFormatting
+written, in record order, immediately before the first root child
+of the main namespace whose schema position follows
+`conditionalFormatting`'s, or before the root's end tag (part 3's
+table and rule, as `dataValidations` is created): on a part in
+schema order, immediately after the last `<conditionalFormatting>`
+end tag, kept or removed (P2 ruling 5), as `<conditionalFormatting
 sqref=".."><cfRule type=".." dxfId=".." priority=".." stopIfTrue=
 "1" operator=".." rank=".." percent="1" bottom="1" aboveAverage="0"
 equalAverage="1"><formula>..</formula>..</cfRule></conditional
@@ -432,7 +444,14 @@ child of the main namespace that comes later in `WORKSHEET_
 CHILDREN`, or before the root's end tag; `dxfs` goes by the styles
 rule in "Differential styles". When both a validation and a
 conditional format are created on a part with neither, the
-conditional format goes first, as the table orders them.
+conditional format goes first, as the table orders them. A part
+whose one container comes after a child that follows it in schema
+order (a `dxfs` after `colors`, a `dataValidations` after
+`pageMargins`) gets the container created at the earlier child and
+is then refused at the container it has with the two-container
+message, nothing written: the refusal reads "the write would leave
+two", and a part out of schema order is not written into (P2
+verification ruling 2, as P1 tested it for `dataValidations`).
 
 ### Errors
 
@@ -460,7 +479,11 @@ earlier parts' are, one constant each:
 - "no conditional format on those areas"
 - "a conditional format has an extension this part does not
   remove"
-- "a cfRule priority does not parse"
+- "a conditionalFormatting sqref or a cfRule attribute does not
+  parse" (a `sqref` at the read and the write; a `priority` at the
+  read and the write; an `operator` the enumeration does not name
+  and a `dxfId` that is not a decimal `u32` at the read; P2 ruling
+  4, which widened "a cfRule priority does not parse")
 
 Reused: part 1's "an edit to a removed part" and "a cell edit to a
 part this write replaces" for every worksheet edit here on a
@@ -739,9 +762,13 @@ control. The run log: `--cf-sample` on both targets, the checks as
 ### P3: the visual rules
 
 The doc commit (the P2 rulings and verification); the code
-commits: `Cfvo`, `CfvoKind`, `IconSetKind`, the three visual
-variants with their children, the value rule, and `--scale-
-sample`. Tests on byte-built parts: each visual kind's element
+commits: first the carry of P2 verification ruling 6 (a test
+only, before any other change), then `Cfvo`, `CfvoKind`,
+`IconSetKind`, the three visual variants with their children, the
+value rule, the visual rule with a style refused at the call (P2
+ruling 2), and `--scale-sample`; P3's test.log plants the four
+paths P2 verification ruling 6 names beside its own. Tests on
+byte-built parts: each visual kind's element
 against literal bytes, with every `CfvoKind` and every `Color`
 form once, `showValue`, `reverse`, a three-, four- and five-icon
 set; the value refusals one by one (`Min` as a `max`, a percent of
@@ -962,6 +989,172 @@ directories as `<phase>/check1` and `<phase>/check2`;
 9. P1 is DONE. P2 is released with the doc-commit hashes planning
    sends for this spec and `ROADMAP.md`; P2's doc commit carries
    both unedited, and the carry of ruling 5 is P2's first code
+   commit.
+
+## Planning rulings during P2 (2026-09-29)
+
+Given on the implementing session's reading of the carry and its
+one question, with P2's doc commit 609eb7f in place (this spec at
+95daff46) and no P2 code commit yet; P2's logs pin 95daff46, and
+this section is committed with P3's doc commit.
+
+1. P1 verification ruling 5's dropped case is the pending sheet: a
+   sheet this write adds and removes again, whose validation edit
+   goes with it (the write accepted, the part absent), the `retain`
+   check 1's Q1-6 named. A validation edit on a sheet the FILE has
+   that the write removes is refused with "an edit to a removed
+   part", as P1's test already asserts; the carried test says which
+   case it is.
+2. "A visual rule with one refused at the call" of the P2 test
+   list needs the visual variants, which P3 adds; P2 tests the dxf
+   rule with no style, and the visual rule with a style is P3's
+   call-time test, carried there.
+3. The index `add_differential_style` returns is the `dxf`
+   children counted plus the earlier additions, the element's
+   position in the output, which is what a `dxfId` names and how
+   the rewrite sets `count`; the `count` attribute is read only to
+   be replaced, as part 2 counts `cellXfs` by its children (its
+   test "the counts are the children, not the count attribute").
+   "Differential styles" is corrected so; a part whose `count`
+   disagrees with its children comes out corrected, part 2's
+   stated consequence. The stated readings stand: the dxf code in
+   the styles rewrite is behind the feature, so the core with the
+   feature off is the same code (the growth 0 P1 measured); a
+   write whose only styles edit is a dxf rewrites the other five
+   containers' counts to their children as every styles rewrite
+   does, and a corpus part the run check flags for that is a
+   finding to record; the styles part is read once per package at
+   the call, and two `<dxfs>` are refused at the call as well as
+   at the write; a dxf addition on a styles part the write
+   replaces meets "a style addition to a part this write
+   replaces", as `add_style` does.
+4. "Conditional formatting" named refusals no message covered: a
+   `conditionalFormatting` `sqref` that does not parse (at the
+   read, and at the write of any rule edit on the part, since the
+   pass reads every kept element's `sqref`; "The write" governs,
+   P2 verification ruling 3),
+   a `cfRule` `operator` the enumeration does not name and a
+   `dxfId` that is not a decimal `u32` (at the read). One message
+   covers them with the priority case, "a conditionalFormatting
+   sqref or a cfRule attribute does not parse", which widens "a
+   cfRule priority does not parse" so the catalogue stays at
+   fifteen; "Errors", the calls and the P2 negative case's message
+   read so.
+5. The stated readings stand, and the placement is written as the
+   rule: the additions go immediately before the first
+   main-namespace root child whose schema position follows
+   `conditionalFormatting`'s, or before the root's end tag, as
+   `dataValidations` is created, which on a part in schema order
+   is immediately after the last `conditionalFormatting`, kept or
+   removed ("The write" is corrected so); the highest kept
+   priority reads the main-namespace `cfRule` priorities of the
+   kept elements only, an `x14` rule's not counted, a collision
+   with one being two rules of one priority, Excel's to order;
+   "`Rule`'s six dxf variants" of P2 are the eight variants of the
+   six dxf bullets, `CellIs` to `AboveAverage`.
+6. Excel writes the text rules this part does not write with the
+   four operators of 18.18.15 that `Operator` lacks (`containsText`,
+   `notContains`, `beginsWith`, `endsWith`), so under ruling 4 as
+   written such a sheet could not be read back. The read gives
+   `operator` `None` for one of those four, the `kind` text saying
+   what the rule is, and refuses only a value neither 18.18.15 nor
+   `Operator` names; `Operator` does not grow, since the write
+   never takes a text operator. `conditional_formats` is read so;
+   the P2 read-back test's `containsText` fixture carries the
+   operator as Excel writes it; no corpus rule is of those kinds.
+
+## Planning verification and rulings on P2 (2026-09-29)
+
+Verified from primaries after the implementing session's report
+(sha256 454f3953..., HEAD 0999a35, nothing pushed, origin/main
+b9bf28c). Planning's own build of 20d7d93 in its own worktree and
+target directory: the crate's tests 512 with the feature off, 540
+with `rules`, 589 with `metadata,rules`, 640 with every feature,
+on both targets, none failed; the workspace 799 passed, 0 failed,
+2 ignored on both targets; clippy clean in five configurations and
+rustdoc clean under `-D warnings` in three. The core's format
+probe at 20d7d93, size profile, i686 musl: 968440 section bytes,
+the figure of 3e67745 and of e79739a, so the core grew by 0 bytes
+with the feature off. Planning's own `--cf-sample` run over the
+corpus with its own release binaries: 27 of 27 outputs and printed
+lines byte-identical to the phase run directory's on both targets,
+0 refused, host and i686 outputs identical; the lines' totals 20
+rules in W before and 74 after, 1360 `dxf` children before and
+1387 after, 16 styles parts with a `dxfs` before (11 created), 47
+rules after the removal (20 plus 27). Planning's own privacy scan
+of 157c11c..0999a35 with the denylist: 6 commits, 786 blobs, 0
+findings, PASS. The six commit messages are ASCII and end with the
+Co-Authored-By line only; the doc commit 609eb7f holds the two
+planning files at the hashes sent and no later commit touches
+them; the carry commit 5ad72b5 is tests only and is the doc
+commit's child; the record commit holds the seven logs and the two
+record pairs and nothing else; the log and record hashes are the
+report's, every log pins 95daff46 and prints the working copy as
+not the pin, none is a rerun; the two checks name their
+directories as `<phase>/check1` and `<phase>/check2` and their
+per-commit diffs are each commit against its parent, the commands
+printed; `ANTHROPIC_API_KEY` is unset in planning's shell.
+
+1. Check 2's #6 to #8 are accepted as read: about six of the
+   comparison's fourteen flags follow from others and are controls
+   on the script, not evidence; "14 of 14 plants" counts flags
+   turned, not independent checks; "dxfs created" means inputs
+   with no `dxfs` (P1 verification ruling 1). The two flags that
+   contradict on an input `dxfs` with no `count` attribute: the
+   spec's rule is that `count` is written as the children plus
+   the additions, so the flag expecting the start tag unchanged is
+   wrong for that input; P4's rerun of `--cf-sample` fixes it,
+   and no corpus input has the shape.
+2. Check 2's #1 and check 1's 3(b): a styles part whose one
+   `dxfs` comes after `colors`, like a worksheet whose one
+   `dataValidations` comes after `pageMargins` (P1's test), gets a
+   container created at the earlier child and is then refused at
+   the one it has with the two-container message, nothing written.
+   The behaviour stands for both, as a part out of schema order
+   that is not written into; "Creating an element" now says so and
+   reads the message as "the write would leave two". On such a
+   part a kept `conditionalFormatting` after the insertion point
+   is not in the highest priority either, ruling 5's framing.
+3. Check 2's #2: "The write" governs. Every kept
+   `conditionalFormatting` `sqref` is parsed whenever the part has
+   a rule edit, additions alone included, since the pass reads it
+   to hold and settle the element; ruling 4's parenthetical is
+   corrected.
+4. Check 1's 3(a): the crate's decimal reader, which refuses a
+   leading zero, is the form every count and index this crate
+   reads takes (part 3's counts, ruling 4's `dxfId`); "does not
+   parse as a `u32`" in "Conditional formatting" is read as that
+   form, and Excel writes no other. Check 1's 3(c): a rule's `dxf`
+   check on a workbook with no styles part meets "the workbook has
+   no styles part" before the range message, as a cell format
+   addition does; correct, since no `dxf` can exist there.
+5. Check 2's #10: the negative log's C3 and C5 are refused at the
+   read and at the call, before the write, because the tool reads
+   the rules and adds the style first; the spec asks for a refusal
+   through the binary and has it. The write-side priority refusal
+   is the unit test's, which P3's test.log plants (item 6).
+6. Carried to P3's first code commit, before any other change, as
+   tests only: a dxf-only write on a styles part whose `fonts`
+   `count` disagrees with its children comes out recounted (P2
+   ruling 3's stated consequence, unobserved in P2). P3's test.log
+   plants, beside its own, four of P2's unplanted paths: the
+   write-time second-`dxfs` refusal, a removed element's
+   priorities left out of the highest kept, a conditional format
+   written before a `dataValidations` created in the same write,
+   and "a differential style index is out of range" at the write.
+   The once-per-package `dxfs` read needs no test. The unplanted
+   paths the checks list beyond these are recorded here and not
+   required.
+7. The sample's colours are written as the spec gives them, alpha
+   `00`; Excel reads a `dxf` colour's `rgb` without regard to its
+   alpha, and the fixtures with alpha `FF` write and read the same
+   way. No change.
+8. The report's items stand as the report words them: no primary
+   states an attempt number where a log prints `RERUN_NOTE` unset,
+   and no report claims one now.
+9. P2 is DONE. P3 is released with the doc-commit hashes planning
+   sends for this spec and `ROADMAP.md`; P3's doc commit carries
+   both unedited, and the carry of ruling 6 is P3's first code
    commit.
 
 ## Out of scope
