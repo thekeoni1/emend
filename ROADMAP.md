@@ -524,8 +524,8 @@ Cargo feature off by default, measured beside the core as `dates`
 and `rowcol` are, with the Milestone 2 ceiling untouched by design:
 4a names, links, properties and protection (`specs/0019`); 4b data
 validation and conditional formatting; 4c tables; 4d comments and
-images. The order is the maintainer's to change; 4b to 4d are
-scoped when their turn comes. The Excel check for parts 1 to 3 was
+images. The order is the maintainer's to change; 4b is scoped
+(`specs/0020`, 2026-09-29); 4c and 4d when their turn comes. The Excel check for parts 1 to 3 was
 deferred by the maintainer on 2026-09-27 to before part 4a's
 close-out push at the latest (`specs/0019` decision 6).
 
@@ -557,7 +557,29 @@ close-out push follows P4 and carries 5e57db1.
 | P2 | `LinkTarget`, `HYPERLINK`, the two link calls, the relationship removal, the root retag; `--link-sample` | DONE 2026-09-28 (cced544, records a9e5cb6, local; no rerun; verified by planning from primaries, its own privacy scan, tests off and on on both targets, clippy and doc on its own build, and its own tool run over the corpus with every output byte-identical to the phase run's; corpus run 27 of 27, 822 identical, 48 changed, 6 added; keep 381 pairs; two checks, ten verification rulings, six code items and three script rules carried to P3; `specs/0019` "Planning verification and rulings on P2") |
 | P3 | `Property`, `Properties`, the read and `set_property` with the part's creation; `SheetProtection`, the hash, the four protection calls; `--props-sample`, `--protect-sample` | DONE 2026-09-28 (372bc21, records d3bb207, local; the P2 carries in bc46388; ten mid-phase rulings on check 1's F1, a defect of 51acd32 (a property edit on a package whose core relationship names a missing part is lost at the write), recorded as measured and carried to P4's first code commit; verified by planning from primaries, its own privacy scan, tests off and on on both targets, clippy and doc on its own build, and its own release tool run of both samples byte-identical to the phase's 27 of 27 each; props 843 identical / 27 changed, protect 816 / 54, none dropped or added; records `records/m2p4a-p3-props-2026-09-28-372bc21.md`, `records/m2p4a-p3-protect-2026-09-28-372bc21.md` and `.txt`, open record `records/m2p4a-open-2026-09-28-372bc21.md` and `.txt`; `specs/0019` "Planning rulings during P3" and "Planning verification and rulings on P3") |
 | P4 | the catalogue and limits; `probe-emend-metadata-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all four samples again with the release binaries | DONE 2026-09-28 (3e67745, record b18d967, local; the P3 carries in 4ece0f0, the catalogue in fb34ab0; verified by planning from primaries, its own privacy scan, tests off and on on both targets, clippy and doc on its own build, its own probes reproducing every figure to the byte, and its own run of all four samples byte-identical to the phase's 27 of 27 each on both targets; the feature `metadata` costs 50404 section bytes outside the budget, the core grew 428 for the part and 556 since b728fdf, the budget figure 435224 against 458752, 23528 of headroom; one defect of form (four two-case tests for the six the rulings named) accepted as measured; fourteen rulings in `specs/0019` "Planning verification and rulings on P4"; records `records/size-m2p4a-2026-09-29-3e67745.md`, `records/m2p4a-p4-<sample>-2026-09-29-3e67745.md` and `.txt` for names, link, props and protect, open record `records/m2p4a-open-2026-09-29-3e67745.md` and `.txt`) |
-| Close | close-out push after P4, carrying 5e57db1 and this part's commits; the Excel check for parts 1 to 3 run or deferred again before it | authorised 2026-09-29 (the Excel check deferred again by the maintainer, decision 6, now due before part 4b's close-out with this part's four samples on its list; `specs/0019` P4 verification ruling 15) |
+| Close | close-out push after P4, carrying 5e57db1 and this part's commits; the Excel check for parts 1 to 3 run or deferred again before it | DONE 2026-09-29 (pushed 6dbb4a0..b9bf28c, 22 commits, 791 blobs, 0 findings; CI run 36562738031 success; doc b9bf28c pushed, record 335da53 local, goes with the next push; the Excel check deferred again by the maintainer, decision 6, now due before part 4b's close-out with this part's four samples on its list; verified by planning from git, `gh` and its own blob scan; `specs/0019` "Planning verification and rulings on the close-out"; part 4b headroom 23528 section bytes) |
+
+### Part 4b: data validation and conditional formatting (`specs/0020-validation-and-conditional-formatting.md`)
+
+Approved by the maintainer 2026-09-29 and sent to implementation,
+decisions 1 to 5 as planning recommended: one feature `rules` and
+one probe; the visual rules in the 2007 form; both lists read
+back; two validations on one cell refused; a differential solid
+fill written as given. Behind
+a feature, outside the budget; estimate 40000 to 60000 section
+bytes with part 4a's 2.5x ratio in view; the core's growth
+expected near 0. Carries from part 4a: the `add_part` test in P1's
+first code commit, the scan control, the check-prompt rule, the
+Excel check (parts 1 to 4a, deferred again 2026-09-29) before the
+close-out push with this part's three samples.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature `rules`; `Validation`, `add_validation`, `remove_validation`, `validations`; the container pass with the overlap check; `--validate-sample` | planned |
+| P2 | `add_differential_style` through the styles rewrite; `Rule`'s six dxf kinds, `add_conditional_format`, `remove_conditional_format`, `conditional_formats`, the priority rule; `--cf-sample` | planned |
+| P3 | the visual rules: colour scales, data bars, icon sets; `--scale-sample` | planned |
+| P4 | the catalogue and limits; `probe-emend-rules-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all three samples again with the release binaries | planned |
+| Close | close-out push after P4, carrying 335da53 and this part's commits; the Excel check for parts 1 to 4a run or deferred again before it | planned |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values

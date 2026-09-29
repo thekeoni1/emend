@@ -1343,6 +1343,53 @@ directories, host and i686 the same. Rulings:
     sends, then push.log pre and push, ci-run.log, the post-stage
     scan, one record commit, the `ANTHROPIC_API_KEY` check.
 
+## Planning verification and rulings on the close-out (2026-09-29)
+
+1. Verified by planning from git and `gh`: origin/main is
+   b9bf28c27925003d18acf116b0aa966aa86f98ab, the close-out doc
+   commit, which holds exactly this file at 332a9599... and
+   `ROADMAP.md` at 9b53b6f2..., the hashes planning sent; the
+   pushed range 6dbb4a0..b9bf28c holds 22 commits, part 3's record
+   commit 5e57db1 among them once; 23 of 23 messages from 6dbb4a0 to
+   the record commit end with the Co-Authored-By line only, no
+   session link, ASCII throughout, one author identity; CI run
+   36562738031 on b9bf28c, completed with conclusion success and
+   no step other than success or skipped; the repository PRIVATE;
+   planning's own `scripts/privacy.sh --range 6dbb4a0..335da53`,
+   23 commits, 794 blobs, 0 findings; `ANTHROPIC_API_KEY` unset in
+   planning's shell; the working tree clean.
+2. The three logs at the reported hashes, each attempt 1.
+   `push.log` (77e16d67): pre mode over the base found by its
+   subject, 22 commits, the identity check at 0 differing, the
+   hook byte-equal to the installer's heredoc, the hook's 791 blobs
+   with 0 findings, "pre checks all as expected: yes"; push mode
+   with the maintainer's authorisation printed verbatim with its
+   date from labelled inputs the script refuses without (change
+   8), the hook's 22 commits with 0 findings, git's 6dbb4a0..b9bf28c,
+   ls-remote at b9bf28c, still PRIVATE, "push checks all as
+   expected: yes". `ci-run.log` (93cc6ac8): the run polled to
+   completion, 0 steps other than success or skipped, the privacy
+   step skipped as CI mode requires, "checks all as expected:
+   yes". `scan.log` (8752bbe1) post stage, run last over
+   6dbb4a0..b9bf28c with push.log and ci-run.log hashed as its
+   siblings, 77 of 77 files, 0 hits, 0 structural failures,
+   RESULT: PASS. Each log counts its own stderr at 0 bytes; the
+   scan pins this file at 332a9599, the doc commit's blob. No log
+   names the home directory. No superseded attempt.
+3. The record commit 335da53, parent b9bf28c, exactly the three
+   logs, trailer correct, local: it goes with the next push.
+   Accepted.
+4. Carried into part 4b's spec: P4 verification ruling 14's four
+   items (the `add_part` test, the scan control, the check-prompt
+   rule, the Excel list), decision 6's new deadline (ruling 15),
+   the feature-cost ratio for the estimate (ruling 11), and change
+   8 of the push script (the authorisation as labelled inputs,
+   refused when empty), which every later close-out keeps.
+   Milestone 2's headroom for part 4b is 23528 section bytes
+   against 458752, judged on `probe-emend-format-write-xml` with
+   `rowcol`, `dates` and `metadata` off.
+5. The close-out is DONE and Milestone 2 part 4a is DONE.
+
 ## Out of scope
 
 - Built-in names (`_xlnm.Print_Area`, `_xlnm._FilterDatabase`, the
