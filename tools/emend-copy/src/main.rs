@@ -322,6 +322,29 @@
 //!   more than `dv_before`; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer (a validation of the file
 //!   overlapping the sample's cells among them, or M + 2 past the grid).
+//! - `--cf-sample`: the conditional format sample of
+//!   `specs/0020-validation-and-conditional-formatting.md`, "Harness runs":
+//!   one differential style (a bold font in `Rgb(0x9C0006)` and a solid fill
+//!   with `Rgb(0xFFC7CE)` as its background, openpyxl's light red fill with
+//!   dark red text, the colours as the spec gives them), then on W, with M as
+//!   `--validate-sample` has it, a `cellIs` greater-than `5` rule on row
+//!   M + 1, columns 1 to 3, and an `expression` rule of the tool's own text
+//!   `TRUE` with stop-if-true on row M + 2, column 1, both with that style
+//!   and no priority. The output is reopened, and the second rule's
+//!   conditional format removed from it again in memory, the write going
+//!   into a `Cursor` that is reopened. One line: the word `cf` then
+//!   `cf_before` and `cf_after` (the rules `Package::conditional_formats`
+//!   reads from W), `dxfs_before` and `dxfs_after` (the styles part's `dxf`
+//!   children of its main-namespace `dxfs`, counted by this tool's own pass
+//!   over the part's tokens), `dxfs_present_before` (1 when the styles part
+//!   has a `dxfs`), `priority_max_before` (the highest priority W's rules
+//!   read, 0 when there is none), `priority_first_after` (the priority the
+//!   first added rule reads back with) and `cf_removed` (the rules read after
+//!   the removal). COUNTS ONLY. Asserted: `cf_after` two more than
+//!   `cf_before`, `dxfs_after` one more than `dxfs_before`,
+//!   `priority_first_after` one more than `priority_max_before`, and
+//!   `cf_removed` one more than `cf_before`; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer.
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -346,7 +369,7 @@ use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
     CONTENT_TYPES_PART, CORE_PROPERTIES, ErrorStyle, HYPERLINK, LinkTarget, MAIN, Operator,
-    PIVOT_TABLE, Package, Properties, Property, RELATIONSHIPS_ATTRIBUTE, SheetKind,
+    PIVOT_TABLE, Package, Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind,
     SheetProtection, TABLE, Validation, ValidationKind, legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
@@ -361,7 +384,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
-| --link-sample | --props-sample | --protect-sample | --validate-sample]";
+| --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -427,6 +450,9 @@ enum Operation {
     /// Two data validations past the last row, one removed again, and the
     /// counts.
     ValidateSample,
+    /// A differential style and two conditional formats past the last row,
+    /// one removed again, and the counts.
+    CfSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -460,6 +486,7 @@ enum Error {
     PropsSample(&'static str),
     ProtectSample(&'static str),
     ValidateSample(&'static str),
+    CfSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -516,6 +543,12 @@ impl fmt::Display for Error {
             }
             Error::ValidateSample(what) => {
                 write!(f, "the output's {what} is not what the validations imply")
+            }
+            Error::CfSample(what) => {
+                write!(
+                    f,
+                    "the output's {what} is not what the conditional formats imply"
+                )
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -617,6 +650,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ValidateSample,
         ),
+        [input, output, flag] if flag == "--cf-sample" => {
+            run(Path::new(input), Path::new(output), Operation::CfSample)
+        }
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
         }
@@ -724,6 +760,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ValidateSample) {
         return validate_sample(input, output);
     }
+    if matches!(operation, Operation::CfSample) {
+        return cf_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -769,6 +808,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::PropsSample => unreachable!("the properties sample has its own path"),
         Operation::ProtectSample => unreachable!("the protection sample has its own path"),
         Operation::ValidateSample => unreachable!("the validation sample has its own path"),
+        Operation::CfSample => unreachable!("the conditional format sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3143,6 +3183,195 @@ fn validation_container<R: io::Read + io::Seek>(
         }
     }
     Ok(found)
+}
+
+/// The conditional format sample (`specs/0020-validation-and-conditional-
+/// formatting.md`, "Harness runs", `--cf-sample`): a differential style and
+/// two rules on the rows past W's last, the output written and read back,
+/// then the second rule's conditional format removed in memory and that read
+/// back. A failure after the output is in place removes it; a refusal by the
+/// layer is exit 2 with no output.
+fn cf_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let styles = workbook.styles.clone();
+    let part = workbook
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let max_row = sample(&mut package, &part)?.max_row;
+    let rules_before = package.conditional_formats(&part)?;
+    let cf_before = rules_before.len() as u64;
+    let priority_max_before = rules_before
+        .iter()
+        .map(|rule| rule.priority)
+        .max()
+        .unwrap_or(0);
+    let (dxfs_present_before, dxfs_before) = match &styles {
+        Some(styles) => dxf_counts(&mut package, styles)?,
+        None => (false, 0),
+    };
+    let dxf = package.add_differential_style(&Style {
+        font: Some(Font {
+            bold: true,
+            color: Some(Color::Rgb(0x9C0006)),
+            ..Font::default()
+        }),
+        fill: Some(Fill {
+            pattern: Pattern::Solid,
+            foreground: None,
+            background: Some(Color::Rgb(0xFFC7CE)),
+        }),
+        ..Style::default()
+    })?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = max_row.saturating_add(1);
+    let greater = [cell_area(row, 1, row, 3)];
+    let expression = [cell_area(
+        row.saturating_add(1),
+        1,
+        row.saturating_add(1),
+        1,
+    )];
+    package.add_conditional_format(
+        &part,
+        &greater,
+        Rule::CellIs {
+            operator: Operator::GreaterThan,
+            formula1: "5",
+            formula2: None,
+        },
+        Some(dxf),
+        None,
+        false,
+    )?;
+    package.add_conditional_format(
+        &part,
+        &expression,
+        Rule::Expression("TRUE"),
+        Some(dxf),
+        None,
+        true,
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = cf_read_back(
+        output,
+        &part,
+        styles.as_deref(),
+        (&greater, &expression),
+        (cf_before, dxfs_before, priority_max_before),
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (cf_after, dxfs_after, priority_first_after, cf_removed) = checked?;
+    edit_line_named(
+        "cf",
+        &[
+            ("cf_before", cf_before),
+            ("cf_after", cf_after),
+            ("dxfs_before", dxfs_before),
+            ("dxfs_after", dxfs_after),
+            ("dxfs_present_before", u64::from(dxfs_present_before)),
+            ("priority_max_before", u64::from(priority_max_before)),
+            ("priority_first_after", u64::from(priority_first_after)),
+            ("cf_removed", cf_removed),
+        ],
+    )
+}
+
+/// Reopens the conditional format sample's output and asserts two more
+/// rules, one more `dxf`, and the first added rule's priority one past the
+/// input's highest; then removes the second rule's conditional format in
+/// memory, writes into a `Cursor`, reopens it and asserts one more rule
+/// than the input's.
+fn cf_read_back(
+    output: &Path,
+    part: &[u8],
+    styles: Option<&[u8]>,
+    (greater, expression): (&[Area], &[Area]),
+    (cf_before, dxfs_before, priority_max_before): (u64, u64, u32),
+) -> Result<(u64, u64, u32, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let rules = package.conditional_formats(part)?;
+    let cf_after = rules.len() as u64;
+    if cf_after != cf_before + 2 {
+        return Err(Error::CfSample("rule count"));
+    }
+    let styles = styles.ok_or(Error::CfSample("styles part"))?;
+    let (_, dxfs_after) = dxf_counts(&mut package, styles)?;
+    if dxfs_after != dxfs_before + 1 {
+        return Err(Error::CfSample("dxf count"));
+    }
+    let priority_first_after = rules
+        .iter()
+        .find(|rule| rule.areas == greater)
+        .map(|rule| rule.priority)
+        .ok_or(Error::CfSample("first added rule"))?;
+    if u64::from(priority_first_after) != u64::from(priority_max_before) + 1 {
+        return Err(Error::CfSample("first added rule's priority"));
+    }
+    package.remove_conditional_format(part, expression)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut removed = Package::open(buffer)?;
+    let cf_removed = removed.conditional_formats(part)?.len() as u64;
+    if cf_removed != cf_before + 1 {
+        return Err(Error::CfSample("rule count after the removal"));
+    }
+    Ok((cf_after, dxfs_after, priority_first_after, cf_removed))
+}
+
+/// Whether the styles part's root has a main-namespace `dxfs` child, and
+/// how many `dxf` children the first one holds, by this tool's own pass
+/// over the part's tokens.
+fn dxf_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(bool, u64), Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let (mut present, mut inside, mut children) = (false, false, 0u64);
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            if depth < 2 {
+                inside = false;
+            }
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let local = tag_local_name(raw);
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            inside = !present
+                && local == b"dxfs"
+                && MAIN.contains(&element_namespace(raw, &root).as_slice());
+            present |= inside;
+        } else if depth == 3 && inside && local == b"dxf" {
+            children += 1;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+            if depth < 2 {
+                inside = false;
+            }
+        }
+    }
+    Ok((present, children))
 }
 
 /// The thirteen core properties, for the counts.

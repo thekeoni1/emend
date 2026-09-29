@@ -3556,3 +3556,112 @@ fn the_validate_sample_refuses_an_overlap_or_two_containers_and_leaves_nothing()
         styled_run_refused(label, &edit_specs(body), message, "--validate-sample");
     }
 }
+
+// ------------------------------------------------------------- --cf-sample
+
+/// The sample's styles part with `dxfs` before its end tag.
+fn cf_styles(dxfs: &str) -> String {
+    styles_part_of_the_sample().replace("</styleSheet>", &format!("{dxfs}</styleSheet>"))
+}
+
+/// The differential style the sample adds, as the write gives it.
+const SAMPLE_DXF: &str = "<dxf><font><b/><color rgb=\"009C0006\"/></font><fill>\
+                          <patternFill patternType=\"solid\"><bgColor rgb=\"00FFC7CE\"/>\
+                          </patternFill></fill></dxf>";
+
+/// The two conditional formats the sample adds on rows `row` and `row + 1`
+/// with style `dxf` and priorities `first` and `first + 1`.
+fn sample_rules(row: u32, dxf: u32, first: u32) -> String {
+    format!(
+        "<conditionalFormatting sqref=\"A{row}:C{row}\"><cfRule type=\"cellIs\" \
+         dxfId=\"{dxf}\" priority=\"{first}\" operator=\"greaterThan\"><formula>5</formula>\
+         </cfRule></conditionalFormatting><conditionalFormatting sqref=\"A{}\"><cfRule \
+         type=\"expression\" dxfId=\"{dxf}\" priority=\"{}\" stopIfTrue=\"1\">\
+         <formula>TRUE</formula></cfRule></conditionalFormatting>",
+        row + 1,
+        first + 1
+    )
+}
+
+#[test]
+fn the_cf_sample_adds_a_dxf_and_two_rules_and_removes_one_in_memory() {
+    // `specs/0020-validation-and-conditional-formatting.md`, "Harness runs":
+    // M is 1, so the rules go on A2:C2 and A3. With no dxfs and no rule the
+    // container is created at the styles root's end and the priorities are 1
+    // and 2; with two dxf children and a kept rule of priority 4 the style is
+    // 2 and the priorities 5 and 6, the rules after the kept one.
+    let kept = "<conditionalFormatting sqref=\"D1\"><cfRule type=\"expression\" \
+                dxfId=\"1\" priority=\"4\"><formula>1</formula></cfRule>\
+                </conditionalFormatting>";
+    for (label, rule, dxfs, dxf, first, line) in [
+        (
+            "cf-sample-created",
+            "",
+            "",
+            0,
+            1,
+            "cf\tcf_before=0\tcf_after=2\tdxfs_before=0\tdxfs_after=1\
+             \tdxfs_present_before=0\tpriority_max_before=0\tpriority_first_after=1\
+             \tcf_removed=1\n",
+        ),
+        (
+            "cf-sample-grown",
+            kept,
+            "<dxfs count=\"2\"><dxf/><dxf/></dxfs>",
+            2,
+            5,
+            "cf\tcf_before=1\tcf_after=3\tdxfs_before=2\tdxfs_after=3\
+             \tdxfs_present_before=1\tpriority_max_before=4\tpriority_first_after=5\
+             \tcf_removed=2\n",
+        ),
+    ] {
+        let (got, styles, sheet) = styled_run(
+            label,
+            &styled_specs(&format!("{A_CELL}{rule}"), &cf_styles(dxfs)),
+            "--cf-sample",
+        );
+        assert_eq!(got, line, "the line");
+        assert_eq!(
+            sheet,
+            edited(&format!("{A_CELL}{rule}{}", sample_rules(2, dxf, first))),
+            "the sheet"
+        );
+        let want = if dxfs.is_empty() {
+            cf_styles(&format!("<dxfs count=\"1\">{SAMPLE_DXF}</dxfs>"))
+        } else {
+            cf_styles(&format!(
+                "<dxfs count=\"3\"><dxf/><dxf/>{SAMPLE_DXF}</dxfs>"
+            ))
+        };
+        assert_eq!(styles, want, "the styles part");
+    }
+}
+
+#[test]
+fn the_cf_sample_refuses_an_extended_rule_or_an_unparsed_priority_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0020-validation-and-conditional-formatting.md`, "P2", and P2
+    // ruling 4): M is 0, so the sample removes the format on A2.
+    for (label, rule, message) in [
+        (
+            "cf-sample-extended",
+            "<conditionalFormatting sqref=\"A2\"><cfRule type=\"dataBar\" priority=\"1\">\
+             <dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/>\
+             </dataBar><extLst><ext uri=\"x\"/></extLst></cfRule></conditionalFormatting>",
+            "a conditional format has an extension this part does not remove",
+        ),
+        (
+            "cf-sample-priority",
+            "<conditionalFormatting sqref=\"D1\"><cfRule type=\"expression\" dxfId=\"0\" \
+             priority=\"high\"><formula>1</formula></cfRule></conditionalFormatting>",
+            "a conditionalFormatting sqref or a cfRule attribute does not parse",
+        ),
+    ] {
+        styled_run_refused(
+            label,
+            &styled_specs(&format!("<sheetData/>{rule}"), &cf_styles("")),
+            message,
+            "--cf-sample",
+        );
+    }
+}
