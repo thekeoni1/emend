@@ -240,9 +240,18 @@ fn the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call() {
         // A number that is not finite, and a percent that is not a number.
         (scale(CfvoKind::Num(f64::INFINITY), CfvoKind::Max), value),
         (scale(CfvoKind::Min, CfvoKind::Percent(f64::NAN)), value),
-        // An empty formula, and one with a leading `=`.
+        // An empty formula; one with a leading `=` and one with a character
+        // XML forbids meet part 4's messages, as every formula does (P3
+        // ruling 2).
         (scale(CfvoKind::Formula(""), CfvoKind::Max), value),
-        (scale(CfvoKind::Min, CfvoKind::Formula("=A1")), value),
+        (
+            scale(CfvoKind::Min, CfvoKind::Formula("=A1")),
+            "a formula text starts with an equals sign",
+        ),
+        (
+            scale(CfvoKind::Min, CfvoKind::Formula("A\u{1}")),
+            "a text holds a character XML cannot carry",
+        ),
         // A middle point may not be `Min` or `Max`.
         (
             Rule::ColorScale {

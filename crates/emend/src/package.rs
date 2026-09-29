@@ -441,7 +441,10 @@
 //!   a visual rule given a style
 //!   `visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
 //! - "a colour scale, data bar or icon set value is not valid", at the call
-//!   (`visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
+//!   (`visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`);
+//!   a value point's formula with a leading `=` or a character XML forbids
+//!   meets part 4's messages instead, as every formula does (P3 ruling 2, the
+//!   same test).
 //! - "no conditional format on those areas"
 //!   (`conditional::a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
 //! - "a conditional format has an extension this part does not remove"
@@ -2335,7 +2338,9 @@ impl VisualChild {
 /// stands (`specs/0020-validation-and-conditional-formatting.md`, the value
 /// rule): `Min` only first and `Max` only last, and neither in an icon set;
 /// a percent or percentile 0 to 100; a finite number; a formula not empty,
-/// without a leading `=` and holding no character XML forbids.
+/// each with the value message. A formula with a leading `=` or a character
+/// XML forbids meets part 4's messages instead, as every formula does (P3
+/// ruling 2).
 #[cfg(feature = "rules")]
 fn cfvo_parts(
     kind: CfvoKind<'_>,
@@ -2353,7 +2358,7 @@ fn cfvo_parts(
             (b"percentile", number(value))
         }
         CfvoKind::Formula(text) if !text.is_empty() => {
-            rule_formula_ok(text).map_err(|_| VISUAL_VALUE)?;
+            rule_formula_ok(text)?;
             (b"formula", Some(attribute_escaped(text)))
         }
         _ => return Err(VISUAL_VALUE),
