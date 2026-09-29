@@ -555,7 +555,7 @@ fn two_containers_or_a_kept_sqref_that_does_not_parse_are_refused() {
 
 #[test]
 fn the_call_refuses_each_rule_and_records_nothing() {
-    let refusals: [(&[Area], Validation<'static>, &str); 13] = [
+    let refusals: [(&[Area], Validation<'static>, &str); 17] = [
         (
             &[],
             whole(),
@@ -659,6 +659,42 @@ fn the_call_refuses_each_rule_and_records_nothing() {
                 ..list()
             },
             "a validation or a rule formula is empty or missing",
+        ),
+        // P1 verification ruling 5: a missing or empty second formula for
+        // the two-value operators, and an operator on a custom rule.
+        (
+            &[Area::parse(b"A1").expect("A1")],
+            Validation {
+                formula2: None,
+                ..whole()
+            },
+            "a validation or a rule formula is empty or missing",
+        ),
+        (
+            &[Area::parse(b"A1").expect("A1")],
+            Validation {
+                operator: Some(Operator::NotBetween),
+                formula2: None,
+                ..whole()
+            },
+            "a validation or a rule formula is empty or missing",
+        ),
+        (
+            &[Area::parse(b"A1").expect("A1")],
+            Validation {
+                formula2: Some(""),
+                ..whole()
+            },
+            "a validation or a rule formula is empty or missing",
+        ),
+        (
+            &[Area::parse(b"A1").expect("A1")],
+            Validation {
+                kind: ValidationKind::Custom,
+                operator: Some(Operator::Equal),
+                ..list()
+            },
+            "a validation field does not apply to its kind",
         ),
     ];
     let parts = with_body("<sheetData/>");
@@ -778,4 +814,32 @@ fn a_validation_and_a_cell_edit_on_one_part_compose() {
             1,
         );
     assert_eq!(sheet, worksheet(&want));
+}
+
+#[test]
+fn a_validation_edit_on_a_sheet_added_and_removed_in_one_write_goes_with_it() {
+    // P1 verification ruling 5 and P2 ruling 1: the case is a PENDING sheet,
+    // added and removed again in one write, whose edits are dropped with it,
+    // so the write is accepted and is the input. A validation edit on a sheet
+    // the file has, whose part the write removes, is refused instead
+    // (`a_validation_edit_on_a_removed_or_replaced_part_is_refused`).
+    let parts = smallest();
+    let bytes = Build::new(
+        parts
+            .iter()
+            .map(|(name, data)| Spec::new(name, data))
+            .collect(),
+    )
+    .bytes();
+    let mut package = open_fixture(bytes.clone());
+    let part = package.add_sheet("Two").expect("add");
+    package
+        .add_validation(&part, &[area("A1")], whole())
+        .expect("recorded");
+    package
+        .remove_validation(&part, &[area("B2")])
+        .expect("recorded");
+    package.remove_sheet("Two").expect("remove");
+    let out = written(package);
+    assert_eq!(out, bytes, "the output is the input");
 }
