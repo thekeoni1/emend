@@ -301,6 +301,27 @@
 //!   workbook root's `workbookProtection` children, likewise) and `hash`
 //!   (the password's hash as four hex digits, a constant). Asserted: one of
 //!   each after; a failure is exit 2 with the message and no output.
+//! - `--validate-sample`: the validation sample of
+//!   `specs/0020-validation-and-conditional-formatting.md`, "Harness runs",
+//!   with P1 ruling 2: on W, the first sheet of kind `Worksheet`, with M its
+//!   largest row number as the layer's cell read gives it, a list
+//!   validation of the tool's quoted list on the cell of row M + 1, column
+//!   1, blanks allowed, with an input message and a `Stop` error message of
+//!   the tool's own texts; and a whole-number validation between 1 and 10,
+//!   the operator given, on rows M + 1 to M + 2 of column 2. The output is
+//!   reopened, and the list validation removed from it again in memory, the
+//!   write going into a `Cursor` that is reopened. One line: the word
+//!   `validate` then `dv_before` and `dv_after` (the entries
+//!   `Package::validations` reads from W), `container_before` (1 when W's
+//!   root has a main-namespace `dataValidations` child), `count_after` (that
+//!   child's `count` in the output, both read by this tool's own pass over
+//!   the part's tokens) and `dv_removed` (the entries read after the
+//!   removal). COUNTS ONLY: every formula and message is this tool's
+//!   constant and no reference is printed. Asserted: `dv_after` two more
+//!   than `dv_before`, `count_after` equal to `dv_after`, `dv_removed` one
+//!   more than `dv_before`; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer (a validation of the file
+//!   overlapping the sample's cells among them, or M + 2 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -324,9 +345,9 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    CONTENT_TYPES_PART, CORE_PROPERTIES, HYPERLINK, LinkTarget, MAIN, PIVOT_TABLE, Package,
-    Properties, Property, RELATIONSHIPS_ATTRIBUTE, SheetKind, SheetProtection, TABLE,
-    legacy_password_hash, rels_part_source,
+    CONTENT_TYPES_PART, CORE_PROPERTIES, ErrorStyle, HYPERLINK, LinkTarget, MAIN, Operator,
+    PIVOT_TABLE, Package, Properties, Property, RELATIONSHIPS_ATTRIBUTE, SheetKind,
+    SheetProtection, TABLE, Validation, ValidationKind, legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -340,7 +361,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
-| --link-sample | --props-sample | --protect-sample]";
+| --link-sample | --props-sample | --protect-sample | --validate-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -403,6 +424,9 @@ enum Operation {
     PropsSample,
     /// The first worksheet and the workbook protected, and the counts.
     ProtectSample,
+    /// Two data validations past the last row, one removed again, and the
+    /// counts.
+    ValidateSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -435,6 +459,7 @@ enum Error {
     LinkSample(&'static str),
     PropsSample(&'static str),
     ProtectSample(&'static str),
+    ValidateSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -488,6 +513,9 @@ impl fmt::Display for Error {
             }
             Error::ProtectSample(what) => {
                 write!(f, "the output's {what} is not what the protection implies")
+            }
+            Error::ValidateSample(what) => {
+                write!(f, "the output's {what} is not what the validations imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -583,6 +611,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::ProtectSample,
+        ),
+        [input, output, flag] if flag == "--validate-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ValidateSample,
         ),
         [input, output, flag] if flag == "--date-sample" => {
             run(Path::new(input), Path::new(output), Operation::DateSample)
@@ -688,6 +721,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ProtectSample) {
         return protect_sample(input, output);
     }
+    if matches!(operation, Operation::ValidateSample) {
+        return validate_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -732,6 +768,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::LinkSample => unreachable!("the link sample has its own path"),
         Operation::PropsSample => unreachable!("the properties sample has its own path"),
         Operation::ProtectSample => unreachable!("the protection sample has its own path"),
+        Operation::ValidateSample => unreachable!("the validation sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -2951,6 +2988,161 @@ fn external_links<R: io::Read + io::Seek>(
         .into_iter()
         .map(|form| rels.of_kind(form).filter(|rel| rel.external).count() as u64)
         .sum())
+}
+
+/// The validation sample (`specs/0020-validation-and-conditional-
+/// formatting.md`, "Harness runs", `--validate-sample`): two validations on
+/// the rows past W's last, the output written and read back, then the first
+/// removed in memory and that read back. A failure after the output is in
+/// place removes it; a refusal by the layer is exit 2 with no output.
+fn validate_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let max_row = sample(&mut package, &part)?.max_row;
+    let dv_before = package.validations(&part)?.len() as u64;
+    let (container_before, _) = validation_container(&mut package, &part)?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = max_row.saturating_add(1);
+    let listed = [cell_area(row, 1, row, 1)];
+    package.add_validation(
+        &part,
+        &listed,
+        Validation {
+            kind: ValidationKind::List,
+            operator: None,
+            formula1: "\"emend,sample\"",
+            formula2: None,
+            allow_blank: true,
+            hide_drop_down: false,
+            input: Some(("emend", "pick one")),
+            error: Some((ErrorStyle::Stop, "emend", "not in the list")),
+        },
+    )?;
+    package.add_validation(
+        &part,
+        &[cell_area(row, 2, row.saturating_add(1), 2)],
+        Validation {
+            kind: ValidationKind::Whole,
+            operator: Some(Operator::Between),
+            formula1: "1",
+            formula2: Some("10"),
+            allow_blank: false,
+            hide_drop_down: false,
+            input: None,
+            error: None,
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = validate_read_back(output, &part, &listed, dv_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (dv_after, count_after, dv_removed) = checked?;
+    edit_line_named(
+        "validate",
+        &[
+            ("dv_before", dv_before),
+            ("dv_after", dv_after),
+            ("container_before", u64::from(container_before)),
+            ("count_after", count_after),
+            ("dv_removed", dv_removed),
+        ],
+    )
+}
+
+/// The area from row `first_row`, column `first_col` to row `last_row`,
+/// column `last_col`.
+fn cell_area(first_row: u32, first_col: u32, last_row: u32, last_col: u32) -> Area {
+    Area {
+        first: CellRef {
+            row: first_row,
+            col: first_col,
+        },
+        last: CellRef {
+            row: last_row,
+            col: last_col,
+        },
+    }
+}
+
+/// Reopens the validation sample's output and asserts two more
+/// validations and a `count` equal to them; then removes the list
+/// validation in memory, writes into a `Cursor`, reopens it and asserts one
+/// more than the input's.
+fn validate_read_back(
+    output: &Path,
+    part: &[u8],
+    listed: &[Area],
+    dv_before: u64,
+) -> Result<(u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let dv_after = package.validations(part)?.len() as u64;
+    if dv_after != dv_before + 2 {
+        return Err(Error::ValidateSample("validation count"));
+    }
+    let count_after = validation_container(&mut package, part)?
+        .1
+        .ok_or(Error::ValidateSample("dataValidations count"))?;
+    if count_after != dv_after {
+        return Err(Error::ValidateSample("dataValidations count"));
+    }
+    package.remove_validation(part, listed)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut removed = Package::open(buffer)?;
+    let dv_removed = removed.validations(part)?.len() as u64;
+    if dv_removed != dv_before + 1 {
+        return Err(Error::ValidateSample("validation count after the removal"));
+    }
+    Ok((dv_after, count_after, dv_removed))
+}
+
+/// Whether the part's root has a main-namespace `dataValidations` child,
+/// and that child's `count` as a decimal number when it has one, by this
+/// tool's own pass over the part's tokens.
+fn validation_container<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(bool, Option<u64>), Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let mut found = (false, None);
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2
+            && !found.0
+            && tag_local_name(raw) == b"dataValidations"
+            && MAIN.contains(&element_namespace(raw, &root).as_slice())
+        {
+            found = (true, tag_number(raw, b"count"));
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(found)
 }
 
 /// The thirteen core properties, for the counts.

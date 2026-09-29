@@ -3466,3 +3466,93 @@ fn the_props_and_protect_samples_refuse_their_fixtures_and_leave_nothing() {
         "--protect-sample",
     );
 }
+
+// ------------------------------------------------------- --validate-sample
+
+/// The two validations the sample adds on row `row`, as the write gives
+/// them.
+fn sample_validations(row: u32) -> String {
+    format!(
+        "<dataValidation type=\"list\" allowBlank=\"1\" showInputMessage=\"1\" \
+         showErrorMessage=\"1\" errorStyle=\"stop\" errorTitle=\"emend\" \
+         error=\"not in the list\" promptTitle=\"emend\" prompt=\"pick one\" sqref=\"A{row}\">\
+         <formula1>\"emend,sample\"</formula1></dataValidation>\
+         <dataValidation type=\"whole\" operator=\"between\" allowBlank=\"0\" \
+         showInputMessage=\"0\" showErrorMessage=\"0\" sqref=\"B{row}:B{}\">\
+         <formula1>1</formula1><formula2>10</formula2></dataValidation>",
+        row + 1
+    )
+}
+
+#[test]
+fn the_validate_sample_adds_two_validations_and_removes_one_in_memory() {
+    // `specs/0020-validation-and-conditional-formatting.md`, "Harness runs",
+    // and P1 ruling 2: M is 1, so the list goes on A2 and the whole number on
+    // B2:B3. With no container one is created before pageMargins; with one,
+    // the two are appended and `count` follows.
+    for (label, before, line) in [
+        (
+            "validate-sample-created",
+            "",
+            "validate\tdv_before=0\tdv_after=2\tcontainer_before=0\tcount_after=2\
+             \tdv_removed=1\n",
+        ),
+        (
+            "validate-sample-appended",
+            "<dataValidation type=\"none\" sqref=\"D1\"/>",
+            "validate\tdv_before=1\tdv_after=3\tcontainer_before=1\tcount_after=3\
+             \tdv_removed=2\n",
+        ),
+    ] {
+        let container = |inner: &str, count: usize| {
+            if inner.is_empty() {
+                String::new()
+            } else {
+                format!("<dataValidations count=\"{count}\">{inner}</dataValidations>")
+            }
+        };
+        let specs = edit_specs(&format!("{A_CELL}{}", container(before, 1)));
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--validate-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        let count = if before.is_empty() { 2 } else { 3 };
+        let want = edited(&format!(
+            "{A_CELL}{}",
+            container(&format!("{before}{}", sample_validations(2)), count)
+        ));
+        assert_eq!(sheet, want, "the sheet");
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_validate_sample_refuses_an_overlap_or_two_containers_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0020-validation-and-conditional-formatting.md`, "P1").
+    for (label, body, message) in [
+        (
+            "validate-sample-overlap",
+            "<sheetData/><dataValidations count=\"1\"><dataValidation type=\"none\" \
+             sqref=\"A1\"/></dataValidations>",
+            "a validation overlaps one the worksheet has, or a dataValidation sqref does not parse",
+        ),
+        (
+            "validate-sample-two",
+            "<sheetData/><dataValidations/><dataValidations/>",
+            "a worksheet has two dataValidations elements",
+        ),
+    ] {
+        styled_run_refused(label, &edit_specs(body), message, "--validate-sample");
+    }
+}
