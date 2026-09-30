@@ -90,7 +90,12 @@
 //! - "a number that is not finite cannot be written"
 //!   (`a_number_that_is_not_finite_is_refused`).
 //! - "a text holds a character XML cannot carry"
-//!   (`a_text_with_a_character_xml_forbids_is_refused`).
+//!   (`a_text_with_a_character_xml_forbids_is_refused`, and with the Cargo
+//!   feature `rules` for a validation's or a rule's formula or message and a
+//!   value point's formula,
+//!   `validation::the_call_refuses_each_rule_and_records_nothing`,
+//!   `conditional::the_call_refuses_each_rule_and_records_nothing`,
+//!   `visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
 //! - "a cell carries an attribute this layer does not model"
 //!   (`a_cell_with_an_attribute_this_layer_does_not_model_is_refused`).
 //! - "a cell edit to a part this write replaces"
@@ -172,7 +177,11 @@
 //!
 //! - "a formula text is empty" (`an_empty_formula_text_is_refused`).
 //! - "a formula text starts with an equals sign"
-//!   (`a_formula_text_starting_with_an_equals_sign_is_refused`).
+//!   (`a_formula_text_starting_with_an_equals_sign_is_refused`, and with the
+//!   Cargo feature `rules` for a validation's, a rule's and a value point's
+//!   formula, `validation::the_call_refuses_each_rule_and_records_nothing`,
+//!   `conditional::the_call_refuses_each_rule_and_records_nothing`,
+//!   `visual::the_value_rule_and_a_visual_rule_with_a_style_are_refused_at_the_call`).
 //! - "a formula text holds a character XML cannot carry"
 //!   (`a_formula_text_with_a_character_xml_forbids_is_refused`).
 //! - "a workbook has two calcPr elements"
@@ -623,7 +632,8 @@
 //!   a `<col style>` overrides those, as any `s` does.
 //! - A cell shown as a date is a number with a date format; what a consumer
 //!   shows for a format code is the consumer's.
-//! - `dxfs` and `cellStyles` are never touched. `fonts`, `fills` and
+//! - `cellStyles` is never touched, and `dxfs` only by the Cargo feature
+//!   `rules`'s differential styles (below). `fonts`, `fills` and
 //!   `borders` grow at their ends when an addition gives a font, a fill or a
 //!   border; nothing already in them is read, changed or compared.
 //! - Whenever the styles part is rewritten, each of `numFmts`, `fonts`,
@@ -666,8 +676,9 @@
 //!   already has is a second copy (producers write such copies too);
 //!   nothing is deduplicated at the `xf` level. A cell format's alignment,
 //!   protection and apply flags are not read back as values: its ids are.
-//! - What is kept: `x14ac:knownFonts` on `fonts` as it was; `dxfs`,
-//!   `cellStyles`, `cellStyleXfs` and the theme, untouched, so a
+//! - What is kept: `x14ac:knownFonts` on `fonts` as it was; `dxfs` (but
+//!   for the feature `rules`'s additions), `cellStyles`, `cellStyleXfs` and
+//!   the theme, untouched, so a
 //!   [`crate::styles::Color::Theme`] names whatever the workbook's theme defines at that
 //!   index and a [`crate::styles::Color::Indexed`] whatever its `colors` or the default
 //!   palette defines; a derived cell format's children other than its first
@@ -926,6 +937,70 @@
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice, and the Excel check of Milestone 2 is
 //!   pending, run or deferred again before the close-out push.
+//!
+//! Validations and conditional formats add these, all the Cargo feature
+//! `rules`'s (`specs/0020-validation-and-conditional-formatting.md`,
+//! "Design", decisions 1 to 5 and the P1 to P3 rulings), the caller's
+//! picture:
+//!
+//! - What they touch: `Package::add_validation` and
+//!   `Package::remove_validation` edit the worksheet's `<dataValidations>`
+//!   alone; `Package::add_conditional_format` and
+//!   `Package::remove_conditional_format` its `<conditionalFormatting>`
+//!   elements alone; `Package::add_differential_style` the styles part's
+//!   `<dxfs>` alone (and, as every styles rewrite, the other containers'
+//!   counts). No cell's value or style changes; a cell edit in the same
+//!   write composes with them
+//!   (`validation::a_validation_and_a_cell_edit_on_one_part_compose`); a row
+//!   or column insertion or deletion does not (the one-shift rule). An absent
+//!   container is created in schema position; a part out of schema order,
+//!   whose one container comes after a child that follows it, is refused
+//!   with the two-container message rather than written into.
+//! - A formula is text: a validation's `formula1` and `formula2`, a rule's
+//!   `<formula>` children and a value point's `val` hold what the caller
+//!   gave, escaped, without a leading `=`, never parsed and never
+//!   evaluated, and none is a formula change (no chain dropped, no
+//!   recalculation asked for). A list's `formula1` is a range or a quoted
+//!   list of constants; the crate does not tell them apart. The blank rules
+//!   carry Excel's formula for the first area's top-left cell.
+//! - One validation per cell: an addition overlapping a validation the
+//!   part keeps, or one added before it in the write, is refused (decision
+//!   4 A); a removal matches the file's elements by their parsed `sqref`,
+//!   area for area in order, never an addition of the same write, and drops
+//!   every such element. Titles are limited to 32 characters and texts to
+//!   255, as Excel limits them.
+//! - The priority rule: a rule's priority not given is the part's highest
+//!   kept priority (the main namespace's rules only; an `x14` rule's is not
+//!   counted) plus one, one more for each earlier addition without one, as
+//!   openpyxl assigns it; one given is written as given, and two rules of
+//!   one priority are Excel's to order. A dxf rule needs a differential
+//!   style and a visual rule takes none.
+//! - Differential styles: `Package::add_differential_style` returns the
+//!   styles part's `dxf` children plus the earlier additions, the position
+//!   a `dxfId` names; the `<dxf>` holds the style's font, fill and border as
+//!   a cell format's are written, without `apply` flags; nothing is
+//!   deduplicated and no `dxf` is removed. Excel reads a differential solid
+//!   fill's colour from `bgColor`, so a caller sets the fill's `background`
+//!   (decision 5 A), as openpyxl's `PatternFill(bgColor=..)` does. A number
+//!   format, an alignment and a protection are not written.
+//! - The visual rules are the 2007 form (decision 2 A): a data bar is a
+//!   solid bar of one colour with no negative bar or axis, and no `x14`
+//!   extension is written. A rule the part keeps whose `cfRule` holds an
+//!   `extLst` (twinned with an `x14` element in the sheet's extension list,
+//!   which this crate never touches) is not removed: its removal is refused,
+//!   so no twin is left without its rule. `x14` validations are kept and
+//!   never read.
+//! - What is read back (decision 3 A): `Package::validations` gives each
+//!   validation's areas, kind, operator, formulas, flags and messages;
+//!   `Package::conditional_formats` each rule's areas, `type` text (a kind
+//!   this crate does not write included), operator (none for a text
+//!   operator), formulas, style, priority, stop and whether it holds an
+//!   extension, but not a visual rule's children. The differential styles
+//!   are not read back. Both reads are snapshots of the file.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice, and the Excel check (`specs/0019`
+//!   decision 6, deferred again) is pending, run or deferred again before
+//!   the close-out push; what Excel shows for a rule is Excel's.
 
 #[cfg(test)]
 mod tests;
