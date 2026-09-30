@@ -3818,7 +3818,8 @@ fn table_header(row: u32) -> String {
 #[test]
 fn the_table_sample_adds_a_table_its_part_relationship_and_header_cells() {
     // `specs/0021-tables.md`, "Harness runs": M is 1, so the table covers
-    // A2:B4 and its header cells are A2 and B2. With no table the container
+    // A2:B4 and its header cells are A2 and B2; the removal in memory leaves
+    // the input's tables and table parts (P2). With no table the container
     // and the rels part are created; with one, whose part is `table1` with
     // id 1, the addition is `table2` with id 2, appended.
     let kept = "id=\"1\" name=\"kept\" displayName=\"kept\" ref=\"D1:E3\"";
@@ -3829,7 +3830,7 @@ fn the_table_sample_adds_a_table_its_part_relationship_and_header_cells() {
             "",
             "table\ttables_before=0\ttables_after=1\tparts_before=0\tparts_after=1\
              \trels_before=0\trels_after=1\tcontainer_before=0\tr_bound_before=1\tid_after=1\
-             \tcells_before=1\tcells_after=3\n",
+             \tcells_before=1\tcells_after=3\ttables_removed=0\tparts_removed=0\n",
         ),
         (
             "table-sample-appended",
@@ -3837,7 +3838,7 @@ fn the_table_sample_adds_a_table_its_part_relationship_and_header_cells() {
             "<tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>",
             "table\ttables_before=1\ttables_after=2\tparts_before=1\tparts_after=2\
              \trels_before=1\trels_after=2\tcontainer_before=1\tr_bound_before=1\tid_after=2\
-             \tcells_before=1\tcells_after=3\n",
+             \tcells_before=1\tcells_after=3\ttables_removed=1\tparts_removed=1\n",
         ),
     ] {
         let specs = table_specs(A_CELL, after, table);

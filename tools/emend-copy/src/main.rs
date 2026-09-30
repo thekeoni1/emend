@@ -374,10 +374,14 @@
 //!   binds a prefix to the relationships namespace), both read by this
 //!   tool's own pass over the part's tokens, `id_after` (the added table's
 //!   root `id`, read by the same pass over its part) and `cells_before` and
-//!   `cells_after` (W's cells as the layer's cell read gives them). COUNTS
-//!   ONLY: the name and the column names are this tool's constants and no
-//!   reference is printed. Asserted: `tables_after`, `parts_after` and
-//!   `rels_after` one more than before, and `cells_after` two more; a
+//!   `cells_after` (W's cells as the layer's cell read gives them); then the
+//!   table removed again from the reopened output in memory, the write going
+//!   into a `Cursor` that is reopened, for `tables_removed` and
+//!   `parts_removed` (specs/0021 "P2"). COUNTS ONLY: the name and the column
+//!   names are this tool's constants and no reference is printed. Asserted:
+//!   `tables_after`, `parts_after` and `rels_after` one more than before,
+//!   `cells_after` two more, and `tables_removed` and `parts_removed` equal
+//!   to before; a
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer (a table, merge or autofilter of the file on the sample's
 //!   cells, a table of that name, or M + 3 past the grid).
@@ -3553,7 +3557,8 @@ fn scale_read_back(
 
 /// The table sample (`specs/0021-tables.md`, "Harness runs",
 /// `--table-sample`): a table on the rows past W's last, the output written
-/// and read back. A failure after the output is in place removes it; a
+/// and read back, then the table removed in memory and that read back. A
+/// failure after the output is in place removes it; a
 /// refusal by the layer is exit 2 with no output.
 fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
@@ -3596,7 +3601,7 @@ fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
     if checked.is_err() {
         let _ = fs::remove_file(output);
     }
-    let (after, id_after) = checked?;
+    let (after, id_after, removed) = checked?;
     edit_line_named(
         "table",
         &[
@@ -3611,6 +3616,8 @@ fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("id_after", id_after),
             ("cells_before", before.cells),
             ("cells_after", after.cells),
+            ("tables_removed", removed.tables),
+            ("parts_removed", removed.parts),
         ],
     )
 }
@@ -3627,13 +3634,15 @@ struct TableCounts {
 }
 
 /// Reopens the table sample's output and asserts one more table, table
-/// part and table relationship, and two more cells; gives the counts and
-/// the added table's `id`.
+/// part and table relationship, and two more cells; then removes the table
+/// in memory, writes into a `Cursor`, reopens it and asserts the tables and
+/// the table parts the input had; gives the counts, the added table's `id`
+/// and the counts after the removal.
 fn table_read_back(
     output: &Path,
     part: &[u8],
     before: &TableCounts,
-) -> Result<(TableCounts, u64), Error> {
+) -> Result<(TableCounts, u64, TableCounts), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let tables = package.tables(part)?;
@@ -3660,16 +3669,36 @@ fn table_read_back(
         .find(|table| table.name == SAMPLE_TABLE)
         .ok_or(Error::TableSample("table"))?;
     let index = package.part(&added.part).ok_or(Error::NoSuchName)?;
-    let mut stream = Stream::new(package.read_part(index)?, index)?;
-    let mut id = None;
-    while let Some(token) = stream.next()? {
-        let raw = token.raw;
-        if raw.starts_with(b"<") && !raw.starts_with(b"<?") && !raw.starts_with(b"<!") {
-            id = tag_number(raw, b"id");
-            break;
+    let id = {
+        let mut stream = Stream::new(package.read_part(index)?, index)?;
+        let mut id = None;
+        while let Some(token) = stream.next()? {
+            let raw = token.raw;
+            if raw.starts_with(b"<") && !raw.starts_with(b"<?") && !raw.starts_with(b"<!") {
+                id = tag_number(raw, b"id");
+                break;
+            }
         }
+        id.ok_or(Error::TableSample("table id"))?
+    };
+    package.remove_table(part, SAMPLE_TABLE)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut reopened = Package::open(buffer)?;
+    let removed = TableCounts {
+        tables: reopened.tables(part)?.len() as u64,
+        parts: table_entries(&reopened),
+        rels: table_relationships(&mut reopened, part)?,
+        cells: 0,
+    };
+    if removed.tables != before.tables {
+        return Err(Error::TableSample("table count after the removal"));
     }
-    Ok((after, id.ok_or(Error::TableSample("table id"))?))
+    if removed.parts != before.parts {
+        return Err(Error::TableSample("table part count after the removal"));
+    }
+    Ok((after, id, removed))
 }
 
 /// The archive's entries under `xl/tables/`.
