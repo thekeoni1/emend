@@ -41,6 +41,10 @@ rowcol = ["emend", "xml", "emend/rowcol"]
 # (specs/0019-names-links-properties-protection.md, "Size", under decision
 # 1 A), built with its own feature set as the rowcol probe is.
 metadata = ["emend", "xml", "emend/metadata"]
+# Enables emend's own `rules` feature, for probe-emend-rules-write-xml alone
+# (specs/0020-validation-and-conditional-formatting.md, "Size", under
+# decision 1 A), built with its own feature set as the metadata probe is.
+rules = ["emend", "xml", "emend/rules"]
 
 [[bin]]
 name = "probe-zip"
@@ -125,3 +129,8 @@ required-features = ["rowcol"]
 name = "probe-emend-metadata-write-xml"
 path = "src/bin/probe-emend-metadata-write-xml.rs"
 required-features = ["metadata"]
+
+[[bin]]
+name = "probe-emend-rules-write-xml"
+path = "src/bin/probe-emend-rules-write-xml.rs"
+required-features = ["rules"]
