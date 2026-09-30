@@ -245,7 +245,10 @@ Derived `Clone`, `Debug`, `PartialEq`, `Eq`.
   relationship's, the relationship, the `Override` for the part when
   the content types part has one, and the entry; none of that name
   at the write is refused ("no table of that name"), as is a name
-  this write also adds for the part (the caller writes twice). The
+  this write also adds for the part (the caller writes twice), a
+  table named twice for removal in one write, and a removal on a
+  sheet added in the same write, which has no file table (P2
+  verification ruling 2). The
   cells keep their values and styles, as Excel's "Convert to Range"
   keeps them; a differential style the table's `dxfId` attributes
   named stays in `<dxfs>` (a `dxf` is never removed, part 4b). A
@@ -826,6 +829,64 @@ every other family identical) as the sample implies.
    corpus workbook lets one land. P2's doc commit carries this
    spec at the hash planning sends and `ROADMAP.md`.
 6. P1 is DONE and P2 released.
+
+## Planning verification and rulings on P2 (2026-09-30)
+
+Verified by planning from primaries at the phase commit 6cfd504
+and the record commit af43c51: the five commits over 7176a34 with
+the doc commit's two blobs at the sent hashes, every message ASCII
+with the Co-Authored-By line only, one author identity; the three
+code diffs read before the report and byte-identical to the
+committed ones; the record commit holding exactly the six logs and
+four records at the reported hashes; every log pinning 3bea86d5;
+planning's own build of 6cfd504 in a detached worktree: the
+crate's tests 512 off, 531 with `tables`, 580 with `metadata,
+tables`, 567 with `rules,tables`, 668 all features, on both
+targets, 0 failed; the workspace's 831 on both targets; clippy in
+five configurations and rustdoc in three at 0 lines; its own
+release tools; its own `--table-sample` run over the 27 corpus
+workbooks on both targets, every output and every printed line
+(the removal's two counts included) byte-identical to the run
+directory's, host and i686 outputs identical, none refused; its
+own check of every output's added part as P1's; its own
+`scripts/privacy.sh --range 7176a34..af43c51`, 5 commits, 840
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset; the record's
+families as P1's, as the sample implies (the removal's output
+stays in memory by design).
+
+1. The carry commit 2b1cd7d holds exactly P1 verification ruling
+   5's list, and was first made under a placeholder subject
+   (1c1c3fc) and amended at once before anything referenced it:
+   recorded; the amended commit is unreferenced and was never
+   pushed, and nothing carries it.
+2. Impl's readings stand and the spec says so now, in "The calls":
+   a table named twice for removal in one write is refused with
+   "no table of that name"; `remove_table` on a sheet added in the
+   same write meets that message too, since the removal finds no
+   file table first; a table part's own rels part, which no corpus
+   workbook and no Excel writes, would be left by the removal:
+   out of scope, stated in P3's catalogue.
+3. The negative log's N6 is refused by the addition's write-time
+   read before the removal's own is reached, so the removal's read
+   refusal rests on its crate test: recorded; the sample adds
+   before it removes by design.
+4. The run log's `tables_removed` and `parts_removed` can only
+   read as asserted on an ok row, the tool having asserted them,
+   and the removal's output is never extracted on the corpus:
+   recorded, the design of "Harness runs" (one harness output per
+   workbook); the removal's bytes are pinned by the crate tests.
+   The plants the check lists as absent (the relationship and
+   entry removal, the removal-plus-addition, the missing part, the
+   double removal; the R1C1 form on the defined-name side) are
+   asserted by tests: recorded, no change.
+5. Carried to P3's first code commit, `//!` and test edits only:
+   the tables test module's `//!` cites P1 ruling 7 (B) where it
+   cites "P1 verification ruling 5"; the removal test that claims
+   the cells untouched gains a cell in its `sheetData`; a test
+   pins `remove_table` on a removed part and on a replaced part
+   (the messages a cell edit meets, as the addition's test has).
+6. P2 is DONE and P3 released. P3's doc commit carries this spec
+   at the hash planning sends and `ROADMAP.md`.
 
 ## Out of scope
 
