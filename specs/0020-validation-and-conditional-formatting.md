@@ -872,7 +872,12 @@ recorded.
 6. The Excel check for parts 1 to 4a: deferred on 2026-09-27 and
    on 2026-09-29 by the maintainer, to run before this part's
    close-out push at the latest, or be deferred again by a
-   decision recorded here. Recorded, not asked.
+   decision recorded here. Recorded, not asked. Deferred again on
+   2026-09-30 ("defer again", typed in the planning session; P4
+   verification ruling 10): the check, now with this part's three
+   samples on its list, runs before the next part's close-out push
+   at the latest or is deferred again by a decision recorded in
+   the next part's spec.
 
 ## Planning rulings during P1 (2026-09-29)
 
@@ -1380,6 +1385,32 @@ ones unreachable with a reason each; `ANTHROPIC_API_KEY` is unset.
    its list) and the maintainer's typed authorisation as the push
    script's labelled input. This section and P4 ruling 1 go in
    the close-out's doc commit, before the push, with `ROADMAP.md`.
+10. Decision 6 (2026-09-30): the maintainer, told the figures and
+    rulings above, deferred the Excel check again ("defer again"),
+    typed in the planning session after the close-out's doc commit
+    4a2aadb. Recorded under "Decisions for the maintainer". The
+    close-out push proceeds without it; the check, now for parts 1
+    to 4a's samples and this part's three, runs before the next
+    part's close-out push at the latest or is deferred again by a
+    decision recorded in the next part's spec. This ruling is
+    planning's and goes in the next part's first doc commit, as
+    `specs/0019` ruling 15 went in this part's. The implementing
+    session's push.log records the maintainer's typed authorisation
+    given in that session; planning's word stands as ruling 9 gives
+    it, the first condition met by this ruling.
+11. The push script's pre mode on 4a2aadb (attempt 1, held) failed
+    its two clean-tree checks on the one modified path, this file at
+    e6ea9a9d, as planning's instruction to leave it uncommitted
+    required. The instruction was wrong, not the check: the checks
+    stand unchanged, nothing stashes or moves planning's file, and
+    ruling 10's "next part's first doc commit" is withdrawn. The
+    close-out gets a second doc commit, this file alone at the hash
+    planning sends, before the record commit; the phase rule allows
+    doc commits until the first code commit and the close-out has
+    none. The pushed range then carries decision 6's record, which
+    is the better outcome. Attempt 1's push.log is kept and named
+    by the record commit; attempt 2's pre mode runs on the new
+    doc commit with a clean tree.
 
 ## Out of scope
 
