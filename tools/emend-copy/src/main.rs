@@ -361,6 +361,26 @@
 //!   three more than `cf_before`, and `visual_after` three more than the
 //!   input's visual rules; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer.
+//! - `--table-sample`: the table sample of `specs/0021-tables.md`, "Harness
+//!   runs": on W, with M as `--validate-sample` has it, a table named
+//!   `emend_table` over rows M + 1 to M + 3 of columns 1 and 2, its columns
+//!   `emend_a` and `emend_b`, in `TableStyleMedium2` with row stripes only.
+//!   The output is reopened. One line: the word `table` then
+//!   `tables_before` and `tables_after` (the entries `Package::tables` reads
+//!   from W), `parts_before` and `parts_after` (the archive's entries under
+//!   `xl/tables/`), `rels_before` and `rels_after` (W's relationships of type
+//!   `TABLE`, either form), `container_before` (1 when W's root has a
+//!   main-namespace `tableParts` child), `r_bound_before` (1 when W's root
+//!   binds a prefix to the relationships namespace), both read by this
+//!   tool's own pass over the part's tokens, `id_after` (the added table's
+//!   root `id`, read by the same pass over its part) and `cells_before` and
+//!   `cells_after` (W's cells as the layer's cell read gives them). COUNTS
+//!   ONLY: the name and the column names are this tool's constants and no
+//!   reference is printed. Asserted: `tables_after`, `parts_after` and
+//!   `rels_after` one more than before, and `cells_after` two more; a
+//!   failure is exit 2 with the message and no output, and so is a refusal
+//!   by the layer (a table, merge or autofilter of the file on the sample's
+//!   cells, a table of that name, or M + 3 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -386,8 +406,8 @@ use emend::dates::{DateTime, Epoch};
 use emend::package::{
     CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, ErrorStyle, HYPERLINK, IconSetKind,
     LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties, Property,
-    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Validation, ValidationKind,
-    legacy_password_hash, rels_part_source,
+    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table, TableStyle,
+    TableStyleInfo, Validation, ValidationKind, legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -401,7 +421,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
-| --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample]";
+| --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
+| --table-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -473,6 +494,8 @@ enum Operation {
     /// A colour scale, a data bar and an icon set past the last row, and
     /// the counts.
     ScaleSample,
+    /// A table past the last row, and the counts.
+    TableSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -508,6 +531,7 @@ enum Error {
     ValidateSample(&'static str),
     CfSample(&'static str),
     ScaleSample(&'static str),
+    TableSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -573,6 +597,9 @@ impl fmt::Display for Error {
             }
             Error::ScaleSample(what) => {
                 write!(f, "the output's {what} is not what the visual rules imply")
+            }
+            Error::TableSample(what) => {
+                write!(f, "the output's {what} is not what the table implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -676,6 +703,9 @@ fn main() -> ExitCode {
         ),
         [input, output, flag] if flag == "--scale-sample" => {
             run(Path::new(input), Path::new(output), Operation::ScaleSample)
+        }
+        [input, output, flag] if flag == "--table-sample" => {
+            run(Path::new(input), Path::new(output), Operation::TableSample)
         }
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
@@ -793,6 +823,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ScaleSample) {
         return scale_sample(input, output);
     }
+    if matches!(operation, Operation::TableSample) {
+        return table_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -840,6 +873,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ValidateSample => unreachable!("the validation sample has its own path"),
         Operation::CfSample => unreachable!("the conditional format sample has its own path"),
         Operation::ScaleSample => unreachable!("the visual rule sample has its own path"),
+        Operation::TableSample => unreachable!("the table sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3515,6 +3549,186 @@ fn scale_read_back(
         return Err(Error::ScaleSample("visual rule count"));
     }
     Ok((cf_after, visual_after))
+}
+
+/// The table sample (`specs/0021-tables.md`, "Harness runs",
+/// `--table-sample`): a table on the rows past W's last, the output written
+/// and read back. A failure after the output is in place removes it; a
+/// refusal by the layer is exit 2 with no output.
+fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = TableCounts {
+        tables: package.tables(&part)?.len() as u64,
+        parts: table_entries(&package),
+        rels: table_relationships(&mut package, &part)?,
+        cells: sampled.cells,
+    };
+    let (container_before, r_bound_before) = table_container(&mut package, &part)?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    package.add_table(
+        &part,
+        cell_area(row, 1, row.saturating_add(2), 2),
+        Table {
+            name: SAMPLE_TABLE,
+            columns: &["emend_a", "emend_b"],
+            style: Some(TableStyleInfo {
+                style: TableStyle::Medium(2),
+                first_column: false,
+                last_column: false,
+                row_stripes: true,
+                column_stripes: false,
+            }),
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = table_read_back(output, &part, &before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, id_after) = checked?;
+    edit_line_named(
+        "table",
+        &[
+            ("tables_before", before.tables),
+            ("tables_after", after.tables),
+            ("parts_before", before.parts),
+            ("parts_after", after.parts),
+            ("rels_before", before.rels),
+            ("rels_after", after.rels),
+            ("container_before", u64::from(container_before)),
+            ("r_bound_before", u64::from(r_bound_before)),
+            ("id_after", id_after),
+            ("cells_before", before.cells),
+            ("cells_after", after.cells),
+        ],
+    )
+}
+
+/// The table sample's name, the tool's constant.
+const SAMPLE_TABLE: &str = "emend_table";
+
+/// What the table sample counts on each side of the write.
+struct TableCounts {
+    tables: u64,
+    parts: u64,
+    rels: u64,
+    cells: u64,
+}
+
+/// Reopens the table sample's output and asserts one more table, table
+/// part and table relationship, and two more cells; gives the counts and
+/// the added table's `id`.
+fn table_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &TableCounts,
+) -> Result<(TableCounts, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let tables = package.tables(part)?;
+    let after = TableCounts {
+        tables: tables.len() as u64,
+        parts: table_entries(&package),
+        rels: table_relationships(&mut package, part)?,
+        cells: sample(&mut package, part)?.cells,
+    };
+    if after.tables != before.tables + 1 {
+        return Err(Error::TableSample("table count"));
+    }
+    if after.parts != before.parts + 1 {
+        return Err(Error::TableSample("table part count"));
+    }
+    if after.rels != before.rels + 1 {
+        return Err(Error::TableSample("table relationship count"));
+    }
+    if after.cells != before.cells + 2 {
+        return Err(Error::TableSample("cell count"));
+    }
+    let added = tables
+        .iter()
+        .find(|table| table.name == SAMPLE_TABLE)
+        .ok_or(Error::TableSample("table"))?;
+    let index = package.part(&added.part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut id = None;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"<") && !raw.starts_with(b"<?") && !raw.starts_with(b"<!") {
+            id = tag_number(raw, b"id");
+            break;
+        }
+    }
+    Ok((after, id.ok_or(Error::TableSample("table id"))?))
+}
+
+/// The archive's entries under `xl/tables/`.
+fn table_entries<R: io::Read + io::Seek>(package: &Package<R>) -> u64 {
+    package
+        .archive()
+        .entries()
+        .iter()
+        .filter(|entry| entry.name().starts_with(b"xl/tables/"))
+        .count() as u64
+}
+
+/// The part's relationships of the table type, in either form.
+fn table_relationships<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<u64, Error> {
+    let rels = package.relationships(part)?;
+    Ok(TABLE
+        .into_iter()
+        .map(|form| rels.of_kind(form).count() as u64)
+        .sum())
+}
+
+/// Whether the part's root has a main-namespace `tableParts` child, and
+/// whether the root binds a prefix to the relationships namespace, by this
+/// tool's own pass over the part's tokens.
+fn table_container<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(bool, bool), Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    let mut found = false;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2
+            && tag_local_name(raw) == b"tableParts"
+            && MAIN.contains(&element_namespace(raw, &root).as_slice())
+        {
+            found = true;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok((found, binds_relationships(&root)))
 }
 
 /// The thirteen core properties, for the counts.

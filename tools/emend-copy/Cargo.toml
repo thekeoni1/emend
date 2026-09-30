@@ -20,5 +20,7 @@ publish = false
 # It enables the core's `rules` feature for --validate-sample
 # (specs/0020-validation-and-conditional-formatting.md, decision 1 A), which
 # has none either.
+# It enables the core's `tables` feature for --table-sample
+# (specs/0021-tables.md, decision 2 A), which has none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables"] }

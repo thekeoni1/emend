@@ -3750,3 +3750,160 @@ fn the_scale_sample_refuses_an_unparsed_priority_and_leaves_nothing() {
         "--scale-sample",
     );
 }
+
+// ---------------------------------------------------------- --table-sample
+
+/// The table part content type.
+const TABLE_TYPE: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
+
+/// `edit_specs`' package with its sheet's root binding `r`, the sheet's
+/// data `sheet_data` and root children `after` it, and, when `table` is
+/// given, a rels part naming `xl/tables/table1.xml` as `rId1` and that part
+/// with `table`'s root attributes, typed by an `Override`.
+fn table_specs(sheet_data: &str, after: &str, table: Option<&str>) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+         {sheet_data}<pageMargins left=\"0.7\"/>{after}</worksheet>"
+    );
+    let mut specs = edit_specs(sheet_data);
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    if let Some(attributes) = table {
+        for spec in &mut specs {
+            if spec.name == b"[Content_Types].xml" {
+                let types = String::from_utf8(spec.data.clone())
+                    .expect("UTF-8")
+                    .replace(
+                        "</Types>",
+                        &format!(
+                            "<Override PartName=\"/xl/tables/table1.xml\" \
+                             ContentType=\"{TABLE_TYPE}\"/></Types>"
+                        ),
+                    );
+                *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+            }
+        }
+        let rels = format!(
+            "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" \
+             Type=\"{ATTR_NS}/table\" Target=\"../tables/table1.xml\"/></Relationships>"
+        );
+        specs.push(Spec::stored(
+            b"xl/worksheets/_rels/sheet1.xml.rels",
+            rels.as_bytes(),
+        ));
+        let part = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <table xmlns=\"{MAIN_NS}\" {attributes}><tableColumns count=\"2\">\
+             <tableColumn id=\"1\" name=\"p\"/><tableColumn id=\"2\" name=\"q\"/>\
+             </tableColumns></table>"
+        );
+        specs.push(Spec::deflated(b"xl/tables/table1.xml", part.as_bytes()));
+    }
+    specs
+}
+
+/// The header row the sample writes on row `row`.
+fn table_header(row: u32) -> String {
+    format!(
+        "<row r=\"{row}\"><c r=\"A{row}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">emend_a\
+         </t></is></c><c r=\"B{row}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">emend_b</t>\
+         </is></c></row>"
+    )
+}
+
+#[test]
+fn the_table_sample_adds_a_table_its_part_relationship_and_header_cells() {
+    // `specs/0021-tables.md`, "Harness runs": M is 1, so the table covers
+    // A2:B4 and its header cells are A2 and B2. With no table the container
+    // and the rels part are created; with one, whose part is `table1` with
+    // id 1, the addition is `table2` with id 2, appended.
+    let kept = "id=\"1\" name=\"kept\" displayName=\"kept\" ref=\"D1:E3\"";
+    for (label, table, after, line) in [
+        (
+            "table-sample-created",
+            None,
+            "",
+            "table\ttables_before=0\ttables_after=1\tparts_before=0\tparts_after=1\
+             \trels_before=0\trels_after=1\tcontainer_before=0\tr_bound_before=1\tid_after=1\
+             \tcells_before=1\tcells_after=3\n",
+        ),
+        (
+            "table-sample-appended",
+            Some(kept),
+            "<tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>",
+            "table\ttables_before=1\ttables_after=2\tparts_before=1\tparts_after=2\
+             \trels_before=1\trels_after=2\tcontainer_before=1\tr_bound_before=1\tid_after=2\
+             \tcells_before=1\tcells_after=3\n",
+        ),
+    ] {
+        let specs = table_specs(A_CELL, after, table);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--table-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        let (parts, id) = if table.is_some() {
+            ("<tablePart r:id=\"rId1\"/><tablePart r:id=\"rId2\"/>", 2)
+        } else {
+            ("<tablePart r:id=\"rId1\"/>", 1)
+        };
+        let data = A_CELL.replace("</sheetData>", &format!("{}</sheetData>", table_header(2)));
+        let want = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+             {data}<pageMargins left=\"0.7\"/><tableParts count=\"{id}\">{parts}</tableParts>\
+             </worksheet>"
+        );
+        assert_eq!(sheet, want, "the sheet");
+        let mut changed: Vec<&[u8]> = vec![b"xl/worksheets/sheet1.xml", b"[Content_Types].xml"];
+        if table.is_some() {
+            changed.push(b"xl/worksheets/_rels/sheet1.xml.rels");
+        }
+        untouched_but(&entries, &specs, &changed);
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.name == format!("xl/tables/table{id}.xml").as_bytes()),
+            "the added part"
+        );
+    }
+}
+
+#[test]
+fn the_table_sample_refuses_an_overlap_or_two_containers_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0021-tables.md`, "P1").
+    styled_run_refused(
+        "table-sample-overlap",
+        &table_specs(
+            A_CELL,
+            "<tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>",
+            Some("id=\"1\" name=\"kept\" displayName=\"kept\" ref=\"A2:B3\""),
+        ),
+        "a table overlaps a table, a pivot table, a merge or the autofilter",
+        "--table-sample",
+    );
+    styled_run_refused(
+        "table-sample-two",
+        &table_specs(
+            A_CELL,
+            "<tableParts count=\"0\"/><tableParts count=\"0\"/>",
+            None,
+        ),
+        "a worksheet has two tableParts elements",
+        "--table-sample",
+    );
+}
