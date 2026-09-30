@@ -2323,11 +2323,10 @@ impl VisualChild {
             }
             out.extend_from_slice(b"/>");
         }
-        let prefix_text = str::from_utf8(prefix).unwrap_or_default();
+        // The styles writer composes the unprefixed element; the prefix is
+        // spliced on as bytes (P3 verification ruling 2).
         for color in &self.colors {
-            out.extend_from_slice(
-                &color_element(&format!("{prefix_text}color"), color).element(b""),
-            );
+            out.extend_from_slice(&color_element("color", color).element(prefix));
         }
         out.extend_from_slice(&[b"</".as_slice(), prefix, self.name, b">"].concat());
         out

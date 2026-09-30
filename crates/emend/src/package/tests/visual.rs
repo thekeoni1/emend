@@ -380,3 +380,50 @@ fn the_three_kinds_read_back_with_no_formulas_and_no_style() {
         assert!(!entry.extended);
     }
 }
+
+#[test]
+fn a_prefixed_root_gives_its_prefix_to_the_child_its_points_and_its_colours() {
+    // P3 verification ruling 2, "The write"'s "every element taking the
+    // root's prefix".
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!("{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_NS}\"><x:sheetData/></x:worksheet>"),
+    );
+    let output = edited_output(parts.clone(), |p| {
+        p.add_conditional_format(
+            SHEET,
+            &[area("A1:A3")],
+            Rule::ColorScale {
+                min: Cfvo {
+                    kind: CfvoKind::Min,
+                    color: Color::Rgb(0xFFF8_696B),
+                },
+                mid: None,
+                max: Cfvo {
+                    kind: CfvoKind::Max,
+                    color: Color::Theme {
+                        index: 4,
+                        tint: Some(0.5),
+                    },
+                },
+            },
+            None,
+            None,
+            false,
+        )
+        .expect("recorded")
+    });
+    assert_untouched(&output, &parts, &[SHEET]);
+    assert_eq!(
+        String::from_utf8(stored_data(&output, SHEET)).expect("UTF-8"),
+        format!(
+            "{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_NS}\"><x:sheetData/>\
+             <x:conditionalFormatting sqref=\"A1:A3\"><x:cfRule type=\"colorScale\" \
+             priority=\"1\"><x:colorScale><x:cfvo type=\"min\"/><x:cfvo type=\"max\"/>\
+             <x:color rgb=\"FFF8696B\"/><x:color theme=\"4\" tint=\"0.5\"/></x:colorScale>\
+             </x:cfRule></x:conditionalFormatting></x:worksheet>"
+        )
+    );
+}
