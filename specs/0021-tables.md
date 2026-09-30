@@ -638,7 +638,11 @@ to 4b (every corpus row of every sample, on the laptop), deferred
 by the maintainer on 2026-09-27, 2026-09-29 and 2026-09-30
 (`specs/0019` decision 6, `specs/0020` P4 verification ruling 10),
 is run or deferred again by a decision recorded here; this part's
-sample joins that check's list.
+sample joins that check's list. Deferred again on 2026-09-30
+(decision 6): the push proceeds without it. The push script prints
+no maintainer decision (`specs/0020` close-out ruling 5); the
+deferral's record is this spec in the pushed range, and the record
+commit's message names it.
 
 ## Decisions for the maintainer
 
@@ -671,7 +675,13 @@ the planning session; 6 recorded.
 6. The Excel check for parts 1 to 4b: deferred on 2026-09-27,
    2026-09-29 and 2026-09-30 by the maintainer, to run before this
    part's close-out push at the latest, or be deferred again by a
-   decision recorded here. Recorded, not asked.
+   decision recorded here. Recorded, not asked. Deferred again on
+   2026-09-30 ("defer excel check and i approve", typed in the
+   planning session after P3's verification, before the close-out's
+   doc commit): the check, now with this part's sample on its
+   list, runs before the next part's close-out push at the latest
+   or is deferred again by a decision recorded in the next part's
+   spec.
 
 ## Planning rulings during P1 (2026-09-30)
 
@@ -887,6 +897,94 @@ stays in memory by design).
    (the messages a cell edit meets, as the addition's test has).
 6. P2 is DONE and P3 released. P3's doc commit carries this spec
    at the hash planning sends and `ROADMAP.md`.
+
+## Planning verification and rulings on P3 (2026-09-30)
+
+Verified by planning from primaries at the phase commit 3c5f0b7
+and the record commit e1f3736: the five commits over af43c51 with
+the doc commit's two blobs at the sent hashes (61c125d0,
+e487c725), every message ASCII with the Co-Authored-By line only,
+one author identity; the three code diffs read before the report
+(the carry exactly P2 verification ruling 5's list; the catalogue
+`//!` lines only; the probe the format probe's source plus the
+table work and its two column-name arguments); the record commit
+holding exactly the seven logs, the size record and the four
+records at the reported hashes; every log pinning 61c125d0;
+planning's own build of 3c5f0b7 in a detached worktree: the
+crate's tests 512 off, 532 with `tables`, 581 with `metadata,
+tables`, 568 with `rules,tables`, 669 all features, on both
+targets, 0 failed; the workspace's 832 on both targets; clippy in
+five configurations and rustdoc in three at 0 lines; its own
+release tools; its own size-profile builds of `probe-zip-xml`, the
+format, tables, rules, metadata and rowcol probes on i686 musl at
+the phase commit, each reproducing the size log's sha256 and so
+its section, .text and file figures (the tables probe 1015300
+sections, the format probe 968440, `probe-zip-xml` 533216), from
+which the feature's cost 46860, the core's growth 0 against part
+4b's 968440, the whole growth 556 against 967884 and the budget
+435224 (23528 under 458752) follow by planning's own subtraction;
+its own `--table-sample` run over the 27 corpus workbooks on both
+targets with those release tools, every output and every printed
+line byte-identical to the run directory's, host and i686
+identical, none refused, and its own check of every output's
+added part as P1's (the run made once more after a path error of
+planning's own, the first attempt having run no binary); its own
+`scripts/privacy.sh --range af43c51..e1f3736`, 5 commits, 849
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset; the independent
+check read whole.
+
+1. Impl's readings stand: the probe's table name and area are its
+   constants, the spec fixing the area and naming no name; the
+   probe's `//!` sentence "every other name ... and area comes
+   from the command line" reads as exact, the two constants being
+   named in the sentences above it: recorded, no change.
+2. The catalogue's sentence that `remove_table` on a sheet added
+   in the same write meets "no table of that name" (P2
+   verification ruling 2) rests on a reading and a throwaway test
+   no log printed, which is not a measurement: a test pinning it
+   is carried to the next part's first code commit.
+3. The feature's cost, 46860 section bytes, is above the
+   estimate's 30000 to 45000 by 1860: recorded. It is outside the
+   budget; the core's growth is 0 and the budget figure 435224
+   is part 4b's unchanged. The metadata probe's +32, the one code
+   verdict, is the P2 carry's grid-bounded defined-name rule
+   (2b1cd7d, under `crates/emend/src`), a source cause the log
+   names; accepted.
+4. The check's weak points: two catalogue phrases are carried to
+   the next part's first code commit as `//!` edits, "a header
+   cell holding a formula is refused" narrowed to a kept header
+   cell holding a formula (the spec's rule), and the entry-name
+   comparison's ASCII case fold stated (the code folds it;
+   planning read the allocation). The rest are recorded, no
+   change: plant S1 bites at the removed-part half; plant S2's
+   premise (the pre-carry test) was not run; the code-verdict
+   accounting is per probe by cause path, the design part 4b's
+   ruling 2 set; the negative log's rule is the part's own ten
+   messages, and "an override for that part already exists" on
+   an input holding an `Override` with no entry is the override
+   rule refusing a malformed input, stated under "Errors" as
+   reused; the doc commit's stat (63 insertions, 1 deletion) and
+   the diff's 62 agree in the net.
+5. The two findings are accepted as recorded, each fixed and
+   rerun with the fix named: the run's attempt 1 (0 bytes, an
+   80-byte stderr) refused at its entry guard by a status pattern
+   without the size record, hashed on attempt 2's rerun lines;
+   the scan's pre-check attempt 1 refused by the sibling count
+   left at four, kept on disk under the phase's superseded
+   directory and not committed, the final stage clean.
+6. P3 is DONE. The close-out is released on the maintainer's
+   decision 6, recorded here before its doc commit, and the
+   maintainer's authorisation typed in the implementing session.
+7. Decision 6 (2026-09-30): the maintainer, told the figures and
+   rulings above, deferred the Excel check again ("defer excel
+   check and i approve", typed in the planning session before the
+   close-out's doc commit). Recorded under "Decisions for the
+   maintainer" and in "Close-out push (after P3)". The close-out
+   push proceeds without it; the check, for parts 1 to 4b's
+   samples and this part's, runs before the next part's close-out
+   push at the latest or is deferred again by a decision recorded
+   in the next part's spec. This ruling goes in the close-out's
+   doc commit with the rest of this section.
 
 ## Out of scope
 
