@@ -155,7 +155,13 @@ table has the two equal). The rule, Excel's for a table name, which
 shares the defined names' space (18.2.5): 1 to 255 characters; the
 first a letter, an underscore or a backslash; the rest letters,
 digits, full stops or underscores; no space; not a cell reference in
-`A1` form (`Area::parse` of the single reference succeeds) or a
+`A1` form that lies on Excel's grid (`CellRef::parse` of the name
+in upper case succeeds and the cell is within 16384 columns and
+1048576 rows, part 3's `in_grid`; so `A1` and `abc1` are refused
+while `Table1`, Excel's own default, and `xyz1` are names, since
+`TABLE` and `XYZ` lie past column `XFD`; P1 ruling 5), not a
+reference in `R1C1` form (`R`, optional digits, `C`, optional
+digits, ignoring case; P1 verification ruling 4, from P2) or a
 lone `C`, `c`, `R` or `r`; refused at the call otherwise ("a table
 name is not valid"). At the write the name is compared, ASCII case
 folded, with every table the workbook has (each worksheet's `table`
@@ -221,7 +227,9 @@ Derived `Clone`, `Debug`, `PartialEq`, `Eq`.
   or this write adds, or of the part's `<autoFilter ref>`, is
   refused ("a table overlaps a table, a pivot table, a merge or the
   autofilter"; decision 4 A, the rule Excel enforces and part 3's
-  merge rule models); a header cell of the area whose kept `<c>`
+  merge rule models; a kept `mergeCell` or `autoFilter` whose `ref`
+  does not parse meets the same message, P1 ruling 7 (D)); a header
+  cell of the area whose kept `<c>`
   holds an `<f>` is refused ("a table header cell holds a formula";
   decision 3 A: a formula silently turned into a heading is a
   surprise, and the caller clears it first if that is meant). A
@@ -259,20 +267,25 @@ Under `add_table` the write creates one entry per addition, in
 record order, the way the package writes its created parts (part
 4a's core properties part is the model): the entry name `xl/tables/
 tableN.xml` with N the smallest positive integer such that no entry
-of the projected archive (the input's entries less this write's
-removals plus its additions) has that name, compared ASCII case
-folded; the `id` the smallest positive integer no table part of the
+of the input's archive and no addition of this write has that name,
+compared ASCII case folded (an entry this write removes still
+counts as taken, since the core refuses an addition under a removed
+name with "an edit to a removed part"; P1 ruling 6); the `id` the
+smallest positive integer no table part of the
 projected workbook carries (every worksheet's `table` relationships'
 parts' root `id`, and the additions before it); the `Override`
 with `ContentType="application/vnd.openxmlformats-officedocument.
 spreadsheetml.table+xml"` recorded through the override rule (a part
 name that already has one is refused with part 1's message); the
-relationship of type `TABLE` (the transitional form, as the package
-writes every created relationship) recorded on the part's rels part
-with the relative target `../tables/tableN.xml`, the form Excel and
-openpyxl write (the corpus's absolute targets are read, never
-written), the rels part created as part 4a creates one for a
-hyperlink when the sheet has none. The bytes, the declaration on
+relationship of type `TABLE` in the form of the worksheet's own
+relationship in the workbook's rels part, transitional or strict,
+the retag binding the same form, as part 4a writes a hyperlink's
+(`specs/0019` P2 verification ruling 2; P1 ruling 3) recorded on
+the part's rels part with the relative target `../tables/tableN.
+xml` from the worksheet's directory, the form Excel and openpyxl
+write (the corpus's absolute targets are read, never written), the
+rels part created as part 4a creates one for a hyperlink when the
+sheet has none. The bytes, the declaration on
 its own line and the rest one line with no whitespace between
 elements (broken here to fit):
 
@@ -325,9 +338,11 @@ shift on one part is "any other edit" of part 3's one-shift rule
 and refused with that message (the shift pass's own table refusal
 stands unchanged for a table the part keeps). A table edit to a
 part this write replaces or removes meets part 1's message for a
-cell edit, as a hyperlink does. A sheet added in the same write
-takes a table as it takes a hyperlink: the part is the projected
-one and its rels part is created.
+cell edit, as a hyperlink does. A table on a sheet added in the
+same write is refused with part 1's "no such part", as an external
+link is (`specs/0019` P2 verification ruling 4; a rels part is
+never created for a part the archive lacks, `specs/0009`); the
+caller writes twice (P1 ruling 2).
 
 ### Creating an element
 
@@ -456,7 +471,9 @@ text from the corpus:
 - W: every root child other than `sheetData` and `tableParts`
   byte-identical; `sheetData` differs by exactly one appended
   `<row>` holding two cells (the input's rows a byte-identical
-  prefix); the input's `tablePart` elements a byte-identical prefix
+  prefix), or, when the input holds an empty row M + 1, by that row
+  gaining the two cells and nothing else (P1 ruling 7 (C); 2 corpus
+  workbooks); the input's `tablePart` elements a byte-identical prefix
   of the output's, one more with the expected `r:id` (the log
   derives it as the rels rule does), the container's `count` equal
   to its children, created in schema position when absent (checked
@@ -546,10 +563,12 @@ appended; an overlap with a kept table, a pivot, a merge, the
 autofilter and an earlier addition each refused; a header cell with
 an `<f>` refused; a name in use by a kept table, by a defined name
 and by an earlier addition each refused, one in use by a removed
-sheet's table accepted; the call-time refusals one by one (an empty
+sheet's table accepted with the next free entry name and the freed
+id (ruling 6); the call-time refusals one by one (an empty
 name, a name with a space, `A1`, `R`, a 256-character name, an
 empty column, two columns differing in case only, three names for
-two columns, `Light(22)`, a one-row area); a table edit with a shift
+two columns, `Light(22)`, a one-row area; `Table1` and `xyz1`
+accepted as names, ruling 5); a table edit with a shift
 refused, and on a replaced part refused; the tool's line. The gate:
 the crate built and tested with the feature off and on, on both
 targets, and the `pub fn` and `pub const` first lines listed with it
@@ -650,6 +669,163 @@ the planning session; 6 recorded.
    2026-09-29 and 2026-09-30 by the maintainer, to run before this
    part's close-out push at the latest, or be deferred again by a
    decision recorded here. Recorded, not asked.
+
+## Planning rulings during P1 (2026-09-30)
+
+1. The third carried phrase of `specs/0020` P4 verification ruling
+   6 names a conditional compose test that does not exist: no test
+   in `package/tests/conditional.rs` records a cell edit with a
+   conditional format (checked by planning against 1fefcbf; the
+   compose tests are the validation's, the dxf-with-cell-style one
+   and the link's). Ruling: the first code commit adds the test,
+   in `conditional.rs` behind `rules`, a conditional format and a
+   `set_cell` on one part in one write, both written, the kept
+   bytes untouched; the `//!` compose claim then cites the
+   validation test and that test. The claim stays as wide as the
+   pass makes it and is now borne out. A carry commit holding a
+   test with its `//!` lines is within the phase rule (part 4b's
+   P3 carry 03bbe82 was a test alone). The 0020 ruling's "cites
+   the validation and conditional tests" stands as read this way;
+   the doc commit is not remade.
+2. A table on a sheet added in the same write: the spec's sentence
+   pointed both ways. Ruled: refused with "no such part", as an
+   external link is (`specs/0019` P2 verification ruling 4; a rels
+   part is never created for a part the archive lacks). "The
+   worksheet" corrected in place; a test pins it; the catalogue
+   states it in P3.
+3. The strict form: the spec said the transitional type always
+   with part 4a's retag, which follows the sheet's form, a mixed
+   pair on a strict sheet. Ruled: the relationship type and the
+   retag's namespace both follow the form of the worksheet's own
+   relationship in the workbook's rels part, as part 4a's ruling 2
+   settled for a hyperlink. "The part" corrected in place; a
+   strict-form test pins it, as 4a's does.
+4. The readings impl stated stand: the name rule's reference test
+   is `CellRef::parse` of the name in upper case, the defined-name
+   rule's form; the defined names compared are the file's, read by
+   this feature's own reader; a table part on another sheet that
+   cannot be read refuses the name check with the read message; a
+   root with no `id` is skipped by the id allocation (the read-back
+   refuses it, as "The calls" says); the relative target is
+   computed from the worksheet's directory. Recorded, no change.
+5. The name rule's reference test, as ruling 4 accepted it,
+   refuses `Table1`, Excel's own default table name: `CellRef::
+   parse` takes any column that fits `u32`, so `TABLE1` parses.
+   Ruled: a name is a reference only when the parsed cell lies on
+   the grid (part 3's `in_grid`); "Names" corrected in place; tests
+   pin `A1` and `abc1` refused, `Table1` and `xyz1` taken. The
+   same defect is in part 4a's `check_defined_name`, which refuses
+   a defined name `Table1` today: a finding about 4a, recorded
+   here, fixed in P2's first code commit as the P1 verification
+   carry (the same grid-bounded test, shared under both features,
+   with a test that a defined name `Table1` is accepted), not in
+   P1, so that P1's logs measure one change.
+6. The entry-name allocation over the projected archive collides
+   with the core's removed-part rule: a sheet removed in the same
+   write records its table part as a removal, and an addition
+   under that name is refused. Ruled (impl's (a)): an entry this
+   write removes still counts as taken for the entry name, so the
+   addition takes the next free one; the `id` stays projected, so
+   a removed table's id is free and taken; the name rule over the
+   projected workbook is unchanged. No core change. "The part"
+   corrected in place; the P1 test that names a removed sheet's
+   table expects the next entry name with the freed id.
+7. Check 1 at the phase commit 40ae039, every log passed (given
+   before the record commit). Ruled, impl's (a): no fourth code
+   commit; the record commit follows on 40ae039.
+   (A) `add_table`'s `///` doc still gives the pre-ruling-6 entry
+   name rule ("no entry of the projected archive"; the code follows
+   ruling 6): a contrary doc comment, carried to P2's first code
+   commit beside ruling 5's `check_defined_name` fix, as part 4b's
+   P4 verification ruling 6 carried catalogue phrases.
+   (B) The tables test module's `//!` claims every test asserts the
+   other parts untouched where 3 of 15 do, and the header-cell test
+   appends no row after existing ones: both carried to the same
+   commit (the `//!` narrowed to what holds; the test given
+   existing rows before the appended one).
+   (C) The header row's shape: 25 workbooks take a row appended
+   after the last and 2 hold an empty row M + 1 that the cells fill.
+   "Harness runs" corrected in place: `sheetData` differs by exactly
+   one appended `<row>` holding the two cells, or, when the input
+   holds an empty row M + 1, by that row gaining the two cells. The
+   log's comparison builds the filled form and it held on both;
+   its plant lands on the appended form alone, so the filled branch
+   has no planted control: a control gap, carried to P2's run log
+   (a plant on a filled case, or the check stated as unplanted
+   where no corpus workbook lets one land). The log stands.
+   (D) Recorded: no corpus workbook is strict, so ruling 3 rests on
+   its crate test and the log's plant; a kept `mergeCell` or
+   `autoFilter` whose `ref` does not parse is refused with the
+   overlap message, now stated in "The calls"; the catalogue
+   already names "no such part" for an added sheet, so P3's
+   statement is in place.
+
+## Planning verification and rulings on P1 (2026-09-30)
+
+Verified by planning from primaries at the phase commit 40ae039
+and the record commit 7176a34: the five commits over c143473 with
+the doc commit's three blobs at the sent hashes, every message
+ASCII with the Co-Authored-By line only, one author identity; the
+record commit holding exactly the six logs and four records at the
+reported hashes; every log pinning b96f97ac and printing the
+working copy as not the pin; the three diffs read against
+"Design", the P1 test list and the seven P1 rulings; planning's
+own build of 40ae039 in a detached worktree: the crate's tests 512
+off, 526 with `tables`, 575 with `metadata,tables`, 562 with
+`rules,tables`, 663 all features, on both targets, 0 failed; the
+workspace's 826 on both targets; clippy in five configurations and
+rustdoc in three at 0 lines; its own release tools (the i686 pair
+at the same hashes as the run log's, the host `emend-copy` not
+bit-reproducible, as before); its own `--table-sample` run over
+the 27 corpus workbooks on both targets, every output and every
+printed line byte-identical to the run directory's, host and i686
+outputs identical, none refused; its own check over every output
+that exactly one table part is added, named and numbered by the
+smallest-unused rules computed over the input, its bytes exactly
+"The part"'s with the tool's constants, the only other entries
+differing being the worksheet, its rels part and the content
+types; its own `scripts/privacy.sh --range c143473..7176a34`, 5
+commits, 832 blobs, 0 findings; `ANTHROPIC_API_KEY` unset; the
+record's families (27 worksheets and 27 content-types parts
+changed, 21 rels parts changed and 6 added, 27 table parts added,
+every other family identical) as the sample implies.
+
+1. The run log's attempt 1, exit 2 at its entry guard on the dry
+   run's leftover records before any log line, kept as an empty
+   file and named on the rerun lines: accepted as reported.
+2. The independent check's answer holds one U+2212 written as `-`,
+   declared in the file's header with the raw answer's size and
+   hash, the raw kept on disk. Accepted, and the practice for a
+   check answer the scan would refuse: the ASCII substitution
+   declared with the raw's hash, nothing else changed.
+3. The check's other weak points: the `rowcol`-gated shift test
+   sits outside the feature-only counts (14 of the 15 tables tests,
+   so 526 less 512), right by construction and pinned by the
+   workspace run; the test log's control that the carry test's ok
+   line is absent with the features off cannot fail, being the
+   test's own gate; the report's "origin/main 116def3" is what git
+   says and planning verified it, a report may state such a fact
+   when no log prints it. Recorded, no change.
+4. Planning's own reading of `check_table_name`: Excel also
+   refuses a name in `R1C1` form (`R1C1`, `RC`, `R1C`, `RC1`, with
+   any digits), which the rule as written takes, since
+   `CellRef::parse` does not read that form. Carried to P2's first
+   code commit beside ruling 5's `check_defined_name` fix: the one
+   grid-bounded reference test, shared under both features, also
+   refuses a name matching `R`, optional digits, `C`, optional
+   digits, ignoring case; tests pin `R1C1` and `RC` refused for a
+   table and a defined name. "Names" corrected in place.
+5. P2's first code commit, the P1 verification carry, holds these
+   and nothing else: ruling 5's `check_defined_name` fix with the
+   test that a defined name `Table1` is accepted; ruling 4 above;
+   ruling 7 (A), the `add_table` doc's entry-name sentence brought
+   to ruling 6's rule; ruling 7 (B), the tables test module's `//!`
+   narrowed to what holds and the header-cell test given existing
+   rows before the appended one. P2's run log gains ruling 7 (C)'s
+   plant on a filled case, or states the check unplanted where no
+   corpus workbook lets one land. P2's doc commit carries this
+   spec at the hash planning sends and `ROADMAP.md`.
+6. P1 is DONE and P2 released.
 
 ## Out of scope
 
