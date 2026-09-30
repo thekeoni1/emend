@@ -3,7 +3,7 @@
 //! holding a given body and, where it says so, a rels part and table parts,
 //! records table edits, and compares the written parts it names with the
 //! bytes the design gives; the tests that call `assert_untouched` also
-//! assert every other part untouched (P1 verification ruling 5).
+//! assert every other part untouched (P1 ruling 7 (B)).
 
 use super::*;
 
@@ -858,11 +858,19 @@ fn types_less(parts: &Parts, name: &str) -> String {
     )
 }
 
+/// A `sheetData` holding one cell.
+const ONE_ROW: &str = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>";
+
 #[test]
 fn a_removal_drops_the_element_relationship_override_and_entry_and_keeps_the_rest() {
     // The name matched with its case folded; the other table's chain and
     // every cell kept byte for byte.
-    let parts = two_tables();
+    let mut parts = two_tables();
+    set(
+        &mut parts,
+        SHEET,
+        sheet_r(&TWO_BODY.replace("<sheetData/>", ONE_ROW)),
+    );
     let output = edited_output(parts.clone(), |p| {
         p.remove_table(SHEET, "sALES").expect("recorded")
     });
@@ -885,7 +893,9 @@ fn a_removal_drops_the_element_relationship_override_and_entry_and_keeps_the_res
     );
     assert_eq!(
         text_of(&output, SHEET),
-        sheet_r("<sheetData/><tableParts count=\"1\"><tablePart r:id=\"rId2\"/></tableParts>")
+        sheet_r(&format!(
+            "{ONE_ROW}<tableParts count=\"1\"><tablePart r:id=\"rId2\"/></tableParts>"
+        ))
     );
     assert_eq!(
         text_of(&output, b"xl/worksheets/_rels/sheet1.xml.rels"),
@@ -962,6 +972,24 @@ fn a_removal_of_an_absent_name_or_of_one_this_write_adds_is_refused() {
             p.remove_table(SHEET, "Sales").expect("recorded");
         }),
         message,
+    );
+}
+
+#[test]
+fn a_removal_on_a_removed_or_replaced_part_is_refused() {
+    let (_, mut package) = opened(two_tables());
+    package.remove_table(SHEET, "Sales").expect("recorded");
+    package.remove_part(SHEET);
+    assert_package(
+        refusal(package).expect("refused"),
+        "an edit to a removed part",
+    );
+    let (_, mut package) = opened(two_tables());
+    package.remove_table(SHEET, "Sales").expect("recorded");
+    package.replace_part(SHEET, replacement_from_reader(Cursor::new(b"x".to_vec())));
+    assert_package(
+        refusal(package).expect("refused"),
+        "a cell edit to a part this write replaces",
     );
 }
 
