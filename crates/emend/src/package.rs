@@ -476,7 +476,8 @@
 //! write, and what a cell edit to the part meets
 //! (`tables::a_table_edit_with_a_row_insertion_is_refused`,
 //! `a_sheet_added_in_the_same_write_refuses_a_table`,
-//! `a_table_edit_on_a_removed_or_replaced_part_is_refused`):
+//! `a_table_edit_on_a_removed_or_replaced_part_is_refused`,
+//! `a_removal_on_a_removed_or_replaced_part_is_refused`):
 //!
 //! - "a table name is not valid"
 //!   (`tables::the_call_refuses_each_rule_and_records_nothing`).
@@ -1043,6 +1044,67 @@
 //!   every output in LibreOffice, and the Excel check (`specs/0019`
 //!   decision 6, deferred again) is pending, run or deferred again before
 //!   the close-out push; what Excel shows for a rule is Excel's.
+//!
+//! Tables add these, all the Cargo feature `tables`'s (`specs/0021-tables.md`,
+//! "Design", decisions 1 to 5 and the P1 and P2 rulings), the caller's
+//! picture:
+//!
+//! - What they touch: `Package::add_table` writes one new part,
+//!   `xl/tables/tableN.xml`, with its `Override` and a `table` relationship
+//!   on the worksheet's rels part (created when the sheet has none), a
+//!   `<tablePart>` in the worksheet's `<tableParts>` (created in schema
+//!   position when absent, its `count` set to its children) and the header
+//!   cells, the area's top row, as text through the cell edits, so a later
+//!   `set_cell` on a header cell wins and a header cell holding a formula is
+//!   refused. `Package::remove_table` drops the `<tablePart>`, its
+//!   relationship, the part's `Override` and the entry, and a
+//!   `<tableParts>` left empty; the cells keep their values and styles, and
+//!   a `dxf` a removed table named stays in `<dxfs>`. A table part's own
+//!   rels part, which no corpus workbook and no Excel writes, is not
+//!   dropped by the removal: out of scope (P2 verification ruling 2). A
+//!   root binding no prefix to the relationships namespace gains one, in
+//!   the form of the worksheet's own relationship, as for a hyperlink. A
+//!   row or column insertion or deletion does not compose with a table
+//!   edit (the one-shift rule), and a sheet added in the same write takes
+//!   neither: the addition meets "no such part" and the removal "no table
+//!   of that name", the removal finding no file table first; the caller
+//!   writes twice.
+//! - Names: a table's name is written as both `name` and `displayName`,
+//!   and shares the defined names' space: at the write it is compared,
+//!   ASCII case folded, with every table and every `definedName` of the
+//!   projected workbook (a table or sheet the write removes not counted, a
+//!   table it adds counted). A removal matches `name` or `displayName` with
+//!   the case folded, never a table the same write adds, and one table
+//!   named twice for removal in one write is refused. The entry name's N is
+//!   the smallest free in the input's archive and the write's additions (a
+//!   removed entry's name still taken); the `id` is the smallest no table
+//!   part of the projected workbook carries.
+//! - The shape written, openpyxl's and Excel's for a new table with no
+//!   totals row: the declaration on its own line, the root in the default
+//!   namespace with `id`, `name`, `displayName`, `ref` and
+//!   `totalsRowShown="0"`, an `<autoFilter>` of the table's `ref`, one
+//!   `<tableColumn>` per name with ids 1 upward, and a `<tableStyleInfo>`
+//!   naming a built-in style (`TableStyleLight1` to `21`, `Medium1` to
+//!   `28`, `Dark1` to `11`) with its four flags written as `0` or `1`, or
+//!   none when the caller gives no style; the relationship's target is
+//!   relative (`../tables/tableN.xml`).
+//! - What is never written: a totals row (`totalsRowCount` and the
+//!   `totalsRow` attributes and children), a calculated column, a custom
+//!   style (`<tableStyles>` in the styles part is never touched), a
+//!   `headerRowCount` of `0`, a sort state, a filter on a column, the
+//!   `dxfId` and cell-style attributes, and the `xr` namespace and its
+//!   `xr:uid`. A table the part reads keeps all of these as they are, and
+//!   no table is resized, renamed or moved in place.
+//! - What is read back: `Package::tables` gives each table's name, display
+//!   name, area, column names, style name (built-in or custom, as text)
+//!   with its four flags, whether it has a header row, a totals row and a
+//!   calculated column, and its entry name, from a target in either the
+//!   absolute or the relative form; a snapshot of the file, not of the
+//!   pending edits.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice, and the Excel check (`specs/0019`
+//!   decision 6) is pending, run or deferred again before the close-out
+//!   push; what Excel shows for a table's banding is Excel's.
 
 #[cfg(test)]
 mod tests;
