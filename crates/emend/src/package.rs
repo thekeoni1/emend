@@ -2898,9 +2898,10 @@ fn folded(name: &str) -> String {
 /// `specs/0019-names-links-properties-protection.md`, "Defined names": 1 to
 /// 255 characters; the first a letter, `_` or `\`; the rest letters, digits,
 /// `.`, `_`, `\` or `?` ("letter" and "digit" by `char::is_alphabetic` and
-/// `char::is_numeric`); not `_xlnm.`-prefixed; not a cell reference, not of
-/// the `R1C1` form, and not `R` or `C` alone, which Excel reserves (P1
-/// verification ruling 4), each ignoring case.
+/// `char::is_numeric`); not `_xlnm.`-prefixed; not a cell reference on the
+/// grid (`specs/0021-tables.md`, P1 ruling 5), not of the `R1C1` form, and
+/// not `R` or `C` alone, which Excel reserves (P1 verification ruling 4),
+/// each ignoring case.
 #[cfg(feature = "metadata")]
 fn check_defined_name(name: &str) -> Result<(), Error> {
     let mut chars = name.chars();
@@ -2912,13 +2913,11 @@ fn check_defined_name(name: &str) -> Result<(), Error> {
     let built_in = name
         .get(..6)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("_xlnm."));
-    let reference = CellRef::parse(name.to_ascii_uppercase().as_bytes()).is_some();
     if !first_ok
         || !rest_ok
         || name.chars().count() > 255
         || built_in
-        || reference
-        || is_r1c1_form(name)
+        || names_a_cell(name)
         || name.eq_ignore_ascii_case("r")
         || name.eq_ignore_ascii_case("c")
     {
@@ -2927,9 +2926,18 @@ fn check_defined_name(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// Whether a defined name or a table name reads as a cell Excel takes: an
+/// `A1` reference on the grid, ignoring case, so `TABLE1` past the last
+/// column is a name, or the `R1C1` form (`specs/0021-tables.md`, P1 ruling 5
+/// and P1 verification ruling 4: one test shared by both rules).
+#[cfg(any(feature = "metadata", feature = "tables"))]
+fn names_a_cell(name: &str) -> bool {
+    CellRef::parse(name.to_ascii_uppercase().as_bytes()).is_some_and(in_grid) || is_r1c1_form(name)
+}
+
 /// Whether `name` is `R` or `r`, optional digits, `C` or `c`, optional
 /// digits, and nothing else.
-#[cfg(feature = "metadata")]
+#[cfg(any(feature = "metadata", feature = "tables"))]
 fn is_r1c1_form(name: &str) -> bool {
     let bytes = name.as_bytes();
     let Some(rest) = bytes
@@ -4018,7 +4026,8 @@ impl<R: Read + Seek> Package<R> {
     /// [`Error::Package`] "a defined name is not valid" for a `name` outside
     /// the rule (1 to 255 characters, the first a letter, `_` or `\`, the
     /// rest letters, digits, `.`, `_`, `\` or `?`, not `_xlnm.`-prefixed,
-    /// not a cell reference and not of the `R1C1` form, each ignoring case)
+    /// not a cell reference on the grid and not of the `R1C1` form, each
+    /// ignoring case)
     /// or an empty `text`; "a text holds a character XML cannot carry" for a
     /// `text` holding one; "no sheet of that name" for a `sheet` the list
     /// does not hold; and whatever [`Package::workbook`] refuses. Nothing is
@@ -4457,11 +4466,13 @@ impl<R: Read + Seek> Package<R> {
     /// text on the area's top row, left to right, as a caller's own edit
     /// would; the last record for a cell in one write wins. The write adds
     /// the table part `xl/tables/tableN.xml`, N the smallest positive
-    /// integer no entry of the projected archive has (ASCII case folded),
-    /// with the `id` no table of the projected workbook carries, its
-    /// `Override`, and a relationship of type [`TABLE`] on the part's rels
-    /// part with the relative target, both in the form of the worksheet's
-    /// own relationship in the workbook's rels part; appends
+    /// integer no entry of the archive or of this write's additions has,
+    /// ASCII case folded, an entry this write removes still counting as
+    /// taken (P1 ruling 6), with the smallest `id` no table of the projected
+    /// workbook carries, its `Override`, and a relationship of type
+    /// [`TABLE`] on the part's rels part with the relative target, both in
+    /// the form of the worksheet's own relationship in the workbook's rels
+    /// part; appends
     /// `<tablePart r:id=".."/>` to the part's `<tableParts>`, `count` set to
     /// its children, creating that element in schema position when the part
     /// has none; and retags a root binding no prefix to the relationships
@@ -4478,8 +4489,9 @@ impl<R: Read + Seek> Package<R> {
     /// holds a character XML cannot carry" for a name or a column name
     /// holding one; "a table name is not valid" for a name outside the rule
     /// (1 to 255 characters, the first a letter, `_` or `\`, the rest
-    /// letters, digits, `.` or `_`, not a cell reference on the grid ignoring
-    /// case, and not `C`, `c`, `R` or `r`); "a table column name is not
+    /// letters, digits, `.` or `_`, not a cell reference on the grid nor of
+    /// the `R1C1` form, ignoring case, and not `C`, `c`, `R` or `r`); "a
+    /// table column name is not
     /// valid" for a column name empty or past 255 characters, two equal
     /// ignoring ASCII case, or a list whose length is not the area's width;
     /// "a table style number is out of range"; and "a table area is too
@@ -11501,8 +11513,9 @@ impl<'w> ValidationsPass<'w> {
 /// Checks a table name against the rule of `specs/0021-tables.md`,
 /// "Names": 1 to 255 characters; the first a letter, `_` or `\`; the rest
 /// letters, digits, `.` or `_` ("letter" and "digit" by `char::is_alphabetic`
-/// and `char::is_numeric`); not a cell reference on the grid, ignoring case
-/// (P1 rulings 4 and 5); and not `C`, `c`, `R` or `r` alone.
+/// and `char::is_numeric`); not a cell reference on the grid nor of the
+/// `R1C1` form, ignoring case (P1 rulings 4 and 5, P1 verification ruling
+/// 4); and not `C`, `c`, `R` or `r` alone.
 #[cfg(feature = "tables")]
 fn check_table_name(name: &str) -> Result<(), Error> {
     let mut chars = name.chars();
@@ -11512,11 +11525,10 @@ fn check_table_name(name: &str) -> Result<(), Error> {
     let rest_ok = chars.all(|c| c.is_alphabetic() || c.is_numeric() || matches!(c, '.' | '_'));
     // A reference past the grid, `TABLE1` among them, is a name Excel
     // takes, and its own default.
-    let reference = CellRef::parse(name.to_ascii_uppercase().as_bytes()).is_some_and(in_grid);
     if !first_ok
         || !rest_ok
         || name.chars().count() > 255
-        || reference
+        || names_a_cell(name)
         || matches!(name, "C" | "c" | "R" | "r")
     {
         return Err(TABLE_NAME_INVALID);

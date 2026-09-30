@@ -451,6 +451,8 @@ fn the_name_rule_refuses_each_clause_and_records_nothing() {
         "\u{e9}t\u{e9}",
         "RC1x",
         "A01",
+        "Table1",
+        "xyz1",
         long.as_str(),
     ] {
         package

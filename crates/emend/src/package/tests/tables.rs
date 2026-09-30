@@ -1,8 +1,9 @@
 //! Tables on byte-built worksheets (`specs/0021-tables.md`, "P1", and the
 //! P1 rulings): each test builds the smallest package with its worksheet
 //! holding a given body and, where it says so, a rels part and table parts,
-//! records table edits, and compares the written parts with the bytes the
-//! design gives, every other part asserted untouched.
+//! records table edits, and compares the written parts it names with the
+//! bytes the design gives; the tests that call `assert_untouched` also
+//! assert every other part untouched (P1 verification ruling 5).
 
 use super::*;
 
@@ -438,9 +439,12 @@ fn the_header_cells_are_written_as_text_over_a_value_and_the_row_appended() {
     let body = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>\
                 <row r=\"3\"><c r=\"C3\"><v>2</v></c></row></sheetData>";
     let parts = with_tables(sheet_r(body), None, &[]);
+    // Row 3 gains the cells before its own, row 1's value is written over,
+    // and row 7 is appended after the rows the part holds.
     let output = edited_output(parts, |p| {
         add(p, "A3:B5", plain("Low"));
         add(p, "A1:B2", plain("High"));
+        add(p, "A7:B8", plain("Tail"));
     });
     let row = |r: u32, rest: &str| {
         format!(
@@ -451,10 +455,11 @@ fn the_header_cells_are_written_as_text_over_a_value_and_the_row_appended() {
     assert_eq!(
         text_of(&output, SHEET),
         sheet_r(&format!(
-            "<sheetData>{}{}</sheetData><tableParts count=\"2\"><tablePart r:id=\"rId1\"/>\
-             <tablePart r:id=\"rId2\"/></tableParts>",
+            "<sheetData>{}{}{}</sheetData><tableParts count=\"3\"><tablePart r:id=\"rId1\"/>\
+             <tablePart r:id=\"rId2\"/><tablePart r:id=\"rId3\"/></tableParts>",
             row(1, ""),
-            row(3, "<c r=\"C3\"><v>2</v></c>")
+            row(3, "<c r=\"C3\"><v>2</v></c>"),
+            row(7, "")
         ))
     );
 }
@@ -639,8 +644,10 @@ fn the_call_refuses_each_rule_and_records_nothing() {
     let parts = with_tables(sheet_r("<sheetData/>"), None, &[]);
     let (_, mut package) = opened(parts.clone());
     let long = "t".repeat(256);
-    let refusals: [(&str, Table<'_>, &str); 12] = [
+    let refusals: [(&str, Table<'_>, &str); 14] = [
         ("A1:B2", plain(""), "a table name is not valid"),
+        ("A1:B2", plain("R1C1"), "a table name is not valid"),
+        ("A1:B2", plain("rc"), "a table name is not valid"),
         ("A1:B2", plain("a b"), "a table name is not valid"),
         ("A1:B2", plain("A1"), "a table name is not valid"),
         ("A1:B2", plain("abc1"), "a table name is not valid"),
