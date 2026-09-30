@@ -45,6 +45,10 @@ metadata = ["emend", "xml", "emend/metadata"]
 # (specs/0020-validation-and-conditional-formatting.md, "Size", under
 # decision 1 A), built with its own feature set as the metadata probe is.
 rules = ["emend", "xml", "emend/rules"]
+# Enables emend's own `tables` feature, for probe-emend-tables-write-xml
+# alone (specs/0021-tables.md, "Size", under decision 2 A), built with its
+# own feature set as the rules probe is.
+tables = ["emend", "xml", "emend/tables"]
 
 [[bin]]
 name = "probe-zip"
@@ -134,3 +138,8 @@ required-features = ["metadata"]
 name = "probe-emend-rules-write-xml"
 path = "src/bin/probe-emend-rules-write-xml.rs"
 required-features = ["rules"]
+
+[[bin]]
+name = "probe-emend-tables-write-xml"
+path = "src/bin/probe-emend-tables-write-xml.rs"
+required-features = ["tables"]
