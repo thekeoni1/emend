@@ -1107,10 +1107,13 @@ printed; `ANTHROPIC_API_KEY` is unset in planning's shell.
    turned, not independent checks; "dxfs created" means inputs
    with no `dxfs` (P1 verification ruling 1). The two flags that
    contradict on an input `dxfs` with no `count` attribute: the
-   spec's rule is that `count` is written as the children plus
-   the additions, so the flag expecting the start tag unchanged is
-   wrong for that input; P4's rerun of `--cf-sample` fixes it,
-   and no corpus input has the shape.
+   rule is part 2's for every styles container, which "Differential
+   styles" adopts ("as it grows `<fonts>`"): a `count` that is
+   there is replaced, and a tag with none comes out unchanged, so
+   the flag expecting a count added is the wrong one, not the flag
+   expecting the tag unchanged (corrected by P4 ruling 1; this
+   ruling first read it the other way); P4's rerun of `--cf-sample`
+   fixes the flag, and no corpus input has the shape.
 2. Check 2's #1 and check 1's 3(b): a styles part whose one
    `dxfs` comes after `colors`, like a worksheet whose one
    `dataValidations` comes after `pageMargins` (P1's test), gets a
@@ -1272,6 +1275,111 @@ the feature off); the tool commit adds the sample and two tests;
    both unedited; the carry of ruling 2 is P4's first code commit,
    before the catalogue; P4's `--cf-sample` rerun carries P2
    verification ruling 1's flag fix.
+
+## Planning rulings during P4 (2026-09-30)
+
+Given with P4's doc commit 2679b59 in place (this spec at
+2b4afb62) and the code commits 51c32da, 3e48f99 and 5854e34, before
+any P4 log; P4's logs pin 2b4afb62, and this section is committed
+with the close-out's doc commit.
+
+1. A `dxfs` with no `count` attribute comes out with none: the
+   styles rewrite writes every container's tag through one rule,
+   part 2's, replacing a `count` that is there and leaving a tag
+   without one unchanged, and "Differential styles" adopts it ("as
+   it grows `<fonts>`"; "`count` replaced" replaces what exists).
+   The code stands. P2 verification ruling 1 read the flags the
+   other way round and is corrected: the comparison's `dxfs_tag`
+   expects the tag unchanged when the input has no `count`, and
+   `dxfs_count` accepts an absent `count` when the input had none.
+   The worksheet's `dataValidations`, which gains a `count` when
+   it has none, follows its own stated rule, not this one.
+
+## Planning verification and rulings on P4 (2026-09-30)
+
+Verified from primaries with the record commit 2f7933b in place
+(the phase commit 5854e34 the probe, 3e48f99 the catalogue in
+`//!` lines alone, 51c32da the P3 carry, 2679b59 the doc commit
+with this spec at 2b4afb62 and `ROADMAP.md` at 93150aa7, both
+unedited through 2f7933b; every message ASCII, the Co-Authored-By
+trailer alone; the record commit holds records alone). Planning's
+own build of 5854e34 in a detached worktree: the crate's tests 512
+off, 547 with `rules`, 596 with `metadata,rules`, 647 with every
+feature, both targets, 0 failed; the workspace 808 passed, 0
+failed, 2 ignored, both targets; clippy in five configurations and
+rustdoc in three, 0 lines. Planning's own size-profile builds on
+i686: `probe-zip-xml` 533216, `probe-emend-format-write-xml`
+968440 (its sha256 the size log's), `probe-emend-rules-write-xml`
+1016556, `probe-emend-metadata-write-xml` 1018844,
+`probe-emend-rowcol-write-xml` 1003928 section bytes, so the
+feature's cost is 48116 (file 49152, .text 41008), the budget
+435224, 23528 under 458752, the core's growth for the part 0, each
+as the record states. Planning's own runs of the three samples
+over the 27 corpus workbooks with its own release binaries (the
+i686 ones the size log's by sha256): every output and line
+byte-identical to the three P4 run directories' on both targets,
+0 refused, and byte-identical to planning's own P1, P2 and P3
+outputs, which were byte-identical to the phase run directories'
+when those phases were verified. Planning's own privacy scan of
+dd1a415..2f7933b: 5 commits, 812 blobs, 0 findings. The six logs,
+two checks and nine records hash as the report says; the logs pin
+2b4afb62 and print the working copy as not the pin; the negative
+log reaches 5 of the part's 15 messages and states the 10 at-call
+ones unreachable with a reason each; `ANTHROPIC_API_KEY` is unset.
+
+1. Check 2's #6: the core probe and twelve others differ in
+   `.text` bytes from their 3e67745 rebuilds at the same size. The
+   size figures are what the ceiling and the growth judge, and
+   byte identity across gated edits is not expected (panic
+   locations move with line numbers); the record's verdicts read
+   the bytes and say "code", accounted for by the commits that
+   touched `crates/emend/src`. Recorded; no measurement required.
+   The record's "10 commits" is that count (planning counts 10);
+   the per-probe cause count of 11 adds the size-probe manifest.
+2. Check 2's #5: the size log's code-verdict accounting cannot
+   fail while the size-probe manifest is a cause of every probe
+   and the phase commit touched it. Recorded; the next part's size
+   log gains a control that a code verdict with no cause fails,
+   and lists the manifest cause apart from the source causes.
+3. Check 2's #11 and #13: negative.log's reason for `NO_SUCH_RULE`
+   names the list where the sample removes the expression rule's
+   format, and its header's "every at-call refusal unreachable" is
+   contradicted by `TWO_DXFS`, which the log reaches. The reached
+   and unreachable sets, printed and checked as sets, are the
+   primary and are right; the header's sentence and the reason
+   are recorded as loose. The log stands as committed; the report
+   corrected its own repetition.
+4. Check 2's #8 and #9: the run log's byte identity against the
+   phase run directories rests on directories on disk found by a
+   `git log --grep`. Planning's own runs anchor it independently
+   (above). Recorded; the next part's run log names each phase
+   directory by its record's commit rather than by search.
+5. Check 1's 2.5(b) and check 2's #10: `dxfs_count`'s absent-count
+   branch (P4 ruling 1) has no control and no corpus input reaches
+   it. Recorded, not required.
+6. Check 1's 1.4: three catalogue phrases are carried to the next
+   part's first code commit as `//!` edits: the refused
+   differential-style fields are "refused at the call" (with a
+   style giving none of the three), a value point's `val` holds
+   the caller's number as the crate prints numbers, and the
+   compose claim cites the validation test and the conditional
+   test. The removal claims are borne out by the validation test
+   "a removal drops its list in order and the last drops the
+   container"; no change.
+7. The size record's "largest growth is 0 section bytes,
+   `probe-zip`" names the first probe of an all-zero list; the
+   record's script prints the first maximum. Recorded.
+8. The report's figures and wording stand as the report has them.
+9. P4 is DONE, and with it part 4b's phases; the core's growth for
+   the part is 0 and the budget figure is unchanged from 4a. The
+   close-out push has planning's word for the range 335da53 and
+   every part 4b commit through 2f7933b, on two conditions met in
+   the implementing session before the push: the maintainer's
+   recorded decision on the Excel check (`specs/0019` decision 6,
+   run or deferred again, now with this part's three samples on
+   its list) and the maintainer's typed authorisation as the push
+   script's labelled input. This section and P4 ruling 1 go in
+   the close-out's doc commit, before the push, with `ROADMAP.md`.
 
 ## Out of scope
 
