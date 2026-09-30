@@ -685,3 +685,20 @@ fn a_conditional_format_edit_on_a_removed_or_replaced_part_is_refused() {
         );
     }
 }
+
+#[test]
+fn a_conditional_format_and_a_cell_edit_on_one_part_compose() {
+    let sheet = edited(TWO, |p| {
+        p.set_cell(SHEET, at("A1"), Value::Number(3.0));
+        add(p, &[area("G1")], greater());
+    });
+    let element = "<conditionalFormatting sqref=\"G1\"><cfRule type=\"cellIs\" dxfId=\"0\" \
+                   priority=\"8\" operator=\"greaterThan\"><formula>5</formula></cfRule>\
+                   </conditionalFormatting>";
+    let want = format!("{}{element}{}", &TWO[..after_two()], &TWO[after_two()..]).replacen(
+        "<sheetData/>",
+        "<sheetData><row r=\"1\"><c r=\"A1\"><v>3</v></c></row></sheetData>",
+        1,
+    );
+    assert_eq!(sheet, worksheet(&want));
+}

@@ -951,18 +951,21 @@
 //!   `<dxfs>` alone (and, as every styles rewrite, the other containers'
 //!   counts). No cell's value or style changes; a cell edit in the same
 //!   write composes with them
-//!   (`validation::a_validation_and_a_cell_edit_on_one_part_compose`); a row
-//!   or column insertion or deletion does not (the one-shift rule). An absent
-//!   container is created in schema position; a part out of schema order,
-//!   whose one container comes after a child that follows it, is refused
-//!   with the two-container message rather than written into.
+//!   (`validation::a_validation_and_a_cell_edit_on_one_part_compose`,
+//!   `conditional::a_conditional_format_and_a_cell_edit_on_one_part_compose`);
+//!   a row or column insertion or deletion does not (the one-shift rule).
+//!   An absent container is created in schema position; a part out of
+//!   schema order, whose one container comes after a child that follows it,
+//!   is refused with the two-container message rather than written into.
 //! - A formula is text: a validation's `formula1` and `formula2`, a rule's
-//!   `<formula>` children and a value point's `val` hold what the caller
-//!   gave, escaped, without a leading `=`, never parsed and never
-//!   evaluated, and none is a formula change (no chain dropped, no
-//!   recalculation asked for). A list's `formula1` is a range or a quoted
-//!   list of constants; the crate does not tell them apart. The blank rules
-//!   carry Excel's formula for the first area's top-left cell.
+//!   `<formula>` children and a formula value point's `val` hold what the
+//!   caller gave, escaped, without a leading `=`, never parsed and never
+//!   evaluated; a number, percent or percentile value point's `val` holds
+//!   the caller's number as the crate prints numbers. None is a formula
+//!   change (no chain dropped, no recalculation asked for). A list's
+//!   `formula1` is a range or a quoted list of constants; the crate does not
+//!   tell them apart. The blank rules carry Excel's formula for the first
+//!   area's top-left cell.
 //! - One validation per cell: an addition overlapping a validation the
 //!   part keeps, or one added before it in the write, is refused (decision
 //!   4 A); a removal matches the file's elements by their parsed `sqref`,
@@ -982,7 +985,9 @@
 //!   deduplicated and no `dxf` is removed. Excel reads a differential solid
 //!   fill's colour from `bgColor`, so a caller sets the fill's `background`
 //!   (decision 5 A), as openpyxl's `PatternFill(bgColor=..)` does. A number
-//!   format, an alignment and a protection are not written.
+//!   format, an alignment or a protection is refused at the call, "a
+//!   differential style holds a field this part does not write", and so is a
+//!   style with none of a font, a fill and a border.
 //! - The visual rules are the 2007 form (decision 2 A): a data bar is a
 //!   solid bar of one colour with no negative bar or axis, and no `x14`
 //!   extension is written. A rule the part keeps whose `cfRule` holds an
