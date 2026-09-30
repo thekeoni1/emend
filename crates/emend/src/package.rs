@@ -467,7 +467,8 @@
 //! (`specs/0021-tables.md`, "Errors", and the P1 rulings; without the
 //! feature no call records a table edit and none of them is raised); the
 //! first four are raised by `Package::add_table`, the rest by
-//! [`Package::write_to`] and, the last, by `Package::tables` too. The call
+//! [`Package::write_to`], after `Package::add_table` or
+//! `Package::remove_table`, and, the last, by `Package::tables` too. The call
 //! also meets "a row or column index or count is out of range" and "a text
 //! holds a character XML cannot carry"
 //! (`tables::the_call_refuses_each_rule_and_records_nothing`), and the write
@@ -491,6 +492,8 @@
 //!   (`tables::an_overlap_with_a_table_a_pivot_a_merge_the_autofilter_or_an_earlier_addition_is_refused`).
 //! - "a table header cell holds a formula"
 //!   (`tables::a_header_cell_holding_a_formula_is_refused`).
+//! - "no table of that name"
+//!   (`tables::a_removal_of_an_absent_name_or_of_one_this_write_adds_is_refused`).
 //! - "a worksheet has two tableParts elements"
 //!   (`tables::a_container_is_created_before_ext_lst_and_on_a_prefixed_root`).
 //! - "a table part or its relationship cannot be read"
@@ -1857,6 +1860,15 @@ struct Recorded {
     /// strict forms, filled by [`Package::write_to`] before it validates.
     #[cfg(feature = "tables")]
     table_works: Vec<(Vec<u8>, TableWork, bool)>,
+    /// `(part, name)`: a table removed, in record order (`specs/0021-tables.md`,
+    /// "The calls", `remove_table`).
+    #[cfg(feature = "tables")]
+    table_removals: Vec<(Vec<u8>, String)>,
+    /// `(part, id)`: the relationship of each table the write removes, whose
+    /// `<tablePart>` the worksheet pass skips, filled by
+    /// [`Package::write_to`] before it validates.
+    #[cfg(feature = "tables")]
+    table_removed_ids: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1947,6 +1959,9 @@ struct SheetWork {
     /// relationship type and a retag's namespace; P1 ruling 3).
     #[cfg(feature = "tables")]
     tables_strict: bool,
+    /// The relationship ids of the tables the write removes from the part.
+    #[cfg(feature = "tables")]
+    tables_removed: Vec<Vec<u8>>,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -2718,6 +2733,10 @@ struct NewTable {
     style: Option<(String, TableStyleInfo)>,
 }
 
+/// A relationship's id and the part it names.
+#[cfg(feature = "tables")]
+type RelTarget = (Vec<u8>, Vec<u8>);
+
 /// A table the write adds to a worksheet: its area and the id of the
 /// relationship its `<tablePart>` names.
 #[cfg(feature = "tables")]
@@ -2731,7 +2750,7 @@ struct TableWork {
 /// `tables`).
 #[cfg(all(feature = "rowcol", feature = "tables"))]
 fn no_tables(work: &SheetWork) -> bool {
-    work.tables.is_empty()
+    work.tables.is_empty() && work.tables_removed.is_empty()
 }
 
 /// Whether the part's rewrite carries no table edit; always, without the
@@ -3065,13 +3084,15 @@ impl Recorded {
             && self.no_table_edits()
     }
 
-    /// Whether no table is added; always, without the feature `tables`.
+    /// Whether no table is added or removed; always, without the feature
+    /// `tables`.
     #[cfg(feature = "tables")]
     fn no_table_edits(&self) -> bool {
-        self.table_additions.is_empty()
+        self.table_additions.is_empty() && self.table_removals.is_empty()
     }
 
-    /// Whether no table is added; always, without the feature `tables`.
+    /// Whether no table is added or removed; always, without the feature
+    /// `tables`.
     #[cfg(not(feature = "tables"))]
     fn no_table_edits(&self) -> bool {
         true
@@ -3192,7 +3213,9 @@ impl Recorded {
             .chain(self.validations.iter().map(|(part, _)| part))
             .chain(self.rules.iter().map(|(part, _)| part));
         #[cfg(feature = "tables")]
-        let named = named.chain(self.table_additions.iter().map(|(part, _)| part));
+        let named = named
+            .chain(self.table_additions.iter().map(|(part, _)| part))
+            .chain(self.table_removals.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -3295,6 +3318,13 @@ impl Recorded {
                 .table_works
                 .iter()
                 .any(|(at, _, strict)| at.as_slice() == part && *strict),
+            #[cfg(feature = "tables")]
+            tables_removed: self
+                .table_removed_ids
+                .iter()
+                .filter(|(at, _)| at.as_slice() == part)
+                .map(|(_, id)| id.clone())
+                .collect(),
         }
     }
 
@@ -4513,6 +4543,36 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "tables")]
     pub fn add_table(&mut self, part: &[u8], area: Area, table: Table<'_>) -> Result<(), Error> {
         self.parts().add_table(part, area, table)
+    }
+
+    /// Records the removal of the table named `name`, compared ignoring ASCII
+    /// case against each table's `name` and `displayName`, from the
+    /// worksheet part `part`. The Cargo feature `tables`
+    /// (`specs/0021-tables.md`, "The calls").
+    ///
+    /// The write drops the part's `<tablePart>` whose `r:id` names the
+    /// table's relationship, the relationship, the table part's `Override`
+    /// when the content types part has one, and the table part itself; a
+    /// `<tableParts>` left empty is dropped. The cells keep their values and
+    /// styles, as Excel's "Convert to Range" keeps them, and a differential
+    /// style the table named stays. A table added and a table removed in one
+    /// write are checked against the workbook with the removal applied, so
+    /// a removal and an addition of one name replace the table; the removed
+    /// part's entry name is not reused.
+    ///
+    /// # Errors
+    ///
+    /// None at the call. The write refuses a name no table of the part's
+    /// file carries, a name this write adds among them (the caller writes
+    /// twice), "no table of that name"; a table part or relationship it
+    /// cannot read, "a table part or its relationship cannot be read"; and
+    /// what [`Package::add_table`] says it refuses of the part.
+    #[cfg(feature = "tables")]
+    pub fn remove_table(&mut self, part: &[u8], name: &str) -> Result<(), Error> {
+        self.edits
+            .table_removals
+            .push((part.to_vec(), name.to_string()));
+        Ok(())
     }
 
     /// The tables of the worksheet part `part`: each `<tablePart>` of its
@@ -5811,12 +5871,76 @@ impl<'a> Parts<'a> {
     /// table read message.
     #[cfg(feature = "tables")]
     fn related(&mut self, source: &[u8], kind: [&[u8]; 2]) -> Result<Vec<Vec<u8>>, Error> {
+        Ok(self
+            .related_ids(source, kind)?
+            .into_iter()
+            .map(|(_, target)| target)
+            .collect())
+    }
+
+    /// [`Parts::related`] with each relationship's id beside its target.
+    #[cfg(feature = "tables")]
+    fn related_ids(&mut self, source: &[u8], kind: [&[u8]; 2]) -> Result<Vec<RelTarget>, Error> {
         let rels = self.relationships(source)?;
         rels.all()
             .iter()
             .filter(|rel| !rel.external && kind.contains(&rel.kind.as_slice()))
-            .map(|rel| rels.target_part(rel).map_err(|_| TABLE_UNREADABLE))
+            .map(|rel| {
+                let target = rels.target_part(rel).map_err(|_| TABLE_UNREADABLE)?;
+                Ok((rel.id.clone(), target))
+            })
             .collect()
+    }
+
+    /// Records each table removal's four removals (`specs/0021-tables.md`,
+    /// "The calls", `remove_table`): the part's `table` relationship whose
+    /// part's root names the table, ASCII case folded, against `name` or
+    /// `displayName`, the `Override` for that part when the content types
+    /// part has one, and the entry; the `<tablePart>` naming the
+    /// relationship is the worksheet pass's. A name no table of the part's
+    /// file carries, one this write also adds included, is refused; a table
+    /// part the search cannot read is refused with the read message.
+    #[cfg(feature = "tables")]
+    fn record_table_removals(&mut self) -> Result<(), Error> {
+        let removals = self.edits.table_removals.clone();
+        let mut found: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = Vec::new();
+        for (part, name) in removals {
+            let folded = name.to_ascii_lowercase();
+            let mut hit = None;
+            if self.archive.index_of(&part).is_some() {
+                for (id, target) in self.related_ids(&part, TABLE)? {
+                    let index = self.archive.index_of(&target).ok_or(TABLE_UNREADABLE)?;
+                    let root = table_root(self.archive, index)?;
+                    if hit.is_none()
+                        && root
+                            .names
+                            .iter()
+                            .any(|have| have.to_ascii_lowercase() == folded)
+                    {
+                        hit = Some((id, target));
+                    }
+                }
+            }
+            let (id, target) = hit.ok_or(NO_SUCH_TABLE)?;
+            if found.iter().any(|(_, _, have)| *have == target) {
+                return Err(NO_SUCH_TABLE);
+            }
+            found.push((part, id, target));
+        }
+        for (part, id, target) in found {
+            let over = self
+                .override_of(&target)?
+                .filter(|over| !self.edits.override_removals.contains(over));
+            self.remove_relationship(&part, &id);
+            if let Some(over) = over {
+                self.remove_override(&over);
+            }
+            if !self.edits.part_removals.contains(&target) {
+                self.remove_part(&target);
+            }
+            self.edits.table_removed_ids.push((part, id));
+        }
+        Ok(())
     }
 
     /// Records each table addition's part, `Override` and relationship,
@@ -5829,6 +5953,7 @@ impl<'a> Parts<'a> {
     /// header cells are checked by the rewrite.
     #[cfg(feature = "tables")]
     fn record_tables(&mut self) -> Result<(), Error> {
+        self.record_table_removals()?;
         if self.edits.table_additions.is_empty() {
             return Ok(());
         }
@@ -6284,6 +6409,8 @@ impl<'a> Parts<'a> {
         self.edits.rules.retain(|(at, _)| at != part);
         #[cfg(feature = "tables")]
         self.edits.table_additions.retain(|(at, _)| at != part);
+        #[cfg(feature = "tables")]
+        self.edits.table_removals.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -7462,6 +7589,8 @@ const TABLE_OVERLAP: Error =
     Error::Package("a table overlaps a table, a pivot table, a merge or the autofilter");
 #[cfg(feature = "tables")]
 const TABLE_HEADER_FORMULA: Error = Error::Package("a table header cell holds a formula");
+#[cfg(feature = "tables")]
+const NO_SUCH_TABLE: Error = Error::Package("no table of that name");
 #[cfg(feature = "tables")]
 const TWO_TABLE_PARTS: Error = Error::Package("a worksheet has two tableParts elements");
 #[cfg(feature = "tables")]
@@ -9822,7 +9951,7 @@ fn rewrite_worksheet_from(
     #[cfg(feature = "rules")]
     let mut formats = FormatsPass::new(&work.rules);
     #[cfg(feature = "tables")]
-    let mut tables = TablesPass::new(&work.tables);
+    let mut tables = TablesPass::new(&work.tables, &work.tables_removed);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -9881,8 +10010,12 @@ fn rewrite_worksheet_from(
                 // pass's (`specs/0021-tables.md`, "The worksheet").
                 #[cfg(feature = "tables")]
                 if tables.buffer.is_some() {
-                    tables.child(token.raw, (local, ours, depth));
-                    if empty {
+                    let skipped =
+                        tables.child(token.raw, start, (local, ours, depth), &scope, index)?;
+                    if skipped && !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    if skipped || empty {
                         scope.end();
                         depth -= 1;
                     }
@@ -10020,7 +10153,7 @@ fn rewrite_worksheet_from(
                     #[cfg(feature = "rules")]
                     let links_needed = links_needed || rules.needed || formats.needed;
                     #[cfg(feature = "tables")]
-                    let links_needed = links_needed || tables.touched;
+                    let links_needed = links_needed || !tables.tables.is_empty();
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
@@ -11860,8 +11993,10 @@ const TABLE_PARTS: &[u8] = b"tableParts";
 #[cfg(feature = "tables")]
 struct TablesPass<'w> {
     tables: &'w [TableWork],
-    /// Whether the write adds a table to the part, and has met or created a
-    /// `<tableParts>`.
+    /// The relationship ids of the tables the write removes from the part.
+    removed: &'w [Vec<u8>],
+    /// Whether the write adds or removes a table on the part, and has met
+    /// or created a `<tableParts>`.
     touched: bool,
     met: bool,
     /// The prefix the root binds to the relationships namespace, or the one
@@ -11887,10 +12022,11 @@ struct TablePartsBuffer {
 
 #[cfg(feature = "tables")]
 impl<'w> TablesPass<'w> {
-    fn new(tables: &'w [TableWork]) -> Self {
+    fn new(tables: &'w [TableWork], removed: &'w [Vec<u8>]) -> Self {
         TablesPass {
             tables,
-            touched: !tables.is_empty(),
+            removed,
+            touched: !tables.is_empty() || !removed.is_empty(),
             met: false,
             rels_prefix: Vec::new(),
             buffer: None,
@@ -11909,7 +12045,7 @@ impl<'w> TablesPass<'w> {
         unmerges: &[Area],
         index: usize,
     ) -> Result<(), Error> {
-        if !self.touched {
+        if self.tables.is_empty() {
             return Ok(());
         }
         let merge = depth == 3 && self.in_merges && ours && local == b"mergeCell";
@@ -11936,7 +12072,7 @@ impl<'w> TablesPass<'w> {
     /// that the tag does not declare), in the worksheet's own form (P1
     /// ruling 3), as part 4a's links do.
     fn root_tag(&mut self, raw: &[u8], strict: bool, index: usize) -> Result<Vec<u8>, Error> {
-        if !self.touched {
+        if self.tables.is_empty() {
             return Ok(raw.to_vec());
         }
         let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
@@ -11999,7 +12135,7 @@ impl<'w> TablesPass<'w> {
     /// The `<tableParts>` the write creates at the root's end, when it needs
     /// one the part still lacks.
     fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
-        if !self.touched || self.met {
+        if self.tables.is_empty() || self.met {
             return None;
         }
         self.met = true;
@@ -12042,13 +12178,45 @@ impl<'w> TablesPass<'w> {
         Ok(Vec::new())
     }
 
-    /// A start or empty tag inside the held `<tableParts>`: held, a
-    /// `<tablePart>` counted.
-    fn child(&mut self, raw: &[u8], (local, ours, depth): (&[u8], bool, usize)) {
+    /// A start or empty tag inside the held `<tableParts>`: a
+    /// `<tablePart>` whose `r:id` names a removed table's relationship is to
+    /// be skipped whole; one kept is counted; anything else is held.
+    /// Returns whether the caller skips the element.
+    fn child(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        (local, ours, depth): (&[u8], bool, usize),
+        scope: &Scope,
+        index: usize,
+    ) -> Result<bool, Error> {
+        let Some(at) = self.buffer.as_ref().map(|buffer| buffer.depth) else {
+            return Ok(false);
+        };
+        let element = depth == at + 1 && ours && local == b"tablePart";
+        if element && !self.removed.is_empty() {
+            for attribute in start.attributes() {
+                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                if attribute.key.as_namespace_binding().is_some() {
+                    continue;
+                }
+                let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                if name == b"id"
+                    && is_relationships_attribute(namespace)
+                    && self
+                        .removed
+                        .iter()
+                        .any(|id| id.as_slice() == attribute.value.as_bytes())
+                {
+                    return Ok(true);
+                }
+            }
+        }
         if let Some(buffer) = self.buffer.as_mut() {
-            buffer.kept += u64::from(depth == buffer.depth + 1 && ours && local == b"tablePart");
+            buffer.kept += u64::from(element);
             buffer.content.extend_from_slice(raw);
         }
+        Ok(false)
     }
 
     /// An end tag or any other token inside the held `<tableParts>`; at the
@@ -12076,9 +12244,13 @@ impl<'w> TablesPass<'w> {
 
     /// The held container written: its start tag with `count` set to the
     /// kept children and the additions (opened up when it was empty), the
-    /// kept children, the additions and its end tag.
+    /// kept children, the additions and its end tag; nothing when no table
+    /// is left.
     fn close(&self, buffer: TablePartsBuffer, index: usize) -> Result<Vec<u8>, Error> {
         let count = buffer.kept + self.tables.len() as u64;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
         let start = with_attribute(&buffer.start, b"count", count.to_string().as_bytes(), index)?;
         let mut out = if buffer.empty {
             opened_up(&start, index)?

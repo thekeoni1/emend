@@ -847,3 +847,178 @@ fn a_table_edit_on_a_removed_or_replaced_part_is_refused() {
         "a cell edit to a part this write replaces",
     );
 }
+
+// ------------------------------------------------------------- the removal
+
+/// The content types part of `parts` without the `Override` for `name`.
+fn types_less(parts: &Parts, name: &str) -> String {
+    part_text(parts, b"[Content_Types].xml").replace(
+        &format!("<Override PartName=\"/{name}\" ContentType=\"{TABLE_TYPE}\"/>"),
+        "",
+    )
+}
+
+#[test]
+fn a_removal_drops_the_element_relationship_override_and_entry_and_keeps_the_rest() {
+    // The name matched with its case folded; the other table's chain and
+    // every cell kept byte for byte.
+    let parts = two_tables();
+    let output = edited_output(parts.clone(), |p| {
+        p.remove_table(SHEET, "sALES").expect("recorded")
+    });
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            SHEET,
+            b"xl/worksheets/_rels/sheet1.xml.rels".as_slice(),
+            b"[Content_Types].xml".as_slice(),
+            b"xl/tables/table1.xml".as_slice(),
+        ],
+    );
+    assert_names(
+        &output,
+        &part_names(&parts)
+            .into_iter()
+            .filter(|name| *name != b"xl/tables/table1.xml")
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r("<sheetData/><tableParts count=\"1\"><tablePart r:id=\"rId2\"/></tableParts>")
+    );
+    assert_eq!(
+        text_of(&output, b"xl/worksheets/_rels/sheet1.xml.rels"),
+        rels(&table_rel("rId2", "../tables/table3.xml"))
+    );
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        types_less(&parts, "xl/tables/table1.xml")
+    );
+}
+
+#[test]
+fn a_removal_of_the_last_table_drops_the_container() {
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>\
+                <tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>";
+    let parts = with_tables(
+        sheet_r(body),
+        Some(&table_rel("rId1", "../tables/table1.xml")),
+        &[(
+            "xl/tables/table1.xml",
+            table_xml(
+                "id=\"1\" name=\"Only\" displayName=\"Only\" ref=\"A1:B2\"",
+                "",
+            ),
+        )],
+    );
+    let output = edited_output(parts.clone(), |p| {
+        p.remove_table(SHEET, "Only").expect("recorded")
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r("<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>")
+    );
+    assert_eq!(
+        text_of(&output, b"xl/worksheets/_rels/sheet1.xml.rels"),
+        rels("")
+    );
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        types_less(&parts, "xl/tables/table1.xml")
+    );
+    let mut reopened = Package::open(Cursor::new(output)).expect("open the output");
+    assert_eq!(reopened.tables(SHEET).expect("read back"), []);
+}
+
+#[test]
+fn a_removal_of_an_absent_name_or_of_one_this_write_adds_is_refused() {
+    let message = "no table of that name";
+    assert_package(
+        refused_with(two_tables(), |p| {
+            p.remove_table(SHEET, "Nowhere").expect("recorded")
+        }),
+        message,
+    );
+    // A part with no table at all.
+    assert_package(
+        refused_with(smallest(), |p| {
+            p.remove_table(SHEET, "Sales").expect("recorded")
+        }),
+        message,
+    );
+    // A name only this write adds: the caller writes twice.
+    assert_package(
+        refused_with(two_tables(), |p| {
+            add(p, "A10:B12", plain("Fresh"));
+            p.remove_table(SHEET, "fresh").expect("recorded");
+        }),
+        message,
+    );
+    // The same table removed twice.
+    assert_package(
+        refused_with(two_tables(), |p| {
+            p.remove_table(SHEET, "Sales").expect("recorded");
+            p.remove_table(SHEET, "Sales").expect("recorded");
+        }),
+        message,
+    );
+}
+
+#[test]
+fn a_removal_on_a_part_whose_table_part_is_missing_is_refused() {
+    let parts = with_tables(
+        sheet_r("<sheetData/><tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>"),
+        Some(&table_rel("rId1", "../tables/table9.xml")),
+        &[],
+    );
+    assert_package(
+        refused_with(parts, |p| p.remove_table(SHEET, "T").expect("recorded")),
+        "a table part or its relationship cannot be read",
+    );
+}
+
+#[test]
+fn a_removal_and_an_addition_in_one_write_take_the_projected_workbook() {
+    // Different names: Other goes, a new table comes; the removed entry's
+    // name stays taken, so the addition is table2, and its id the smallest
+    // the projected workbook leaves free, 2 (Sales keeps 1).
+    let parts = two_tables();
+    let output = edited_output(parts.clone(), |p| {
+        p.remove_table(SHEET, "Other").expect("recorded");
+        add(p, "E10:F12", plain("Fresh"));
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r(&format!(
+            "<sheetData>{}</sheetData><tableParts count=\"2\"><tablePart r:id=\"rId1\"/>\
+             <tablePart r:id=\"rId3\"/></tableParts>",
+            header_row(10, "")
+                .replace("\"A10\"", "\"E10\"")
+                .replace("\"B10\"", "\"F10\"")
+        ))
+    );
+    assert_added_part(
+        &output,
+        b"xl/tables/table2.xml",
+        plain_part(2, "Fresh", "E10:F12").as_bytes(),
+    );
+    // The same name: the removal frees it and the overlap, so the table is
+    // replaced over its own area.
+    let output = edited_output(parts, |p| {
+        p.remove_table(SHEET, "Sales").expect("recorded");
+        add(p, "A1:B3", plain("Sales"));
+    });
+    let mut reopened = Package::open(Cursor::new(output)).expect("open the output");
+    let tables = reopened.tables(SHEET).expect("read back");
+    assert_eq!(
+        tables
+            .iter()
+            .map(|table| (table.name.as_str(), table.part.as_slice()))
+            .collect::<Vec<_>>(),
+        [
+            ("Other", b"xl/tables/table3.xml".as_slice()),
+            ("Sales", b"xl/tables/table2.xml".as_slice())
+        ]
+    );
+}
