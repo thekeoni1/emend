@@ -463,6 +463,40 @@
 //!   `priorities_follow_the_highest_kept_one_and_a_given_one_is_written_as_given`,
 //!   `a_removal_drops_its_list_and_an_absent_or_extended_one_is_refused`).
 //!
+//! Tables add these, the Cargo feature `tables`'s messages
+//! (`specs/0021-tables.md`, "Errors", and the P1 rulings; without the
+//! feature no call records a table edit and none of them is raised); the
+//! first four are raised by `Package::add_table`, the rest by
+//! [`Package::write_to`] and, the last, by `Package::tables` too. The call
+//! also meets "a row or column index or count is out of range" and "a text
+//! holds a character XML cannot carry"
+//! (`tables::the_call_refuses_each_rule_and_records_nothing`), and the write
+//! part 3's one-shift message, "no such part" for a sheet added in the same
+//! write, and what a cell edit to the part meets
+//! (`tables::a_table_edit_with_a_row_insertion_is_refused`,
+//! `a_sheet_added_in_the_same_write_refuses_a_table`,
+//! `a_table_edit_on_a_removed_or_replaced_part_is_refused`):
+//!
+//! - "a table name is not valid"
+//!   (`tables::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a table column name is not valid"
+//!   (`tables::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a table style number is out of range"
+//!   (`tables::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a table area is too small"
+//!   (`tables::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a table name is already in use"
+//!   (`tables::a_name_in_use_is_refused_and_one_of_a_removed_sheets_table_is_taken`).
+//! - "a table overlaps a table, a pivot table, a merge or the autofilter"
+//!   (`tables::an_overlap_with_a_table_a_pivot_a_merge_the_autofilter_or_an_earlier_addition_is_refused`).
+//! - "a table header cell holds a formula"
+//!   (`tables::a_header_cell_holding_a_formula_is_refused`).
+//! - "a worksheet has two tableParts elements"
+//!   (`tables::a_container_is_created_before_ext_lst_and_on_a_prefixed_root`).
+//! - "a table part or its relationship cannot be read"
+//!   (`tables::a_read_refuses_a_part_or_relationship_it_cannot_read`,
+//!   `an_overlap_with_a_table_a_pivot_a_merge_the_autofilter_or_an_earlier_addition_is_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1101,20 +1135,27 @@ pub const THEME: [&[u8]; 2] = [
 ];
 
 /// The `table` relationship type, transitional then strict
-/// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`).
-#[cfg(feature = "rowcol")]
+/// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`,
+/// and feature `tables` for `specs/0021-tables.md`).
+#[cfg(any(feature = "rowcol", feature = "tables"))]
 pub const TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/table",
 ];
 
 /// The `pivotTable` relationship type, transitional then strict (feature
-/// `rowcol`).
-#[cfg(feature = "rowcol")]
+/// `rowcol`, and feature `tables`).
+#[cfg(any(feature = "rowcol", feature = "tables"))]
 pub const PIVOT_TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotTable",
 ];
+
+/// A table part's content type, which the strict form shares (feature
+/// `tables`).
+#[cfg(feature = "tables")]
+const TABLE_CONTENT_TYPE: &[u8] =
+    b"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
 
 /// The `hyperlink` relationship type, transitional then strict, the type a
 /// link to a target outside the package is written with (the Cargo feature
@@ -1807,6 +1848,15 @@ struct Recorded {
     /// order ("Conditional formatting").
     #[cfg(feature = "rules")]
     rules: Vec<(Vec<u8>, RuleEdit)>,
+    /// `(part, table)`: a table added, in record order
+    /// (`specs/0021-tables.md`, "The calls").
+    #[cfg(feature = "tables")]
+    table_additions: Vec<(Vec<u8>, NewTable)>,
+    /// `(part, table, strict)`: the area and relationship id the write
+    /// recorded for each table addition, and whether the part takes the
+    /// strict forms, filled by [`Package::write_to`] before it validates.
+    #[cfg(feature = "tables")]
+    table_works: Vec<(Vec<u8>, TableWork, bool)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -1889,6 +1939,14 @@ struct SheetWork {
     /// The conditional format edits recorded for the part, in record order.
     #[cfg(feature = "rules")]
     rules: Vec<RuleEdit>,
+    /// The tables the write adds to the part, in record order
+    /// (`specs/0021-tables.md`, "The worksheet").
+    #[cfg(feature = "tables")]
+    tables: Vec<TableWork>,
+    /// Whether the part's table relationships take the strict forms (the
+    /// relationship type and a retag's namespace; P1 ruling 3).
+    #[cfg(feature = "tables")]
+    tables_strict: bool,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -2559,6 +2617,130 @@ struct NewRule {
     visual: Option<VisualChild>,
 }
 
+/// One of Excel's built-in banded table styles, written as
+/// `TableStyleLight7`, `TableStyleMedium2` or `TableStyleDark1`
+/// (`specs/0021-tables.md`, "Types"): `Light` 1 to 21, `Medium` 1 to 28,
+/// `Dark` 1 to 11. The Cargo feature `tables`.
+#[cfg(feature = "tables")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableStyle {
+    /// `TableStyleLight1` to `TableStyleLight21`.
+    Light(u8),
+    /// `TableStyleMedium1` to `TableStyleMedium28`.
+    Medium(u8),
+    /// `TableStyleDark1` to `TableStyleDark11`.
+    Dark(u8),
+}
+
+#[cfg(feature = "tables")]
+impl TableStyle {
+    /// The style's name, `None` for a number outside its range.
+    fn name(self) -> Option<String> {
+        let (family, number, highest) = match self {
+            TableStyle::Light(number) => ("Light", number, 21),
+            TableStyle::Medium(number) => ("Medium", number, 28),
+            TableStyle::Dark(number) => ("Dark", number, 11),
+        };
+        (1..=highest)
+            .contains(&number)
+            .then(|| format!("TableStyle{family}{number}"))
+    }
+}
+
+/// A table's `<tableStyleInfo>`: its built-in style and the four flags,
+/// each written as `0` or `1`. The Cargo feature `tables`.
+#[cfg(feature = "tables")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TableStyleInfo {
+    /// The banded style.
+    pub style: TableStyle,
+    /// `showFirstColumn`.
+    pub first_column: bool,
+    /// `showLastColumn`.
+    pub last_column: bool,
+    /// `showRowStripes`.
+    pub row_stripes: bool,
+    /// `showColumnStripes`.
+    pub column_stripes: bool,
+}
+
+/// A table as a caller gives it to [`Package::add_table`]
+/// (`specs/0021-tables.md`, "Types"): its name, written as both `name` and
+/// `displayName`, one column name per column of its area, and a style or
+/// none. The Cargo feature `tables`.
+#[cfg(feature = "tables")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Table<'a> {
+    /// The table's name.
+    pub name: &'a str,
+    /// The column names, left to right.
+    pub columns: &'a [&'a str],
+    /// The `<tableStyleInfo>`, or `None` to write none.
+    pub style: Option<TableStyleInfo>,
+}
+
+/// A table as [`Package::tables`] reads it from a worksheet's table part
+/// (`specs/0021-tables.md`, "Types"). The Cargo feature `tables`.
+#[cfg(feature = "tables")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableEntry {
+    /// The root's `name`.
+    pub name: String,
+    /// The root's `displayName`.
+    pub display_name: String,
+    /// The root's `ref`, normalised.
+    pub area: Area,
+    /// Each `tableColumn`'s `name`, in order.
+    pub columns: Vec<String>,
+    /// The `tableStyleInfo`'s `name` as text (built-in or custom, empty when
+    /// absent) with `showFirstColumn`, `showLastColumn`, `showRowStripes`
+    /// and `showColumnStripes`, each `false` when absent; `None` when the
+    /// part has no `tableStyleInfo`.
+    pub style: Option<(String, bool, bool, bool, bool)>,
+    /// Whether `headerRowCount` is other than `0` (absent is one row).
+    pub header_row: bool,
+    /// Whether `totalsRowCount` is other than `0` (absent is none).
+    pub totals_row: bool,
+    /// Whether any column carries a `calculatedColumnFormula`.
+    pub calculated: bool,
+    /// The table part's entry name.
+    pub part: Vec<u8>,
+}
+
+/// A table to add, as [`Package::add_table`] checked it: its area, its
+/// name, its column names and its style's name with the four flags.
+#[cfg(feature = "tables")]
+#[derive(Clone)]
+struct NewTable {
+    area: Area,
+    name: String,
+    columns: Vec<String>,
+    style: Option<(String, TableStyleInfo)>,
+}
+
+/// A table the write adds to a worksheet: its area and the id of the
+/// relationship its `<tablePart>` names.
+#[cfg(feature = "tables")]
+#[derive(Clone)]
+struct TableWork {
+    area: Area,
+    rel_id: Vec<u8>,
+}
+
+/// Whether the part's rewrite carries no table edit (the Cargo feature
+/// `tables`).
+#[cfg(all(feature = "rowcol", feature = "tables"))]
+fn no_tables(work: &SheetWork) -> bool {
+    work.tables.is_empty()
+}
+
+/// Whether the part's rewrite carries no table edit; always, without the
+/// feature `tables`.
+#[cfg(all(feature = "rowcol", not(feature = "tables")))]
+fn no_tables(_: &SheetWork) -> bool {
+    true
+}
+
 /// Whether the part's rewrite carries no data validation or conditional
 /// format edit (the Cargo feature `rules`).
 #[cfg(all(feature = "rowcol", feature = "rules"))]
@@ -2593,6 +2775,16 @@ impl SheetWork {
         self.merges
             .iter()
             .any(|area| area.holds(cell) && area.first != cell)
+    }
+
+    /// Whether `cell` is a header cell of a table the write adds to the
+    /// part: the top row of its area (`specs/0021-tables.md`, decision 3 A).
+    #[cfg(feature = "tables")]
+    fn table_header(&self, cell: CellRef) -> bool {
+        self.tables.iter().any(|table| {
+            table.area.first.row == cell.row
+                && (table.area.first.col..=table.area.last.col).contains(&cell.col)
+        })
     }
 }
 
@@ -2862,6 +3054,19 @@ impl Recorded {
             && self.no_name_edits()
             && self.no_link_edits()
             && self.no_rule_edits()
+            && self.no_table_edits()
+    }
+
+    /// Whether no table is added; always, without the feature `tables`.
+    #[cfg(feature = "tables")]
+    fn no_table_edits(&self) -> bool {
+        self.table_additions.is_empty()
+    }
+
+    /// Whether no table is added; always, without the feature `tables`.
+    #[cfg(not(feature = "tables"))]
+    fn no_table_edits(&self) -> bool {
+        true
     }
 
     /// Whether no data validation, differential style or conditional format
@@ -2978,6 +3183,8 @@ impl Recorded {
         let named = named
             .chain(self.validations.iter().map(|(part, _)| part))
             .chain(self.rules.iter().map(|(part, _)| part));
+        #[cfg(feature = "tables")]
+        let named = named.chain(self.table_additions.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -3068,6 +3275,18 @@ impl Recorded {
                 .filter(|(at, _)| at.as_slice() == part)
                 .map(|(_, edit)| edit.clone())
                 .collect(),
+            #[cfg(feature = "tables")]
+            tables: self
+                .table_works
+                .iter()
+                .filter(|(at, _, _)| at.as_slice() == part)
+                .map(|(_, table, _)| table.clone())
+                .collect(),
+            #[cfg(feature = "tables")]
+            tables_strict: self
+                .table_works
+                .iter()
+                .any(|(at, _, strict)| at.as_slice() == part && *strict),
         }
     }
 
@@ -4228,6 +4447,79 @@ impl<R: Read + Seek> Package<R> {
     pub fn conditional_formats(&mut self, part: &[u8]) -> Result<Vec<RuleEntry>, Error> {
         let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
         read_rules(self.archive.read(index)?, index)
+    }
+
+    /// Records a table on `area` of the worksheet part `part` (`part` as
+    /// [`Package::set_cell`] names it). The Cargo feature `tables`
+    /// (`specs/0021-tables.md`, "The calls", and the P1 rulings).
+    ///
+    /// The call also records [`Package::set_cell`] of each column's name as
+    /// text on the area's top row, left to right, as a caller's own edit
+    /// would; the last record for a cell in one write wins. The write adds
+    /// the table part `xl/tables/tableN.xml`, N the smallest positive
+    /// integer no entry of the projected archive has (ASCII case folded),
+    /// with the `id` no table of the projected workbook carries, its
+    /// `Override`, and a relationship of type [`TABLE`] on the part's rels
+    /// part with the relative target, both in the form of the worksheet's
+    /// own relationship in the workbook's rels part; appends
+    /// `<tablePart r:id=".."/>` to the part's `<tableParts>`, `count` set to
+    /// its children, creating that element in schema position when the part
+    /// has none; and retags a root binding no prefix to the relationships
+    /// namespace with one. The part holds the declaration on its own line
+    /// and the root on one: `id`, `name` and `displayName` (both the name),
+    /// `ref`, `totalsRowShown="0"`, an `<autoFilter>` of the same `ref`,
+    /// one `<tableColumn>` per name with ids from 1, and the
+    /// `<tableStyleInfo>` when a style is given.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a row or column
+    /// index or count is out of range" for a corner off the grid; "a text
+    /// holds a character XML cannot carry" for a name or a column name
+    /// holding one; "a table name is not valid" for a name outside the rule
+    /// (1 to 255 characters, the first a letter, `_` or `\`, the rest
+    /// letters, digits, `.` or `_`, not a cell reference on the grid ignoring
+    /// case, and not `C`, `c`, `R` or `r`); "a table column name is not
+    /// valid" for a column name empty or past 255 characters, two equal
+    /// ignoring ASCII case, or a list whose length is not the area's width;
+    /// "a table style number is out of range"; and "a table area is too
+    /// small" for an area of one row. The write refuses a name a table of the
+    /// projected
+    /// workbook, a `definedName` of the workbook part or an earlier
+    /// addition has, ignoring ASCII case, "a table name is already in use";
+    /// an area overlapping a table or a pivot table the part has, an
+    /// earlier addition for the part, a merge the part keeps or this write
+    /// adds, or the part's `<autoFilter>`, "a table overlaps a table, a
+    /// pivot table, a merge or the autofilter"; a header cell whose `<c>`
+    /// holds an `<f>`, "a table header cell holds a formula"; a table part
+    /// or pivot table part it cannot read, "a table part or its
+    /// relationship cannot be read"; a part with two `<tableParts>`, "a
+    /// worksheet has two tableParts elements"; a sheet added in the same
+    /// write, "no such part" (P1 ruling 2); a part with a row or column
+    /// insertion or deletion in the same write, with part 3's one-shift
+    /// message; and what a cell edit to the part would meet.
+    #[cfg(feature = "tables")]
+    pub fn add_table(&mut self, part: &[u8], area: Area, table: Table<'_>) -> Result<(), Error> {
+        self.parts().add_table(part, area, table)
+    }
+
+    /// The tables of the worksheet part `part`: each `<tablePart>` of its
+    /// `<tableParts>`, in part order, its `r:id` resolved through the part's
+    /// rels part and its table part read, a snapshot of the file, not of the
+    /// pending edits; empty for a part with no `<tableParts>`. The Cargo
+    /// feature `tables`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a part the archive lacks; "a
+    /// table part or its relationship cannot be read" for a `tablePart`
+    /// with no `r:id`, an `r:id` with no relationship, a relationship whose
+    /// part is missing, a root with no `id`, `name`, `displayName` or
+    /// `ref`, or a `ref` that does not parse; part 2's unbound-prefix
+    /// refusal; and whatever [`Stream`] refuses.
+    #[cfg(feature = "tables")]
+    pub fn tables(&mut self, part: &[u8]) -> Result<Vec<TableEntry>, Error> {
+        self.parts().tables(part)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -5428,11 +5720,235 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::add_table`]: the call's checks, then the
+    /// table and its header cells recorded (`specs/0021-tables.md`, "Names"
+    /// and "The calls").
+    #[cfg(feature = "tables")]
+    fn add_table(&mut self, part: &[u8], area: Area, table: Table<'_>) -> Result<(), Error> {
+        let area = area.normalised();
+        if !in_grid(area.first) || !in_grid(area.last) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let forbidden = |text: &str| text.chars().any(crate::cells::forbidden_in_xml);
+        if forbidden(table.name) || table.columns.iter().any(|column| forbidden(column)) {
+            return Err(TEXT_NOT_XML);
+        }
+        check_table_name(table.name)?;
+        let width = u64::from(area.last.col - area.first.col) + 1;
+        let lengths_ok = table
+            .columns
+            .iter()
+            .all(|column| (1..=255).contains(&column.chars().count()));
+        let distinct = table.columns.iter().enumerate().all(|(at, column)| {
+            !table.columns[..at]
+                .iter()
+                .any(|before| before.eq_ignore_ascii_case(column))
+        });
+        if !lengths_ok || !distinct || table.columns.len() as u64 != width {
+            return Err(TABLE_COLUMN_INVALID);
+        }
+        let style = match table.style {
+            Some(info) => Some((info.style.name().ok_or(TABLE_STYLE_RANGE)?, info)),
+            None => None,
+        };
+        if area.first.row == area.last.row {
+            return Err(TABLE_TOO_SMALL);
+        }
+        for (column, name) in (area.first.col..).zip(table.columns) {
+            let cell = CellRef {
+                row: area.first.row,
+                col: column,
+            };
+            self.set_cell(part, cell, Value::Text((*name).to_string()));
+        }
+        self.edits.table_additions.push((
+            part.to_vec(),
+            NewTable {
+                area,
+                name: table.name.to_string(),
+                columns: table.columns.iter().map(|c| (*c).to_string()).collect(),
+                style,
+            },
+        ));
+        Ok(())
+    }
+
+    /// The body of [`Package::tables`].
+    #[cfg(feature = "tables")]
+    fn tables(&mut self, part: &[u8]) -> Result<Vec<TableEntry>, Error> {
+        let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        let ids = table_part_ids(self.archive.read(index)?, index)?;
+        let mut targets = Vec::new();
+        {
+            let rels = self.relationships(part)?;
+            for id in ids {
+                let rel = rels.by_id(&id).ok_or(TABLE_UNREADABLE)?;
+                targets.push(rels.target_part(rel).map_err(|_| TABLE_UNREADABLE)?);
+            }
+        }
+        let mut entries = Vec::new();
+        for target in targets {
+            let at = self.archive.index_of(&target).ok_or(TABLE_UNREADABLE)?;
+            entries.push(read_table(self.archive.read(at)?, at, target)?);
+        }
+        Ok(entries)
+    }
+
+    /// The targets of `source`'s internal relationships of `kind`, either
+    /// form, in part order; a target outside the package refuses with the
+    /// table read message.
+    #[cfg(feature = "tables")]
+    fn related(&mut self, source: &[u8], kind: [&[u8]; 2]) -> Result<Vec<Vec<u8>>, Error> {
+        let rels = self.relationships(source)?;
+        rels.all()
+            .iter()
+            .filter(|rel| !rel.external && kind.contains(&rel.kind.as_slice()))
+            .map(|rel| rels.target_part(rel).map_err(|_| TABLE_UNREADABLE))
+            .collect()
+    }
+
+    /// Records each table addition's part, `Override` and relationship,
+    /// and keeps its relationship id for the worksheet pass, after the
+    /// write-time checks of `specs/0021-tables.md`, "Names" and "The calls":
+    /// the name against the projected workbook's tables, the workbook
+    /// part's defined names and the earlier additions; the area against the
+    /// part's tables and pivot tables, the earlier additions for the part
+    /// and the merges this write adds. The part's own merges, autofilter and
+    /// header cells are checked by the rewrite.
+    #[cfg(feature = "tables")]
+    fn record_tables(&mut self) -> Result<(), Error> {
+        if self.edits.table_additions.is_empty() {
+            return Ok(());
+        }
+        let removed = self.edits.part_removals.clone();
+        let workbook = self.workbook()?.part.clone();
+        let sheets: Vec<Vec<u8>> = self
+            .workbook()?
+            .sheets
+            .iter()
+            .map(|sheet| sheet.part.clone())
+            .collect();
+        // The projected workbook's tables: every sheet's, less a sheet or
+        // a table part this write removes.
+        let mut kept: Vec<(Vec<u8>, TableRoot)> = Vec::new();
+        for sheet in sheets {
+            if removed.contains(&sheet) || self.archive.index_of(&sheet).is_none() {
+                continue;
+            }
+            for target in self.related(&sheet, TABLE)? {
+                if removed.contains(&target) {
+                    continue;
+                }
+                let index = self.archive.index_of(&target).ok_or(TABLE_UNREADABLE)?;
+                kept.push((sheet.clone(), table_root(self.archive, index)?));
+            }
+        }
+        let defined = match self.archive.index_of(&workbook) {
+            Some(index) => defined_name_values(self.archive.read(index)?, index)?,
+            None => Vec::new(),
+        };
+        // An entry this write removes still counts as taken: an addition
+        // may not reuse a removed entry's name (P1 ruling 6).
+        let mut entries: Vec<String> = self
+            .archive
+            .entries()
+            .iter()
+            .map(|entry| entry.name())
+            .chain(
+                self.edits
+                    .part_additions
+                    .iter()
+                    .map(|(name, _)| name.as_slice()),
+            )
+            .map(|name| String::from_utf8_lossy(name).to_ascii_lowercase())
+            .collect();
+        let additions = self.edits.table_additions.clone();
+        let mut names: Vec<String> = Vec::new();
+        let mut ids: Vec<u64> = kept.iter().filter_map(|(_, root)| root.id).collect();
+        let mut works: Vec<(Vec<u8>, TableWork, bool)> = Vec::new();
+        for (part, table) in additions {
+            let folded = table.name.to_ascii_lowercase();
+            let in_use = kept
+                .iter()
+                .flat_map(|(_, root)| root.names.iter())
+                .chain(defined.iter())
+                .chain(names.iter())
+                .any(|name| name.to_ascii_lowercase() == folded);
+            if in_use {
+                return Err(TABLE_NAME_IN_USE);
+            }
+            names.push(table.name.clone());
+            // The part's tables, pivot tables, earlier additions and the
+            // merges this write adds (decision 4 A).
+            let mut taken: Vec<Area> = Vec::new();
+            for (sheet, root) in &kept {
+                if *sheet == part {
+                    taken.push(root.area.ok_or(TABLE_UNREADABLE)?);
+                }
+            }
+            if self.archive.index_of(&part).is_some() && !removed.contains(&part) {
+                for target in self.related(&part, PIVOT_TABLE)? {
+                    let index = self.archive.index_of(&target).ok_or(TABLE_UNREADABLE)?;
+                    let value = part_ref(self.archive, index, true)?.ok_or(TABLE_UNREADABLE)?;
+                    taken.push(Area::parse(&value).ok_or(TABLE_UNREADABLE)?);
+                }
+            }
+            taken.extend(
+                works
+                    .iter()
+                    .filter(|(at, _, _)| *at == part)
+                    .map(|(_, work, _)| work.area),
+            );
+            taken.extend(
+                self.edits
+                    .merges
+                    .iter()
+                    .filter(|(at, _)| *at == part)
+                    .map(|(_, merge)| *merge),
+            );
+            if taken.iter().any(|area| area.overlaps(&table.area)) {
+                return Err(TABLE_OVERLAP);
+            }
+            // The smallest unused of each; a list of k values leaves one of
+            // 1 to k + 1 unused, so neither count runs past it.
+            let mut n = 1u64;
+            while entries.contains(&format!("xl/tables/table{n}.xml")) {
+                n += 1;
+            }
+            let mut id = 1u64;
+            while ids.contains(&id) {
+                id += 1;
+            }
+            ids.push(id);
+            let entry = format!("xl/tables/table{n}.xml");
+            entries.push(entry.clone());
+            let strict = self.sheet_is_strict(&part)?;
+            self.add_part(
+                entry.as_bytes(),
+                replacement_from_reader(Cursor::new(table_part_bytes(id, &table))),
+            );
+            self.add_override(format!("/{entry}").as_bytes(), TABLE_CONTENT_TYPE);
+            let target = relative_target(&part, entry.as_bytes());
+            let rel_id =
+                self.add_relationship(&part, TABLE[usize::from(strict)], &target, false)?;
+            works.push((
+                part,
+                TableWork {
+                    area: table.area,
+                    rel_id,
+                },
+                strict,
+            ));
+        }
+        self.edits.table_works = works;
+        Ok(())
+    }
+
     /// Whether the workbook's relationship to the worksheet part `part` is
     /// of the strict form: the file's relationship whose target is the part,
     /// or the one this write adds for a sheet it adds; transitional when
     /// there is none.
-    #[cfg(feature = "metadata")]
+    #[cfg(any(feature = "metadata", feature = "tables"))]
     fn sheet_is_strict(&mut self, part: &[u8]) -> Result<bool, Error> {
         let workbook = self.workbook()?.part.clone();
         let added: Vec<Relationship> = self
@@ -5754,6 +6270,8 @@ impl<'a> Parts<'a> {
         self.edits.validations.retain(|(at, _)| at != part);
         #[cfg(feature = "rules")]
         self.edits.rules.retain(|(at, _)| at != part);
+        #[cfg(feature = "tables")]
+        self.edits.table_additions.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -5764,6 +6282,10 @@ impl<'a> Parts<'a> {
         self.record_link_relationships()?;
         #[cfg(feature = "metadata")]
         self.record_core_creation()?;
+        // A table's part, override and relationship are recorded before
+        // validation too (`specs/0021-tables.md`, "The part").
+        #[cfg(feature = "tables")]
+        self.record_tables()?;
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -6498,7 +7020,8 @@ impl<'a> Parts<'a> {
                 && work.merges.is_empty()
                 && work.unmerges.is_empty()
                 && no_links(work)
-                && no_rules(work);
+                && no_rules(work)
+                && no_tables(work);
             if !alone {
                 return Err(SHIFT_ALONE);
             }
@@ -6912,6 +7435,25 @@ const RULE_EXTENDED: Error =
 #[cfg(feature = "rules")]
 const RULE_UNPARSED: Error =
     Error::Package("a conditionalFormatting sqref or a cfRule attribute does not parse");
+#[cfg(feature = "tables")]
+const TABLE_NAME_INVALID: Error = Error::Package("a table name is not valid");
+#[cfg(feature = "tables")]
+const TABLE_COLUMN_INVALID: Error = Error::Package("a table column name is not valid");
+#[cfg(feature = "tables")]
+const TABLE_STYLE_RANGE: Error = Error::Package("a table style number is out of range");
+#[cfg(feature = "tables")]
+const TABLE_TOO_SMALL: Error = Error::Package("a table area is too small");
+#[cfg(feature = "tables")]
+const TABLE_NAME_IN_USE: Error = Error::Package("a table name is already in use");
+#[cfg(feature = "tables")]
+const TABLE_OVERLAP: Error =
+    Error::Package("a table overlaps a table, a pivot table, a merge or the autofilter");
+#[cfg(feature = "tables")]
+const TABLE_HEADER_FORMULA: Error = Error::Package("a table header cell holds a formula");
+#[cfg(feature = "tables")]
+const TWO_TABLE_PARTS: Error = Error::Package("a worksheet has two tableParts elements");
+#[cfg(feature = "tables")]
+const TABLE_UNREADABLE: Error = Error::Package("a table part or its relationship cannot be read");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -9267,6 +9809,8 @@ fn rewrite_worksheet_from(
     let mut rules = ValidationsPass::new(&work.validations);
     #[cfg(feature = "rules")]
     let mut formats = FormatsPass::new(&work.rules);
+    #[cfg(feature = "tables")]
+    let mut tables = TablesPass::new(&work.tables);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -9276,6 +9820,10 @@ fn rewrite_worksheet_from(
                 scope.start(start)?;
                 let (namespace, local) = scope.resolve_element(start.name())?;
                 let ours = is_main(namespace);
+                // The part's merges and autofilter against the tables the
+                // write adds (`specs/0021-tables.md`, decision 4 A).
+                #[cfg(feature = "tables")]
+                tables.observe(token.raw, (local, ours, depth), &work.unmerges, index)?;
                 // Inside a held `<hyperlinks>`: its children are the links
                 // pass's (`specs/0019-names-links-properties-protection.md`).
                 #[cfg(feature = "metadata")]
@@ -9317,6 +9865,17 @@ fn rewrite_worksheet_from(
                     }
                     continue;
                 }
+                // Inside a held `<tableParts>`: its children are the tables
+                // pass's (`specs/0021-tables.md`, "The worksheet").
+                #[cfg(feature = "tables")]
+                if tables.buffer.is_some() {
+                    tables.child(token.raw, (local, ours, depth));
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 if root && depth == 2 && ours {
                     // Creation in schema position, and the refusal of an
                     // element met twice or after it was created (P1 ruling
@@ -9351,6 +9910,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = links.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "tables")]
+                        if let Some(bytes) = tables.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
                     }
@@ -9413,6 +9976,15 @@ fn rewrite_worksheet_from(
                     }
                     continue;
                 }
+                #[cfg(feature = "tables")]
+                if root && depth == 2 && ours && local == TABLE_PARTS && tables.touched {
+                    out.write_all(&tables.open(token.raw, start, depth, empty, index)?)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 if !root {
                     if !ours || local != b"worksheet" {
                         return Err(Error::Package("the worksheet part's root is not worksheet"));
@@ -9425,12 +9997,18 @@ fn rewrite_worksheet_from(
                     let root_raw = links.root_tag(token.raw, start, work.links_strict, index)?;
                     #[cfg(not(feature = "metadata"))]
                     let root_raw = token.raw.to_vec();
+                    // And for a table's `r:id` (`specs/0021-tables.md`, "The
+                    // worksheet").
+                    #[cfg(feature = "tables")]
+                    let root_raw = tables.root_tag(&root_raw, work.tables_strict, index)?;
                     #[cfg(feature = "metadata")]
                     let links_needed = links.needed || matches!(protect.edit, Some(Some(_)));
                     #[cfg(not(feature = "metadata"))]
                     let links_needed = false;
                     #[cfg(feature = "rules")]
                     let links_needed = links_needed || rules.needed || formats.needed;
+                    #[cfg(feature = "tables")]
+                    let links_needed = links_needed || tables.touched;
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
@@ -9460,6 +10038,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = links.create_at_end(&root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "tables")]
+                        if let Some(bytes) = tables.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         out.write_all(b"</")?;
@@ -9584,6 +10166,14 @@ fn rewrite_worksheet_from(
                 } else if let Some((at, ref mut inside)) = cell {
                     // Inside a cell: only its own `<f>` matters.
                     if depth == at + 1 && ours && local == b"f" {
+                        // A table's header cell holding a formula
+                        // (`specs/0021-tables.md`, decision 3 A).
+                        #[cfg(feature = "tables")]
+                        if let InCell::Replace { reference, .. } = inside
+                            && work.table_header(*reference)
+                        {
+                            return Err(TABLE_HEADER_FORMULA);
+                        }
                         let tag = formula_tag(start, &scope, index);
                         match inside {
                             InCell::Copy => {
@@ -9756,6 +10346,13 @@ fn rewrite_worksheet_from(
                     depth -= 1;
                     continue;
                 }
+                #[cfg(feature = "tables")]
+                if let Some(bytes) = tables.held(token.raw, Some(depth), index)? {
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 if let Some(buffer) = cols.as_mut() {
                     if depth == buffer.depth {
                         if let Some(buffer) = cols.take() {
@@ -9860,6 +10457,10 @@ fn rewrite_worksheet_from(
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
+                                #[cfg(feature = "tables")]
+                                if let Some(bytes) = tables.create_at_end(&root_prefix) {
+                                    out.write_all(&bytes)?;
+                                }
                             }
                             out.write_all(token.raw)?;
                         }
@@ -9879,6 +10480,10 @@ fn rewrite_worksheet_from(
                 }
                 #[cfg(feature = "rules")]
                 if rules.held(token.raw, None, index)?.is_some() {
+                    continue;
+                }
+                #[cfg(feature = "tables")]
+                if tables.held(token.raw, None, index)?.is_some() {
                     continue;
                 }
                 if let Some(buffer) = cols.as_mut() {
@@ -10890,6 +11495,588 @@ impl<'w> ValidationsPass<'w> {
             }
         }
         Ok(())
+    }
+}
+
+/// Checks a table name against the rule of `specs/0021-tables.md`,
+/// "Names": 1 to 255 characters; the first a letter, `_` or `\`; the rest
+/// letters, digits, `.` or `_` ("letter" and "digit" by `char::is_alphabetic`
+/// and `char::is_numeric`); not a cell reference on the grid, ignoring case
+/// (P1 rulings 4 and 5); and not `C`, `c`, `R` or `r` alone.
+#[cfg(feature = "tables")]
+fn check_table_name(name: &str) -> Result<(), Error> {
+    let mut chars = name.chars();
+    let first_ok = chars
+        .next()
+        .is_some_and(|first| first.is_alphabetic() || first == '_' || first == '\\');
+    let rest_ok = chars.all(|c| c.is_alphabetic() || c.is_numeric() || matches!(c, '.' | '_'));
+    // A reference past the grid, `TABLE1` among them, is a name Excel
+    // takes, and its own default.
+    let reference = CellRef::parse(name.to_ascii_uppercase().as_bytes()).is_some_and(in_grid);
+    if !first_ok
+        || !rest_ok
+        || name.chars().count() > 255
+        || reference
+        || matches!(name, "C" | "c" | "R" | "r")
+    {
+        return Err(TABLE_NAME_INVALID);
+    }
+    Ok(())
+}
+
+/// The target of a relationship from the part `from` to the entry `to`,
+/// relative to `from`'s directory: `../tables/table1.xml` from
+/// `xl/worksheets/sheet1.xml` (P1 ruling 4).
+#[cfg(feature = "tables")]
+fn relative_target(from: &[u8], to: &[u8]) -> Vec<u8> {
+    let from: Vec<&[u8]> = from.split(|byte| *byte == b'/').collect();
+    let to: Vec<&[u8]> = to.split(|byte| *byte == b'/').collect();
+    let directory = &from[..from.len() - 1];
+    let common = directory
+        .iter()
+        .zip(&to[..to.len() - 1])
+        .take_while(|(a, b)| a == b)
+        .count();
+    let mut out = b"../".repeat(directory.len() - common);
+    out.extend_from_slice(&to[common..].join(b"/".as_slice()));
+    out
+}
+
+/// A table part's bytes (`specs/0021-tables.md`, "The part"): the
+/// declaration on its own line and the root on one, in the default
+/// namespace, with no `xr` attribute.
+#[cfg(feature = "tables")]
+fn table_part_bytes(id: u64, table: &NewTable) -> Vec<u8> {
+    let name = attribute_escaped(&table.name);
+    let reference = table.area.a1();
+    let mut out =
+        b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<table xmlns=\"".to_vec();
+    out.extend_from_slice(MAIN[0]);
+    out.extend_from_slice(format!("\" id=\"{id}\" name=\"").as_bytes());
+    out.extend_from_slice(&name);
+    out.extend_from_slice(b"\" displayName=\"");
+    out.extend_from_slice(&name);
+    out.extend_from_slice(format!("\" ref=\"{reference}\" totalsRowShown=\"0\">").as_bytes());
+    out.extend_from_slice(format!("<autoFilter ref=\"{reference}\"/>").as_bytes());
+    out.extend_from_slice(format!("<tableColumns count=\"{}\">", table.columns.len()).as_bytes());
+    for (id, column) in (1u64..).zip(&table.columns) {
+        out.extend_from_slice(format!("<tableColumn id=\"{id}\" name=\"").as_bytes());
+        out.extend_from_slice(&attribute_escaped(column));
+        out.extend_from_slice(b"\"/>");
+    }
+    out.extend_from_slice(b"</tableColumns>");
+    if let Some((style, info)) = &table.style {
+        let flag = |on: bool| if on { "1" } else { "0" };
+        out.extend_from_slice(
+            format!(
+                "<tableStyleInfo name=\"{style}\" showFirstColumn=\"{}\" \
+                 showLastColumn=\"{}\" showRowStripes=\"{}\" showColumnStripes=\"{}\"/>",
+                flag(info.first_column),
+                flag(info.last_column),
+                flag(info.row_stripes),
+                flag(info.column_stripes),
+            )
+            .as_bytes(),
+        );
+    }
+    out.extend_from_slice(b"</table>");
+    out
+}
+
+/// What the write's checks read of a table part the workbook keeps: its
+/// root's `id` when it is a decimal number, its `name` and `displayName`,
+/// and its `ref` when it parses.
+#[cfg(feature = "tables")]
+struct TableRoot {
+    id: Option<u64>,
+    names: Vec<String>,
+    area: Option<Area>,
+}
+
+/// An attribute's value, normalised as XML reads it.
+#[cfg(feature = "tables")]
+fn normalized_text(
+    attribute: &quick_xml::events::attributes::Attribute<'_>,
+    index: usize,
+) -> Result<String, Error> {
+    Ok(attribute
+        .normalized_value(XmlVersion::Implicit1_0)
+        .map_err(|_| Error::Xml(index))?
+        .into_owned())
+}
+
+/// Reads a table part's root start tag, the part streamed no further
+/// (`specs/0021-tables.md`, "32-bit and streaming").
+#[cfg(feature = "tables")]
+fn table_root(archive: &mut Core, index: usize) -> Result<TableRoot, Error> {
+    let mut stream = Stream::new(archive.read(index)?, index)?;
+    let mut scope = Scope::new(index);
+    let mut root = TableRoot {
+        id: None,
+        names: Vec::new(),
+        area: None,
+    };
+    while let Some(token) = stream.next()? {
+        let (Event::Start(ref start) | Event::Empty(ref start)) = token.event else {
+            continue;
+        };
+        scope.start(start)?;
+        for attribute in start.attributes() {
+            let attribute = attribute.map_err(|_| Error::Xml(index))?;
+            if attribute.key.as_namespace_binding().is_some() {
+                continue;
+            }
+            let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+            if namespace.is_some() {
+                continue;
+            }
+            match local {
+                b"id" => {
+                    root.id = str::from_utf8(attribute.value.as_bytes())
+                        .ok()
+                        .and_then(|text| text.parse().ok());
+                }
+                b"name" | b"displayName" => root.names.push(normalized_text(&attribute, index)?),
+                b"ref" => root.area = Area::parse(attribute.value.as_bytes()),
+                _ => {}
+            }
+        }
+        break;
+    }
+    Ok(root)
+}
+
+/// The `name` of every `<definedName>` of the workbook part's
+/// `<definedNames>`, normalised (P1 ruling 4: this feature's own reader).
+#[cfg(feature = "tables")]
+fn defined_name_values(input: impl Read, index: usize) -> Result<Vec<String>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut inside = false;
+    let mut names = Vec::new();
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 2 {
+                    inside = ours && local == b"definedNames";
+                } else if depth == 3 && inside && ours && local == b"definedName" {
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                        if attribute.key.as_ref().as_bytes() == b"name" {
+                            names.push(normalized_text(&attribute, index)?);
+                        }
+                    }
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(names)
+}
+
+/// The `r:id` of each `<tablePart>` of the worksheet's `<tableParts>`, in
+/// part order; a `tablePart` with none is refused with the read message.
+#[cfg(feature = "tables")]
+fn table_part_ids(input: impl Read, index: usize) -> Result<Vec<Vec<u8>>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut inside = false;
+    let mut ids = Vec::new();
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 2 {
+                    inside = ours && local == TABLE_PARTS;
+                } else if depth == 3 && inside && ours && local == b"tablePart" {
+                    let mut id = None;
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                        if attribute.key.as_namespace_binding().is_some() {
+                            continue;
+                        }
+                        let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                        if name == b"id" && is_relationships_attribute(namespace) {
+                            id = Some(attribute.value.as_bytes().to_vec());
+                        }
+                    }
+                    ids.push(id.ok_or(TABLE_UNREADABLE)?);
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(ids)
+}
+
+/// Whether a table attribute's value is on: `1` or `true`.
+#[cfg(feature = "tables")]
+fn table_flag(value: &[u8]) -> bool {
+    value == b"1" || value == b"true"
+}
+
+/// Reads one table part into its entry (`specs/0021-tables.md`, "The
+/// calls"), streamed to the end of its `<tableStyleInfo>` or of its root.
+#[cfg(feature = "tables")]
+fn read_table(input: impl Read, index: usize, part: Vec<u8>) -> Result<TableEntry, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let (mut id, mut name, mut display_name, mut area) = (false, None, None, None);
+    let (mut header_row, mut totals_row, mut calculated) = (true, false, false);
+    let mut columns = Vec::new();
+    let mut style = None;
+    let mut in_columns = false;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                let mut attributes: Vec<(Vec<u8>, Vec<u8>, String)> = Vec::new();
+                for attribute in start.attributes() {
+                    let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                    if attribute.key.as_namespace_binding().is_some() {
+                        continue;
+                    }
+                    let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+                    if namespace.is_none() && matches!(depth, 1..=3) {
+                        let text = normalized_text(&attribute, index)?;
+                        attributes.push((
+                            local.to_vec(),
+                            attribute.value.as_bytes().to_vec(),
+                            text,
+                        ));
+                    }
+                }
+                let value = |name: &[u8]| attributes.iter().find(|(key, _, _)| key == name);
+                if depth == 1 {
+                    id = value(b"id").is_some();
+                    name = value(b"name").map(|(_, _, text)| text.clone());
+                    display_name = value(b"displayName").map(|(_, _, text)| text.clone());
+                    area = value(b"ref").and_then(|(_, raw, _)| Area::parse(raw));
+                    header_row = value(b"headerRowCount").is_none_or(|(_, raw, _)| raw != b"0");
+                    totals_row = value(b"totalsRowCount").is_some_and(|(_, raw, _)| raw != b"0");
+                } else if depth == 2 && ours {
+                    in_columns = local == b"tableColumns";
+                    if local == b"tableStyleInfo" {
+                        let on = |key: &[u8]| value(key).is_some_and(|(_, raw, _)| table_flag(raw));
+                        style = Some((
+                            value(b"name")
+                                .map(|(_, _, text)| text.clone())
+                                .unwrap_or_default(),
+                            on(b"showFirstColumn"),
+                            on(b"showLastColumn"),
+                            on(b"showRowStripes"),
+                            on(b"showColumnStripes"),
+                        ));
+                        break;
+                    }
+                } else if depth == 3 && in_columns && ours && local == b"tableColumn" {
+                    columns.push(
+                        value(b"name")
+                            .map(|(_, _, text)| text.clone())
+                            .unwrap_or_default(),
+                    );
+                } else if depth == 4 && in_columns && ours && local == b"calculatedColumnFormula" {
+                    calculated = true;
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    match (id, name, display_name, area) {
+        (true, Some(name), Some(display_name), Some(area)) => Ok(TableEntry {
+            name,
+            display_name,
+            area,
+            columns,
+            style,
+            header_row,
+            totals_row,
+            calculated,
+            part,
+        }),
+        _ => Err(TABLE_UNREADABLE),
+    }
+}
+
+/// The `<tableParts>` of a worksheet name, its place in
+/// [`WORKSHEET_CHILDREN`].
+#[cfg(feature = "tables")]
+const TABLE_PARTS: &[u8] = b"tableParts";
+
+/// The tables' part of a worksheet rewrite (`specs/0021-tables.md`, "The
+/// worksheet"): the part's merges and autofilter checked against the
+/// additions, the `<tableParts>` held while it is read, bounded by that one
+/// element, the additions appended with `count` set, and the prefix `r:id`
+/// takes. The Cargo feature `tables`.
+#[cfg(feature = "tables")]
+struct TablesPass<'w> {
+    tables: &'w [TableWork],
+    /// Whether the write adds a table to the part, and has met or created a
+    /// `<tableParts>`.
+    touched: bool,
+    met: bool,
+    /// The prefix the root binds to the relationships namespace, or the one
+    /// its retag binds; empty until the root is read.
+    rels_prefix: Vec<u8>,
+    buffer: Option<TablePartsBuffer>,
+    /// Whether the root child last opened is a `<mergeCells>`.
+    in_merges: bool,
+}
+
+/// A `<tableParts>` being read: its start tag, its prefix and the bytes of
+/// the children it keeps, with how many `<tablePart>` elements those are.
+#[cfg(feature = "tables")]
+struct TablePartsBuffer {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    content: Vec<u8>,
+    kept: u64,
+}
+
+#[cfg(feature = "tables")]
+impl<'w> TablesPass<'w> {
+    fn new(tables: &'w [TableWork]) -> Self {
+        TablesPass {
+            tables,
+            touched: !tables.is_empty(),
+            met: false,
+            rels_prefix: Vec::new(),
+            buffer: None,
+            in_merges: false,
+        }
+    }
+
+    /// Checks a root child or a merge against the additions: a
+    /// `<mergeCell>` the part keeps (one this write does not unmerge) or the
+    /// root's `<autoFilter>` overlapping one, or whose `ref` does not parse,
+    /// is refused (decision 4 A).
+    fn observe(
+        &mut self,
+        raw: &[u8],
+        (local, ours, depth): (&[u8], bool, usize),
+        unmerges: &[Area],
+        index: usize,
+    ) -> Result<(), Error> {
+        if !self.touched {
+            return Ok(());
+        }
+        let merge = depth == 3 && self.in_merges && ours && local == b"mergeCell";
+        if depth == 2 {
+            self.in_merges = ours && local == b"mergeCells";
+        }
+        if merge || (depth == 2 && ours && local == b"autoFilter") {
+            let area = attribute_value(raw, b"ref", index)?
+                .and_then(Area::parse)
+                .ok_or(TABLE_OVERLAP)?;
+            if merge && unmerges.contains(&area) {
+                return Ok(());
+            }
+            if self.tables.iter().any(|table| table.area.overlaps(&area)) {
+                return Err(TABLE_OVERLAP);
+            }
+        }
+        Ok(())
+    }
+
+    /// The root's start tag as the rewrite writes it: as it is, or, when a
+    /// table is added and the root binds no prefix to the relationships
+    /// namespace, with one bound (`r`, or the first of `r1`, `r2` and so on
+    /// that the tag does not declare), in the worksheet's own form (P1
+    /// ruling 3), as part 4a's links do.
+    fn root_tag(&mut self, raw: &[u8], strict: bool, index: usize) -> Result<Vec<u8>, Error> {
+        if !self.touched {
+            return Ok(raw.to_vec());
+        }
+        let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+        for attribute in &tag.attributes {
+            if let Some(prefix) = raw[attribute.name.clone()].strip_prefix(b"xmlns:")
+                && RELATIONSHIPS_ATTRIBUTE.contains(&&raw[attribute.value.clone()])
+            {
+                self.rels_prefix = prefix.to_vec();
+                return Ok(raw.to_vec());
+            }
+        }
+        let mut n = 0u32;
+        let prefix = loop {
+            let candidate = if n == 0 {
+                b"r".to_vec()
+            } else {
+                format!("r{n}").into_bytes()
+            };
+            let declaration = [b"xmlns:".as_slice(), &candidate].concat();
+            if attribute_value(raw, &declaration, index)?.is_none() {
+                break candidate;
+            }
+            n = n.checked_add(1).ok_or(Error::Xml(index))?;
+        };
+        let namespace = RELATIONSHIPS_ATTRIBUTE[usize::from(strict)];
+        let tag = with_attribute(
+            raw,
+            &[b"xmlns:".as_slice(), &prefix].concat(),
+            namespace,
+            index,
+        )?;
+        self.rels_prefix = prefix;
+        Ok(tag)
+    }
+
+    /// The additions as `<tablePart>` elements, back to back, with
+    /// `prefix`.
+    fn elements(&self, prefix: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for table in self.tables {
+            out.extend_from_slice(&[b"<".as_slice(), prefix, b"tablePart "].concat());
+            out.extend_from_slice(&self.rels_prefix);
+            out.extend_from_slice(b":id=\"");
+            out.extend_from_slice(&table.rel_id);
+            out.extend_from_slice(b"\"/>");
+        }
+        out
+    }
+
+    /// The `<tableParts>` the write creates, when it needs one the part lacks
+    /// and a root child at `position` comes after it in schema order.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        let at = schema_position(TABLE_PARTS).unwrap_or(0);
+        if at < position {
+            return self.create_at_end(prefix);
+        }
+        None
+    }
+
+    /// The `<tableParts>` the write creates at the root's end, when it needs
+    /// one the part still lacks.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        if !self.touched || self.met {
+            return None;
+        }
+        self.met = true;
+        let mut out = [b"<".as_slice(), prefix, b"tableParts count=\""].concat();
+        out.extend_from_slice(self.tables.len().to_string().as_bytes());
+        out.extend_from_slice(b"\">");
+        out.extend_from_slice(&self.elements(prefix));
+        out.extend_from_slice(&[b"</".as_slice(), prefix, b"tableParts>"].concat());
+        Some(out)
+    }
+
+    /// A `<tableParts>` start tag the part has: the second is refused; an
+    /// empty one is written at once; any other is held. Returns the bytes to
+    /// write now.
+    fn open(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        depth: usize,
+        empty: bool,
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if self.met {
+            return Err(TWO_TABLE_PARTS);
+        }
+        self.met = true;
+        let buffer = TablePartsBuffer {
+            depth,
+            start: raw.to_vec(),
+            empty,
+            name: start.name().into_inner().as_bytes().to_vec(),
+            prefix: prefix_of(start),
+            content: Vec::new(),
+            kept: 0,
+        };
+        if empty {
+            return self.close(buffer, index);
+        }
+        self.buffer = Some(buffer);
+        Ok(Vec::new())
+    }
+
+    /// A start or empty tag inside the held `<tableParts>`: held, a
+    /// `<tablePart>` counted.
+    fn child(&mut self, raw: &[u8], (local, ours, depth): (&[u8], bool, usize)) {
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.kept += u64::from(depth == buffer.depth + 1 && ours && local == b"tablePart");
+            buffer.content.extend_from_slice(raw);
+        }
+    }
+
+    /// An end tag or any other token inside the held `<tableParts>`; at the
+    /// container's own end tag, the bytes it is written as.
+    fn held(
+        &mut self,
+        raw: &[u8],
+        end_depth: Option<usize>,
+        index: usize,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let Some(depth) = self.buffer.as_ref().map(|buffer| buffer.depth) else {
+            return Ok(None);
+        };
+        if end_depth == Some(depth) {
+            return match self.buffer.take() {
+                Some(buffer) => Ok(Some(self.close(buffer, index)?)),
+                None => Ok(None),
+            };
+        }
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.content.extend_from_slice(raw);
+        }
+        Ok(Some(Vec::new()))
+    }
+
+    /// The held container written: its start tag with `count` set to the
+    /// kept children and the additions (opened up when it was empty), the
+    /// kept children, the additions and its end tag.
+    fn close(&self, buffer: TablePartsBuffer, index: usize) -> Result<Vec<u8>, Error> {
+        let count = buffer.kept + self.tables.len() as u64;
+        let start = with_attribute(&buffer.start, b"count", count.to_string().as_bytes(), index)?;
+        let mut out = if buffer.empty {
+            opened_up(&start, index)?
+        } else {
+            start
+        };
+        out.extend_from_slice(&buffer.content);
+        out.extend_from_slice(&self.elements(&buffer.prefix));
+        out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
+        Ok(out)
     }
 }
 
@@ -12237,7 +13424,7 @@ fn shifted_formula(
 
 /// The `ref` a table part's root carries, or a pivot table part's first
 /// `<location>`, read by a pass over the part's tokens.
-#[cfg(feature = "rowcol")]
+#[cfg(any(feature = "rowcol", feature = "tables"))]
 fn part_ref(archive: &mut Core, index: usize, location: bool) -> Result<Option<Vec<u8>>, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);

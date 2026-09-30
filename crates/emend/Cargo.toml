@@ -38,3 +38,6 @@ metadata = []
 # and its conditional formats in later phases (decision 1 A): off by default,
 # with no dependency of its own, measured beside the core as `metadata` is.
 rules = []
+# The tables of specs/0021-tables.md (decision 2 A): off by default, with no
+# dependency of its own, measured beside the core as `rules` is.
+tables = []

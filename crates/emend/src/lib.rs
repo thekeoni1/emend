@@ -57,6 +57,8 @@ pub use package::{
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
 };
+#[cfg(feature = "tables")]
+pub use package::{Table, TableEntry, TableStyle, TableStyleInfo};
 pub use styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,
     Protection, Scheme, Side, Style, Styles, Underline, Vertical, VerticalAlign, Xf,

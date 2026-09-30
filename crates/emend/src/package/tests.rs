@@ -7349,6 +7349,8 @@ mod protection;
 mod rowcol;
 #[cfg(feature = "rowcol")]
 mod shift;
+#[cfg(feature = "tables")]
+mod tables;
 #[cfg(feature = "rules")]
 mod validation;
 #[cfg(feature = "rules")]
