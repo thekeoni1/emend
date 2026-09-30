@@ -525,7 +525,8 @@ and `rowcol` are, with the Milestone 2 ceiling untouched by design:
 4a names, links, properties and protection (`specs/0019`); 4b data
 validation and conditional formatting; 4c tables; 4d comments and
 images. The order is the maintainer's to change; 4b is scoped
-(`specs/0020`, 2026-09-29); 4c and 4d when their turn comes. The Excel check for parts 1 to 3 was
+(`specs/0020`, 2026-09-29) and 4c (`specs/0021`, 2026-09-30); 4d
+when its turn comes. The Excel check for parts 1 to 3 was
 deferred by the maintainer on 2026-09-27 to before part 4a's
 close-out push at the latest (`specs/0019` decision 6).
 
@@ -579,7 +580,33 @@ close-out push with this part's three samples.
 | P2 | `add_differential_style` through the styles rewrite; `Rule`'s six dxf kinds, `add_conditional_format`, `remove_conditional_format`, `conditional_formats`, the priority rule; `--cf-sample` | DONE 2026-09-29 (doc 609eb7f, carry 5ad72b5, crate fa3ad04 + 08729d3, tool 20d7d93, record 0999a35; 27/27 both targets, 0 refused; core growth 0; planning verified from primaries, `specs/0020` P2 verification rulings 1 to 9) |
 | P3 | the visual rules: colour scales, data bars, icon sets; `--scale-sample` | DONE 2026-09-30 (doc b88f686, carry 03bbe82, crate 1265000 + 631c719, tool c2fe42b, record dd1a415; 27/27 both targets, 0 refused; core growth 0; P3 rulings 1 to 4 mid-phase, ruling 2 a new phase commit with every log run again; planning verified from primaries, `specs/0020` P3 verification rulings 1 to 6) |
 | P4 | the catalogue and limits; `probe-emend-rules-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all three samples again with the release binaries | DONE 2026-09-30 (doc 2679b59, carry 51c32da, catalogue 3e48f99, probe 5854e34, record 2f7933b; feature `rules` 48116 section bytes, core growth 0, budget 435224 against 458752, 23528 under, unchanged from 4a; negative log 5 of 15 reached, 10 at-call stated unreachable; all three samples 27/27 both targets byte-identical to the phase runs; planning verified from primaries, its own probe builds reproducing every figure and its own three runs; `specs/0020` P4 verification rulings 1 to 9; `records/size-m2p4b-2026-09-30-5854e34.md`) |
-| Close | close-out push after P4, carrying 335da53 and this part's commits; the Excel check for parts 1 to 4a and this part's three samples run or deferred again before it | planning's word given 2026-09-30 (`specs/0020` P4 verification ruling 9); awaiting the maintainer's recorded decision on the Excel check and typed authorisation in the implementing session |
+| Close | close-out push after P4, carrying 335da53 and this part's commits; the Excel check for parts 1 to 4a and this part's three samples run or deferred again before it | DONE 2026-09-30 (pushed b9bf28c..116def3, 25 commits, 852 blobs, 0 findings; CI run 36711711649 success; doc commits 4a2aadb and 116def3 pushed, the second holding decision 6's record after the push script's pre mode rightly refused a modified tree, `specs/0020` P4 verification rulings 10 and 11; record c143473 local, goes with the next push; the Excel check deferred again by the maintainer, decision 6, now due before the next part's close-out with this part's three samples on its list; verified by planning from git, `gh` and its own blob scan; `specs/0020` "Planning verification and rulings on the close-out"; next part's headroom 23528 section bytes) |
+
+### Part 4c: tables (`specs/0021-tables.md`)
+
+Approved by the maintainer 2026-09-30 and sent to implementation,
+decisions 1 to 5 as planning recommended: 4c before 4d; one feature
+`tables` and one probe; the add call writes the column names on the
+header row and refuses a header cell holding a formula; an added
+table refused where it overlaps a table, a pivot table, a merge or
+the autofilter; no totals row or calculated column, built-in styles
+only. `Table`, `TableStyle`, `TableStyleInfo`, `TableEntry`;
+`add_table`, `remove_table`, `tables`; the table part created with
+its override and relationship, the `<tableParts>` pass, the chain
+dropped on removal. Behind a feature, outside the budget; estimate
+30000 to 45000 section bytes with parts 4a's and 4b's ratios in
+view; the core's growth expected near 0. Carries from part 4b: the
+three catalogue phrases in P1's first code commit, the size log's
+cause control, the run log's record-commit naming, the Excel check
+(parts 1 to 4b, deferred again 2026-09-30) before the close-out
+push with this part's sample.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature `tables`; the types, `tables`, `add_table` with the name, column and style rules, the header cells, the part writer and the allocation, the override and relationship, the `<tableParts>` pass with the overlap check; `--table-sample` | PLANNED |
+| P2 | `remove_table` with its four removals; `--table-sample`'s in-memory removal | PLANNED (after P1) |
+| P3 | the catalogue and limits; `probe-emend-tables-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; the sample again with the release binaries | PLANNED (after P2) |
+| Close | close-out push after P3, carrying c143473 and this part's commits; the Excel check for parts 1 to 4b and this part's sample run or deferred again before it | PLANNED (after P3) |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values

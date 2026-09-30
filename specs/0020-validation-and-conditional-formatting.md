@@ -1412,6 +1412,82 @@ ones unreachable with a reason each; `ANTHROPIC_API_KEY` is unset.
     by the record commit; attempt 2's pre mode runs on the new
     doc commit with a clean tree.
 
+## Planning verification and rulings on the close-out (2026-09-30)
+
+1. Verified by planning from git and `gh`: origin/main is
+   116def361125cbbda88c3d80154a3a332dea8744, the second close-out
+   doc commit, which holds exactly this file at 9d78a818..., the
+   hash planning sent; 4a2aadb before it holds this file at
+   c1517265... and `ROADMAP.md` at 42305378...; the pushed range
+   b9bf28c..116def3 holds 25 commits, part 4a's record commit
+   335da53 among them once, 4a2aadb and 116def3 at the tip; 26 of
+   26 messages from b9bf28c to the record commit end with the
+   Co-Authored-By line only, no session link, ASCII throughout,
+   one author identity; CI run 36711711649 on 116def3, event push,
+   completed with conclusion success and no step other than
+   success or skipped, the privacy step skipped as CI mode
+   requires; planning's own `scripts/privacy.sh --range
+   b9bf28c..c143473`, 26 commits, 852 blobs, 0 findings, and its
+   own count of the maintainer's address over every blob in the
+   pushed range, 0; `ANTHROPIC_API_KEY` unset in planning's shell;
+   the working tree clean at c143473.
+2. The three logs at the reported hashes. `push.log` (90a0a507):
+   pre mode (attempt 2, on 116def3) over the base found by its
+   subject, 25 commits, the hook byte-equal to the installer's
+   heredoc, "pre checks all as expected: yes"; push mode with the
+   maintainer's authorisation printed verbatim from the labelled
+   inputs ("i authorize push", 2026-09-30), the hook's 25 commits
+   with 0 findings, ls-remote at 116def3, still PRIVATE, "push
+   checks all as expected: yes". `ci-run.log` (57135088): the run
+   polled to completion, head, branch, event and conclusion as
+   expected, 0 steps other than success or skipped, "checks all as
+   expected: yes". `scan.log` (28a60f5c) post stage over
+   b9bf28c..116def3 with push.log and ci-run.log as its siblings,
+   this file scanned at 9d78a818, 0 hits, 0 structural failures,
+   RESULT: PASS; no check line reads "no" in any of the three.
+   Each log counts its own stderr at 0 bytes. No log names the
+   home directory.
+3. The superseded set: attempt 1 of pre mode on 4a2aadb, held on
+   its two clean-tree checks (ruling 11), push.log 9b4c57bb, kept
+   outside the repository and named by the record commit; attempt
+   2's pre log (1eba828f) is the one push.log carries. Accepted.
+4. The scan script's tip pattern names 116def3's subject, and its
+   header change 7 cites ruling 11. Ruling: right and required.
+   The carried script resolves the range tip from git by subject,
+   so a close-out whose tip is a second doc commit names that
+   commit's subject; the record commit's message says so. No
+   further change.
+5. `push.log` holds no line "deferred again 2026-09-30,
+   specs/0020 P4 verification ruling 10". Ruling: planning's
+   instruction put the deferral's record in the wrong place. A
+   push.log is the script's output and no log is hand-edited; the
+   carried push script has no step that prints a maintainer's
+   decision, and part 4a's push.log has none. The deferral's
+   record is this spec at 116def3, in the pushed range, and the
+   record commit's message names it. The log stands; the
+   requirement is withdrawn, not carried to a script step. The
+   independent check's disagreement with the draft (a missing
+   required line, not a deviation) was the right reading and the
+   report took it.
+6. The push script's header cites rulings 9 and 10 and not 11:
+   the script was written before ruling 11 and its checks are
+   what ruling 11 kept unchanged. Recorded, no change.
+7. The record commit c143473, parent 116def3, exactly the three
+   logs, trailer correct, local: it goes with the next push, as
+   335da53 went with this one. Accepted.
+8. Carried into the next part's spec: P4 verification rulings 2
+   (the size log's code-verdict control, the manifest cause
+   apart), 4 (the run log names phase directories by record
+   commit) and 6 (three catalogue phrases in the first code
+   commit); decision 6's new deadline (ruling 10: the Excel check
+   for parts 1 to 4a's samples and this part's three, before the
+   next part's close-out push at the latest); change 8 of the push
+   script, which every later close-out keeps. Milestone 2's
+   headroom for the next part is 23528 section bytes against
+   458752, judged on `probe-emend-format-write-xml` with `rowcol`,
+   `dates`, `metadata` and `rules` off.
+9. The close-out is DONE and Milestone 2 part 4b is DONE.
+
 ## Out of scope
 
 - The rule kinds this part does not write: `containsText`,
