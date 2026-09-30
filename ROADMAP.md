@@ -577,7 +577,7 @@ close-out push with this part's three samples.
 | --- | --- | --- |
 | P1 | the feature `rules`; `Validation`, `add_validation`, `remove_validation`, `validations`; the container pass with the overlap check; `--validate-sample` | DONE 2026-09-29 (doc 715177a, carry 8b82262, crate 2ed9070, tool e79739a, record 157c11c; 27/27 both targets, 0 refused; core growth 0; planning verified from primaries, `specs/0020` P1 verification rulings 1 to 9) |
 | P2 | `add_differential_style` through the styles rewrite; `Rule`'s six dxf kinds, `add_conditional_format`, `remove_conditional_format`, `conditional_formats`, the priority rule; `--cf-sample` | DONE 2026-09-29 (doc 609eb7f, carry 5ad72b5, crate fa3ad04 + 08729d3, tool 20d7d93, record 0999a35; 27/27 both targets, 0 refused; core growth 0; planning verified from primaries, `specs/0020` P2 verification rulings 1 to 9) |
-| P3 | the visual rules: colour scales, data bars, icon sets; `--scale-sample` | planned |
+| P3 | the visual rules: colour scales, data bars, icon sets; `--scale-sample` | DONE 2026-09-30 (doc b88f686, carry 03bbe82, crate 1265000 + 631c719, tool c2fe42b, record dd1a415; 27/27 both targets, 0 refused; core growth 0; P3 rulings 1 to 4 mid-phase, ruling 2 a new phase commit with every log run again; planning verified from primaries, `specs/0020` P3 verification rulings 1 to 6) |
 | P4 | the catalogue and limits; `probe-emend-rules-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; all three samples again with the release binaries | planned |
 | Close | close-out push after P4, carrying 335da53 and this part's commits; the Excel check for parts 1 to 4a run or deferred again before it | planned |
 

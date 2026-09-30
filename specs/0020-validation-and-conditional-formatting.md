@@ -361,8 +361,11 @@ openpyxl's `PatternFill(bgColor=..)` does for a rule.
 `CfvoKind`: `Min`, `Max`, `Num(f64)`, `Percent(f64)`, `Percentile(
 f64)`, `Formula(&'a str)` (18.18.13; `Min` and `Max` only as the
 first and last of a scale or a bar, `Percent` and `Percentile` 0 to
-100, a finite number, a non-empty formula, else "a colour scale,
-data bar or icon set value is not valid" at the call). The first
+100, a finite number, a non-empty formula, a `Color` whose theme
+`tint` is finite and within -1 to 1, else "a colour scale, data
+bar or icon set value is not valid" at the call; a formula with a
+leading `=` or a character XML cannot carry meets part 4's two
+messages as every formula does, P3 rulings 2 and 3). The first
 six rule kinds are the dxf rules; the last three are the visual
 rules. Derived `Clone`, `Copy`, `Debug`, `PartialEq` throughout.
 
@@ -493,7 +496,8 @@ is out of range" for `priority` 0 and a `rank` outside 1 to 1000,
 part 3's one-shift message, part 4's "a text holds a character XML
 cannot carry" at every formula's and message's call and its "a
 formula text starts with an equals sign" at every formula's (P1
-ruling 4), part 2's unbound-prefix refusal wherever an element
+ruling 4; a `CfvoKind::Formula` included, P3 ruling 2), part 2's
+unbound-prefix refusal wherever an element
 this part reads carries one, the styles rewrite's refusals of a
 part without its collections, and `Error::Xml` for a value that is
 not UTF-8. A `Validation` or `Rule` field named for a count
@@ -773,7 +777,8 @@ against literal bytes, with every `CfvoKind` and every `Color`
 form once, `showValue`, `reverse`, a three-, four- and five-icon
 set; the value refusals one by one (`Min` as a `max`, a percent of
 101, an infinite number, an empty formula, four thresholds for a
-three-icon set, a set of the wrong name); a visual rule with a
+three-icon set, five for a four-icon set; `IconSetKind` is typed,
+so no set has a wrong name, P3 ruling 1); a visual rule with a
 style refused; the read-back listing the three kinds with no
 formulas and no style; the tool's line. The negative log through
 the binary: none of this phase's refusals is reachable through the
@@ -788,7 +793,8 @@ The run log: `--scale-sample` on both targets, the checks as
 ### P4: the catalogue and limits, the probe, the size record
 
 The doc commit (the P3 rulings and verification); then the first
-code commit with the items P3's rulings carry, if any; then the
+code commit with the carry of P3 verification ruling 2 (the colour
+elements' prefix as bytes, the prefixed-root test); then the
 catalogue and the limits in the `package` module header (the
 caller's picture: what a validation and a conditional format do
 and do not touch, a formula is text, the priority rule, the
@@ -1156,6 +1162,116 @@ printed; `ANTHROPIC_API_KEY` is unset in planning's shell.
    sends for this spec and `ROADMAP.md`; P3's doc commit carries
    both unedited, and the carry of ruling 6 is P3's first code
    commit.
+
+## Planning rulings during P3 (2026-09-29)
+
+Given with P3's doc commit b88f686 in place (this spec at
+c98838a0) and no P3 code commit yet; P3's logs pin c98838a0, and
+this section is committed with P4's doc commit.
+
+1. The P3 test list's "a set of the wrong name" is read as the
+   implementing session read it: `IconSetKind` is typed and
+   carries no unknown name, so the item is the threshold count
+   mismatching the set the other way round, five thresholds for a
+   four-icon set, beside the four-for-three item. The list is
+   corrected so.
+
+Given at check 1 of P3, with the code commits 03bbe82, 1265000 and
+c2fe42b in place and the phase held before check 2 and the record:
+
+2. A `CfvoKind::Formula` is a formula under "Areas and formulas"
+   and the reused list: a leading `=` meets part 4's "a formula
+   text starts with an equals sign" and a character XML cannot
+   carry meets part 4's "a text holds a character XML cannot
+   carry", at the call, as every other formula here does; the
+   value message is the empty formula's alone, as the `CfvoKind`
+   bullet gives it. The crate mapped both to the value message;
+   one new code commit corrects it, the "=A1" test asserts part
+   4's message and a forbidden-character case is asserted beside
+   it, and gate, test, negative and run are run again on the new
+   phase commit, the run log naming the commit it runs. The
+   `CfvoKind` bullet is corrected below.
+3. A visual colour's theme `tint` that is not finite or lies
+   outside -1 to 1 is refused at the call with the value message,
+   not part 2's "a style field is out of range": the spec named
+   no tint rule for a visual colour, the colour is the value
+   point's, and the crate's reading is kept. The value rule gains
+   the tint; no code change.
+4. The stated readings stand: a scale's middle point may be
+   neither `Min` nor `Max`, and no icon-set threshold may be
+   either, as "only as the first and last of a scale or a bar"
+   says.
+
+## Planning verification and rulings on P3 (2026-09-30)
+
+Verified from primaries with the record commit dd1a415 in place
+(the phase commit 631c719, its parent c2fe42b the tool, 1265000
+the visual rules, 03bbe82 the P2 carry, b88f686 the doc commit
+with this spec at c98838a0 and `ROADMAP.md` at 4c6bc56e, both
+unedited through dd1a415; every message ASCII, the Co-Authored-By
+trailer alone). Planning's own build of 631c719 in a detached
+worktree: the crate's tests 512 with the feature off, 546 with
+`rules`, 595 with `metadata,rules`, 646 with every feature, on
+the host and on i686, 0 failed; the workspace 807 passed, 0
+failed, 2 ignored, both targets; clippy in five configurations
+and rustdoc in three, 0 lines; the core probe
+`probe-emend-format-write-xml` at 968440 section bytes on i686 in
+the size profile, unchanged since 3e67745, so the core's growth
+through P3 is 0. Planning's own `--scale-sample` run over the 27
+corpus workbooks with its own release binaries on both targets:
+every output and every printed line byte-identical to the run
+directory's, 0 refused, the host and i686 outputs identical to
+each other, the totals as run.log prints them. Planning's own
+privacy scan of 0999a35..dd1a415: 6 commits, 800 blobs, 0
+findings. The seven logs and the four records hash as the report
+says; gate, test, negative and run pin c98838a0 and print the
+working copy as not the pin; each log run again at 631c719 names
+the log it supersedes by hash; the record commit holds records
+alone; `ANTHROPIC_API_KEY` is unset. The diffs read in full: the
+carry commit is one test; the visual rules commit adds the three
+kinds, `Cfvo`, `CfvoKind`, `IconSetKind`, the value rule, the
+feature-gated colour writer, and swaps the order of two `pub use`
+blocks in `lib.rs` (gate.log shows the public list unchanged with
+the feature off); the tool commit adds the sample and two tests;
+631c719 does ruling 2 alone.
+
+1. The response to P3 ruling 2 is as the rule reads: a new phase
+   commit, every log run again on it, the earlier set kept and
+   named by hash. Nothing was run again until it passed. Check
+   2's finding that the scan pre-check's predecessor is named at
+   one path while the other logs keep theirs under another is
+   recorded: both files exist at the same hash, no change.
+2. Carried to P4's first code commit: the visual child's colour
+   elements take the root's prefix as bytes, as its other elements
+   do, spliced onto the unprefixed element the styles writer
+   composes, so no UTF-8 conversion of the prefix remains (a
+   prefix that is not UTF-8 is dropped there today, on a part no
+   well-formed name produces; check 1's finding); with it a test
+   that a prefixed root writes a visual rule's child, its `cfvo`
+   and its `color` elements with the prefix, "The write"'s "every
+   element taking the root's prefix", which no P3 test covers.
+3. Check 1's other open items and check 2's are recorded and not
+   required: `Theme` without a tint, a middle `Min`, a `Max`
+   threshold, the data bar's point placement and the tool's
+   past-the-grid path untested (the value rule's tests cover each
+   refusal once, as the list asks); the set names checked by
+   `contains`; five value cases in one test whose failure prints
+   the pair alone; the unplanted value cases; the tint refused at
+   1.5 alone (NaN and the infinities fail the same range test);
+   negative.log printing C3's two checks twice, once per control;
+   run.log's `cf_place` check assuming no whitespace before the
+   next child (a false no at worst, never a false yes); the
+   implied flags as controls (P2 verification ruling 1).
+4. Part 4's two formula messages' catalogue entries cite no visual
+   test; P4's catalogue commit, which rewrites the header, adds
+   the citation.
+5. Report wording stands as the report has it. The record pairs
+   are dated 2026-09-30, the UTC date at the run.
+6. P3 is DONE. P4 is released with the doc-commit hashes planning
+   sends for this spec and `ROADMAP.md`; P4's doc commit carries
+   both unedited; the carry of ruling 2 is P4's first code commit,
+   before the catalogue; P4's `--cf-sample` rerun carries P2
+   verification ruling 1's flag fix.
 
 ## Out of scope
 
