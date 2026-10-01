@@ -1128,6 +1128,40 @@ fn the_last_comment_beside_a_control_drops_the_comments_part_and_keeps_the_vml_p
     );
 }
 
+/// A plain VML shape, with no `ClientData` and so no `ObjectType`.
+const PLAIN: &str = "<v:shape id=\"_x0000_s1025\" style='position:absolute'><v:fill \
+                     color2=\"#ffffff\"/></v:shape>";
+
+#[test]
+fn the_last_comment_beside_a_shape_with_no_client_data_keeps_the_vml_part_and_the_legacy_drawing() {
+    // specs/0022 "Planning verification and rulings on P2" ruling 1 (3): a
+    // shape with no ClientData is a drawing object, kept like a control.
+    let parts = one_comment(PLAIN);
+    let output = edited_output(parts.clone(), |p| remove(p, "E5"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/comments1.xml".as_slice(),
+            b"xl/drawings/vmlDrawing1.vml".as_slice(),
+            SHEET_RELS,
+            b"[Content_Types].xml".as_slice(),
+        ],
+    );
+    assert_eq!(
+        text_of(&output, b"xl/drawings/vmlDrawing1.vml"),
+        excel_vml("1", PLAIN)
+    );
+    assert_eq!(
+        text_of(&output, SHEET_RELS),
+        rels(&vml_rel("rId2", "../drawings/vmlDrawing1.vml"))
+    );
+    assert!(
+        text_of(&output, SHEET).contains("<legacyDrawing r:id=\"rId2\"/>"),
+        "the worksheet keeps its legacyDrawing"
+    );
+}
+
 #[test]
 fn the_last_comment_with_notes_alone_drops_both_parts_and_the_legacy_drawing() {
     let parts = one_comment("");

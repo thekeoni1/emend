@@ -3452,8 +3452,9 @@ impl Recorded {
         let named = named
             .chain(self.table_additions.iter().map(|(part, _)| part))
             .chain(self.table_removals.iter().map(|(part, _)| part));
-        // A comment rewrites the worksheet only when its `<legacyDrawing>`
-        // is created (`specs/0022-comments-and-images.md`, "Harness runs").
+        // A comment edit rewrites the worksheet only when its
+        // `<legacyDrawing>` is created or dropped
+        // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
         #[cfg(feature = "comments")]
         let named = named.chain(self.comment_works.iter().map(|(part, _)| part));
         for part in named {
@@ -6501,9 +6502,10 @@ impl<'a> Parts<'a> {
     /// `ObjectType`; their overrides and relationships; and what the
     /// worksheet pass does with `<legacyDrawing>`. A cell's last addition
     /// wins, in that addition's place; a removal followed by an addition of
-    /// one cell is the replacement. The refusals of a removed, replaced,
-    /// absent or shifted part come first, then a removal of a cell this
-    /// write adds a comment on or names twice, then the sheet's threaded
+    /// one cell is the replacement. A removal of a cell this write adds a
+    /// comment on or names twice is refused first, while the edits are
+    /// grouped by part; then, part by part, the refusals of a removed,
+    /// replaced, absent or shifted part, then the sheet's threaded
     /// comments, then what the parts cannot be read for, then a removal or
     /// a replacement of a cell with no comment.
     #[cfg(feature = "comments")]
