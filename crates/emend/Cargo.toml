@@ -45,3 +45,7 @@ tables = []
 # by default, with no dependency of its own, measured beside the core as
 # `tables` is.
 comments = []
+# The images of specs/0022-comments-and-images.md (decision 1 A): off by
+# default, with no dependency of its own, measured beside the core as
+# `comments` is.
+images = []

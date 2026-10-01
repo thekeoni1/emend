@@ -48,6 +48,8 @@ pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_re
 pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
+#[cfg(feature = "images")]
+pub use package::{Anchor, Image, ImageEntry};
 #[cfg(feature = "rules")]
 pub use package::{
     Cfvo, CfvoKind, ErrorStyle, IconSetKind, Operator, Rule, RuleEntry, Validation,

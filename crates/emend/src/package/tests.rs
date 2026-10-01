@@ -7340,6 +7340,8 @@ mod comments;
 mod conditional;
 #[cfg(feature = "rules")]
 mod dxf;
+#[cfg(feature = "images")]
+mod images;
 #[cfg(feature = "metadata")]
 mod links;
 #[cfg(feature = "metadata")]
