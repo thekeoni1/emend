@@ -1255,3 +1255,17 @@ fn a_removal_on_a_sheet_whose_comments_part_is_missing_is_refused_at_the_write()
         "a comments part or its drawing cannot be read",
     );
 }
+
+/// The removal empties the comments part, so the part is dropped rather than
+/// replaced and only the carry's check refuses the removed part (specs/0022
+/// "Planning rulings during P2" ruling 1).
+#[test]
+fn a_removal_emptying_a_comments_part_this_write_removes_is_refused() {
+    assert_package(
+        refused_with(one_comment(""), |p| {
+            p.remove_part(b"xl/comments1.xml");
+            remove(p, "E5");
+        }),
+        "an edit to a removed part",
+    );
+}
