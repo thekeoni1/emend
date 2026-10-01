@@ -1165,6 +1165,77 @@
 //!   every output in LibreOffice, and the Excel check (`specs/0019`
 //!   decision 6) is pending, run or deferred again before the close-out
 //!   push; what Excel shows for a table's banding is Excel's.
+//!
+//! Comments add these, all the Cargo feature `comments`'s
+//! (`specs/0022-comments-and-images.md`, "Comments: the calls" and
+//! "Comments: the parts", decisions 2, 3 and 6, the P1, P2 and P3 rulings),
+//! the caller's picture:
+//!
+//! - What they touch: a sheet's comments part and its VML part, each
+//!   appended to or created (`xl/comments<N>.xml`,
+//!   `xl/drawings/vmlDrawing<N>.vml`, N the smallest free in the archive
+//!   and the write's additions, ASCII case folded, a removed entry's name
+//!   still taken) with its `Override` and a `comments` or `vmlDrawing`
+//!   relationship in the form of the worksheet's own; the worksheet only
+//!   when its `<legacyDrawing>` is created in schema position (the root
+//!   retagged as for a table) or dropped with the last comment.
+//! - The shape written, openpyxl's: a comment's text as one run with no
+//!   properties, its author appended to `<authors>` unless a kept author's
+//!   text equals it; one hidden note shape per comment in the fixed box
+//!   the design gives, numbered `1024 * D + K`. `K` is one above the larger
+//!   of the part's kept `v:shape` root children and the largest
+//!   `_x0000_s<n>` number in `D`'s range a kept shape carries on `id` or
+//!   `o:spid` (P1 ruling 1). `D` is the part's own `idmap`, or the smallest
+//!   positive integer no VML entry the write keeps uses as its `idmap` (an
+//!   entry this write removes not counted); the uniqueness of shape ids
+//!   across a workbook rests on distinct `idmap` numbers per part.
+//! - Removal: a comment's element and its note shape go; a `commentList`
+//!   left empty drops the comments part, its relationship, its `Override`
+//!   and the entry, and the VML part goes with it, its `<legacyDrawing>`
+//!   too, unless it still holds a shape of another `ObjectType` or with
+//!   none (a form control, a plain drawing shape), when it is kept with
+//!   that shape. Authors are never removed.
+//! - What cannot be read, refused at the write: a comments part whose root
+//!   is not `comments`, whose `commentList` comes before any `authors` or
+//!   is missing or doubled, or a kept `comment` without a `ref` that parses;
+//!   a VML part whose root is not an unprefixed `xml` or does not bind a
+//!   prefix to each of the three VML namespaces.
+//! - What is never written: formatting runs, a comment's size or position
+//!   beyond the fixed box, a threaded comment. A sheet with a threaded
+//!   comments relationship refuses every comment edit (decision 3 A);
+//!   `Package::comments` reads such a sheet's legacy fallback, the comments
+//!   part Excel writes beside the threaded one.
+//! - What is read back: `Package::comments` gives each comment's cell,
+//!   author and text, runs flattened; a snapshot of the file.
+//!
+//! Images add these, all the Cargo feature `images`'s
+//! (`specs/0022-comments-and-images.md`, "Images: the calls" and "Images:
+//! the parts", decisions 4, 5 and 6, the P3 rulings), the caller's picture:
+//!
+//! - What they touch: one media entry per image, `xl/media/image<N>.png` or
+//!   `.jpeg` with N free over both extensions, with its `Override`; the
+//!   sheet's drawing part, appended to (the kept bytes a prefix, one
+//!   `oneCellAnchor` more, its `cNvPr` `id` one above the largest anywhere
+//!   in the part) or created (`xl/drawings/drawing<N>.xml`, the
+//!   transitional namespaces, the relationship types in the sheet's form)
+//!   with its `Override`; the drawing's rels part, created when it has
+//!   none; the worksheet only when its `<drawing>` is created in schema
+//!   position. The drawing is the one the sheet's `<drawing>` element's
+//!   `r:id` names, for the read and the write alike.
+//! - What cannot be read, under "a drawing part or its relationship cannot
+//!   be read", beside the spec's list: a `pic` with no `blip`, an empty
+//!   `wsDr` root on an append, a `cNvPr` `id` that is not a decimal number
+//!   within `u32`, and an external drawing or `r:embed` relationship.
+//! - What is never written: a two-cell or absolute anchor, an SVG, EMF,
+//!   GIF, BMP or TIFF image, an image's `descr`, an image removal; images
+//!   are never checked for overlap.
+//! - What is read back: `Package::images` gives each picture's anchor kind,
+//!   `from` and media entry with its size, from a root anchor or the first
+//!   anchor in a root `AlternateContent`'s first `Choice` (P3 ruling 1); a
+//!   snapshot of the file.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice; what Excel shows for a note or a picture
+//!   is Excel's.
 
 #[cfg(test)]
 mod tests;
