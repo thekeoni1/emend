@@ -391,7 +391,10 @@ bytes.
   reads the drawing part's root children in document order; each
   `oneCellAnchor`, `twoCellAnchor` or `absoluteAnchor` holding a
   `pic` (directly, or inside a `grpSp` or an `AlternateContent`'s
-  `Choice`, the first `pic` found) gives one entry, its `blip`'s
+  `Choice`, the first `pic` found) gives one entry, as does the
+  first such anchor inside a root-level `AlternateContent`'s
+  `Choice` (the corpus's 3 sit there, none with a `pic`; P3 ruling
+  1), its `blip`'s
   `r:embed` resolved through the drawing's rels part to the media
   entry; an anchor without a `pic` (a chart, a shape) gives none.
   A part with no `drawing` relationship gives an empty list. A
@@ -578,10 +581,12 @@ from the corpus is printed.
   and the run log reports a refusal as a finding.
 - `--image-sample <in> <out>` (P3): `add_image(W, (M + 1, 1), Image
   { bytes: PNG, size: None })` where PNG is the tool's constant, a
-  2 by 2 RGB PNG of 69 bytes with one stored deflate block, built
-  by Python 3.12's `zlib` and `struct` in a six-line program the
-  tool's source quotes beside the constant (a committed fixture
-  documented with its producer, `CLAUDE.md`); writes; reopens the
+  2 by 2 RGB PNG of 82 bytes (the pixels red, green, blue, white)
+  with one stored deflate block, so the bytes depend on no zlib
+  version, built by Python's `zlib` and `struct` in a six-line
+  program the tool's source quotes beside the constant with the
+  Python version that ran it (a committed fixture documented with
+  its producer, `CLAUDE.md`; P3 ruling 2); writes; reopens the
   output and prints `image` with `images_before`, `images_after`
   (`images(W)`; `+ 1`, asserted), `drawing_before` (1 when W has a
   `drawing`), `anchors_before`, `anchors_after` (root children of
@@ -931,6 +936,35 @@ code commits 89045f2, 193aa84 and fcd254b on the doc commit 9523065
    branch no test holds is the kind of thing a plant check exists
    to find, and the fix is one test.
 
+## Planning rulings during P3 (2026-10-01)
+
+Made on the implementing session's survey of the corpus's drawing
+parts (counts only, agreeing with planning's own) after the doc
+commit d5d1124 (this file at 1e5248c6, which the P3 logs pin) and
+the carry 16913cf, before the images code.
+
+1. A root-level `mc:AlternateContent` in a drawing (the corpus's 3,
+   each a `Choice` wrapping a `twoCellAnchor` with no `pic` and an
+   empty `Fallback`). Ruling: `images` reads the first anchor
+   inside a root-level `Choice` as it reads a root anchor, so a
+   picture Excel wraps that way is not invisible to the read; a
+   built fixture tests it, since no corpus `Choice` holds a `pic`.
+   The append copies the element byte for byte and counts it as
+   one root child (the tool's `anchors_before` and `anchors_after`
+   count root children, as the spec says). The largest `cNvPr` id
+   is taken over the whole part, `Choice` and `Fallback` included.
+   "Images: the calls" is corrected above.
+2. The tool's PNG constant. The spec said 69 bytes with one stored
+   deflate block, which cannot both hold: a stored block gives 82
+   bytes for any 2 by 2 RGB pixels (8 signature, 25 `IHDR`, 12
+   `IDAT` framing and 25 of data, 12 `IEND`), and a level-9
+   stream gives a size that depends on the pixels and in principle
+   on the zlib version. Ruling: one stored block, 82 bytes, the
+   pixels red, green, blue, white, the producer quoted with the
+   Python version that ran it (3.14.4 here, not 3.12 as the spec
+   guessed); P4's probe reuses the same bytes. Planning's figures
+   were guesses; "Harness runs" is corrected above.
+
 ## Planning verification and rulings on P1 (2026-10-01)
 
 Verified by planning from primaries: the doc commit 77ed347 holds
@@ -1055,6 +1089,87 @@ removal-case test.
 5. P2 is DONE. P3 (images) is released: its doc commit carries this
    file with the P2 rulings and this section, and `ROADMAP.md`'s
    P2 row; its first code commit carries ruling 1's three items.
+
+## Planning verification and rulings on P3 (2026-10-01)
+
+Verified by planning from primaries: the doc commit d5d1124 holds
+this file at 1e5248c6 and `ROADMAP.md` at 3d434cd0, the hashes
+planning sent; the carry 16913cf, the crate b65ea6d, the tool
+b5244d6 and the record 2b85b22 follow on 0eadfec; 5 of 5 messages
+end with the Co-Authored-By line only, ASCII; the five logs and
+four records at the reported hashes, each log ending "all as
+expected: yes", the scan RESULT: PASS with 0 hits, every log
+pinning 1e5248c6; planning's own build at b5244d6
+(`p4d-p3-build.txt`): the crate's tests 512 off and 723 with every
+feature, on both targets, the workspace 890 on both, clippy 0 in
+five configurations, doc 0 in three; planning's own run of
+`--image-sample` with its own release binaries
+(`p4d-p3-image-run.txt`) 27 of 27 outputs and printed lines
+byte-identical to the phase's run directory on both targets, host
+and i686 identical, and planning's own check of every output: 17
+with the drawing part created at exactly the bytes "Images: the
+parts" gives (the entry names the smallest free over both
+extensions, `cx` and `cy` from the PNG's `IHDR`, the rels part
+and the two overrides), 10 appended (the kept bytes a prefix, one
+`oneCellAnchor` more with the next `cNvPr` id over the part), the
+media entry byte-equal to the tool's 82-byte constant in all 27;
+planning's own run of `--comment-sample` with the same binaries
+27 of 27 outputs and lines byte-identical to P2's run directory on
+both targets; planning's own privacy scan 0eadfec..2b85b22, 5
+commits, 891 blobs, 0 findings; `ANTHROPIC_API_KEY` unset; the
+diff read: the header reads, `images` and its drawing lookup, the
+created and appended forms, the shared `ElementPass`.
+
+1. The independent check's five reservations. (1) `image_header`
+   steps `at + 1`, `at + 5`, `at + 7` and `at += 2` unchecked where
+   the spec asks for checked arithmetic; overflow is unreachable
+   since `at` stays within the slice plus one segment, but the
+   rule is the rule: the steps go through `checked_add` with the
+   format message; carried to P4's first code commit. (2) `images`
+   finds the drawing through the sheet's first `drawing`
+   relationship while `add_image` follows the `<drawing>` element's
+   `r:id`; a sheet with two such relationships would be read and
+   written through different parts. Ruling: `images` follows the
+   element's `r:id` through the shared reader, as `add_image` does,
+   a sheet with no element giving an empty list; a test with two
+   drawing relationships where the element names the second;
+   same carry. (3) A strict sheet is untested: a test that a
+   strict sheet's created drawing uses the transitional namespaces
+   with the strict relationship types, same carry. (4) The
+   created-bytes test is assembled from helpers: accepted, the run
+   log and planning's own check compare the bytes on the 17
+   created parts independently. (5) `drawing` and `legacyDrawing`
+   created in one write: a test pinning the order, same carry.
+2. `from_after` prints the first sheet's largest row number: a
+   count of the sheet's rows, not a reference, a name or a text;
+   confirmed as the spec's design.
+3. The implementing session's choices: the element reader and
+   pass shared between `legacyDrawing` and `drawing`; the carry
+   check widened to the drawing part; a created drawing's rels
+   part added as a part in the package's form (the validator
+   refuses a relationship whose source the archive lacks); the
+   extra refusals under the read message (a `pic` with no `blip`,
+   an empty `wsDr` root on append, a `cNvPr` id that is not a
+   decimal within `u32`, an external drawing or embed
+   relationship); `from_after` as one key. Accepted; the catalogue
+   states the refusals at P4.
+4. The dry run's generator miss (the run script expecting the
+   comment sample's argument), fixed before any logged run, and
+   P2's run log header naming the P1 record stem, a stale token
+   corrected in P3's header: recorded, no change.
+5. The second comment run is unrecorded by design (its directory
+   named through P2's run record, two record pairs): accepted.
+6. P3 is DONE. P4 is released: its doc commit carries this file
+   with the P3 rulings and this section, and `ROADMAP.md`'s P3
+   row; its first code commit carries ruling 1's four items; the
+   catalogue and limits at P4 state, beside the spec's list: `K`
+   counts `v:shape` root children; `D`'s allocation reads the
+   input's VML entries the write keeps; a `commentList` before
+   `authors` or a root other than `comments` cannot be read; a
+   shape of another `ObjectType` or none keeps the VML part;
+   ruling 3's image refusals; the drawing found through the
+   element's `r:id`; uniqueness of VML ids resting on distinct
+   `idmap` numbers per part.
 
 ## Out of scope
 
