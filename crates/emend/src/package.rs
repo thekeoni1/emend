@@ -3111,7 +3111,7 @@ struct NewTable {
 }
 
 /// A relationship's id and the part it names.
-#[cfg(any(feature = "tables", feature = "comments", feature = "images"))]
+#[cfg(any(feature = "tables", feature = "comments"))]
 type RelTarget = (Vec<u8>, Vec<u8>);
 
 /// A table the write adds to a worksheet: its area and the id of the
@@ -5175,21 +5175,25 @@ impl<R: Read + Seek> Package<R> {
     }
 
     /// The images of the worksheet part `part`: each root child of the
-    /// drawing part its `drawing` relationship names, in document order,
+    /// drawing part its `<drawing>` element's `r:id` names, as the write
+    /// finds it (P3 verification ruling 1 (2)), in document order,
     /// that is a `oneCellAnchor`, `twoCellAnchor` or `absoluteAnchor`, or
     /// the first such anchor in a root `AlternateContent`'s first `Choice`
     /// (P3 ruling 1), holding a `pic` directly, in a `grpSp` or in an
     /// `AlternateContent`'s first `Choice`, the first found; with the
     /// anchor's `from`, its kind, and the media entry the `blip`'s `r:embed`
     /// names with its size. A snapshot of the file, not of the pending
-    /// edits; empty for a part with no such relationship; an anchor without
+    /// edits; empty for a part with no `<drawing>`; an anchor without
     /// a picture (a chart, a shape) gives none. The Cargo feature `images`.
     ///
     /// # Errors
     ///
     /// [`Error::Package`] "no such part" for a part the archive lacks; "a
-    /// drawing part or its relationship cannot be read" for a relationship
-    /// whose part is missing, a root other than `wsDr`, a picture with no
+    /// worksheet has two drawing elements" for two, or one out of schema
+    /// order; "a drawing part or its relationship cannot be read" for a
+    /// `<drawing>` without `r:id` or naming no drawing relationship, a
+    /// relationship whose part is missing, a root other than `wsDr`, a
+    /// picture with no
     /// `blip` or a `blip` without `r:embed`, an `r:embed` naming no internal
     /// relationship or one whose entry is missing, and a one- or two-cell
     /// anchor whose `from` lacks a `col` or `row` number; part 2's
@@ -7101,8 +7105,8 @@ impl<'a> Parts<'a> {
     /// The body of [`Package::images`].
     #[cfg(feature = "images")]
     fn images(&mut self, part: &[u8]) -> Result<Vec<ImageEntry>, Error> {
-        self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
-        let Some((_, target)) = self.drawing_rel(part)? else {
+        let sheet = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        let Some(target) = self.drawing_of(part, sheet)? else {
             return Ok(Vec::new());
         };
         let index = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;
@@ -7128,23 +7132,32 @@ impl<'a> Parts<'a> {
         Ok(out)
     }
 
-    /// The first internal `drawing` relationship of `part`, either form,
-    /// with the part it names; a target outside the package refuses with
-    /// the drawing read message.
+    /// The drawing part of the worksheet part `part` (entry `index`): the
+    /// part its `<drawing>` element's `r:id` names through an internal
+    /// relationship of type [`DRAWING`], either form, or `None` for a sheet
+    /// with no such element, the read and the write sharing it (P3
+    /// verification ruling 1 (2)). Two elements, or one out of schema
+    /// order, are refused with the two-elements message; an element without
+    /// `r:id`, or one naming no such relationship or a target outside the
+    /// package, with the drawing read message.
     #[cfg(feature = "images")]
-    fn drawing_rel(&mut self, part: &[u8]) -> Result<Option<RelTarget>, Error> {
+    fn drawing_of(&mut self, part: &[u8], index: usize) -> Result<Option<Vec<u8>>, Error> {
+        let element = element_rel_id(
+            self.archive.read(index)?,
+            index,
+            DRAWING_ELEMENT,
+            TWO_DRAWINGS,
+            DRAWING_UNREADABLE,
+        )?;
+        let Some(id) = element else {
+            return Ok(None);
+        };
         let rels = self.relationships(part)?;
-        match rels
-            .all()
-            .iter()
-            .find(|rel| !rel.external && DRAWING.contains(&rel.kind.as_slice()))
-        {
-            Some(rel) => Ok(Some((
-                rel.id.clone(),
-                rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?,
-            ))),
-            None => Ok(None),
-        }
+        let rel = rels
+            .by_id(&id)
+            .filter(|rel| !rel.external && DRAWING.contains(&rel.kind.as_slice()))
+            .ok_or(DRAWING_UNREADABLE)?;
+        Ok(Some(rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?))
     }
 
     /// Records each worksheet's image additions
@@ -7189,24 +7202,7 @@ impl<'a> Parts<'a> {
             if self.edits.shifts.iter().any(|(at, _)| *at == part) {
                 return Err(SHIFT_ALONE);
             }
-            let element = element_rel_id(
-                self.archive.read(index)?,
-                index,
-                DRAWING_ELEMENT,
-                TWO_DRAWINGS,
-                DRAWING_UNREADABLE,
-            )?;
-            let drawing = match &element {
-                Some(id) => {
-                    let rels = self.relationships(&part)?;
-                    let rel = rels
-                        .by_id(id)
-                        .filter(|rel| !rel.external && DRAWING.contains(&rel.kind.as_slice()))
-                        .ok_or(DRAWING_UNREADABLE)?;
-                    Some(rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?)
-                }
-                None => None,
-            };
+            let drawing = self.drawing_of(&part, index)?;
             // A drawing part this write removes, replaces or adds through the
             // part calls is not read for the edit, as a comment's parts are.
             self.edited_part_untouched(drawing.as_deref())?;
@@ -14660,20 +14656,23 @@ fn image_header(bytes: &[u8]) -> Result<(bool, u32, u32), Error> {
     if !bytes.starts_with(&[0xFF, 0xD8]) {
         return Err(IMAGE_NOT_PNG_OR_JPEG);
     }
+    // Every step past `at` is checked (`CLAUDE.md`; P3 verification ruling
+    // 1 (1)).
+    let after = |at: usize, step: usize| at.checked_add(step).ok_or(IMAGE_NOT_PNG_OR_JPEG);
     let mut at = 2usize;
     loop {
         if bytes.get(at) != Some(&0xFF) {
             return Err(IMAGE_NOT_PNG_OR_JPEG);
         }
         // Fill bytes before a marker.
-        while bytes.get(at + 1) == Some(&0xFF) {
-            at += 1;
+        while bytes.get(after(at, 1)?) == Some(&0xFF) {
+            at = after(at, 1)?;
         }
-        let marker = *bytes.get(at + 1).ok_or(IMAGE_NOT_PNG_OR_JPEG)?;
+        let marker = *bytes.get(after(at, 1)?).ok_or(IMAGE_NOT_PNG_OR_JPEG)?;
         match marker {
             0xC0..=0xC2 => {
-                let height = u16_at(at + 5)?;
-                let width = u16_at(at + 7)?;
+                let height = u16_at(after(at, 5)?)?;
+                let width = u16_at(after(at, 7)?)?;
                 let to_u32 = |value: usize| u32::try_from(value).map_err(|_| IMAGE_NOT_PNG_OR_JPEG);
                 return Ok((false, to_u32(width)?, to_u32(height)?));
             }
@@ -14681,13 +14680,13 @@ fn image_header(bytes: &[u8]) -> Result<(bool, u32, u32), Error> {
             // stuffed byte outside a scan.
             0xDA | 0xD9 | 0x00 => return Err(IMAGE_NOT_PNG_OR_JPEG),
             // The markers that stand alone.
-            0x01 | 0xD0..=0xD8 => at += 2,
+            0x01 | 0xD0..=0xD8 => at = after(at, 2)?,
             _ => {
-                let length = u16_at(at + 2)?;
+                let length = u16_at(after(at, 2)?)?;
                 if length < 2 {
                     return Err(IMAGE_NOT_PNG_OR_JPEG);
                 }
-                at = at.checked_add(2 + length).ok_or(IMAGE_NOT_PNG_OR_JPEG)?;
+                at = after(after(at, 2)?, length)?;
             }
         }
     }

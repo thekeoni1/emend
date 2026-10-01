@@ -793,3 +793,147 @@ fn an_image_with_a_row_insertion_is_refused() {
         "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
     );
 }
+
+#[test]
+fn the_read_and_the_write_follow_the_drawing_element_past_another_drawing_relationship() {
+    // P3 verification ruling 1 (2): the sheet's first drawing relationship
+    // names a part its `<drawing>` element does not; both calls follow the
+    // element's `r:id`, rId2.
+    let mut parts = with_drawing(
+        "<sheetData/><drawing r:id=\"rId2\"/>",
+        drawing_xml(&two_cell(1, 1, &pic(1, "rId1"))),
+        Some(&image_rels(1)),
+        &["image1.png", "image2.png"],
+    );
+    set(
+        &mut parts,
+        b"xl/worksheets/_rels/sheet1.xml.rels",
+        rels(&format!(
+            "{}{}",
+            drawing_rel("rId1", "../drawings/drawing1.xml"),
+            drawing_rel("rId2", "../drawings/drawing2.xml")
+        )),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/drawing2.xml",
+        &drawing_xml(&two_cell(4, 5, &pic(7, "rId1"))),
+        Some(DRAWING_TYPE),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/_rels/drawing2.xml.rels",
+        &rels(&image_rel("rId1", "../media/image2.png")),
+        None,
+    );
+    assert_eq!(
+        read(parts.clone()).expect("read"),
+        vec![entry((4, 5), Anchor::TwoCell, 2)]
+    );
+    let output = edited_output(parts.clone(), |p| add(p, "A1"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/drawings/drawing2.xml".as_slice(),
+            b"xl/drawings/_rels/drawing2.xml.rels",
+            b"[Content_Types].xml",
+        ],
+    );
+    assert_eq!(
+        text_of(&output, b"xl/drawings/drawing2.xml"),
+        drawing_xml(&format!(
+            "{}{}",
+            two_cell(4, 5, &pic(7, "rId1")),
+            added_anchor(0, 0, 8, "rId2")
+        ))
+    );
+    // A sheet whose drawing relationship no `<drawing>` names has no images.
+    let mut parts = with_drawing(
+        "<sheetData/>",
+        drawing_xml(&two_cell(1, 1, &pic(1, "rId1"))),
+        Some(&image_rels(1)),
+        &["image1.png"],
+    );
+    set(&mut parts, SHEET, sheet_r("<sheetData/>"));
+    assert_eq!(read(parts).expect("read"), Vec::new());
+}
+
+#[test]
+fn a_strict_sheet_s_created_drawing_takes_the_transitional_namespaces_and_the_strict_types() {
+    // P3 verification ruling 1 (3).
+    const STRICT: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+    let mut parts = smallest();
+    let workbook_rels = part_text(&parts, b"xl/_rels/workbook.xml.rels").replace(
+        &format!("{ATTR_NS}/worksheet"),
+        &format!("{STRICT}/worksheet"),
+    );
+    set(&mut parts, b"xl/_rels/workbook.xml.rels", workbook_rels);
+    let output = edited_output(parts, |p| add(p, "B3"));
+    assert_eq!(
+        text_of(&output, DRAWING),
+        format!(
+            "{DECLARATION}\n<xdr:wsDr xmlns:xdr=\"{XDR_NS}\" xmlns:a=\"{A_NS}\">{}</xdr:wsDr>",
+            added_anchor(1, 2, 1, "rId1")
+        )
+    );
+    assert_eq!(
+        text_of(&output, DRAWING_RELS),
+        rels(&relationship(
+            "rId1",
+            &format!("{STRICT}/image"),
+            "../media/image1.png"
+        ))
+    );
+    assert_eq!(
+        text_of(&output, SHEET),
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{STRICT}\"><sheetData/>\
+             <drawing r:id=\"rId1\"/></worksheet>"
+        )
+    );
+    assert!(
+        text_of(&output, SHEET_RELS).ends_with(&format!(
+            "<Relationships xmlns=\"{RELS_NS}\">{}</Relationships>",
+            relationship(
+                "rId1",
+                &format!("{STRICT}/drawing"),
+                "../drawings/drawing1.xml"
+            )
+        )),
+        "the sheet's drawing relationship takes the strict type"
+    );
+}
+
+#[cfg(feature = "comments")]
+#[test]
+fn a_drawing_and_a_legacy_drawing_created_in_one_write_come_in_schema_order() {
+    // P3 verification ruling 1 (5): the comment's parts are recorded first
+    // (rId1 and rId2), the drawing's after (rId3); the elements come out
+    // drawing then legacyDrawing.
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        sheet_r("<sheetData/><tableParts count=\"0\"/>"),
+    );
+    let output = edited_output(parts, |p| {
+        p.add_comment(
+            SHEET,
+            at("A1"),
+            Comment {
+                author: "Ann",
+                text: "one",
+            },
+        )
+        .expect("recorded");
+        add(p, "A1");
+    });
+    assert_eq!(
+        text_of(&output, SHEET),
+        sheet_r(
+            "<sheetData/><drawing r:id=\"rId3\"/><legacyDrawing r:id=\"rId2\"/>\
+             <tableParts count=\"0\"/>"
+        )
+    );
+}
