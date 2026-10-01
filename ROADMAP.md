@@ -392,11 +392,18 @@ LibreOffice's.
 | P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
 | Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit f6c2dba and record commit 065f3e4 local, verified by planning, go with the next push) |
 
-## Milestone 2: openpyxl's editing surface (PROPOSED 2026-09-23)
+## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check)
 
 Outline approved as a proposal by the maintainer on 2026-09-23,
-after planning's comparison with openpyxl. Scoping starts after
-Milestone 1 is accepted (part 8 and the per-milestone Excel check);
+after planning's comparison with openpyxl. Every part is DONE and
+pushed (origin/main fe584b3, 2026-10-01). Acceptance waits on the
+per-milestone Excel check, every corpus row of every Milestone 2
+sample on the laptop, deferred by the maintainer on 2026-09-27,
+2026-09-29, twice on 2026-09-30 and on 2026-10-01 (`specs/0022`
+decision 7), due before Milestone 3 part 1's close-out push at the
+latest; the acceptance record follows Milestone 1's form. Scoping
+started after Milestone 1 was accepted (part 8 and the
+per-milestone Excel check);
 each part is scoped into phases, with its own spec, before work on
 it starts. The core stays on `zip` and `quick-xml`; anything that
 does not fit the size ceiling goes behind a Cargo feature (outside
@@ -635,11 +642,65 @@ part's two samples.
 | P2 | `remove_comment` with its skips and drops; `--comment-sample`'s in-memory removal | DONE 2026-10-01 (doc 9523065, carry 89045f2, removal 193aa84, tool fcd254b, the removal case f255959, record 0eadfec; 27/27 both targets, 0 refused, the removal's counts asserted on every workbook; the carry refuses a comment edit on a sheet whose comments or VML part the write touches; one P2 ruling mid-phase, a test for the carry's only load-bearing path, found by the implementing session's plant check; verified by planning from primaries, its own build and tests on both targets off and on, clippy and doc, its own sample run byte-identical to the phase's on 27 of 27 on both targets and the outputs byte-identical to P1's; records `records/m2p4d-p2-2026-10-01-f255959.md` and `.txt`, open record `records/m2p4d-open-2026-10-01-f255959.md` and `.txt`; two comment corrections and a test carried to P3's first code commit; `specs/0022` "Planning verification and rulings on P2") |
 | P3 | the feature `images`; `Image`, `ImageEntry`, `Anchor`, the PNG and JPEG header reads, `images`, `add_image`; the media entry, the drawing part created or appended, its rels part, `drawing` in schema position; `--image-sample` | DONE 2026-10-01 (doc d5d1124, carry 16913cf, crate b65ea6d, tool b5244d6, record 2b85b22; 27/27 both targets, 0 refused, 17 drawings created and 10 appended to, the comment sample once more byte-identical to P2's; two P3 rulings mid-phase, a root-level AlternateContent read and the tool's PNG constant corrected to its true size, both found by the implementing session; verified by planning from primaries, its own build and tests on both targets off and on, clippy and doc, its own runs of both samples byte-identical to the phase's on 27 of 27 on both targets and its own check of every output's drawing, media and rels; records `records/m2p4d-p3-2026-10-01-b5244d6.md` and `.txt`, open record `records/m2p4d-open-2026-10-01-b5244d6.md` and `.txt`; four items carried to P4's first code commit; `specs/0022` "Planning verification and rulings on P3") |
 | P4 | the catalogue and limits; `probe-emend-comments-write-xml` and `probe-emend-images-write-xml` and the size record; the negative log through the binary; both samples again with the release binaries | DONE 2026-10-01 (doc 20b8c61, carry 5906712, catalogue f5819ce, probes c1f6602, record de946fb; the feature `comments` costs 57032 section bytes over the core probe, above the estimate's 40000 to 55000 by 2032, `images` 40960, within it, both outside the budget; the core's growth 0; the budget 435224, 23528 under 458752, unchanged from part 4c; the tables probe +60 from the shared code; 5 of the part's 10 messages reached through the binary, 5 stated unreachable with their tests; both samples 27/27 both targets byte-identical to P3's runs; verified by planning from primaries, its own build and tests on both targets off and on, clippy and doc, its own probe builds reproducing the size log's hashes and figures, its own runs of both samples byte-identical to the phase's on 27 of 27 on both targets and its own check of every output's parts; `records/size-m2p4d-2026-10-01-c1f6602.md`, `records/m2p4d-p4-image-2026-10-01-c1f6602.md`, `records/m2p4d-p4-comment-2026-10-01-c1f6602.md` and their `.txt`, open record `records/m2p4d-open-2026-10-01-c1f6602.md` and `.txt`; no carry; `specs/0022` "Planning verification and rulings on P4") |
-| Close | close-out push after P4, carrying 5da68da and this part's commits, the previous-record pattern naming 5da68da, one independent check; the Excel check for parts 1 to 4c and this part's samples run or deferred again before it | PLANNED |
+| Close | close-out push after P4, carrying 5da68da and this part's commits, the previous-record pattern naming 5da68da, one independent check; the Excel check for parts 1 to 4c and this part's samples run or deferred again before it | DONE 2026-10-01 (pushed c8bfaf9..fe584b3, 23 commits, 938 blobs, 0 findings; CI run 36891705251 success; the Excel check deferred again by decision 7, `specs/0022` P4 ruling 6; one independent check; the scan script's missing `ANTHROPIC_API_KEY` line found and carried to the next close-out; doc fe584b3 pushed, record ab5b3aa local, goes with the next push; verified by planning from git and `gh`, its own scan of the range and its own count of the maintainer's address over every blob, 0; `specs/0022` "Planning verification and rulings on the close-out") |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values
 and no fixture output is refused on an accepted input.
+
+## Milestone 3: the rest of openpyxl's surface, and proof at scale (APPROVED 2026-10-01)
+
+Outline drafted by planning on 2026-10-01 and approved by the
+maintainer the same day ("agree with recs, lets get started"), with
+planning's four recommendations taken: the Milestone 2 ceiling
+kept for the core, so every capability here goes behind a Cargo
+feature off by default and is measured beside the core as part 4
+was; charts out (under "Unscoped", a second crate for a later
+milestone); corpus P5 and P6 (Google Sheets exports, a macro file,
+threaded comments, chartex) supplied by the maintainer before part
+1; the scale proof first, since it alone can change the design of
+the others. Each part is scoped into phases with its own spec
+before work on it starts, with a corpus sample per capability, the
+LibreOffice open checks, a size probe and the close-out push.
+Estimates are planning's, in section bytes, scaled from the
+measured costs of `tables` (46920) and `comments` (57032); the
+core's headroom after Milestone 2 is 23528, held for fixes.
+
+1. Proof at scale on i686: a generated large workbook (a recorded
+   script, pinned by hash, never committed) run through every
+   sample on the musl target under a memory cap, peak memory and
+   time recorded beside the corpus figures. No new capability; the
+   streaming claim in `CLAUDE.md` measured. Decides whether cell
+   reading needs a true streaming mode before parts 2 and 5 build
+   on the read path.
+2. Rich text: runs with their own font in a cell (shared and
+   inline strings) and in a comment, written and read back, as
+   openpyxl's `CellRichText`. Feature `richtext`. 40000 to 55000.
+3. Sheet and print settings: tab colour, the sheet view (zoom,
+   gridlines, headings), page setup and margins, print area and
+   print titles as the built-in names, headers and footers, a
+   sheet-level autofilter; worksheet elements in schema position
+   through part 3's pass. Feature `sheetprops`. 35000 to 50000.
+4. Outline grouping and row and column styles: outline levels and
+   collapsed state, a style on a whole row or column, kept through
+   part 3's shifts. The feature `rowcol` grows. 20000 to 30000.
+5. Reading back as typed values: fonts, fills, borders, alignment,
+   number formats, widths, heights, panes, merges, hyperlinks,
+   protection, the read side Milestone 2 left out part by part.
+   Feature `read`. 30000 to 45000.
+6. Images and comments, the second half: image removal with the
+   media drop, two-cell and absolute anchors, a comment's box size
+   and visibility, worksheet copy within a workbook (openpyxl's
+   `copy_worksheet`). The features `images` and `comments` grow.
+   25000 to 35000.
+7. Engineering close: MSRV policy; the harness and privacy-gate
+   backlogs under "Unscoped"; a README whose every fidelity, size
+   and speed sentence cites a record; an API review before the
+   crate is published anywhere.
+
+Stays out: charts, pivot tables and VBA beyond passthrough, and by
+`CLAUDE.md`'s definition formula evaluation, rendering, autofit and
+reference fixup.
 
 ## Unscoped
 
@@ -700,5 +761,9 @@ approval.
   - Content findings in archive or compound-file blobs at ordinary paths
     print the path (T2 P0 finding 2).
   - Both fit the gate self-test script task.
-- MSRV policy.
+- MSRV policy (Milestone 3 part 7).
+- Charts: a DrawingML chart writer and reader, openpyxl's largest
+  single writer; kept out of Milestone 3 by the maintainer's
+  decision of 2026-10-01, a second crate for a later milestone if
+  wanted. The corpus proves charts by passthrough only.
 - README, where every fidelity, speed or size sentence cites a record.

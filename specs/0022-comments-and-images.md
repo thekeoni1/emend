@@ -1271,6 +1271,98 @@ blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
    part's spec. This ruling goes in the close-out's doc commit
    with the rest of this section.
 
+## Planning verification and rulings on the close-out (2026-10-01)
+
+1. Verified by planning from git and `gh`: origin/main is
+   fe584b3cb670d0bbb34b6abd83146c4de3d53bc0, the close-out doc
+   commit, which holds exactly this file at 9a43d6b1... and
+   `ROADMAP.md` at cf157c94..., the hashes planning sent, by
+   planning's own `git show` and `sha256sum`; the pushed range
+   c8bfaf9..fe584b3 holds 23 commits, part 4c's record commit
+   5da68da among them once, the 21 part 4d commits 77ed347 to
+   de946fb, fe584b3 at the tip; 24 of 24 messages from 5da68da to
+   the record commit ab5b3aa end with the Co-Authored-By line
+   only, no session link, ASCII throughout, one author and
+   committer identity; CI run 36891705251 on fe584b3, event push,
+   completed with conclusion success and no step other than
+   success or skipped; planning's own `scripts/privacy.sh --range
+   c8bfaf9..fe584b3` with the maintainer's denylist, 23 commits,
+   938 blobs, 0 findings, the hook's own figures; its own count of
+   the maintainer's address over every blob in the pushed range,
+   0; `ANTHROPIC_API_KEY` unset in planning's shell; the working
+   tree clean at ab5b3aa, the one commit ahead of origin/main; the
+   repository PRIVATE by `gh repo view`.
+2. The three logs at the reported hashes, 0 non-ASCII lines, no
+   check line reading "no". `push.log` (c7743e82): pre mode on
+   fe584b3 over the base found by its subject, 23 commits, 5da68da
+   in the range once, the hook-style scan 938 blobs with 0
+   findings, "pre checks all as expected: yes"; push mode with the
+   maintainer's authorisation printed verbatim from the labelled
+   inputs, the hook's 23 commits and 938 blobs with 0 findings,
+   git's own "c8bfaf9..fe584b3  main -> main", ls-remote at
+   fe584b3, still PRIVATE, "push checks all as expected: yes".
+   `ci-run.log` (e3a73632): the run polled to completion, head,
+   branch, event and conclusion as expected, 0 steps other than
+   success or skipped, "checks all as expected: yes". `scan.log`
+   (27ffe014) post stage over c8bfaf9..fe584b3 with push.log and
+   ci-run.log as its siblings, each pinned by sha256 and counted
+   at 0 on every form, 64 of 64 files and 23 of 23 messages read,
+   0 hits, 0 structural failures, RESULT: PASS. Each log counts
+   its own stderr at 0 bytes. No superseded attempt: each log is
+   its first run.
+3. The carried scripts, generated from part 4c's committed copies
+   (each equal to the text its log printed): every change is a
+   phase label, a spec reference, a base or tip subject, the
+   record directory, the earlier-finding line, a usage line or a
+   header note, and the previous-record pattern now names 5da68da
+   as planning's instruction said (part 4c's close-out ruling 3).
+   The ci-run script's usage comment still named part 4c's record
+   directory and was corrected before its first run, after push
+   mode had run; the regenerated push script is byte-identical to
+   the copy that ran. Accepted: a comment, corrected before the
+   log that carries it.
+4. The authorisation: "authorised" with the date "10-01-2026",
+   typed by the maintainer in the implementing session and printed
+   verbatim; the date in month-day-year form where part 4c's was
+   ISO. Accepted as typed; the log records the words, not a form.
+5. The implementing session's finding: `scan.log` has no
+   `ANTHROPIC_API_KEY` line, where planning's instruction asked
+   for the check in every log. The gap is the carried scan
+   script's, since part 4b's close-out: its log never printed one,
+   and `push.log` (both modes) and `ci-run.log` do. The variable
+   was unset throughout in both sessions. Ruling: no re-run and no
+   change to the record; the scan script prints the check at the
+   next close-out, carried into the next part's spec; planning's
+   instruction stated the rule the carried script did not yet
+   meet, and the implementing session was right to report rather
+   than edit a carried script after the record commit.
+6. The independent check's reservations: `ROADMAP.md`'s hash and
+   the record commit's local state, outside its inputs, verified
+   by planning in ruling 1; the earlier-finding line read as a
+   label change, accepted; the `ci-run.log` line (555 by
+   planning's count, 556 by the check's) where a JSON output
+   without a trailing newline runs into the next command text,
+   cosmetic, carried as a fix for the next close-out's ci-run
+   script. Its Q3 omissions (the 4c-copy equality, the
+   usage correction, "local", ROADMAP unedited) are facts of the
+   implementing session's working state or of git, each verified
+   by planning above.
+7. The record commit ab5b3aa, parent fe584b3, exactly the three
+   logs, its message naming decision 7's deferral by this spec's
+   P4 ruling 6 and saying the diff alone carries what it changes;
+   local, goes with the next push.
+8. Carried into the next part's spec: the scan script's
+   `ANTHROPIC_API_KEY` line and the ci-run script's trailing
+   newline (rulings 5 and 6); the next close-out's previous-record
+   pattern naming ab5b3aa; the Excel check for parts 1 to 4c's
+   samples and this part's two, run or deferred again before the
+   next close-out push at the latest (decision 7); the next
+   feature estimate scaled from the measured `tables` and
+   `comments` costs (P4 ruling 2).
+9. The close-out is DONE and Milestone 2 part 4d is DONE, with it
+   Milestone 2 part 4 (4a to 4d). This section goes in the next
+   part's first doc commit with that part's spec.
+
 ## Out of scope
 
 - Image removal: openpyxl has no call for it; an image's anchor
