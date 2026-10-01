@@ -818,6 +818,16 @@ fn a_sheet_added_in_the_same_write_refuses_a_table() {
     assert_package(refused(package), "no such part");
 }
 
+#[test]
+fn a_removal_on_a_sheet_added_in_the_same_write_finds_no_table() {
+    // specs/0021 P3 verification ruling 2: the removal finds no file table
+    // on a part the archive does not hold, before any part check.
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add_sheet");
+    package.remove_table(&part, "T").expect("recorded");
+    assert_package(refused(package), "no table of that name");
+}
+
 #[cfg(feature = "rowcol")]
 #[test]
 fn a_table_edit_with_a_row_insertion_is_refused() {

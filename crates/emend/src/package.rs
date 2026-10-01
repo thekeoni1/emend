@@ -494,7 +494,8 @@
 //! - "a table header cell holds a formula"
 //!   (`tables::a_header_cell_holding_a_formula_is_refused`).
 //! - "no table of that name"
-//!   (`tables::a_removal_of_an_absent_name_or_of_one_this_write_adds_is_refused`).
+//!   (`tables::a_removal_of_an_absent_name_or_of_one_this_write_adds_is_refused`,
+//!   `a_removal_on_a_sheet_added_in_the_same_write_finds_no_table`).
 //! - "a worksheet has two tableParts elements"
 //!   (`tables::a_container_is_created_before_ext_lst_and_on_a_prefixed_root`).
 //! - "a table part or its relationship cannot be read"
@@ -1055,8 +1056,8 @@
 //!   `<tablePart>` in the worksheet's `<tableParts>` (created in schema
 //!   position when absent, its `count` set to its children) and the header
 //!   cells, the area's top row, as text through the cell edits, so a later
-//!   `set_cell` on a header cell wins and a header cell holding a formula is
-//!   refused. `Package::remove_table` drops the `<tablePart>`, its
+//!   `set_cell` on a header cell wins, and a header cell the file keeps as
+//!   a `<c>` holding an `<f>` is refused. `Package::remove_table` drops the `<tablePart>`, its
 //!   relationship, the part's `Override` and the entry, and a
 //!   `<tableParts>` left empty; the cells keep their values and styles, and
 //!   a `dxf` a removed table named stays in `<dxfs>`. A table part's own
@@ -1076,8 +1077,9 @@
 //!   table it adds counted). A removal matches `name` or `displayName` with
 //!   the case folded, never a table the same write adds, and one table
 //!   named twice for removal in one write is refused. The entry name's N is
-//!   the smallest free in the input's archive and the write's additions (a
-//!   removed entry's name still taken); the `id` is the smallest no table
+//!   the smallest free in the input's archive and the write's additions,
+//!   the names compared ASCII case folded (a removed entry's name still
+//!   taken); the `id` is the smallest no table
 //!   part of the projected workbook carries.
 //! - The shape written, openpyxl's and Excel's for a new table with no
 //!   totals row: the declaration on its own line, the root in the default
