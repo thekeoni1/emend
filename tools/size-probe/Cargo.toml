@@ -49,6 +49,15 @@ rules = ["emend", "xml", "emend/rules"]
 # alone (specs/0021-tables.md, "Size", under decision 2 A), built with its
 # own feature set as the rules probe is.
 tables = ["emend", "xml", "emend/tables"]
+# Enables emend's own `comments` feature, for
+# probe-emend-comments-write-xml alone (specs/0022-comments-and-images.md,
+# "Size", under decision 1 A), built with its own feature set as the tables
+# probe is.
+comments = ["emend", "xml", "emend/comments"]
+# Enables emend's own `images` feature, for probe-emend-images-write-xml
+# alone (specs/0022-comments-and-images.md, "Size", under decision 1 A),
+# built with its own feature set as the comments probe is.
+images = ["emend", "xml", "emend/images"]
 
 [[bin]]
 name = "probe-zip"
@@ -143,3 +152,13 @@ required-features = ["rules"]
 name = "probe-emend-tables-write-xml"
 path = "src/bin/probe-emend-tables-write-xml.rs"
 required-features = ["tables"]
+
+[[bin]]
+name = "probe-emend-comments-write-xml"
+path = "src/bin/probe-emend-comments-write-xml.rs"
+required-features = ["comments"]
+
+[[bin]]
+name = "probe-emend-images-write-xml"
+path = "src/bin/probe-emend-images-write-xml.rs"
+required-features = ["images"]
