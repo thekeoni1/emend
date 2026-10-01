@@ -511,9 +511,13 @@
 //! holds a character XML cannot carry"
 //! (`comments::the_call_refuses_each_rule_and_records_nothing`), and the
 //! write part 3's one-shift message, "no such part" for a sheet added in the
-//! same write, and what a cell edit to the part meets
+//! same write, and what a cell edit to the part meets, also when the write
+//! removes, replaces or adds the sheet's comments part or VML part through
+//! the part calls (P1 verification ruling 1 (2))
 //! (`comments::a_comment_with_a_row_insertion_is_refused`,
-//! `a_comment_on_a_removed_replaced_or_added_part_is_refused`):
+//! `a_comment_on_a_removed_replaced_or_added_part_is_refused`,
+//! `a_comment_on_a_sheet_whose_comments_part_this_write_removes_is_refused`
+//! and the five tests after it):
 //!
 //! - "a comment author is not valid"
 //!   (`comments::the_call_refuses_each_rule_and_records_nothing`).
@@ -6489,6 +6493,10 @@ impl<'a> Parts<'a> {
                 }
                 None => None,
             };
+            // A part this write removes, replaces or adds through the part
+            // calls is not read for the edit (P1 verification ruling 1 (2)).
+            self.comment_part_untouched(comments.as_deref())?;
+            self.comment_part_untouched(vml.as_deref())?;
             let at_of = |archive: &Core, target: &Option<Vec<u8>>| match target {
                 Some(target) => archive
                     .index_of(target)
@@ -6568,6 +6576,34 @@ impl<'a> Parts<'a> {
             }
         }
         self.edits.comment_works = works;
+        Ok(())
+    }
+
+    /// Refuses a comment edit on a sheet whose comments part or VML part,
+    /// `target`, this write removes, replaces or adds through the part calls,
+    /// with part 1's messages for a cell edit ("an edit to a removed part",
+    /// "a cell edit to a part this write replaces"), as a cell edit on a
+    /// replaced worksheet is refused (`specs/0022-comments-and-images.md`, P1
+    /// verification ruling 1 (2)).
+    #[cfg(feature = "comments")]
+    fn comment_part_untouched(&self, target: Option<&[u8]>) -> Result<(), Error> {
+        let Some(target) = target else {
+            return Ok(());
+        };
+        if self
+            .edits
+            .part_removals
+            .iter()
+            .any(|gone| gone.as_slice() == target)
+        {
+            return Err(REMOVED_PART_EDITED);
+        }
+        let named = |list: &[(Vec<u8>, Replacement)]| {
+            list.iter().any(|(name, _)| name.as_slice() == target)
+        };
+        if named(&self.edits.part_replacements) || named(&self.edits.part_additions) {
+            return Err(CELL_EDIT_REPLACED);
+        }
         Ok(())
     }
 

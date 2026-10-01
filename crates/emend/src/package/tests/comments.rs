@@ -938,3 +938,92 @@ fn a_comment_with_a_row_insertion_is_refused() {
         "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
     );
 }
+
+/// The refusal of a comment on B5 of `parts` after `edit`, which removes,
+/// replaces or adds the comments part or the VML part (P1 verification
+/// ruling 1 (2)).
+#[track_caller]
+fn refused_after(parts: Parts, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Error {
+    refused_with(parts, |p| {
+        edit(p);
+        add(p, "B5", "Ann", "three");
+    })
+}
+
+/// [`excel_both`] with the comments part, or the VML part, left out, so the
+/// relationship names an entry the archive lacks.
+fn excel_both_without(name: &[u8]) -> Parts {
+    let mut parts = excel_both();
+    drop_part(&mut parts, name);
+    parts
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_comments_part_this_write_removes_is_refused() {
+    assert_package(
+        refused_after(excel_both(), |p| p.remove_part(b"xl/comments1.xml")),
+        "an edit to a removed part",
+    );
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_comments_part_this_write_replaces_is_refused() {
+    assert_package(
+        refused_after(excel_both(), |p| {
+            p.replace_part(
+                b"xl/comments1.xml",
+                replacement_from_reader(Cursor::new(b"x".to_vec())),
+            )
+        }),
+        "a cell edit to a part this write replaces",
+    );
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_comments_part_this_write_adds_is_refused() {
+    assert_package(
+        refused_after(excel_both_without(b"xl/comments1.xml"), |p| {
+            p.add_part(
+                b"xl/comments1.xml",
+                replacement_from_reader(Cursor::new(b"x".to_vec())),
+            )
+        }),
+        "a cell edit to a part this write replaces",
+    );
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_vml_part_this_write_removes_is_refused() {
+    assert_package(
+        refused_after(excel_both(), |p| {
+            p.remove_part(b"xl/drawings/vmlDrawing1.vml")
+        }),
+        "an edit to a removed part",
+    );
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_vml_part_this_write_replaces_is_refused() {
+    assert_package(
+        refused_after(excel_both(), |p| {
+            p.replace_part(
+                b"xl/drawings/vmlDrawing1.vml",
+                replacement_from_reader(Cursor::new(b"x".to_vec())),
+            )
+        }),
+        "a cell edit to a part this write replaces",
+    );
+}
+
+#[test]
+fn a_comment_on_a_sheet_whose_vml_part_this_write_adds_is_refused() {
+    assert_package(
+        refused_after(excel_both_without(b"xl/drawings/vmlDrawing1.vml"), |p| {
+            p.add_part(
+                b"xl/drawings/vmlDrawing1.vml",
+                replacement_from_reader(Cursor::new(b"x".to_vec())),
+            )
+        }),
+        "a cell edit to a part this write replaces",
+    );
+}
