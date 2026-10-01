@@ -909,6 +909,28 @@ doc commit 77ed347, before any code. The P1 logs pin the spec at
    session measured it on a throwaway test, uncommitted). Planning's
    error; the test asserts "no table of that name". Corrected above.
 
+## Planning rulings during P2 (2026-10-01)
+
+Made on the implementing session's pre-log plant check after the
+code commits 89045f2, 193aa84 and fcd254b on the doc commit 9523065
+(this file at 3ef8b8a6, which the P2 logs pin), before any log.
+
+1. The carry's removed-part branch (a comment edit on a sheet whose
+   comments part this write removes) is load-bearing on one path
+   only: a removal that empties the part, where the drop skips an
+   already-removed part and nothing is replaced; every carried test
+   adds a comment, and an addition replaces the part, which part
+   1's check already refuses with the same message, so a plant
+   turning the branch off left all six tests passing. Ruling: one
+   more code commit before the logs, "the carry's removal case",
+   adding the test in the probe's shape (`remove_part` of the
+   sheet's comments part, then `remove_comment` of its only
+   comment, refused with "an edit to a removed part"); the plant
+   V1 targets that test; the gate takes four code commits and the
+   test log the test. The gap is not left for a later carry: a
+   branch no test holds is the kind of thing a plant check exists
+   to find, and the fix is one test.
+
 ## Planning verification and rulings on P1 (2026-10-01)
 
 Verified by planning from primaries: the doc commit 77ed347 holds
@@ -974,6 +996,65 @@ allocation and retag.
 5. P1 is DONE. P2 is released: its doc commit carries this file
    with the P1 rulings and this section, and `ROADMAP.md`'s P1
    row.
+
+## Planning verification and rulings on P2 (2026-10-01)
+
+Verified by planning from primaries: the doc commit 9523065 holds
+this file at 3ef8b8a6 and `ROADMAP.md` at c0dda773, the hashes
+planning sent; the carry 89045f2, the removal 193aa84, the tool
+fcd254b, the removal case f255959 (P2 ruling 1) and the record
+0eadfec follow on 2d675da; 6 of 6 messages end with the
+Co-Authored-By line only, ASCII; the five logs and four records at
+the reported hashes, each log ending "all as expected: yes", the
+scan RESULT: PASS with 0 hits, every log pinning 3ef8b8a6;
+planning's own build at f255959 (`p4d-p2-build.txt`): the crate's
+tests 512 off and 544 on, 614, 601 and 703 with the other feature
+sets, on both targets, the workspace 868 on both, clippy 0 in five
+configurations, doc 0 in three; planning's own run of
+`--comment-sample` with its own release binaries (`p4d-p2-run.txt`)
+27 of 27 outputs and printed lines byte-identical to the phase's
+run directory on both targets, the lines carrying
+`comments_removed` and `parts_removed`, host and i686 identical,
+planning's own check of every output's parts as at P1 (22 created,
+5 appended), and the phase's 54 outputs byte-identical to P1's run
+directory's, as an in-memory removal implies; planning's own
+privacy scan 2d675da..0eadfec, 6 commits, 878 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset; the diff read: `comment_part_untouched`
+and its six tests, the removal's skips, the two VML drop cases, the
+removal-case test.
+
+1. The independent check's four reservations. (1) The doc comment
+   on the record order (the part refusals "first") does not match
+   the code, which refuses a cell this write adds or names twice
+   while grouping, before any part check; a twice-named removal on
+   a removed sheet gets "no comment on that cell". Both are
+   refusals and nothing is written; the comment is wrong, not the
+   code. Ruling: the doc comment corrected to the code's order,
+   carried to P3's first code commit. (2) The stale comment "a
+   comment rewrites the worksheet only when its `<legacyDrawing>`
+   is created" (it is also rewritten on a drop): corrected, same
+   carry. (3) A `v:shape` with no `ClientData` counts as "another
+   `ObjectType`" and keeps the VML part and the element: a plain
+   VML shape is a drawing object and keeping it is right. Ruling:
+   the reading stands; a test pinning it, same carry; the P4 limits
+   say "a shape of another `ObjectType` or none". (4) The tool
+   asserts `parts_removed` by count: the removal's exactness is
+   pinned by the P2 unit tests (the part equal to the input less
+   one element; the two drop cases) and the count is the sample's
+   assertion. No change.
+2. The report's account of the pre-log plant check and probe, the
+   option label "(a)" and the pre-check log's location are the
+   implementing session's own words with no primary, as the check
+   said; the outcome is P2 ruling 1 and f255959. Recorded.
+3. The negative log reaches the missing-part refusal through the
+   binary and states "no comment on that cell" unreachable with
+   its test; the removal keys read as expected on the three
+   fixtures. Accepted.
+4. The run: 27 of 27 on both targets, every flag and plant, the
+   open check against P1's record 2d675da. Accepted.
+5. P2 is DONE. P3 (images) is released: its doc commit carries this
+   file with the P2 rulings and this section, and `ROADMAP.md`'s
+   P2 row; its first code commit carries ruling 1's three items.
 
 ## Out of scope
 
