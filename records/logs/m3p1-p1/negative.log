@@ -1,0 +1,898 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m3p1-p1-negative.sh a509ad397344d85a34d51470847624701ce01110
+input: RERUN_NOTE: attempt 3; attempt 1 ended no on R11 (an expectation of the generator's first form), attempt 2 passed every check but printed an undeclared placeholder in its ATTEMPT 2 header note, refused by the scan pre-check; the note now names <superseded> (the script header, ATTEMPT 2 and ATTEMPT 3)
+input: RERUN_FILES: <superseded>/negative-attempt-1/negative.log <superseded>/negative-attempt-1/negative.stderr <superseded>/negative-attempt-1/m3p1-p1-negative.sh <superseded>/negative-attempt-2/negative.log <superseded>/negative-attempt-2/negative.stderr <superseded>/negative-attempt-2/m3p1-p1-negative.sh
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: NEGATIVE_BUILD: unset (the build root, <build>)
+input: python3: Python 3.14.4
+about: M3 part 1 P1 phase commit a509ad397344d85a34d51470847624701ce01110; HEAD at run: a509ad397344d85a34d51470847624701ce01110
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  part 4d's close-out record commit (the base): ab5b3aa4283c38384a051e4c51924a6b69b73154
+  the doc commit: 48c6e0db6211947f4728fb3bca0db55d7266606d
+  code commit 1: a509ad397344d85a34d51470847624701ce01110
+command: git rev-parse <phase commit>~0 to <phase commit>~2
+    a509ad397344d85a34d51470847624701ce01110
+    48c6e0db6211947f4728fb3bca0db55d7266606d
+    ab5b3aa4283c38384a051e4c51924a6b69b73154
+  code commit 1, the doc commit and the base, each the next one's parent, code commit 1 the phase commit: yes
+  control: roles_in_order refuses the doc commit named as code commit 1: yes
+
+phase: Milestone 3 part 1 P1 (specs/0023-scale.md) negative.log; run at 2026-10-01T20:38:29Z
+rerun: attempt 3; attempt 1 ended no on R11 (an expectation of the generator's first form), attempt 2 passed every check but printed an undeclared placeholder in its ATTEMPT 2 header note, refused by the scan pre-check; the note now names <superseded> (the script header, ATTEMPT 2 and ATTEMPT 3)
+rerun: the superseded files are kept in <superseded>
+command: sha256sum and wc -c over each superseded attempt named above
+    277a15269adb8a50e05f47b9084b7d787124257724e1132592601bb016c402c9  54303 bytes  negative.log
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  0 bytes  negative.stderr
+    966647484f7791630220b9ca910d2ac9f34f842334658c91a79016d1b15605d4  28670 bytes  m3p1-p1-negative.sh
+    c3fc1aa87790298c4cd958de71831eafd693041d05e4e2119229b84105ab3e84  57066 bytes  negative.log
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  0 bytes  negative.stderr
+    26ce897b168b1459c6a0b4e72e7f2f31f389f6d8abb9b7d4669935f1860d4141  29920 bytes  m3p1-p1-negative.sh
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds nothing
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, scripts/scale-gen.py and specs/0023-scale.md are read from it by git show, and specs/0023-scale.md's working file is hashed in it; nothing in it is run: the generator under test is run from <tree>
+root: <home> stands for the home directory of the account that ran this script
+root: <scripts> stands for <home>/.cache/emend-build/m3p1-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p1-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, from which the generator is run, removed at exit
+root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message reader, the cases' targets and their captured outputs, the broken template copy), removed at exit
+root: <superseded> stands for <home>/.cache/emend-build/m3p1-p1/superseded, where a rerun's superseded files are kept; read only
+  the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other): yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 3; of them this phase's logs or record or planning's spec 3; the lines:
+     M specs/0023-scale.md
+    ?? records/logs/m3p1-p1/
+    ?? records/m3p1-gen-2026-10-01-a509ad3.md
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison against the null commit says no: yes
+  control: the phase's status pattern refuses a modified script: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0023: yes
+  control: the phase's status pattern takes this phase's record and log and not part 4d's record: yes
+command: git show <phase commit>:specs/0023-scale.md | sha256sum: 7b1eb997d68cd3c6ca04bbda66cc55acc10656f9ac549fdd281a3e6bf746f7ef; sha256sum specs/0023-scale.md (the working file, planning's uncommitted rulings during P1, printed and not asserted): 9a7bcee74b9b45f5314f7a6bd690ee3eafd8dd265e16b91d91ac0be4cc78e860
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+every target is generated by this log into <scratch>/w or <tree>; no corpus file and no scale-directory file is read or written
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 3 part 1 P1 negative.log (specs/0023-scale.md, "P1: the generator
+    # and the survey": "the refusals (a target under the repository, an unknown
+    # tier, an existing file not overwritten without --force) in the negative
+    # log"). Every case runs the phase commit's scripts/scale-gen.py from a
+    # detached worktree of the phase commit, never the main tree, with targets
+    # in this run's scratch directory under the build root (and, for the
+    # refusals of a target under the repository, inside the worktree itself).
+    #
+    # Cases. Each refusal asserts exit 1, no standard output, the standard error
+    # exactly "refused: " and the message the committed source holds (read from
+    # the phase commit's scale-gen.py by its syntax tree, not by line), and that
+    # nothing was written: the target's file listing, and each file's sha256,
+    # before and after.
+    #  R1. The target is the worktree's root.
+    #  R2. The target is a directory under the worktree that does not exist yet.
+    #  R3. The target is a symbolic link outside the worktree pointing into it.
+    #  R4. An unknown tier: "e", and "A" (the tiers are lower case).
+    #  R5. The wrong argument count: none, one, and three (an extra argument
+    #      other than --force).
+    #  R6. Tier t generated into a fresh target outside the worktree (the
+    #      positive control: exit 0, one generated line of the documented
+    #      form, one manifest row, one workbook), then the same call again
+    #      without --force: refused, the manifest and the workbook unchanged.
+    #  R7. The same call with --force: exit 0, the manifest still holds exactly
+    #      one row whose tags column is scale,tiert, with the same id (the
+    #      generator is deterministic), and one workbook in the corpus.
+    #  R8. A leftover partial file .tier-t.xlsx.part in a fresh target, no
+    #      --force: refused, the partial file unchanged, no manifest, no
+    #      workbook.
+    #  R9. A manifest with another header in a fresh target: refused, the
+    #      manifest unchanged, no workbook.
+    #  R10. The workbook's file already in a fresh target's corpus with no
+    #      manifest row (the existing file of another target copied there), no
+    #      --force: refused after the generation, the file unchanged, no partial
+    #      file left, no manifest.
+    #  R11. A copy of the generator beside a copy of the crate's template whose
+    #      worksheet has lost its <sheetData/> anchor: refused with the anchor
+    #      message, no partial file, no manifest.
+    #
+    # ATTEMPT 2. Attempt 1 (kept unedited under <superseded>/negative-attempt-1,
+    # hashed on the rerun lines below) ended "no" on one check: R11
+    # expected the empty corpus directory the generator's FIRST form created
+    # before its refusals. This script was written against that form during a
+    # dry run; the phase commit's amended form (corpus/ created after every
+    # refusal that needs no workbook, the finding that dry run raised) creates
+    # nothing, so R11's expectation was stale. R9's check excluded corpus/ by
+    # name and so passed under either form, which could not show the fix.
+    # Changed for attempt 2: R8, R9 and R11 assert the target exactly as before
+    # (R11: never created), with no corpus/ exception, and a control shows the
+    # comparison refuses a target that gained only an empty corpus directory.
+    #
+    # ATTEMPT 3. Attempt 2 (kept under <superseded>/negative-attempt-2) passed
+    # every check but spelled an undeclared placeholder in the ATTEMPT 2 note
+    # above, which the scan's pre-check stage refused (specs/0016 P5
+    # verification ruling 3). The note now names <superseded>, which a root line
+    # declares; nothing else changed.
+    # Then the refusal messages of the source compared as a SET with those
+    # reached here: every Refused(...) site of the phase commit's scale-gen.py
+    # is reached by a case.
+    #
+    # WRITTEN FOR THIS PHASE, not generated: part 4d P4's negative script
+    # (records/logs/m2p4d-p4/negative.log) ran emend-copy over fictional
+    # packages; this phase's negative content is the generator's refusals, so
+    # the body is new. Carried from that script unchanged in form: the header
+    # and its labelled input and root lines, the phase commit given as the
+    # first argument and compared with HEAD (with the null-commit control), the
+    # entry and exit status checks against the phase's own pattern, the three
+    # shape greps over this script before its log, the scrub of every printed
+    # line, the printed script and counting library, the counting controls,
+    # the rerun lines, the SERIALIZED line, the ANTHROPIC_API_KEY check, the
+    # control-byte count over the captured outputs and this script's own
+    # standard error counted at the end. No gate binary is used: the generator
+    # is a Python script run from the worktree, so no hash is read from
+    # gate.log.
+    #
+    # Usage: m3p1-p1-negative.sh <phase commit> > <file outside the tree>; the
+    # caller moves the output to records/logs/m3p1-p1/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/negative.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    BUILD_ROOT=${NEGATIVE_BUILD:-$HOME/.cache/emend-build/m3p1-p1/negative}
+    SUPERSEDED_DIR=$HOME/.cache/emend-build/m3p1-p1/superseded
+    SPEC=specs/0023-scale.md
+    SPEC_WANT=7b1eb997d68cd3c6ca04bbda66cc55acc10656f9ac549fdd281a3e6bf746f7ef
+    mkdir -p "$BUILD_ROOT" || exit 2
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    B=$(mktemp -d -p "$BUILD_ROOT") || exit 2
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+      rm -rf "$B"
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    # This phase's logs and record, and planning's uncommitted spec.
+    OURS='^((\?\?| ?[MARCD]) records/logs/m3p1-p1|(\?\?| ?[MARCD]) records/m3p1-gen-| M specs/0023-scale[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs, record and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$TREE#<tree>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: NEGATIVE_BUILD: ${NEGATIVE_BUILD:-unset} (the build root, <build>)"
+    echo "input: python3: $(python3 --version 2>&1)"
+    echo "about: M3 part 1 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M2 part 4d close-out record: the push, the CI run and the scan')
+    DOC1=$(by_subject 'M3 part 1 P1: commit planning docs (the spec, the Milestone 3 outline, the part 4d close-out rulings)')
+    CODE1=$(by_subject 'M3 part 1 P1: scripts/scale-gen.py and its tier t test')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  part 4d's close-out record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1: ${CODE1:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~2"
+    for k in 0 1 2; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commit 1, the doc commit and the base, each the next one's parent, code commit 1 the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE1=$DOC1; roles_in_order; }
+    check "control: roles_in_order refuses the doc commit named as code commit 1" "$(ynnot roles_ctl)"
+    echo
+    echo "phase: Milestone 3 part 1 P1 ($SPEC) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds nothing"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, scripts/scale-gen.py and $SPEC are read from it by git show, and $SPEC's working file is hashed in it; nothing in it is run: the generator under test is run from <tree>"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scripts> stands for <home>/.cache/emend-build/m3p1-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p1-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, from which the generator is run, removed at exit"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message reader, the cases' targets and their captured outputs, the broken template copy), removed at exit"
+    echo "root: <superseded> stands for <home>/.cache/emend-build/m3p1-p1/superseded, where a rerun's superseded files are kept; read only"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$TREE" "$B" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN"; }
+    check "the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$TREE" "$BUILD_ROOT"; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(ynnot roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or record or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    ours_ctl() { printf ' M scripts/scale-gen.py\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified script" "$(ynnot ours_ctl)"
+    ours_spec_ctl() { printf ' M specs/0022-comments-and-images.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0023" "$(ynnot ours_spec_ctl)"
+    ours_rec_ctl() { printf '?? records/m3p1-gen-2026-01-01-abcdef0.md\n?? records/m2p4d-p4-x.md\n?? records/logs/m3p1-p1/gate.log\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's record and log and not part 4d's record" "$(yn [ "$(ours_rec_ctl)" = 2 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, planning's uncommitted rulings during P1, printed and not asserted): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo "every target is generated by this log into <scratch>/w or <tree>; no corpus file and no scale-directory file is read or written"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    echo "## the generator's refusals, run from a worktree of the phase commit"
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >/dev/null 2>&1
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    GEN=$TREE/scripts/scale-gen.py
+    same_generator() { [ "$(sha_of "$GEN")" = "$(git show "$C:scripts/scale-gen.py" | sha256sum | cut -d' ' -f1)" ]; }
+    echo "  <tree>/scripts/scale-gen.py: sha256 $(sha_of "$GEN")"
+    check "the worktree's generator is the phase commit's blob" "$(yn same_generator)"
+    
+    echo
+    echo "### the refusal messages, read from the phase commit's source by its syntax tree"
+    git show "$C:scripts/scale-gen.py" >"$B/scale-gen.py"
+    cat >"$B/messages.py" <<'PY'
+    """Every message a scale-gen.py raises as Refused(...), one per line, in
+    source order: a string literal as it stands; a literal formatted with %
+    by evaluating the module's own expression (the module is imported, its
+    main is not run); a name by the module's value of it. Usage: messages.py
+    <scale-gen.py>."""
+    import ast
+    import importlib.util
+    import sys
+    
+    path = sys.argv[1]
+    spec = importlib.util.spec_from_file_location("scale_gen", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    tree = ast.parse(open(path).read())
+    seen = []
+    for node in sorted((n for n in ast.walk(tree) if isinstance(n, ast.Raise)), key=lambda n: n.lineno):
+        call = node.exc
+        if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "Refused"):
+            continue
+        arg = call.args[0]
+        if isinstance(arg, ast.Constant):
+            m = arg.value
+        else:
+            m = eval(compile(ast.Expression(arg), path, "eval"), vars(mod))
+        if m not in seen:
+            seen.append(m)
+    for m in seen:
+        print(m)
+    PY
+    python3 "$B/messages.py" "$B/scale-gen.py" >"$B/messages" 2>"$B/messages.err"
+    echo "command: python3 <scratch>/w/messages.py <the phase commit's scale-gen.py>: exit $?; distinct messages $(count_lines "$B/messages"); stderr bytes $(wc -c <"$B/messages.err")"
+    nempty=$(count_matches -E '^$' "$B/messages")
+    echo "  the messages:"; sed 's/^/    /' "$B/messages"
+    reader_ok() { [ "$(count_lines "$B/messages")" -ge 1 ] && [ "$nempty" = 0 ] && [ ! -s "$B/messages.err" ]; }
+    check "the reader found the messages, none empty, and wrote no error" "$(yn reader_ok)"
+    # msg <fixed phrase>: the one message holding the phrase, prefixed as the
+    # generator prints it; empty unless exactly one holds it.
+    msg() {
+      local n
+      n=$(count_matches -F "$1" "$B/messages")
+      if [ "$n" = 1 ]; then printf 'refused: %s' "$(LC_ALL=C "$G" -F "$1" "$B/messages")"; fi
+    }
+    M_REPO=$(msg 'under the repository')
+    M_TIER=$(msg 'unknown tier')
+    M_USAGE=$(msg 'usage: scale-gen.py')
+    M_HAS=$(msg 'already has a workbook in the manifest')
+    M_PART=$(msg 'partial file')
+    M_HEADER=$(msg 'manifest header')
+    M_FILE=$(msg 'already in the corpus')
+    M_ANCHOR=$(msg 'the anchor the generator expects')
+    for v in M_REPO M_TIER M_USAGE M_HAS M_PART M_HEADER M_FILE M_ANCHOR; do
+      check "the phrase for $v picks exactly one message" "$(ynnot [ -z "${!v}" ])"
+    done
+    check "control: a phrase no message holds picks none" "$(yn [ -z "$(msg 'no such phrase anywhere')" ])"
+    
+    echo
+    echo "### the cases"
+    # run_gen <case> <generator> <args...>: run it, keeping status, stdout and
+    # stderr; prints nothing (it is called outside a check).
+    run_gen() {
+      local k=$1 g=$2
+      shift 2
+      python3 "$g" "$@" >"$B/$k.stdout" 2>"$B/$k.stderr"
+      echo $? >"$B/$k.status"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    refused_with() { status_is "$1" 1 && [ ! -s "$B/$1.stdout" ] && [ -n "$2" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    # listing <dir>: every path under it with its sha256 (a directory as "dir"),
+    # sorted; "absent" when it does not exist.
+    listing() {
+      if [ -e "$1" ]; then
+        (cd "$1" && find . -mindepth 1 | LC_ALL=C sort | while IFS= read -r p; do
+          if [ -d "$p" ]; then printf '%s dir\n' "$p"; else printf '%s %s\n' "$p" "$(sha256sum <"$p" | cut -d' ' -f1)"; fi
+        done)
+      else
+        echo absent
+      fi
+    }
+    same_listing() { listing "$1" | cmp -s - "$2"; }
+    GEN_FORM='^generated t [0-9a-f]{12} [0-9]+ [0-9a-f]{64} sheet_bytes=[0-9]+ seconds=[0-9]+[.][0-9]$'
+    generated_ok() { status_is "$1" 0 && [ ! -s "$B/$1.stderr" ] && [ "$(count_lines "$B/$1.stdout")" = 1 ] && [ "$(count_matches -E "$GEN_FORM" "$B/$1.stdout")" = 1 ]; }
+    show() { echo "  $1: exit $(cat "$B/$1.status"); stdout lines $(count_lines "$B/$1.stdout"); stderr: $(cat "$B/$1.stderr")"; }
+    tree_clean() { [ -z "$(git -C "$TREE" status --porcelain --ignored)" ]; }
+    
+    echo "R1: the target is the worktree's root"
+    listing "$TREE" >"$B/r1.before"
+    run_gen r1 "$GEN" t "$TREE"; show r1
+    check "R1 refused with the repository message" "$(yn refused_with r1 "$M_REPO")"
+    check "R1 wrote nothing in the worktree (listing and hashes unchanged)" "$(yn same_listing "$TREE" "$B/r1.before")"
+    check "R1 left the worktree clean, ignored files included" "$(yn tree_clean)"
+    
+    echo "R2: the target is a directory under the worktree that does not exist yet"
+    run_gen r2 "$GEN" t "$TREE/scale"; show r2
+    check "R2 refused with the repository message" "$(yn refused_with r2 "$M_REPO")"
+    check "R2 did not create the directory" "$(ynnot [ -e "$TREE/scale" ])"
+    check "R2 left the worktree clean, ignored files included" "$(yn tree_clean)"
+    
+    echo "R3: the target is a symbolic link outside the worktree pointing into it"
+    mkdir -p "$TREE/inside"
+    ln -s "$TREE/inside" "$B/link"
+    echo "  the link resolves to <tree>/inside: $(yn [ "$(readlink -f "$B/link")" = "$TREE/inside" ])"
+    listing "$TREE/inside" >"$B/r3.before"
+    run_gen r3 "$GEN" t "$B/link"; show r3
+    check "R3 refused with the repository message" "$(yn refused_with r3 "$M_REPO")"
+    check "R3 wrote nothing through the link" "$(yn same_listing "$TREE/inside" "$B/r3.before")"
+    rmdir "$TREE/inside"; rm "$B/link"
+    
+    echo "R4: unknown tiers"
+    run_gen r4e "$GEN" e "$B/r4"; show r4e
+    run_gen r4A "$GEN" A "$B/r4"; show r4A
+    check "R4 tier e refused with the tier message" "$(yn refused_with r4e "$M_TIER")"
+    check "R4 tier A refused with the tier message" "$(yn refused_with r4A "$M_TIER")"
+    check "R4 created no target" "$(ynnot [ -e "$B/r4" ])"
+    
+    echo "R5: the wrong argument count"
+    run_gen r5a "$GEN"; show r5a
+    run_gen r5b "$GEN" t; show r5b
+    run_gen r5c "$GEN" t "$B/r5" extra; show r5c
+    check "R5 no argument refused with the usage" "$(yn refused_with r5a "$M_USAGE")"
+    check "R5 one argument refused with the usage" "$(yn refused_with r5b "$M_USAGE")"
+    check "R5 an extra argument refused with the usage" "$(yn refused_with r5c "$M_USAGE")"
+    check "R5 created no target" "$(ynnot [ -e "$B/r5" ])"
+    
+    echo "R6: tier t generated, then the same call again without --force"
+    T6=$B/r6
+    run_gen r6a "$GEN" t "$T6"; echo "  r6a: exit $(cat "$B/r6a.status"); stdout lines $(count_lines "$B/r6a.stdout"); stderr bytes $(wc -c <"$B/r6a.stderr")"
+    check "R6 the first call generates (exit 0, one line of the documented form, no stderr)" "$(yn generated_ok r6a)"
+    ID6=$(cut -d' ' -f3 "$B/r6a.stdout")
+    rows_t() { awk -F"$TAB" 'NR > 1 && $9 == "scale,tiert" { n++ } END { print n + 0 }' "$1/manifest.tsv"; }
+    files_in() { find "$1/corpus" -type f | wc -l; }
+    one_of_each() { [ "$(rows_t "$1")" = 1 ] && [ "$(files_in "$1")" = 1 ] && [ -f "$1/corpus/$2.xlsx" ]; }
+    echo "  manifest rows tagged scale,tiert: $(rows_t "$T6"); files in the corpus: $(files_in "$T6")"
+    check "R6 one manifest row and one workbook, named by the printed id" "$(yn one_of_each "$T6" "$ID6")"
+    listing "$T6" >"$B/r6.before"
+    run_gen r6b "$GEN" t "$T6"; show r6b
+    check "R6 the second call without --force refused with the manifest message" "$(yn refused_with r6b "$M_HAS")"
+    check "R6 the target unchanged (manifest and workbook by sha256)" "$(yn same_listing "$T6" "$B/r6.before")"
+    check "control: refused_with refuses the first call, which passed" "$(ynnot refused_with r6a "$M_HAS")"
+    check "control: refused_with refuses the right case with another message" "$(ynnot refused_with r6b "$M_PART")"
+    check "control: refused_with refuses an empty message" "$(ynnot refused_with r6b "")"
+    check "control: generated_ok refuses the refused call" "$(ynnot generated_ok r6b)"
+    printf 'x\n' >"$B/c-listing"
+    check "control: same_listing refuses a listing one line off" "$(ynnot same_listing "$T6" "$B/c-listing")"
+    
+    echo "R7: the same call with --force"
+    run_gen r7 "$GEN" t "$T6" --force; echo "  r7: exit $(cat "$B/r7.status"); stdout lines $(count_lines "$B/r7.stdout"); stderr bytes $(wc -c <"$B/r7.stderr")"
+    check "R7 generates (exit 0, one line of the documented form, no stderr)" "$(yn generated_ok r7)"
+    ID7=$(cut -d' ' -f3 "$B/r7.stdout")
+    echo "  manifest rows tagged scale,tiert: $(rows_t "$T6"); files in the corpus: $(files_in "$T6"); id the same as R6's: $(yn [ "$ID7" = "$ID6" ])"
+    check "R7 still one manifest row and one workbook, named by the same id" "$(yn one_of_each "$T6" "$ID6")"
+    check "R7 the id is R6's (deterministic)" "$(yn [ "$ID7" = "$ID6" ])"
+    check "R7 no partial file left" "$(ynnot [ -e "$T6/.tier-t.xlsx.part" ])"
+    check "control: one_of_each refuses another id" "$(ynnot one_of_each "$T6" 000000000000)"
+    
+    echo "R8: a leftover partial file, no --force"
+    T8=$B/r8; mkdir -p "$T8"; printf 'partial\n' >"$T8/.tier-t.xlsx.part"
+    listing "$T8" >"$B/r8.before"
+    P8=$(sha_of "$T8/.tier-t.xlsx.part")
+    run_gen r8 "$GEN" t "$T8"; show r8
+    check "R8 refused with the partial-file message" "$(yn refused_with r8 "$M_PART")"
+    check "R8 the partial file unchanged" "$(yn [ "$(sha_of "$T8/.tier-t.xlsx.part")" = "$P8" ])"
+    check "R8 no manifest written" "$(ynnot [ -e "$T8/manifest.tsv" ])"
+    check "R8 no workbook written" "$(yn [ "$(find "$T8" -name '*.xlsx' | wc -l)" = 0 ])"
+    check "R8 the target exactly as before: no corpus directory either (attempt 2)" "$(yn same_listing "$T8" "$B/r8.before")"
+    
+    echo "R9: a manifest with another header"
+    T9=$B/r9; mkdir -p "$T9"; printf 'id\tsha256\n' >"$T9/manifest.tsv"
+    listing "$T9" >"$B/r9.before"
+    run_gen r9 "$GEN" t "$T9"; show r9
+    check "R9 refused with the header message" "$(yn refused_with r9 "$M_HEADER")"
+    check "R9 the target exactly as before: the manifest unchanged, no corpus directory, no workbook (attempt 2)" "$(yn same_listing "$T9" "$B/r9.before")"
+    check "R9 no workbook written" "$(yn [ "$(find "$T9" -name '*.xlsx*' | wc -l)" = 0 ])"
+    
+    echo "R10: the workbook's file already in the corpus, with no manifest row"
+    T10=$B/r10; mkdir -p "$T10/corpus"; cp "$T6/corpus/$ID6.xlsx" "$T10/corpus/"
+    listing "$T10" >"$B/r10.before"
+    run_gen r10 "$GEN" t "$T10"; show r10
+    check "R10 refused with the corpus-file message" "$(yn refused_with r10 "$M_FILE")"
+    check "R10 the target unchanged: the file by sha256, no partial file, no manifest" "$(yn same_listing "$T10" "$B/r10.before")"
+    
+    echo "R11: the crate's template without the sheetData anchor"
+    BR=$B/broken
+    mkdir -p "$BR/scripts" "$BR/crates/emend"
+    cp "$GEN" "$BR/scripts/scale-gen.py"
+    cp -r "$TREE/crates/emend/template" "$BR/crates/emend/template"
+    SH=$BR/crates/emend/template/xl/worksheets/sheet1.xml
+    n_anchor=$(count_matches -F '<sheetData/>' "$SH")
+    sed -i 's#<sheetData/>##' "$SH"
+    echo "  the copy's worksheet held the anchor on $n_anchor line(s); after the edit $(count_matches -F '<sheetData/>' "$SH")"
+    check "R11 the edit removed the one anchor" "$(yn [ "$n_anchor" = 1 ] )"
+    run_gen r11 "$BR/scripts/scale-gen.py" t "$B/r11"; show r11
+    check "R11 refused with the anchor message" "$(yn refused_with r11 "$M_ANCHOR")"
+    check "R11 the target never created: no partial file, no manifest, no corpus directory (attempt 2)" "$(yn [ "$(listing "$B/r11")" = absent ])"
+    mkdir -p "$B/r11-ctl/corpus"; echo absent >"$B/c-absent-listing"
+    check "control: a target that is only an empty corpus directory is not absent (same listing form)" "$(ynnot same_listing "$B/r11-ctl" "$B/c-absent-listing")"
+    check "control: an absent target lists as absent (same listing form)" "$(yn same_listing "$B/r11-ctl-none" "$B/c-absent-listing")"
+    
+    echo
+    echo "### every message of the source reached by a case"
+    for k in r1 r2 r3 r4e r4A r5a r5b r5c r6b r8 r9 r10 r11; do sed 's/^refused: //' "$B/$k.stderr"; echo; done | LC_ALL=C "$G" -v '^$' | LC_ALL=C sort -u >"$B/reached.set"
+    LC_ALL=C sort -u "$B/messages" >"$B/messages.set"
+    echo "  the source's messages $(count_lines "$B/messages.set"); reached $(count_lines "$B/reached.set")"
+    all_reached() { cmp -s "$B/messages.set" "$B/reached.set"; }
+    check "the messages reached are exactly the source's, as sets" "$(yn all_reached)"
+    sed '1d' "$B/reached.set" >"$B/c-reached"
+    reached_ctl() { cmp -s "$B/messages.set" "$B/c-reached"; }
+    check "control: the same comparison refuses the reached set one message short" "$(ynnot reached_ctl)"
+    
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$TREE" /dev/stdin)" = 0 ])"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or record or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or record or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/negative.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the generator's refusals, run from a worktree of the phase commit
+command: git worktree add --detach <tree> <phase commit>
+  the worktree is at the phase commit: yes
+  <tree>/scripts/scale-gen.py: sha256 afb59d05d8b472fd753fde32da52f8a699b4c05f0f480c63da9def682f57098f
+  the worktree's generator is the phase commit's blob: yes
+
+### the refusal messages, read from the phase commit's source by its syntax tree
+command: python3 <scratch>/w/messages.py <the phase commit's scale-gen.py>: exit 0; distinct messages 8; stderr bytes 0
+  the messages:
+    the crate's template no longer has the anchor the generator expects
+    the manifest header is not the one specs/0005-corpus.md defines
+    usage: scale-gen.py <tier> <dir> [--force]
+    unknown tier (one of t, a, b, c, d)
+    the target is under the repository
+    the tier already has a workbook in the manifest; --force replaces it
+    a partial file of the tier is there; --force replaces it
+    the workbook's file is already in the corpus; --force replaces it
+  the reader found the messages, none empty, and wrote no error: yes
+  the phrase for M_REPO picks exactly one message: yes
+  the phrase for M_TIER picks exactly one message: yes
+  the phrase for M_USAGE picks exactly one message: yes
+  the phrase for M_HAS picks exactly one message: yes
+  the phrase for M_PART picks exactly one message: yes
+  the phrase for M_HEADER picks exactly one message: yes
+  the phrase for M_FILE picks exactly one message: yes
+  the phrase for M_ANCHOR picks exactly one message: yes
+  control: a phrase no message holds picks none: yes
+
+### the cases
+R1: the target is the worktree's root
+  r1: exit 1; stdout lines 0; stderr: refused: the target is under the repository
+  R1 refused with the repository message: yes
+  R1 wrote nothing in the worktree (listing and hashes unchanged): yes
+  R1 left the worktree clean, ignored files included: yes
+R2: the target is a directory under the worktree that does not exist yet
+  r2: exit 1; stdout lines 0; stderr: refused: the target is under the repository
+  R2 refused with the repository message: yes
+  R2 did not create the directory: yes
+  R2 left the worktree clean, ignored files included: yes
+R3: the target is a symbolic link outside the worktree pointing into it
+  the link resolves to <tree>/inside: yes
+  r3: exit 1; stdout lines 0; stderr: refused: the target is under the repository
+  R3 refused with the repository message: yes
+  R3 wrote nothing through the link: yes
+R4: unknown tiers
+  r4e: exit 1; stdout lines 0; stderr: refused: unknown tier (one of t, a, b, c, d)
+  r4A: exit 1; stdout lines 0; stderr: refused: unknown tier (one of t, a, b, c, d)
+  R4 tier e refused with the tier message: yes
+  R4 tier A refused with the tier message: yes
+  R4 created no target: yes
+R5: the wrong argument count
+  r5a: exit 1; stdout lines 0; stderr: refused: usage: scale-gen.py <tier> <dir> [--force]
+  r5b: exit 1; stdout lines 0; stderr: refused: usage: scale-gen.py <tier> <dir> [--force]
+  r5c: exit 1; stdout lines 0; stderr: refused: usage: scale-gen.py <tier> <dir> [--force]
+  R5 no argument refused with the usage: yes
+  R5 one argument refused with the usage: yes
+  R5 an extra argument refused with the usage: yes
+  R5 created no target: yes
+R6: tier t generated, then the same call again without --force
+  r6a: exit 0; stdout lines 1; stderr bytes 0
+  R6 the first call generates (exit 0, one line of the documented form, no stderr): yes
+  manifest rows tagged scale,tiert: 1; files in the corpus: 1
+  R6 one manifest row and one workbook, named by the printed id: yes
+  r6b: exit 1; stdout lines 0; stderr: refused: the tier already has a workbook in the manifest; --force replaces it
+  R6 the second call without --force refused with the manifest message: yes
+  R6 the target unchanged (manifest and workbook by sha256): yes
+  control: refused_with refuses the first call, which passed: yes
+  control: refused_with refuses the right case with another message: yes
+  control: refused_with refuses an empty message: yes
+  control: generated_ok refuses the refused call: yes
+  control: same_listing refuses a listing one line off: yes
+R7: the same call with --force
+  r7: exit 0; stdout lines 1; stderr bytes 0
+  R7 generates (exit 0, one line of the documented form, no stderr): yes
+  manifest rows tagged scale,tiert: 1; files in the corpus: 1; id the same as R6's: yes
+  R7 still one manifest row and one workbook, named by the same id: yes
+  R7 the id is R6's (deterministic): yes
+  R7 no partial file left: yes
+  control: one_of_each refuses another id: yes
+R8: a leftover partial file, no --force
+  r8: exit 1; stdout lines 0; stderr: refused: a partial file of the tier is there; --force replaces it
+  R8 refused with the partial-file message: yes
+  R8 the partial file unchanged: yes
+  R8 no manifest written: yes
+  R8 no workbook written: yes
+  R8 the target exactly as before: no corpus directory either (attempt 2): yes
+R9: a manifest with another header
+  r9: exit 1; stdout lines 0; stderr: refused: the manifest header is not the one specs/0005-corpus.md defines
+  R9 refused with the header message: yes
+  R9 the target exactly as before: the manifest unchanged, no corpus directory, no workbook (attempt 2): yes
+  R9 no workbook written: yes
+R10: the workbook's file already in the corpus, with no manifest row
+  r10: exit 1; stdout lines 0; stderr: refused: the workbook's file is already in the corpus; --force replaces it
+  R10 refused with the corpus-file message: yes
+  R10 the target unchanged: the file by sha256, no partial file, no manifest: yes
+R11: the crate's template without the sheetData anchor
+  the copy's worksheet held the anchor on 1 line(s); after the edit 0
+  R11 the edit removed the one anchor: yes
+  r11: exit 1; stdout lines 0; stderr: refused: the crate's template no longer has the anchor the generator expects
+  R11 refused with the anchor message: yes
+  R11 the target never created: no partial file, no manifest, no corpus directory (attempt 2): yes
+  control: a target that is only an empty corpus directory is not absent (same listing form): yes
+  control: an absent target lists as absent (same listing form): yes
+
+### every message of the source reached by a case
+  the source's messages 8; reached 8
+  the messages reached are exactly the source's, as sets: yes
+  control: the same comparison refuses the reached set one message short: yes
+  the worktree is gone from git's list: yes
+
+## the log itself
+  captured outputs: 30; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0023-scale.md
+    ?? records/logs/m3p1-p1/
+    ?? records/m3p1-gen-2026-10-01-a509ad3.md
+status lines: 3; of them this phase's logs or record or planning's spec: 3
+  every change in the working tree is this phase's logs or record or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/negative.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-01T20:38:41Z
+negative log checks all as expected: yes
