@@ -1,0 +1,1199 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m2p4d-p1-negative.sh f7d6a7d7bbdcc6b2fc1514c1e9bee0e0a1eb5ce9
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: NEGATIVE_BUILD: unset (the build root, <build>)
+input: the gate log: records/logs/m2p4d-p1/gate.log
+input: the gate build directory: <gatebuild>
+about: M2 part 4d P1 phase commit f7d6a7d7bbdcc6b2fc1514c1e9bee0e0a1eb5ce9; HEAD at run: f7d6a7d7bbdcc6b2fc1514c1e9bee0e0a1eb5ce9
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  part 4c's close-out record commit (the base): 5da68da33da1eb7c31cadbbd278dc0c55c4a9a58
+  the doc commit: 77ed347ca506ee99f56049d3cef0181291c59687
+  code commit 1: 39d7ab759f8cd82894c01e657b34f3959441cf0c
+  code commit 2: 96dde75f1c39a5ef6e6c2d095e4335b0eb676eaf
+  code commit 3: f7d6a7d7bbdcc6b2fc1514c1e9bee0e0a1eb5ce9
+command: git rev-parse <phase commit>~0 to <phase commit>~4
+    f7d6a7d7bbdcc6b2fc1514c1e9bee0e0a1eb5ce9
+    96dde75f1c39a5ef6e6c2d095e4335b0eb676eaf
+    39d7ab759f8cd82894c01e657b34f3959441cf0c
+    77ed347ca506ee99f56049d3cef0181291c59687
+    5da68da33da1eb7c31cadbbd278dc0c55c4a9a58
+  code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit: yes
+  control: roles_in_order refuses code commit 2 named as code commit 3: yes
+
+phase: Milestone 2 part 4d P1 (specs/0022-comments-and-images.md) negative.log; run at 2026-10-01T03:08:19Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds nothing
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log (records/logs/m2p4d-p1/gate.log) is read for the binary's hash, the template files, crates/emend/src/package.rs and specs/0022-comments-and-images.md are read from it by git show, and specs/0022-comments-and-images.md's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there
+root: <home> stands for the home directory of the account that ran this script
+root: <scripts> stands for <home>/.cache/emend-build/m2p4d-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m2p4d-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit
+root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m2p4d-p1/gate unless the third argument names another, from which the gate's host debug binary is copied; read only
+root: <superseded> stands for <home>/.cache/emend-build/m2p4d-p1/superseded, where a rerun's superseded files are kept; read only
+root: <scratch>/w stands for this run's mktemp -d working directory (the message reader, the source copy, the generator, its fixtures and the cases' outputs), removed at exit
+  the roots other than <home> are distinct, none inside another: yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 2; of them this phase's logs or records or planning's spec 2; the lines:
+     M specs/0022-comments-and-images.md
+    ?? records/logs/m2p4d-p1/
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison against the null commit says no: yes
+  control: the phase's status pattern refuses a modified source file: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0022: yes
+  control: the phase's status pattern takes this phase's record and no size record: yes
+command: git show <phase commit>:specs/0022-comments-and-images.md | sha256sum: a207e17567206dd86ba367472e19f8f9972b300ab10ec9f35e6b49e2143a1b33; sha256sum specs/0022-comments-and-images.md (the working file, printed and not asserted; change CD): 0cfa5163655bd288471a873a158cef30e94d281a2ce70f34886965deded325ef
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+every fixture is built by this log from the phase commit's template files; no corpus file is copied or read
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 2 part 4d P1 negative.log (specs/0022-comments-and-images.md,
+    # "P1": "--comment-sample on a fixture from the template with a comments part
+    # and no legacyDrawing (refused) and on one with two legacyDrawing elements
+    # (refused), each with a control"). One family, the gate's host debug binary
+    # copied into a detached worktree of the phase commit and checked against
+    # gate.log's hash, on fictional packages this log builds from the phase
+    # commit's template files. The template's worksheet holds an empty sheetData
+    # alone, so M is 0 and the sample's cell is A1:
+    #
+    # (C) --comment-sample, the template's worksheet children after its empty
+    #     sheetData set per case, a kept comments part (one comment, on C3, by
+    #     the author kept), a kept VML part and their relationships and
+    #     Overrides added where the case holds them:
+    #       C0 the bare template: both parts and the rels part are created, the
+    #          root retagged, exit 0, its line;
+    #       C1 a comments part and its relationship and no legacyDrawing: the
+    #          read message;
+    #       C2 both parts kept and legacyDrawing naming the VML part, the control
+    #          for C1 and C3: exit 0, its line;
+    #       C3 C2 with two legacyDrawing elements: the two-element message;
+    #       C4 a VML part holding a form control alone and legacyDrawing naming
+    #          it, no comments part, the control for C3: exit 0, its line;
+    #       C5 a threadedComment relationship on the worksheet: the threaded
+    #          message;
+    #       C6 a legacyDrawing whose relationship the worksheet lacks: the read
+    #          message.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the messages of this phase,
+    # read from the source by constant name, compared as SETS with those reached
+    # here and those the log states unreachable, with the reason and the covering
+    # test for each; and usage shapes.
+    #
+    # CARRIED TO M2 part 4c P1 from M2 part 4b P1's negative script (printed in
+    # records/logs/m2p4b-p1/negative.log; its change list AC to AG is there),
+    # generated by <home>/.cache/emend-build/m2p4c-p3/gen/negative.py, every
+    # replacement asserted to occur once, and grepped for P1's tokens in every
+    # form (m2p4b-p1, the 4b P1 subjects, dc4cb485, validate-sample, the V
+    # cases). What differs, and why:
+    #  CA. The phase, the log directory, the subjects and the build directories
+    #      are part 4c P1's. The base is part 4b's close-out record commit ("M2
+    #      part 4b close-out record:"); the doc commit and the three code
+    #      commits by their full P1 subjects. This script lives on the disk in
+    #      the phase's scripts directory under the home directory's
+    #      .cache/emend-build/m2p4c-p1, shown as <scripts>, with its standard
+    #      error in <scripts>/out. The gate's log and build directory default to
+    #      records/logs/m2p4c-p1/gate.log and the phase's gate directory; both
+    #      are labelled input lines.
+    #  CB. The family is N0 to N6 above, the generator gen-n.py editing the
+    #      template's worksheet right after its empty sheetData and adding a kept
+    #      table's part, relationship and Override where the case holds one. The
+    #      spec's two refusals with their controls are N1 and N3; N5 and N6 reach
+    #      two more messages of this phase through the binary, the one left being
+    #      unreachable there.
+    #  CC. The messages of this phase are the constants from TABLE_NAME_INVALID
+    #      to TABLE_UNREADABLE in the source, read by constant name, each checked
+    #      non-empty, and that set compared with the reached and the
+    #      stated-unreachable ones.
+    #  CD. The spec. The log pins the COMMITTED spec: the blob at the phase
+    #      commit (the P1 doc commit's) at
+    #      b96f97ac6d36ff1d12075032625f5d1e650cca4f919d1aa442a0fce8da3b23e2.
+    #      The working file differs: it holds planning's uncommitted "Planning
+    #      rulings during P1", which go in P2's doc commit; its hash is printed
+    #      and never asserted, and the status pattern allows that one line
+    #      (" M specs/0021-..."). Each message is looked for in both copies, and
+    #      every message must stand in the working copy.
+    #  CE. The usage shapes: an extra argument after the flag, and the sample
+    #      with another sample.
+    #
+    # CARRIED TO M2 part 4c P2 from part 4c P1's negative script (printed in
+    # records/logs/m2p4c-p1/negative.log; its change list CA to CE is above),
+    # generated by <home>/.cache/emend-build/m2p4c-p3/gen/negative.py, every
+    # replacement asserted to occur once, and grepped for P1's tokens in every
+    # form (m2p4c-p1, the 4c P1 subjects, b96f97ac). What differs, and why:
+    #  CF. The phase, the log directory, the subjects and the build directories
+    #      are part 4c P2's; the base is part 4c P1's record commit; the spec pin
+    #      is specs/0021's blob at P2's doc commit, 3bea86d5.
+    #  CG. The sample's line gains tables_removed and parts_removed (the
+    #      in-memory removal): the controls' lines read the input's tables and
+    #      table parts there.
+    #  CH. The messages of this phase run from TABLE_NAME_INVALID to
+    #      TABLE_UNREADABLE, NO_SUCH_TABLE among them, stated unreachable: the
+    #      sample removes only the table it has just written, which the removal
+    #      always finds.
+    #
+    # CARRIED TO M2 part 4c P3 from part 4c P2's negative script (printed in
+    # records/logs/m2p4c-p2/negative.log; its change list CF to CH is above),
+    # generated by <home>/.cache/emend-build/m2p4c-p3/gen/negative.py, every
+    # replacement asserted to occur once, and grepped for P2's tokens in every
+    # form (m2p4c-p2, the 4c P2 subjects, 3bea86d5). What differs, and why:
+    #  CI. The phase, the log directory, the subjects and the build directories
+    #      are part 4c P3's; the base is part 4c P2's record commit; the spec pin
+    #      is specs/0021's blob at P3's doc commit, 61c125d0. The status pattern
+    #      allows the size record's stem, records/size-m2p4c-.
+    #  CJ. Every message of the part reachable through the binary is reached:
+    #      the four P1 and P2 reached, the overlap message also by a kept merge
+    #      (N7) and by the worksheet's autofilter (N8), and the name message also
+    #      by a defined name (N9), the case folded; N0 is their control.
+    #  CK. Each message stated unreachable carries the crate test that covers
+    #      it, a third column, and the log finds each named test's fn line in the
+    #      phase commit's package/tests/tables.rs, with a control.
+    #
+    # CARRIED TO M2 part 4d P1 from part 4c P3's negative script (printed in
+    # records/logs/m2p4c-p3/negative.log; its change list CI to CK is above),
+    # generated by <home>/.cache/emend-build/m2p4d-p1/gen/negative.py, every
+    # replacement asserted to occur once, and grepped for P3's tokens in every
+    # form (m2p4c-p3, the 4c P3 subjects, 61c125d0, the size record, the N cases,
+    # table-sample). What differs, and why:
+    #  DA. The phase, the log directory, the subjects and the build directories
+    #      are part 4d P1's; the base is part 4c's close-out record commit ("M2
+    #      part 4c close-out record:"); the spec pin is specs/0022's blob at P1's
+    #      doc commit, a207e175. The working file holds planning's uncommitted
+    #      "Planning rulings during P1"; the status pattern allows that one line
+    #      and no size record.
+    #  DB. The family is C0 to C6 above, the generator gen-c.py editing the
+    #      template's worksheet right after its empty sheetData and adding the
+    #      kept parts, their relationships and Overrides where the case holds
+    #      them. The spec's two refusals with their controls are C1 and C3; C5
+    #      and C6 reach the threaded message and the read message by another way
+    #      through the binary.
+    #  DC. The messages of this phase are the constants from
+    #      COMMENT_AUTHOR_INVALID to COMMENTS_UNREADABLE in the source, read by
+    #      constant name; the two raised only at the call are stated
+    #      unreachable, each with the crate test in package/tests/comments.rs
+    #      that covers it.
+    #  DD. The usage shapes: an extra argument after the flag, and the sample
+    #      with another sample.
+    #
+    # Usage: m2p4d-p1-negative.sh <phase commit> [<gate log> [<gate build dir>]]
+    # > <file outside the tree>; the caller moves the output to
+    # records/logs/m2p4d-p1/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/negative.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    GATE_LOG=${2:-records/logs/m2p4d-p1/gate.log}
+    GATE_BUILD=${3:-$HOME/.cache/emend-build/m2p4d-p1/gate}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    BUILD_ROOT=${NEGATIVE_BUILD:-$HOME/.cache/emend-build/m2p4d-p1/negative}
+    SUPERSEDED_DIR=$HOME/.cache/emend-build/m2p4d-p1/superseded
+    GATE_BIN=$GATE_BUILD/target/debug/emend-copy
+    SPEC=specs/0022-comments-and-images.md
+    SPEC_WANT=a207e17567206dd86ba367472e19f8f9972b300ab10ec9f35e6b49e2143a1b33
+    mkdir -p "$BUILD_ROOT" || exit 2
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    B=$(mktemp -d)
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+      rm -rf "$B"
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    # This phase's logs and records, and planning's uncommitted spec (changes CD
+    # and DA).
+    OURS='^((\?\?| ?[MARCD]) records/logs/m2p4d-p1|(\?\?| ?[MARCD]) records/m2p4d-(p1|open)-| M specs/0022-comments-and-images[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs, records and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$TREE#<tree>#g" -e "s#$BUILD_ROOT#<build>#g" \
+        -e "s#$GATE_BUILD#<gatebuild>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$B#<scratch>/w#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: NEGATIVE_BUILD: ${NEGATIVE_BUILD:-unset} (the build root, <build>)"
+    echo "input: the gate log: $GATE_LOG"
+    echo "input: the gate build directory: $GATE_BUILD"
+    echo "about: M2 part 4d P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M2 part 4c close-out record:')
+    DOC1=$(by_subject 'M2 part 4d P1: commit planning docs (the spec, the part 4c close-out rulings)')
+    CODE1=$(by_subject 'M2 part 4d P1: the part 4c P3 carry (two catalogue phrases, the added-sheet removal test)')
+    CODE2=$(by_subject 'M2 part 4d P1: comments behind the feature comments')
+    CODE3=$(by_subject 'M2 part 4d P1: emend-copy --comment-sample')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  part 4c's close-out record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1: ${CODE1:-none}"
+    echo "  code commit 2: ${CODE2:-none}"
+    echo "  code commit 3: ${CODE3:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~4"
+    for k in 0 1 2 3 4; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE3" "$CODE2" "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE3=$CODE2; if roles_in_order; then return 1; else return 0; fi; }
+    check "control: roles_in_order refuses code commit 2 named as code commit 3" "$(yn roles_ctl)"
+    echo
+    echo "phase: Milestone 2 part 4d P1 ($SPEC) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds nothing"
+    check "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log ($GATE_LOG) is read for the binary's hash, the template files, crates/emend/src/package.rs and $SPEC are read from it by git show, and $SPEC's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scripts> stands for <home>/.cache/emend-build/m2p4d-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m2p4d-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit"
+    echo "root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m2p4d-p1/gate unless the third argument names another, from which the gate's host debug binary is copied; read only"
+    echo "root: <superseded> stands for <home>/.cache/emend-build/m2p4d-p1/superseded, where a rerun's superseded files are kept; read only"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory (the message reader, the source copy, the generator, its fixtures and the cases' outputs), removed at exit"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$B" "$SELF_DIR" && apart "$B" "$MAIN" && apart "$MAIN" "$SELF_DIR" && apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$B" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$GATE_BUILD" "$BUILD_ROOT" && apart "$GATE_BUILD" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN"; }
+    check "the roots other than <home> are distinct, none inside another" "$(yn roots_distinct)"
+    roots_ctl() { if apart "$TREE" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(yn roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; if key_unset; then return 1; else return 0; fi; }
+    check "control: the same check refuses a shell where the variable is set" "$(yn key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or records or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    ours_ctl() { printf ' M crates/emend/src/package.rs\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    ours_ctl_no() { if ours_ctl; then return 1; else return 0; fi; }
+    check "control: the phase's status pattern refuses a modified source file" "$(yn ours_ctl_no)"
+    ours_spec_ctl() { printf ' M specs/0021-tables.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    ours_spec_ctl_no() { if ours_spec_ctl; then return 1; else return 0; fi; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0022" "$(yn ours_spec_ctl_no)"
+    ours_size_ctl() { printf '?? records/size-m2p4c-2026-01-01-abcdef0.md\n?? records/m2p4d-p1-x.md\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's record and no size record" "$(yn [ "$(ours_size_ctl)" = 1 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, printed and not asserted; change CD): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { if [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; then return 1; else return 0; fi; }
+    check "control: the same comparison refuses the hash of another file" "$(yn spec_ctl)"
+    echo "every fixture is built by this log from the phase commit's template files; no corpus file is copied or read"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    echo "## the comment family through the gate's binary, copied into a worktree"
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >/dev/null 2>&1
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    HASH_FORM='^  <[a-z]+>/target/debug/emend-copy: sha256 [0-9a-f]{64}, bytes [0-9]+$'
+    nhash=$(count_matches -E "$HASH_FORM" "$GATE_LOG")
+    GATED=$(sed -n -E 's#^  <[a-z]+>/target/debug/emend-copy: sha256 ([0-9a-f]{64}), bytes [0-9]+$#\1#p' "$GATE_LOG" | head -n 1)
+    echo "command: count_matches -E and sed for the host emend-copy hash line in $GATE_LOG (sha256 $(sha_of "$GATE_LOG")): lines $nhash; hash $GATED"
+    check "gate.log holds exactly one host emend-copy hash line" "$(yn [ "$nhash" = 1 ])"
+    printf '  <build>/target/debug/emend-copy: sha256 %s, bytes 1\n  <build>/target/i686-unknown-linux-musl/debug/emend-copy: sha256 %s, bytes 1\n' \
+      "$(printf 'a' | sha256sum | cut -d' ' -f1)" "$(printf 'b' | sha256sum | cut -d' ' -f1)" >"$B/c-gate.log"
+    check "control: the same form counts one line in a fixture holding a host and an i686 line" "$(yn [ "$(count_matches -E "$HASH_FORM" "$B/c-gate.log")" = 1 ])"
+    echo "command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy"
+    mkdir "$TREE/bin" && cp "$GATE_BIN" "$TREE/bin/emend-copy"
+    BIN=$TREE/bin/emend-copy
+    echo "  <tree>/bin/emend-copy: sha256 $(sha_of "$BIN")"
+    check "the copied binary is the one gate.log hashed, not a rebuild" "$(yn [ "$(sha_of "$BIN")" = "$GATED" ])"
+    check "control: the reader found a hash in gate.log" "$(yn [ -n "$GATED" ])"
+    echo
+    echo "### the messages, read from the phase commit's source by constant name (changes CC and DC)"
+    git show "$C:crates/emend/src/package.rs" >"$B/package.rs"
+    cat >"$B/messages.py" <<'PY'
+    """The Error::Package messages of a package.rs, by constant name, one per
+    line as NAME<TAB>message in source order. With --part, only the block from
+    COMMENT_AUTHOR_INVALID to COMMENTS_UNREADABLE, this phase's messages.
+    Usage: messages.py <package.rs> [--part]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);', text, re.M)
+    if "--part" in sys.argv:
+        names = [n for n, _ in found]
+        a, b = names.index("COMMENT_AUTHOR_INVALID"), names.index("COMMENTS_UNREADABLE")
+        found = found[a:b + 1]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+    PY
+    sed 's/^/    /' "$B/messages.py"
+    echo "command: python3 <scratch>/w/messages.py <scratch>/w/package.rs --part, the file from git show <phase commit>:crates/emend/src/package.rs"
+    python3 "$B/messages.py" "$B/package.rs" --part >"$B/part.tsv"
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/part.tsv"
+    npart=$(count_lines "$B/part.tsv")
+    nempty=$(awk -F"$TAB" '$2 == "" { n++ } END { print n + 0 }' "$B/part.tsv")
+    echo "  this phase's messages in the source block: $npart; with an empty message: $nempty"
+    block_ok() { [ "$npart" -ge 1 ] && [ "$nempty" = 0 ]; }
+    check "the block holds messages and none is empty" "$(yn block_ok)"
+    printf 'const A: Error = Error::Package("x");\nconst COMMENT_AUTHOR_INVALID: Error = Error::Package("one");\nconst B: Error =\n    Error::Package("two");\nconst COMMENTS_UNREADABLE: Error = Error::Package(\n    "three",\n);\nconst C: Error = Error::Package("y");\n' >"$B/c-package.rs"
+    python3 "$B/messages.py" "$B/c-package.rs" --part >"$B/c-part.tsv"
+    check "control: the reader takes the block's three constants, one-line, wrapped and multi-line, and nothing outside it" "$(yn [ "$(cut -f2 "$B/c-part.tsv" | tr '\n' ' ')" = "one two three " ])"
+    # msg <NAME>: the message the source holds for the constant, as the tool prints it.
+    msg() { awk -F"$TAB" -v n="$1" '$1 == n { print "error: " $2 }' "$B/part.tsv"; }
+    # Each message looked for in the committed spec and in planning's working
+    # file, whitespace folded, since the spec wraps its lines (change CD).
+    git show "$C:$SPEC" >"$B/spec-committed.md"
+    python3 - "$B/part.tsv" "$B/spec-committed.md" "$SPEC" >"$B/in-spec.tsv" <<'PY'
+    import re
+    import sys
+    committed = re.sub(r"\s+", " ", open(sys.argv[2]).read())
+    working = re.sub(r"\s+", " ", open(sys.argv[3]).read())
+    for line in open(sys.argv[1]):
+        name, message = line.rstrip("\n").split("\t", 1)
+        print("%s\tcommitted=%s\tworking=%s" % (name, "yes" if message in committed else "no",
+                                                "yes" if message in working else "no"))
+    PY
+    echo "command: each message of the block, looked for in the committed $SPEC (git show <phase commit>) and in its working file, whitespace folded"
+    sed 's/^/    /' "$B/in-spec.tsv"
+    nin=$(count_matches -E "working=yes\$" "$B/in-spec.tsv")
+    all_in_spec() { [ "$nin" = "$npart" ]; }
+    check "every message of the block is one planning's working spec names" "$(yn all_in_spec)"
+    printf 'X\tcommitted=yes\tworking=no\n' >"$B/c-in-spec.tsv"
+    check "control: the same count finds no working=yes on a line that says working=no" "$(yn [ "$(count_matches -E "working=yes\$" "$B/c-in-spec.tsv")" = 0 ])"
+    echo
+    echo "### this log's generator, from the phase commit's template files"
+    mkdir "$B/template" "$B/fx"
+    for f in '[Content_Types].xml' _rels/.rels xl/workbook.xml xl/_rels/workbook.xml.rels xl/worksheets/sheet1.xml xl/styles.xml; do
+      mkdir -p "$B/template/$(dirname "$f")"
+      git show "$C:crates/emend/template/$f" >"$B/template/$f"
+    done
+    cat >"$B/gen-c.py" <<'PY'
+    """Fictional packages for M2 part 4d P1's negative log: the phase commit's
+    template files, zipped in the template's order, the C cases inserting
+    children in the worksheet part right after its empty `<sheetData/>`, and a
+    kept comments part, a kept VML part, their relationships and Overrides where
+    the case holds them.
+    Usage: gen-c.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    SHEET_RELS = "xl/worksheets/_rels/sheet1.xml.rels"
+    COMMENTS = "xl/comments1.xml"
+    VML = "xl/drawings/vmlDrawing1.vml"
+    MAIN = b"http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    REL = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    PKG = b"http://schemas.openxmlformats.org/package/2006/relationships"
+    COMMENTS_TYPE = b"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"
+    VML_TYPE = b"application/vnd.openxmlformats-officedocument.vmlDrawing"
+    THREADED = b"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment"
+    DECL = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    VML_ROOT = (b'<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"'
+                b' xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit">'
+                b'<o:idmap v:ext="edit" data="1"/></o:shapelayout>')
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    root = b'<worksheet xmlns="' + MAIN + b'">'
+    assert sheet.count(b"<sheetData/>") == 1
+    assert sheet.count(b"<c ") == 0
+    assert sheet.count(root) == 1
+    assert types.count(b"</Types>") == 1
+    
+    
+    def rel(rid, kind, target):
+        return b'<Relationship Id="' + rid + b'" Type="' + kind + b'" Target="' + target + b'"/>'
+    
+    
+    def case(children=b"", rels=b"", comments=False, vml=None):
+        """The template with `children` after its sheetData, the root binding r
+        when a child names a relationship, the rels part holding `rels`, the
+        kept comments part (one comment on C3 by the author kept) and the kept
+        VML part holding `vml`, each with its Override."""
+        p = dict(parts)
+        s = sheet.replace(b"<sheetData/>", b"<sheetData/>" + children)
+        if b"r:id" in children:
+            s = s.replace(root, b'<worksheet xmlns="' + MAIN + b'" xmlns:r="' + REL + b'">')
+        p["xl/worksheets/sheet1.xml"] = s
+        t = types
+        if rels:
+            p[SHEET_RELS] = DECL + b'<Relationships xmlns="' + PKG + b'">' + rels + b"</Relationships>"
+        if comments:
+            p[COMMENTS] = (DECL + b'<comments xmlns="' + MAIN + b'"><authors><author>kept</author></authors>'
+                           b'<commentList><comment ref="C3" authorId="0"><text><t>kept</t></text></comment>'
+                           b"</commentList></comments>")
+            t = t.replace(b"</Types>", b'<Override PartName="/' + COMMENTS.encode() + b'" ContentType="'
+                          + COMMENTS_TYPE + b'"/></Types>')
+        if vml is not None:
+            p[VML] = VML_ROOT + vml + b"</xml>"
+            t = t.replace(b"</Types>", b'<Override PartName="/' + VML.encode() + b'" ContentType="'
+                          + VML_TYPE + b'"/></Types>')
+        p["[Content_Types].xml"] = t
+        return p
+    
+    
+    NOTE = (b'<v:shape id="_x0000_s1025" type="#_x0000_t202"><x:ClientData ObjectType="Note">'
+            b"<x:Row>2</x:Row><x:Column>2</x:Column></x:ClientData></v:shape>")
+    CONTROL = (b'<v:shape id="_x0000_s1025" type="#_x0000_t201"><x:ClientData ObjectType="Scroll">'
+               b"</x:ClientData></v:shape>")
+    BOTH_RELS = (rel(b"rId1", REL + b"/comments", b"../comments1.xml")
+                 + rel(b"rId2", REL + b"/vmlDrawing", b"../drawings/vmlDrawing1.vml"))
+    LEGACY = b'<legacyDrawing r:id="rId2"/>'
+    CASES = {
+        "c0": case(),
+        "c1": case(rels=rel(b"rId1", REL + b"/comments", b"../comments1.xml"), comments=True),
+        "c2": case(LEGACY, BOTH_RELS, comments=True, vml=NOTE),
+        "c3": case(LEGACY + LEGACY, BOTH_RELS, comments=True, vml=NOTE),
+        "c4": case(b'<legacyDrawing r:id="rId1"/>', rel(b"rId1", REL + b"/vmlDrawing", b"../drawings/vmlDrawing1.vml"),
+                   vml=CONTROL),
+        "c5": case(rels=rel(b"rId1", THREADED, b"../threadedComments/threadedComment1.xml")),
+        "c6": case(b'<legacyDrawing r:id="rId9"/>'),
+    }
+    for name, p in CASES.items():
+        names = ORDER + [n for n in (SHEET_RELS, COMMENTS, VML) if n in p]
+        with zipfile.ZipFile(os.path.join(out, name + ".xlsx"), "w") as z:
+            for n in names:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        s = p["xl/worksheets/sheet1.xml"]
+        print("%s %d entries:%d legacyDrawing:%d rels:%d comments_part:%d vml_part:%d note:%d threaded:%d" % (
+            name + ".xlsx", os.path.getsize(os.path.join(out, name + ".xlsx")), len(names),
+            s.count(b"<legacyDrawing "), int(SHEET_RELS in p), int(COMMENTS in p), int(VML in p),
+            p.get(VML, b"").count(b'ObjectType="Note"'), p.get(SHEET_RELS, b"").count(THREADED)))
+    PY
+    sed 's/^/    /' "$B/gen-c.py"
+    echo "command: python3 <scratch>/w/gen-c.py <scratch>/w/template <scratch>/w/fx"
+    python3 "$B/gen-c.py" "$B/template" "$B/fx" >"$B/gen-c.out" 2>&1
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/gen-c.out"
+    check "the seven fixtures were written, and nothing else" "$(yn [ "$(find "$B/fx" -type f | wc -l)" = 7 ])"
+    # run_bin <case> <args...>: the copied binary, the command printed with the
+    # paths it names, stdout, stderr and exit kept.
+    run_bin() {
+      local case=$1
+      shift
+      "$BIN" "$@" >"$B/$case.stdout" 2>"$B/$case.stderr" </dev/null
+      echo $? >"$B/$case.status"
+      echo "command: <tree>/bin/emend-copy $*"
+      echo "  exit: $(cat "$B/$case.status")"
+      echo "  stdout:"; sed 's/^/    /' "$B/$case.stdout"
+      echo "  stderr:"; sed 's/^/    /' "$B/$case.stderr"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    refused_with() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ -n "$2" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    no_output() { [ ! -e "$B/out/$1.xlsx" ]; }
+    has_output() { [ -s "$B/out/$1.xlsx" ]; }
+    usage_refused() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(count_matches -F 'error: usage: emend-copy' "$B/$1.stderr")" = 1 ]; }
+    line_is() { status_is "$1" 0 && [ ! -s "$B/$1.stderr" ] && [ "$(cat "$B/$1.stdout")" = "$2" ] && has_output "$1"; }
+    mkdir "$B/out"
+    for case in c0 c1 c2 c3 c4 c5 c6; do
+      echo
+      echo "### ${case^^} (--comment-sample)"
+      run_bin "$case" "$B/fx/$case.xlsx" "$B/out/$case.xlsx" --comment-sample
+    done
+    echo
+    echo "### the checks"
+    # The template has no comment, no VML part and no rels part for its
+    # worksheet, and its root binds no relationships prefix: C0 creates both
+    # parts and the rels part. C2 keeps one comment by an author other than the
+    # sample's and one note shape, so both are appended to and the author is
+    # added. C4 keeps a VML part with a form control and no note: the comments
+    # part is created and the note appended.
+    comment_line() { printf 'comment\tcomments_before=%s\tcomments_after=%s\tparts_before=%s\tparts_after=%s\tlegacy_before=%s\tcomments_part_before=%s\tr_bound_before=%s\tshapes_before=%s\tshapes_after=%s\tauthors_before=%s\tauthors_after=%s' "$@"; }
+    C_NONE=$(comment_line 0 1 0 2 0 0 0 0 1 0 1)
+    C_BOTH=$(comment_line 1 2 2 2 1 1 1 1 2 1 2)
+    C_VML=$(comment_line 0 1 1 2 1 0 1 0 1 0 1)
+    # The refusals: case, constant, the control's case and its line. A refusal
+    # that holds records its constant as reached.
+    : >"$B/reached"
+    refusal() {
+      local case=$1 name=$2 ctl=$3 want=$4 expect
+      expect=$(msg "$name")
+      check "${ctl^^}: exit 0, its line, an output (the control for ${case^^})" "$(yn line_is "$ctl" "$want")"
+      check "${case^^}: exit 2, no stdout, the error line exactly $name's message" "$(yn refused_with "$case" "$expect")"
+      check "${case^^}: no output file" "$(yn no_output "$case")"
+      if refused_with "$case" "$expect"; then printf '%s\n' "$name" >>"$B/reached"; fi
+    }
+    refusal c1 COMMENTS_UNREADABLE c2 "$C_BOTH"
+    refusal c1 COMMENTS_UNREADABLE c0 "$C_NONE"
+    refusal c3 TWO_LEGACY_DRAWINGS c4 "$C_VML"
+    refusal c3 TWO_LEGACY_DRAWINGS c2 "$C_BOTH"
+    # Change DB: the threaded message and the read message by another way, C0
+    # the control for each.
+    refusal c5 THREADED_COMMENTS_HELD c0 "$C_NONE"
+    refusal c6 COMMENTS_UNREADABLE c0 "$C_NONE"
+    not_refused() { if refused_with c0 "$(msg COMMENTS_UNREADABLE)"; then return 1; else return 0; fi; }
+    check "control: refused_with says no on C0's run" "$(yn not_refused)"
+    other_message() { if refused_with c1 "$(msg TWO_LEGACY_DRAWINGS)"; then return 1; else return 0; fi; }
+    check "control: refused_with says no on C1's run against the two-element message" "$(yn other_message)"
+    c3_other() { if refused_with c3 "$(msg COMMENTS_UNREADABLE)"; then return 1; else return 0; fi; }
+    check "control: refused_with says no on C3's run against the read message" "$(yn c3_other)"
+    c5_other() { if refused_with c5 "$(msg COMMENTS_UNREADABLE)"; then return 1; else return 0; fi; }
+    check "control: refused_with says no on C5's run against the read message" "$(yn c5_other)"
+    empty_message() { if refused_with c1 ""; then return 1; else return 0; fi; }
+    check "control: refused_with says no against an empty message" "$(yn empty_message)"
+    line_ctl() { if line_is c2 "$C_NONE"; then return 1; else return 0; fi; }
+    check "control: line_is says no on C2's run against C0's line" "$(yn line_ctl)"
+    c4_line_ctl() { if line_is c4 "$C_BOTH"; then return 1; else return 0; fi; }
+    check "control: line_is says no on C4's run against C2's line" "$(yn c4_line_ctl)"
+    out_ctl() { if line_is c1 ""; then return 1; else return 0; fi; }
+    check "control: line_is says no on C1's refused run, which left no output" "$(yn out_ctl)"
+    nout=$(find "$B/out" -type f | wc -l)
+    echo "  output files: $nout, the three controls' outputs (C0, C2, C4)"
+    check "no output but the three controls', and no temporary beside them" "$(yn [ "$nout" = 3 ])"
+    echo
+    echo "### the messages reached and the messages stated unreachable, as sets (changes CC and DC)"
+    # Change CK: the third column names the crate test that covers the message.
+    cat >"$B/unreachable" <<'UNR'
+    COMMENT_AUTHOR_INVALID	raised at the call; the sample's author is the tool's constant, emend, which the rule takes	the_call_refuses_each_rule_and_records_nothing
+    COMMENT_TEXT_INVALID	raised at the call; the sample's text is the tool's constant, which the rule takes	the_call_refuses_each_rule_and_records_nothing
+    UNR
+    echo "  reached here, from the checks above that held (each constant once):"
+    LC_ALL=C sort -u "$B/reached" >"$B/reached.set"
+    sed 's/^/    /' "$B/reached.set"
+    echo "  stated unreachable, with the reason:"
+    sed 's/^/    /' "$B/unreachable"
+    cut -f1 "$B/unreachable" | LC_ALL=C sort -u >"$B/unreachable.set"
+    cut -f1 "$B/part.tsv" | LC_ALL=C sort -u >"$B/part.set"
+    LC_ALL=C sort -u "$B/reached.set" "$B/unreachable.set" >"$B/union.set"
+    nboth=$(LC_ALL=C comm -12 "$B/reached.set" "$B/unreachable.set" | count_lines /dev/stdin)
+    echo "  the source block $(count_lines "$B/part.set"); reached $(count_lines "$B/reached.set"); stated unreachable $(count_lines "$B/unreachable.set"); in both $nboth"
+    union_is_part() { cmp -s "$B/union.set" "$B/part.set"; }
+    check "reached and stated unreachable together are exactly the source block's constants" "$(yn union_is_part)"
+    check "no constant is both reached and stated unreachable" "$(yn [ "$nboth" = 0 ])"
+    reasons_ok() { [ "$(awk -F"$TAB" '$2 != "" { n++ } END { print n + 0 }' "$B/unreachable")" = "$(count_lines "$B/unreachable")" ]; }
+    check "every unreachable constant carries its reason" "$(yn reasons_ok)"
+    # Change CK, kept; change DC: each named test is a #[test] fn of the phase
+    # commit's comments tests, and its body names the constant's message.
+    git show "$C:crates/emend/src/package/tests/comments.rs" >"$B/comments-tests.rs"
+    test_holds() {
+      awk -v f="fn $1() {" '$0 == f { on = 1 } on { print } on && /^}$/ { exit }' "$B/comments-tests.rs" >"$B/body"
+      [ "$(count_lines "$B/body")" -ge 2 ] && [ -n "$2" ] &&
+        python3 -c 'import re, sys; t = re.sub(r"\s+", " ", open(sys.argv[1]).read()); sys.exit(0 if sys.argv[2] in t else 1)' "$B/body" "$2"
+    }
+    echo "command: for each stated-unreachable constant, the named test's fn in the phase commit's crates/emend/src/package/tests/comments.rs, its body looked for the constant's message, whitespace folded"
+    while IFS="$TAB" read -r name _ test; do
+      message=$(awk -F"$TAB" -v n="$name" '$1 == n { print $2 }' "$B/part.tsv")
+      echo "    $name: $test"
+      check "  $name: covered by $test, which holds its message" "$(yn test_holds "$test" "$message")"
+    done <"$B/unreachable"
+    covers_ctl() { if test_holds a_sheet_with_threaded_comments_is_refused "$(awk -F"$TAB" '$1 == "COMMENT_AUTHOR_INVALID" { print $2 }' "$B/part.tsv")"; then return 1; else return 0; fi; }
+    check "control: test_holds refuses the threaded-comments test against the author message" "$(yn covers_ctl)"
+    missing_ctl() { if test_holds zzz_no_such_test "a"; then return 1; else return 0; fi; }
+    check "control: test_holds refuses a test the file lacks" "$(yn missing_ctl)"
+    union_ctl() { if LC_ALL=C sort -u "$B/unreachable.set" | cmp -s - "$B/part.set"; then return 1; else return 0; fi; }
+    check "control: the comparison refuses the stated-unreachable set alone, without the reached constants" "$(yn union_ctl)"
+    echo
+    echo "### two usage shapes (changes CE and DD)"
+    run_bin u1 "$B/fx/c0.xlsx" "$B/out/u1.xlsx" --comment-sample extra
+    check "U1: exit 2, the usage line" "$(yn usage_refused u1)"
+    run_bin u2 "$B/fx/c0.xlsx" "$B/out/u2.xlsx" --comment-sample --table-sample
+    check "U2: exit 2, the usage line" "$(yn usage_refused u2)"
+    usage_ctl() { if usage_refused c0; then return 1; else return 0; fi; }
+    check "control: usage_refused says no on C0's run" "$(yn usage_ctl)"
+    check "U1 and U2 left no output" "$(yn [ "$(find "$B/out" -type f | wc -l)" = 3 ])"
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$TREE" /dev/stdin)" = 0 ])"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr "$B"/gen-c.out; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or records or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or records or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/negative.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the comment family through the gate's binary, copied into a worktree
+command: git worktree add --detach <tree> <phase commit>
+  the worktree is at the phase commit: yes
+command: count_matches -E and sed for the host emend-copy hash line in records/logs/m2p4d-p1/gate.log (sha256 1ea5ba87eb74d165ec9cb771df61757678e5825ba2e08dd3ef52d4d38ed94425): lines 1; hash 98f512be67fe8ba13ea3447c02762c0ba054b108c01b64ae609801d1f2d4381f
+  gate.log holds exactly one host emend-copy hash line: yes
+  control: the same form counts one line in a fixture holding a host and an i686 line: yes
+command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy
+  <tree>/bin/emend-copy: sha256 98f512be67fe8ba13ea3447c02762c0ba054b108c01b64ae609801d1f2d4381f
+  the copied binary is the one gate.log hashed, not a rebuild: yes
+  control: the reader found a hash in gate.log: yes
+
+### the messages, read from the phase commit's source by constant name (changes CC and DC)
+    """The Error::Package messages of a package.rs, by constant name, one per
+    line as NAME<TAB>message in source order. With --part, only the block from
+    COMMENT_AUTHOR_INVALID to COMMENTS_UNREADABLE, this phase's messages.
+    Usage: messages.py <package.rs> [--part]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);', text, re.M)
+    if "--part" in sys.argv:
+        names = [n for n, _ in found]
+        a, b = names.index("COMMENT_AUTHOR_INVALID"), names.index("COMMENTS_UNREADABLE")
+        found = found[a:b + 1]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+command: python3 <scratch>/w/messages.py <scratch>/w/package.rs --part, the file from git show <phase commit>:crates/emend/src/package.rs
+  exit: 0
+    COMMENT_AUTHOR_INVALID	a comment author is not valid
+    COMMENT_TEXT_INVALID	a comment text is not valid
+    THREADED_COMMENTS_HELD	a worksheet has threaded comments
+    TWO_LEGACY_DRAWINGS	a worksheet has two legacyDrawing elements
+    COMMENTS_UNREADABLE	a comments part or its drawing cannot be read
+  this phase's messages in the source block: 5; with an empty message: 0
+  the block holds messages and none is empty: yes
+  control: the reader takes the block's three constants, one-line, wrapped and multi-line, and nothing outside it: yes
+command: each message of the block, looked for in the committed specs/0022-comments-and-images.md (git show <phase commit>) and in its working file, whitespace folded
+    COMMENT_AUTHOR_INVALID	committed=yes	working=yes
+    COMMENT_TEXT_INVALID	committed=yes	working=yes
+    THREADED_COMMENTS_HELD	committed=yes	working=yes
+    TWO_LEGACY_DRAWINGS	committed=yes	working=yes
+    COMMENTS_UNREADABLE	committed=yes	working=yes
+  every message of the block is one planning's working spec names: yes
+  control: the same count finds no working=yes on a line that says working=no: yes
+
+### this log's generator, from the phase commit's template files
+    """Fictional packages for M2 part 4d P1's negative log: the phase commit's
+    template files, zipped in the template's order, the C cases inserting
+    children in the worksheet part right after its empty `<sheetData/>`, and a
+    kept comments part, a kept VML part, their relationships and Overrides where
+    the case holds them.
+    Usage: gen-c.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    SHEET_RELS = "xl/worksheets/_rels/sheet1.xml.rels"
+    COMMENTS = "xl/comments1.xml"
+    VML = "xl/drawings/vmlDrawing1.vml"
+    MAIN = b"http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    REL = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    PKG = b"http://schemas.openxmlformats.org/package/2006/relationships"
+    COMMENTS_TYPE = b"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"
+    VML_TYPE = b"application/vnd.openxmlformats-officedocument.vmlDrawing"
+    THREADED = b"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment"
+    DECL = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    VML_ROOT = (b'<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"'
+                b' xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit">'
+                b'<o:idmap v:ext="edit" data="1"/></o:shapelayout>')
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    root = b'<worksheet xmlns="' + MAIN + b'">'
+    assert sheet.count(b"<sheetData/>") == 1
+    assert sheet.count(b"<c ") == 0
+    assert sheet.count(root) == 1
+    assert types.count(b"</Types>") == 1
+    
+    
+    def rel(rid, kind, target):
+        return b'<Relationship Id="' + rid + b'" Type="' + kind + b'" Target="' + target + b'"/>'
+    
+    
+    def case(children=b"", rels=b"", comments=False, vml=None):
+        """The template with `children` after its sheetData, the root binding r
+        when a child names a relationship, the rels part holding `rels`, the
+        kept comments part (one comment on C3 by the author kept) and the kept
+        VML part holding `vml`, each with its Override."""
+        p = dict(parts)
+        s = sheet.replace(b"<sheetData/>", b"<sheetData/>" + children)
+        if b"r:id" in children:
+            s = s.replace(root, b'<worksheet xmlns="' + MAIN + b'" xmlns:r="' + REL + b'">')
+        p["xl/worksheets/sheet1.xml"] = s
+        t = types
+        if rels:
+            p[SHEET_RELS] = DECL + b'<Relationships xmlns="' + PKG + b'">' + rels + b"</Relationships>"
+        if comments:
+            p[COMMENTS] = (DECL + b'<comments xmlns="' + MAIN + b'"><authors><author>kept</author></authors>'
+                           b'<commentList><comment ref="C3" authorId="0"><text><t>kept</t></text></comment>'
+                           b"</commentList></comments>")
+            t = t.replace(b"</Types>", b'<Override PartName="/' + COMMENTS.encode() + b'" ContentType="'
+                          + COMMENTS_TYPE + b'"/></Types>')
+        if vml is not None:
+            p[VML] = VML_ROOT + vml + b"</xml>"
+            t = t.replace(b"</Types>", b'<Override PartName="/' + VML.encode() + b'" ContentType="'
+                          + VML_TYPE + b'"/></Types>')
+        p["[Content_Types].xml"] = t
+        return p
+    
+    
+    NOTE = (b'<v:shape id="_x0000_s1025" type="#_x0000_t202"><x:ClientData ObjectType="Note">'
+            b"<x:Row>2</x:Row><x:Column>2</x:Column></x:ClientData></v:shape>")
+    CONTROL = (b'<v:shape id="_x0000_s1025" type="#_x0000_t201"><x:ClientData ObjectType="Scroll">'
+               b"</x:ClientData></v:shape>")
+    BOTH_RELS = (rel(b"rId1", REL + b"/comments", b"../comments1.xml")
+                 + rel(b"rId2", REL + b"/vmlDrawing", b"../drawings/vmlDrawing1.vml"))
+    LEGACY = b'<legacyDrawing r:id="rId2"/>'
+    CASES = {
+        "c0": case(),
+        "c1": case(rels=rel(b"rId1", REL + b"/comments", b"../comments1.xml"), comments=True),
+        "c2": case(LEGACY, BOTH_RELS, comments=True, vml=NOTE),
+        "c3": case(LEGACY + LEGACY, BOTH_RELS, comments=True, vml=NOTE),
+        "c4": case(b'<legacyDrawing r:id="rId1"/>', rel(b"rId1", REL + b"/vmlDrawing", b"../drawings/vmlDrawing1.vml"),
+                   vml=CONTROL),
+        "c5": case(rels=rel(b"rId1", THREADED, b"../threadedComments/threadedComment1.xml")),
+        "c6": case(b'<legacyDrawing r:id="rId9"/>'),
+    }
+    for name, p in CASES.items():
+        names = ORDER + [n for n in (SHEET_RELS, COMMENTS, VML) if n in p]
+        with zipfile.ZipFile(os.path.join(out, name + ".xlsx"), "w") as z:
+            for n in names:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        s = p["xl/worksheets/sheet1.xml"]
+        print("%s %d entries:%d legacyDrawing:%d rels:%d comments_part:%d vml_part:%d note:%d threaded:%d" % (
+            name + ".xlsx", os.path.getsize(os.path.join(out, name + ".xlsx")), len(names),
+            s.count(b"<legacyDrawing "), int(SHEET_RELS in p), int(COMMENTS in p), int(VML in p),
+            p.get(VML, b"").count(b'ObjectType="Note"'), p.get(SHEET_RELS, b"").count(THREADED)))
+command: python3 <scratch>/w/gen-c.py <scratch>/w/template <scratch>/w/fx
+  exit: 0
+    c0.xlsx 2011 entries:6 legacyDrawing:0 rels:0 comments_part:0 vml_part:0 note:0 threaded:0
+    c1.xlsx 2630 entries:8 legacyDrawing:0 rels:1 comments_part:1 vml_part:0 note:0 threaded:0
+    c2.xlsx 3050 entries:9 legacyDrawing:1 rels:1 comments_part:1 vml_part:1 note:1 threaded:0
+    c3.xlsx 3051 entries:9 legacyDrawing:2 rels:1 comments_part:1 vml_part:1 note:1 threaded:0
+    c4.xlsx 2717 entries:8 legacyDrawing:1 rels:1 comments_part:0 vml_part:1 note:0 threaded:0
+    c5.xlsx 2348 entries:7 legacyDrawing:0 rels:1 comments_part:0 vml_part:0 note:0 threaded:1
+    c6.xlsx 2060 entries:6 legacyDrawing:1 rels:0 comments_part:0 vml_part:0 note:0 threaded:0
+  the seven fixtures were written, and nothing else: yes
+
+### C0 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c0.xlsx <scratch>/w/out/c0.xlsx --comment-sample
+  exit: 0
+  stdout:
+    comment	comments_before=0	comments_after=1	parts_before=0	parts_after=2	legacy_before=0	comments_part_before=0	r_bound_before=0	shapes_before=0	shapes_after=1	authors_before=0	authors_after=1
+  stderr:
+
+### C1 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c1.xlsx <scratch>/w/out/c1.xlsx --comment-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a comments part or its drawing cannot be read
+
+### C2 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c2.xlsx <scratch>/w/out/c2.xlsx --comment-sample
+  exit: 0
+  stdout:
+    comment	comments_before=1	comments_after=2	parts_before=2	parts_after=2	legacy_before=1	comments_part_before=1	r_bound_before=1	shapes_before=1	shapes_after=2	authors_before=1	authors_after=2
+  stderr:
+
+### C3 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c3.xlsx <scratch>/w/out/c3.xlsx --comment-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a worksheet has two legacyDrawing elements
+
+### C4 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c4.xlsx <scratch>/w/out/c4.xlsx --comment-sample
+  exit: 0
+  stdout:
+    comment	comments_before=0	comments_after=1	parts_before=1	parts_after=2	legacy_before=1	comments_part_before=0	r_bound_before=1	shapes_before=0	shapes_after=1	authors_before=0	authors_after=1
+  stderr:
+
+### C5 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c5.xlsx <scratch>/w/out/c5.xlsx --comment-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a worksheet has threaded comments
+
+### C6 (--comment-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c6.xlsx <scratch>/w/out/c6.xlsx --comment-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a comments part or its drawing cannot be read
+
+### the checks
+  C2: exit 0, its line, an output (the control for C1): yes
+  C1: exit 2, no stdout, the error line exactly COMMENTS_UNREADABLE's message: yes
+  C1: no output file: yes
+  C0: exit 0, its line, an output (the control for C1): yes
+  C1: exit 2, no stdout, the error line exactly COMMENTS_UNREADABLE's message: yes
+  C1: no output file: yes
+  C4: exit 0, its line, an output (the control for C3): yes
+  C3: exit 2, no stdout, the error line exactly TWO_LEGACY_DRAWINGS's message: yes
+  C3: no output file: yes
+  C2: exit 0, its line, an output (the control for C3): yes
+  C3: exit 2, no stdout, the error line exactly TWO_LEGACY_DRAWINGS's message: yes
+  C3: no output file: yes
+  C0: exit 0, its line, an output (the control for C5): yes
+  C5: exit 2, no stdout, the error line exactly THREADED_COMMENTS_HELD's message: yes
+  C5: no output file: yes
+  C0: exit 0, its line, an output (the control for C6): yes
+  C6: exit 2, no stdout, the error line exactly COMMENTS_UNREADABLE's message: yes
+  C6: no output file: yes
+  control: refused_with says no on C0's run: yes
+  control: refused_with says no on C1's run against the two-element message: yes
+  control: refused_with says no on C3's run against the read message: yes
+  control: refused_with says no on C5's run against the read message: yes
+  control: refused_with says no against an empty message: yes
+  control: line_is says no on C2's run against C0's line: yes
+  control: line_is says no on C4's run against C2's line: yes
+  control: line_is says no on C1's refused run, which left no output: yes
+  output files: 3, the three controls' outputs (C0, C2, C4)
+  no output but the three controls', and no temporary beside them: yes
+
+### the messages reached and the messages stated unreachable, as sets (changes CC and DC)
+  reached here, from the checks above that held (each constant once):
+    COMMENTS_UNREADABLE
+    THREADED_COMMENTS_HELD
+    TWO_LEGACY_DRAWINGS
+  stated unreachable, with the reason:
+    COMMENT_AUTHOR_INVALID	raised at the call; the sample's author is the tool's constant, emend, which the rule takes	the_call_refuses_each_rule_and_records_nothing
+    COMMENT_TEXT_INVALID	raised at the call; the sample's text is the tool's constant, which the rule takes	the_call_refuses_each_rule_and_records_nothing
+  the source block 5; reached 3; stated unreachable 2; in both 0
+  reached and stated unreachable together are exactly the source block's constants: yes
+  no constant is both reached and stated unreachable: yes
+  every unreachable constant carries its reason: yes
+command: for each stated-unreachable constant, the named test's fn in the phase commit's crates/emend/src/package/tests/comments.rs, its body looked for the constant's message, whitespace folded
+    COMMENT_AUTHOR_INVALID: the_call_refuses_each_rule_and_records_nothing
+    COMMENT_AUTHOR_INVALID: covered by the_call_refuses_each_rule_and_records_nothing, which holds its message: yes
+    COMMENT_TEXT_INVALID: the_call_refuses_each_rule_and_records_nothing
+    COMMENT_TEXT_INVALID: covered by the_call_refuses_each_rule_and_records_nothing, which holds its message: yes
+  control: test_holds refuses the threaded-comments test against the author message: yes
+  control: test_holds refuses a test the file lacks: yes
+  control: the comparison refuses the stated-unreachable set alone, without the reached constants: yes
+
+### two usage shapes (changes CE and DD)
+command: <tree>/bin/emend-copy <scratch>/w/fx/c0.xlsx <scratch>/w/out/u1.xlsx --comment-sample extra
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample]
+  U1: exit 2, the usage line: yes
+command: <tree>/bin/emend-copy <scratch>/w/fx/c0.xlsx <scratch>/w/out/u2.xlsx --comment-sample --table-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample]
+  U2: exit 2, the usage line: yes
+  control: usage_refused says no on C0's run: yes
+  U1 and U2 left no output: yes
+  the worktree is gone from git's list: yes
+
+## the log itself
+  captured outputs: 19; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0022-comments-and-images.md
+    ?? records/logs/m2p4d-p1/
+status lines: 2; of them this phase's logs or records or planning's spec: 2
+  every change in the working tree is this phase's logs or records or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/negative.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-01T03:08:20Z
+negative log checks all as expected: yes
