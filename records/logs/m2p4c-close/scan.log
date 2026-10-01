@@ -1,0 +1,1749 @@
+command: git rev-parse HEAD
+about: M2 part 4c close-out scan (post the push) over the range 116def361125cbbda88c3d80154a3a332dea8744..c8bfaf9af62daab887150d4b90d4613bf265ae42; HEAD at run: c8bfaf9af62daab887150d4b90d4613bf265ae42
+  the phase commit given to this script: c8bfaf9af62daab887150d4b90d4613bf265ae42
+  git rev-parse HEAD at this run:        c8bfaf9af62daab887150d4b90d4613bf265ae42
+command: git log --format='%H' --grep='^M2 part 4c close-out: commit planning docs [(]the P3 verification and rulings, decision 6 deferred again[)]$'
+  commits matching the pattern: 1; the range tip resolves to: c8bfaf9af62daab887150d4b90d4613bf265ae42
+the tip pattern matches exactly one commit: yes
+the phase commit given to this script is the range tip resolved by subject: yes
+control: the same form refuses a commit that is not the tip: yes
+control: the same form refuses a short sha of the real commit: yes
+command: git log --format='%H' --grep='^M2 part 4b close-out: commit planning docs [(]decision 6 deferred again, rulings 10 and 11[)]$'
+  commits matching the pattern: 1
+the base pattern matches exactly one commit: yes
+  the base resolves from git to 116def361125cbbda88c3d80154a3a332dea8744 and the argument matches it
+command: git rev-parse origin/main -> c8bfaf9af62daab887150d4b90d4613bf265ae42
+origin/main as the stage requires (post: the phase commit): yes
+phase: Milestone 2 part 4c close-out (specs/0021-tables.md, "Close-out push (after P3)") scan.log, stage post; run at 2026-10-01T00:19:22Z
+root: <repo> stands for the repository's top level, the directory this script cds to; every file scanned is read from it or from git, and a control fixture names a repo-relative path by it
+root: <scratch> stands for this session's scratch directory; <scratch>/close holds this script, the counting library copy it sources and, in <scratch>/close/out, its own standard error
+no earlier close-out finding is run again here (header change 2): part
+4b's close-out scan ended RESULT: PASS (records/logs/m2p4b-close/scan.log).
+temporary files live in <scratch> and are deleted on exit
+
+## this script's own source, scanned before it is printed
+specs/0001 "Rules for every phase": a scan script runs the pre-P6d forms
+over its own source before printing itself, because no scan reads the log
+it writes and a shape in a script comment survived every phase scan of M1
+part 2 P3 (records/logs/m1p2-close/scan.log).
+  pre-P6d forms over this script's source: count=0
+this script's own source writes no bare shape: yes
+  the same form over a copy with one concatenated shape appended: count=1
+the self-scan can report a hit, so the zero above means something: yes
+
+## script
+    #!/usr/bin/env bash
+    # Milestone 2 part 4c close-out scan.log
+    # (specs/0021-tables.md, "Close-out push (after P3)"). CARRIED TO M2 part 4c
+    # from part 4b's close-out scan script (printed in
+    # records/logs/m2p4b-close/scan.log, whose change list follows), unchanged
+    # except:
+    #  8. The names are M2 part 4c's, the spec cited is specs/0021, the base is
+    #     part 4b's second close-out doc commit (116def3 when this was written),
+    #     the last commit part 4b pushed, and the tip is part 4c's close-out doc
+    #     commit, each resolved from git by its subject. The line on earlier
+    #     close-out findings names part 4b's scan. The usage names
+    #     m2p4cclose-scan.sh.
+    #
+    # Part 4b's text:
+    # Milestone 2 part 4b close-out scan.log
+    # (specs/0020-validation-and-conditional-formatting.md, "Close-out push
+    # (after P4)"). CARRIED TO M2 part 4b from part 4a's close-out scan script
+    # (printed in records/logs/m2p4a-close/scan.log, whose change list follows),
+    # unchanged except:
+    #  7. The names are M2 part 4b's, the spec cited is specs/0020, the base is
+    #     part 4a's close-out doc commit (b9bf28c when this was written), the
+    #     last commit part 4a pushed, and the tip is part 4b's second close-out
+    #     doc commit (specs/0020 P4 verification ruling 11; 116def3 when this
+    #     was written), each resolved from git by its subject. The line on
+    #     earlier close-out findings names part 4a's scan. The usage names
+    #     m2p4bclose-scan.sh.
+    #
+    # Part 4a's text:
+    # Milestone 2 part 4a close-out scan.log
+    # (specs/0019-names-links-properties-protection.md, "Close-out push (after
+    # P4)"). CARRIED TO M2 part 4a from part 3's close-out scan script (printed
+    # in records/logs/m2p3-close/scan.log, whose change list follows), unchanged
+    # except:
+    #  6. The names are M2 part 4a's, the spec cited is specs/0019, the base is
+    #     part 3's close-out doc commit (6dbb4a0 when this was written), the last
+    #     commit part 3 pushed, and the tip is part 4a's close-out doc commit,
+    #     each resolved from git by its subject. The line on earlier close-out
+    #     findings names part 3's scan. The usage names m2p4aclose-scan.sh.
+    #
+    # Part 3's text:
+    # Milestone 2 part 3 close-out scan.log (specs/0018-rows-and-columns.md,
+    # "Close-out push (after P4)": one record commit after the push, the scan
+    # rerun last).
+    #
+    # CARRIED TO M2 part 3 from part 2's close-out scan script (printed in
+    # records/logs/m2p2-close/scan.log, whose change list follows), unchanged
+    # except:
+    #  5. The names are M2 part 3's, the spec cited is specs/0018, the base is
+    #     part 2's close-out doc commit (42588cc when this was written), the last
+    #     commit part 2 pushed, and the tip is part 3's close-out doc commit, each
+    #     resolved from git by subject with the pattern asserted to match exactly
+    #     one commit. The line on earlier close-out findings names part 2's scan.
+    #     The usage names m2p3close-scan.sh.
+    #
+    # CARRIED FROM M2 part 1's close-out scan script (printed in
+    # records/logs/m2p1-close/scan.log). Its self-scan, forms, controls, shape
+    # greps, pre-P6d forms and stage argument stand unchanged, except:
+    #  1. The names are M2 part 2's, the spec cited is specs/0017, the base is
+    #     part 1's close-out doc commit (c115d45 when this was written), the last
+    #     commit part 1 pushed, and the tip is part 2's close-out doc commit, each
+    #     resolved from git by subject with the pattern asserted to match exactly
+    #     one commit.
+    #  2. Part 1's close-out answered the m1p8-close finding; this close-out
+    #     answers no earlier close-out finding, and the block that ran it again is
+    #     replaced by a line saying so.
+    #  3. The placeholder check the phase scans run (specs/0016 P5 verification
+    #     ruling 3, with specs/0017 P1 verification ruling 6's reading) runs here
+    #     over push.log, ci-run.log and this script's own source.
+    #  4. specs/0017 P1 verification ruling 7: this script's standard error goes
+    #     to <scratch>/close/out/scan-<stage>.stderr from its start and is
+    #     counted before the verdict, with a control.
+    #
+    # Usage: M1CLOSE_LIB=<lib> m2p4cclose-scan.sh <base> <phase commit> <pre|post> <file>=<label>...
+    set -uo pipefail
+    # Change 4: this script's own standard error, counted before the verdict.
+    ERR=$(cd "$(dirname "$0")" && pwd)/out/scan-${3:-none}.stderr
+    mkdir -p "$(dirname "$ERR")" || exit 2
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    
+    BASE_ARG=${1:?base commit required}
+    C=${2:?phase commit required}
+    STAGE=${3:?pre or post required}
+    shift 3
+    [ "$#" -gt 0 ] || { echo "at least one sibling log is required" >&2; exit 2; }
+    case "$STAGE" in pre|post) ;; *) echo "the stage is pre or post" >&2; exit 2 ;; esac
+    SIB_ARGS=("$@")
+    LIB=${M1CLOSE_LIB:?the path to the counting library is required}
+    . "$LIB"
+    unset EMEND_PRIVATE_DENYLIST
+    DENY_FILE=$HOME/.config/emend/private-denylist.txt
+    COAUTHOR_A='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
+    COAUTHOR_B='Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>'
+    # coauthor_ok <line>: the line is the Opus 5.5 one (header change 2); the Opus
+    # 5 line is kept only as a refusal control.
+    coauthor_ok() { [ "$1" = "$COAUTHOR_B" ]; }
+    coauthor_refused() { if coauthor_ok "$1"; then return 1; else return 0; fi; }
+    T=$(mktemp -d)
+    trap 'rm -rf "$T"' EXIT
+    EMDASH=$(printf '\342\200\224')
+    HOST=$(hostname)
+    FQDN=$(hostname -f 2>/dev/null || hostname)
+    hits=0; err=0; bad=0; ctl_fail=0
+    
+    BASE=$(git rev-parse --verify "$BASE_ARG^{commit}") || { echo "the base does not resolve" >&2; exit 2; }
+    git rev-parse --verify "$C^{commit}" >/dev/null 2>&1 || { echo "the phase commit does not resolve" >&2; exit 2; }
+    BASE_PATTERN='^M2 part 4b close-out: commit planning docs [(]decision 6 deferred again, rulings 10 and 11[)]$'
+    git log --format='%H' --grep="$BASE_PATTERN" >"$T/base-matches"
+    NB=$(count_lines "$T/base-matches")
+    EXPECT_BASE=$(git rev-parse "$(git log --format='%H' --grep="$BASE_PATTERN" -n 1)" 2>/dev/null)
+    if [ "$BASE" != "$EXPECT_BASE" ]; then
+      echo "the base given is not part 4b's second close-out doc commit git resolves" >&2
+      exit 2
+    fi
+    ORIGIN=$(git rev-parse origin/main)
+    HEAD_SHA=$(git rev-parse HEAD)
+    TIP_PATTERN='^M2 part 4c close-out: commit planning docs [(]the P3 verification and rulings, decision 6 deferred again[)]$'
+    git log --format='%H' --grep="$TIP_PATTERN" >"$T/tip-matches"
+    NT=$(count_lines "$T/tip-matches")
+    TIP=$(head -n 1 "$T/tip-matches")
+    # specs/0001 "Rules for every phase" (M1 part 3 P1 ruling 11): the phase
+    # commit is GIVEN to the script and compared with HEAD, with a control that
+    # refuses a fabricated commit, and the header prints both values and the
+    # comparison. /usr/bin/grep explicitly, as every scan form.
+    NULL_SHA=0000000000000000000000000000000000000000
+    full_sha() { printf '%s' "$1" | LC_ALL=C /usr/bin/grep -qE '^[0-9a-f]{40}$'; }
+    is_tip() { full_sha "$1" && [ "$1" = "$TIP" ]; }
+    not_tip() { if is_tip "$1"; then return 1; else return 0; fi; }
+    ID_EMAIL=$(git show "$C:scripts/privacy-identity.txt" | sed -n 2p)
+    EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}'
+    
+    P6=(
+      'gh[pousr][_][A-Za-z0-9]{20,}'
+      'github[_]pat[_][A-Za-z0-9_]{20,}'
+      'sk[-]ant[-][A-Za-z0-9_-]{20,}'
+      '-----BEGIN [A-Z ]*PRIVATE[ ]KEY-----'
+      'claude[.]ai/code/session[_][A-Za-z0-9]+'
+      'session[_][A-Za-z0-9]{20,}'
+      '/tmp/claude[-][0-9]+/'
+      '/mnt/[a-z]/[Uu]sers/([A-Za-z0-9._-]|[^[:print:][:space:]])'
+      'DESKTOP[-][A-Z0-9]{5,}'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
+      '[.]claude[\\/]+projects[\\/]+([A-Za-z0-9._-]|[^[:print:][:space:]])'
+    )
+    PRE=(
+      '/mnt/[a-z]/[Uu]sers/'
+      '[A-Za-z]:[\\/]+[Uu][Ss][Ee][Rr][Ss][\\/]'
+      '[.]claude[\\/]+projects[\\/]'
+    )
+    printf '%s\n' "${P6[@]}" >"$T/p6-patterns"
+    printf '%s\n' "${PRE[@]}" >"$T/pre-patterns"
+    printf '%s\n%s\n' "$HOST" "$FQDN" | sort -u >"$T/host-patterns"
+    CORPUS_DIR=emend-testing
+    case $HOME in
+      *[][.^\$*+?\(\)\{\}\|\\]*)
+        echo "the home directory holds a regex metacharacter; f_home would" >&2
+        echo "  widen its exemption silently. Stopping rather than guessing." >&2
+        exit 2 ;;
+    esac
+    
+    f_nonascii() { count_bytes "$NONASCII_CLASS" "$1"; }
+    f_ctrl()     { count_bytes "$CTRL_CLASS" "$1"; }
+    f_emdash()   { count_matches -F "$EMDASH" "$1"; }
+    f_session()  { count_matches -E '^Claude-Session:' "$1"; }
+    f_p6()       { count_from_file -E "$T/p6-patterns" "$1"; }
+    f_pre()      { count_from_file -E "$T/pre-patterns" "$1"; }
+    f_host()     { count_from_file -F "$T/host-patterns" "$1"; }
+    f_home() {
+      local out rc all corpus
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/[-A-Za-z0-9._]" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      all=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      out=$(LC_ALL=C "$G" -a -o -E -e "$HOME/$CORPUS_DIR([^-A-Za-z0-9._]|\$)" -- "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      corpus=$(printf '%s' "$out" | LC_ALL=C awk 'NF { n++ } END { print n + 0 }')
+      printf '%s' "$((all - corpus))"
+    }
+    f_deny()     { count_from_file -F "$T/deny" "$1"; }
+    f_email() {
+      local out rc
+      out=$(LC_ALL=C "$G" -a -o -E -e "$EMAIL_RE" "$1" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      if [ "$rc" -eq 1 ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C awk -v id="$ID_EMAIL" '
+        { a = tolower($0) }
+        a == tolower(id) || a == "noreply@anthropic.com" || a ~ /@example[.]invalid$/ { next }
+        { n++ }
+        END { print n + 0 }'
+    }
+    FORMS="f_nonascii f_ctrl f_emdash f_session f_p6 f_home f_host f_deny f_email"
+    
+    run() {
+      local n
+      n=$("$1" "$2")
+      echo "  form=$1 count=$n"
+      if [ "$n" = error ]; then err=1; elif [ "$n" != 0 ]; then hits=$((hits + n)); fi
+    }
+    check_ctl() {
+      local label=$1 want=$2 n r
+      shift 2
+      n=$("$@")
+      r=$([ "$n" = "$want" ] && echo as-expected || echo UNEXPECTED)
+      echo "  control $label count=$n expected=$want: $r"
+      [ "$r" = as-expected ] || ctl_fail=1
+    }
+    structural() { echo "$1: $2"; [ "$2" = yes ] || bad=$((bad + 1)); }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    rep() { printf "$1%.0s" $(seq 1 "$2"); }
+    one_line() { [ "$1" != error ] && [ "$1" = 1 ]; }
+    
+    echo "command: git rev-parse HEAD"
+    echo "about: M2 part 4c close-out scan ($STAGE the push) over the range $BASE..$C; HEAD at run: $HEAD_SHA"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $HEAD_SHA"
+    echo "command: git log --format='%H' --grep='$TIP_PATTERN'"
+    echo "  commits matching the pattern: $NT; the range tip resolves to: $TIP"
+    structural "the tip pattern matches exactly one commit" "$(yn one_line "$NT")"
+    structural "the phase commit given to this script is the range tip resolved by subject" "$(yn is_tip "$C")"
+    structural "control: the same form refuses a commit that is not the tip" "$(yn not_tip "$NULL_SHA")"
+    structural "control: the same form refuses a short sha of the real commit" \
+      "$(yn not_tip "$(printf '%s' "$C" | cut -c1-7)")"
+    echo "command: git log --format='%H' --grep='$BASE_PATTERN'"
+    echo "  commits matching the pattern: $NB"
+    structural "the base pattern matches exactly one commit" "$(yn one_line "$NB")"
+    echo "  the base resolves from git to $EXPECT_BASE and the argument matches it"
+    echo "command: git rev-parse origin/main -> $ORIGIN"
+    # origin_as_staged: before the push origin/main is still the base; after it,
+    # origin/main is the phase commit.
+    origin_as_staged() {
+      if [ "$STAGE" = pre ]; then [ "$ORIGIN" = "$BASE" ]; else [ "$ORIGIN" = "$C" ]; fi
+    }
+    structural "origin/main as the stage requires ($STAGE: $([ "$STAGE" = pre ] && echo "still the base" || echo "the phase commit"))" "$(yn origin_as_staged)"
+    echo "phase: Milestone 2 part 4c close-out (specs/0021-tables.md, \"Close-out push (after P3)\") scan.log, stage $STAGE; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "root: <repo> stands for the repository's top level, the directory this script cds to; every file scanned is read from it or from git, and a control fixture names a repo-relative path by it"
+    echo "root: <scratch> stands for this session's scratch directory; <scratch>/close holds this script, the counting library copy it sources and, in <scratch>/close/out, its own standard error"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      # specs/0001 "Rules for every phase": every sha256 a log cites, a superseded
+      # attempt's included, is printed by a command run over a file that exists at
+      # run time, never typed from memory. An attempt that was not kept is named as
+      # having no hash, and why.
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    echo "no earlier close-out finding is run again here (header change 2): part"
+    echo "4b's close-out scan ended RESULT: PASS (records/logs/m2p4b-close/scan.log)."
+    echo "temporary files live in <scratch> and are deleted on exit"
+    echo
+    echo "## this script's own source, scanned before it is printed"
+    echo "specs/0001 \"Rules for every phase\": a scan script runs the pre-P6d forms"
+    echo "over its own source before printing itself, because no scan reads the log"
+    echo "it writes and a shape in a script comment survived every phase scan of M1"
+    echo "part 2 P3 (records/logs/m1p2-close/scan.log)."
+    self_n=$(f_pre "$0")
+    echo "  pre-P6d forms over this script's source: count=$self_n"
+    self_clean() { [ "$1" != error ] && [ "$1" = 0 ]; }
+    structural "this script's own source writes no bare shape" "$(yn self_clean "$self_n")"
+    # The control plants ONE shape, built by concatenation, in a COPY of the source,
+    # so a count of 0 above means the form looked and found nothing rather than that
+    # it could not look. The copy is never printed and never leaves the scratch
+    # directory.
+    cp "$0" "$T/self-copy"
+    printf '# %s%s%s\n' '/mnt/' 'c/' 'Users/' >>"$T/self-copy"
+    ctl_n=$(f_pre "$T/self-copy")
+    echo "  the same form over a copy with one concatenated shape appended: count=$ctl_n"
+    structural "the self-scan can report a hit, so the zero above means something" "$(yn [ "$ctl_n" = 1 ])"
+    
+    echo
+    echo "## script"
+    sed 's/^/    /' "$0"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$LIB"
+    
+    echo
+    echo "## counting controls (every form, before any of them is used)"
+    counting_controls
+    structural "every counting form behaves on a match, a miss and an unreadable file" "$(yn [ "$counting_controls_ok" = yes ])"
+    
+    echo
+    echo "## environment"
+    echo "grep: $G, $("$G" --version | head -1)"
+    echo "EMEND_PRIVATE_DENYLIST set: no (unset by this script)"
+    if [ ! -f "$DENY_FILE" ]; then echo "private denylist: MISSING"; exit 2; fi
+    echo "private denylist: present, mode $(stat -c %a "$DENY_FILE")"
+    LC_ALL=C "$G" -v -E '^[[:space:]]*(#|$)' "$DENY_FILE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >"$T/deny"
+    NDENY=$(count_lines "$T/deny")
+    echo "denylist entries: $NDENY (never printed)"
+    denylist_usable() { [ "$NDENY" != error ] && [ "$NDENY" -gt 0 ]; }
+    structural "the denylist is readable and not empty" "$(yn denylist_usable)"
+    if git show "$C:scripts/privacy-patterns.txt" >"$T/patterns-at-c" 2>/dev/null; then
+      structural "this script's patterns equal scripts/privacy-patterns.txt at $C" "$(yn cmp -s "$T/p6-patterns" "$T/patterns-at-c")"
+    else
+      echo "scripts/privacy-patterns.txt at $C: READ ERROR"; err=1
+    fi
+    
+    echo
+    echo "## controls (the same command forms as the scans)"
+    printf 'plain\nhas \303\251 byte\n' >"$T/c-nonascii"
+    printf 'x \033[31mred\033[m\017 y\n' >"$T/c-ctrl"
+    printf 'plain\ttab\r\n' >"$T/c-tabcr"
+    printf 'has %s here\n' "$EMDASH" >"$T/c-emdash"
+    printf 'subject\n\nClaude-Session: control\n' >"$T/c-session"
+    printf 'x %s%s%s y\n' 'gh' 'p_' "$(rep a 24)" >"$T/c-p6"
+    printf 'x %s%s%s%s y\n' '/mnt/' 'c/' 'Users/' 'bob' >"$T/c-p6-path"
+    printf 'x %s%s%s y\n' '/mnt/' 'c/' 'Users/' >"$T/c-bare"
+    printf 'x %s y\n' "$HOST" >"$T/c-host"
+    printf 'x %s%s%s y\n' 'zq12' '@exam' 'ple.com' >"$T/c-email-bad"
+    printf 'x %s noreply@anthropic.com zq@example.invalid y\n' "$ID_EMAIL" >"$T/c-email-ok"
+    printf 'plain ascii only\nno session line\n' >"$T/c-clean"
+    sed -n 1p "$T/deny" | awk '{ print "x " $0 " y" }' >"$T/c-deny"
+    check_ctl "f_nonascii on a two-byte character" 2 f_nonascii "$T/c-nonascii"
+    check_ctl "f_ctrl on ESC, ESC and SI" 3 f_ctrl "$T/c-ctrl"
+    check_ctl "f_ctrl on tab and CR only" 0 f_ctrl "$T/c-tabcr"
+    check_ctl "f_emdash on U+2014" 1 f_emdash "$T/c-emdash"
+    check_ctl "f_emdash on another non-ASCII byte" 0 f_emdash "$T/c-nonascii"
+    check_ctl "f_session on the trailer" 1 f_session "$T/c-session"
+    check_ctl "f_p6 on a token shape" 1 f_p6 "$T/c-p6"
+    check_ctl "f_p6 on a real path of the narrowed form" 1 f_p6 "$T/c-p6-path"
+    check_ctl "f_p6 on a bare shape (P6d: must not match)" 0 f_p6 "$T/c-bare"
+    check_ctl "f_pre on the same bare shape (the pre-P6d form does match)" 1 f_pre "$T/c-bare"
+    check_ctl "f_host on a file naming this host" 1 f_host "$T/c-host"
+    # f_home's controls, as the phase scan runs them. The two negatives are the
+    # shapes that must NOT be flagged: a home path of another account, and the
+    # documented corpus directory. The last three show the gap f_home closes.
+    printf 'x %s/crates/emend/src/lib.rs y\n' "$HOME" >"$T/c-home"
+    printf 'x %s%s y\n' '/home/' 'someone/emend-testing/corpus/x.xlsx' >"$T/c-home-other"
+    printf 'x %s y\n' '<repo>/crates/emend/src/package/tests.rs' >"$T/c-home-rel"
+    printf 'x %s/%s/corpus/x.xlsx y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-corpus"
+    printf 'x %s/%s/a and %s/crates/b y\n' "$HOME" "$CORPUS_DIR" "$HOME" >"$T/c-home-both"
+    printf 'x %s/%s-notes/a y\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-prefix"
+    printf 'Private, in `%s/%s`. Nothing from it is committed.\n' "$HOME" "$CORPUS_DIR" >"$T/c-home-roadmap"
+    check_ctl "f_home on a path under this machine's home directory" 1 f_home "$T/c-home"
+    check_ctl "f_home on a home path of another account (must not match)" 0 f_home "$T/c-home-other"
+    check_ctl "f_home on the repo-relative form (must not match)" 0 f_home "$T/c-home-rel"
+    check_ctl "f_home on the documented corpus directory (exempt, must not match)" 0 f_home "$T/c-home-corpus"
+    check_ctl "f_home on one line holding the corpus root AND a real leak" 1 f_home "$T/c-home-both"
+    check_ctl "f_home on a sibling whose name merely starts with the corpus name" 1 f_home "$T/c-home-prefix"
+    check_ctl "f_home on the committed sentence's shape, corpus root then punctuation" 0 f_home "$T/c-home-roadmap"
+    printf 'Question 2, `%s` paths: accepted.\n' "$HOME" >"$T/c-home-prose"
+    printf 'x %s/ y\n' "$HOME" >"$T/c-home-slash"
+    check_ctl "f_home on the bare home directory named in prose (P6d: must not match)" 0 f_home "$T/c-home-prose"
+    check_ctl "f_home on the bare home directory with a trailing slash only" 0 f_home "$T/c-home-slash"
+    check_ctl "f_host on the same path under this home directory" 0 f_host "$T/c-home"
+    check_ctl "f_p6 on the same path (the narrowed patterns do not reach it)" 0 f_p6 "$T/c-home"
+    check_ctl "f_pre on the same path (nor do the pre-P6d forms)" 0 f_pre "$T/c-home"
+    check_ctl "f_deny on one denylist entry (not printed)" 1 f_deny "$T/c-deny"
+    check_ctl "f_email on an address outside the allowlist" 1 f_email "$T/c-email-bad"
+    check_ctl "f_email on only allowed addresses" 0 f_email "$T/c-email-ok"
+    for f in $FORMS; do check_ctl "$f on a clean file" 0 "$f" "$T/c-clean"; done
+    check_ctl "f_pre on a clean file" 0 f_pre "$T/c-clean"
+    echo "controls: $([ "$ctl_fail" -eq 0 ] && echo "all as expected" || echo FAILED)"
+    
+    echo
+    echo "## commits in the range"
+    echo "command: git rev-list --count $BASE..$C -> $(git rev-list --count "$BASE..$C")"
+    echo "command: git log --reverse --format='%H %s' $BASE..$C"
+    git log --reverse --format='    %H %s' "$BASE..$C"
+    
+    echo
+    echo "## files changed in the range (contents at $C)"
+    echo "command: git diff --name-status $BASE $C"
+    git diff --name-status "$BASE" "$C" | sed 's/^/    /'
+    nf=0; nread=0
+    while IFS= read -r f; do
+      nf=$((nf + 1))
+      if git show "$C:$f" >"$T/f" 2>/dev/null; then nread=$((nread + 1)); else echo "file $f: READ ERROR"; err=1; continue; fi
+      echo "file $f (sha256 $(sha256sum <"$T/f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$T/f"; done
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    git diff --name-only --diff-filter=d "$BASE" "$C" >"$T/difffiles"
+    want=$(count_lines "$T/difffiles")
+    files_complete() { [ "$want" != error ] && [ "$nf" -eq "$want" ] && [ "$nread" -eq "$want" ] && [ "$want" -gt 0 ]; }
+    structural "files in the range: $want; scanned: $nf; read: $nread" "$(yn files_complete)"
+    
+    echo
+    echo "## commit messages in the range"
+    # The one-line check's controls (header change 2), before it is used.
+    structural "control: the check accepts the Opus 5.5 line" "$(yn coauthor_ok "$COAUTHOR_B")"
+    structural "control: the check refuses the Opus 5 line" "$(yn coauthor_refused "$COAUTHOR_A")"
+    structural "control: the check refuses a similar third line" "$(yn coauthor_refused 'Co-Authored-By: Claude Opus 5.1 (1M context) <noreply@anthropic.com>')"
+    structural "control: the check refuses a session trailer" "$(yn coauthor_refused 'Claude-Session: control')"
+    nm=0; na=0; nb=0
+    for c in $(git rev-list "$BASE..$C"); do
+      nm=$((nm + 1))
+      if ! git cat-file commit "$c" >"$T/raw"; then echo "message $c: READ ERROR"; err=1; continue; fi
+      sed '1,/^$/d' "$T/raw" >"$T/m"
+      last=$(awk 'NF { l = $0 } END { print l }' "$T/m")
+      echo "message $c"
+      case "$last" in
+        "$COAUTHOR_A") echo "  ends with the Opus 5 line"; na=$((na + 1)) ;;
+        "$COAUTHOR_B") echo "  ends with the Opus 5.5 line"; nb=$((nb + 1)) ;;
+      esac
+      structural "  last non-empty line is the Opus 5.5 Co-Authored-By line" "$(yn coauthor_ok "$last")"
+      for form in $FORMS; do run "$form" "$T/m"; done
+    done
+    NR_RANGE=$(git rev-list --count "$BASE..$C")
+    messages_complete() { [ "$nm" -eq "$NR_RANGE" ] && [ "$nm" -gt 0 ]; }
+    structural "messages scanned: $nm; commits in range: $NR_RANGE" "$(yn messages_complete)"
+    echo "  messages ending with the Opus 5 line: $na; with the Opus 5.5 line: $nb"
+    split_complete() { [ "$na" -eq 0 ] && [ "$nb" -eq "$nm" ]; }
+    structural "every message scanned ends with the Opus 5.5 line and none with the Opus 5 line" "$(yn split_complete)"
+    
+    echo
+    echo "## the other close-out logs (a log cannot scan itself)"
+    # Each sibling is <file>=<label> (header change 3): the label is printed, the
+    # file is read, so a scratch path is never written.
+    SIBLINGS=(); LABELS=()
+    for a in "${SIB_ARGS[@]}"; do SIBLINGS+=("${a%%=*}"); LABELS+=("${a#*=}"); done
+    nsib=${#SIBLINGS[@]}
+    nl=0
+    for i in "${!SIBLINGS[@]}"; do
+      f=${SIBLINGS[$i]}
+      if [ ! -f "$f" ]; then echo "log ${LABELS[$i]}: MISSING"; bad=$((bad + 1)); continue; fi
+      nl=$((nl + 1))
+      echo "log ${LABELS[$i]} (sha256 $(sha256sum <"$f" | cut -d' ' -f1))"
+      for form in $FORMS; do run "$form" "$f"; done
+    done
+    # The expected count is the length of the list above, not a typed number: see
+    # change 3 in this script's header.
+    structural "close-out logs scanned: $nl of the $nsib listed (scan.log cannot scan itself)" "$(yn [ "$nl" -eq "$nsib" ])"
+    
+    echo
+    echo "## the three shapes specs/0001 forbids, over every printed script"
+    # A helper (yn, is, isnot) runs its arguments as ONE command. Three spellings
+    # defeat it: a second condition chained after an and- or or-operator (only the
+    # first is captured), a leading bang (a keyword, run as a command named by it),
+    # and an assignment prefix (run as a command named by the assignment). Each
+    # pattern and fixture is part 3 P3's, built from pieces so this script's own
+    # text cannot trip the check it performs. Only a log's printed script is read,
+    # the lines between its script heading and the next heading.
+    script_of() {
+      awk '/^## script/ { on = 1; next } /^## / { on = 0 } on' "$1"
+    }
+    SHAPE='[$][(](yn|is|isnot) .*(&&|[|][|])'
+    BANG='[$][(](yn|is|isnot) [!]'
+    ASSIGN='[$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*='
+    echo "  the first pattern, assembled at run time:  $SHAPE"
+    echo "  the second pattern, assembled at run time: $BANG"
+    echo "  the third pattern, assembled at run time:  $ASSIGN"
+    f_shape() { count_matches -E "$SHAPE" "$1"; }
+    f_bang() { count_matches -E "$BANG" "$1"; }
+    f_assign() { count_matches -E "$ASSIGN" "$1"; }
+    printf 'x %s(is [ a = a ] && [ b = b ])\n' '$' >"$T/c-shape"
+    printf 'x %s(is %s f a b)\n' '$' '!' >"$T/c-bang"
+    printf 'x %s(isnot %s%s /usr/bin/grep -q x f)\n' '$' 'LC_ALL' '=C' >"$T/c-assign"
+    printf 'ok() { [ a = a ] || return 1; [ b = b ] || return 1; }\nnote "x" "%s(is ok)"\nnote "y" "%s(isnot ok)"\n' '$' '$' >"$T/c-shape-ok"
+    check_ctl "f_shape on a fixture holding the chained form" 1 f_shape "$T/c-shape"
+    check_ctl "f_shape on a named function doing the same work" 0 f_shape "$T/c-shape-ok"
+    check_ctl "f_bang on a fixture holding the leading-bang form" 1 f_bang "$T/c-bang"
+    check_ctl "f_bang on a named function and the negating helper" 0 f_bang "$T/c-shape-ok"
+    check_ctl "f_assign on a fixture holding the assignment-prefix form" 1 f_assign "$T/c-assign"
+    check_ctl "f_assign on a named function doing the same work" 0 f_assign "$T/c-shape-ok"
+    check_ctl "f_shape on the leading-bang fixture" 0 f_shape "$T/c-bang"
+    check_ctl "f_bang on the chained fixture" 0 f_bang "$T/c-shape"
+    check_ctl "f_shape on the assignment-prefix fixture" 0 f_shape "$T/c-assign"
+    check_ctl "f_bang on the assignment-prefix fixture" 0 f_bang "$T/c-assign"
+    check_ctl "f_assign on the chained fixture" 0 f_assign "$T/c-shape"
+    check_ctl "f_assign on the leading-bang fixture" 0 f_assign "$T/c-bang"
+    # script_of reads only the printed script: the chained form placed after the
+    # script's section must not count.
+    printf '## script\n    x "%s(yn ok)"\n## next\n    x "%s(yn [ a ] %s [ b ])"\n' '$' '$' '&&' >"$T/c-outside"
+    script_of "$T/c-outside" >"$T/c-outside.script"
+    check_ctl "f_shape on the chained form outside a printed script's section" 0 f_shape "$T/c-outside.script"
+    shape_hits=0; shape_err=0; shape_files=0
+    shape_scan() {
+      local f=$1 n b a one
+      n=$(f_shape "$f")
+      b=$(f_bang "$f")
+      a=$(f_assign "$f")
+      echo "  the forbidden shapes in $2: chained=$n leading-bang=$b assignment=$a"
+      shape_files=$((shape_files + 1))
+      for one in "$n" "$b" "$a"; do
+        if [ "$one" = error ]; then shape_err=1
+        elif [ "$one" != 0 ]; then shape_hits=$((shape_hits + one)); fi
+      done
+    }
+    for i in "${!SIBLINGS[@]}"; do
+      f=${SIBLINGS[$i]}
+      [ -f "$f" ] || continue
+      script_of "$f" >"$T/sib.script"
+      nlines=$(count_lines "$T/sib.script")
+      echo "  script lines read from ${LABELS[$i]}: $nlines"
+      script_read() { [ "$nlines" != error ] && [ "$nlines" -ge 40 ]; }
+      structural "the printed script of ${LABELS[$i]} was read" "$(yn script_read)"
+      shape_scan "$T/sib.script" "the printed script of ${LABELS[$i]}"
+    done
+    shape_scan "$0" "this script's own source"
+    want_shape=$((nl + 1))
+    shape_covered() { [ "$shape_files" -eq "$want_shape" ]; }
+    structural "files run through the three greps: $shape_files (every sibling's script and this script)" "$(yn shape_covered)"
+    shape_clean() { [ "$shape_hits" -eq 0 ] && [ "$shape_err" -eq 0 ]; }
+    structural "instances of any of the three forbidden shapes: $shape_hits (expect 0); errors: $shape_err" "$(yn shape_clean)"
+    
+    echo
+    echo "## the pre-P6d forms over the range's files and the sibling logs"
+    echo "The narrowed patterns are blind to a bare shape by design, so this scan's"
+    echo "own zero hits cannot establish that no bare shape will be pushed. The three"
+    echo "pre-P6d forms are run here for that, with the control above. This is the"
+    echo "check part 2's close-out scan failed (records/logs/m1p2-close/scan.log)."
+    pre_hits=0; pre_err=0; pre_read=0
+    for i in "${!SIBLINGS[@]}"; do
+      f=${SIBLINGS[$i]}
+      [ -f "$f" ] || continue
+      n=$(f_pre "$f")
+      echo "  pre-P6d forms in ${LABELS[$i]}: count=$n"
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); fi
+    done
+    while IFS= read -r f; do
+      if ! git show "$C:$f" >"$T/f" 2>/dev/null; then echo "  pre-P6d read of $f: READ ERROR"; pre_err=1; continue; fi
+      pre_read=$((pre_read + 1))
+      n=$(f_pre "$T/f")
+      if [ "$n" = error ]; then pre_err=1; elif [ "$n" != 0 ]; then pre_hits=$((pre_hits + n)); echo "  pre-P6d hit(s) in $f: $n"; fi
+    done < <(git diff --name-only --diff-filter=d "$BASE" "$C")
+    echo "  pre-P6d forms over the range: $pre_read of $want files read; $pre_hits hit(s), $pre_err error(s)"
+    pre_read_all() { [ "$want" != error ] && [ "$pre_read" -eq "$want" ]; }
+    structural "every file of the range was read for the pre-P6d forms" "$(yn pre_read_all)"
+    pre_clean() { [ "$pre_hits" -eq 0 ] && [ "$pre_err" -eq 0 ]; }
+    structural "bare shapes found by the pre-P6d forms: $pre_hits (expect 0); errors: $pre_err" "$(yn pre_clean)"
+    
+    echo
+    echo "## every placeholder a log prints is declared by its root lines (header change 3)"
+    echo "specs/0016 P5 verification ruling 3, carried by specs/0017 \"Phases\": a"
+    echo "placeholder is a token a log's printed scrub writes in place of a path, or"
+    echo "a lower-case angle-bracketed word printed immediately before a slash; it"
+    echo "is declared when a root line says the word stands for something. Tokens are"
+    echo "counted, never their lines."
+    # placeholders_used <file>: the sorted tokens, one per line.
+    placeholders_used() {
+      {
+        LC_ALL=C "$G" -a -o -E 's#[^#]*#<[a-z][a-z0-9_-]*>' "$1" | LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>$'
+        LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>/' "$1" | sed 's#/$##'
+      } | LC_ALL=C sort -u
+    }
+    # placeholders_declared <file>: the tokens a root line says stand for
+    # something, at its head or later in it.
+    placeholders_declared() {
+      LC_ALL=C "$G" -a -E '(^|echo ")root: ' "$1" | LC_ALL=C "$G" -a -o -E '<[a-z][a-z0-9_-]*>(/[a-z0-9]+)? stands for' |
+        LC_ALL=C "$G" -a -o -E '^<[a-z][a-z0-9_-]*>' | LC_ALL=C sort -u
+    }
+    undeclared() { LC_ALL=C comm -23 <(placeholders_used "$1") <(placeholders_declared "$1") | count_lines /dev/stdin; }
+    # The fixtures' tokens are assembled from pieces, so this source spells none.
+    L='<'
+    printf 'root: %srepo> stands for x\nread %srepo>/a and %sbld>/b\n' "$L" "$L" "$L" >"$T/c-ph-bad"
+    printf 'root: %srepo> stands for x; %sbld> stands for y\nread %srepo>/a and %sbld>/b\n' "$L" "$L" "$L" "$L" >"$T/c-ph-ok"
+    printf '  sed -e "s#$X#%sgbld>#g"\nroot: %srepo> stands for x\n' "$L" "$L" >"$T/c-ph-scrub"
+    check_ctl "undeclared on a log printing a token before a slash with no root line for it" 1 undeclared "$T/c-ph-bad"
+    check_ctl "undeclared on the same log with the token declared later in a root line" 0 undeclared "$T/c-ph-ok"
+    check_ctl "undeclared on a scrub target with no root line" 1 undeclared "$T/c-ph-scrub"
+    nph_files=0
+    for i in "${!SIBLINGS[@]}" self; do
+      if [ "$i" = self ]; then f=$0; name="this script's own source"; else f=${SIBLINGS[$i]}; name=${LABELS[$i]}; fi
+      [ -f "$f" ] || { echo "  $name: MISSING"; bad=$((bad + 1)); continue; }
+      nph_files=$((nph_files + 1))
+      used=$(placeholders_used "$f" | tr '\n' ' ')
+      decl=$(placeholders_declared "$f" | tr '\n' ' ')
+      n=$(undeclared "$f")
+      echo "  $name: placeholders printed: $used; declared by root lines: $decl; undeclared: $n"
+      structural "every placeholder $name prints is declared by a root line" "$(yn [ "$n" = 0 ])"
+    done
+    structural "every sibling and this script went through the placeholder check" "$(yn [ "$nph_files" = "$((${#SIBLINGS[@]} + 1))" ])"
+    
+    echo
+    echo "## this script's own standard error (header change 4)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$T/c-err"; printf 'x' >>"$T/c-err"
+    nerr_ctl=$(wc -c <"$T/c-err")
+    echo "  command: wc -c <scratch>/close/out/scan-$STAGE.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    structural "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    structural "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    
+    echo
+    echo "total hits: $hits"
+    echo "read or counting errors: $err"
+    echo "structural checks failed: $bad"
+    scan_passed() {
+      [ "$ctl_fail" -eq 0 ] || return 1
+      [ "$err" -eq 0 ] || return 1
+      [ "$hits" -eq 0 ] || return 1
+      [ "$bad" -eq 0 ] || return 1
+    }
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if scan_passed; then
+      echo "RESULT: PASS"
+    else
+      echo "RESULT: FAIL"
+      exit 1
+    fi
+    
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls (every form, before any of them is used)
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+every counting form behaves on a match, a miss and an unreadable file: yes
+
+## environment
+grep: /usr/bin/grep, grep (GNU grep) 3.12
+EMEND_PRIVATE_DENYLIST set: no (unset by this script)
+private denylist: present, mode 600
+denylist entries: 7 (never printed)
+the denylist is readable and not empty: yes
+this script's patterns equal scripts/privacy-patterns.txt at c8bfaf9af62daab887150d4b90d4613bf265ae42: yes
+
+## controls (the same command forms as the scans)
+  control f_nonascii on a two-byte character count=2 expected=2: as-expected
+  control f_ctrl on ESC, ESC and SI count=3 expected=3: as-expected
+  control f_ctrl on tab and CR only count=0 expected=0: as-expected
+  control f_emdash on U+2014 count=1 expected=1: as-expected
+  control f_emdash on another non-ASCII byte count=0 expected=0: as-expected
+  control f_session on the trailer count=1 expected=1: as-expected
+  control f_p6 on a token shape count=1 expected=1: as-expected
+  control f_p6 on a real path of the narrowed form count=1 expected=1: as-expected
+  control f_p6 on a bare shape (P6d: must not match) count=0 expected=0: as-expected
+  control f_pre on the same bare shape (the pre-P6d form does match) count=1 expected=1: as-expected
+  control f_host on a file naming this host count=1 expected=1: as-expected
+  control f_home on a path under this machine's home directory count=1 expected=1: as-expected
+  control f_home on a home path of another account (must not match) count=0 expected=0: as-expected
+  control f_home on the repo-relative form (must not match) count=0 expected=0: as-expected
+  control f_home on the documented corpus directory (exempt, must not match) count=0 expected=0: as-expected
+  control f_home on one line holding the corpus root AND a real leak count=1 expected=1: as-expected
+  control f_home on a sibling whose name merely starts with the corpus name count=1 expected=1: as-expected
+  control f_home on the committed sentence's shape, corpus root then punctuation count=0 expected=0: as-expected
+  control f_home on the bare home directory named in prose (P6d: must not match) count=0 expected=0: as-expected
+  control f_home on the bare home directory with a trailing slash only count=0 expected=0: as-expected
+  control f_host on the same path under this home directory count=0 expected=0: as-expected
+  control f_p6 on the same path (the narrowed patterns do not reach it) count=0 expected=0: as-expected
+  control f_pre on the same path (nor do the pre-P6d forms) count=0 expected=0: as-expected
+  control f_deny on one denylist entry (not printed) count=1 expected=1: as-expected
+  control f_email on an address outside the allowlist count=1 expected=1: as-expected
+  control f_email on only allowed addresses count=0 expected=0: as-expected
+  control f_nonascii on a clean file count=0 expected=0: as-expected
+  control f_ctrl on a clean file count=0 expected=0: as-expected
+  control f_emdash on a clean file count=0 expected=0: as-expected
+  control f_session on a clean file count=0 expected=0: as-expected
+  control f_p6 on a clean file count=0 expected=0: as-expected
+  control f_home on a clean file count=0 expected=0: as-expected
+  control f_host on a clean file count=0 expected=0: as-expected
+  control f_deny on a clean file count=0 expected=0: as-expected
+  control f_email on a clean file count=0 expected=0: as-expected
+  control f_pre on a clean file count=0 expected=0: as-expected
+controls: all as expected
+
+## commits in the range
+command: git rev-list --count 116def361125cbbda88c3d80154a3a332dea8744..c8bfaf9af62daab887150d4b90d4613bf265ae42 -> 17
+command: git log --reverse --format='%H %s' 116def361125cbbda88c3d80154a3a332dea8744..c8bfaf9af62daab887150d4b90d4613bf265ae42
+    c143473df59fa389ec9ad6ee75d859de6df6a860 M2 part 4b close-out record: the push, the CI run and the scan
+    1fefcbf5873a51a2f0ff00de3939399e4bd028f4 M2 part 4c P1: commit planning docs (the part 4b close-out verification, the part 4c spec)
+    0985ac4e1970b8d2c78ebf254461c4c4a35bccf4 M2 part 4c P1: the part 4b P4 carry (three catalogue phrases, the conditional compose test)
+    2e845165774060cf615d8413144d85c8d23bb8d9 M2 part 4c P1: tables behind the feature tables
+    40ae039ae33239953bf194caed753315fe9ef7fc M2 part 4c P1: emend-copy --table-sample
+    7176a340439e0b5b455c785dd696f5b3dc818066 M2 part 4c P1 record: logs, corpus and open-check records, the independent check
+    30241a142ed47d188cf1cfe474760d8f7e07557f M2 part 4c P2: commit planning docs (the P1 rulings and verification)
+    2b1cd7d06b7353d604e7961dfb121f6e79330ada M2 part 4c P2: the P1 verification carry (names on the grid and in R1C1 form, the docs and tests narrowed)
+    4a681446bd77f09d0a7a96775c5a3198da1b1b99 M2 part 4c P2: remove_table behind the feature tables
+    6cfd5041c9bff1fb3c92273854ae8494090d11e3 M2 part 4c P2: emend-copy --table-sample removes the table in memory
+    af43c51efef3a43dfcddb42d15676176be3f15a9 M2 part 4c P2 record: logs, corpus and open-check records, the independent check
+    1b8fe5ac742e6b8e23efe54c9dae1990e39a7ade M2 part 4c P3: commit planning docs (the P2 verification)
+    f70495eaaf2ccb022d159df51370b0610a22bdfe M2 part 4c P3: the P2 verification carry (the tables tests' header, a cell kept by the removal, a removal on a removed or replaced part)
+    b7e341c548d6b959b0b584f08bba08334f297819 M2 part 4c P3: the catalogue and limits of tables
+    3c5f0b73b7df20d1f5d97283a42ede5424ac5577 M2 part 4c P3: probe-emend-tables-write-xml
+    e1f373636fdb5198f207d82efc05f74867f77091 M2 part 4c P3 record: logs, size, corpus and open-check records, the independent check
+    c8bfaf9af62daab887150d4b90d4613bf265ae42 M2 part 4c close-out: commit planning docs (the P3 verification and rulings, decision 6 deferred again)
+
+## files changed in the range (contents at c8bfaf9af62daab887150d4b90d4613bf265ae42)
+command: git diff --name-status 116def361125cbbda88c3d80154a3a332dea8744 c8bfaf9af62daab887150d4b90d4613bf265ae42
+    M	ROADMAP.md
+    M	crates/emend/Cargo.toml
+    M	crates/emend/src/lib.rs
+    M	crates/emend/src/package.rs
+    M	crates/emend/src/package/tests.rs
+    M	crates/emend/src/package/tests/conditional.rs
+    M	crates/emend/src/package/tests/names.rs
+    A	crates/emend/src/package/tests/tables.rs
+    A	records/logs/m2p4b-close/ci-run.log
+    A	records/logs/m2p4b-close/push.log
+    A	records/logs/m2p4b-close/scan.log
+    A	records/logs/m2p4c-p1/gate.log
+    A	records/logs/m2p4c-p1/independent-check-1.md
+    A	records/logs/m2p4c-p1/negative.log
+    A	records/logs/m2p4c-p1/run.log
+    A	records/logs/m2p4c-p1/scan.log
+    A	records/logs/m2p4c-p1/test.log
+    A	records/logs/m2p4c-p2/gate.log
+    A	records/logs/m2p4c-p2/independent-check-1.md
+    A	records/logs/m2p4c-p2/negative.log
+    A	records/logs/m2p4c-p2/run.log
+    A	records/logs/m2p4c-p2/scan.log
+    A	records/logs/m2p4c-p2/test.log
+    A	records/logs/m2p4c-p3/gate.log
+    A	records/logs/m2p4c-p3/independent-check-1.md
+    A	records/logs/m2p4c-p3/negative.log
+    A	records/logs/m2p4c-p3/run.log
+    A	records/logs/m2p4c-p3/scan.log
+    A	records/logs/m2p4c-p3/size.log
+    A	records/logs/m2p4c-p3/test.log
+    A	records/m2p4c-open-2026-09-30-3c5f0b7.md
+    A	records/m2p4c-open-2026-09-30-3c5f0b7.txt
+    A	records/m2p4c-open-2026-09-30-40ae039.md
+    A	records/m2p4c-open-2026-09-30-40ae039.txt
+    A	records/m2p4c-open-2026-09-30-6cfd504.md
+    A	records/m2p4c-open-2026-09-30-6cfd504.txt
+    A	records/m2p4c-p1-2026-09-30-40ae039.md
+    A	records/m2p4c-p1-2026-09-30-40ae039.txt
+    A	records/m2p4c-p2-2026-09-30-6cfd504.md
+    A	records/m2p4c-p2-2026-09-30-6cfd504.txt
+    A	records/m2p4c-p3-2026-09-30-3c5f0b7.md
+    A	records/m2p4c-p3-2026-09-30-3c5f0b7.txt
+    A	records/size-m2p4c-2026-09-30-3c5f0b7.md
+    M	specs/0020-validation-and-conditional-formatting.md
+    A	specs/0021-tables.md
+    M	tools/emend-copy/Cargo.toml
+    M	tools/emend-copy/src/main.rs
+    M	tools/emend-copy/tests/null_rewrite.rs
+    M	tools/size-probe/Cargo.toml
+    A	tools/size-probe/src/bin/probe-emend-tables-write-xml.rs
+file ROADMAP.md (sha256 c2011b9a6f472f8911ce510f3d0299c7f986b0fec1883cc39590bb0bc74ccfdf)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/Cargo.toml (sha256 fab746b9e047ab8a11922ac4f5956ff42767d810ab6083e98ea449e748890507)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/lib.rs (sha256 b4859bcde0857a90759fd2051b4d806a2be8ba5d4a1fcaf1cf3e48b1cebd1bcd)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package.rs (sha256 a0697a4079a1a9fd35301e5c937afba2bb8f71a15928a37f592dcad3f2543fb3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests.rs (sha256 8b0a0d067e3bd2da3be60f009c07f930def3dc33710e9389b1c64f5868638b8a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests/conditional.rs (sha256 305a4acaf9e0aa59e9cf7712aab2983b8c1955217441b67685746b2c1bc68882)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests/names.rs (sha256 2aec90a81c199faf7f9d40e58eecede851e77a7f1a9eb2e2a44ef16f3b701614)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file crates/emend/src/package/tests/tables.rs (sha256 ca1e95ed1cccb9a29d80627ca63ed10d011cf151f5040d8841a3a1d2040450ec)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4b-close/ci-run.log (sha256 571350883c09ed9a985a35f59118b462ec6c17aabbb3ae7005f30723ce7b6fea)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4b-close/push.log (sha256 90a0a507167c172b26d8b22c09cc269c980f104355960b62dc5d520a2287bcd1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4b-close/scan.log (sha256 28a60f5c5e6905bfa8a1ba1b1b543b2924a00d8b73cc60f3f84e3af0fa2730de)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/gate.log (sha256 ee1b4004bda6973be7fb07b8c23a192512af39eaf859c7503e5ed03a3e97383b)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/independent-check-1.md (sha256 2479c88fbed0062e63ee8b1d5eaf97b870e745e7bd48571340f00afe2d49ccb2)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/negative.log (sha256 4e90647aa763a6b92196f03dc5946f4666d23f589e157a4a746dfa3933bbe774)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/run.log (sha256 fc1817cb1e4adba69a7b16c774dbb03ca39aae62fbbd2ae76186c8a1624a1362)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/scan.log (sha256 6d9a16fb9491575dfd0c2485e28d2734d91668544b4d2ce6e23eacfdcdaee428)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p1/test.log (sha256 4b6c70f47786f87ae0b8f6f91d53e83c0b2686add2df2b59eeeb0e897c27b8b6)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/gate.log (sha256 c4bbb0577b3fbca9a872ecda14d0466a1f47b35f622040477d25489d59b84812)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/independent-check-1.md (sha256 9e1ab028dc8831c85e5c8ad3945ec6f58b23559042a353eb988d86ab6b49a69e)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/negative.log (sha256 f829c234a90260293899324828f0fd829dbfdb82399ee4e2ec3d43af38da147a)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/run.log (sha256 1fd88fc706371e1ba31721878c5f571dd5be288c5a7900867c8cb868b2c3c6e9)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/scan.log (sha256 ade6dd0420b46041486c71ac4a399a43b8b896a82fe053254e4ca7ae45fd2609)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p2/test.log (sha256 532971903184d5cf05e2dcf3271fef45a4545794f59051ad9d92754fe6fbf101)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/gate.log (sha256 104749a716d7ca929e9d84ae92e4ad84dcfe7ee13e0f98e30f2b712933596b7c)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/independent-check-1.md (sha256 f048adf866dca53b58dccae57b2c623e1b71aca2370d75041a00ee1ede8163c7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/negative.log (sha256 40d9c8e77804112ad78a6833f2d59fb7112f2b48914263109716709baa4fbdf6)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/run.log (sha256 e02d50a9615af4eda14720df3257d03303398857b8395579bef16085fe960182)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/scan.log (sha256 8d38779cf6f612bb83a8d8bbf62fc60b9c34e6453451029198ed16e20e6eebd7)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/size.log (sha256 b9790c6f0f6a5fe2ed16272a6f66650c71d955e4e8c9c13e04ac48507a578525)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/logs/m2p4c-p3/test.log (sha256 cd0dd023a04fb455779efb7a46185a26af8e752a8fbfc3cf9446f7c9430ededc)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-3c5f0b7.md (sha256 b992d7948adda0661b82a1b5065462aa650d467dddf35192e2a5a53900535a01)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-3c5f0b7.txt (sha256 545616db3f342ee771f2d7c62335e04460a34d967af9723a5faafa8fb80dfdf9)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-40ae039.md (sha256 516a5e2cfea0f3b182603f6fa94020615b68b617956b4c10becc2fb3db28ea94)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-40ae039.txt (sha256 d5b746db8cb301cc50fd6d312296f45dd95f4eabdb899bb46ca049d3175bb04f)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-6cfd504.md (sha256 1d52cbd73569e4306851457abf1b1fcae19524552a344c5af7df485390e5b3fa)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-open-2026-09-30-6cfd504.txt (sha256 4737226ac20d18aa4906d5e214b97d439ad184c9d8fda3396a7aaa4bcf3d91e9)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p1-2026-09-30-40ae039.md (sha256 1b2cafcd80ff7be0b53635ebafb38a30baae3e8727d7ffbf36a3b5daeaf392b3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p1-2026-09-30-40ae039.txt (sha256 7ec25106302d250ed1c6e1f7464ff56eb92dc8afccb1a19fa5890b5e38130891)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p2-2026-09-30-6cfd504.md (sha256 9948fde8adb2016205dd3611605f428c169aafdd9d14f271c2d6539d022d3351)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p2-2026-09-30-6cfd504.txt (sha256 e9d5e3945b9356c9ace2bba9ea62df8df6f71f30e7c532a6c33c6bbbf6fe072c)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p3-2026-09-30-3c5f0b7.md (sha256 9b0a717e08a5247338f55b963b4725ba6cc5b1fb29004475ccbb9f386f5afcc3)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/m2p4c-p3-2026-09-30-3c5f0b7.txt (sha256 7eb9429315f3ec2b283bfc1d600525b30971155613efd587ba21744d44263cd8)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file records/size-m2p4c-2026-09-30-3c5f0b7.md (sha256 fe014459635a931543c86ed4c5441edd1cd95d25913942a5bf704e9d579cb6f1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0020-validation-and-conditional-formatting.md (sha256 5fc132f271b9d9655434a0cae5085c115dd0d5d0f02dd7600c9c5aa58b4ce851)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file specs/0021-tables.md (sha256 8fd131d8f18cbbc16dcd09785cd140c6f9a25485f6d361064a458d660f644b00)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/Cargo.toml (sha256 b531b98f9094acacff9fcee698c2faa793e0577d0605461f69a45577a73c55b2)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/src/main.rs (sha256 79a039baa25bf633f60ecdeaea12c9998f753b0e846a933cb8c232a2685979d1)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/emend-copy/tests/null_rewrite.rs (sha256 dcfa804862762f77d421b4177b556df59e7b9efe25658951571ccb0fbe59b6ac)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/size-probe/Cargo.toml (sha256 dbbe1b3849b25f470d0f77de78825c3f2894ee35532cdd5eec4abd70d3caf370)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+file tools/size-probe/src/bin/probe-emend-tables-write-xml.rs (sha256 42c02f3b54651009fe57b9719e2d40d9dae9b952df2038f8930ed3076677c611)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+files in the range: 50; scanned: 50; read: 50: yes
+
+## commit messages in the range
+control: the check accepts the Opus 5.5 line: yes
+control: the check refuses the Opus 5 line: yes
+control: the check refuses a similar third line: yes
+control: the check refuses a session trailer: yes
+message c8bfaf9af62daab887150d4b90d4613bf265ae42
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message e1f373636fdb5198f207d82efc05f74867f77091
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 3c5f0b73b7df20d1f5d97283a42ede5424ac5577
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message b7e341c548d6b959b0b584f08bba08334f297819
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message f70495eaaf2ccb022d159df51370b0610a22bdfe
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 1b8fe5ac742e6b8e23efe54c9dae1990e39a7ade
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message af43c51efef3a43dfcddb42d15676176be3f15a9
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 6cfd5041c9bff1fb3c92273854ae8494090d11e3
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 4a681446bd77f09d0a7a96775c5a3198da1b1b99
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2b1cd7d06b7353d604e7961dfb121f6e79330ada
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 30241a142ed47d188cf1cfe474760d8f7e07557f
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 7176a340439e0b5b455c785dd696f5b3dc818066
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 40ae039ae33239953bf194caed753315fe9ef7fc
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 2e845165774060cf615d8413144d85c8d23bb8d9
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 0985ac4e1970b8d2c78ebf254461c4c4a35bccf4
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message 1fefcbf5873a51a2f0ff00de3939399e4bd028f4
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+message c143473df59fa389ec9ad6ee75d859de6df6a860
+  ends with the Opus 5.5 line
+  last non-empty line is the Opus 5.5 Co-Authored-By line: yes
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+messages scanned: 17; commits in range: 17: yes
+  messages ending with the Opus 5 line: 0; with the Opus 5.5 line: 17
+every message scanned ends with the Opus 5.5 line and none with the Opus 5 line: yes
+
+## the other close-out logs (a log cannot scan itself)
+log push.log (sha256 5ab958b9d162b34546ded126216dd2a5428df0e2472fbb6711180a201ae7c307)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+log ci-run.log (sha256 8685a4095c9c50ba9e0438f2c2cda0db8190e5fd484d284bcb4536d872a3a374)
+  form=f_nonascii count=0
+  form=f_ctrl count=0
+  form=f_emdash count=0
+  form=f_session count=0
+  form=f_p6 count=0
+  form=f_home count=0
+  form=f_host count=0
+  form=f_deny count=0
+  form=f_email count=0
+close-out logs scanned: 2 of the 2 listed (scan.log cannot scan itself): yes
+
+## the three shapes specs/0001 forbids, over every printed script
+  the first pattern, assembled at run time:  [$][(](yn|is|isnot) .*(&&|[|][|])
+  the second pattern, assembled at run time: [$][(](yn|is|isnot) [!]
+  the third pattern, assembled at run time:  [$][(](yn|is|isnot) [A-Za-z_][A-Za-z_0-9]*=
+  control f_shape on a fixture holding the chained form count=1 expected=1: as-expected
+  control f_shape on a named function doing the same work count=0 expected=0: as-expected
+  control f_bang on a fixture holding the leading-bang form count=1 expected=1: as-expected
+  control f_bang on a named function and the negating helper count=0 expected=0: as-expected
+  control f_assign on a fixture holding the assignment-prefix form count=1 expected=1: as-expected
+  control f_assign on a named function doing the same work count=0 expected=0: as-expected
+  control f_shape on the leading-bang fixture count=0 expected=0: as-expected
+  control f_bang on the chained fixture count=0 expected=0: as-expected
+  control f_shape on the assignment-prefix fixture count=0 expected=0: as-expected
+  control f_bang on the assignment-prefix fixture count=0 expected=0: as-expected
+  control f_assign on the chained fixture count=0 expected=0: as-expected
+  control f_assign on the leading-bang fixture count=0 expected=0: as-expected
+  control f_shape on the chained form outside a printed script's section count=0 expected=0: as-expected
+  script lines read from push.log: 499
+the printed script of push.log was read: yes
+  the forbidden shapes in the printed script of push.log: chained=0 leading-bang=0 assignment=0
+  script lines read from ci-run.log: 294
+the printed script of ci-run.log was read: yes
+  the forbidden shapes in the printed script of ci-run.log: chained=0 leading-bang=0 assignment=0
+  the forbidden shapes in this script's own source: chained=0 leading-bang=0 assignment=0
+files run through the three greps: 3 (every sibling's script and this script): yes
+instances of any of the three forbidden shapes: 0 (expect 0); errors: 0: yes
+
+## the pre-P6d forms over the range's files and the sibling logs
+The narrowed patterns are blind to a bare shape by design, so this scan's
+own zero hits cannot establish that no bare shape will be pushed. The three
+pre-P6d forms are run here for that, with the control above. This is the
+check part 2's close-out scan failed (records/logs/m1p2-close/scan.log).
+  pre-P6d forms in push.log: count=0
+  pre-P6d forms in ci-run.log: count=0
+  pre-P6d forms over the range: 50 of 50 files read; 0 hit(s), 0 error(s)
+every file of the range was read for the pre-P6d forms: yes
+bare shapes found by the pre-P6d forms: 0 (expect 0); errors: 0: yes
+
+## every placeholder a log prints is declared by its root lines (header change 3)
+specs/0016 P5 verification ruling 3, carried by specs/0017 "Phases": a
+placeholder is a token a log's printed scrub writes in place of a path, or
+a lower-case angle-bracketed word printed immediately before a slash; it
+is declared when a root line says the word stands for something. Tokens are
+counted, never their lines.
+  control undeclared on a log printing a token before a slash with no root line for it count=1 expected=1: as-expected
+  control undeclared on the same log with the token declared later in a root line count=0 expected=0: as-expected
+  control undeclared on a scrub target with no root line count=1 expected=1: as-expected
+  push.log: placeholders printed: <home> <scratch> ; declared by root lines: <home> <scratch> ; undeclared: 0
+every placeholder push.log prints is declared by a root line: yes
+  ci-run.log: placeholders printed: <scratch> ; declared by root lines: <scratch> ; undeclared: 0
+every placeholder ci-run.log prints is declared by a root line: yes
+  this script's own source: placeholders printed: <repo> <scratch> ; declared by root lines: <repo> <scratch> ; undeclared: 0
+every placeholder this script's own source prints is declared by a root line: yes
+every sibling and this script went through the placeholder check: yes
+
+## this script's own standard error (header change 4)
+  command: wc -c <scratch>/close/out/scan-post.stderr: 0 bytes; a copy with one byte appended: 1
+this script wrote nothing to its standard error: yes
+control: the same count reads one byte more in the copy: yes
+
+total hits: 0
+read or counting errors: 0
+structural checks failed: 0
+run ended at 2026-10-01T00:19:28Z
+RESULT: PASS
