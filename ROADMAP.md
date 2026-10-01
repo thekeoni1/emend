@@ -525,8 +525,8 @@ and `rowcol` are, with the Milestone 2 ceiling untouched by design:
 4a names, links, properties and protection (`specs/0019`); 4b data
 validation and conditional formatting; 4c tables; 4d comments and
 images. The order is the maintainer's to change; 4b is scoped
-(`specs/0020`, 2026-09-29) and 4c (`specs/0021`, 2026-09-30); 4d
-when its turn comes. The Excel check for parts 1 to 3 was
+(`specs/0020`, 2026-09-29), 4c (`specs/0021`, 2026-09-30) and 4d
+(`specs/0022`, 2026-09-30), the last of part 4. The Excel check for parts 1 to 3 was
 deferred by the maintainer on 2026-09-27 to before part 4a's
 close-out push at the latest (`specs/0019` decision 6).
 
@@ -606,7 +606,36 @@ push with this part's sample.
 | P1 | the feature `tables`; the types, `tables`, `add_table` with the name, column and style rules, the header cells, the part writer and the allocation, the override and relationship, the `<tableParts>` pass with the overlap check; `--table-sample` | DONE 2026-09-30 (doc 1fefcbf, carry 0985ac4, crate 2e84516, tool 40ae039, record 7176a34; 27/27 both targets, 0 refused, 25 header rows appended and 2 filled per target; seven P1 rulings mid-phase, two of them corrections of the spec's sentences on an added sheet and the strict form, one a grid-bounded name rule that found the same defect in part 4a's defined-name rule; verified by planning from primaries, its own build and tests on both targets, clippy and doc, its own sample run byte-identical to the phase's on 27 of 27 on both targets and its own check of every added part's bytes; records `records/m2p4c-p1-2026-09-30-40ae039.md` and `.txt`, open record `records/m2p4c-open-2026-09-30-40ae039.md` and `.txt`; check 1's items carried to P2's first code commit with the 4a fix; `specs/0021` "Planning verification and rulings on P1") |
 | P2 | `remove_table` with its four removals; `--table-sample`'s in-memory removal | DONE 2026-09-30 (doc 30241a1, carry 2b1cd7d, crate 4a68144, tool 6cfd504, record af43c51; 27/27 both targets, 0 refused, the removal's counts asserted on every workbook; the carry fixed part 4a's defined-name rule (grid-bounded, R1C1 forms refused) beside the P1 items; verified by planning from primaries, its own build and tests on both targets, clippy and doc, its own sample run byte-identical to the phase's on 27 of 27 on both targets; records `records/m2p4c-p2-2026-09-30-6cfd504.md` and `.txt`, open record `records/m2p4c-open-2026-09-30-6cfd504.md` and `.txt`; three doc and test items carried to P3's first code commit; `specs/0021` "Planning verification and rulings on P2") |
 | P3 | the catalogue and limits; `probe-emend-tables-write-xml` and the size record (the feature's cost, the core's growth); the negative log through the binary; the sample again with the release binaries | DONE 2026-09-30 (doc 1b8fe5a, carry f70495e, catalogue b7e341c, probe 3c5f0b7, record e1f3736; the feature `tables` costs 46860 section bytes over the core probe, above the estimate's 30000 to 45000 by 1860 and outside the budget; the core's growth 0; the budget 435224, 23528 under 458752, unchanged from part 4b; the metadata probe +32 from the P2 carry's defined-name fix; 4 of the part's 10 messages reached through the binary, 6 stated unreachable with their tests; 27/27 both targets byte-identical to P2's run; verified by planning from primaries, its own build and tests on both targets, clippy and doc, its own probe builds reproducing the size log's hashes, its own sample run byte-identical to the phase's on 27 of 27 on both targets; `records/size-m2p4c-2026-09-30-3c5f0b7.md`, `records/m2p4c-p3-2026-09-30-3c5f0b7.md` and `.txt`, open record `records/m2p4c-open-2026-09-30-3c5f0b7.md` and `.txt`; a test and two `//!` phrases carried to the next part's first code commit; `specs/0021` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, carrying c143473 and this part's commits; the Excel check for parts 1 to 4b and this part's sample run or deferred again before it | RELEASED 2026-09-30: the Excel check deferred again by the maintainer's decision 6 (`specs/0021` P3 ruling 7); the push on the maintainer's authorisation typed in the implementing session |
+| Close | close-out push after P3, carrying c143473 and this part's commits; the Excel check for parts 1 to 4b and this part's sample run or deferred again before it | DONE 2026-09-30 (pushed 116def3..c8bfaf9, 17 commits, 873 blobs, 0 findings; CI run 36795385286 success; the Excel check deferred again by decision 6, `specs/0021` P3 ruling 7; doc c8bfaf9 pushed, record 5da68da local, goes with the next push; `specs/0021` "Planning verification and rulings on the close-out") |
+
+### Part 4d: comments and images (`specs/0022-comments-and-images.md`)
+
+Approved by the maintainer 2026-09-30 and sent to implementation,
+decisions 1 to 6 as planning recommended: two features `comments`
+and `images` with a probe each; a comment written as a comments part
+and a VML legacy-drawing shape, openpyxl's shape; a sheet with
+threaded comments refused for comment edits; PNG and JPEG only, the
+pixel size read from the file's header by the part's own code with
+a caller override; an image appended as a one-cell anchor to an
+existing drawing part; a comment on a cell that has one replaces
+it, images never overlap-checked. `Comment`, `CommentEntry`;
+`add_comment`, `remove_comment`, `comments`; `Image`, `ImageEntry`,
+`Anchor`; `add_image`, `images`; image removal out of scope. Behind
+features, outside the budget; estimate 40000 to 55000 section bytes
+each; the core's growth expected near 0. Carries from part 4c: a
+`remove_table` test and two catalogue phrases in P1's first code
+commit, the push script's previous-record pattern and one
+independent check at the close-out, the Excel check (parts 1 to
+4c, deferred again 2026-09-30) before the close-out push with this
+part's two samples.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature `comments`; `Comment`, `CommentEntry`, `comments`, `add_comment`; the comments and VML parts created or appended, the allocation, the overrides and relationships, `legacyDrawing` in schema position, the threaded-comments refusal; `--comment-sample` | PLANNED |
+| P2 | `remove_comment` with its skips and drops; `--comment-sample`'s in-memory removal | PLANNED |
+| P3 | the feature `images`; `Image`, `ImageEntry`, `Anchor`, the PNG and JPEG header reads, `images`, `add_image`; the media entry, the drawing part created or appended, its rels part, `drawing` in schema position; `--image-sample` | PLANNED |
+| P4 | the catalogue and limits; `probe-emend-comments-write-xml` and `probe-emend-images-write-xml` and the size record; the negative log through the binary; both samples again with the release binaries | PLANNED |
+| Close | close-out push after P4, carrying 5da68da and this part's commits, the previous-record pattern naming 5da68da, one independent check; the Excel check for parts 1 to 4c and this part's samples run or deferred again before it | PLANNED |
 
 Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values

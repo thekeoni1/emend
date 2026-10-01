@@ -986,6 +986,125 @@ check read whole.
    in the next part's spec. This ruling goes in the close-out's
    doc commit with the rest of this section.
 
+## Planning verification and rulings on the close-out (2026-09-30)
+
+1. Verified by planning from git and `gh`: origin/main is
+   c8bfaf9af62daab887150d4b90d4613bf265ae42, the close-out doc
+   commit, which holds exactly this file at 8fd131d8... and
+   `ROADMAP.md` at c2011b9a..., the hashes planning sent, by
+   planning's own `git show` and `sha256sum`; the pushed range
+   116def3..c8bfaf9 holds 17 commits, part 4b's record commit
+   c143473 among them once, c8bfaf9 at the tip; 18 of 18 messages
+   from 116def3 to the record commit 5da68da end with the
+   Co-Authored-By line only, no session link, ASCII throughout,
+   one author and committer identity; CI run 36795385286 on
+   c8bfaf9, event push, completed with conclusion success and no
+   step other than success or skipped, the privacy step skipped
+   as CI mode requires; planning's own `scripts/privacy.sh
+   --range 116def3..c8bfaf9` with the maintainer's denylist, 17
+   commits, 873 blobs, 0 findings, the hook's own figures; its
+   own count of the maintainer's address over every blob in the
+   pushed range, 0; `ANTHROPIC_API_KEY` unset in planning's
+   shell; the working tree clean at 5da68da; the repository
+   PRIVATE by the log's `gh repo view`.
+2. The three logs at the reported hashes, 0 non-ASCII lines.
+   `push.log` (5ab958b9): pre mode on c8bfaf9 over the base found
+   by its subject, 17 commits, "pre checks all as expected: yes";
+   push mode with the maintainer's authorisation printed verbatim
+   from the labelled inputs ("authorised", 2026-09-30), the hook's
+   17 commits and 873 blobs with 0 findings, git's own
+   "116def3..c8bfaf9  main -> main", ls-remote at c8bfaf9, still
+   PRIVATE, "push checks all as expected: yes". `ci-run.log`
+   (8685a409): the run polled to completion, head, branch, event
+   and conclusion as expected, 0 steps other than success or
+   skipped, "checks all as expected: yes". `scan.log` (8e81f365)
+   post stage over 116def3..c8bfaf9 with push.log and ci-run.log
+   as its siblings, each pinned by sha256 and counted at 0 on
+   every form, 50 of 50 files and 17 of 17 messages read, 0 hits,
+   0 structural failures, RESULT: PASS; no check line reads "no"
+   in any of the three. Each log counts its own stderr at 0 bytes.
+   No superseded attempt: the implementing session's pre-mode
+   copy is the first 841 lines of push.log, byte for byte.
+3. The carried scripts, read from the printed copies: every
+   change against part 4b's committed copies is a phase label, a
+   spec reference, a base or tip subject, a record directory, or
+   a header note, except one. The push script's previous-record
+   pattern now names part 4b's record (c143473) where 4b's named
+   4a's; planning's instruction listed the base, the tip and the
+   directory and not this pattern, and the implementing session
+   read the omission right: the check wants the record the push
+   carries, and 4a's is outside the range. Accepted. The next
+   close-out's instruction names the previous record's pattern.
+4. The authorisation: the maintainer first typed "authorised"
+   with no date; the implementing session asked for the date
+   before running push mode and ran it on "authorised
+   2026-09-30". Change 8 refuses an empty input; it was not
+   exercised, because push mode was not started until both
+   inputs were given. The log records both verbatim. Accepted.
+5. Dates: push mode ran at 2026-10-01T00:16:27Z and the scan
+   ended at 2026-10-01T00:19:28Z, the maintainer's and the
+   commits' date 2026-09-30 local. The specs and the record
+   commit carry the maintainer's date; the logs carry UTC. No
+   change; the next part's spec dates its carries from this
+   section's date.
+6. No independent check was run, on planning's instruction
+   ("unless a log deviates from 4b's shape"). That instruction
+   departed from part 4b's close-out, which had one, and from
+   `CLAUDE.md`, which asks for one before a final product is
+   reported. Ruling: one check, ordered after this verification,
+   given this section, the record commit's diff and the three
+   logs, never the conversation; its answer goes to planning
+   verbatim in a message and is recorded here, agreement or not,
+   before the next part's first doc commit. Planning's
+   verification above does not depend on it.
+7. The record commit 5da68da, parent c8bfaf9, exactly the three
+   logs, trailer correct, no count in its message beyond what the
+   logs print, local: it goes with the next push, as c143473 went
+   with this one. Accepted.
+8. Carried into the next part's spec: P3 ruling 2 (a test for
+   `remove_table` on a sheet added in the same write), P3 ruling
+   4's two `//!` phrases (a kept header cell holding a formula;
+   the entry-name ASCII case fold), each in the next part's first
+   code commit; decision 6's new deadline (P3 ruling 7: the Excel
+   check for parts 1 to 4b's samples and this part's, before the
+   next part's close-out push at the latest); change 8 of the
+   push script; the previous-record pattern (ruling 3). Milestone
+   2's headroom for the next part is 23528 section bytes against
+   458752, judged on `probe-emend-format-write-xml` with `rowcol`,
+   `dates`, `metadata`, `rules` and `tables` off.
+9. The close-out is DONE and Milestone 2 part 4c is DONE.
+10. The independent check of ruling 6, run by the implementing
+   session on 2026-09-30 after this section was written (a fresh
+   subagent given this file's close-out sections at f5734f59, the
+   diff of 5da68da, the close-out report and the three logs, its
+   answer sent to planning verbatim; nothing committed for it):
+   question 1 YES (three files added, byte-equal to the logs, the
+   message as the spec asks, the trailer alone); question 2 YES
+   (every required line found, with push.log and ci-run.log line
+   numbers); question 3 PARTLY. Planning's rulings on the PARTLY
+   items: the report's quoted label "part 4b's (second) close-out
+   doc commit" is not the log's text ("part 4b's second close-out
+   doc commit"); the report is a message, the log stands, the
+   quote recorded as inaccurate. The report's "byte-identical to
+   4b's printed copies apart from a trailing blank line" is
+   confirmed by planning's own diff of the printed scripts against
+   part 4b's committed logs (ruling 3); its path-form counts
+   "1/1/7" are in no primary and planning does not rely on them.
+   The report's "env at the record commit" names a shell command
+   with no log; the logs' own checks are the record. The "before"
+   hashes of the two files are planning's own, taken before they
+   were sent, and confirmed at c8bfaf9 by planning's `git show`.
+   The two typed authorisations are the implementing session's
+   account; the primary is push.log's two labelled inputs, and
+   ruling 4 is read that way. "Each log is its first run" rests on
+   the logs' own statements, the pre-mode copy being push.log's
+   first 841 lines, and the build directory holding no other
+   attempt, which planning listed. The check's one disagreement
+   (the report's reason for skipping the check) agrees with ruling
+   6. The parent c8bfaf9 of 5da68da, outside the check's files, is
+   confirmed by planning's `git log origin/main..HEAD`. No code or
+   record changes; the check is recorded here in full effect.
+
 ## Out of scope
 
 - A totals row (`totalsRowCount`, `totalsRowFunction`,
