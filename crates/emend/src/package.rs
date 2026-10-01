@@ -112,6 +112,11 @@
 //! - "a worksheet without sheetData cannot be edited"
 //!   (`a_set_on_a_worksheet_without_sheet_data_is_refused`).
 //!
+//! The write also refuses a cell value, clear or style edit whose reference
+//! lies off the grid with "a row or column index or count is out of range",
+//! the message the formats below raise at their calls (`specs/0023-scale.md`,
+//! P1 verification ruling 5; `a_cell_edit_off_the_grid_is_refused_at_the_write`).
+//!
 //! The styles part's reading adds five (`specs/0012-styles.md`, "Errors"),
 //! the first raised here by [`Package::styles`] and the rest by `styles`:
 //!
@@ -4229,8 +4234,10 @@ impl<R: Read + Seek> Package<R> {
     /// `part` is the worksheet's entry name, as [`Package::cells`] takes it;
     /// the caller finds it through [`Workbook::sheet`]. Nothing is read and
     /// nothing can fail here, and the last edit recorded for a reference
-    /// wins. [`Package::write_to`] checks the value and rewrites the part
-    /// (`specs/0011-editing-cells.md`, "Module `package`").
+    /// wins. [`Package::write_to`] checks the value and the reference, which
+    /// must lie inside the grid ("a row or column index or count is out of
+    /// range"), and rewrites the part (`specs/0011-editing-cells.md`, "Module
+    /// `package`"; `specs/0023-scale.md`, P1 verification ruling 5).
     pub fn set_cell(&mut self, part: &[u8], reference: CellRef, value: Value) {
         self.parts().set_cell(part, reference, value)
     }
@@ -4239,8 +4246,8 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// A cell with a style keeps it and loses everything else; a cell without
     /// one is removed; a cell that does not exist stays absent. As
-    /// [`Package::set_cell`], nothing is read here and the last edit recorded
-    /// for a reference wins.
+    /// [`Package::set_cell`], nothing is read here, the last edit recorded
+    /// for a reference wins, and the write refuses a reference off the grid.
     pub fn clear_cell(&mut self, part: &[u8], reference: CellRef) {
         self.parts().clear_cell(part, reference)
     }
@@ -4337,8 +4344,8 @@ impl<R: Read + Seek> Package<R> {
     /// As [`Package::set_cell`], nothing is read and nothing can fail here,
     /// and the last style edit recorded for a reference wins, independently
     /// of the last value edit for it (`specs/0012-styles.md`, "Module
-    /// `package`"). [`Package::write_to`] checks the index and rewrites the
-    /// part.
+    /// `package`"). [`Package::write_to`] checks the index and the
+    /// reference, which must lie inside the grid, and rewrites the part.
     pub fn set_cell_style(&mut self, part: &[u8], reference: CellRef, style: Option<u32>) {
         self.parts().set_cell_style(part, reference, style)
     }
@@ -8193,6 +8200,17 @@ impl<'a> Parts<'a> {
             if let Some(value) = value {
                 value.check()?;
             }
+        }
+        // A cell value, clear or style edit names a cell inside the grid
+        // (`specs/0023-scale.md`, P1 verification ruling 5).
+        if self.edits.cell_edits.iter().any(|(_, at, _)| !in_grid(*at))
+            || self
+                .edits
+                .style_edits
+                .iter()
+                .any(|(_, at, _)| !in_grid(*at))
+        {
+            return Err(INDEX_OUT_OF_RANGE);
         }
 
         // A merge overlaps no merge recorded before it for its part, and no

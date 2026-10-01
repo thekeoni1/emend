@@ -3222,6 +3222,66 @@ fn a_cell_edit_to_a_missing_removed_or_replaced_part_is_refused() {
 }
 
 #[test]
+fn a_cell_edit_off_the_grid_is_refused_at_the_write() {
+    // specs/0023-scale.md, P1 verification ruling 5: a value, a clear or a
+    // style recorded for a cell past row 1048576 or column 16384, or at row
+    // or column 0, is refused by the write, and the last cell of the grid is
+    // written.
+    let past_row = CellRef {
+        row: 1_048_577,
+        col: 1,
+    };
+    let past_col = CellRef {
+        row: 1,
+        col: 16_385,
+    };
+    let (_, mut package) = opened(smallest());
+    package.set_cell(SHEET, past_row, Value::Number(1.0));
+    assert_package(
+        refused(package),
+        "a row or column index or count is out of range",
+    );
+
+    let (_, mut package) = opened(smallest());
+    package.clear_cell(SHEET, past_col);
+    assert_package(
+        refused(package),
+        "a row or column index or count is out of range",
+    );
+
+    let (_, mut package) = opened(smallest());
+    package.set_cell_style(SHEET, past_row, None);
+    assert_package(
+        refused(package),
+        "a row or column index or count is out of range",
+    );
+
+    let (_, mut package) = opened(smallest());
+    package.set_cell(SHEET, CellRef { row: 0, col: 1 }, Value::Number(1.0));
+    assert_package(
+        refused(package),
+        "a row or column index or count is out of range",
+    );
+
+    let (_, mut package) = opened(smallest());
+    package.set_cell_style(SHEET, CellRef { row: 1, col: 0 }, None);
+    assert_package(
+        refused(package),
+        "a row or column index or count is out of range",
+    );
+
+    let last = CellRef {
+        row: 1_048_576,
+        col: 16_384,
+    };
+    let sheet = edited_sheet("", |p| p.set_cell(SHEET, last, Value::Number(1.0)));
+    assert_eq!(
+        sheet,
+        sheet_with("<row r=\"1048576\"><c r=\"XFD1048576\"><v>1</v></c></row>")
+    );
+}
+
+#[test]
 fn every_byte_outside_sheet_data_is_kept() {
     let before = "<dimension ref=\"A1:B2\"/><sheetViews><sheetView workbookViewId=\"0\"/>\
                   </sheetViews><cols><col min=\"1\" max=\"2\" width=\"9\"/></cols>\n";
