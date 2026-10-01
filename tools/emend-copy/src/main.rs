@@ -411,6 +411,23 @@
 //!   `parts_before`; a failure is exit 2 with the message and no output, and
 //!   so is a refusal by the layer (threaded comments on W, a part it cannot
 //!   read, or M + 1 past the grid).
+//! - `--image-sample`: the image sample of
+//!   `specs/0022-comments-and-images.md`, "Harness runs": on W, with M as
+//!   `--table-sample` has it, the tool's constant PNG at its own size on
+//!   (M + 1, 1). The output is reopened. One line: the word `image` then
+//!   `images_before` and `images_after` (the entries `Package::images`
+//!   reads from W), `drawing_before` (1 when W's root has a main-namespace
+//!   `drawing` child), `anchors_before` and `anchors_after` (the root
+//!   children of W's drawing part, by this tool's own pass over its
+//!   tokens), `media_before` and `media_after` (the archive's entries under
+//!   `xl/media/`), `r_bound_before` (1 when W's root binds a prefix to the
+//!   relationships namespace), and `from_after`, the added entry's `from`
+//!   as `column,row`. COUNTS ONLY: the image is this tool's constant and no
+//!   reference is printed. Asserted: `images_after`, `anchors_after` and
+//!   `media_after` one more than before, and `from_after` `0,M`; a failure
+//!   is exit 2 with the message and no output, and so is a refusal by the
+//!   layer (a drawing part it cannot read, two drawing elements on W, or
+//!   M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -434,9 +451,9 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, ErrorStyle, HYPERLINK,
-    IconSetKind, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties, Property,
-    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table, TableStyle,
+    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, DRAWING, ErrorStyle,
+    HYPERLINK, IconSetKind, Image, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties,
+    Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table, TableStyle,
     TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
     rels_part_source,
 };
@@ -453,7 +470,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
-| --table-sample | --comment-sample]";
+| --table-sample | --comment-sample | --image-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -529,6 +546,8 @@ enum Operation {
     TableSample,
     /// A comment past the last row, and the counts.
     CommentSample,
+    /// An image past the last row, and the counts.
+    ImageSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -566,6 +585,7 @@ enum Error {
     ScaleSample(&'static str),
     TableSample(&'static str),
     CommentSample(&'static str),
+    ImageSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -637,6 +657,9 @@ impl fmt::Display for Error {
             }
             Error::CommentSample(what) => {
                 write!(f, "the output's {what} is not what the comment implies")
+            }
+            Error::ImageSample(what) => {
+                write!(f, "the output's {what} is not what the image implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -749,6 +772,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::CommentSample,
         ),
+        [input, output, flag] if flag == "--image-sample" => {
+            run(Path::new(input), Path::new(output), Operation::ImageSample)
+        }
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -871,6 +897,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::CommentSample) {
         return comment_sample(input, output);
     }
+    if matches!(operation, Operation::ImageSample) {
+        return image_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -920,6 +949,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ScaleSample => unreachable!("the visual rule sample has its own path"),
         Operation::TableSample => unreachable!("the table sample has its own path"),
         Operation::CommentSample => unreachable!("the comment sample has its own path"),
+        Operation::ImageSample => unreachable!("the image sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3809,6 +3839,185 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
 
 /// The comment sample's author, the tool's constant.
 const SAMPLE_AUTHOR: &str = "emend";
+
+/// The image sample's PNG, the tool's constant (`specs/0022-comments-and-
+/// images.md`, "Harness runs", and P3 ruling 2): 2 by 2 pixels, RGB, red,
+/// green, blue and white from the top left, 82 bytes, one stored deflate
+/// block. A committed fixture, produced by Python 3.14.4's `zlib` and
+/// `struct` with this program, its standard output being the bytes:
+///
+/// ```text
+/// import struct, sys, zlib
+/// def chunk(kind, data): return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+/// raw = bytes([0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 255, 255])
+/// ihdr = struct.pack('>IIBBBBB', 2, 2, 8, 2, 0, 0, 0)
+/// png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw, 0)) + chunk(b'IEND', b'')
+/// sys.stdout.buffer.write(png)
+/// ```
+const SAMPLE_PNG: [u8; 82] = [
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x08, 0x02, 0x00, 0x00, 0x00, 0xfd, 0xd4, 0x9a,
+    0x73, 0x00, 0x00, 0x00, 0x19, 0x49, 0x44, 0x41, 0x54, 0x78, 0x01, 0x01, 0x0e, 0x00, 0xf1, 0xff,
+    0x00, 0xff, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x1f, 0xee,
+    0x05, 0xfb, 0xde, 0xdd, 0xec, 0x2b, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42,
+    0x60, 0x82,
+];
+
+/// The image sample (`specs/0022-comments-and-images.md`, "Harness runs",
+/// `--image-sample`): the tool's PNG on the cell below W's last row, the
+/// output written and read back. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn image_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = image_counts(&mut package, &part)?;
+    let (drawing_before, r_bound_before) = container_and_binding(&mut package, &part, b"drawing")?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    package.add_image(
+        &part,
+        CellRef { row, col: 1 },
+        Image {
+            bytes: &SAMPLE_PNG,
+            size: None,
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = image_read_back(output, &part, &before, sampled.max_row);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, from) = checked?;
+    let mut line = String::from("image");
+    for (key, value) in [
+        ("images_before", before.images),
+        ("images_after", after.images),
+        ("drawing_before", u64::from(drawing_before)),
+        ("anchors_before", before.anchors),
+        ("anchors_after", after.anchors),
+        ("media_before", before.media.len() as u64),
+        ("media_after", after.media.len() as u64),
+        ("r_bound_before", u64::from(r_bound_before)),
+    ] {
+        line.push_str(&format!("\t{key}={value}"));
+    }
+    line.push_str(&format!("\tfrom_after={},{}", from.0, from.1));
+    print_line(&line)
+}
+
+/// What the image sample counts on each side of the write: W's images, the
+/// root children of W's drawing part, and the archive's media entries by
+/// name.
+struct ImageCounts {
+    images: u64,
+    anchors: u64,
+    media: Vec<Vec<u8>>,
+}
+
+/// The image sample's counts of W.
+fn image_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<ImageCounts, Error> {
+    let images = package.images(part)?.len() as u64;
+    let anchors = match related(package, part, DRAWING)? {
+        Some(target) => drawing_root_children(package, &target)?,
+        None => 0,
+    };
+    let media = package
+        .archive()
+        .entries()
+        .iter()
+        .map(|entry| entry.name().to_vec())
+        .filter(|name| name.starts_with(b"xl/media/"))
+        .collect();
+    Ok(ImageCounts {
+        images,
+        anchors,
+        media,
+    })
+}
+
+/// Reopens the image sample's output and asserts one more image, anchor and
+/// media entry, the added entry's `from` being (0, `max_row`); gives the
+/// counts and that `from`.
+fn image_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ImageCounts,
+    max_row: u32,
+) -> Result<(ImageCounts, (u32, u32)), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = image_counts(&mut package, part)?;
+    if after.images != before.images + 1 {
+        return Err(Error::ImageSample("image count"));
+    }
+    if after.anchors != before.anchors + 1 {
+        return Err(Error::ImageSample("drawing anchor count"));
+    }
+    if after.media.len() != before.media.len() + 1 {
+        return Err(Error::ImageSample("media entry count"));
+    }
+    // The added entry: the image whose media entry the input lacks.
+    let added: Vec<&Vec<u8>> = after
+        .media
+        .iter()
+        .filter(|name| !before.media.contains(name))
+        .collect();
+    let [added] = added.as_slice() else {
+        return Err(Error::ImageSample("media entry count"));
+    };
+    let from = package
+        .images(part)?
+        .into_iter()
+        .find(|entry| entry.part == **added)
+        .map(|entry| entry.from)
+        .ok_or(Error::ImageSample("added image"))?;
+    if from != (0, max_row) {
+        return Err(Error::ImageSample("added image's anchor"));
+    }
+    Ok((after, from))
+}
+
+/// The root children of a drawing part, by this tool's own pass over its
+/// tokens.
+fn drawing_root_children<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<u64, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut count = 0u64;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        if depth == 2 {
+            count += 1;
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(count)
+}
 
 /// What the comment sample counts on each side of the write, and whether a
 /// kept author's text is the sample's.

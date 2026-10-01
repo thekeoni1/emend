@@ -4077,3 +4077,173 @@ fn the_comment_sample_refuses_a_comments_part_without_legacy_drawing_or_two_and_
         "--comment-sample",
     );
 }
+
+/// A drawing part's content type.
+const DRAWING_TYPE: &str = "application/vnd.openxmlformats-officedocument.drawing+xml";
+
+/// The image sample's package: `edit_specs`'s with the sheet's root binding
+/// `r` and `after` after its `pageMargins`; with `drawing`, the sheet's rels
+/// part naming a kept drawing part of one picture anchor (`cNvPr` `id` 2),
+/// the drawing's rels part, its media entry and the overrides.
+fn image_specs(sheet_data: &str, after: &str, drawing: bool) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+         {sheet_data}<pageMargins left=\"0.7\"/>{after}</worksheet>"
+    );
+    let mut specs = edit_specs(sheet_data);
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    if drawing {
+        for spec in &mut specs {
+            if spec.name == b"[Content_Types].xml" {
+                let types = String::from_utf8(spec.data.clone())
+                    .expect("UTF-8")
+                    .replace(
+                        "</Types>",
+                        &format!(
+                            "<Override PartName=\"/xl/drawings/drawing1.xml\" \
+                             ContentType=\"{DRAWING_TYPE}\"/><Override \
+                             PartName=\"/xl/media/image1.png\" ContentType=\"image/png\"/></Types>"
+                        ),
+                    );
+                *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+            }
+        }
+        let rels = format!(
+            "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" \
+             Type=\"{ATTR_NS}/drawing\" Target=\"../drawings/drawing1.xml\"/></Relationships>"
+        );
+        specs.push(Spec::stored(
+            b"xl/worksheets/_rels/sheet1.xml.rels",
+            rels.as_bytes(),
+        ));
+        let drawing = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" \
+             xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><xdr:twoCellAnchor>\
+             <xdr:from><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>3</xdr:row>\
+             <xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:colOff>0\
+             </xdr:colOff><xdr:row>5</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic>\
+             <xdr:nvPicPr><xdr:cNvPr id=\"2\" name=\"Picture 2\"/><xdr:cNvPicPr/></xdr:nvPicPr>\
+             <xdr:blipFill><a:blip xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" \
+             r:embed=\"rId1\"/></xdr:blipFill><xdr:spPr/></xdr:pic><xdr:clientData/>\
+             </xdr:twoCellAnchor></xdr:wsDr>";
+        specs.push(Spec::stored(
+            b"xl/drawings/drawing1.xml",
+            drawing.as_bytes(),
+        ));
+        let drawing_rels = format!(
+            "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" \
+             Type=\"{ATTR_NS}/image\" Target=\"../media/image1.png\"/></Relationships>"
+        );
+        specs.push(Spec::stored(
+            b"xl/drawings/_rels/drawing1.xml.rels",
+            drawing_rels.as_bytes(),
+        ));
+        specs.push(Spec::stored(b"xl/media/image1.png", b"kept image bytes"));
+    }
+    specs
+}
+
+#[test]
+fn the_image_sample_adds_an_image_its_parts_and_the_drawing() {
+    // `specs/0022-comments-and-images.md`, "Harness runs": M is 1, so the
+    // image goes on A2, `from` (0, 1). With no drawing, the drawing part,
+    // its rels part, the sheet's rels part and the media entry are created
+    // and the sheet gains `drawing`; with one, the anchor is appended, an
+    // image relationship added and the sheet comes back as it went in.
+    for (label, drawing, after, line) in [
+        (
+            "image-sample-created",
+            false,
+            "",
+            "image\timages_before=0\timages_after=1\tdrawing_before=0\tanchors_before=0\
+             \tanchors_after=1\tmedia_before=0\tmedia_after=1\tr_bound_before=1\tfrom_after=0,1\n",
+        ),
+        (
+            "image-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+            "image\timages_before=1\timages_after=2\tdrawing_before=1\tanchors_before=1\
+             \tanchors_after=2\tmedia_before=1\tmedia_after=2\tr_bound_before=1\tfrom_after=0,1\n",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--image-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let changed: Vec<&[u8]> = if drawing {
+            assert!(
+                entries
+                    .iter()
+                    .any(|entry| entry.name == b"xl/media/image2.png"),
+                "the added media entry"
+            );
+            vec![
+                b"xl/drawings/drawing1.xml",
+                b"xl/drawings/_rels/drawing1.xml.rels",
+                b"[Content_Types].xml",
+            ]
+        } else {
+            let sheet = String::from_utf8(
+                entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(
+                sheet,
+                format!(
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                     <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+                     {A_CELL}<pageMargins left=\"0.7\"/><drawing r:id=\"rId1\"/></worksheet>"
+                ),
+                "the sheet"
+            );
+            for name in [
+                b"xl/drawings/drawing1.xml".as_slice(),
+                b"xl/drawings/_rels/drawing1.xml.rels",
+                b"xl/media/image1.png",
+            ] {
+                assert!(
+                    entries.iter().any(|entry| entry.name == name),
+                    "the added part"
+                );
+            }
+            vec![b"xl/worksheets/sheet1.xml", b"[Content_Types].xml"]
+        };
+        untouched_but(&entries, &specs, &changed);
+    }
+}
+
+#[test]
+fn the_image_sample_refuses_a_missing_drawing_part_or_two_drawing_elements_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0022-comments-and-images.md`, "P3").
+    let mut missing = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    missing.retain(|spec| spec.name != b"xl/drawings/drawing1.xml");
+    styled_run_refused(
+        "image-sample-missing",
+        &missing,
+        "a drawing part or its relationship cannot be read",
+        "--image-sample",
+    );
+    styled_run_refused(
+        "image-sample-two",
+        &image_specs(
+            A_CELL,
+            "<drawing r:id=\"rId1\"/><drawing r:id=\"rId1\"/>",
+            true,
+        ),
+        "a worksheet has two drawing elements",
+        "--image-sample",
+    );
+}
