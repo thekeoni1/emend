@@ -98,7 +98,8 @@ a text, a reference, a file name or an image's bytes:
   `color`, `family`, `rFont`, `sz`; no plain `t` child, which the
   schema allows and this part writes. 9 `Override` elements with
   the comments content type.
-- VML parts (`xl/drawings/vmlDrawing<N>.vml`) 11, in 7 workbooks:
+- VML parts (`xl/drawings/vmlDrawing<N>.vml`) 11, in 8 workbooks
+  (P1 ruling 3 corrects planning's 7):
   8 open with an XML declaration, 3 do not; the root `xml` holds
   `shapelayout` (3 of 11), one or more `shapetype` and the shapes;
   31 `shape` elements, 28 with `ClientData` of `ObjectType` `Note`
@@ -106,9 +107,14 @@ a text, a reference, a file name or an image's bytes:
   of `Scroll` or `Spin` (form controls); the `Note` shapes carry
   `id`, `type`, `style`, `fillcolor` and either `insetmode` and
   `strokecolor` (Excel's) or `allowincell` and `stroked`
-  (LibreOffice's). 8 `Override` elements and 3 `Default`
-  elements (extension `vml`) give the VML content type: both forms
-  occur, and this part writes an `Override` (below).
+  (LibreOffice's). Shape ids: 8 of the form `_x0000_s<n>` with
+  `n / 1024` equal to the part's `idmap` `data` (Excel's form, in
+  3 parts with an `idmap` and no declaration), 22 of the form
+  `shape_<n>` (LibreOffice's, in the 8 parts with a declaration
+  and no `idmap`), 1 control shape with an id of another form and
+  its number on `o:spid` (P1 ruling 1). 8 `Override` elements and
+  3 `Default` elements (extension `vml`) give the VML content type:
+  both forms occur, and this part writes an `Override` (below).
 - Worksheets with `legacyDrawing` 11, every one with `r:id` alone,
   8 after `headerFooter` and 3 after `drawing`, schema order in
   every case; with `drawing` 37, after `headerFooter` 27,
@@ -314,19 +320,24 @@ box Excel places beside a cell. `D` is the smallest positive
 integer no VML part of the projected workbook uses as its `idmap`
 `data` (the first integer of that attribute's list; a part with no
 `shapelayout` uses none), `S` is `1024 * D + K` and `K` counts the
-shapes of the part from one, so every shape id is unique across the
-workbook as Excel requires. Appended to an existing part: the root
-`xml` held to its end tag (the whole part is held: 11 corpus parts,
-the largest 10 shapes), the kept shapes copied (a replaced or
-removed cell's `Note` shape skipped whole), each addition appended
-before the end tag with `D` the part's own `idmap` `data` when it
-has one else allocated as above and written into no kept element,
-`S` one above the largest `_x0000_s` number any shape of the
-workbook's VML parts carries (read once, every VML part streamed
-for its shape ids), `K` one above the kept count, the `v`, `o` and
-`x` prefixes those the root binds (a root binding any of the three
-namespaces to another prefix uses that prefix; one binding none of
-them is refused with the cannot-be-read message). The shapetype
+shapes of the part from one, Excel's convention that a part's
+shape numbers lie in its `idmap` range, which makes every shape id
+unique across the workbook while each part's `idmap` is distinct
+(Excel's own invariant; the limits say so). Appended to an existing
+part (P1 ruling 1): the root `xml` held to its end tag (the whole
+part is held: 11 corpus parts, the largest 10 shapes), the kept
+shapes copied (a replaced or removed cell's `Note` shape skipped
+whole), each addition appended before the end tag with `D` the
+part's own `idmap` `data` when it has one else allocated as above
+and written into no kept element, and `K` the larger of one above
+the kept shape count (every kept shape counted, whatever the form
+of its id) and one above the largest `n - 1024 * D` over the
+part's own kept shapes whose `id` or `o:spid` is `_x0000_s<n>`
+with `n` in `D`'s range (above `1024 * D`, at most `1024 * D +
+1024`); no other part is read. The `v`, `o` and `x` prefixes are
+those the root binds (a root binding any of the three namespaces
+to another prefix uses that prefix; one binding none of them is
+refused with the cannot-be-read message). The shapetype
 `_x0000_t202` is written once when the part has none. A VML part
 that is not well-formed enough to find its root's end tag is
 refused with the cannot-be-read message.
@@ -620,8 +631,9 @@ text and no image bytes from the corpus:
   the anchor derived by the log over the input's VML parts;
   appended, the input's bytes up to the root's end tag a
   byte-identical prefix of the output's, one `shape` more with the
-  expected `id`, `Row` and `Column`, the `shapetype` added only
-  when the input has none.
+  expected `id` (derived by the log under P1 ruling 1's rule from
+  the input part alone), `Row` and `Column`, the `shapetype` added
+  only when the input has none.
 - The drawing part: created, exactly the bytes "Images: the parts"
   gives with `I` and the `r:id` derived; appended, the input's
   bytes up to the root's end tag a byte-identical prefix, one
@@ -668,7 +680,8 @@ close-out (the close-out rulings 1 to 10 and the ROADMAP rows), and
 this spec. Part 4d's first code commit carries, before any other
 change, the three items of `specs/0021`'s P3 verification rulings 2
 and 4: a test pinning `remove_table` on a sheet added in the same
-write (refused with "no such part"); two `//!` edits to the
+write (refused with "no table of that name", the catalogue's
+sentence; P1 ruling 5); two `//!` edits to the
 `package` header's catalogue, that a header cell holding a formula
 means a kept `<c>` with `<f>`, and that the entry-name allocation
 compares ASCII case folded.
@@ -693,9 +706,14 @@ part, the VML part with `D` 1 and `S` 1025; a text with leading
 whitespace getting `xml:space`); an addition to a sheet with both
 parts (the comment and the shape appended, the kept ones
 byte-identical, the author reused when equal and added when not,
-`S` past the workbook's largest, `D` the part's own); to a sheet
-with a VML part of form controls and no comments part (the
-comments part created, the shape appended, `D` read); to a sheet
+`D` the part's own and `S` past the part's largest in its range);
+to a sheet with both parts in LibreOffice's form (`shape_<n>` ids,
+no `idmap`, a declaration: `D` allocated, `S` `1024 * D` plus one
+above the kept count); to a part whose kept count is below its
+largest `_x0000_s` number (the number wins); to a sheet with a VML
+part of form controls and no comments part (the comments part
+created, the shape appended, `D` read, a control's `o:spid` number
+counted); to a sheet
 with a comments part and no `legacyDrawing` (refused); to a VML
 part with no XML declaration and prefixes of its own; to the
 template part (both parts created, the rels part created, the root
@@ -851,6 +869,111 @@ typed in the planning session; 7 recorded.
    2026-09-29 and twice on 2026-09-30 by the maintainer, to run
    before this part's close-out push at the latest, or be deferred
    again by a decision recorded here. Recorded, not asked.
+
+## Planning rulings during P1 (2026-09-30)
+
+Made on the implementing session's survey of the corpus's VML
+parts (counts only, confirmed by planning's own count) after the
+doc commit 77ed347, before any code. The P1 logs pin the spec at
+77ed347's hash a207e175; these rulings go in P2's doc commit.
+
+1. The shape id `S` of an appended shape. The spec's rule read "one
+   above the largest `_x0000_s` number any shape of the workbook's
+   VML parts carries", which has no value for the 5 workbooks whose
+   VML parts carry LibreOffice's `shape_<n>` ids only (22 of the
+   corpus's 31 shapes; every one of the run's 5 append cases).
+   Ruling: the workbook-wide read is withdrawn. `S` is `1024 * D +
+   K` in every case, `D` the part's own `idmap` `data` or the
+   allocated one, `K` the larger of one above the kept shape count
+   (every kept shape counted, whatever its id's form) and one above
+   the largest `n - 1024 * D` over the part's own shapes whose `id`
+   or `o:spid` is `_x0000_s<n>` within `D`'s range. Only the part
+   being appended to is read. Uniqueness across the workbook rests
+   on each part's `idmap` being distinct, Excel's own invariant,
+   stated in the limits. "Comments: the parts", the P1 tests and
+   the run log's VML check are corrected above to this rule.
+2. `o:spid` counts. Excel puts a form control's number on `o:spid`
+   with an `id` of another form (1 corpus shape); the read covers
+   both attributes so an appended note never takes a control's
+   number. In ruling 1 above.
+3. The facts said VML parts in 7 workbooks; the count is 8 (the
+   11 parts; planning's first count ran over 26 of the 27 files,
+   the template-extension workbook missed). Corrected above.
+4. The first code commit (the three `specs/0021` carries) does not
+   depend on these rulings and may be made at once.
+5. The carried `remove_table` test's expected message. "Phases"
+   and planning's instruction said "no such part"; the catalogue's
+   sentence that `specs/0021` P3 ruling 2 asks the test to pin
+   says "no table of that name", the removal finding no file table
+   before any part check, and the code does that (the implementing
+   session measured it on a throwaway test, uncommitted). Planning's
+   error; the test asserts "no table of that name". Corrected above.
+
+## Planning verification and rulings on P1 (2026-10-01)
+
+Verified by planning from primaries: the doc commit 77ed347 holds
+the three files at the hashes planning sent (a207e175, a0322eeb,
+7f723b2a); the carry 39d7ab7, the crate 96dde75, the tool f7d6a7d
+and the record 2d675da follow on 5da68da; 5 of 5 messages end with
+the Co-Authored-By line only, ASCII; the five logs and four records
+at the reported hashes, each log ending "all as expected: yes" and
+the scan RESULT: PASS with 0 hits, every log pinning a207e175;
+planning's own build at f7d6a7d (`<home>/.cache/emend-planning/
+p4d-p1-build.txt`): the crate's tests 512 off and 530 on, 600 with
+`metadata,tables,comments`, 587 with `rules,tables,comments`, 689
+all features, on both targets, the workspace 854 on both, clippy 0
+in five configurations, doc 0 in three; planning's own run of
+`--comment-sample` with its own release binaries (`p4d-p1-run.txt`)
+27 of 27 outputs and lines byte-identical to the phase's run
+directory on both targets, host and i686 identical, and
+planning's own check of every output: 22 with both parts created
+at exactly the bytes "Comments: the parts" gives (the entry names
+the smallest free, `D` and `S` as the rule gives, the anchor from
+the row), 5 with both parts appended to (the kept bytes a prefix,
+one comment and one shape more, the shape's id as P1 ruling 1
+gives it from the input part alone); planning's own privacy scan
+5da68da..2d675da, 5 commits, 871 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset; the diff read: the comments and VML
+writers, the appended forms, the `K` rule (`kept.max(highest) +
+1` over `id` and `o:spid` numbers in the block's range), the
+threaded refusal, the schema-position creation and the shared
+allocation and retag.
+
+1. The independent check's four observations. (1) The literal
+   "the worksheet part's root is not worksheet" is the cell
+   layer's catalogued message, written as a literal in two other
+   places of `package.rs` already: recorded, no change. (2) `D`'s
+   allocation reads the input's VML entries the write does not
+   remove, not a VML or comments part the caller adds or replaces
+   through the part calls in the same write; the appended forms
+   likewise read the input's part. Ruling: a comment edit on a
+   sheet whose comments part or VML part this write adds, replaces
+   or removes is refused at the write with part 1's messages
+   ("an edit to a removed part", "a cell edit to a part this write
+   replaces", reused), the way a cell edit on a replaced worksheet
+   is; a test pins each; carried to P2's first code commit, with
+   the code where the refusal is missing. (3) `K` counts `v:shape`
+   root children: Excel writes every object as one; stated in the
+   P4 limits with (2)'s rule. (4) A `commentList` before `authors`
+   and a root other than `comments` refused as cannot-be-read:
+   accepted, the catalogue says so at P4.
+2. The four unreferenced commits (284259a, 758e7d1, 5894b2c,
+   776e08c), rebuilt by a soft reset before any log ran: a
+   superseded attempt in "Phases" is a log's, and no log ran on
+   them; they are the implementing session's git history, in no
+   primary, as the check said. Recorded; no change. The
+   implementing session's gotchas carry both slips.
+3. The negative log reaches three messages and states the two
+   call-time ones unreachable with their tests, and reaches the
+   threaded refusal and a missing relationship beyond the spec's
+   two cases: accepted.
+4. The run: 27 of 27 on both targets, 22 created and 5 appended,
+   every flag and plant, the keep 1200 files identical across
+   targets, 600 open-check pairs with 0 refusals, the previous
+   record named by e1f3736. Accepted.
+5. P1 is DONE. P2 is released: its doc commit carries this file
+   with the P1 rulings and this section, and `ROADMAP.md`'s P1
+   row.
 
 ## Out of scope
 
