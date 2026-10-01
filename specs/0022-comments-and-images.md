@@ -841,7 +841,11 @@ Before the push, the Excel check for Milestone 2 parts 1 to 4c
 (every corpus row of every sample, on the laptop), deferred by the
 maintainer on 2026-09-27, 2026-09-29 and twice on 2026-09-30, is run
 or deferred again by a decision recorded here; this part's two
-samples join that check's list.
+samples join that check's list. Deferred again on 2026-10-01
+(decision 7): the push proceeds without it. The push script prints
+no maintainer decision (`specs/0020` close-out ruling 5); the
+deferral's record is this spec in the pushed range, and the record
+commit's message names it.
 
 ## Decisions for the maintainer
 
@@ -873,7 +877,12 @@ typed in the planning session; 7 recorded.
 7. The Excel check for parts 1 to 4c: deferred on 2026-09-27,
    2026-09-29 and twice on 2026-09-30 by the maintainer, to run
    before this part's close-out push at the latest, or be deferred
-   again by a decision recorded here. Recorded, not asked.
+   again by a decision recorded here. Recorded, not asked. Deferred
+   again on 2026-10-01 ("defer again", typed in the planning session
+   after P4's verification, before the close-out's doc commit): the
+   check, now with this part's two samples on its list, runs before
+   the next part's close-out push at the latest or is deferred again
+   by a decision recorded in the next part's spec.
 
 ## Planning rulings during P1 (2026-09-30)
 
@@ -1170,6 +1179,97 @@ created and appended forms, the shared `ElementPass`.
    ruling 3's image refusals; the drawing found through the
    element's `r:id`; uniqueness of VML ids resting on distinct
    `idmap` numbers per part.
+
+## Planning verification and rulings on P4 (2026-10-01)
+
+Verified by planning from primaries: the doc commit 20b8c61 holds
+this file at 88d91f40 and `ROADMAP.md` at eaf4149f, the hashes
+planning sent; the carry 5906712, the catalogue f5819ce, the probes
+c1f6602 and the record de946fb follow on 2b85b22; 5 of 5 messages
+end with the Co-Authored-By line only, ASCII; the seven logs and
+seven records at the reported hashes, each log ending "all as
+expected: yes", the scan RESULT: PASS with 0 hits, every log
+pinning 88d91f40; the diff read: the carry's four items (the
+checked steps through one closure with the format message,
+`u16_at` already bounded by `checked_add`; `images` and the write
+sharing `drawing_of` through the element's `r:id`, `RelTarget`
+losing the `images` gate with the reader it served; the three
+tests), the two catalogue blocks holding every item of P3 ruling 6
+and the phase's list, the ten messages marked by feature in the
+catalogue's messages list from P1 and P3, the two probes the
+tables probe with the feature's one call and read, the images
+probe's constant the tool's 82 bytes by sha256; planning's own
+build at c1f6602 (`p4d-p4-build.txt`): the crate's tests 512 off
+and 726 with every feature on both targets, the workspace 893 on
+both, clippy 0 in five configurations, doc 0 in three; planning's
+own probe builds in the size profile reproducing the size log's
+sha256 for `probe-zip-xml`, the format, tables, rules, metadata,
+rowcol, comments and images probes and the i686 release tools, and
+the format probe rebuilt at 3c5f0b7 at its sha256 there; the
+figures recomputed from them: `comments` 57032, `images` 40960,
+the core's growth 0, the budget 435224, 23528 under 458752;
+planning's own runs of both samples with its own release binaries
+(`p4d-p4-image-run.txt`, `p4d-p4-comment-run.txt`) 27 of 27
+outputs and printed lines byte-identical to the phase's run
+directories on both targets, host and i686 identical, and its own
+check of every output's parts as at P3 (17 drawings created and 10
+appended; 22 comment pairs created and 5 appended); the open keep
+619 pairs, P3's 616 and the three tests' fixtures, no finding;
+planning's own privacy scan 2b85b22..de946fb, 5 commits, 902
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations. (1) `u16_at`'s body is
+   not in the diff: planning read it at c1f6602; its slice end
+   goes through `checked_add` with the format message, so every
+   step of the JPEG read is checked. (2) "the messages marked by
+   feature" cannot be seen from the check's inputs: planning read
+   the catalogue's messages list at c1f6602; the ten messages
+   stand under the two feature headings P1 and P3 wrote, each with
+   its tests. (3) Q3 PARTLY: the dry-run account, "no early
+   message" and "nothing pushed" have no primary. The dry runs are
+   the implementing session's working state, kept on disk by its
+   rule and outside the record by design; the other two are facts
+   of this conversation, not of the diff. Accepted; no change.
+2. The feature `comments` costs 57032 section bytes, above
+   planning's estimate of 40000 to 55000 by 2032; `images` 40960,
+   within it. The estimate was planning's, from part 4c's ratio;
+   the comments feature writes two kinds of part and reads both
+   back, which the ratio did not price. Both are behind their
+   features, outside the budget, and the core's growth is 0, so
+   the ceiling judgment stands. Recorded; the next part's estimate
+   takes the measured costs of `tables` and `comments` as its
+   ratio.
+3. `probe-emend-tables-write-xml` moved 60 section bytes and 16
+   `.text` bytes since 3c5f0b7, verdict code, the file size
+   unchanged, with its causes named in the size log (nine commits
+   to `crates/emend/src`, the shared element and relationship code
+   the tables feature links among them). Accepted as the measured
+   fact; the tables feature's cost is now 46920 over the core
+   probe. The other eighteen keep every figure of part 4c's.
+4. The implementing session's dry-run findings, each fixed before
+   any logged run: the negative script reading each constant's
+   covering test from its own family's file, since the two
+   families share a test name, with two new controls; the size
+   script's extent-control pattern that matched nothing, with a
+   check that the altered copy differs; one comment line in the
+   scan script. Recorded, no change. The scan pre-check ran before
+   the check's answer existed, as part 4c's did.
+5. P4 is DONE. Part 4d's phases are complete. The close-out push
+   waits on decision 7 (the Excel check for parts 1 to 4c and this
+   part's two samples, run or deferred again, by a decision
+   recorded here before the close-out doc commit), then on the
+   close-out instruction, planning's word and the maintainer's
+   authorisation typed in the implementing session.
+6. Decision 7 (2026-10-01): the maintainer, told the figures and
+   rulings above, deferred the Excel check again ("defer again",
+   typed in the planning session before the close-out's doc
+   commit). Recorded under "Decisions for the maintainer" and in
+   "Close-out push (after P4)". The close-out push proceeds
+   without it; the check, for parts 1 to 4c's samples and this
+   part's two, runs before the next part's close-out push at the
+   latest or is deferred again by a decision recorded in the next
+   part's spec. This ruling goes in the close-out's doc commit
+   with the rest of this section.
 
 ## Out of scope
 
