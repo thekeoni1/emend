@@ -385,6 +385,28 @@
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer (a table, merge or autofilter of the file on the sample's
 //!   cells, a table of that name, or M + 3 past the grid).
+//! - `--comment-sample`: the comment sample of
+//!   `specs/0022-comments-and-images.md`, "Harness runs": on W, with M as
+//!   `--table-sample` has it, a comment by `emend` with the text `emend
+//!   comment` on (M + 1, 1). The output is reopened. One line: the word
+//!   `comment` then `comments_before` and `comments_after` (the entries
+//!   `Package::comments` reads from W), `parts_before` and `parts_after`
+//!   (the archive's entries `xl/comments*.xml` and
+//!   `xl/drawings/vmlDrawing*.vml`), `legacy_before` (1 when W's root has a
+//!   main-namespace `legacyDrawing` child), `comments_part_before` (1 when
+//!   W has a relationship of type `COMMENTS`, either form), `r_bound_before`
+//!   (1 when W's root binds a prefix to the relationships namespace),
+//!   `shapes_before` and `shapes_after` (the shapes of W's VML part holding
+//!   a `ClientData` of `ObjectType` `Note`) and `authors_before` and
+//!   `authors_after` (the `author` elements of W's comments part), the last
+//!   three read by this tool's own pass over the part's tokens. COUNTS ONLY:
+//!   the author and the text are this tool's constants and no reference is
+//!   printed. Asserted: `comments_after` and `shapes_after` one more than
+//!   before, `parts_after` two, one or no more as W had neither part, the
+//!   VML part alone or both, and `authors_after` one more unless a kept
+//!   author's text is `emend`; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer (threaded comments on W, a
+//!   part it cannot read, or M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -408,10 +430,11 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, ErrorStyle, HYPERLINK, IconSetKind,
-    LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties, Property,
+    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, ErrorStyle, HYPERLINK,
+    IconSetKind, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties, Property,
     RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table, TableStyle,
-    TableStyleInfo, Validation, ValidationKind, legacy_password_hash, rels_part_source,
+    TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
+    rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -426,7 +449,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
-| --table-sample]";
+| --table-sample | --comment-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -500,6 +523,8 @@ enum Operation {
     ScaleSample,
     /// A table past the last row, and the counts.
     TableSample,
+    /// A comment past the last row, and the counts.
+    CommentSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -536,6 +561,7 @@ enum Error {
     CfSample(&'static str),
     ScaleSample(&'static str),
     TableSample(&'static str),
+    CommentSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -604,6 +630,9 @@ impl fmt::Display for Error {
             }
             Error::TableSample(what) => {
                 write!(f, "the output's {what} is not what the table implies")
+            }
+            Error::CommentSample(what) => {
+                write!(f, "the output's {what} is not what the comment implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -711,6 +740,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--table-sample" => {
             run(Path::new(input), Path::new(output), Operation::TableSample)
         }
+        [input, output, flag] if flag == "--comment-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::CommentSample,
+        ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -830,6 +864,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::TableSample) {
         return table_sample(input, output);
     }
+    if matches!(operation, Operation::CommentSample) {
+        return comment_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -878,6 +915,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::CfSample => unreachable!("the conditional format sample has its own path"),
         Operation::ScaleSample => unreachable!("the visual rule sample has its own path"),
         Operation::TableSample => unreachable!("the table sample has its own path"),
+        Operation::CommentSample => unreachable!("the comment sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3577,7 +3615,8 @@ fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
         rels: table_relationships(&mut package, &part)?,
         cells: sampled.cells,
     };
-    let (container_before, r_bound_before) = table_container(&mut package, &part)?;
+    let (container_before, r_bound_before) =
+        container_and_binding(&mut package, &part, b"tableParts")?;
     // A row past the grid is the layer's to refuse, with its index message.
     let row = sampled.max_row.saturating_add(1);
     package.add_table(
@@ -3701,6 +3740,228 @@ fn table_read_back(
     Ok((after, id, removed))
 }
 
+/// The comment sample (`specs/0022-comments-and-images.md`, "Harness
+/// runs", `--comment-sample`): a comment on the cell below W's last row, the
+/// output written and read back. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = comment_counts(&mut package, &part)?;
+    let (legacy_before, r_bound_before) =
+        container_and_binding(&mut package, &part, b"legacyDrawing")?;
+    let comments_part_before = related(&mut package, &part, COMMENTS)?.is_some();
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    package.add_comment(
+        &part,
+        CellRef { row, col: 1 },
+        Comment {
+            author: SAMPLE_AUTHOR,
+            text: "emend comment",
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let parts_more = match (legacy_before, comments_part_before) {
+        (false, _) => 2,
+        (true, false) => 1,
+        (true, true) => 0,
+    };
+    let checked = comment_read_back(output, &part, &before, parts_more);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let after = checked?;
+    edit_line_named(
+        "comment",
+        &[
+            ("comments_before", before.comments),
+            ("comments_after", after.comments),
+            ("parts_before", before.parts),
+            ("parts_after", after.parts),
+            ("legacy_before", u64::from(legacy_before)),
+            ("comments_part_before", u64::from(comments_part_before)),
+            ("r_bound_before", u64::from(r_bound_before)),
+            ("shapes_before", before.shapes),
+            ("shapes_after", after.shapes),
+            ("authors_before", before.authors),
+            ("authors_after", after.authors),
+        ],
+    )
+}
+
+/// The comment sample's author, the tool's constant.
+const SAMPLE_AUTHOR: &str = "emend";
+
+/// What the comment sample counts on each side of the write, and whether a
+/// kept author's text is the sample's.
+struct CommentCounts {
+    comments: u64,
+    parts: u64,
+    shapes: u64,
+    authors: u64,
+    author_kept: bool,
+}
+
+/// The comment sample's counts of W.
+fn comment_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<CommentCounts, Error> {
+    let comments = package.comments(part)?.len() as u64;
+    let (authors, author_kept) = match related(package, part, COMMENTS)? {
+        Some(target) => comment_authors(package, &target)?,
+        None => (0, false),
+    };
+    let shapes = match related(package, part, VML_DRAWING)? {
+        Some(target) => note_shapes(package, &target)?,
+        None => 0,
+    };
+    Ok(CommentCounts {
+        comments,
+        parts: comment_entries(package),
+        shapes,
+        authors,
+        author_kept,
+    })
+}
+
+/// Reopens the comment sample's output and asserts one more comment and
+/// note shape, `parts_more` more comments and VML entries, and one more
+/// author unless the sample's was kept.
+fn comment_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &CommentCounts,
+    parts_more: u64,
+) -> Result<CommentCounts, Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = comment_counts(&mut package, part)?;
+    if after.comments != before.comments + 1 {
+        return Err(Error::CommentSample("comment count"));
+    }
+    if after.parts != before.parts + parts_more {
+        return Err(Error::CommentSample("comments and VML part count"));
+    }
+    if after.shapes != before.shapes + 1 {
+        return Err(Error::CommentSample("note shape count"));
+    }
+    if after.authors != before.authors + u64::from(!before.author_kept) {
+        return Err(Error::CommentSample("author count"));
+    }
+    Ok(after)
+}
+
+/// The archive's entries `xl/comments*.xml` and
+/// `xl/drawings/vmlDrawing*.vml`.
+fn comment_entries<R: io::Read + io::Seek>(package: &Package<R>) -> u64 {
+    package
+        .archive()
+        .entries()
+        .iter()
+        .filter(|entry| {
+            let name = entry.name();
+            (name.starts_with(b"xl/comments") && name.ends_with(b".xml"))
+                || (name.starts_with(b"xl/drawings/vmlDrawing") && name.ends_with(b".vml"))
+        })
+        .count() as u64
+}
+
+/// The part the first internal relationship of `part` of type `kind`, either
+/// form, names.
+fn related<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    kind: [&[u8]; 2],
+) -> Result<Option<Vec<u8>>, Error> {
+    let rels = package.relationships(part)?;
+    for form in kind {
+        if let Some(rel) = rels.of_kind(form).find(|rel| !rel.external) {
+            return Ok(Some(rels.target_part(rel)?));
+        }
+    }
+    Ok(None)
+}
+
+/// The `author` elements of a comments part, and whether one's text is the
+/// sample's author, by this tool's own pass over the part's tokens.
+fn comment_authors<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(u64, bool), Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut count = 0u64;
+    let mut kept = false;
+    let mut open = false;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        let tag = raw.starts_with(b"<") && !raw.starts_with(b"<?") && !raw.starts_with(b"<!");
+        if open && !tag && raw == SAMPLE_AUTHOR.as_bytes() {
+            kept = true;
+        }
+        open = false;
+        if tag && !raw.starts_with(b"</") && tag_local_name(raw) == b"author" {
+            count += 1;
+            open = !raw.ends_with(b"/>");
+        }
+    }
+    Ok((count, kept))
+}
+
+/// The shapes of a VML part that hold a `ClientData` of `ObjectType`
+/// `Note`, by this tool's own pass over the part's tokens.
+fn note_shapes<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<u64, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut shape: Option<usize> = None;
+    let mut note = false;
+    let mut count = 0u64;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            if shape == Some(depth) {
+                count += u64::from(note);
+                shape = None;
+            }
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let local = tag_local_name(raw);
+        if local == b"shape" && shape.is_none() {
+            shape = Some(depth);
+            note = false;
+        } else if local == b"ClientData" && shape.is_some() {
+            note = tag_attribute(raw, b"ObjectType").as_deref() == Some(b"Note".as_slice());
+        }
+        if raw.ends_with(b"/>") {
+            if shape == Some(depth) {
+                shape = None;
+            }
+            depth -= 1;
+        }
+    }
+    Ok(count)
+}
+
 /// The archive's entries under `xl/tables/`.
 fn table_entries<R: io::Read + io::Seek>(package: &Package<R>) -> u64 {
     package
@@ -3723,12 +3984,14 @@ fn table_relationships<R: io::Read + io::Seek>(
         .sum())
 }
 
-/// Whether the part's root has a main-namespace `tableParts` child, and
-/// whether the root binds a prefix to the relationships namespace, by this
-/// tool's own pass over the part's tokens.
-fn table_container<R: io::Read + io::Seek>(
+/// Whether the part's root has a main-namespace child named `name`
+/// (`tableParts` for the table sample, `legacyDrawing` for the comment
+/// sample), and whether the root binds a prefix to the relationships
+/// namespace, by this tool's own pass over the part's tokens.
+fn container_and_binding<R: io::Read + io::Seek>(
     package: &mut Package<R>,
     part: &[u8],
+    name: &[u8],
 ) -> Result<(bool, bool), Error> {
     let index = package.part(part).ok_or(Error::NoSuchName)?;
     let mut stream = Stream::new(package.read_part(index)?, index)?;
@@ -3748,7 +4011,7 @@ fn table_container<R: io::Read + io::Seek>(
         if depth == 1 {
             root = raw.to_vec();
         } else if depth == 2
-            && tag_local_name(raw) == b"tableParts"
+            && tag_local_name(raw) == name
             && MAIN.contains(&element_namespace(raw, &root).as_slice())
         {
             found = true;

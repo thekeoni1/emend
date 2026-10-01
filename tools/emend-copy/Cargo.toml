@@ -22,5 +22,7 @@ publish = false
 # has none either.
 # It enables the core's `tables` feature for --table-sample
 # (specs/0021-tables.md, decision 2 A), which has none either.
+# It enables the core's `comments` feature for --comment-sample
+# (specs/0022-comments-and-images.md, decision 1 A), which has none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments"] }

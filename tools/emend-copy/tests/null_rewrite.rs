@@ -3908,3 +3908,172 @@ fn the_table_sample_refuses_an_overlap_or_two_containers_and_leaves_nothing() {
         "--table-sample",
     );
 }
+
+// -------------------------------------------------------- --comment-sample
+
+/// The comments and VML content types.
+const COMMENTS_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml";
+const VML_TYPE: &str = "application/vnd.openxmlformats-officedocument.vmlDrawing";
+
+/// `edit_specs`' package with its sheet's root binding `r`, the sheet's
+/// data `sheet_data` and root children `after` it, and, when `author` is
+/// given, a rels part naming `xl/comments1.xml` as `rId1` and
+/// `xl/drawings/vmlDrawing1.vml` as `rId2`, the comments part holding one
+/// comment on A1 by `author` and the VML part its note, each typed by an
+/// `Override`.
+fn comment_specs(sheet_data: &str, after: &str, author: Option<&str>) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+         {sheet_data}<pageMargins left=\"0.7\"/>{after}</worksheet>"
+    );
+    let mut specs = edit_specs(sheet_data);
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    if let Some(author) = author {
+        for spec in &mut specs {
+            if spec.name == b"[Content_Types].xml" {
+                let types = String::from_utf8(spec.data.clone())
+                    .expect("UTF-8")
+                    .replace(
+                        "</Types>",
+                        &format!(
+                            "<Override PartName=\"/xl/comments1.xml\" \
+                             ContentType=\"{COMMENTS_TYPE}\"/><Override \
+                             PartName=\"/xl/drawings/vmlDrawing1.vml\" \
+                             ContentType=\"{VML_TYPE}\"/></Types>"
+                        ),
+                    );
+                *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+            }
+        }
+        let rels = format!(
+            "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" \
+             Type=\"{ATTR_NS}/comments\" Target=\"../comments1.xml\"/><Relationship \
+             Id=\"rId2\" Type=\"{ATTR_NS}/vmlDrawing\" Target=\"../drawings/vmlDrawing1.vml\"/>\
+             </Relationships>"
+        );
+        specs.push(Spec::stored(
+            b"xl/worksheets/_rels/sheet1.xml.rels",
+            rels.as_bytes(),
+        ));
+        let comments = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <comments xmlns=\"{MAIN_NS}\"><authors><author>{author}</author></authors>\
+             <commentList><comment ref=\"A1\" authorId=\"0\"><text><t>kept</t></text>\
+             </comment></commentList></comments>"
+        );
+        specs.push(Spec::stored(b"xl/comments1.xml", comments.as_bytes()));
+        let vml = "<xml xmlns:v=\"urn:schemas-microsoft-com:vml\" \
+                   xmlns:o=\"urn:schemas-microsoft-com:office:office\" \
+                   xmlns:x=\"urn:schemas-microsoft-com:office:excel\"><o:shapelayout \
+                   v:ext=\"edit\"><o:idmap v:ext=\"edit\" data=\"1\"/></o:shapelayout>\
+                   <v:shape id=\"_x0000_s1025\" type=\"#_x0000_t202\"><x:ClientData \
+                   ObjectType=\"Note\"><x:Row>0</x:Row><x:Column>0</x:Column></x:ClientData>\
+                   </v:shape></xml>";
+        specs.push(Spec::stored(b"xl/drawings/vmlDrawing1.vml", vml.as_bytes()));
+    }
+    specs
+}
+
+#[test]
+fn the_comment_sample_adds_a_comment_its_parts_and_the_legacy_drawing() {
+    // `specs/0022-comments-and-images.md`, "Harness runs": M is 1, so the
+    // comment goes on A2. With neither part, both are created with the rels
+    // part and the sheet gains `legacyDrawing`; with both, each is appended
+    // to, the author `emend` kept is reused and the sheet comes back as it
+    // went in.
+    for (label, author, after, line) in [
+        (
+            "comment-sample-created",
+            None,
+            "",
+            "comment\tcomments_before=0\tcomments_after=1\tparts_before=0\tparts_after=2\
+             \tlegacy_before=0\tcomments_part_before=0\tr_bound_before=1\tshapes_before=0\
+             \tshapes_after=1\tauthors_before=0\tauthors_after=1\n",
+        ),
+        (
+            "comment-sample-appended",
+            Some("emend"),
+            "<legacyDrawing r:id=\"rId2\"/>",
+            "comment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
+             \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
+             \tshapes_after=2\tauthors_before=1\tauthors_after=1\n",
+        ),
+        (
+            "comment-sample-other-author",
+            Some("someone"),
+            "<legacyDrawing r:id=\"rId2\"/>",
+            "comment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
+             \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
+             \tshapes_after=2\tauthors_before=1\tauthors_after=2\n",
+        ),
+    ] {
+        let specs = comment_specs(A_CELL, after, author);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--comment-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let changed: Vec<&[u8]> = if author.is_some() {
+            vec![b"xl/comments1.xml", b"xl/drawings/vmlDrawing1.vml"]
+        } else {
+            let sheet = String::from_utf8(
+                entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(
+                sheet,
+                format!(
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                     <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>\
+                     {A_CELL}<pageMargins left=\"0.7\"/><legacyDrawing r:id=\"rId2\"/>\
+                     </worksheet>"
+                ),
+                "the sheet"
+            );
+            for name in [
+                b"xl/comments1.xml".as_slice(),
+                b"xl/drawings/vmlDrawing1.vml",
+            ] {
+                assert!(
+                    entries.iter().any(|entry| entry.name == name),
+                    "the added part"
+                );
+            }
+            vec![b"xl/worksheets/sheet1.xml", b"[Content_Types].xml"]
+        };
+        untouched_but(&entries, &specs, &changed);
+    }
+}
+
+#[test]
+fn the_comment_sample_refuses_a_comments_part_without_legacy_drawing_or_two_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0022-comments-and-images.md`, "P1").
+    styled_run_refused(
+        "comment-sample-no-legacy",
+        &comment_specs(A_CELL, "", Some("emend")),
+        "a comments part or its drawing cannot be read",
+        "--comment-sample",
+    );
+    styled_run_refused(
+        "comment-sample-two",
+        &comment_specs(
+            A_CELL,
+            "<legacyDrawing r:id=\"rId2\"/><legacyDrawing r:id=\"rId2\"/>",
+            Some("emend"),
+        ),
+        "a worksheet has two legacyDrawing elements",
+        "--comment-sample",
+    );
+}
