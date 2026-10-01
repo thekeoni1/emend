@@ -3994,7 +3994,7 @@ fn the_comment_sample_adds_a_comment_its_parts_and_the_legacy_drawing() {
             "",
             "comment\tcomments_before=0\tcomments_after=1\tparts_before=0\tparts_after=2\
              \tlegacy_before=0\tcomments_part_before=0\tr_bound_before=1\tshapes_before=0\
-             \tshapes_after=1\tauthors_before=0\tauthors_after=1\n",
+             \tshapes_after=1\tauthors_before=0\tauthors_after=1\tcomments_removed=0\tparts_removed=0\n",
         ),
         (
             "comment-sample-appended",
@@ -4002,7 +4002,7 @@ fn the_comment_sample_adds_a_comment_its_parts_and_the_legacy_drawing() {
             "<legacyDrawing r:id=\"rId2\"/>",
             "comment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
              \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
-             \tshapes_after=2\tauthors_before=1\tauthors_after=1\n",
+             \tshapes_after=2\tauthors_before=1\tauthors_after=1\tcomments_removed=1\tparts_removed=2\n",
         ),
         (
             "comment-sample-other-author",
@@ -4010,7 +4010,7 @@ fn the_comment_sample_adds_a_comment_its_parts_and_the_legacy_drawing() {
             "<legacyDrawing r:id=\"rId2\"/>",
             "comment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
              \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
-             \tshapes_after=2\tauthors_before=1\tauthors_after=2\n",
+             \tshapes_after=2\tauthors_before=1\tauthors_after=2\tcomments_removed=1\tparts_removed=2\n",
         ),
     ] {
         let specs = comment_specs(A_CELL, after, author);

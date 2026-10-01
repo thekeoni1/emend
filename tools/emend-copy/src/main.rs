@@ -404,9 +404,13 @@
 //!   printed. Asserted: `comments_after` and `shapes_after` one more than
 //!   before, `parts_after` two, one or no more as W had neither part, the
 //!   VML part alone or both, and `authors_after` one more unless a kept
-//!   author's text is `emend`; a failure is exit 2 with the message and no
-//!   output, and so is a refusal by the layer (threaded comments on W, a
-//!   part it cannot read, or M + 1 past the grid).
+//!   author's text is `emend`; then the comment removed again from the
+//!   reopened output in memory, the write going into a `Cursor` that is
+//!   reopened, for `comments_removed` and `parts_removed`
+//!   (specs/0022 "P2"), asserted equal to `comments_before` and
+//!   `parts_before`; a failure is exit 2 with the message and no output, and
+//!   so is a refusal by the layer (threaded comments on W, a part it cannot
+//!   read, or M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -3742,8 +3746,9 @@ fn table_read_back(
 
 /// The comment sample (`specs/0022-comments-and-images.md`, "Harness
 /// runs", `--comment-sample`): a comment on the cell below W's last row, the
-/// output written and read back. A failure after the output is in place
-/// removes it; a refusal by the layer is exit 2 with no output.
+/// output written and read back, then the comment removed in memory and
+/// that read back (P2). A failure after the output is in place removes it;
+/// a refusal by the layer is exit 2 with no output.
 fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
@@ -3761,9 +3766,10 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let comments_part_before = related(&mut package, &part, COMMENTS)?.is_some();
     // A row past the grid is the layer's to refuse, with its index message.
     let row = sampled.max_row.saturating_add(1);
+    let cell = CellRef { row, col: 1 };
     package.add_comment(
         &part,
-        CellRef { row, col: 1 },
+        cell,
         Comment {
             author: SAMPLE_AUTHOR,
             text: "emend comment",
@@ -3776,11 +3782,11 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (true, false) => 1,
         (true, true) => 0,
     };
-    let checked = comment_read_back(output, &part, &before, parts_more);
+    let checked = comment_read_back(output, &part, cell, &before, parts_more);
     if checked.is_err() {
         let _ = fs::remove_file(output);
     }
-    let after = checked?;
+    let (after, removed) = checked?;
     edit_line_named(
         "comment",
         &[
@@ -3795,6 +3801,8 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("shapes_after", after.shapes),
             ("authors_before", before.authors),
             ("authors_after", after.authors),
+            ("comments_removed", removed.0),
+            ("parts_removed", removed.1),
         ],
     )
 }
@@ -3837,13 +3845,17 @@ fn comment_counts<R: io::Read + io::Seek>(
 
 /// Reopens the comment sample's output and asserts one more comment and
 /// note shape, `parts_more` more comments and VML entries, and one more
-/// author unless the sample's was kept.
+/// author unless the sample's was kept; then removes the comment on `cell`
+/// in memory, writes into a `Cursor`, reopens it and asserts the comments
+/// and the comments and VML entries the input had; gives the counts and,
+/// after the removal, the comments and the entries.
 fn comment_read_back(
     output: &Path,
     part: &[u8],
+    cell: CellRef,
     before: &CommentCounts,
     parts_more: u64,
-) -> Result<CommentCounts, Error> {
+) -> Result<(CommentCounts, (u64, u64)), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let after = comment_counts(&mut package, part)?;
@@ -3859,7 +3871,26 @@ fn comment_read_back(
     if after.authors != before.authors + u64::from(!before.author_kept) {
         return Err(Error::CommentSample("author count"));
     }
-    Ok(after)
+    // The comment removed again in memory (specs/0022 "P2"): the write goes
+    // into a Cursor that is reopened, for the comments and the parts.
+    package.remove_comment(part, cell)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut reopened = Package::open(buffer)?;
+    let removed = (
+        reopened.comments(part)?.len() as u64,
+        comment_entries(&reopened),
+    );
+    if removed.0 != before.comments {
+        return Err(Error::CommentSample("comment count after the removal"));
+    }
+    if removed.1 != before.parts {
+        return Err(Error::CommentSample(
+            "comments and VML part count after the removal",
+        ));
+    }
+    Ok((after, removed))
 }
 
 /// The archive's entries `xl/comments*.xml` and
