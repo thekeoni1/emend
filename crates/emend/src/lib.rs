@@ -53,6 +53,8 @@ pub use package::{
     Cfvo, CfvoKind, ErrorStyle, IconSetKind, Operator, Rule, RuleEntry, Validation,
     ValidationEntry, ValidationKind,
 };
+#[cfg(feature = "comments")]
+pub use package::{Comment, CommentEntry};
 #[cfg(feature = "metadata")]
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,

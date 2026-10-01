@@ -502,6 +502,31 @@
 //!   (`tables::a_read_refuses_a_part_or_relationship_it_cannot_read`,
 //!   `an_overlap_with_a_table_a_pivot_a_merge_the_autofilter_or_an_earlier_addition_is_refused`).
 //!
+//! Comments add these, the Cargo feature `comments`'s messages
+//! (`specs/0022-comments-and-images.md`, "Errors", and the P1 rulings;
+//! without the feature no call records a comment edit and none of them is
+//! raised); the first two are raised by `Package::add_comment`, the rest by
+//! [`Package::write_to`] and, the last, by `Package::comments` too. The call
+//! also meets "a row or column index or count is out of range" and "a text
+//! holds a character XML cannot carry"
+//! (`comments::the_call_refuses_each_rule_and_records_nothing`), and the
+//! write part 3's one-shift message, "no such part" for a sheet added in the
+//! same write, and what a cell edit to the part meets
+//! (`comments::a_comment_with_a_row_insertion_is_refused`,
+//! `a_comment_on_a_removed_replaced_or_added_part_is_refused`):
+//!
+//! - "a comment author is not valid"
+//!   (`comments::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a comment text is not valid"
+//!   (`comments::the_call_refuses_each_rule_and_records_nothing`).
+//! - "a worksheet has threaded comments"
+//!   (`comments::a_sheet_with_threaded_comments_is_refused`).
+//! - "a worksheet has two legacyDrawing elements"
+//!   (`comments::two_legacy_drawings_or_one_out_of_schema_order_are_refused`).
+//! - "a comments part or its drawing cannot be read"
+//!   (`comments::a_read_refuses_what_it_cannot_read`,
+//!   `the_write_refuses_parts_it_cannot_read`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1224,6 +1249,49 @@ pub const PIVOT_TABLE: [&[u8]; 2] = [
 const TABLE_CONTENT_TYPE: &[u8] =
     b"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
 
+/// The `comments` relationship type, transitional then strict (the Cargo
+/// feature `comments`; `specs/0022-comments-and-images.md`, "Comments: the
+/// parts").
+#[cfg(feature = "comments")]
+pub const COMMENTS: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/comments",
+];
+
+/// The `vmlDrawing` relationship type, transitional then strict, which a
+/// worksheet's `<legacyDrawing>` names (the Cargo feature `comments`).
+#[cfg(feature = "comments")]
+pub const VML_DRAWING: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/vmlDrawing",
+];
+
+/// The `threadedComment` relationship type. Microsoft's extension has one
+/// form, written twice so it is looked up as the pairs are (the Cargo
+/// feature `comments`; decision 3 A).
+#[cfg(feature = "comments")]
+pub const THREADED_COMMENTS: [&[u8]; 2] = [
+    b"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
+    b"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
+];
+
+/// A comments part's and a VML part's content types, which the strict form
+/// shares (the Cargo feature `comments`).
+#[cfg(feature = "comments")]
+const COMMENTS_CONTENT_TYPE: &[u8] =
+    b"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml";
+#[cfg(feature = "comments")]
+const VML_CONTENT_TYPE: &[u8] = b"application/vnd.openxmlformats-officedocument.vmlDrawing";
+
+/// The three VML namespaces, in the order `v`, `o`, `x` (ECMA-376 Part 4;
+/// the Cargo feature `comments`).
+#[cfg(feature = "comments")]
+const VML_NAMESPACES: [&[u8]; 3] = [
+    b"urn:schemas-microsoft-com:vml",
+    b"urn:schemas-microsoft-com:office:office",
+    b"urn:schemas-microsoft-com:office:excel",
+];
+
 /// The `hyperlink` relationship type, transitional then strict, the type a
 /// link to a target outside the package is written with (the Cargo feature
 /// `metadata`; `specs/0019-names-links-properties-protection.md`,
@@ -1933,6 +2001,16 @@ struct Recorded {
     /// [`Package::write_to`] before it validates.
     #[cfg(feature = "tables")]
     table_removed_ids: Vec<(Vec<u8>, Vec<u8>)>,
+    /// `(part, cell, comment)`: a comment added, in record order
+    /// (`specs/0022-comments-and-images.md`, "Comments: the calls").
+    #[cfg(feature = "comments")]
+    comment_additions: Vec<(Vec<u8>, CellRef, NewComment)>,
+    /// `(part, id, strict)`: for each part whose `<legacyDrawing>` the write
+    /// creates, the id of the VML part's relationship and whether the part
+    /// takes the strict forms, filled by [`Package::write_to`] before it
+    /// validates.
+    #[cfg(feature = "comments")]
+    comment_works: Vec<(Vec<u8>, Vec<u8>, bool)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2026,6 +2104,15 @@ struct SheetWork {
     /// The relationship ids of the tables the write removes from the part.
     #[cfg(feature = "tables")]
     tables_removed: Vec<Vec<u8>>,
+    /// The id of the VML part's relationship when the write creates the
+    /// part's `<legacyDrawing>` (`specs/0022-comments-and-images.md`,
+    /// "Comments: the parts").
+    #[cfg(feature = "comments")]
+    legacy: Option<Vec<u8>>,
+    /// Whether that relationship takes the strict forms (a retag's
+    /// namespace).
+    #[cfg(feature = "comments")]
+    legacy_strict: bool,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -2786,6 +2873,47 @@ pub struct TableEntry {
     pub part: Vec<u8>,
 }
 
+/// A cell comment as a caller gives it to [`Package::add_comment`]
+/// (`specs/0022-comments-and-images.md`, "Comments: types"): its author and
+/// its text, written as one run with no properties. The Cargo feature
+/// `comments`.
+#[cfg(feature = "comments")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Comment<'a> {
+    /// The author, 1 to 255 characters.
+    pub author: &'a str,
+    /// The text, 1 to 32767 characters.
+    pub text: &'a str,
+}
+
+/// A cell comment as [`Package::comments`] reads it from a worksheet's
+/// comments part. The Cargo feature `comments`.
+#[cfg(feature = "comments")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommentEntry {
+    /// The comment's `ref`.
+    pub cell: CellRef,
+    /// The `authors` child at the comment's `authorId`, empty when the list
+    /// is shorter.
+    pub author: String,
+    /// Every `t` descendant of the comment's `text`, in document order,
+    /// runs flattened.
+    pub text: String,
+}
+
+/// A worksheet part and the comments the write adds to it, a cell's last
+/// addition winning.
+#[cfg(feature = "comments")]
+type PartComments = (Vec<u8>, Vec<(CellRef, NewComment)>);
+
+/// A comment to add, as [`Package::add_comment`] checked it.
+#[cfg(feature = "comments")]
+#[derive(Clone)]
+struct NewComment {
+    author: String,
+    text: String,
+}
+
 /// A table to add, as [`Package::add_table`] checked it: its area, its
 /// name, its column names and its style's name with the four flags.
 #[cfg(feature = "tables")]
@@ -3146,6 +3274,19 @@ impl Recorded {
             && self.no_link_edits()
             && self.no_rule_edits()
             && self.no_table_edits()
+            && self.no_comment_edits()
+    }
+
+    /// Whether no comment is added; always, without the feature `comments`.
+    #[cfg(feature = "comments")]
+    fn no_comment_edits(&self) -> bool {
+        self.comment_additions.is_empty()
+    }
+
+    /// Whether no comment is added; always, without the feature `comments`.
+    #[cfg(not(feature = "comments"))]
+    fn no_comment_edits(&self) -> bool {
+        true
     }
 
     /// Whether no table is added or removed; always, without the feature
@@ -3280,6 +3421,10 @@ impl Recorded {
         let named = named
             .chain(self.table_additions.iter().map(|(part, _)| part))
             .chain(self.table_removals.iter().map(|(part, _)| part));
+        // A comment rewrites the worksheet only when its `<legacyDrawing>`
+        // is created (`specs/0022-comments-and-images.md`, "Harness runs").
+        #[cfg(feature = "comments")]
+        let named = named.chain(self.comment_works.iter().map(|(part, _, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -3389,6 +3534,17 @@ impl Recorded {
                 .filter(|(at, _)| at.as_slice() == part)
                 .map(|(_, id)| id.clone())
                 .collect(),
+            #[cfg(feature = "comments")]
+            legacy: self
+                .comment_works
+                .iter()
+                .find(|(at, _, _)| at.as_slice() == part)
+                .map(|(_, id, _)| id.clone()),
+            #[cfg(feature = "comments")]
+            legacy_strict: self
+                .comment_works
+                .iter()
+                .any(|(at, _, strict)| at.as_slice() == part && *strict),
         }
     }
 
@@ -4656,6 +4812,77 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "tables")]
     pub fn tables(&mut self, part: &[u8]) -> Result<Vec<TableEntry>, Error> {
         self.parts().tables(part)
+    }
+
+    /// Records a comment with `comment`'s author and text on `cell` of the
+    /// worksheet part `part`. The Cargo feature `comments`
+    /// (`specs/0022-comments-and-images.md`, "Comments: the calls").
+    ///
+    /// The write appends a `<comment>` to the sheet's comments part, its
+    /// author to `<authors>` unless a kept author's text equals it, and a
+    /// hidden note shape at the cell to the sheet's VML part; a part the
+    /// sheet lacks is created, `xl/comments<N>.xml` or
+    /// `xl/drawings/vmlDrawing<N>.vml` with N the smallest positive integer no
+    /// entry of the archive or of this write's additions has, ASCII case
+    /// folded, an entry this write removes still counting as taken, with its
+    /// `Override` and a relationship of type [`COMMENTS`] or [`VML_DRAWING`]
+    /// on the part's rels part with the relative target, in the form of the
+    /// worksheet's own relationship; and creates `<legacyDrawing r:id=".."/>`
+    /// in schema position when the sheet has none, retagging a root binding
+    /// no prefix to the relationships namespace with one. A kept comment on
+    /// the cell is replaced, its element and its shape skipped; of two
+    /// additions on one cell in one write the last wins.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a row or column
+    /// index or count is out of range" for a cell off the grid; "a text
+    /// holds a character XML cannot carry" for an author or a text holding
+    /// one; "a comment author is not valid" for an author empty or past 255
+    /// characters; "a comment text is not valid" for a text empty or past
+    /// 32767 characters. The write refuses a sheet with a relationship of
+    /// type [`THREADED_COMMENTS`], "a worksheet has threaded comments"; a
+    /// part with two `<legacyDrawing>` elements, or one out of schema order,
+    /// "a worksheet has two legacyDrawing elements"; a comments
+    /// relationship whose part is missing, a comments part whose root has
+    /// no `commentList` or two, a kept `comment` whose `ref` is absent or
+    /// does not parse, a `legacyDrawing` whose relationship or part is
+    /// missing, a comments part on a sheet with no `legacyDrawing`, a VML
+    /// part holding no shape where the comments part holds a comment, one
+    /// whose root's end tag cannot be found, or whose root binds no prefix
+    /// to one of the three VML namespaces, "a comments part or its drawing
+    /// cannot be read"; a sheet added in the same write, "no such part"; a
+    /// part this write removes or replaces with part 1's messages for a
+    /// cell edit; and a part with a row or column insertion or deletion in
+    /// the same write, with part 3's one-shift message.
+    #[cfg(feature = "comments")]
+    pub fn add_comment(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        comment: Comment<'_>,
+    ) -> Result<(), Error> {
+        self.parts().add_comment(part, cell, comment)
+    }
+
+    /// The comments of the worksheet part `part`: each `<comment>` of the
+    /// comments part its `comments` relationship names, in document order,
+    /// with its cell, its author and its text; a snapshot of the file, not of
+    /// the pending edits; empty for a part with no such relationship. A
+    /// threaded comment reads as the legacy fallback Excel writes for it.
+    /// The Cargo feature `comments`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a part the archive lacks; "a
+    /// comments part or its drawing cannot be read" for a relationship whose
+    /// part is missing, a root other than `comments` or without
+    /// `commentList`, and a `comment` without `ref` or `authorId` or whose
+    /// `ref` or `authorId` does not parse; part 2's unbound-prefix refusal;
+    /// and whatever [`Stream`] refuses.
+    #[cfg(feature = "comments")]
+    pub fn comments(&mut self, part: &[u8]) -> Result<Vec<CommentEntry>, Error> {
+        self.parts().comments(part)
     }
 
     /// Records that the workbook part gets `fullCalcOnLoad="1"` on its
@@ -6048,21 +6275,7 @@ impl<'a> Parts<'a> {
             Some(index) => defined_name_values(self.archive.read(index)?, index)?,
             None => Vec::new(),
         };
-        // An entry this write removes still counts as taken: an addition
-        // may not reuse a removed entry's name (P1 ruling 6).
-        let mut entries: Vec<String> = self
-            .archive
-            .entries()
-            .iter()
-            .map(|entry| entry.name())
-            .chain(
-                self.edits
-                    .part_additions
-                    .iter()
-                    .map(|(name, _)| name.as_slice()),
-            )
-            .map(|name| String::from_utf8_lossy(name).to_ascii_lowercase())
-            .collect();
+        let mut entries = self.taken_entries();
         let additions = self.edits.table_additions.clone();
         let mut names: Vec<String> = Vec::new();
         let mut ids: Vec<u64> = kept.iter().filter_map(|(_, root)| root.id).collect();
@@ -6112,17 +6325,13 @@ impl<'a> Parts<'a> {
             }
             // The smallest unused of each; a list of k values leaves one of
             // 1 to k + 1 unused, so neither count runs past it.
-            let mut n = 1u64;
-            while entries.contains(&format!("xl/tables/table{n}.xml")) {
-                n += 1;
-            }
+            let entry = free_entry(&entries, |n| format!("xl/tables/table{n}.xml"));
             let mut id = 1u64;
             while ids.contains(&id) {
                 id += 1;
             }
             ids.push(id);
-            let entry = format!("xl/tables/table{n}.xml");
-            entries.push(entry.clone());
+            entries.push(entry.to_ascii_lowercase());
             let strict = self.sheet_is_strict(&part)?;
             self.add_part(
                 entry.as_bytes(),
@@ -6145,11 +6354,273 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::add_comment`]: the call's checks, then the
+    /// comment recorded (`specs/0022-comments-and-images.md`, "Comments:
+    /// types" and "Comments: the calls").
+    #[cfg(feature = "comments")]
+    fn add_comment(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        comment: Comment<'_>,
+    ) -> Result<(), Error> {
+        if !in_grid(cell) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let forbidden = |text: &str| text.chars().any(crate::cells::forbidden_in_xml);
+        if forbidden(comment.author) || forbidden(comment.text) {
+            return Err(TEXT_NOT_XML);
+        }
+        if !(1..=255).contains(&comment.author.chars().count()) {
+            return Err(COMMENT_AUTHOR_INVALID);
+        }
+        if !(1..=32767).contains(&comment.text.chars().count()) {
+            return Err(COMMENT_TEXT_INVALID);
+        }
+        self.edits.comment_additions.push((
+            part.to_vec(),
+            cell,
+            NewComment {
+                author: comment.author.to_string(),
+                text: comment.text.to_string(),
+            },
+        ));
+        Ok(())
+    }
+
+    /// The body of [`Package::comments`].
+    #[cfg(feature = "comments")]
+    fn comments(&mut self, part: &[u8]) -> Result<Vec<CommentEntry>, Error> {
+        self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+        let Some(target) = self.comments_target(part)? else {
+            return Ok(Vec::new());
+        };
+        let index = self.archive.index_of(&target).ok_or(COMMENTS_UNREADABLE)?;
+        read_comments(self.archive.read(index)?, index)
+    }
+
+    /// The part the first internal `comments` relationship of `part` names,
+    /// either form; a target outside the package refuses with the comments
+    /// read message.
+    #[cfg(feature = "comments")]
+    fn comments_target(&mut self, part: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        let rels = self.relationships(part)?;
+        match rels
+            .all()
+            .iter()
+            .find(|rel| !rel.external && COMMENTS.contains(&rel.kind.as_slice()))
+        {
+            Some(rel) => Ok(Some(
+                rels.target_part(rel).map_err(|_| COMMENTS_UNREADABLE)?,
+            )),
+            None => Ok(None),
+        }
+    }
+
+    /// Records each worksheet's comment additions
+    /// (`specs/0022-comments-and-images.md`, "Comments: the calls" and
+    /// "Comments: the parts"): the comments part appended to or created,
+    /// the VML part appended to or created, their overrides and
+    /// relationships, and, when the sheet has no `<legacyDrawing>`, the VML
+    /// relationship's id for the worksheet pass. A cell's last addition
+    /// wins, in that addition's place. The refusals of a removed, replaced,
+    /// absent or shifted part come first, then the sheet's threaded
+    /// comments, then what the parts cannot be read for.
+    #[cfg(feature = "comments")]
+    fn record_comments(&mut self) -> Result<(), Error> {
+        if self.edits.comment_additions.is_empty() {
+            return Ok(());
+        }
+        let mut parts: Vec<PartComments> = Vec::new();
+        for (part, cell, comment) in self.edits.comment_additions.clone() {
+            let at = match parts.iter().position(|(have, _)| *have == part) {
+                Some(at) => at,
+                None => {
+                    parts.push((part, Vec::new()));
+                    parts.len() - 1
+                }
+            };
+            let list = &mut parts[at].1;
+            list.retain(|(have, _)| *have != cell);
+            list.push((cell, comment));
+        }
+        let mut entries = self.taken_entries();
+        // The `idmap` numbers of the projected workbook's VML parts, read
+        // when the first part needs one allocated.
+        let mut idmaps: Option<Vec<u64>> = None;
+        let mut works: Vec<(Vec<u8>, Vec<u8>, bool)> = Vec::new();
+        for (part, additions) in parts {
+            if self.edits.part_removals.contains(&part) {
+                return Err(REMOVED_PART_EDITED);
+            }
+            if self
+                .edits
+                .part_replacements
+                .iter()
+                .any(|(name, _)| *name == part)
+            {
+                return Err(CELL_EDIT_REPLACED);
+            }
+            // A sheet this write adds has no relationships part to read yet
+            // (P1 ruling 2 of `specs/0021-tables.md`, as for a table).
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            #[cfg(feature = "rowcol")]
+            if self.edits.shifts.iter().any(|(at, _)| *at == part) {
+                return Err(SHIFT_ALONE);
+            }
+            if self
+                .relationships(&part)?
+                .all()
+                .iter()
+                .any(|rel| THREADED_COMMENTS.contains(&rel.kind.as_slice()))
+            {
+                return Err(THREADED_COMMENTS_HELD);
+            }
+            let comments = self.comments_target(&part)?;
+            let legacy = legacy_drawing_id(self.archive.read(index)?, index)?;
+            let vml = match legacy {
+                Some(id) => {
+                    let rels = self.relationships(&part)?;
+                    let rel = rels
+                        .by_id(&id)
+                        .filter(|rel| !rel.external && VML_DRAWING.contains(&rel.kind.as_slice()))
+                        .ok_or(COMMENTS_UNREADABLE)?;
+                    Some(rels.target_part(rel).map_err(|_| COMMENTS_UNREADABLE)?)
+                }
+                None => None,
+            };
+            let at_of = |archive: &Core, target: &Option<Vec<u8>>| match target {
+                Some(target) => archive
+                    .index_of(target)
+                    .map(Some)
+                    .ok_or(COMMENTS_UNREADABLE),
+                None => Ok(None),
+            };
+            let comments_at = at_of(self.archive, &comments)?;
+            let vml_at = at_of(self.archive, &vml)?;
+            if comments.is_some() && vml.is_none() {
+                return Err(COMMENTS_UNREADABLE);
+            }
+            let strict = self.sheet_is_strict(&part)?;
+            // The comments part, and how many comments it held.
+            let mut held = 0u64;
+            match (&comments, comments_at) {
+                (Some(target), Some(at)) => {
+                    let (bytes, count) = comments_appended(self.archive.read(at)?, at, &additions)?;
+                    held = count;
+                    self.replace_part(target, replacement_from_reader(Cursor::new(bytes)));
+                }
+                _ => {
+                    let entry = free_entry(&entries, |n| format!("xl/comments{n}.xml"));
+                    entries.push(entry.to_ascii_lowercase());
+                    self.add_part(
+                        entry.as_bytes(),
+                        replacement_from_reader(Cursor::new(comments_part_bytes(&additions))),
+                    );
+                    self.add_override(format!("/{entry}").as_bytes(), COMMENTS_CONTENT_TYPE);
+                    let target = relative_target(&part, entry.as_bytes());
+                    self.add_relationship(&part, COMMENTS[usize::from(strict)], &target, false)?;
+                }
+            }
+            // The VML part (P1 ruling 1 for its shape ids).
+            let cells: Vec<CellRef> = additions.iter().map(|(cell, _)| *cell).collect();
+            match (&vml, vml_at) {
+                (Some(target), Some(at)) => {
+                    let mut bytes = Vec::new();
+                    self.archive.read(at)?.read_to_end(&mut bytes)?;
+                    let read = read_vml(&bytes, at)?;
+                    if held > 0 && read.shapes.is_empty() {
+                        return Err(COMMENTS_UNREADABLE);
+                    }
+                    let block = match read.idmap {
+                        Some(block) => block,
+                        None => {
+                            if idmaps.is_none() {
+                                idmaps = Some(self.vml_idmaps()?);
+                            }
+                            smallest_unused(idmaps.get_or_insert_with(Vec::new))
+                        }
+                    };
+                    let bytes = vml_appended(&bytes, &read, block, &cells);
+                    self.replace_part(target, replacement_from_reader(Cursor::new(bytes)));
+                }
+                _ => {
+                    if idmaps.is_none() {
+                        idmaps = Some(self.vml_idmaps()?);
+                    }
+                    let block = smallest_unused(idmaps.get_or_insert_with(Vec::new));
+                    let entry = free_entry(&entries, |n| format!("xl/drawings/vmlDrawing{n}.vml"));
+                    entries.push(entry.to_ascii_lowercase());
+                    self.add_part(
+                        entry.as_bytes(),
+                        replacement_from_reader(Cursor::new(vml_part_bytes(block, &cells))),
+                    );
+                    self.add_override(format!("/{entry}").as_bytes(), VML_CONTENT_TYPE);
+                    let target = relative_target(&part, entry.as_bytes());
+                    let id = self.add_relationship(
+                        &part,
+                        VML_DRAWING[usize::from(strict)],
+                        &target,
+                        false,
+                    )?;
+                    works.push((part, id, strict));
+                }
+            }
+        }
+        self.edits.comment_works = works;
+        Ok(())
+    }
+
+    /// The `idmap` number of every VML part of the projected workbook: each
+    /// entry whose name ends in `.vml`, ASCII case folded, that this write
+    /// does not remove; a part with no `idmap` uses none.
+    #[cfg(feature = "comments")]
+    fn vml_idmaps(&mut self) -> Result<Vec<u64>, Error> {
+        let names: Vec<Vec<u8>> = self
+            .archive
+            .entries()
+            .iter()
+            .map(|entry| entry.name().to_vec())
+            .filter(|name| {
+                name.to_ascii_lowercase().ends_with(b".vml")
+                    && !self.edits.part_removals.contains(name)
+            })
+            .collect();
+        let mut used = Vec::new();
+        for name in names {
+            let index = self.archive.index_of(&name).ok_or(NO_SUCH_PART)?;
+            if let Some(block) = vml_idmap(self.archive.read(index)?, index)? {
+                used.push(block);
+            }
+        }
+        Ok(used)
+    }
+
+    /// Every entry name of the archive and of this write's additions, ASCII
+    /// case folded: the names a created part may not take. An entry this
+    /// write removes still counts as taken, so an addition never reuses a
+    /// removed entry's name (`specs/0021-tables.md`, P1 ruling 6).
+    #[cfg(any(feature = "tables", feature = "comments"))]
+    fn taken_entries(&self) -> Vec<String> {
+        self.archive
+            .entries()
+            .iter()
+            .map(|entry| entry.name())
+            .chain(
+                self.edits
+                    .part_additions
+                    .iter()
+                    .map(|(name, _)| name.as_slice()),
+            )
+            .map(|name| String::from_utf8_lossy(name).to_ascii_lowercase())
+            .collect()
+    }
+
     /// Whether the workbook's relationship to the worksheet part `part` is
     /// of the strict form: the file's relationship whose target is the part,
     /// or the one this write adds for a sheet it adds; transitional when
     /// there is none.
-    #[cfg(any(feature = "metadata", feature = "tables"))]
+    #[cfg(any(feature = "metadata", feature = "tables", feature = "comments"))]
     fn sheet_is_strict(&mut self, part: &[u8]) -> Result<bool, Error> {
         let workbook = self.workbook()?.part.clone();
         let added: Vec<Relationship> = self
@@ -6475,6 +6946,8 @@ impl<'a> Parts<'a> {
         self.edits.table_additions.retain(|(at, _)| at != part);
         #[cfg(feature = "tables")]
         self.edits.table_removals.retain(|(at, _)| at != part);
+        #[cfg(feature = "comments")]
+        self.edits.comment_additions.retain(|(at, _, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -6489,6 +6962,10 @@ impl<'a> Parts<'a> {
         // validation too (`specs/0021-tables.md`, "The part").
         #[cfg(feature = "tables")]
         self.record_tables()?;
+        // A comment's parts, overrides and relationships likewise
+        // (`specs/0022-comments-and-images.md`, "Comments: the parts").
+        #[cfg(feature = "comments")]
+        self.record_comments()?;
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -7659,6 +8136,16 @@ const NO_SUCH_TABLE: Error = Error::Package("no table of that name");
 const TWO_TABLE_PARTS: Error = Error::Package("a worksheet has two tableParts elements");
 #[cfg(feature = "tables")]
 const TABLE_UNREADABLE: Error = Error::Package("a table part or its relationship cannot be read");
+#[cfg(feature = "comments")]
+const COMMENT_AUTHOR_INVALID: Error = Error::Package("a comment author is not valid");
+#[cfg(feature = "comments")]
+const COMMENT_TEXT_INVALID: Error = Error::Package("a comment text is not valid");
+#[cfg(feature = "comments")]
+const THREADED_COMMENTS_HELD: Error = Error::Package("a worksheet has threaded comments");
+#[cfg(feature = "comments")]
+const TWO_LEGACY_DRAWINGS: Error = Error::Package("a worksheet has two legacyDrawing elements");
+#[cfg(feature = "comments")]
+const COMMENTS_UNREADABLE: Error = Error::Package("a comments part or its drawing cannot be read");
 
 /// The grid a worksheet's indices lie in, as the `xlsx` format's
 /// applications bound it (`specs/0018-rows-and-columns.md`, "Module
@@ -10016,6 +10503,8 @@ fn rewrite_worksheet_from(
     let mut formats = FormatsPass::new(&work.rules);
     #[cfg(feature = "tables")]
     let mut tables = TablesPass::new(&work.tables, &work.tables_removed);
+    #[cfg(feature = "comments")]
+    let mut legacy = LegacyPass::new(work.legacy.as_deref());
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -10121,6 +10610,10 @@ fn rewrite_worksheet_from(
                         if let Some(bytes) = links.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
+                        #[cfg(feature = "comments")]
+                        if let Some(bytes) = legacy.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
                         #[cfg(feature = "tables")]
                         if let Some(bytes) = tables.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
@@ -10210,6 +10703,11 @@ fn rewrite_worksheet_from(
                     // worksheet").
                     #[cfg(feature = "tables")]
                     let root_raw = tables.root_tag(&root_raw, work.tables_strict, index)?;
+                    // And for a created `<legacyDrawing>`'s
+                    // (`specs/0022-comments-and-images.md`, "Comments: the
+                    // parts").
+                    #[cfg(feature = "comments")]
+                    let root_raw = legacy.root_tag(&root_raw, work.legacy_strict, index)?;
                     #[cfg(feature = "metadata")]
                     let links_needed = links.needed || matches!(protect.edit, Some(Some(_)));
                     #[cfg(not(feature = "metadata"))]
@@ -10218,6 +10716,8 @@ fn rewrite_worksheet_from(
                     let links_needed = links_needed || rules.needed || formats.needed;
                     #[cfg(feature = "tables")]
                     let links_needed = links_needed || !tables.tables.is_empty();
+                    #[cfg(feature = "comments")]
+                    let links_needed = links_needed || work.legacy.is_some();
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         for which in 0..CREATED.len() {
@@ -10247,6 +10747,10 @@ fn rewrite_worksheet_from(
                         }
                         #[cfg(feature = "metadata")]
                         if let Some(bytes) = links.create_at_end(&root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(feature = "comments")]
+                        if let Some(bytes) = legacy.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
                         #[cfg(feature = "tables")]
@@ -10664,6 +11168,10 @@ fn rewrite_worksheet_from(
                                 }
                                 #[cfg(feature = "metadata")]
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
+                                    out.write_all(&bytes)?;
+                                }
+                                #[cfg(feature = "comments")]
+                                if let Some(bytes) = legacy.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
                                 #[cfg(feature = "tables")]
@@ -11733,10 +12241,22 @@ fn check_table_name(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// The entry name `form` gives for the smallest positive N whose name,
+/// ASCII case folded, `taken` does not hold; `taken` is folded already. A
+/// list of k names leaves one of 1 to k + 1 free, so N runs no further.
+#[cfg(any(feature = "tables", feature = "comments"))]
+fn free_entry(taken: &[String], form: impl Fn(u64) -> String) -> String {
+    let mut n = 1u64;
+    while taken.contains(&form(n).to_ascii_lowercase()) {
+        n += 1;
+    }
+    form(n)
+}
+
 /// The target of a relationship from the part `from` to the entry `to`,
 /// relative to `from`'s directory: `../tables/table1.xml` from
 /// `xl/worksheets/sheet1.xml` (P1 ruling 4).
-#[cfg(feature = "tables")]
+#[cfg(any(feature = "tables", feature = "comments"))]
 fn relative_target(from: &[u8], to: &[u8]) -> Vec<u8> {
     let from: Vec<&[u8]> = from.split(|byte| *byte == b'/').collect();
     let to: Vec<&[u8]> = to.split(|byte| *byte == b'/').collect();
@@ -12044,6 +12564,45 @@ fn read_table(input: impl Read, index: usize, part: Vec<u8>) -> Result<TableEntr
     }
 }
 
+/// A worksheet root's start tag with a prefix bound to the relationships
+/// namespace, and that prefix: the tag as it is with the prefix it binds,
+/// or, when it binds none, with one bound (`r`, or the first of `r1`, `r2`
+/// and so on that the tag does not declare) in the transitional or the
+/// strict form, as part 4a's links retag it (`specs/0021-tables.md`, P1
+/// ruling 3; `specs/0022-comments-and-images.md`, "Comments: the parts").
+#[cfg(any(feature = "tables", feature = "comments"))]
+fn rels_prefixed(raw: &[u8], strict: bool, index: usize) -> Result<(Vec<u8>, Vec<u8>), Error> {
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    for attribute in &tag.attributes {
+        if let Some(prefix) = raw[attribute.name.clone()].strip_prefix(b"xmlns:")
+            && RELATIONSHIPS_ATTRIBUTE.contains(&&raw[attribute.value.clone()])
+        {
+            return Ok((raw.to_vec(), prefix.to_vec()));
+        }
+    }
+    let mut n = 0u32;
+    let prefix = loop {
+        let candidate = if n == 0 {
+            b"r".to_vec()
+        } else {
+            format!("r{n}").into_bytes()
+        };
+        let declaration = [b"xmlns:".as_slice(), &candidate].concat();
+        if attribute_value(raw, &declaration, index)?.is_none() {
+            break candidate;
+        }
+        n = n.checked_add(1).ok_or(Error::Xml(index))?;
+    };
+    let namespace = RELATIONSHIPS_ATTRIBUTE[usize::from(strict)];
+    let tag = with_attribute(
+        raw,
+        &[b"xmlns:".as_slice(), &prefix].concat(),
+        namespace,
+        index,
+    )?;
+    Ok((tag, prefix))
+}
+
 /// The `<tableParts>` of a worksheet name, its place in
 /// [`WORKSHEET_CHILDREN`].
 #[cfg(feature = "tables")]
@@ -12139,35 +12698,7 @@ impl<'w> TablesPass<'w> {
         if self.tables.is_empty() {
             return Ok(raw.to_vec());
         }
-        let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
-        for attribute in &tag.attributes {
-            if let Some(prefix) = raw[attribute.name.clone()].strip_prefix(b"xmlns:")
-                && RELATIONSHIPS_ATTRIBUTE.contains(&&raw[attribute.value.clone()])
-            {
-                self.rels_prefix = prefix.to_vec();
-                return Ok(raw.to_vec());
-            }
-        }
-        let mut n = 0u32;
-        let prefix = loop {
-            let candidate = if n == 0 {
-                b"r".to_vec()
-            } else {
-                format!("r{n}").into_bytes()
-            };
-            let declaration = [b"xmlns:".as_slice(), &candidate].concat();
-            if attribute_value(raw, &declaration, index)?.is_none() {
-                break candidate;
-            }
-            n = n.checked_add(1).ok_or(Error::Xml(index))?;
-        };
-        let namespace = RELATIONSHIPS_ATTRIBUTE[usize::from(strict)];
-        let tag = with_attribute(
-            raw,
-            &[b"xmlns:".as_slice(), &prefix].concat(),
-            namespace,
-            index,
-        )?;
+        let (tag, prefix) = rels_prefixed(raw, strict, index)?;
         self.rels_prefix = prefix;
         Ok(tag)
     }
@@ -12325,6 +12856,937 @@ impl<'w> TablesPass<'w> {
         out.extend_from_slice(&self.elements(&buffer.prefix));
         out.extend_from_slice(&[b"</".as_slice(), &buffer.name, b">"].concat());
         Ok(out)
+    }
+}
+
+/// The `<legacyDrawing>` of a worksheet name, its place in
+/// [`WORKSHEET_CHILDREN`].
+#[cfg(feature = "comments")]
+const LEGACY_DRAWING: &[u8] = b"legacyDrawing";
+
+/// The `r:id` of the worksheet's `<legacyDrawing>`, the part streamed once
+/// (`specs/0022-comments-and-images.md`, "Comments: the parts"): a second
+/// `<legacyDrawing>`, or one after a root child that follows it in schema
+/// order, is refused, and one without an `r:id` cannot be read.
+#[cfg(feature = "comments")]
+fn legacy_drawing_id(input: impl Read, index: usize) -> Result<Option<Vec<u8>>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let place = schema_position(LEGACY_DRAWING).unwrap_or(0);
+    // The furthest schema place of a root child met so far.
+    let mut furthest = 0usize;
+    let mut found: Option<Vec<u8>> = None;
+    let mut met = false;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                if depth <= 2 {
+                    let (namespace, local) = scope.resolve_element(start.name())?;
+                    let ours = is_main(namespace);
+                    if depth == 1 && (!ours || local != b"worksheet") {
+                        return Err(Error::Package("the worksheet part's root is not worksheet"));
+                    }
+                    if depth == 2 && ours {
+                        if local == LEGACY_DRAWING {
+                            if met || furthest > place {
+                                return Err(TWO_LEGACY_DRAWINGS);
+                            }
+                            met = true;
+                            for attribute in start.attributes() {
+                                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                                if attribute.key.as_namespace_binding().is_some() {
+                                    continue;
+                                }
+                                let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                                if name == b"id" && is_relationships_attribute(namespace) {
+                                    found = Some(attribute.value.as_bytes().to_vec());
+                                }
+                            }
+                            if found.is_none() {
+                                return Err(COMMENTS_UNREADABLE);
+                            }
+                        }
+                        if let Some(at) = schema_position(local) {
+                            furthest = furthest.max(at);
+                        }
+                    }
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(found)
+}
+
+/// A text as the comments part writes it in element content: escaped as a
+/// cell's inline string is, a carriage return as a character reference.
+#[cfg(feature = "comments")]
+fn content_escaped(text: &str) -> Vec<u8> {
+    escape(text).replace('\r', "&#13;").into_bytes()
+}
+
+/// For each addition, the `authorId` it takes, and the authors to append:
+/// a kept author whose text equals the addition's gives its index, an
+/// author not kept is appended once and takes the kept count plus the
+/// authors appended before it.
+#[cfg(feature = "comments")]
+fn author_ids(kept: &[String], additions: &[(CellRef, NewComment)]) -> (Vec<u64>, Vec<String>) {
+    let mut appended: Vec<String> = Vec::new();
+    let mut ids = Vec::new();
+    for (_, comment) in additions {
+        let id = match kept.iter().position(|author| *author == comment.author) {
+            Some(at) => at,
+            None => match appended.iter().position(|author| *author == comment.author) {
+                Some(at) => kept.len() + at,
+                None => {
+                    appended.push(comment.author.clone());
+                    kept.len() + appended.len() - 1
+                }
+            },
+        };
+        ids.push(id as u64);
+    }
+    (ids, appended)
+}
+
+/// The `<author>` elements for `authors`, with `prefix`.
+#[cfg(feature = "comments")]
+fn author_elements(authors: &[String], prefix: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for author in authors {
+        out.extend_from_slice(&[b"<".as_slice(), prefix, b"author>"].concat());
+        out.extend_from_slice(&content_escaped(author));
+        out.extend_from_slice(&[b"</".as_slice(), prefix, b"author>"].concat());
+    }
+    out
+}
+
+/// The `<comment>` elements for the additions, with `prefix`: one run with
+/// no properties, `xml:space="preserve"` on its `<t>` when the text begins
+/// or ends with whitespace.
+#[cfg(feature = "comments")]
+fn comment_elements(additions: &[(CellRef, NewComment)], ids: &[u64], prefix: &[u8]) -> Vec<u8> {
+    let p = prefix;
+    let mut out = Vec::new();
+    for ((cell, comment), id) in additions.iter().zip(ids) {
+        out.extend_from_slice(&[b"<".as_slice(), p, b"comment ref=\""].concat());
+        out.extend_from_slice(cell.a1().as_bytes());
+        out.extend_from_slice(format!("\" authorId=\"{id}\"><").as_bytes());
+        out.extend_from_slice(&[p, b"text><", p, b"t"].concat());
+        let space = |c: Option<char>| c.is_some_and(|c| matches!(c, ' ' | '\t' | '\n' | '\r'));
+        if space(comment.text.chars().next()) || space(comment.text.chars().last()) {
+            out.extend_from_slice(b" xml:space=\"preserve\"");
+        }
+        out.push(b'>');
+        out.extend_from_slice(&content_escaped(&comment.text));
+        out.extend_from_slice(
+            &[b"</".as_slice(), p, b"t></", p, b"text></", p, b"comment>"].concat(),
+        );
+    }
+    out
+}
+
+/// A created comments part's bytes (`specs/0022-comments-and-images.md`,
+/// "Comments: the parts"): the declaration on its own line and the root on
+/// one, in the default namespace, with no `shapeId`, `xr` namespace or
+/// `uid`.
+#[cfg(feature = "comments")]
+fn comments_part_bytes(additions: &[(CellRef, NewComment)]) -> Vec<u8> {
+    let (ids, authors) = author_ids(&[], additions);
+    let mut out =
+        b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<comments xmlns=\""
+            .to_vec();
+    out.extend_from_slice(MAIN[0]);
+    out.extend_from_slice(b"\"><authors>");
+    out.extend_from_slice(&author_elements(&authors, b""));
+    out.extend_from_slice(b"</authors><commentList>");
+    out.extend_from_slice(&comment_elements(additions, &ids, b""));
+    out.extend_from_slice(b"</commentList></comments>");
+    out
+}
+
+/// A kept comments part with the additions (`specs/0022-comments-and-
+/// images.md`, "Comments: the parts"), streamed: every byte copied but a
+/// replaced cell's `<comment>`, the new authors appended before `<authors>`'s
+/// end tag and the new comments before `<commentList>`'s, each with its
+/// container's prefix. Returns the bytes and how many `<comment>` elements
+/// the part held. A root other than `comments`, a `commentList` before any
+/// `authors`, none or two, or a `comment` whose `ref` is absent or does not
+/// parse, cannot be read.
+#[cfg(feature = "comments")]
+fn comments_appended(
+    input: impl Read,
+    index: usize,
+    additions: &[(CellRef, NewComment)],
+) -> Result<(Vec<u8>, u64), Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut out = Vec::new();
+    if stream.bom() {
+        out.extend_from_slice(&BYTE_ORDER_MARK);
+    }
+    let cells: Vec<CellRef> = additions.iter().map(|(cell, _)| *cell).collect();
+    let mut depth = 0usize;
+    let mut kept: Vec<String> = Vec::new();
+    // The author whose text is being read, and whether a CR came last.
+    let mut author: Option<(String, bool)> = None;
+    let mut ids: Option<Vec<u64>> = None;
+    // The open container's prefix and its end tag's bytes come from the
+    // token; whether it is `<authors>` or `<commentList>`.
+    let mut in_authors: Option<Vec<u8>> = None;
+    let mut in_list: Option<Vec<u8>> = None;
+    let mut lists = 0u32;
+    let mut held = 0u64;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 1 && (!ours || local != b"comments") {
+                    return Err(COMMENTS_UNREADABLE);
+                }
+                if depth == 2 && ours && local == b"authors" && ids.is_none() {
+                    let prefix = prefix_of(start);
+                    if empty {
+                        let (got, appended) = author_ids(&kept, additions);
+                        ids = Some(got);
+                        out.extend_from_slice(&opened_up(token.raw, index)?);
+                        out.extend_from_slice(&author_elements(&appended, &prefix));
+                        out.extend_from_slice(
+                            &[b"</".as_slice(), start.name().into_inner().as_bytes(), b">"]
+                                .concat(),
+                        );
+                    } else {
+                        out.extend_from_slice(token.raw);
+                        in_authors = Some(prefix);
+                    }
+                } else if depth == 3 && in_authors.is_some() && ours && local == b"author" {
+                    out.extend_from_slice(token.raw);
+                    if empty {
+                        kept.push(String::new());
+                    } else {
+                        author = Some((String::new(), false));
+                    }
+                } else if depth == 2 && ours && local == b"commentList" {
+                    lists += 1;
+                    let Some(ids) = ids.as_ref().filter(|_| lists == 1) else {
+                        return Err(COMMENTS_UNREADABLE);
+                    };
+                    let prefix = prefix_of(start);
+                    if empty {
+                        out.extend_from_slice(&opened_up(token.raw, index)?);
+                        out.extend_from_slice(&comment_elements(additions, ids, &prefix));
+                        out.extend_from_slice(
+                            &[b"</".as_slice(), start.name().into_inner().as_bytes(), b">"]
+                                .concat(),
+                        );
+                    } else {
+                        out.extend_from_slice(token.raw);
+                        in_list = Some(prefix);
+                    }
+                } else if depth == 3 && in_list.is_some() && ours && local == b"comment" {
+                    held += 1;
+                    let cell = attribute_value(token.raw, b"ref", index)?
+                        .and_then(CellRef::parse)
+                        .ok_or(COMMENTS_UNREADABLE)?;
+                    if cells.contains(&cell) {
+                        // A replaced cell's comment goes whole (decision 6 A).
+                        if !empty {
+                            skip_element(&mut stream, &mut scope)?;
+                        }
+                        scope.end();
+                        depth -= 1;
+                        continue;
+                    }
+                    out.extend_from_slice(token.raw);
+                } else {
+                    out.extend_from_slice(token.raw);
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 3
+                    && let Some((text, _)) = author.take()
+                {
+                    kept.push(text);
+                } else if depth == 2
+                    && let Some(prefix) = in_authors.take()
+                {
+                    let (got, appended) = author_ids(&kept, additions);
+                    ids = Some(got);
+                    out.extend_from_slice(&author_elements(&appended, &prefix));
+                } else if depth == 2
+                    && let Some(prefix) = in_list.take()
+                    && let Some(ids) = &ids
+                {
+                    out.extend_from_slice(&comment_elements(additions, ids, &prefix));
+                }
+                out.extend_from_slice(token.raw);
+                scope.end();
+                depth -= 1;
+            }
+            Event::Text(ref chunk) => {
+                if let Some((text, after_cr)) = author.as_mut() {
+                    crate::cells::push_text(text, chunk, after_cr);
+                }
+                out.extend_from_slice(token.raw);
+            }
+            Event::CData(ref chunk) => {
+                if let Some((text, after_cr)) = author.as_mut() {
+                    crate::cells::push_text(text, chunk, after_cr);
+                }
+                out.extend_from_slice(token.raw);
+            }
+            Event::GeneralRef(ref reference) => {
+                if let Some((text, after_cr)) = author.as_mut() {
+                    text.push(crate::cells::expand(reference, index)?);
+                    *after_cr = false;
+                }
+                out.extend_from_slice(token.raw);
+            }
+            _ => out.extend_from_slice(token.raw),
+        }
+    }
+    if lists == 0 {
+        return Err(COMMENTS_UNREADABLE);
+    }
+    Ok((out, held))
+}
+
+/// Reads a comments part into its entries (`specs/0022-comments-and-
+/// images.md`, "Comments: the calls"), streamed once.
+#[cfg(feature = "comments")]
+fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut authors: Vec<String> = Vec::new();
+    let mut in_authors = false;
+    let mut lists = 0u32;
+    let mut in_list = false;
+    // The comment being read: its cell, its `authorId`, its text, and the
+    // depth of its `<text>` while that is open.
+    let mut comment: Option<(CellRef, u64, String, Option<usize>)> = None;
+    let mut entries: Vec<CommentEntry> = Vec::new();
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 1 && (!ours || local != b"comments") {
+                    return Err(COMMENTS_UNREADABLE);
+                }
+                if depth == 2 {
+                    in_authors = ours && local == b"authors" && !empty;
+                    if ours && local == b"commentList" {
+                        lists += 1;
+                        if lists > 1 {
+                            return Err(COMMENTS_UNREADABLE);
+                        }
+                        in_list = !empty;
+                    }
+                } else if depth == 3 && in_authors && ours && local == b"author" {
+                    authors.push(if empty {
+                        String::new()
+                    } else {
+                        let text = crate::cells::text_of(&mut stream, &mut scope, index)?;
+                        depth -= 1;
+                        text
+                    });
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                } else if depth == 3 && in_list && ours && local == b"comment" {
+                    let cell = attribute_value(token.raw, b"ref", index)?
+                        .and_then(CellRef::parse)
+                        .ok_or(COMMENTS_UNREADABLE)?;
+                    let id = attribute_value(token.raw, b"authorId", index)?
+                        .and_then(digits_value)
+                        .ok_or(COMMENTS_UNREADABLE)?;
+                    if empty {
+                        entries.push(comment_entry(cell, id, String::new(), &authors));
+                    } else {
+                        comment = Some((cell, id, String::new(), None));
+                    }
+                } else if let Some((_, _, text, inside)) = comment.as_mut() {
+                    if depth == 4 && ours && local == b"text" {
+                        *inside = (!empty).then_some(depth);
+                    } else if inside.is_some() && ours && local == b"t" && !empty {
+                        text.push_str(&crate::cells::text_of(&mut stream, &mut scope, index)?);
+                        depth -= 1;
+                        continue;
+                    }
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if let Some((_, _, _, inside)) = comment.as_mut()
+                    && *inside == Some(depth)
+                {
+                    *inside = None;
+                } else if depth == 3
+                    && let Some((cell, id, text, _)) = comment.take()
+                {
+                    entries.push(comment_entry(cell, id, text, &authors));
+                } else if depth == 2 {
+                    in_authors = false;
+                    in_list = false;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    if lists == 0 {
+        return Err(COMMENTS_UNREADABLE);
+    }
+    Ok(entries)
+}
+
+/// One comment's entry: its author the `authors` child at `id`, empty past
+/// the list.
+#[cfg(feature = "comments")]
+fn comment_entry(cell: CellRef, id: u64, text: String, authors: &[String]) -> CommentEntry {
+    let author = usize::try_from(id)
+        .ok()
+        .and_then(|at| authors.get(at))
+        .cloned()
+        .unwrap_or_default();
+    CommentEntry { cell, author, text }
+}
+
+/// What the write reads of a kept VML part (`specs/0022-comments-and-
+/// images.md`, "Comments: the parts", and P1 ruling 1): the prefixes its root
+/// binds to the three VML namespaces, its `idmap` number, whether it has
+/// the shapetype `_x0000_t202`, its shapes, and where its root's end tag
+/// starts.
+#[cfg(feature = "comments")]
+struct VmlRead {
+    prefixes: [Vec<u8>; 3],
+    idmap: Option<u64>,
+    shapetype: bool,
+    shapes: Vec<VmlShape>,
+    end: usize,
+}
+
+/// One `<v:shape>` of a VML part: its bytes' span, the numbers its `id` and
+/// `o:spid` carry in the form `_x0000_s<n>`, and the zero-based row and
+/// column of a note shape (`ClientData` of `ObjectType` `Note`).
+#[cfg(feature = "comments")]
+struct VmlShape {
+    start: usize,
+    end: usize,
+    numbers: Vec<u64>,
+    note: Option<(u64, u64)>,
+}
+
+/// The number of a shape id of the form `_x0000_s<n>`.
+#[cfg(feature = "comments")]
+fn shape_number(value: &[u8]) -> Option<u64> {
+    value.strip_prefix(b"_x0000_s").and_then(digits_value)
+}
+
+/// The value of one or more ASCII digits, `None` for anything else or a
+/// value past `u64`.
+#[cfg(feature = "comments")]
+fn digits_value(value: &[u8]) -> Option<u64> {
+    if value.is_empty() || !value.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    str::from_utf8(value).ok()?.parse().ok()
+}
+
+/// The first number of an `idmap`'s `data` list, when it is a decimal
+/// number.
+#[cfg(feature = "comments")]
+fn idmap_number(value: &[u8]) -> Option<u64> {
+    let first = value.split(|byte| *byte == b',').next().unwrap_or(value);
+    digits_value(first.trim_ascii())
+}
+
+/// Reads a kept VML part held whole. A part the parser refuses, a root other
+/// than an unprefixed `xml` or with no end tag, or a root that binds no
+/// prefix to one of the three namespaces, cannot be read; an element whose
+/// prefix nothing binds meets part 2's refusal.
+#[cfg(feature = "comments")]
+fn read_vml(bytes: &[u8], index: usize) -> Result<VmlRead, Error> {
+    let unreadable = |error: Error| match error {
+        Error::Xml(_) => COMMENTS_UNREADABLE,
+        other => other,
+    };
+    let mut stream = Stream::new(Cursor::new(bytes), index).map_err(unreadable)?;
+    let mut scope = Scope::new(index);
+    let mut at: usize = if stream.bom() {
+        BYTE_ORDER_MARK.len()
+    } else {
+        0
+    };
+    let mut depth = 0usize;
+    let mut prefixes: [Option<Vec<u8>>; 3] = [None, None, None];
+    let (mut idmap, mut shapetype, mut layout) = (None, false, false);
+    let mut shapes: Vec<VmlShape> = Vec::new();
+    // The open shape, its depth, its `ClientData`'s depth and whether that is
+    // a note, and the row or column whose text is being read.
+    let mut open: Option<(VmlShape, usize, Option<usize>, bool)> = None;
+    let mut cell: (Option<u64>, Option<u64>) = (None, None);
+    let mut field: Option<(bool, String)> = None;
+    let mut end = None;
+    while let Some(token) = stream.next().map_err(unreadable)? {
+        let from = at;
+        at = at.checked_add(token.raw.len()).ok_or(COMMENTS_UNREADABLE)?;
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let is = |which: usize| namespace == Some(VML_NAMESPACES[which]);
+                if depth == 1 {
+                    if namespace.is_some() || local != b"xml" || empty {
+                        return Err(COMMENTS_UNREADABLE);
+                    }
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| COMMENTS_UNREADABLE)?;
+                        if let Some(quick_xml::name::PrefixDeclaration::Named(prefix)) =
+                            attribute.key.as_namespace_binding()
+                        {
+                            for (which, namespace) in VML_NAMESPACES.iter().enumerate() {
+                                if attribute.value.as_bytes() == *namespace
+                                    && prefixes[which].is_none()
+                                {
+                                    prefixes[which] = Some(prefix.as_bytes().to_vec());
+                                }
+                            }
+                        }
+                    }
+                } else if depth == 2 && is(1) && local == b"shapelayout" {
+                    layout = !empty;
+                } else if depth == 3 && layout && is(1) && local == b"idmap" && idmap.is_none() {
+                    idmap = attribute_value(token.raw, b"data", index)?.and_then(idmap_number);
+                } else if depth == 2 && is(0) && local == b"shapetype" {
+                    shapetype |= attribute_value(token.raw, b"id", index)?
+                        == Some(b"_x0000_t202".as_slice());
+                } else if depth == 2 && is(0) && local == b"shape" {
+                    let mut numbers = Vec::new();
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                        if attribute.key.as_namespace_binding().is_some() {
+                            continue;
+                        }
+                        let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                        let spid = namespace == Some(VML_NAMESPACES[1]) && name == b"spid";
+                        if (namespace.is_none() && name == b"id") || spid {
+                            numbers.extend(shape_number(attribute.value.as_bytes()));
+                        }
+                    }
+                    let shape = VmlShape {
+                        start: from,
+                        end: at,
+                        numbers,
+                        note: None,
+                    };
+                    if empty {
+                        shapes.push(shape);
+                    } else {
+                        open = Some((shape, depth, None, false));
+                        cell = (None, None);
+                    }
+                } else if let Some((_, _, client, note)) = open.as_mut() {
+                    if is(2) && local == b"ClientData" && client.is_none() {
+                        *client = (!empty).then_some(depth);
+                        *note = attribute_value(token.raw, b"ObjectType", index)?
+                            == Some(b"Note".as_slice());
+                    } else if client.is_some_and(|at| depth == at + 1)
+                        && is(2)
+                        && (local == b"Row" || local == b"Column")
+                        && !empty
+                    {
+                        field = Some((local == b"Row", String::new()));
+                    }
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::Text(ref chunk) => {
+                if let Some((_, text)) = field.as_mut() {
+                    text.push_str(chunk);
+                }
+            }
+            Event::End(_) => {
+                if let Some((row, text)) = field.take() {
+                    let number = digits_value(text.trim().as_bytes());
+                    if row {
+                        cell.0 = number;
+                    } else {
+                        cell.1 = number;
+                    }
+                }
+                if depth == 2 {
+                    layout = false;
+                }
+                if let Some((shape, at_depth, client, note)) = open.as_mut() {
+                    if *client == Some(depth) {
+                        *client = Some(usize::MAX);
+                    }
+                    if *at_depth == depth {
+                        shape.end = at;
+                        if *note && let (Some(row), Some(column)) = cell {
+                            shape.note = Some((row, column));
+                        }
+                        if let Some((shape, ..)) = open.take() {
+                            shapes.push(shape);
+                        }
+                    }
+                }
+                if depth == 1 {
+                    end = Some(from);
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    let [Some(v), Some(o), Some(x)] = prefixes else {
+        return Err(COMMENTS_UNREADABLE);
+    };
+    Ok(VmlRead {
+        prefixes: [v, o, x],
+        idmap,
+        shapetype,
+        shapes,
+        end: end.ok_or(COMMENTS_UNREADABLE)?,
+    })
+}
+
+/// The `idmap` number of a VML part the write does not edit, streamed to
+/// its first shape at most; a part the parser refuses cannot be read.
+#[cfg(feature = "comments")]
+fn vml_idmap(input: impl Read, index: usize) -> Result<Option<u64>, Error> {
+    let unreadable = |error: Error| match error {
+        Error::Xml(_) => COMMENTS_UNREADABLE,
+        other => other,
+    };
+    let mut stream = Stream::new(input, index).map_err(unreadable)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut layout = false;
+    while let Some(token) = stream.next().map_err(unreadable)? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let office = namespace == Some(VML_NAMESPACES[1]);
+                if depth == 2 && office && local == b"shapelayout" {
+                    layout = !empty;
+                } else if depth == 3 && layout && office && local == b"idmap" {
+                    return Ok(attribute_value(token.raw, b"data", index)?.and_then(idmap_number));
+                } else if depth == 2 && namespace == Some(VML_NAMESPACES[0]) && local == b"shape" {
+                    return Ok(None);
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 2 {
+                    layout = false;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(None)
+}
+
+/// The smallest positive number `used` does not hold, now held.
+#[cfg(feature = "comments")]
+fn smallest_unused(used: &mut Vec<u64>) -> u64 {
+    let mut n = 1u64;
+    while used.contains(&n) {
+        n += 1;
+    }
+    used.push(n);
+    n
+}
+
+/// The shapetype `_x0000_t202` a note shape names, with the `v` and `o`
+/// prefixes given (each with its colon).
+#[cfg(feature = "comments")]
+fn note_shapetype(v: &[u8], o: &[u8]) -> Vec<u8> {
+    [
+        b"<".as_slice(),
+        v,
+        b"shapetype id=\"_x0000_t202\" coordsize=\"21600,21600\" ",
+        o,
+        b"spt=\"202\" path=\"m,l,21600r21600,l21600,xe\"><",
+        v,
+        b"stroke joinstyle=\"miter\"/><",
+        v,
+        b"path gradientshapeok=\"t\" ",
+        o,
+        b"connecttype=\"rect\"/></",
+        v,
+        b"shapetype>",
+    ]
+    .concat()
+}
+
+/// A hidden note shape for `cell` with the id number `number` and the
+/// z-index `k`, with the `v`, `o` and `x` prefixes given (each with its
+/// colon): openpyxl's defaults, the box Excel places beside the cell.
+#[cfg(feature = "comments")]
+fn note_shape(prefixes: [&[u8]; 3], number: u64, k: u64, cell: CellRef) -> Vec<u8> {
+    let [v, o, x] = prefixes;
+    let row = u64::from(cell.row) - 1;
+    let column = u64::from(cell.col) - 1;
+    let top = row.saturating_sub(1);
+    let anchor = format!(
+        "{}, 15, {top}, 2, {}, 15, {}, 2",
+        column + 1,
+        column + 3,
+        top + 4
+    );
+    let mut out = [b"<".as_slice(), v, b"shape id=\"_x0000_s"].concat();
+    out.extend_from_slice(number.to_string().as_bytes());
+    out.extend_from_slice(
+        b"\" type=\"#_x0000_t202\" style=\"position:absolute;margin-left:59.25pt;\
+          margin-top:1.5pt;width:108pt;height:59.25pt;z-index:",
+    );
+    out.extend_from_slice(k.to_string().as_bytes());
+    out.extend_from_slice(b";visibility:hidden\" fillcolor=\"#ffffe1\" ");
+    out.extend_from_slice(o);
+    out.extend_from_slice(b"insetmode=\"auto\">");
+    out.extend_from_slice(
+        &[
+            b"<".as_slice(),
+            v,
+            b"fill color2=\"#ffffe1\"/><",
+            v,
+            b"shadow on=\"t\" color=\"black\" obscured=\"t\"/><",
+            v,
+            b"path ",
+            o,
+            b"connecttype=\"none\"/><",
+            v,
+            b"textbox style=\"mso-direction-alt:auto\"><div style=\"text-align:left\"/></",
+            v,
+            b"textbox><",
+            x,
+            b"ClientData ObjectType=\"Note\"><",
+            x,
+            b"MoveWithCells/><",
+            x,
+            b"SizeWithCells/><",
+            x,
+            b"Anchor>",
+        ]
+        .concat(),
+    );
+    out.extend_from_slice(anchor.as_bytes());
+    out.extend_from_slice(
+        &[
+            b"</".as_slice(),
+            x,
+            b"Anchor><",
+            x,
+            b"AutoFill>False</",
+            x,
+            b"AutoFill><",
+            x,
+            b"Row>",
+        ]
+        .concat(),
+    );
+    out.extend_from_slice(row.to_string().as_bytes());
+    out.extend_from_slice(&[b"</".as_slice(), x, b"Row><", x, b"Column>"].concat());
+    out.extend_from_slice(column.to_string().as_bytes());
+    out.extend_from_slice(
+        &[
+            b"</".as_slice(),
+            x,
+            b"Column></",
+            x,
+            b"ClientData></",
+            v,
+            b"shape>",
+        ]
+        .concat(),
+    );
+    out
+}
+
+/// A created VML part's bytes (`specs/0022-comments-and-images.md`,
+/// "Comments: the parts"): one line, no declaration, `idmap` `block` and
+/// the note shapes numbered `1024 * block + K`, K from 1.
+#[cfg(feature = "comments")]
+fn vml_part_bytes(block: u64, cells: &[CellRef]) -> Vec<u8> {
+    let mut out = b"<xml".to_vec();
+    for (name, namespace) in [b"v".as_slice(), b"o", b"x"]
+        .into_iter()
+        .zip(VML_NAMESPACES)
+    {
+        out.extend_from_slice(&[b" xmlns:".as_slice(), name, b"=\"", namespace, b"\""].concat());
+    }
+    out.extend_from_slice(b"><o:shapelayout v:ext=\"edit\"><o:idmap v:ext=\"edit\" data=\"");
+    out.extend_from_slice(block.to_string().as_bytes());
+    out.extend_from_slice(b"\"/></o:shapelayout>");
+    out.extend_from_slice(&note_shapetype(b"v:", b"o:"));
+    for (k, cell) in (1u64..).zip(cells) {
+        out.extend_from_slice(&note_shape(
+            [b"v:", b"o:", b"x:"],
+            1024 * block + k,
+            k,
+            *cell,
+        ));
+    }
+    out.extend_from_slice(b"</xml>");
+    out
+}
+
+/// A kept VML part with the additions (P1 ruling 1): its bytes up to the
+/// root's end tag, a replaced cell's note shape left out, the shapetype when
+/// the part has none, a note shape per cell numbered `1024 * block + K`, K
+/// the larger of one above the kept shapes and one above the largest
+/// number in `block`'s range a kept shape carries, then the end tag and
+/// what follows it.
+#[cfg(feature = "comments")]
+fn vml_appended(bytes: &[u8], read: &VmlRead, block: u64, cells: &[CellRef]) -> Vec<u8> {
+    let replaced = |shape: &VmlShape| {
+        shape.note.is_some_and(|(row, column)| {
+            cells
+                .iter()
+                .any(|cell| u64::from(cell.row) - 1 == row && u64::from(cell.col) - 1 == column)
+        })
+    };
+    let low = 1024 * block;
+    let mut kept = 0u64;
+    let mut highest = 0u64;
+    let mut out = Vec::new();
+    let mut from = 0usize;
+    for shape in &read.shapes {
+        if replaced(shape) {
+            out.extend_from_slice(&bytes[from..shape.start]);
+            from = shape.end;
+            continue;
+        }
+        kept += 1;
+        for number in &shape.numbers {
+            if *number > low && *number <= low + 1024 {
+                highest = highest.max(number - low);
+            }
+        }
+    }
+    out.extend_from_slice(&bytes[from..read.end]);
+    let colon = |prefix: &[u8]| [prefix, b":"].concat();
+    let [v, o, x] = [
+        colon(&read.prefixes[0]),
+        colon(&read.prefixes[1]),
+        colon(&read.prefixes[2]),
+    ];
+    if !read.shapetype {
+        out.extend_from_slice(&note_shapetype(&v, &o));
+    }
+    let first = kept.max(highest) + 1;
+    for (k, cell) in (first..).zip(cells) {
+        out.extend_from_slice(&note_shape([&v, &o, &x], low + k, k, *cell));
+    }
+    out.extend_from_slice(&bytes[read.end..]);
+    out
+}
+
+/// The `<legacyDrawing>` part of a worksheet rewrite
+/// (`specs/0022-comments-and-images.md`, "Comments: the parts"): the element
+/// created in schema position when the write adds a VML part to a sheet
+/// that has none, and the prefix its `r:id` takes. The Cargo feature
+/// `comments`.
+#[cfg(feature = "comments")]
+struct LegacyPass<'w> {
+    rel_id: Option<&'w [u8]>,
+    written: bool,
+    /// The prefix the root binds to the relationships namespace, or the one
+    /// its retag binds; empty until the root is read.
+    rels_prefix: Vec<u8>,
+}
+
+#[cfg(feature = "comments")]
+impl<'w> LegacyPass<'w> {
+    fn new(rel_id: Option<&'w [u8]>) -> Self {
+        LegacyPass {
+            rel_id,
+            written: false,
+            rels_prefix: Vec::new(),
+        }
+    }
+
+    /// The root's start tag as the rewrite writes it: as it is, or, when the
+    /// element is created and the root binds no prefix to the relationships
+    /// namespace, with one bound, as a table's retag binds it.
+    fn root_tag(&mut self, raw: &[u8], strict: bool, index: usize) -> Result<Vec<u8>, Error> {
+        if self.rel_id.is_none() {
+            return Ok(raw.to_vec());
+        }
+        let (tag, prefix) = rels_prefixed(raw, strict, index)?;
+        self.rels_prefix = prefix;
+        Ok(tag)
+    }
+
+    /// The `<legacyDrawing>` the write creates, when a root child at
+    /// `position` comes after it in schema order.
+    fn create_before(&mut self, position: usize, prefix: &[u8]) -> Option<Vec<u8>> {
+        if schema_position(LEGACY_DRAWING).unwrap_or(0) < position {
+            return self.create_at_end(prefix);
+        }
+        None
+    }
+
+    /// The `<legacyDrawing>` the write creates at the root's end, when it is
+    /// still to be written.
+    fn create_at_end(&mut self, prefix: &[u8]) -> Option<Vec<u8>> {
+        let id = self.rel_id?;
+        if self.written {
+            return None;
+        }
+        self.written = true;
+        let mut out = [b"<".as_slice(), prefix, b"legacyDrawing "].concat();
+        out.extend_from_slice(&self.rels_prefix);
+        out.extend_from_slice(b":id=\"");
+        out.extend_from_slice(id);
+        out.extend_from_slice(b"\"/>");
+        Some(out)
     }
 }
 

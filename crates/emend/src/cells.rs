@@ -1514,7 +1514,7 @@ pub(crate) fn text_of<R: Read>(
 /// CR LF and a lone CR both become one LF. `after_cr` carries the "the last
 /// character was a CR" state out of the call, so a pair split across two
 /// chunks is still one LF.
-fn push_text(into: &mut String, chunk: &str, after_cr: &mut bool) {
+pub(crate) fn push_text(into: &mut String, chunk: &str, after_cr: &mut bool) {
     for character in chunk.chars() {
         match character {
             '\r' => {
@@ -1541,7 +1541,7 @@ fn push_text(into: &mut String, chunk: &str, after_cr: &mut bool) {
 /// are expanded by name. Anything else is refused: a document type could
 /// declare it, this layer does not read document types, and a value missing
 /// one of its characters is not the value.
-fn expand(reference: &BytesRef<'_>, index: usize) -> Result<char, Error> {
+pub(crate) fn expand(reference: &BytesRef<'_>, index: usize) -> Result<char, Error> {
     if let Some(resolved) = reference
         .resolve_char_ref()
         .map_err(|_| Error::Xml(index))?
