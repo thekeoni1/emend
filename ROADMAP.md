@@ -702,6 +702,26 @@ Stays out: charts, pivot tables and VBA beyond passthrough, and by
 `CLAUDE.md`'s definition formula evaluation, rendering, autofit and
 reference fixup.
 
+### Part 1: proof at scale (`specs/0023-scale.md`)
+
+Approved by the maintainer 2026-10-01 ("a on all"): four generated
+tiers (a 50000 rows, b 800000, c 1048576 rows by 120 columns with
+one entry over 4 GiB, d 800000 with every string unique), every
+sample run over each on both targets under the 2048 MiB cap, the
+memory class of each path predicted from the code and measured, a
+decision record for parts 2, 5 and 6. The LibreOffice check on tier
+a only; the host diff on tier c; the cap on both labels. No new
+capability; a defect at scale is fixed here, a design limit is
+carried. Tier c was corrected to 120 columns during P1 (planning's
+draft sized it at 48 from a guessed bytes-per-cell).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `scripts/scale-gen.py` and its tier t test; the four tiers generated with their manifest; the survey of every sample's memory class | DONE 2026-10-01 (doc 48c6e0d, scripts a509ad3, record e2ff972; tiers a, b, c, d generated under the cap in 2.0, 32.7, 198.5 and 35.9 s with peak RSS under 45 MB, tier c's sheet 5025024826 bytes with the zip64 field; the survey predicts 20 samples streaming, 5 holding the output in the tool's read-back, and tier c refusing 8 at the grid; four findings ruled: 24 samples since `--new-sample` writes its input, `TMPDIR` on the disk, a cell past the grid a defect fixed in P2, tier c's fewer write paths recorded; verified by planning from primaries, the generator read in full, its own hashes and central-directory reads of the four tiers, the survey's cited lines read, its own scan; `records/m3p1-gen-2026-10-01-a509ad3.md`; `specs/0023` "Planning verification and rulings on P1") |
+| P2 | the grid refusal at the write (P1 ruling 5); the 192 runs, tier a with LibreOffice, then b, d, c, both labels, `TMPDIR` on the disk; the run records per tier | PLANNED |
+| P3 | the decision record; the catalogue block "What streams and what is held"; the size record; part 4d's two samples rerun; the open record | PLANNED |
+| Close | close-out push after P3, carrying ab5b3aa and this part's commits, the scan script's key check and the ci-run newline, the previous-record pattern naming ab5b3aa, one independent check; Milestone 2's Excel check run or deferred again before it | PLANNED |
+
 ## Unscoped
 
 Listed so they are not lost. Scoping any of them needs the maintainer's

@@ -74,8 +74,10 @@ creator and lastModifiedBy "corpus", no company. The script refuses
 a target under the repository and a tier it does not know, and
 writes a `manifest.tsv` in the corpus manifest's form (producer
 `scale-gen`, producer_version the script's own version string,
-tags `scale,tier-<letter>`, original_name the tier's file name,
-note empty) so the runner takes the directory as a corpus.
+tags `scale,tier<letter>` (no hyphen: the runner's tag form is
+`[a-z0-9,]`, P1 ruling 2), source `generated` (P1 ruling 3),
+original_name the tier's file name, note empty) so the runner
+takes the directory as a corpus.
 
 The workbook: two worksheets. The first is the tier's large sheet,
 24 or 48 columns per row (12 or 24 numbers, 6 or 12 shared
@@ -89,29 +91,38 @@ generator and the crate agree on the parts), no calc chain.
 
 ### The tiers
 
-| Tier | Rows | Columns | Strings | Sheet XML, about | Purpose |
+| Tier | Rows | Columns | Strings | Sheet XML, counted | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| A | 50000 | 24 | vocabulary | 60 MB | LibreOffice opens it; the baseline every sample is compared against |
-| B | 800000 | 24 | vocabulary | 1 GiB | past any sensible buffer, under the cap |
-| C | 1048576 | 48 | vocabulary | 4.5 GiB | one entry over 4 GiB: zip64 sizes, over the 32-bit address space |
-| D | 800000 | 24 | every string unique | 1 GiB, shared strings about 150 MB | the shared strings table loaded whole, measured |
+| A | 50000 | 24 | vocabulary | 45838595 bytes | LibreOffice opens it; the baseline every sample is compared against |
+| B | 800000 | 24 | vocabulary | 760275485 bytes | past any sensible buffer, under the cap |
+| C | 1048576 | 120 | vocabulary | about 4.7 GiB (P1 ruling 1; the P1 record prints the count) | one entry over 4 GiB: zip64 sizes, over the 32-bit address space |
+| D | 800000 | 24 | every string unique | 778893118 bytes, shared strings 166996261 | the shared strings table loaded whole, measured |
 
-Tier C's row count is Excel's maximum. The archive sizes are what
-deflate makes of them, recorded, not designed. Each tier's sha256
-and byte count go in the P1 record; the runs cite them.
+Tier C's row count is Excel's maximum; its 120 columns are five
+blocks of the 24-column form, since the form runs about 38 bytes
+a cell and 48 columns reach only 1.9 GiB (P1 ruling 1; planning's
+draft said 4.5 GiB at 48 columns from a guessed 96 bytes a cell).
+The counts are the implementing session's, from the generator's
+row function before any zipping, reprinted by the P1 record. The
+archive sizes are what deflate makes of them, recorded, not
+designed. Each tier's sha256 and byte count go in the P1 record;
+the runs cite them.
 
 ### The runs
 
 `scripts/passthrough-run.sh` unchanged, `--corpus` the scale
 directory, `--memory 2048` on both labels (so the host and the
 32-bit target are measured alike), `--timeout 3600`, one run per
-sample per label per tier: 25 samples, two labels, four tiers,
-200 runs. `--libreoffice` on tier A only (decision 2); tiers B to
-D record `lo not-run`. The diff runs with the host `xlsx-diff` for
-both labels on tier C (decision 4), since the tool reads an entry
-whole and the entry is larger than a 32-bit address space; the
-record names the binary's sha256 as the runner prints it. The
-run directory is `runs/<utc-date>-<shortsha>-scale-<tier>`, one
+sample per label per tier: 24 samples (`--new-sample` never reads
+its input and `specs/0016` keeps it off the corpus runs; P1
+verification ruling 3), two labels, four tiers, 192 runs, with
+`TMPDIR` on the disk (ruling 4). `--libreoffice` on tier A only
+(decision 2); tiers B to D record `lo not-run`. The diff runs with
+the host `xlsx-diff` for both labels on tier C (decision 4),
+since the tool reads an entry whole and the entry is larger than
+a 32-bit address space; the record names the binary's sha256 as
+the runner prints it. The run directory is
+`runs/<utc-date>-<shortsha>-scale-<tier>`, one
 per tier, both labels in it, as the corpus runs are laid out.
 
 ### What is measured and how it is read
@@ -241,6 +252,40 @@ five times, last on 2026-10-01, is run (Milestone 2's acceptance
 record then follows Milestone 1's form) or deferred again by a
 decision recorded here (decision 6).
 
+## Planning rulings during P1 (2026-10-01)
+
+1. Tier C's size. The implementing session counted the sheet XML
+   of every tier with the generator's row function: the form the
+   spec gives runs about 38 bytes a cell, so 1048576 rows by 48
+   columns make 2002424253 bytes, under 2^31, and no zip64 entry.
+   Planning's 4.5 GiB was a guess at 96 bytes a cell, wrong. The
+   maintainer's decision 1 is the zip64 case over the 32-bit
+   address space, not a column count. Ruling: tier C is 1048576
+   rows by 120 columns, five blocks of the 24-column form, the
+   content form unchanged (no padding of cells, which would make
+   the tier measure a form no workbook has). The P1 record prints
+   the counted size, expected about 4.7 GiB, and the run log
+   checks that the entry's uncompressed size exceeds 2^32 before
+   tier C counts as the zip64 case. The table above is corrected.
+2. Tags. The runner's manifest check takes `[a-z0-9,]` only, so
+   the tags are `scale,tier<letter>` with no hyphen. The runner is
+   not changed for a hyphen.
+3. The manifest's source column: `generated`. The runner and the
+   record script never read it; `specs/0005`'s fixed list is the
+   corpus's and a generated set adds one word to it, recorded here.
+4. The tier `t` test: a committed `scripts/scale-gen-test.py` that
+   generates tier `t` into a temporary directory and runs the
+   gate's `emend-copy` on both targets through the flags that go
+   through `Package::sheets`, `cells` and `shared_strings`,
+   asserting the counts (2 sheets, 2500 cells, 1000 shared
+   strings, every operation byte-identical), run by `test.log`.
+   Accepted: through the tool is through the crate, and Python
+   stays out of `cargo test` and CI. The negative log holds the
+   generator's refusals as "P1" says.
+5. These rulings are written into the working spec after the doc
+   commit 48c6e0d; P1's logs pin the committed spec, 7b1eb997; the
+   rulings go in P2's doc commit.
+
 ## Decisions for the maintainer
 
 1. The tiers. A (recommended): the four tiers as drafted, 200
@@ -268,6 +313,89 @@ decision recorded here (decision 6).
    deferred five times, to run before this part's close-out push
    at the latest, or be deferred again by a decision recorded
    here. Recorded, not asked.
+
+## Planning verification and rulings on P1 (2026-10-01)
+
+Verified by planning from primaries: the doc commit 48c6e0d holds
+this file at 7b1eb997, `ROADMAP.md` at ed534cce and `specs/0022`
+at bfec1e8f, the hashes planning sent; the code commit a509ad3
+adds exactly the two scripts and the record commit e2ff972 the
+six logs and the record; 3 of 3 messages end with the
+Co-Authored-By line only, ASCII; the logs and the record at the
+reported hashes, each log ending all as expected, the scan RESULT:
+PASS, every log pinning 7b1eb997; `scripts/scale-gen.py` read in
+full: standard library, one seed, the vocabulary made of syllables
+in the script, the row form as "The generator" gives it, rows
+streamed in batches of 1000 into the entry, zip64 forced on tier
+c's sheet, core properties "corpus", the refusals, no string or
+value ever printed; `scripts/scale-gen-test.py` read in full;
+planning's own sha256 of the four workbooks in the scale
+directory equal to the manifest's and the record's, its own read
+of each archive's central directory (9 entries, the sheet sizes
+45838595, 760275485, 5025024826 over 2^32 with the zip64 field,
+778893118, the shared strings 166996261 on tier d, creator and
+lastModifiedBy "corpus", no company); the survey's cited lines
+read at a509ad3 (`new_sample` writing its first path, the five
+`Cursor` second writes in the read-backs of validate, cf, table,
+comment and names, `set_cell` recording with no check, `on_grid`
+and `INDEX_OUT_OF_RANGE` present for other calls, `TempFile` in
+`env::temp_dir`); planning's own privacy scan ab5b3aa..e2ff972,
+3 commits, 911 blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent checks' remaining items: the report's "blobs"
+   for content hashes, the "(attempt 2)" labels in negative.log's
+   third attempt, the negative log's HEAD check without the
+   short-sha control the other logs carry, no negative case for a
+   sibling path sharing the repository's prefix. Cosmetic or
+   allowed by `specs/0001`; accepted, no change. The next phase's
+   negative log carries the short-sha control.
+2. The vocabulary is generated syllables; a word that happens to
+   spell a name names no one, and no string is ever printed. The
+   content is fictional as `CLAUDE.md` requires. Accepted.
+3. Finding 1, `--new-sample`: it never reads its input and writes
+   `Package::new()` to its first path by `specs/0016`'s design,
+   which keeps it off the corpus runs. Ruling: P2 runs 24 samples,
+   192 runs; the tool is not changed; "The runs" is corrected.
+4. Finding 2, the temporaries: `TempFile` honours `TMPDIR`, and
+   `/tmp` is a tmpfs the cap and peak RSS cannot see. Ruling: the
+   run script exports `TMPDIR` as a directory on the disk under
+   the scale directory, mode 700, printed as a placeholder; the
+   run log counts the files and bytes there before and after every
+   run (0 after a completed run; a killed run's leftovers counted,
+   removed and logged); the peak temporary size on tier c is the
+   code's reading, stated as such in the decision record and not
+   measured. If the runner does not pass `TMPDIR` through to the
+   tool, the implementing session holds and reports.
+5. Finding 3, a cell recorded past the grid: a defect. The write
+   refuses a recorded cell value, clear or style whose reference is
+   off the grid with "a row or column index or count is out of
+   range" (`on_grid` and the message exist for other calls), in
+   P2's first code commit before any run, with tests on both
+   targets and the catalogue sentence; the six samples are then
+   refused on tier c at the write, as insert-rows is. No corpus
+   sheet reaches the grid, so every corpus output is unchanged by
+   construction; P3's rerun of part 4d's two samples shows it on
+   two paths and the tests on the rest. Measured by the size log at
+   P3 as a correctness fix.
+6. Finding 4, tier c's fewer write paths: recorded. The decision
+   record lists the rewrite paths tier c measured (the zip64
+   entry rewritten by edit-formula, delete-rows, insert-columns,
+   delete-columns, link and protect, if the runs bear it out) and
+   says the rest were measured on tiers b and d.
+7. The names sample's predicted kill on tier c is a hold in the
+   tool (the read-back's second write into memory, part 4a's
+   sample design), its own class "holds in the tool", not a crate
+   limit; recorded in P2 and the decision record; the tool is not
+   changed in this part.
+8. The amend of the code commit before any log, the superseded
+   attempts kept and named by hash, and the first generation's
+   identical hashes as an unlogged aside: recorded, no change.
+9. P1 is DONE. P2 is released: its doc commit carries this file
+   with the P1 rulings and this section and `ROADMAP.md`'s part 1
+   section; its first code commit is ruling 5's fix; the runs as
+   "The runs" with rulings 3 and 4, in the order a with
+   LibreOffice, b, d, c, both labels each, the host `xlsx-diff`
+   on tier c for both labels.
 
 ## Out of scope
 
