@@ -506,7 +506,8 @@
 //! (`specs/0022-comments-and-images.md`, "Errors", and the P1 rulings;
 //! without the feature no call records a comment edit and none of them is
 //! raised); the first two are raised by `Package::add_comment`, the rest by
-//! [`Package::write_to`] and, the last, by `Package::comments` too. The call
+//! [`Package::write_to`], after `Package::add_comment` or
+//! `Package::remove_comment`, and, the last, by `Package::comments` too. The call
 //! also meets "a row or column index or count is out of range" and "a text
 //! holds a character XML cannot carry"
 //! (`comments::the_call_refuses_each_rule_and_records_nothing`), and the
@@ -527,9 +528,13 @@
 //!   (`comments::a_sheet_with_threaded_comments_is_refused`).
 //! - "a worksheet has two legacyDrawing elements"
 //!   (`comments::two_legacy_drawings_or_one_out_of_schema_order_are_refused`).
+//! - "no comment on that cell"
+//!   (`comments::a_removal_of_an_absent_cell_a_cell_this_write_adds_or_one_named_twice_is_refused`,
+//!   `a_removal_then_an_addition_of_one_cell_replaces_and_needs_a_kept_comment`).
 //! - "a comments part or its drawing cannot be read"
 //!   (`comments::a_read_refuses_what_it_cannot_read`,
-//!   `the_write_refuses_parts_it_cannot_read`).
+//!   `the_write_refuses_parts_it_cannot_read`,
+//!   `a_removal_on_a_sheet_whose_comments_part_is_missing_is_refused_at_the_write`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -2005,16 +2010,16 @@ struct Recorded {
     /// [`Package::write_to`] before it validates.
     #[cfg(feature = "tables")]
     table_removed_ids: Vec<(Vec<u8>, Vec<u8>)>,
-    /// `(part, cell, comment)`: a comment added, in record order
-    /// (`specs/0022-comments-and-images.md`, "Comments: the calls").
+    /// `(part, cell, comment)`: a comment added, or removed when `None`, in
+    /// record order (`specs/0022-comments-and-images.md`, "Comments: the
+    /// calls").
     #[cfg(feature = "comments")]
-    comment_additions: Vec<(Vec<u8>, CellRef, NewComment)>,
-    /// `(part, id, strict)`: for each part whose `<legacyDrawing>` the write
-    /// creates, the id of the VML part's relationship and whether the part
-    /// takes the strict forms, filled by [`Package::write_to`] before it
-    /// validates.
+    comment_edits: Vec<(Vec<u8>, CellRef, Option<NewComment>)>,
+    /// `(part, work)`: for each part whose `<legacyDrawing>` the write
+    /// creates or drops, what the worksheet pass does, filled by
+    /// [`Package::write_to`] before it validates.
     #[cfg(feature = "comments")]
-    comment_works: Vec<(Vec<u8>, Vec<u8>, bool)>,
+    comment_works: Vec<(Vec<u8>, LegacyWork)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2117,6 +2122,10 @@ struct SheetWork {
     /// namespace).
     #[cfg(feature = "comments")]
     legacy_strict: bool,
+    /// Whether the write drops the part's `<legacyDrawing>`, its VML part
+    /// gone with the last comment.
+    #[cfg(feature = "comments")]
+    legacy_drop: bool,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -2905,10 +2914,28 @@ pub struct CommentEntry {
     pub text: String,
 }
 
-/// A worksheet part and the comments the write adds to it, a cell's last
-/// addition winning.
+/// One worksheet part's comment edits, as the write resolves them in record
+/// order: the additions, a cell's last winning in its place; the cells
+/// whose comment is removed; and the cells an addition replaces after a
+/// removal of the same cell, which must hold a kept comment.
 #[cfg(feature = "comments")]
-type PartComments = (Vec<u8>, Vec<(CellRef, NewComment)>);
+#[derive(Default)]
+struct PartComments {
+    additions: Vec<(CellRef, NewComment)>,
+    removals: Vec<CellRef>,
+    replaced: Vec<CellRef>,
+}
+
+/// What a worksheet rewrite does with `<legacyDrawing>` for the comments:
+/// creates it naming the VML relationship `create`, or drops it, in the
+/// worksheet's form `strict`.
+#[cfg(feature = "comments")]
+#[derive(Clone)]
+struct LegacyWork {
+    create: Option<Vec<u8>>,
+    drop: bool,
+    strict: bool,
+}
 
 /// A comment to add, as [`Package::add_comment`] checked it.
 #[cfg(feature = "comments")]
@@ -2930,7 +2957,7 @@ struct NewTable {
 }
 
 /// A relationship's id and the part it names.
-#[cfg(feature = "tables")]
+#[cfg(any(feature = "tables", feature = "comments"))]
 type RelTarget = (Vec<u8>, Vec<u8>);
 
 /// A table the write adds to a worksheet: its area and the id of the
@@ -3284,7 +3311,7 @@ impl Recorded {
     /// Whether no comment is added; always, without the feature `comments`.
     #[cfg(feature = "comments")]
     fn no_comment_edits(&self) -> bool {
-        self.comment_additions.is_empty()
+        self.comment_edits.is_empty()
     }
 
     /// Whether no comment is added; always, without the feature `comments`.
@@ -3428,7 +3455,7 @@ impl Recorded {
         // A comment rewrites the worksheet only when its `<legacyDrawing>`
         // is created (`specs/0022-comments-and-images.md`, "Harness runs").
         #[cfg(feature = "comments")]
-        let named = named.chain(self.comment_works.iter().map(|(part, _, _)| part));
+        let named = named.chain(self.comment_works.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -3542,13 +3569,18 @@ impl Recorded {
             legacy: self
                 .comment_works
                 .iter()
-                .find(|(at, _, _)| at.as_slice() == part)
-                .map(|(_, id, _)| id.clone()),
+                .find(|(at, _)| at.as_slice() == part)
+                .and_then(|(_, work)| work.create.clone()),
             #[cfg(feature = "comments")]
             legacy_strict: self
                 .comment_works
                 .iter()
-                .any(|(at, _, strict)| at.as_slice() == part && *strict),
+                .any(|(at, work)| at.as_slice() == part && work.strict),
+            #[cfg(feature = "comments")]
+            legacy_drop: self
+                .comment_works
+                .iter()
+                .any(|(at, work)| at.as_slice() == part && work.drop),
         }
     }
 
@@ -4867,6 +4899,32 @@ impl<R: Read + Seek> Package<R> {
         comment: Comment<'_>,
     ) -> Result<(), Error> {
         self.parts().add_comment(part, cell, comment)
+    }
+
+    /// Records the removal of the comment on `cell` of the worksheet part
+    /// `part`. The Cargo feature `comments` (`specs/0022-comments-and-
+    /// images.md`, "Comments: the calls").
+    ///
+    /// The write skips the `<comment>` whose `ref` is the cell and, in the
+    /// VML part, the note shape (`ClientData` of `ObjectType` `Note`) whose
+    /// `Row` and `Column` are the cell's, zero-based. A `<commentList>` left
+    /// empty drops the comments part, its relationship, its `Override` and
+    /// the entry; the VML part goes with it, with its relationship, its
+    /// `Override` and the worksheet's `<legacyDrawing>`, unless it still
+    /// holds a shape of another `ObjectType`, a form control, when it is kept
+    /// with that shape. Authors are never removed. A comment added on the
+    /// cell after its removal in the same write replaces it.
+    ///
+    /// # Errors
+    ///
+    /// None at the call. The write refuses a cell with no comment in the
+    /// part's file, a cell this write adds a comment on before the removal,
+    /// and a cell named twice for removal, "no comment on that cell" (the
+    /// caller writes twice); and what [`Package::add_comment`] says it
+    /// refuses of the part.
+    #[cfg(feature = "comments")]
+    pub fn remove_comment(&mut self, part: &[u8], cell: CellRef) -> Result<(), Error> {
+        self.parts().remove_comment(part, cell)
     }
 
     /// The comments of the worksheet part `part`: each `<comment>` of the
@@ -6381,14 +6439,21 @@ impl<'a> Parts<'a> {
         if !(1..=32767).contains(&comment.text.chars().count()) {
             return Err(COMMENT_TEXT_INVALID);
         }
-        self.edits.comment_additions.push((
+        self.edits.comment_edits.push((
             part.to_vec(),
             cell,
-            NewComment {
+            Some(NewComment {
                 author: comment.author.to_string(),
                 text: comment.text.to_string(),
-            },
+            }),
         ));
+        Ok(())
+    }
+
+    /// The body of [`Package::remove_comment`].
+    #[cfg(feature = "comments")]
+    fn remove_comment(&mut self, part: &[u8], cell: CellRef) -> Result<(), Error> {
+        self.edits.comment_edits.push((part.to_vec(), cell, None));
         Ok(())
     }
 
@@ -6408,52 +6473,84 @@ impl<'a> Parts<'a> {
     /// read message.
     #[cfg(feature = "comments")]
     fn comments_target(&mut self, part: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        Ok(self.comments_rel(part)?.map(|(_, target)| target))
+    }
+
+    /// [`Parts::comments_target`] with the relationship's id beside it.
+    #[cfg(feature = "comments")]
+    fn comments_rel(&mut self, part: &[u8]) -> Result<Option<RelTarget>, Error> {
         let rels = self.relationships(part)?;
         match rels
             .all()
             .iter()
             .find(|rel| !rel.external && COMMENTS.contains(&rel.kind.as_slice()))
         {
-            Some(rel) => Ok(Some(
+            Some(rel) => Ok(Some((
+                rel.id.clone(),
                 rels.target_part(rel).map_err(|_| COMMENTS_UNREADABLE)?,
-            )),
+            ))),
             None => Ok(None),
         }
     }
 
-    /// Records each worksheet's comment additions
+    /// Records each worksheet's comment edits
     /// (`specs/0022-comments-and-images.md`, "Comments: the calls" and
-    /// "Comments: the parts"): the comments part appended to or created,
-    /// the VML part appended to or created, their overrides and
-    /// relationships, and, when the sheet has no `<legacyDrawing>`, the VML
-    /// relationship's id for the worksheet pass. A cell's last addition
-    /// wins, in that addition's place. The refusals of a removed, replaced,
-    /// absent or shifted part come first, then the sheet's threaded
-    /// comments, then what the parts cannot be read for.
+    /// "Comments: the parts"): the comments part appended to, created or,
+    /// when its last comment goes, dropped; the VML part likewise, a dropped
+    /// comments part taking it along unless it holds a shape of another
+    /// `ObjectType`; their overrides and relationships; and what the
+    /// worksheet pass does with `<legacyDrawing>`. A cell's last addition
+    /// wins, in that addition's place; a removal followed by an addition of
+    /// one cell is the replacement. The refusals of a removed, replaced,
+    /// absent or shifted part come first, then a removal of a cell this
+    /// write adds a comment on or names twice, then the sheet's threaded
+    /// comments, then what the parts cannot be read for, then a removal or
+    /// a replacement of a cell with no comment.
     #[cfg(feature = "comments")]
     fn record_comments(&mut self) -> Result<(), Error> {
-        if self.edits.comment_additions.is_empty() {
+        if self.edits.comment_edits.is_empty() {
             return Ok(());
         }
-        let mut parts: Vec<PartComments> = Vec::new();
-        for (part, cell, comment) in self.edits.comment_additions.clone() {
+        let mut parts: Vec<(Vec<u8>, PartComments)> = Vec::new();
+        for (part, cell, edit) in self.edits.comment_edits.clone() {
             let at = match parts.iter().position(|(have, _)| *have == part) {
                 Some(at) => at,
                 None => {
-                    parts.push((part, Vec::new()));
+                    parts.push((part, PartComments::default()));
                     parts.len() - 1
                 }
             };
-            let list = &mut parts[at].1;
-            list.retain(|(have, _)| *have != cell);
-            list.push((cell, comment));
+            let edits = &mut parts[at].1;
+            match edit {
+                Some(comment) => {
+                    // An addition after a removal of the cell replaces its
+                    // comment, which must then be there.
+                    if let Some(gone) = edits.removals.iter().position(|have| *have == cell) {
+                        edits.removals.remove(gone);
+                        edits.replaced.push(cell);
+                    }
+                    edits.additions.retain(|(have, _)| *have != cell);
+                    edits.additions.push((cell, comment));
+                }
+                None => {
+                    // A removal of a cell this write adds a comment on, or one
+                    // named twice: the caller writes twice.
+                    if edits.additions.iter().any(|(have, _)| *have == cell)
+                        || edits.removals.contains(&cell)
+                        || edits.replaced.contains(&cell)
+                    {
+                        return Err(NO_SUCH_COMMENT);
+                    }
+                    edits.removals.push(cell);
+                }
+            }
         }
         let mut entries = self.taken_entries();
         // The `idmap` numbers of the projected workbook's VML parts, read
         // when the first part needs one allocated.
         let mut idmaps: Option<Vec<u64>> = None;
-        let mut works: Vec<(Vec<u8>, Vec<u8>, bool)> = Vec::new();
-        for (part, additions) in parts {
+        let mut works: Vec<(Vec<u8>, LegacyWork)> = Vec::new();
+        for (part, edits) in parts {
             if self.edits.part_removals.contains(&part) {
                 return Err(REMOVED_PART_EDITED);
             }
@@ -6480,13 +6577,13 @@ impl<'a> Parts<'a> {
             {
                 return Err(THREADED_COMMENTS_HELD);
             }
-            let comments = self.comments_target(&part)?;
+            let comments = self.comments_rel(&part)?;
             let legacy = legacy_drawing_id(self.archive.read(index)?, index)?;
-            let vml = match legacy {
+            let vml = match &legacy {
                 Some(id) => {
                     let rels = self.relationships(&part)?;
                     let rel = rels
-                        .by_id(&id)
+                        .by_id(id)
                         .filter(|rel| !rel.external && VML_DRAWING.contains(&rel.kind.as_slice()))
                         .ok_or(COMMENTS_UNREADABLE)?;
                     Some(rels.target_part(rel).map_err(|_| COMMENTS_UNREADABLE)?)
@@ -6495,35 +6592,60 @@ impl<'a> Parts<'a> {
             };
             // A part this write removes, replaces or adds through the part
             // calls is not read for the edit (P1 verification ruling 1 (2)).
-            self.comment_part_untouched(comments.as_deref())?;
+            self.comment_part_untouched(comments.as_ref().map(|(_, target)| target.as_slice()))?;
             self.comment_part_untouched(vml.as_deref())?;
-            let at_of = |archive: &Core, target: &Option<Vec<u8>>| match target {
+            let at_of = |archive: &Core, target: Option<&Vec<u8>>| match target {
                 Some(target) => archive
                     .index_of(target)
                     .map(Some)
                     .ok_or(COMMENTS_UNREADABLE),
                 None => Ok(None),
             };
-            let comments_at = at_of(self.archive, &comments)?;
-            let vml_at = at_of(self.archive, &vml)?;
+            let comments_at = at_of(self.archive, comments.as_ref().map(|(_, target)| target))?;
+            let vml_at = at_of(self.archive, vml.as_ref())?;
             if comments.is_some() && vml.is_none() {
                 return Err(COMMENTS_UNREADABLE);
             }
             let strict = self.sheet_is_strict(&part)?;
-            // The comments part, and how many comments it held.
+            let added: Vec<CellRef> = edits.additions.iter().map(|(cell, _)| *cell).collect();
+            let skipped: Vec<CellRef> = added.iter().chain(&edits.removals).copied().collect();
+            let wanted: Vec<CellRef> = edits
+                .removals
+                .iter()
+                .chain(&edits.replaced)
+                .copied()
+                .collect();
+            // The comments part: how many comments it held, and whether the
+            // write drops it.
             let mut held = 0u64;
+            let mut dropped = false;
             match (&comments, comments_at) {
-                (Some(target), Some(at)) => {
-                    let (bytes, count) = comments_appended(self.archive.read(at)?, at, &additions)?;
-                    held = count;
-                    self.replace_part(target, replacement_from_reader(Cursor::new(bytes)));
+                (Some((id, target)), Some(at)) => {
+                    let appended =
+                        comments_appended(self.archive.read(at)?, at, &edits.additions, &skipped)?;
+                    if wanted.iter().any(|cell| !appended.found.contains(cell)) {
+                        return Err(NO_SUCH_COMMENT);
+                    }
+                    held = appended.held;
+                    if appended.kept == 0 && edits.additions.is_empty() {
+                        dropped = true;
+                        self.drop_with_relationship(&part, id, target)?;
+                    } else {
+                        self.replace_part(
+                            target,
+                            replacement_from_reader(Cursor::new(appended.bytes)),
+                        );
+                    }
                 }
                 _ => {
+                    if !wanted.is_empty() {
+                        return Err(NO_SUCH_COMMENT);
+                    }
                     let entry = free_entry(&entries, |n| format!("xl/comments{n}.xml"));
                     entries.push(entry.to_ascii_lowercase());
                     self.add_part(
                         entry.as_bytes(),
-                        replacement_from_reader(Cursor::new(comments_part_bytes(&additions))),
+                        replacement_from_reader(Cursor::new(comments_part_bytes(&edits.additions))),
                     );
                     self.add_override(format!("/{entry}").as_bytes(), COMMENTS_CONTENT_TYPE);
                     let target = relative_target(&part, entry.as_bytes());
@@ -6531,26 +6653,45 @@ impl<'a> Parts<'a> {
                 }
             }
             // The VML part (P1 ruling 1 for its shape ids).
-            let cells: Vec<CellRef> = additions.iter().map(|(cell, _)| *cell).collect();
-            match (&vml, vml_at) {
-                (Some(target), Some(at)) => {
+            match (&vml, vml_at, &legacy) {
+                (Some(target), Some(at), Some(id)) => {
                     let mut bytes = Vec::new();
                     self.archive.read(at)?.read_to_end(&mut bytes)?;
                     let read = read_vml(&bytes, at)?;
                     if held > 0 && read.shapes.is_empty() {
                         return Err(COMMENTS_UNREADABLE);
                     }
-                    let block = match read.idmap {
-                        Some(block) => block,
-                        None => {
+                    let block = match (read.idmap, added.is_empty()) {
+                        (Some(block), _) => block,
+                        // Nothing is numbered, so no block is allocated.
+                        (None, true) => 0,
+                        (None, false) => {
                             if idmaps.is_none() {
                                 idmaps = Some(self.vml_idmaps()?);
                             }
                             smallest_unused(idmaps.get_or_insert_with(Vec::new))
                         }
                     };
-                    let bytes = vml_appended(&bytes, &read, block, &cells);
-                    self.replace_part(target, replacement_from_reader(Cursor::new(bytes)));
+                    let other = read
+                        .shapes
+                        .iter()
+                        .any(|shape| !shape.is_note && !skips(shape, &skipped));
+                    if dropped && !other {
+                        // The last comment gone and no control left: the VML
+                        // part goes too, with its `<legacyDrawing>`.
+                        self.drop_with_relationship(&part, id, target)?;
+                        works.push((
+                            part,
+                            LegacyWork {
+                                create: None,
+                                drop: true,
+                                strict,
+                            },
+                        ));
+                    } else {
+                        let bytes = vml_appended(&bytes, &read, block, &skipped, &added);
+                        self.replace_part(target, replacement_from_reader(Cursor::new(bytes)));
+                    }
                 }
                 _ => {
                     if idmaps.is_none() {
@@ -6561,7 +6702,7 @@ impl<'a> Parts<'a> {
                     entries.push(entry.to_ascii_lowercase());
                     self.add_part(
                         entry.as_bytes(),
-                        replacement_from_reader(Cursor::new(vml_part_bytes(block, &cells))),
+                        replacement_from_reader(Cursor::new(vml_part_bytes(block, &added))),
                     );
                     self.add_override(format!("/{entry}").as_bytes(), VML_CONTENT_TYPE);
                     let target = relative_target(&part, entry.as_bytes());
@@ -6571,11 +6712,46 @@ impl<'a> Parts<'a> {
                         &target,
                         false,
                     )?;
-                    works.push((part, id, strict));
+                    works.push((
+                        part,
+                        LegacyWork {
+                            create: Some(id),
+                            drop: false,
+                            strict,
+                        },
+                    ));
                 }
             }
         }
         self.edits.comment_works = works;
+        Ok(())
+    }
+
+    /// Drops the part `target`, the relationship `id` of `source` that names
+    /// it and its `Override` when the content types part has one, as
+    /// `remove_table` drops a table part.
+    #[cfg(feature = "comments")]
+    fn drop_with_relationship(
+        &mut self,
+        source: &[u8],
+        id: &[u8],
+        target: &[u8],
+    ) -> Result<(), Error> {
+        let over = self
+            .override_of(target)?
+            .filter(|over| !self.edits.override_removals.contains(over));
+        self.remove_relationship(source, id);
+        if let Some(over) = over {
+            self.remove_override(&over);
+        }
+        if !self
+            .edits
+            .part_removals
+            .iter()
+            .any(|gone| gone.as_slice() == target)
+        {
+            self.remove_part(target);
+        }
         Ok(())
     }
 
@@ -6983,7 +7159,7 @@ impl<'a> Parts<'a> {
         #[cfg(feature = "tables")]
         self.edits.table_removals.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
-        self.edits.comment_additions.retain(|(at, _, _)| at != part);
+        self.edits.comment_edits.retain(|(at, _, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -8180,6 +8356,8 @@ const COMMENT_TEXT_INVALID: Error = Error::Package("a comment text is not valid"
 const THREADED_COMMENTS_HELD: Error = Error::Package("a worksheet has threaded comments");
 #[cfg(feature = "comments")]
 const TWO_LEGACY_DRAWINGS: Error = Error::Package("a worksheet has two legacyDrawing elements");
+#[cfg(feature = "comments")]
+const NO_SUCH_COMMENT: Error = Error::Package("no comment on that cell");
 #[cfg(feature = "comments")]
 const COMMENTS_UNREADABLE: Error = Error::Package("a comments part or its drawing cannot be read");
 
@@ -10664,6 +10842,18 @@ fn rewrite_worksheet_from(
                         met[which] = true;
                     }
                 }
+                // A `<legacyDrawing>` the write drops with its VML part, the
+                // last comment gone (`specs/0022-comments-and-images.md`,
+                // `remove_comment`).
+                #[cfg(feature = "comments")]
+                if root && depth == 2 && ours && local == LEGACY_DRAWING && work.legacy_drop {
+                    if !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 // The part's `<sheetProtection>`: replaced whole or dropped,
                 // a second refused.
                 #[cfg(feature = "metadata")]
@@ -13052,12 +13242,22 @@ fn comments_part_bytes(additions: &[(CellRef, NewComment)]) -> Vec<u8> {
     out
 }
 
-/// A kept comments part with the additions (`specs/0022-comments-and-
-/// images.md`, "Comments: the parts"), streamed: every byte copied but a
-/// replaced cell's `<comment>`, the new authors appended before `<authors>`'s
-/// end tag and the new comments before `<commentList>`'s, each with its
-/// container's prefix. Returns the bytes and how many `<comment>` elements
-/// the part held. A root other than `comments`, a `commentList` before any
+/// What [`comments_appended`] gives: the part's new bytes, how many
+/// `<comment>` elements it held and kept, and the cells it held them on.
+#[cfg(feature = "comments")]
+struct Appended {
+    bytes: Vec<u8>,
+    held: u64,
+    kept: u64,
+    found: Vec<CellRef>,
+}
+
+/// A kept comments part with the edits (`specs/0022-comments-and-
+/// images.md`, "Comments: the parts" and `remove_comment`), streamed: every
+/// byte copied but the `<comment>` of a cell in `skipped` (a replaced or a
+/// removed one), the new authors appended before `<authors>`'s end tag and
+/// the new comments before `<commentList>`'s, each with its container's
+/// prefix. A root other than `comments`, a `commentList` before any
 /// `authors`, none or two, or a `comment` whose `ref` is absent or does not
 /// parse, cannot be read.
 #[cfg(feature = "comments")]
@@ -13065,14 +13265,16 @@ fn comments_appended(
     input: impl Read,
     index: usize,
     additions: &[(CellRef, NewComment)],
-) -> Result<(Vec<u8>, u64), Error> {
+    skipped: &[CellRef],
+) -> Result<Appended, Error> {
     let mut stream = Stream::new(input, index)?;
     let mut scope = Scope::new(index);
     let mut out = Vec::new();
     if stream.bom() {
         out.extend_from_slice(&BYTE_ORDER_MARK);
     }
-    let cells: Vec<CellRef> = additions.iter().map(|(cell, _)| *cell).collect();
+    let mut found: Vec<CellRef> = Vec::new();
+    let mut gone = 0u64;
     let mut depth = 0usize;
     let mut kept: Vec<String> = Vec::new();
     // The author whose text is being read, and whether a CR came last.
@@ -13139,8 +13341,11 @@ fn comments_appended(
                     let cell = attribute_value(token.raw, b"ref", index)?
                         .and_then(CellRef::parse)
                         .ok_or(COMMENTS_UNREADABLE)?;
-                    if cells.contains(&cell) {
-                        // A replaced cell's comment goes whole (decision 6 A).
+                    found.push(cell);
+                    if skipped.contains(&cell) {
+                        // A replaced or removed cell's comment goes whole
+                        // (decision 6 A; `remove_comment`).
+                        gone += 1;
                         if !empty {
                             skip_element(&mut stream, &mut scope)?;
                         }
@@ -13203,7 +13408,12 @@ fn comments_appended(
     if lists == 0 {
         return Err(COMMENTS_UNREADABLE);
     }
-    Ok((out, held))
+    Ok(Appended {
+        bytes: out,
+        held,
+        kept: held - gone,
+        found,
+    })
 }
 
 /// Reads a comments part into its entries (`specs/0022-comments-and-
@@ -13332,14 +13542,26 @@ struct VmlRead {
 }
 
 /// One `<v:shape>` of a VML part: its bytes' span, the numbers its `id` and
-/// `o:spid` carry in the form `_x0000_s<n>`, and the zero-based row and
-/// column of a note shape (`ClientData` of `ObjectType` `Note`).
+/// `o:spid` carry in the form `_x0000_s<n>`, whether it is a note shape
+/// (`ClientData` of `ObjectType` `Note`), and a note's zero-based row and
+/// column.
 #[cfg(feature = "comments")]
 struct VmlShape {
     start: usize,
     end: usize,
     numbers: Vec<u64>,
+    is_note: bool,
     note: Option<(u64, u64)>,
+}
+
+/// Whether `shape` is the note of a cell in `cells`, to be left out.
+#[cfg(feature = "comments")]
+fn skips(shape: &VmlShape, cells: &[CellRef]) -> bool {
+    shape.note.is_some_and(|(row, column)| {
+        cells
+            .iter()
+            .any(|cell| u64::from(cell.row) - 1 == row && u64::from(cell.col) - 1 == column)
+    })
 }
 
 /// The number of a shape id of the form `_x0000_s<n>`.
@@ -13445,6 +13667,7 @@ fn read_vml(bytes: &[u8], index: usize) -> Result<VmlRead, Error> {
                         start: from,
                         end: at,
                         numbers,
+                        is_note: false,
                         note: None,
                     };
                     if empty {
@@ -13494,6 +13717,7 @@ fn read_vml(bytes: &[u8], index: usize) -> Result<VmlRead, Error> {
                     }
                     if *at_depth == depth {
                         shape.end = at;
+                        shape.is_note = *note;
                         if *note && let (Some(row), Some(column)) = cell {
                             shape.note = Some((row, column));
                         }
@@ -13713,28 +13937,28 @@ fn vml_part_bytes(block: u64, cells: &[CellRef]) -> Vec<u8> {
     out
 }
 
-/// A kept VML part with the additions (P1 ruling 1): its bytes up to the
-/// root's end tag, a replaced cell's note shape left out, the shapetype when
-/// the part has none, a note shape per cell numbered `1024 * block + K`, K
+/// A kept VML part with the edits (P1 ruling 1): its bytes up to the
+/// root's end tag, the note shape of a cell in `skipped` (a replaced or a
+/// removed one) left out, and, when `cells` adds any, the shapetype when the
+/// part has none and a note shape per cell numbered `1024 * block + K`, K
 /// the larger of one above the kept shapes and one above the largest
-/// number in `block`'s range a kept shape carries, then the end tag and
+/// number in `block`'s range a kept shape carries; then the end tag and
 /// what follows it.
 #[cfg(feature = "comments")]
-fn vml_appended(bytes: &[u8], read: &VmlRead, block: u64, cells: &[CellRef]) -> Vec<u8> {
-    let replaced = |shape: &VmlShape| {
-        shape.note.is_some_and(|(row, column)| {
-            cells
-                .iter()
-                .any(|cell| u64::from(cell.row) - 1 == row && u64::from(cell.col) - 1 == column)
-        })
-    };
+fn vml_appended(
+    bytes: &[u8],
+    read: &VmlRead,
+    block: u64,
+    skipped: &[CellRef],
+    cells: &[CellRef],
+) -> Vec<u8> {
     let low = 1024 * block;
     let mut kept = 0u64;
     let mut highest = 0u64;
     let mut out = Vec::new();
     let mut from = 0usize;
     for shape in &read.shapes {
-        if replaced(shape) {
+        if skips(shape, skipped) {
             out.extend_from_slice(&bytes[from..shape.start]);
             from = shape.end;
             continue;
@@ -13753,7 +13977,7 @@ fn vml_appended(bytes: &[u8], read: &VmlRead, block: u64, cells: &[CellRef]) -> 
         colon(&read.prefixes[1]),
         colon(&read.prefixes[2]),
     ];
-    if !read.shapetype {
+    if !read.shapetype && !cells.is_empty() {
         out.extend_from_slice(&note_shapetype(&v, &o));
     }
     let first = kept.max(highest) + 1;

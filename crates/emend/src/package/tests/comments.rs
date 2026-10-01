@@ -1027,3 +1027,231 @@ fn a_comment_on_a_sheet_whose_vml_part_this_write_adds_is_refused() {
         "a cell edit to a part this write replaces",
     );
 }
+
+/// Records the removal of the comment on `cell` of the worksheet.
+#[track_caller]
+fn remove(package: &mut Package<Cursor<Vec<u8>>>, cell: &str) {
+    package.remove_comment(SHEET, at(cell)).expect("recorded");
+}
+
+/// A worksheet with one comment by `Ann` on E5 and a VML part holding its
+/// note, beside `extra` shapes, `rId1` the comments part and `rId2` the VML
+/// part.
+fn one_comment(extra: &str) -> Parts {
+    with_parts(
+        sheet_r("<sheetData/><legacyDrawing r:id=\"rId2\"/>"),
+        Some(&format!(
+            "{}{}",
+            comments_rel("rId1", "../comments1.xml"),
+            vml_rel("rId2", "../drawings/vmlDrawing1.vml")
+        )),
+        &[
+            (
+                "xl/comments1.xml",
+                comments_xml(&["Ann"], &kept_comment("E5", 0, "one")),
+                COMMENTS_TYPE,
+            ),
+            (
+                "xl/drawings/vmlDrawing1.vml",
+                excel_vml("1", &format!("{extra}{}", kept_note("_x0000_s1026", 4, 4))),
+                VML_TYPE,
+            ),
+        ],
+    )
+}
+
+/// A form control's shape, a scroll bar.
+const CONTROL: &str = "<v:shape id=\"_x0000_s1025\" type=\"#_x0000_t201\"><x:ClientData \
+                       ObjectType=\"Scroll\"></x:ClientData></v:shape>";
+
+#[test]
+fn a_removal_of_one_of_two_comments_drops_its_element_and_its_note_and_keeps_the_rest() {
+    let parts = excel_both();
+    let output = edited_output(parts.clone(), |p| remove(p, "A1"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/comments1.xml".as_slice(),
+            b"xl/drawings/vmlDrawing1.vml".as_slice(),
+        ],
+    );
+    assert_eq!(
+        text_of(&output, b"xl/comments1.xml"),
+        part_text(&parts, b"xl/comments1.xml").replace(&kept_comment("A1", 0, "one"), "")
+    );
+    assert_eq!(
+        text_of(&output, b"xl/drawings/vmlDrawing1.vml"),
+        part_text(&parts, b"xl/drawings/vmlDrawing1.vml")
+            .replace(&kept_note("_x0000_s1025", 0, 0), "")
+    );
+}
+
+#[test]
+fn the_last_comment_beside_a_control_drops_the_comments_part_and_keeps_the_vml_part() {
+    // The comments part, its relationship and its Override go; the VML part
+    // keeps the control, its note left out, and the worksheet its
+    // legacyDrawing.
+    let parts = one_comment(CONTROL);
+    let output = edited_output(parts.clone(), |p| remove(p, "E5"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/comments1.xml".as_slice(),
+            b"xl/drawings/vmlDrawing1.vml".as_slice(),
+            SHEET_RELS,
+            b"[Content_Types].xml".as_slice(),
+        ],
+    );
+    assert!(
+        !parse_independently(&output)
+            .entries
+            .iter()
+            .any(|entry| entry.name == b"xl/comments1.xml"),
+        "the comments part is gone"
+    );
+    assert_eq!(
+        text_of(&output, b"xl/drawings/vmlDrawing1.vml"),
+        excel_vml("1", CONTROL)
+    );
+    assert_eq!(
+        text_of(&output, SHEET_RELS),
+        rels(&vml_rel("rId2", "../drawings/vmlDrawing1.vml"))
+    );
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        part_text(&parts, b"[Content_Types].xml").replace(
+            &format!("<Override PartName=\"/xl/comments1.xml\" ContentType=\"{COMMENTS_TYPE}\"/>"),
+            ""
+        )
+    );
+}
+
+#[test]
+fn the_last_comment_with_notes_alone_drops_both_parts_and_the_legacy_drawing() {
+    let parts = one_comment("");
+    let output = edited_output(parts.clone(), |p| remove(p, "E5"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/comments1.xml".as_slice(),
+            b"xl/drawings/vmlDrawing1.vml".as_slice(),
+            SHEET,
+            SHEET_RELS,
+            b"[Content_Types].xml".as_slice(),
+        ],
+    );
+    let names = names(&parse_independently(&output));
+    for gone in [
+        b"xl/comments1.xml".as_slice(),
+        b"xl/drawings/vmlDrawing1.vml",
+    ] {
+        assert!(!names.iter().any(|name| name == gone), "a part is left");
+    }
+    assert_eq!(text_of(&output, SHEET), sheet_r("<sheetData/>"));
+    assert_eq!(text_of(&output, SHEET_RELS), rels(""));
+    let types = part_text(&parts, b"[Content_Types].xml")
+        .replace(
+            &format!("<Override PartName=\"/xl/comments1.xml\" ContentType=\"{COMMENTS_TYPE}\"/>"),
+            "",
+        )
+        .replace(
+            &format!(
+                "<Override PartName=\"/xl/drawings/vmlDrawing1.vml\" ContentType=\"{VML_TYPE}\"/>"
+            ),
+            "",
+        );
+    assert_eq!(text_of(&output, b"[Content_Types].xml"), types);
+    let mut package = Package::open(Cursor::new(output)).expect("open the output");
+    assert_eq!(package.comments(SHEET).expect("read back"), []);
+}
+
+#[test]
+fn a_removal_of_an_absent_cell_a_cell_this_write_adds_or_one_named_twice_is_refused() {
+    let message = "no comment on that cell";
+    assert_package(refused_with(excel_both(), |p| remove(p, "B5")), message);
+    assert_package(refused_with(smallest(), |p| remove(p, "A1")), message);
+    assert_package(
+        refused_with(excel_both(), |p| {
+            add(p, "A1", "Ann", "new");
+            remove(p, "A1");
+        }),
+        message,
+    );
+    assert_package(
+        refused_with(excel_both(), |p| {
+            remove(p, "A1");
+            remove(p, "A1");
+        }),
+        message,
+    );
+}
+
+#[test]
+fn a_removal_and_an_addition_on_different_cells_in_one_write() {
+    // A1's comment and note go; B5's are appended, the note numbered past
+    // the kept 1026: K 3, the note 1027.
+    let parts = excel_both();
+    let output = edited_output(parts.clone(), |p| {
+        remove(p, "A1");
+        add(p, "B5", "Bob", "new");
+    });
+    let comments = part_text(&parts, b"xl/comments1.xml")
+        .replace(&kept_comment("A1", 0, "one"), "")
+        .replace("</authors>", "<author>Bob</author></authors>")
+        .replace(
+            "</commentList>",
+            &format!("{}</commentList>", added_comment("", "B5", 1, "new", false)),
+        );
+    assert_eq!(text_of(&output, b"xl/comments1.xml"), comments);
+    let vml = part_text(&parts, b"xl/drawings/vmlDrawing1.vml")
+        .replace(&kept_note("_x0000_s1025", 0, 0), "")
+        .replace("</xml>", &format!("{}</xml>", note(VOX, 1027, 3, 4, 1)));
+    assert_eq!(text_of(&output, b"xl/drawings/vmlDrawing1.vml"), vml);
+}
+
+#[test]
+fn a_removal_then_an_addition_of_one_cell_replaces_and_needs_a_kept_comment() {
+    let parts = excel_both();
+    let output = edited_output(parts.clone(), |p| {
+        remove(p, "A1");
+        add(p, "A1", "Ann", "new");
+    });
+    let comments = part_text(&parts, b"xl/comments1.xml")
+        .replace(&kept_comment("A1", 0, "one"), "")
+        .replace(
+            "</commentList>",
+            &format!("{}</commentList>", added_comment("", "A1", 0, "new", false)),
+        );
+    assert_eq!(text_of(&output, b"xl/comments1.xml"), comments);
+    assert_package(
+        refused_with(excel_both(), |p| {
+            remove(p, "B5");
+            add(p, "B5", "Ann", "new");
+        }),
+        "no comment on that cell",
+    );
+}
+
+#[test]
+fn a_removal_on_a_sheet_whose_comments_part_is_missing_is_refused_at_the_write() {
+    let parts = with_parts(
+        sheet_r("<sheetData/><legacyDrawing r:id=\"rId2\"/>"),
+        Some(&format!(
+            "{}{}",
+            comments_rel("rId1", "../comments9.xml"),
+            vml_rel("rId2", "../drawings/vmlDrawing1.vml")
+        )),
+        &[(
+            "xl/drawings/vmlDrawing1.vml",
+            excel_vml("1", &kept_note("_x0000_s1025", 0, 0)),
+            VML_TYPE,
+        )],
+    );
+    assert_package(
+        refused_with(parts, |p| remove(p, "A1")),
+        "a comments part or its drawing cannot be read",
+    );
+}
