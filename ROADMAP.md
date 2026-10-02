@@ -702,7 +702,7 @@ Stays out: charts, pivot tables and VBA beyond passthrough, and by
 `CLAUDE.md`'s definition formula evaluation, rendering, autofit and
 reference fixup.
 
-### Part 1: proof at scale (`specs/0023-scale.md`)
+### Part 1: proof at scale (`specs/0023-scale.md`, DONE and PUSHED 2026-10-02)
 
 Approved by the maintainer 2026-10-01 ("a on all"): four generated
 tiers (a 50000 rows, b 800000, c 1048576 rows by 120 columns with
@@ -720,7 +720,33 @@ draft sized it at 48 from a guessed bytes-per-cell).
 | P1 | `scripts/scale-gen.py` and its tier t test; the four tiers generated with their manifest; the survey of every sample's memory class | DONE 2026-10-01 (doc 48c6e0d, scripts a509ad3, record e2ff972; tiers a, b, c, d generated under the cap in 2.0, 32.7, 198.5 and 35.9 s with peak RSS under 45 MB, tier c's sheet 5025024826 bytes with the zip64 field; the survey predicts 20 samples streaming, 5 holding the output in the tool's read-back, and tier c refusing 8 at the grid; four findings ruled: 24 samples since `--new-sample` writes its input, `TMPDIR` on the disk, a cell past the grid a defect fixed in P2, tier c's fewer write paths recorded; verified by planning from primaries, the generator read in full, its own hashes and central-directory reads of the four tiers, the survey's cited lines read, its own scan; `records/m3p1-gen-2026-10-01-a509ad3.md`; `specs/0023` "Planning verification and rulings on P1") |
 | P2 | the grid refusal at the write (P1 ruling 5); the 192 runs, tier a with LibreOffice, then b, d, c, both labels, `TMPDIR` on the disk; the run records per tier | DONE 2026-10-02 (doc 38ec8c2, fix 8d05845, record 079db61; 192 runs, 96 record pairs, one directory per tier per sample; memory class 48 compared, 0 disagreements: 19 samples stream at most 8004 kB on tiers a and b, 5 hold the output in the tool's read-back; tier c 16 ok, 30 refused at the grid or the shift, names killed on both labels in the tool's in-memory second write; five samples rewrote the 5 GB zip64 entry under 8 MiB on i686; LibreOffice ok on tier a's 48 rows; four findings ruled, the survey's link omission recorded, the shared strings figure added to P3; verified by planning from primaries with its own build, its own reruns of tier a and four tier c samples byte-identical, its own recount and scan; `specs/0023` "Planning verification and rulings on P2") |
 | P3 | the decision record; the catalogue block "What streams and what is held"; the size record; part 4d's two samples rerun; the open record | DONE 2026-10-02 (doc c9a59be, catalogue 6578925, record fe3c19e; the core grew 128 section bytes, all the grid fix's, the catalogue 0, budget 435352, 23400 under; the decision record `records/scale-m3p1-2026-10-02-6578925.md`: every sample's class on every tier, tier c's outcomes, the shared strings table held at 46.2 bytes per unique item on i686 (carried to part 5), the VML and drawing whole reads (part 6), the runner and record-script carries (part 7); tier c `--cells` streams 125829220 cells under 8 MB on both targets; part 4d's two samples rerun byte-identical to 4d's; no open verdict moved; verified by planning from primaries with its own build, its own size probes at three commits reproducing every figure, its own read runs and sample reruns, its own scan; `specs/0023` "Planning verification and rulings on P3") |
-| Close | close-out push after P3, carrying ab5b3aa and this part's commits, the scan script's key check and the ci-run newline, the previous-record pattern naming ab5b3aa, one independent check; Milestone 2's Excel check run or deferred again before it | PLANNED |
+| Close | close-out push after P3, carrying ab5b3aa and this part's commits, the scan script's key check and the ci-run newline, the previous-record pattern naming ab5b3aa, one independent check; Milestone 2's Excel check run or deferred again before it | DONE 2026-10-02 (doc 21b89bb pushed, origin/main at 21b89bb, 11 commits, CI 37005285780 success, scan PASS with the key line, record 3cbd6fd local; decision 6 deferred a sixth time; verified by planning from git, gh and its own scan; `specs/0023` "Planning verification and rulings on the close-out") |
+
+### Part 2: rich text (`specs/0024-rich-text.md`, IN PROGRESS from 2026-10-02)
+
+Approved by the maintainer 2026-10-02 ("A on all"): runs with
+their own font in a cell, written as an inline string (never the
+shared strings table) and read back from inline strings and from
+the table, and in a comment, as openpyxl's `CellRichText`; the
+run's font is `styles::Font` with `name` as `rFont`, the five
+`rPr`-only children not modelled; `Cell::runs`,
+`SharedStrings::runs_of` and `CommentEntry::runs` under the
+feature, with the contract, measured on tier d, that an item
+without runs costs nothing more; `add_rich_comment` beside
+`add_comment`. Feature `richtext`, off by default, two probes
+(the feature alone, and with `comments`); planning's estimate
+30000 to 45000 section bytes for the feature and 5000 to 15000
+for the pair. The corpus has rich runs in 8 workbooks' tables and
+5 workbooks' comments, no inline string; the samples write the
+corpus's first case of each. The Milestone 2 Excel check is due
+before this part's close-out push (decision 7).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature, `Run`, `RichText`, `Value::Rich`, the inline write, `Cell::runs`, `SharedStrings::runs_of`, the `rPr` reader, `--richtext-sample` on the corpus | PENDING |
+| P2 | `add_rich_comment`, `CommentEntry::runs`, `--richcomment-sample` on the corpus | PENDING |
+| P3 | the catalogue and limits; the two probes and the size record; part 1's three read runs repeated with the no-growth contract; both samples rerun byte-identical | PENDING |
+| Close | close-out push after P3, carrying 3cbd6fd and this part's commits, the previous-record pattern naming 3cbd6fd, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
 ## Unscoped
 

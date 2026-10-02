@@ -615,6 +615,46 @@ blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
    `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
    "Close-out push (after P3)" says.
 
+## Planning verification and rulings on the close-out (2026-10-02)
+
+Verified by planning from primaries: `origin/main` at the close-out
+doc commit 21b89bb, 11 commits over fe584b3 (ab5b3aa and this
+part's ten), the doc commit holding this file at 8eee79d0 and
+`ROADMAP.md` at 4129f85b, the hashes planning sent; the CI run
+37005285780 completed with success on 21b89bb, read by planning
+through `gh`; the record commit 3cbd6fd, parent 21b89bb, exactly
+the three logs, the one local commit ahead; the logs at the
+reported hashes, each ending all as expected, the scan RESULT:
+PASS; push.log's push mode showing the authorisation typed by the
+maintainer in the implementing session; the two carried fixes of
+`specs/0022` close-out ruling 8 present (scan.log line 861 prints
+the `ANTHROPIC_API_KEY` check; ci-run's JSON output ends with a
+newline); 12 of 12 messages ASCII, ending with the Co-Authored-By
+line only; planning's own privacy scan fe584b3..3cbd6fd, 12
+commits, 1142 blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations (working-state facts no
+   log prints: the copied scripts' equality with part 4d's, the
+   generator's path, the pre-commit hash check, "one local commit
+   ahead"; the report's change list omitting the 4c to 4d label
+   wording; the headers citing `specs/0022` close-out rulings 5
+   and 6 beside 8, which carries them; the check's own
+   `sha256 -c` run from the wrong directory then the right one):
+   cosmetic or allowed by `specs/0001`; accepted, no change.
+2. Milestone 3 part 1 is DONE and PUSHED. The record commit
+   3cbd6fd goes with the next push; the next part's push script
+   names it by `^M3 part 1 close-out record`, its base this
+   close-out's doc commit 21b89bb by its subject.
+3. Carried into the next parts, from the decision record and the
+   rulings above: part 2's first code commit names P3's run log
+   beside P2's in the catalogue block (P3 ruling 1); part 5 the
+   shared strings table's hold; part 6 the whole VML and drawing
+   reads; part 7 the runner's `leftover` column and the record
+   script's hashes. The Milestone 2 Excel check is due before
+   part 2's close-out push (decision 6).
+4. These rulings are written into the working spec after the
+   close-out doc commit; they go in part 2's first doc commit.
+
 ## Out of scope
 
 - Any new capability, sample or API; a streaming shared-strings
