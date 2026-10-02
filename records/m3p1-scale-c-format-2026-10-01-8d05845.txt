@@ -1,0 +1,7 @@
+id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover	lo	lo_in
+456ab96bc553	host	scale-gen	scale,tierc	error	2		156.24	7612	1159829654												no	-	-
+456ab96bc553	i686	scale-gen	scale,tierc	error	2		236.01	7452	1159829654												no	-	-
+
+id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+
+id	label	row	name	kind	column_1	column_2	column_3	column_4	column_5

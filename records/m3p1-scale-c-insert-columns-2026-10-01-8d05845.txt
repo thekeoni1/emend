@@ -1,0 +1,37 @@
+id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover	lo	lo_in
+456ab96bc553	host	scale-gen	scale,tierc	ok	0		410.72	7800	1159829654	1170770289	1	7	0	2	0	0	1	yes	yes	no	no	-	-
+456ab96bc553	i686	scale-gen	scale,tierc	ok	0		634.41	7716	1159829654	1170770289	1	7	0	2	0	0	1	yes	yes	no	no	-	-
+
+id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+456ab96bc553	host	entry	[Content_Types].xml	identical	0	0	8	8	1066	1066	309	309	1b5c5bea	1b5c5bea				
+456ab96bc553	host	entry	_rels/.rels	identical	1	1	8	8	441	441	216	216	619a7711	619a7711				
+456ab96bc553	host	entry	docProps/core.xml	identical	2	2	8	8	558	558	288	288	70e1bf76	70e1bf76				
+456ab96bc553	host	entry	xl/workbook.xml	changed	3	3	8	8	395	423	230	247	aea57e04	8e5f9ffe	385			
+456ab96bc553	host	entry	xl/_rels/workbook.xml.rels	identical	4	4	8	8	706	706	226	226	8b9b8e49	8b9b8e49				
+456ab96bc553	host	entry	xl/worksheets/sheet1.xml	changed	5	5	8	8	5025024826	5026073402	1159822274	1170762892	d6d9d5ff	01080a4d	193			extra
+456ab96bc553	host	entry	xl/worksheets/sheet2.xml	identical	6	6	8	8	2930	2930	808	808	1d1100ff	1d1100ff				
+456ab96bc553	host	entry	xl/styles.xml	identical	7	7	8	8	779	779	349	349	c5180e86	c5180e86				
+456ab96bc553	host	entry	xl/sharedStrings.xml	identical	8	8	8	8	21183	21183	3870	3870	0cdeaa5a	0cdeaa5a				
+456ab96bc553	i686	entry	[Content_Types].xml	identical	0	0	8	8	1066	1066	309	309	1b5c5bea	1b5c5bea				
+456ab96bc553	i686	entry	_rels/.rels	identical	1	1	8	8	441	441	216	216	619a7711	619a7711				
+456ab96bc553	i686	entry	docProps/core.xml	identical	2	2	8	8	558	558	288	288	70e1bf76	70e1bf76				
+456ab96bc553	i686	entry	xl/workbook.xml	changed	3	3	8	8	395	423	230	247	aea57e04	8e5f9ffe	385			
+456ab96bc553	i686	entry	xl/_rels/workbook.xml.rels	identical	4	4	8	8	706	706	226	226	8b9b8e49	8b9b8e49				
+456ab96bc553	i686	entry	xl/worksheets/sheet1.xml	changed	5	5	8	8	5025024826	5026073402	1159822274	1170762892	d6d9d5ff	01080a4d	193			extra
+456ab96bc553	i686	entry	xl/worksheets/sheet2.xml	identical	6	6	8	8	2930	2930	808	808	1d1100ff	1d1100ff				
+456ab96bc553	i686	entry	xl/styles.xml	identical	7	7	8	8	779	779	349	349	c5180e86	c5180e86				
+456ab96bc553	i686	entry	xl/sharedStrings.xml	identical	8	8	8	8	21183	21183	3870	3870	0cdeaa5a	0cdeaa5a				
+
+id	label	row	name	kind	column_1	column_2	column_3	column_4	column_5
+456ab96bc553	host	xml	xl/workbook.xml	parse	ok	ok		0	0
+456ab96bc553	host	xml	xl/workbook.xml	element	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}calcPr	0	1		
+456ab96bc553	host	xml	xl/workbook.xml	attribute	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}calcPr@{}fullCalcOnLoad	0	1		
+456ab96bc553	host	xml	xl/workbook.xml	values	7	8	0	1	
+456ab96bc553	host	xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+456ab96bc553	host	xml	xl/worksheets/sheet1.xml	values	315621376	315621376	1048576	1048576	
+456ab96bc553	i686	xml	xl/workbook.xml	parse	ok	ok		0	0
+456ab96bc553	i686	xml	xl/workbook.xml	element	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}calcPr	0	1		
+456ab96bc553	i686	xml	xl/workbook.xml	attribute	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}calcPr@{}fullCalcOnLoad	0	1		
+456ab96bc553	i686	xml	xl/workbook.xml	values	7	8	0	1	
+456ab96bc553	i686	xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+456ab96bc553	i686	xml	xl/worksheets/sheet1.xml	values	315621376	315621376	1048576	1048576	
