@@ -1245,12 +1245,13 @@
 //! # What streams and what is held
 //!
 //! Measured on the generated scale workbooks of `specs/0023-scale.md`
-//! (Milestone 3 part 1, P2's run log), each tool run under a 2048 MiB
-//! address-space cap on the host and on `i686-unknown-linux-musl`. Tier c
-//! is one worksheet of 1048576 rows by 120 columns whose entry is
-//! 5025024826 bytes uncompressed, a zip64 entry larger than a 32-bit
-//! address space; the figures are the peak resident set of the whole tool
-//! run, the larger of the two targets'.
+//! (Milestone 3 part 1: P2's run log, `records/logs/m3p1-p2/run.log`, and
+//! P3's, `records/logs/m3p1-p3/run.log`, which holds the read runs), each
+//! tool run under a 2048 MiB address-space cap on the host and on
+//! `i686-unknown-linux-musl`. Tier c is one worksheet of 1048576 rows by
+//! 120 columns whose entry is 5025024826 bytes uncompressed, a zip64 entry
+//! larger than a 32-bit address space; the figures are the peak resident
+//! set of the whole tool run, the larger of the two targets'.
 //!
 //! In memory independent of a part's size:
 //!
