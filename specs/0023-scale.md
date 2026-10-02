@@ -120,8 +120,10 @@ verification ruling 3), two labels, four tiers, 192 runs, with
 (decision 2); tiers B to D record `lo not-run`. The diff runs with
 the host `xlsx-diff` for both labels on tier C (decision 4),
 since the tool reads an entry whole and the entry is larger than
-a 32-bit address space; the record names the binary's sha256 as
-the runner prints it. The run directory is
+a 32-bit address space; the run log names the binary's sha256 as
+built, and the runner writes it into each run directory's
+`run.<label>.tsv` (the record script does not carry it; P2
+verification ruling 3). The run directory is
 `runs/<utc-date>-<shortsha>-scale-<tier>`, one
 per tier, both labels in it, as the corpus runs are laid out.
 
@@ -182,10 +184,13 @@ is `records/size-m3p1-<utc-date>-<shortsha>.md`.
 ### 32-bit
 
 Every size and offset the generator writes into the manifest and
-the runner reads is a byte count; the tool's `in_bytes` and
-`out_bytes` for tier C exceed `u32`, and the run log checks that
-they are printed whole (a control: a planted 32-bit truncation of
-the figure is caught).
+the runner reads is a byte count. Tier C's archive is deflated and
+stays under 2^32 bytes (1159829654 in), so the figures over `u32`
+are its sheet entry's uncompressed sizes, in and out; the run log
+checks that those, and the tool's `in_bytes` and `out_bytes`, are
+printed whole (a control: a planted 32-bit truncation of the
+figure is caught). The draft named `in_bytes` and `out_bytes` as
+the figures over `u32`; P2 verification ruling 4 corrected it.
 
 ## Phases
 
@@ -314,6 +319,29 @@ decision recorded here (decision 6).
    at the latest, or be deferred again by a decision recorded
    here. Recorded, not asked.
 
+## Planning rulings during P2 (2026-10-01)
+
+1. Run directories. The runner takes one row per id per label and
+   the record script one run directory per call, so 24 samples
+   cannot share a tier's directory. Ruling: one run directory per
+   tier per sample, `runs/<utc-date>-<shortsha>-scale-<tier>-
+   <sample>`, 96 directories, both labels in each, as part 4d P4
+   laid its two samples out; one record pair per directory,
+   `records/m3p1-scale-<tier>-<sample>-<utc-date>-<shortsha>.md`
+   and `.txt`, 96 pairs, each small since a tier has nine entries;
+   `run.log` derives the per-sample tables across them. The runner
+   and the record script are unchanged. "The runs" and "P2" read
+   with this ruling.
+2. The grid check's name is `in_grid` (package.rs:8968); P1
+   verification ruling 5 said `on_grid`. The fix uses `in_grid`.
+3. The `TMPDIR` proof: the runner driving a stand-in tool that
+   records whether `TMPDIR` is set to the export, in a scratch run
+   directory, printed by `run.log` as a control before the runs.
+   Accepted.
+4. These rulings are written into the working spec after the doc
+   commit 38ec8c2; P2's logs pin the committed spec, 30b61067; the
+   rulings go in P3's doc commit.
+
 ## Planning verification and rulings on P1 (2026-10-01)
 
 Verified by planning from primaries: the doc commit 48c6e0d holds
@@ -396,6 +424,120 @@ and `INDEX_OUT_OF_RANGE` present for other calls, `TempFile` in
    "The runs" with rulings 3 and 4, in the order a with
    LibreOffice, b, d, c, both labels each, the host `xlsx-diff`
    on tier c for both labels.
+
+## Planning verification and rulings on P2 (2026-10-02)
+
+Verified by planning from primaries: the doc commit 38ec8c2 holds
+this file at 30b61067 and `ROADMAP.md` at 75fe5ce7, the hashes
+planning sent; the code commit 8d05845 touches `package.rs` and
+its tests only (84 lines added, 6 removed): the one check in
+`Parts::validate` over the recorded cell and style edits through
+`in_grid`, the three doc comments, the catalogue sentence and the
+test; the record commit 079db61 adds the five logs, the check and
+96 record pairs, 197 files; 3 of 3 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS at its second final
+attempt with the superseded attempt named, every log pinning
+30b61067; planning's own build at 8d05845 in a detached worktree:
+513 and 727 crate tests passing on both targets with the feature
+set off and all on, the new test passing by name on both, 894
+workspace tests on both, clippy and doc 0 lines, the i686 release
+binaries at the run log's hashes (the host's differ by build path,
+as in every phase); planning's own reruns with its own binaries
+under the same cap: tier a's 24 samples on both labels, 48 outputs
+and 48 stdout lines byte-identical to the run directories'; tier
+c's props and sheet on both labels and edit-formula on the host,
+identical, the latter's sheet entry 5025024804 bytes with the
+zip64 field; tier c's names on the host aborted (exit 134, "memory
+allocation of 2198929408 bytes failed", 2 files of 955 bytes left
+in `TMPDIR`) and on i686 panicked (exit 101, "capacity overflow",
+nothing left), peaks 1078072 and 1075852 kB; planning's own
+recount of the 192 rows of the 96 `.txt` records against the run
+log's per-tier tables, 192 agreeing, tier a's 48 rows `lo ok ok`;
+the run log's 193 `TMPDIR` counts, one non-zero (names, host);
+planning's own privacy scan e2ff972..079db61, 3 commits, 1110
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Finding 1, names on tier c. The host abort and the i686
+   "capacity overflow" panic are one kill, P1 verification ruling
+   7's class "holds in the tool": the tool's `Cursor<Vec<u8>>`
+   (main.rs:4476) asks for 2198929408 bytes, which the 2048 MiB
+   address space refuses on the host (abort, signal 6) and the
+   `Vec`'s own size check refuses on i686 before any allocation
+   (over `isize::MAX`, "capacity overflow"). Not a crate defect:
+   the crate writes into the `Vec` the tool gives it, and no crate
+   path holds the archive. "A panic on allocation" in "What is
+   measured" covers both forms; the derivation's word `killed`
+   stands as the log's. The two messages are in no log: P3's log
+   prints each of the names run directory's two stderr files (its
+   sha256 and bytes, then its lines, after a check with a control
+   that no line holds the home directory), so the decision record
+   quotes them; planning's own rerun reproduced both.
+2. Finding 2, the leftovers. Counted, removed and logged as P1
+   verification ruling 4 ordered. The reading (the crate's
+   `TempFile`s, `Drop` not run on an abort) is the code's reading,
+   stated as such in the decision record; planning's rerun bears
+   it out (2 files, 955 bytes after the abort; 0 after the i686
+   panic, where unwinding runs `Drop`). The runner's `leftover`
+   column counts the run directory, so the record's `no` is right
+   by its definition; the runner is not changed. Carried to part
+   7: whether the runner counts `TMPDIR` too.
+3. Finding 3, the diff binary's hash. Planning's sentence in "The
+   runs" was wrong: the record script has never carried the
+   runner's binary hashes (no part 4d record does); run.log line
+   1047 prints the build's and the runner writes it into each run
+   directory's `run.<label>.tsv`. "The runs" is corrected above;
+   run.log line 1052's prose is a wrong claim in a committed log,
+   recorded here, not re-run; the record script is unchanged; the
+   decision record cites run.log line 1047. Carried to part 7: the
+   record script's header gains the two hashes.
+4. Finding 4, "32-bit". The archive is 1159829654 bytes, under
+   2^32, so planning named the wrong figures; the sheet entry's
+   uncompressed sizes (5025024826 in; 4985617758 to 5026073402
+   out) are the ones over `u32`, and the log checked those whole
+   with the planted truncation caught, and `in_bytes` and
+   `out_bytes` whole besides. The substitution is accepted;
+   "32-bit" is corrected above.
+5. The link disagreement. The P1 survey listed link's calls
+   without the `set_cell` at `max_row + 1` (main.rs:3034-3038),
+   and the prediction carried the omission; the measured grid
+   error is ruling 5's fix refusing a seventh sample, as it
+   refuses edit, style, font, border, date and formula. A survey
+   omission, not a defect; the decision record lists tier c's 14
+   samples refused at the grid (7 at the recording call, 7 at the
+   write, link among the write's) and insert-rows at the shift.
+6. P1 verification ruling 6 bears out at five: the zip64 entry
+   was rewritten by edit-formula, delete-rows, insert-columns,
+   delete-columns and protect (largest peak 7864 kB); link was
+   refused. The decision record says so.
+7. The shared strings table. No sample calls
+   `Package::shared_strings` (the survey said so; planning missed
+   it in its P1 verification), so tier d measured the raw copy
+   only and "What a finding leads to"'s third item has no figure.
+   Ruling: P3 adds three run directories through the unchanged
+   runner, `--tool-arg --shared-strings` and `--tool-arg --cells`
+   on tier d and `--tool-arg --cells` on tier c, both labels, the
+   same cap and timeout, with record pairs
+   `m3p1-scale-d-shared-strings-`, `m3p1-scale-d-cells-` and
+   `m3p1-scale-c-cells-`; the P3 log says they are the tool's
+   read operations, not samples, and checks each output
+   byte-identical as the tier t test asserts. The figure is the
+   peak RSS in kB over the `items` count the tool prints, per
+   label, and tier c's `--cells` is the streaming read at scale
+   (a timeout is a finding, not a failure). No code changes.
+8. The independent check's remaining items: "8 MB" read as 8 MiB
+   (8004 kB), corrected in the report; "first attempt" supported
+   by `RERUN_NOTE` unset in each log; the `--all-features` run a
+   scope note; the three U+00D7 replaced and declared; one check
+   of the two allowed. Tiers b to d print `-` in the `.txt`
+   records' `lo` column and count under `lo not-run` in the `.md`,
+   which "The runs" calls `lo not-run`. Accepted, no change.
+9. P2 is DONE. P3 is released: its doc commit carries this file
+   with the P2 rulings and this section and `ROADMAP.md`'s P2 row;
+   P3 as "P3" says, with ruling 1's stderr print, ruling 7's three
+   run directories, and the decision record's items from rulings 1
+   to 7; the size log and record; part 4d's two samples rerun; the
+   open record.
 
 ## Out of scope
 
