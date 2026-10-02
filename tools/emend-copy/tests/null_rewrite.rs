@@ -4247,3 +4247,102 @@ fn the_image_sample_refuses_a_missing_drawing_part_or_two_drawing_elements_and_l
         "--image-sample",
     );
 }
+
+// ------------------------------------------------------- --richtext-sample
+
+/// `edit_specs`' package with its sheet's data `sheet_data` and, when
+/// `items` is given, its shared strings part holding those `<si>` elements
+/// in place of the fixture's own.
+fn richtext_specs(sheet_data: &str, items: Option<&str>) -> Vec<Spec> {
+    let mut specs = edit_specs(sheet_data);
+    if let Some(items) = items {
+        let strings = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <sst xmlns=\"{MAIN_NS}\">{items}</sst>"
+        );
+        for spec in &mut specs {
+            if spec.name == b"xl/sharedStrings.xml" {
+                *spec = Spec::stored(b"xl/sharedStrings.xml", strings.as_bytes());
+            }
+        }
+    }
+    specs
+}
+
+/// A shared strings item of two runs, the first bold. Fictional.
+const RICH_ITEM: &str = "<si><r><rPr><b/></rPr><t>one</t></r><r><t>two</t></r></si>";
+
+#[test]
+fn the_richtext_sample_adds_a_rich_cell_and_leaves_the_table() {
+    // `specs/0024-rich-text.md`, "Harness runs": M is 1, so the rich value
+    // goes on A2 as an inline string of two runs; the shared strings part,
+    // with or without a rich item of its own, comes back as it went in.
+    for (label, items, line) in [
+        (
+            "richtext-sample-plain",
+            None,
+            "richtext\tsst_rich_before=0\tsst_rich_after=0\tinline_rich_before=0\
+             \tinline_rich_after=1\truns_after=2\ttext_after=1\tbold_first=1\tr_bound_before=0\n",
+        ),
+        (
+            "richtext-sample-rich-table",
+            Some(RICH_ITEM),
+            "richtext\tsst_rich_before=1\tsst_rich_after=1\tinline_rich_before=0\
+             \tinline_rich_after=1\truns_after=2\ttext_after=1\tbold_first=1\tr_bound_before=0\n",
+        ),
+    ] {
+        let specs = richtext_specs(A_CELL, items);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--richtext-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\"><dimension ref=\"A1\"/><sheetData>\
+                 <row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"2\">\
+                 <c r=\"A2\" t=\"inlineStr\"><is><r><rPr><b/></rPr>\
+                 <t xml:space=\"preserve\">emend</t></r><r>\
+                 <t xml:space=\"preserve\"> rich</t></r></is></c></row></sheetData>\
+                 <pageMargins left=\"0.7\"/></worksheet>"
+            ),
+            "the sheet"
+        );
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_richtext_sample_refuses_unreadable_run_properties_or_a_full_sheet_and_leaves_nothing() {
+    // The negative log's refusals through the binary as well
+    // (`specs/0024-rich-text.md`, "P1").
+    styled_run_refused(
+        "richtext-sample-unreadable",
+        &richtext_specs(
+            A_CELL,
+            Some("<si><r><rPr><b val=\"yes\"/></rPr><t>a</t></r></si>"),
+        ),
+        "a run's properties cannot be read",
+        "--richtext-sample",
+    );
+    styled_run_refused(
+        "richtext-sample-full",
+        &richtext_specs(
+            "<sheetData><row r=\"1048576\"><c r=\"A1048576\"><v>1</v></c></row></sheetData>",
+            None,
+        ),
+        "a row or column index or count is out of range",
+        "--richtext-sample",
+    );
+}

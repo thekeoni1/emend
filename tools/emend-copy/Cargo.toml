@@ -26,5 +26,7 @@ publish = false
 # (specs/0022-comments-and-images.md, decision 1 A), which has none either.
 # It enables the core's `images` feature for --image-sample
 # (specs/0022-comments-and-images.md, decision 1 A), which has none either.
+# It enables the core's `richtext` feature for --richtext-sample
+# (specs/0024-rich-text.md, decision 1 A), which has none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext"] }

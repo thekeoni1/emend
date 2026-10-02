@@ -428,6 +428,22 @@
 //!   is exit 2 with the message and no output, and so is a refusal by the
 //!   layer (a drawing part it cannot read, two drawing elements on W, or
 //!   M + 1 past the grid).
+//! - `--richtext-sample`: the rich text sample of
+//!   `specs/0024-rich-text.md`, "Harness runs": on W, with M as
+//!   `--table-sample` has it, a rich value of two runs, `emend` bold and
+//!   ` rich` with no font, on (M + 1, 1). The output is reopened. One line:
+//!   the word `richtext` then `sst_rich_before` and `sst_rich_after` (the
+//!   shared strings items `SharedStrings::runs_of` gives runs for),
+//!   `inline_rich_before` and `inline_rich_after` (W's cells whose `runs`
+//!   is `Some`), `runs_after` (the written cell's run count), `text_after`
+//!   (1 when its value is `emend rich`), `bold_first` (1 when its first run's
+//!   font is bold and its second run has none) and `r_bound_before` (1 when
+//!   W's root binds a prefix to the relationships namespace). COUNTS ONLY:
+//!   the runs are this tool's constants and no reference is printed.
+//!   Asserted: `sst_rich_after` equal to before, `inline_rich_after` one
+//!   more, `runs_after` 2, `text_after` and `bold_first` 1; a failure is
+//!   exit 2 with the message and no output, and so is a refusal by the
+//!   layer (run properties it cannot read, or M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -448,7 +464,7 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
-use emend::cells::{Area, CellRef, FormulaKind, Kind, Value};
+use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
     COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, DRAWING, ErrorStyle,
@@ -470,7 +486,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
-| --table-sample | --comment-sample | --image-sample]";
+| --table-sample | --comment-sample | --image-sample | --richtext-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -548,6 +564,8 @@ enum Operation {
     CommentSample,
     /// An image past the last row, and the counts.
     ImageSample,
+    /// A rich value past the last row, and the counts.
+    RichtextSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -586,6 +604,7 @@ enum Error {
     TableSample(&'static str),
     CommentSample(&'static str),
     ImageSample(&'static str),
+    RichtextSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -660,6 +679,9 @@ impl fmt::Display for Error {
             }
             Error::ImageSample(what) => {
                 write!(f, "the output's {what} is not what the image implies")
+            }
+            Error::RichtextSample(what) => {
+                write!(f, "the output's {what} is not what the rich text implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -775,6 +797,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--image-sample" => {
             run(Path::new(input), Path::new(output), Operation::ImageSample)
         }
+        [input, output, flag] if flag == "--richtext-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::RichtextSample,
+        ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -900,6 +927,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ImageSample) {
         return image_sample(input, output);
     }
+    if matches!(operation, Operation::RichtextSample) {
+        return richtext_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -950,6 +980,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::TableSample => unreachable!("the table sample has its own path"),
         Operation::CommentSample => unreachable!("the comment sample has its own path"),
         Operation::ImageSample => unreachable!("the image sample has its own path"),
+        Operation::RichtextSample => unreachable!("the rich text sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -3912,6 +3943,136 @@ fn image_sample(input: &Path, output: &Path) -> Result<(), Error> {
     }
     line.push_str(&format!("\tfrom_after={},{}", from.0, from.1));
     print_line(&line)
+}
+
+/// The rich text sample (`specs/0024-rich-text.md`, "Harness runs",
+/// `--richtext-sample`): a rich value of two runs on the cell below W's last
+/// row, the output written and read back. A failure after the output is in
+/// place removes it; a refusal by the layer is exit 2 with no output.
+fn richtext_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let sst_before = sst_rich(&mut package)?;
+    let inline_before = inline_rich(&mut package, &part, None)?.0;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    let cell = CellRef { row, col: 1 };
+    package.set_cell(
+        &part,
+        cell,
+        Value::Rich(RichText {
+            runs: vec![
+                Run {
+                    text: "emend".to_string(),
+                    font: Some(Font {
+                        bold: true,
+                        ..Font::default()
+                    }),
+                },
+                Run {
+                    text: " rich".to_string(),
+                    font: None,
+                },
+            ],
+        }),
+    );
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = richtext_read_back(output, &part, cell, sst_before, inline_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (sst_after, inline_after, runs_after, text_after, bold_first) = checked?;
+    edit_line_named(
+        "richtext",
+        &[
+            ("sst_rich_before", sst_before),
+            ("sst_rich_after", sst_after),
+            ("inline_rich_before", inline_before),
+            ("inline_rich_after", inline_after),
+            ("runs_after", runs_after),
+            ("text_after", u64::from(text_after)),
+            ("bold_first", u64::from(bold_first)),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// The shared strings items `SharedStrings::runs_of` gives runs for.
+fn sst_rich<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<u64, Error> {
+    let table = package.shared_strings()?;
+    Ok((0..table.len())
+        .filter(|index| table.runs_of(*index).is_some())
+        .count() as u64)
+}
+
+/// W's cells whose `runs` is `Some`, and the runs and value of the cell at
+/// `at` when one is named and read.
+fn inline_rich<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    at: Option<CellRef>,
+) -> Result<(u64, Option<RichText>, Option<String>), Error> {
+    let mut count = 0;
+    let mut runs = None;
+    let mut value = None;
+    for cell in package.cells(part)? {
+        let cell = cell?;
+        if cell.runs.is_some() {
+            count += 1;
+        }
+        if Some(cell.reference) == at {
+            runs = cell.runs;
+            value = cell.value;
+        }
+    }
+    Ok((count, runs, value))
+}
+
+/// Reopens the rich text sample's output and asserts the table's rich items
+/// unchanged, one more rich cell on W, and the written cell's two runs, its
+/// text and its fonts; gives the counts and the two flags.
+fn richtext_read_back(
+    output: &Path,
+    part: &[u8],
+    cell: CellRef,
+    sst_before: u64,
+    inline_before: u64,
+) -> Result<(u64, u64, u64, bool, bool), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let sst_after = sst_rich(&mut package)?;
+    if sst_after != sst_before {
+        return Err(Error::RichtextSample("shared strings rich item count"));
+    }
+    let (inline_after, runs, value) = inline_rich(&mut package, part, Some(cell))?;
+    if inline_after != inline_before + 1 {
+        return Err(Error::RichtextSample("rich cell count"));
+    }
+    let runs = runs.ok_or(Error::RichtextSample("written cell's runs"))?;
+    let runs_after = runs.runs.len() as u64;
+    if runs_after != 2 {
+        return Err(Error::RichtextSample("written cell's run count"));
+    }
+    let text_after = value.as_deref() == Some("emend rich");
+    if !text_after {
+        return Err(Error::RichtextSample("written cell's text"));
+    }
+    let bold_first =
+        runs.runs[0].font.as_ref().is_some_and(|font| font.bold) && runs.runs[1].font.is_none();
+    if !bold_first {
+        return Err(Error::RichtextSample("written cell's fonts"));
+    }
+    Ok((sst_after, inline_after, runs_after, text_after, bold_first))
 }
 
 /// What the image sample counts on each side of the write: W's images, the
