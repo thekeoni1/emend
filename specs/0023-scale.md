@@ -317,7 +317,13 @@ decision recorded here (decision 6).
 6. The Excel check for Milestone 2, Milestone 2's acceptance:
    deferred five times, to run before this part's close-out push
    at the latest, or be deferred again by a decision recorded
-   here. Recorded, not asked.
+   here. Asked on 2026-10-02 after P3's verification; the
+   maintainer deferred it a sixth time ("Defer again"). This
+   part's close-out pushes without it; Milestone 2 stays
+   ACCEPTANCE PENDING, and the check (every corpus row of every
+   Milestone 2 sample, on the laptop) is due before Milestone 3
+   part 2's close-out push at the latest, or deferred again by a
+   decision recorded in that part's spec.
 
 ## Planning rulings during P2 (2026-10-01)
 
@@ -538,6 +544,76 @@ blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
    run directories, and the decision record's items from rulings 1
    to 7; the size log and record; part 4d's two samples rerun; the
    open record.
+
+## Planning verification and rulings on P3 (2026-10-02)
+
+Verified by planning from primaries: the doc commit c9a59be holds
+this file at 4c46d46c and `ROADMAP.md` at 79769f0d, the hashes
+planning sent; the phase commit 6578925 adds 49 lines to
+`package.rs`, every one a `//!` line, and nothing else; the record
+commit fe3c19e adds the six logs and eight record files; 3 of 3
+messages ASCII, ending with the Co-Authored-By line only; the logs
+at the reported hashes, each ending all as expected, the scan
+RESULT: PASS, every log pinning 4c46d46c; the size record at
+f9f2bd5f and the decision record at 0db5d43b read in full;
+planning's own build at 6578925 in a detached worktree: 513 and
+727 crate tests on both targets, 894 workspace tests on both,
+clippy and doc 0 lines; planning's own size probes in the size
+profile on i686: `probe-zip-xml` 533216 and the format probe
+968568 section bytes at 6578925, 968568 at 8d05845 and 968440 at
+c1f6602 in their own worktrees, so the part's growth 128, the
+fix's 128, the catalogue's 0 and the budget 435352 (23400 under
+458752) are reproduced to the byte; the i686 release binaries at
+the size log's hashes (the host's differ by build path, as in
+every phase); planning's own read runs with its own binaries
+under the cap, each output byte-identical to its input and each
+stdout line to the run directory's: tier d `--shared-strings`
+266380 / 216572 kB, tier d `--cells` 266312 / 216572 kB, tier c
+`--cells` 3904 / 3740 kB in 99.82 and 161.85 s (the runner's
+peaks are a few MB above these; the classes are the same);
+planning's own reruns of the comment and image samples over the
+26 corpus workbooks its glob took, both labels, 104 outputs and
+104 stdout lines byte-identical to P3's two run directories;
+planning's own privacy scan 079db61..fe3c19e, 3 commits, 1129
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The catalogue sentence "A whole pass over tier c's sheet runs
+   within the runs' peaks below" is supported by P3's run log
+   (tier c `--cells`, 7724 and 7432 kB, both under the rewrites'
+   7860) and by planning's own run, though the block names P2's
+   run log as its source and was committed before P3's run.
+   Ruling: accepted as supported; no code commit in the close-out.
+   Carried to part 2's first code commit: the block's first
+   paragraph names P3's run log beside P2's.
+2. The implementing session's two corrections are right: P2
+   verification ruling 3's prose is on run.log line 1051, and
+   ruling 6's largest rewrite peak is 7860 kB (edit-formula on the
+   host; 7864 is remove's raw copy). Both rulings read as corrected
+   here; the decision record notes both.
+3. The phase commit's amend (message only, the same tree as
+   3bd5095, before any log): recorded, no change, as P1
+   verification ruling 8.
+4. The independent check's remaining items: the report's wording
+   on the comment comparison (outputs and lines, no diff tables)
+   and on the rerun lines (four files hashed, the build directory
+   kept and not hashed) corrected in the report; the two-sheet cell
+   count and the "code's reading" labels are in the committed
+   decision record. Accepted, no change.
+5. The names i686 stderr holds the toolchain's source path
+   (`/rustc/<hash>/library/alloc/src/raw_vec`), which the run
+   log's check does not count since it counts private paths. Not
+   private; the line's wording "holds no path" is loose. Accepted.
+6. The size log's first attempt failed its own check (the record's
+   rows matched by figures alone, which two rows share), fixed and
+   rerun with the attempt named and hashed, the same record
+   written by both: accepted; the record's figures are planning's
+   own.
+7. P3 is DONE. Decision 6 was asked and the maintainer deferred
+   the Milestone 2 Excel check a sixth time (recorded under
+   decision 6). The close-out is released: its doc commit carries
+   this file with this section and decision 6's outcome, and
+   `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
+   "Close-out push (after P3)" says.
 
 ## Out of scope
 
