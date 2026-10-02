@@ -1241,6 +1241,55 @@
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice; what Excel shows for a note or a picture
 //!   is Excel's.
+//!
+//! # What streams and what is held
+//!
+//! Measured on the generated scale workbooks of `specs/0023-scale.md`
+//! (Milestone 3 part 1, P2's run log), each tool run under a 2048 MiB
+//! address-space cap on the host and on `i686-unknown-linux-musl`. Tier c
+//! is one worksheet of 1048576 rows by 120 columns whose entry is
+//! 5025024826 bytes uncompressed, a zip64 entry larger than a 32-bit
+//! address space; the figures are the peak resident set of the whole tool
+//! run, the larger of the two targets'.
+//!
+//! In memory independent of a part's size:
+//!
+//! - Reading cells: [`Package::cells`] is an iterator over the entry's
+//!   reader, one token at a time. A whole pass over tier c's sheet runs
+//!   within the runs' peaks below.
+//! - Rewriting a worksheet: a cell, style, protection, row or column edit
+//!   streams the input entry token by token into a temporary file, which is
+//!   then compressed into a second one and copied out in fixed blocks. Tier
+//!   c's sheet entry was rewritten this way by a formula edit, a row
+//!   deletion, a column insertion, a column deletion and a sheet
+//!   protection, at most 7860 kB on either target, its sizes over `u32`
+//!   carried whole. The temporaries are files in the directory
+//!   `std::env::temp_dir` names (`TMPDIR`), on disk or wherever that is,
+//!   and their size follows the part, not the process's memory.
+//! - Every entry no edit touches, the large sheet included, is copied raw
+//!   in fixed blocks without being decompressed: a properties edit, a sheet
+//!   added and a sheet removed on tier c each ran in under 4 s at most
+//!   7864 kB.
+//!
+//! Held whole, so the memory follows the part:
+//!
+//! - The shared strings table: [`Package::shared_strings`] returns it as
+//!   an owned list of every item; its cost at scale is the decision record
+//!   of `specs/0023-scale.md`'s P3.
+//! - The workbook, content types, relationships and styles parts, each
+//!   parsed into its model once; and an existing comments VML part or
+//!   drawing part, read whole when a comment or an image is added beside
+//!   it. Each is small next to a worksheet.
+//! - The recorded edits, as the cell edits above say, and a root child the
+//!   write counts or reorders, bounded by that element and never by the
+//!   sheet's rows.
+//!
+//! An edit that needs a row or column off the grid is refused, so on a
+//! sheet whose rows reach 1048576 a write that adds a row after the last is
+//! refused with "a row or column index or count is out of range" (P1
+//! verification ruling 5). A caller that writes the whole package into
+//! memory, as some of the harness tool's read-backs do, holds the whole
+//! output archive itself; that is the caller's memory, not this layer's.
 
 #[cfg(test)]
 mod tests;
