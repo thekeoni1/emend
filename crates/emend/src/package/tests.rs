@@ -7410,6 +7410,8 @@ mod names;
 mod properties;
 #[cfg(feature = "metadata")]
 mod protection;
+#[cfg(feature = "richtext")]
+mod richtext;
 mod rowcol;
 #[cfg(feature = "rowcol")]
 mod shift;

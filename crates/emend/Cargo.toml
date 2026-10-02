@@ -45,6 +45,10 @@ tables = []
 # by default, with no dependency of its own, measured beside the core as
 # `tables` is.
 comments = []
+# The rich text of specs/0024-rich-text.md (decision 1 A): runs with their own
+# font in a cell, and with `comments` in a comment. Off by default, with no
+# dependency of its own, measured beside the core as `comments` is.
+richtext = []
 # The images of specs/0022-comments-and-images.md (decision 1 A): off by
 # default, with no dependency of its own, measured beside the core as
 # `comments` is.

@@ -565,6 +565,22 @@
 //!   `the_write_refuses_a_drawing_it_cannot_read`,
 //!   `a_drawing_whose_root_is_user_shapes_is_refused`).
 //!
+//! Rich text adds these, the Cargo feature `richtext`'s messages
+//! (`specs/0024-rich-text.md`, "Errors"; without the feature no value
+//! carries runs and neither is raised); both are raised in `cells`, the
+//! first by a rich value's check and reported by [`Package::write_to`], the
+//! second by the read of a cell, through [`Package::cells`], and of the
+//! shared strings table, through [`Package::shared_strings`]. A rich value
+//! also meets, at the write, "a text holds a character XML cannot carry",
+//! the font refusals of [`Package::add_style`] and the off-grid refusal
+//! (`richtext::the_write_refuses_each_rule`,
+//! `richtext::a_rich_value_off_the_grid_is_refused`):
+//!
+//! - "a rich text is not valid" (`richtext::the_write_refuses_each_rule`).
+//! - "a run's properties cannot be read"
+//!   (`richtext::a_run_property_that_cannot_be_read_is_refused`,
+//!   `richtext::a_value_or_colour_the_write_would_refuse_is_refused_at_the_read`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -8875,9 +8891,11 @@ const SHEET_NAME_APOSTROPHE: Error =
     Error::Package("a sheet name starts or ends with an apostrophe");
 const SHEET_NAME_HISTORY: Error = Error::Package("a sheet name is the reserved name History");
 const SHEET_NAME_IN_USE: Error = Error::Package("a sheet name is already in use");
-/// Raised by `Value::Text` too; a sheet name uses the same words
-/// (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 3).
-const TEXT_NOT_XML: Error = Error::Package("a text holds a character XML cannot carry");
+/// Raised by `Value::Text` too, and with the Cargo feature `richtext` by a
+/// rich value's run; a sheet name uses the same words
+/// (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 3). One definition,
+/// which `cells` takes (`specs/0024-rich-text.md`, "Errors").
+pub(crate) const TEXT_NOT_XML: Error = Error::Package("a text holds a character XML cannot carry");
 const NO_SUCH_SHEET: Error = Error::Package("no sheet of that name");
 const SHEET_PAST_END: Error = Error::Package("a sheet position is past the end");
 const LAST_SHEET: Error = Error::Package("the last sheet cannot be removed");

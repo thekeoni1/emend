@@ -46,6 +46,8 @@ pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
 pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
+#[cfg(feature = "richtext")]
+pub use cells::{RichText, Run};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
 #[cfg(feature = "images")]

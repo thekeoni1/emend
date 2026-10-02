@@ -544,31 +544,36 @@ fn check_color(color: Option<&Color>) -> Result<(), Error> {
 impl Font {
     /// The `<font>` element, or the refusal of a field.
     pub(crate) fn compose(&self) -> Result<Composed, Error> {
-        if let Some(name) = &self.name
-            && (name.is_empty() || name.chars().any(forbidden_in_xml))
-        {
-            return Err(FONT_NAME_REFUSED);
-        }
-        if let Some(size) = self.size
-            && !(size.is_finite() && size > 0.0)
-        {
-            return Err(FIELD_OUT_OF_RANGE);
-        }
-        check_color(self.color.as_ref())?;
+        self.compose_as("font", "name")
+    }
+
+    /// The font's element named `element`, its typeface child named `name`,
+    /// or the refusal of a field: `<font>` with `name` for a styles part, and
+    /// with the Cargo feature `richtext` a run's `<rPr>` with `rFont`
+    /// (`specs/0024-rich-text.md`, "The cell write"). One writer, so the
+    /// children come in one order for both.
+    pub(crate) fn compose_as(&self, element: &str, name: &str) -> Result<Composed, Error> {
+        self.check()?;
+        Ok(self.composed(element, name))
+    }
+
+    /// The element [`Font::compose_as`] writes, for a font [`Font::check`]
+    /// has passed.
+    pub(crate) fn composed(&self, element: &str, name: &str) -> Composed {
         let mut out = Composed::new();
-        out.open("font");
+        out.open(element);
         if *self == Font::default() {
             out.end_tag(true);
-            return Ok(out);
+            return out;
         }
         out.end_tag(false);
-        for (on, name) in [
+        for (on, child) in [
             (self.bold, "b"),
             (self.italic, "i"),
             (self.strike, "strike"),
         ] {
             if on {
-                out.empty(name);
+                out.empty(child);
             }
         }
         match self.underline {
@@ -585,8 +590,8 @@ impl Font {
         if let Some(color) = &self.color {
             out.color("color", color);
         }
-        if let Some(name) = &self.name {
-            out.val("name", &attribute_text(name));
+        if let Some(typeface) = &self.name {
+            out.val(name, &attribute_text(typeface));
         }
         if let Some(family) = self.family {
             out.val("family", &family.to_string());
@@ -594,8 +599,23 @@ impl Font {
         if let Some(scheme) = self.scheme {
             out.val("scheme", scheme.keyword());
         }
-        out.close("font");
-        Ok(out)
+        out.close(element);
+        out
+    }
+
+    /// The refusal of a field [`Font::compose`] cannot write, or nothing.
+    pub(crate) fn check(&self) -> Result<(), Error> {
+        if let Some(name) = &self.name
+            && (name.is_empty() || name.chars().any(forbidden_in_xml))
+        {
+            return Err(FONT_NAME_REFUSED);
+        }
+        if let Some(size) = self.size
+            && !(size.is_finite() && size > 0.0)
+        {
+            return Err(FIELD_OUT_OF_RANGE);
+        }
+        check_color(self.color.as_ref())
     }
 }
 

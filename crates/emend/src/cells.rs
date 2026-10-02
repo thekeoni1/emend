@@ -152,7 +152,9 @@
 //!   application rejects is the caller's.
 //! - A text is always an inline string, with `xml:space="preserve"` always
 //!   written and a carriage return written as a character reference; never
-//!   a shared string, and never rich text.
+//!   a shared string, and never rich text. With the Cargo feature
+//!   `richtext`, a rich text is an inline string too, one `<r>` per run and
+//!   never a shared string (`specs/0024-rich-text.md`, "The cell write").
 //! - A number is written as its `Display` when it is zero or its magnitude
 //!   is at least `1e-7` and below `1e21`, else in its `{:E}` form. A number
 //!   that is not finite, and a text holding a character XML 1.0 forbids, are
@@ -162,7 +164,9 @@
 use quick_xml::events::{BytesRef, BytesStart, Event};
 
 use crate::archive::Error;
-use crate::package::{MAIN, Package};
+use crate::package::{MAIN, Package, TEXT_NOT_XML};
+#[cfg(feature = "richtext")]
+use crate::styles::{Color, Font, Scheme, Underline, VerticalAlign};
 use crate::xml::{Scope, Stream};
 
 use std::io::{Read, Seek};
@@ -180,6 +184,12 @@ use std::marker::PhantomData;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SharedStrings {
     items: Vec<String>,
+    /// The items that hold at least one `<r>`, as runs, by item index in
+    /// ascending order; nothing for an item without runs
+    /// (`specs/0024-rich-text.md`, "The read", decision 4). The Cargo feature
+    /// `richtext`.
+    #[cfg(feature = "richtext")]
+    rich: Vec<(u32, RichText)>,
 }
 
 impl SharedStrings {
@@ -205,6 +215,19 @@ impl SharedStrings {
             .map(String::as_str)
     }
 
+    /// The runs of the item at `index`: `Some` for an item holding at least
+    /// one `<r>`, `None` for an item without runs and past the end. The item's
+    /// flattened text is [`SharedStrings::get`]'s. The Cargo feature
+    /// `richtext`.
+    #[cfg(feature = "richtext")]
+    pub fn runs_of(&self, index: u32) -> Option<&RichText> {
+        let at = self
+            .rich
+            .binary_search_by_key(&index, |(item, _)| *item)
+            .ok()?;
+        self.rich.get(at).map(|(_, runs)| runs)
+    }
+
     /// Reads a `sharedStrings` part.
     ///
     /// The root must be `sst` in the main namespace, either spelling. Each
@@ -226,6 +249,8 @@ impl SharedStrings {
     pub(crate) fn read<R: Read>(stream: &mut Stream<R>, index: usize) -> Result<Self, Error> {
         let mut scope = Scope::new(index);
         let mut items: Vec<String> = Vec::new();
+        #[cfg(feature = "richtext")]
+        let mut rich: Vec<(u32, RichText)> = Vec::new();
         let mut root = false;
 
         while let Some(token) = stream.next()? {
@@ -267,13 +292,31 @@ impl SharedStrings {
                 _ => {}
             }
             if open_item {
-                items.push(text_under(stream, &mut scope, index)?);
+                #[cfg(not(feature = "richtext"))]
+                items.push(text_under(stream, &mut scope, index, &mut ())?);
+                #[cfg(feature = "richtext")]
+                {
+                    let mut runs = Collect::default();
+                    let text = text_under(stream, &mut scope, index, &mut runs)?;
+                    // An item past `u32::MAX` cannot be indexed by the
+                    // format, so it has no runs to look up either.
+                    if let Some(found) = runs.rich(&text)
+                        && let Ok(at) = u32::try_from(items.len())
+                    {
+                        rich.push((at, found));
+                    }
+                    items.push(text);
+                }
             }
         }
         if !root {
             return Err(Error::Package("the shared strings part's root is not sst"));
         }
-        Ok(Self { items })
+        Ok(Self {
+            items,
+            #[cfg(feature = "richtext")]
+            rich,
+        })
     }
 
     /// The text a cell of kind [`Kind::SharedString`] names, or the cell's own
@@ -579,6 +622,12 @@ pub struct Cell {
     pub value: Option<String>,
     /// The cell's formula, when it has one.
     pub formula: Option<Formula>,
+    /// The runs of an inline string whose `<is>` holds at least one `<r>`,
+    /// else `None`; [`Cell::value`] is their flattened text as for any inline
+    /// string (`specs/0024-rich-text.md`, "The read"). The Cargo feature
+    /// `richtext`.
+    #[cfg(feature = "richtext")]
+    pub runs: Option<RichText>,
 }
 
 impl Cell {
@@ -687,6 +736,16 @@ pub enum Value {
     /// forbids (the set [`Value::Text`] lists) is refused. Nothing else is
     /// checked: emend does not parse formulas.
     Formula(String),
+    /// A rich text, written as an inline string (`t="inlineStr"`) whose
+    /// `<is>` holds one `<r>` per run: the run's font as `<rPr>` when it has
+    /// one, then its text as [`Value::Text`] writes a text. A rich text with
+    /// no run or with a run whose text is empty is refused, as is a text
+    /// [`Value::Text`] refuses and a font
+    /// [`crate::package::Package::add_style`] refuses
+    /// (`specs/0024-rich-text.md`, "The cell write"). The Cargo feature
+    /// `richtext`.
+    #[cfg(feature = "richtext")]
+    Rich(RichText),
 }
 
 impl Value {
@@ -697,9 +756,7 @@ impl Value {
             Value::Number(number) if !number.is_finite() => Err(Error::Package(
                 "a number that is not finite cannot be written",
             )),
-            Value::Text(text) if text.chars().any(forbidden_in_xml) => {
-                Err(Error::Package("a text holds a character XML cannot carry"))
-            }
+            Value::Text(text) if text.chars().any(forbidden_in_xml) => Err(TEXT_NOT_XML),
             Value::Formula(text) if text.is_empty() => {
                 Err(Error::Package("a formula text is empty"))
             }
@@ -709,6 +766,8 @@ impl Value {
             Value::Formula(text) if text.chars().any(forbidden_in_xml) => Err(Error::Package(
                 "a formula text holds a character XML cannot carry",
             )),
+            #[cfg(feature = "richtext")]
+            Value::Rich(rich) => rich.check(),
             _ => Ok(()),
         }
     }
@@ -753,16 +812,26 @@ impl Value {
                     ]
                     .concat(),
                 );
-                // A reader normalises a raw carriage return away (part 3 P1
-                // finding P1-F1), so it goes out as a character reference.
-                // quick-xml 0.42.0's `escape` already writes it as `&#13;`;
-                // the `replace` is a no-op kept in case a later version
-                // leaves it raw.
-                let escaped = quick_xml::escape::escape(text.as_str());
-                out.extend_from_slice(escaped.replace('\r', "&#13;").as_bytes());
+                out.extend_from_slice(&text_escaped(text));
                 out.extend_from_slice(
                     &[b"</".as_slice(), p, b"t></", p, b"is></", p, b"c>"].concat(),
                 );
+            }
+            #[cfg(feature = "richtext")]
+            Value::Rich(rich) => {
+                out.extend_from_slice(&[b" t=\"inlineStr\"><".as_slice(), p, b"is>"].concat());
+                for run in &rich.runs {
+                    out.extend_from_slice(&[b"<".as_slice(), p, b"r>"].concat());
+                    if let Some(font) = &run.font {
+                        out.extend_from_slice(&font.composed("rPr", "rFont").element(p));
+                    }
+                    out.extend_from_slice(
+                        &[b"<".as_slice(), p, b"t xml:space=\"preserve\">"].concat(),
+                    );
+                    out.extend_from_slice(&text_escaped(&run.text));
+                    out.extend_from_slice(&[b"</".as_slice(), p, b"t></", p, b"r>"].concat());
+                }
+                out.extend_from_slice(&[b"</".as_slice(), p, b"is></", p, b"c>"].concat());
             }
             Value::Boolean(value) => {
                 let digit: &[u8] = if *value { b"1" } else { b"0" };
@@ -790,6 +859,17 @@ impl Value {
         }
         out
     }
+}
+
+/// A text as [`Value::Text`] writes it inside its `<t>`: escaped for XML, a
+/// carriage return as `&#13;`.
+fn text_escaped(text: &str) -> Vec<u8> {
+    // A reader normalises a raw carriage return away (part 3 P1 finding
+    // P1-F1), so it goes out as a character reference. quick-xml 0.42.0's
+    // `escape` already writes it as `&#13;`; the `replace` is a no-op kept in
+    // case a later version leaves it raw.
+    let escaped = quick_xml::escape::escape(text);
+    escaped.replace('\r', "&#13;").into_bytes()
 }
 
 /// A number's text as [`Value::Number`] writes it. `number` is finite.
@@ -1008,6 +1088,8 @@ impl<'p> Walk<'p> {
                         kind: opening.kind,
                         value: None,
                         formula: None,
+                        #[cfg(feature = "richtext")]
+                        runs: None,
                     }));
                 }
                 return Ok(Some(self.read_cell(opening)?));
@@ -1023,6 +1105,8 @@ impl<'p> Walk<'p> {
     fn read_cell(&mut self, opening: Opening) -> Result<Cell, Error> {
         let mut value: Option<String> = None;
         let mut formula: Option<Formula> = None;
+        #[cfg(feature = "richtext")]
+        let mut runs: Option<RichText> = None;
         loop {
             let Some(token) = self.stream.next()? else {
                 return Err(Error::Xml(self.index));
@@ -1081,6 +1165,8 @@ impl<'p> Walk<'p> {
                         kind: opening.kind,
                         value,
                         formula,
+                        #[cfg(feature = "richtext")]
+                        runs,
                     });
                 }
                 _ => {}
@@ -1101,7 +1187,27 @@ impl<'p> Walk<'p> {
                 // is, so it takes the same function and the same `<rPh>`
                 // rule.
                 Some(Slot::Inline) => {
-                    value = Some(text_under(&mut self.stream, &mut self.scope, self.index)?);
+                    #[cfg(not(feature = "richtext"))]
+                    {
+                        value = Some(text_under(
+                            &mut self.stream,
+                            &mut self.scope,
+                            self.index,
+                            &mut (),
+                        )?);
+                    }
+                    #[cfg(feature = "richtext")]
+                    {
+                        let mut collect = Collect::default();
+                        let text = text_under(
+                            &mut self.stream,
+                            &mut self.scope,
+                            self.index,
+                            &mut collect,
+                        )?;
+                        runs = collect.rich(&text);
+                        value = Some(text);
+                    }
                 }
                 None => {
                     if skip {
@@ -1335,16 +1441,28 @@ fn read_formula(
 /// `<rPh>` rule and the line-end rule are each written once
 /// (`specs/0010-reading-cells.md`, P1 ruling 4 and "Module `cells`").
 ///
+/// `runs` hears the container's runs as the walk meets them: each `<r>` at
+/// the container's own level opened and closed, its `<rPr>`, and every text
+/// with whether it is a run's. The core gives it `()`, which hears nothing
+/// and leaves every element to the walk as before; the Cargo feature
+/// `richtext` gives it a collector (`specs/0024-rich-text.md`, "The read",
+/// and P1 ruling 3), so the walk and its `<rPh>` rule stay one function.
+///
 /// # Errors
 ///
-/// Whatever [`text_of`] refuses for one of the `<t>` elements, and
-/// [`Error::Xml`] when the part ends before the container's end tag.
-fn text_under<R: Read>(
+/// Whatever [`text_of`] refuses for one of the `<t>` elements, whatever
+/// `runs` refuses for an `<rPr>`, and [`Error::Xml`] when the part ends
+/// before the container's end tag.
+fn text_under<R: Read, L: Runs>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
+    runs: &mut L,
 ) -> Result<String, Error> {
     let mut out = String::new();
+    // Whether an `<r>` of the container's own level is open; it is at depth
+    // 1 while it is.
+    let mut in_run = false;
     // Depth of the `<rPh>` subtree being skipped, 0 when not in one. A depth
     // rather than a flag: `<rPh>` holds elements of its own and the skip has
     // to end at the matching end tag, not at the first one.
@@ -1360,6 +1478,9 @@ fn text_under<R: Read>(
         // happens after the match, because `token` borrows the stream
         // `text_of` has to read from.
         let mut open_text = false;
+        // Set, to whether it was empty, when the token opened the open run's
+        // own `<rPr>`, which `runs` is offered after the match.
+        let mut properties: Option<bool> = None;
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
                 let empty = matches!(token.event, Event::Empty(_));
@@ -1383,6 +1504,16 @@ fn text_under<R: Read>(
                     if !empty {
                         open_text = true;
                     }
+                } else if ours && local == b"r" && depth == 0 {
+                    runs.open_run();
+                    if empty {
+                        runs.close_run();
+                    } else {
+                        depth = 1;
+                        in_run = true;
+                    }
+                } else if ours && local == b"rPr" && in_run && depth == 1 {
+                    properties = Some(empty);
                 } else if !empty {
                     depth += 1;
                 }
@@ -1396,6 +1527,10 @@ fn text_under<R: Read>(
                     phonetic -= 1;
                 } else if depth > 0 {
                     depth -= 1;
+                    if in_run && depth == 0 {
+                        in_run = false;
+                        runs.close_run();
+                    }
                 } else {
                     return Ok(out);
                 }
@@ -1408,9 +1543,478 @@ fn text_under<R: Read>(
         }
         if open_text {
             let text = text_of(stream, scope, index)?;
+            runs.text(&text, in_run);
             out.push_str(&text);
         }
+        // An `<rPr>` `runs` does not read is walked as any other element is,
+        // which is the core's walk unchanged.
+        if let Some(empty) = properties
+            && !runs.properties(stream, scope, index, empty)?
+            && !empty
+        {
+            depth += 1;
+        }
     }
+}
+
+/// What [`text_under`] tells its listener beyond the text: the runs. Every
+/// method does nothing by default, which is the core's `()`.
+trait Runs {
+    /// An `<r>` of the container's own level opened.
+    fn open_run(&mut self) {}
+
+    /// The open `<r>` closed.
+    fn close_run(&mut self) {}
+
+    /// The open run's `<rPr>` opened, `empty` when it was `<rPr/>`. A
+    /// listener that reads it consumes it through its end tag, giving the end
+    /// back to `scope`, and answers `true`; `false` leaves it to the walk.
+    fn properties<R: Read>(
+        &mut self,
+        _stream: &mut Stream<R>,
+        _scope: &mut Scope,
+        _index: usize,
+        _empty: bool,
+    ) -> Result<bool, Error> {
+        Ok(false)
+    }
+
+    /// A `<t>`'s text, `in_run` when it is under the open run.
+    fn text(&mut self, _text: &str, _in_run: bool) {}
+}
+
+impl Runs for () {}
+
+/// What a rich text holding no run or a run with no text is refused with at
+/// the write. The Cargo feature `richtext`.
+#[cfg(feature = "richtext")]
+const RICH_TEXT_INVALID: Error = Error::Package("a rich text is not valid");
+
+/// What an `<rPr>` this layer cannot read into a [`Font`] is refused with,
+/// at the read of a cell, of the shared strings table and of a comment. The
+/// Cargo feature `richtext`.
+#[cfg(feature = "richtext")]
+const RUN_PROPERTIES_UNREADABLE: Error = Error::Package("a run's properties cannot be read");
+
+/// One run of a rich text: one `<r>` (`specs/0024-rich-text.md`, "Types").
+/// The Cargo feature `richtext`.
+///
+/// Two runs compare equal when their texts are equal and their fonts are
+/// equal field by field, each `f64` (a size, a theme colour's tint) by its
+/// bits: a NaN equals itself, and `0.0` differs from `-0.0`. So the
+/// comparison is an equivalence for every value the type can hold, and the
+/// type is `Eq` (`specs/0024-rich-text.md`, P1 ruling 1).
+#[cfg(feature = "richtext")]
+#[derive(Clone, Debug)]
+pub struct Run {
+    /// The run's text, unescaped, its line ends as [`Cell::value`] gives
+    /// them.
+    pub text: String,
+    /// The run's `<rPr>`, `None` for a run without one. `name` is the run's
+    /// `rFont`; every other field is the child of the same name.
+    pub font: Option<Font>,
+}
+
+#[cfg(feature = "richtext")]
+impl PartialEq for Run {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+            && match (&self.font, &other.font) {
+                (None, None) => true,
+                (Some(a), Some(b)) => same_font(a, b),
+                _ => false,
+            }
+    }
+}
+
+#[cfg(feature = "richtext")]
+impl Eq for Run {}
+
+/// Whether two fonts are equal field by field, each `f64` by its bits.
+///
+/// The destructuring names every field, so a field added to [`Font`] fails
+/// to compile here until it is compared.
+#[cfg(feature = "richtext")]
+fn same_font(a: &Font, b: &Font) -> bool {
+    let Font {
+        name,
+        size,
+        bold,
+        italic,
+        strike,
+        underline,
+        vertical_align,
+        color,
+        family,
+        scheme,
+    } = a;
+    *name == b.name
+        && size.map(f64::to_bits) == b.size.map(f64::to_bits)
+        && *bold == b.bold
+        && *italic == b.italic
+        && *strike == b.strike
+        && *underline == b.underline
+        && *vertical_align == b.vertical_align
+        && same_color(color.as_ref(), b.color.as_ref())
+        && *family == b.family
+        && *scheme == b.scheme
+}
+
+/// Whether two colours are equal, a theme colour's tint by its bits.
+#[cfg(feature = "richtext")]
+fn same_color(a: Option<&Color>, b: Option<&Color>) -> bool {
+    match (a, b) {
+        (
+            Some(Color::Theme { index, tint }),
+            Some(Color::Theme {
+                index: other,
+                tint: other_tint,
+            }),
+        ) => index == other && tint.map(f64::to_bits) == other_tint.map(f64::to_bits),
+        // No other form holds an `f64`.
+        _ => a == b,
+    }
+}
+
+/// A cell value or a comment text made of runs (`specs/0024-rich-text.md`,
+/// "Types"). The Cargo feature `richtext`.
+///
+/// Equal when the runs are, in order, as [`Run`] compares them.
+#[cfg(feature = "richtext")]
+#[derive(Clone, Debug, Default)]
+pub struct RichText {
+    /// The runs, in order.
+    pub runs: Vec<Run>,
+}
+
+#[cfg(feature = "richtext")]
+impl PartialEq for RichText {
+    fn eq(&self, other: &Self) -> bool {
+        self.runs == other.runs
+    }
+}
+
+#[cfg(feature = "richtext")]
+impl Eq for RichText {}
+
+#[cfg(feature = "richtext")]
+impl RichText {
+    /// The runs' texts concatenated: what [`Cell::value`] and
+    /// [`SharedStrings::get`] hold for the same cell or item.
+    pub fn text(&self) -> String {
+        self.runs.iter().map(|run| run.text.as_str()).collect()
+    }
+
+    /// Refuses a rich text the write cannot carry, run by run: no run, or a
+    /// run with no text; a text [`Value::Text`] refuses; a font
+    /// [`crate::package::Package::add_style`] refuses.
+    pub(crate) fn check(&self) -> Result<(), Error> {
+        if self.runs.is_empty() {
+            return Err(RICH_TEXT_INVALID);
+        }
+        for run in &self.runs {
+            if run.text.is_empty() {
+                return Err(RICH_TEXT_INVALID);
+            }
+            if run.text.chars().any(forbidden_in_xml) {
+                return Err(TEXT_NOT_XML);
+            }
+            if let Some(font) = &run.font {
+                font.check()?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The listener the Cargo feature `richtext` gives [`text_under`]: it keeps
+/// the container's runs and allocates nothing until an `<r>` is met, so a
+/// container without runs costs no allocation and leaves nothing behind
+/// (`specs/0024-rich-text.md`, decision 4).
+#[cfg(feature = "richtext")]
+#[derive(Default)]
+struct Collect {
+    runs: Vec<Run>,
+    /// The run opened and not yet closed.
+    open: Option<Run>,
+    /// Whether any `<r>` was met, which is what makes the container rich.
+    any: bool,
+    /// The bytes of text met before the first `<r>`: the schema's plain
+    /// `<t>` first child, read back from the flattened text when the
+    /// container turns out rich rather than copied for every container.
+    lead: usize,
+}
+
+#[cfg(feature = "richtext")]
+impl Collect {
+    /// The runs, when the container held at least one `<r>`; `flat` is the
+    /// container's flattened text, which [`text_under`] returned.
+    fn rich(mut self, flat: &str) -> Option<RichText> {
+        if !self.any {
+            return None;
+        }
+        if let Some(lead) = flat.get(..self.lead)
+            && !lead.is_empty()
+        {
+            self.runs.insert(
+                0,
+                Run {
+                    text: lead.to_owned(),
+                    font: None,
+                },
+            );
+        }
+        Some(RichText { runs: self.runs })
+    }
+}
+
+#[cfg(feature = "richtext")]
+impl Runs for Collect {
+    fn open_run(&mut self) {
+        self.any = true;
+        self.open = Some(Run {
+            text: String::new(),
+            font: None,
+        });
+    }
+
+    fn close_run(&mut self) {
+        if let Some(run) = self.open.take() {
+            self.runs.push(run);
+        }
+    }
+
+    fn properties<R: Read>(
+        &mut self,
+        stream: &mut Stream<R>,
+        scope: &mut Scope,
+        index: usize,
+        empty: bool,
+    ) -> Result<bool, Error> {
+        let font = if empty {
+            Font::default()
+        } else {
+            read_properties(stream, scope, index, b"rFont")?
+        };
+        if let Some(run) = &mut self.open {
+            run.font = Some(font);
+        }
+        Ok(true)
+    }
+
+    fn text(&mut self, text: &str, in_run: bool) {
+        match &mut self.open {
+            Some(run) if in_run => run.text.push_str(text),
+            // A plain `<t>` before the runs, the schema's first child, is
+            // their first run, with no font; `rich` takes it from the
+            // flattened text.
+            _ if !self.any => self.lead += text.len(),
+            // One after them, which the schema does not allow, is a run of
+            // its own in its place.
+            _ => self.runs.push(Run {
+                text: text.to_owned(),
+                font: None,
+            }),
+        }
+    }
+}
+
+/// Reads an open `<rPr>`'s children into a [`Font`], through its end tag,
+/// which it gives back to `scope`.
+///
+/// `name` is the local name of the typeface child: `rFont` in a run; part 5
+/// may give it `name` for a styles part's `<font>`. One reader for the cell,
+/// the table and the comment (`specs/0024-rich-text.md`, "The read").
+/// `charset`, `outline`, `shadow`, `condense` and `extend` are read past and
+/// not kept: [`Font`] has no field for them.
+///
+/// # Errors
+///
+/// [`Error::Package`] "a run's properties cannot be read" for a child
+/// outside the main namespace, a child this layer does not know, a child
+/// holding an element, a `val` that does not parse, a colour with no form
+/// [`Color`] has, a size or tint that is not finite, and any font
+/// [`crate::package::Package::add_style`] would refuse, so every font this
+/// gives is one the write accepts (P1 ruling 2). [`Error::Xml`] when the
+/// part ends first.
+#[cfg(feature = "richtext")]
+fn read_properties<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    name: &[u8],
+) -> Result<Font, Error> {
+    let mut font = Font::default();
+    loop {
+        let Some(token) = stream.next()? else {
+            return Err(Error::Xml(index));
+        };
+        // Set when the child was a start tag, whose content is consumed
+        // after the match.
+        let mut open = false;
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                if !MAIN.contains(&namespace.unwrap_or_default()) {
+                    return Err(RUN_PROPERTIES_UNREADABLE);
+                }
+                read_property(&mut font, local, name, start, scope, index)?;
+                if empty {
+                    scope.end();
+                } else {
+                    open = true;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                font.check().map_err(|_| RUN_PROPERTIES_UNREADABLE)?;
+                return Ok(font);
+            }
+            // Whitespace between the children.
+            _ => {}
+        }
+        if open {
+            // A property is an empty element; one written with an end tag
+            // may hold text, never an element.
+            loop {
+                let Some(token) = stream.next()? else {
+                    return Err(Error::Xml(index));
+                };
+                match token.event {
+                    Event::Start(_) | Event::Empty(_) => return Err(RUN_PROPERTIES_UNREADABLE),
+                    Event::End(_) => {
+                        scope.end();
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+/// Reads one `<rPr>` child, `local` its name, into `font`.
+#[cfg(feature = "richtext")]
+fn read_property(
+    font: &mut Font,
+    local: &[u8],
+    name: &[u8],
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<(), Error> {
+    // The attributes the children carry, as written; `rFont`'s `val` is
+    // unescaped and normalised below, as a styles part's names are.
+    let mut val: Option<String> = None;
+    let mut rgb: Option<String> = None;
+    let mut theme: Option<String> = None;
+    let mut tint: Option<String> = None;
+    let mut indexed: Option<String> = None;
+    let mut auto: Option<String> = None;
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, key) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_some() {
+            continue;
+        }
+        let slot = match key {
+            b"val" => &mut val,
+            b"rgb" => &mut rgb,
+            b"theme" => &mut theme,
+            b"tint" => &mut tint,
+            b"indexed" => &mut indexed,
+            b"auto" => &mut auto,
+            _ => continue,
+        };
+        *slot = Some(if key == b"val" && local == name {
+            attribute
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                .map_err(|_| Error::Xml(index))?
+                .into_owned()
+        } else {
+            attribute.value.as_ref().to_owned()
+        });
+    }
+    let bad = || RUN_PROPERTIES_UNREADABLE;
+    let flag = |val: Option<&str>| match val {
+        None | Some("1") | Some("true") => Ok(true),
+        Some("0") | Some("false") => Ok(false),
+        Some(_) => Err(bad()),
+    };
+    let number = |val: Option<&str>| {
+        val.and_then(|text| text.parse::<f64>().ok())
+            .filter(|number| number.is_finite())
+            .ok_or_else(bad)
+    };
+    match local {
+        b"b" => font.bold = flag(val.as_deref())?,
+        b"i" => font.italic = flag(val.as_deref())?,
+        b"strike" => font.strike = flag(val.as_deref())?,
+        b"u" => {
+            font.underline = match val.as_deref() {
+                None | Some("single") => Some(Underline::Single),
+                Some("double") => Some(Underline::Double),
+                Some("singleAccounting") => Some(Underline::SingleAccounting),
+                Some("doubleAccounting") => Some(Underline::DoubleAccounting),
+                Some("none") => None,
+                Some(_) => return Err(bad()),
+            }
+        }
+        b"vertAlign" => {
+            font.vertical_align = Some(match val.as_deref() {
+                Some("superscript") => VerticalAlign::Superscript,
+                Some("subscript") => VerticalAlign::Subscript,
+                Some("baseline") => VerticalAlign::Baseline,
+                _ => return Err(bad()),
+            })
+        }
+        b"sz" => font.size = Some(number(val.as_deref())?),
+        b"color" => {
+            let tint = match tint.as_deref() {
+                None => None,
+                Some(text) => Some(number(Some(text))?),
+            };
+            let auto = match auto.as_deref() {
+                None => false,
+                Some(text) => flag(Some(text))?,
+            };
+            font.color = Some(if auto {
+                Color::Auto
+            } else if let Some(rgb) = rgb {
+                if rgb.len() != 8 || !rgb.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                    return Err(bad());
+                }
+                Color::Rgb(u32::from_str_radix(&rgb, 16).map_err(|_| bad())?)
+            } else if let Some(theme) = theme {
+                Color::Theme {
+                    index: decimal(&theme).ok_or_else(bad)?,
+                    tint,
+                }
+            } else if let Some(indexed) = indexed {
+                Color::Indexed(decimal(&indexed).ok_or_else(bad)?)
+            } else {
+                return Err(bad());
+            });
+        }
+        b"family" => font.family = Some(val.as_deref().and_then(decimal).ok_or_else(bad)?),
+        b"scheme" => {
+            font.scheme = match val.as_deref() {
+                Some("major") => Some(Scheme::Major),
+                Some("minor") => Some(Scheme::Minor),
+                Some("none") => None,
+                _ => return Err(bad()),
+            }
+        }
+        b"charset" | b"outline" | b"shadow" | b"condense" | b"extend" => {}
+        _ if local == name => font.name = Some(val.ok_or_else(bad)?),
+        _ => return Err(bad()),
+    }
+    Ok(())
 }
 
 /// Consumes an element's subtree, to and including its matching end tag.
