@@ -771,7 +771,7 @@ this part's close-out push (decision 7).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | the feature, the settings pass with its attribute merge, `set_tab_color`, `set_sheet_view`, `--sheetview-sample` on the corpus | PENDING |
+| P1 | the feature, the settings pass with its attribute merge, `set_tab_color`, `set_sheet_view`, `--sheetview-sample` on the corpus | DONE 2026-10-03 (doc e5f998a, carry bf5e877, crate 4f53d49, tool 9db5f4f, record 138fe80; 27 of 27 ok on both labels, LibreOffice ok, every entry identical but the edited worksheet, the kept attributes byte-identical; 17 crate and 2 tool tests; planning's own rerun byte-identical) |
 | P2 | `set_print_options`, `set_page_margins`, `set_page_setup`, `set_header_footer` with `section`, `--pagesetup-sample` on the corpus | PENDING |
 | P3 | `set_print_area`, `set_print_titles`, `set_auto_filter` with the built-in names through the `metadata` writer, `--printarea-sample` on the corpus | PENDING |
 | P4 | the catalogue and limits; the two probes and the size record with a cause per probe; the three samples rerun byte-identical | PENDING |

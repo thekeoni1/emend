@@ -164,9 +164,9 @@ writer. The core builds, tests and links without it; the tool
 In `package`, feature `sheetprops`, each derived `Clone`, `Debug`,
 `Default`, `PartialEq` (floats where the format has them):
 
-- `TabColor`: `styles::Color` reused (`rgb`, `theme` with `tint`,
-  `indexed`, `auto`), written as `<tabColor>`'s attributes in the
-  form `Font`'s colour is.
+- The tab colour is `styles::Color` itself (`rgb`, `theme` with
+  `tint`, `indexed`, `auto`), no alias, written as `<tabColor>`'s
+  attributes in the form `Font`'s colour is.
 - `SheetView { zoom: Option<u32>, show_grid_lines: Option<bool>,
   show_headings: Option<bool>, show_zeros: Option<bool>,
   show_formulas: Option<bool>, right_to_left: Option<bool>, view:
@@ -199,15 +199,19 @@ In `package`, feature `sheetprops`, each derived `Clone`, `Debug`,
 
 ### The calls
 
-Each records an edit on the worksheet part `part`, as the
-settings calls of `specs/0018` and `specs/0019` do: refused at
+Each records an edit on the worksheet part `part`, as
+`freeze_panes` and `protect_sheet` do (P1 ruling 1): refused at
 the call for a value out of range or a text holding a character
-XML cannot carry, nothing recorded; a part the archive lacks
-refused at the call with "no such part"; a part this write
-removes or replaces, or a part with a row or column shift in the
-same write, refused at the write with part 1's and part 3's
-messages. The last call for one element on one part wins, field
-by field: two calls each set the fields they give.
+XML cannot carry, nothing recorded; the part never looked up at
+the call, so a sheet `add_sheet` adds in the same write is
+accepted and the edit lands on its blank worksheet; a part
+neither in the archive nor added refused at the write with "no
+such part" by the write's existing check over the edited parts;
+a part this write removes or replaces, or a part with a row or
+column shift in the same write, refused at the write with part
+1's and part 3's messages. The last call for one element on one
+part wins, field by field: two calls each set the fields they
+give.
 
 - `set_tab_color(part, color: Option<Color>)`: `Some` writes
   `<tabColor>` under `<sheetPr>`, created when absent (`<sheetPr>`
@@ -287,7 +291,8 @@ earlier parts' are, one constant each, marked by feature:
 `sheetprops`:
 - "a sheet setting is out of range" (at the call: zoom, scale,
   copies, paper size, a page number, a fit count, a margin not
-  finite or below zero)
+  finite or below zero, a theme tab colour's tint not finite or
+  outside `-1.0..=1.0`; P1 verification ruling 1)
 - "a header or footer text is not valid" (at the call: a text
   over 255 characters, Excel's limit, or holding a forbidden
   character)
@@ -584,6 +589,101 @@ Milestone 3's samples on its list), deferred by the maintainer
 seven times, last on 2026-10-03, is run (Milestone 2's acceptance
 record then follows Milestone 1's form) or deferred again by a
 decision recorded here (decision 7).
+
+## Planning rulings during P1 (2026-10-03)
+
+Asked by the implementing session after the doc commit e5f998a
+and the carry commit bf5e877, before any log.
+
+1. "The calls" said a part the archive lacks is refused at the
+   call, "as the settings calls of `specs/0018` and `specs/0019`
+   do". They do not: `freeze_panes`, `protect_sheet`,
+   `set_row_height` and `merge_cells` record without looking the
+   part up, and the write's check over the edited parts raises
+   "no such part" for a part neither in the archive nor added by
+   `add_sheet` in the same write, which is how a setting on a
+   sheet added in the same write is accepted. Ruling: this part's
+   calls do the same; their parts join the write's list of edited
+   parts, and the removed-part, replaced-part and one-shift
+   refusals come from the same existing checks. "The calls" reads
+   as corrected. A test pins a tab colour on a sheet added in the
+   same write.
+
+## Planning verification and rulings on P1 (2026-10-03)
+
+Verified by planning from primaries: the doc commit e5f998a holds
+this file at c15d68d2, `specs/0024-rich-text.md` at ae1ab201 and
+`ROADMAP.md` at fb5d2ac4, the hashes planning sent; the carry
+commit bf5e877 changes `//!` lines alone in `package.rs` (0 other
+lines) and adds the two unbound-prefix tests; the crate commit
+4f53d49 and the tool commit 9db5f4f read in full by planning; the
+record commit 138fe80 adds the six logs and four records; 5 of 5
+messages ASCII, ending with the Co-Authored-By line only; the logs
+at the reported hashes, each ending all as expected, the scan
+RESULT: PASS, every log pinning c15d68d2 and printing a555f5f1 as
+planning's working copy; the compound-shape grep 0; every
+`rm -rf` in the logs either the `"${var:?}"` form on a directory
+the script made or `counting.sh`'s own; planning's own build at
+9db5f4f in a detached worktree: 513 crate tests with the feature
+off, 529 with it on and 774 with every feature, on both targets,
+947 workspace tests on both, clippy and doc 0 lines; the i686
+release `emend-copy` at the run log's hash a81c2a5c (the host's
+differs by build path); planning's own run of `--sheetview-sample`
+with its own binaries over all 27 corpus workbooks on both
+labels, 54 outputs and 54 tool lines byte-identical to the run
+directory's; planning's own privacy scan 21f1434..138fe80, 6
+commits, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. R1 accepted and written into "Errors": a theme tab colour whose
+   tint is not finite or outside `-1.0..=1.0` is refused at the
+   call with "a sheet setting is out of range", the range the
+   style writer enforces, so every colour the call records is one
+   the write accepts.
+2. R2, the merge routine's doc comment ("its unprefixed name")
+   against the code (the raw qualified name compared, so a
+   prefixed attribute of the same local name is kept): the
+   behaviour is right, since a prefixed attribute is another
+   attribute; the wording is wrong. Carried to P2's first code
+   commit as the `//` fix. R3, separators between kept attributes
+   written as one space and whitespace before the tag's end
+   dropped, each attribute's own bytes kept: accepted; "The pass"
+   reads "in its order" as the attributes' order, not the
+   separators'; P2's catalogue sentence says so. R4, the two-
+   `<sheetPr>` refusal only when the write edits `<sheetPr>`: as
+   "The pass" scopes it; a test pins a view-only edit on such a
+   part passing, in P2's first code commit. R5, the first view's
+   pane skip only on a pane edit, with the test pinning a view
+   alone keeping the pane and selections: accepted as a
+   behaviour-preserving change. R6 (`Copy` and `Eq` on `SheetView`
+   and `ViewKind`, `Color` used without an alias) and R7 (the
+   sixteenth attribute from the implementing session's unlogged
+   survey of all 95 parts): accepted; "Types" reads `Color` for the
+   tab colour.
+3. The log reservations: L1, the run log's stale change sentence
+   kept as history with a correcting change, accepted (the
+   correction is what P2 verification ruling 6 of `specs/0024`
+   asked); L2, the open check's own `TMPDIR` device not printed:
+   P2's run log prints it beside the runs'; L3, the plants on the
+   host label only: accepted (the comparison is label-blind); L4,
+   no corpus W lacks `<sheetViews>`, so the created-view path is
+   proven by the crate's and the tool's tests: accepted and stated
+   in the catalogue at P4.
+4. The disclosure: a fork of the implementing session ran `rm -rf`
+   by hand on a pre-existing bytecode cache directory under the
+   phase's build directory, which the maintainer's rule forbids
+   (`specs/0024` P2 ruling 1, the absolute case); nothing of value
+   was lost and no logged script removes what it did not create.
+   Recorded; disclosed to the maintainer in planning's report; the
+   implementing session's fork prompts now forbid any hand `rm
+   -rf`, and planning's own say the same.
+5. The check's items with no primary (the pre-check hash, the "Q1"
+   label, the disclosure, "nothing pushed"): working state,
+   labelled so. Accepted.
+6. P1 is DONE. P2 is released: its doc commit carries this file
+   with "Planning rulings during P1" and this section, and
+   `ROADMAP.md`'s P1 row; its first code commit is ruling 2's
+   items (the `//` wording fix and the view-only test); then
+   "P2: print options, margins, page setup, headers and footers".
 
 ## Decisions for the maintainer
 
