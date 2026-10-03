@@ -502,6 +502,29 @@ fn two_sheet_pr_or_one_out_of_schema_order_are_refused() {
 }
 
 #[test]
+fn a_view_alone_on_a_part_with_two_sheet_pr_is_written() {
+    // P1 verification ruling 2 (R4): the two-`<sheetPr>` refusal is the
+    // settings pass's for a write that edits `<sheetPr>`; a view alone
+    // leaves both as they are.
+    let zoomed = SheetView {
+        zoom: Some(85),
+        ..SheetView::default()
+    };
+    let body = "<sheetPr codeName=\"a\"/><sheetPr/><sheetViews><sheetView workbookViewId=\"0\"/></sheetViews><sheetData/>";
+    assert_eq!(
+        edited(body, view(zoomed)),
+        worksheet(
+            "<sheetPr codeName=\"a\"/><sheetPr/><sheetViews><sheetView zoomScale=\"85\" workbookViewId=\"0\"/></sheetViews><sheetData/>"
+        )
+    );
+    // The control: a tab colour on the same part is refused.
+    assert_package(
+        refused_body(body, tab(Some(RED))),
+        "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
+    );
+}
+
+#[test]
 fn a_view_on_two_sheet_views_or_one_without_a_view_is_refused() {
     let message = "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without a sheetView";
     let zoomed = SheetView {

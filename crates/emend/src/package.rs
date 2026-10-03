@@ -13106,10 +13106,14 @@ const SHEET_PR_CHILDREN: [&[u8]; 3] = [b"tabColor", b"outlinePr", b"pageSetUpPr"
 /// The one attribute-merge routine of the settings pass
 /// (`specs/0025-sheet-and-print-settings.md`, "The pass", decision 2 A): a
 /// start tag with each of `set` written first, in the order given, which is
-/// the schema's, and every other attribute after them, byte for byte and in
-/// its order; an attribute is one of `set`'s when its unprefixed name is.
-/// The element's name and whether its tag is empty are kept, and with
-/// nothing to set the tag is returned as it is.
+/// the schema's, and every other attribute after them, each attribute's
+/// bytes kept and the attributes in their order, one space before each and
+/// none before the tag's end; an attribute is one of `set`'s when its
+/// qualified name as written is one of `set`'s names, which carry no
+/// prefix, so a prefixed attribute of the same local name is another
+/// attribute and is kept (`specs/0025-sheet-and-print-settings.md`, P1
+/// verification ruling 2). The element's name and whether its tag is empty
+/// are kept, and with nothing to set the tag is returned as it is.
 #[cfg(feature = "sheetprops")]
 fn merged_tag(raw: &[u8], set: &[(&[u8], Vec<u8>)], index: usize) -> Result<Vec<u8>, Error> {
     if set.is_empty() {
