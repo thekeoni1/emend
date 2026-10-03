@@ -4078,6 +4078,126 @@ fn the_comment_sample_refuses_a_comments_part_without_legacy_drawing_or_two_and_
     );
 }
 
+/// `comment_specs` with the kept comment's text given as `text`, the
+/// children of its `<text>`.
+fn rich_comment_specs(after: &str, text: &str) -> Vec<Spec> {
+    let mut specs = comment_specs(A_CELL, after, Some("emend"));
+    for spec in &mut specs {
+        if spec.name == b"xl/comments1.xml" {
+            let comments = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("<text><t>kept</t></text>", &format!("<text>{text}</text>"));
+            *spec = Spec::stored(b"xl/comments1.xml", comments.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_richcomment_sample_adds_a_comment_of_runs_its_parts_and_the_legacy_drawing() {
+    // `specs/0024-rich-text.md`, "Harness runs": M is 1, so the comment goes
+    // on A2, its `<text>` two runs. With neither part both are created and
+    // the sheet gains `legacyDrawing`; with both, each is appended to, and a
+    // kept comment of runs counts as rich before and after.
+    let created = comment_specs(A_CELL, "", None);
+    let appended = comment_specs(A_CELL, "<legacyDrawing r:id=\"rId2\"/>", Some("emend"));
+    let kept_rich = rich_comment_specs(
+        "<legacyDrawing r:id=\"rId2\"/>",
+        "<r><rPr><b/><sz val=\"9\"/></rPr><t>kept</t></r>",
+    );
+    let runs = "<r><rPr><b/></rPr><t>emend:</t></r>\
+                <r><t xml:space=\"preserve\"> rich comment</t></r>";
+    for (label, specs, line) in [
+        (
+            "richcomment-sample-created",
+            &created,
+            "richcomment\tcomments_before=0\tcomments_after=1\tparts_before=0\tparts_after=2\
+             \tlegacy_before=0\tcomments_part_before=0\tr_bound_before=1\tshapes_before=0\
+             \tshapes_after=1\tauthors_before=0\tauthors_after=1\trich_comments_before=0\
+             \trich_comments_after=1\truns_after=2\ttext_after=1\n",
+        ),
+        (
+            "richcomment-sample-appended",
+            &appended,
+            "richcomment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
+             \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
+             \tshapes_after=2\tauthors_before=1\tauthors_after=1\trich_comments_before=0\
+             \trich_comments_after=1\truns_after=2\ttext_after=1\n",
+        ),
+        (
+            "richcomment-sample-kept-rich",
+            &kept_rich,
+            "richcomment\tcomments_before=1\tcomments_after=2\tparts_before=2\tparts_after=2\
+             \tlegacy_before=1\tcomments_part_before=1\tr_bound_before=1\tshapes_before=1\
+             \tshapes_after=2\tauthors_before=1\tauthors_after=1\trich_comments_before=1\
+             \trich_comments_after=2\truns_after=2\ttext_after=1\n",
+        ),
+    ] {
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--richcomment-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        // A kept stored part is written back stored, so the appended
+        // comment's bytes are read as they sit; a created part is deflated
+        // and the run log checks its bytes.
+        if label != "richcomment-sample-created" {
+            let kept = entry_named(&entries, b"xl/comments1.xml");
+            assert_eq!(kept.method, 0, "the kept comments part is stored");
+            let comments = String::from_utf8(kept.compressed.clone()).expect("UTF-8");
+            // The author `emend` is the kept one, index 0.
+            assert!(
+                comments.ends_with(&format!(
+                    "<comment ref=\"A2\" authorId=\"0\"><text>{runs}</text></comment>\
+                     </commentList></comments>"
+                )),
+                "the comment of runs"
+            );
+        }
+        let changed: Vec<&[u8]> = if label == "richcomment-sample-created" {
+            vec![b"xl/worksheets/sheet1.xml", b"[Content_Types].xml"]
+        } else {
+            vec![b"xl/comments1.xml", b"xl/drawings/vmlDrawing1.vml"]
+        };
+        untouched_but(&entries, specs, &changed);
+    }
+}
+
+#[test]
+fn the_richcomment_sample_refuses_its_fixtures_and_leaves_nothing() {
+    // The negative log's two fixture refusals through the binary as well
+    // (`specs/0024-rich-text.md`, "P2"), and a kept comment's run
+    // properties the layer cannot read.
+    styled_run_refused(
+        "richcomment-sample-no-legacy",
+        &comment_specs(A_CELL, "", Some("emend")),
+        "a comments part or its drawing cannot be read",
+        "--richcomment-sample",
+    );
+    styled_run_refused(
+        "richcomment-sample-two",
+        &comment_specs(
+            A_CELL,
+            "<legacyDrawing r:id=\"rId2\"/><legacyDrawing r:id=\"rId2\"/>",
+            Some("emend"),
+        ),
+        "a worksheet has two legacyDrawing elements",
+        "--richcomment-sample",
+    );
+    styled_run_refused(
+        "richcomment-sample-unreadable",
+        &rich_comment_specs(
+            "<legacyDrawing r:id=\"rId2\"/>",
+            "<r><rPr><b val=\"yes\"/></rPr><t>kept</t></r>",
+        ),
+        "a run's properties cannot be read",
+        "--richcomment-sample",
+    );
+}
+
 /// A drawing part's content type.
 const DRAWING_TYPE: &str = "application/vnd.openxmlformats-officedocument.drawing+xml";
 

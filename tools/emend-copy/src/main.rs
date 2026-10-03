@@ -444,6 +444,22 @@
 //!   more, `runs_after` 2, `text_after` and `bold_first` 1; a failure is
 //!   exit 2 with the message and no output, and so is a refusal by the
 //!   layer (run properties it cannot read, or M + 1 past the grid).
+//! - `--richcomment-sample`: the rich comment sample of
+//!   `specs/0024-rich-text.md`, "Harness runs": on W, with M as
+//!   `--table-sample` has it, a comment by `emend` of two runs, `emend:`
+//!   bold and ` rich comment` with no font, on (M + 1, 1). The output is
+//!   reopened. One line: the word `richcomment` then `--comment-sample`'s
+//!   counts before its removal, `comments_before` to `authors_after`, each
+//!   asserted as there, then `rich_comments_before` and
+//!   `rich_comments_after` (the entries `Package::comments` reads from W
+//!   whose `runs` is `Some`), `runs_after` (the written comment's run count)
+//!   and `text_after` (1 when its text is `emend: rich comment`). COUNTS
+//!   ONLY: the author and the runs are this tool's constants and no
+//!   reference is printed. Asserted besides: `rich_comments_after` one more
+//!   than before, `runs_after` 2 and `text_after` 1; a failure is exit 2
+//!   with the message and no output, and so is a refusal by the layer
+//!   (threaded comments on W, a part it cannot read, run properties it
+//!   cannot read, or M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -467,10 +483,10 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, DRAWING, ErrorStyle,
-    HYPERLINK, IconSetKind, Image, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package, Properties,
-    Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table, TableStyle,
-    TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
+    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentEntry, DRAWING,
+    ErrorStyle, HYPERLINK, IconSetKind, Image, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package,
+    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table,
+    TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
     rels_part_source,
 };
 use emend::styles::{
@@ -486,7 +502,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
-| --table-sample | --comment-sample | --image-sample | --richtext-sample]";
+| --table-sample | --comment-sample | --image-sample | --richtext-sample \
+| --richcomment-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -566,6 +583,8 @@ enum Operation {
     ImageSample,
     /// A rich value past the last row, and the counts.
     RichtextSample,
+    /// A comment of runs past the last row, and the counts.
+    RichcommentSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -605,6 +624,7 @@ enum Error {
     CommentSample(&'static str),
     ImageSample(&'static str),
     RichtextSample(&'static str),
+    RichcommentSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -682,6 +702,12 @@ impl fmt::Display for Error {
             }
             Error::RichtextSample(what) => {
                 write!(f, "the output's {what} is not what the rich text implies")
+            }
+            Error::RichcommentSample(what) => {
+                write!(
+                    f,
+                    "the output's {what} is not what the rich comment implies"
+                )
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -801,6 +827,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::RichtextSample,
+        ),
+        [input, output, flag] if flag == "--richcomment-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::RichcommentSample,
         ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
@@ -930,6 +961,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RichtextSample) {
         return richtext_sample(input, output);
     }
+    if matches!(operation, Operation::RichcommentSample) {
+        return richcomment_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -981,6 +1015,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::CommentSample => unreachable!("the comment sample has its own path"),
         Operation::ImageSample => unreachable!("the image sample has its own path"),
         Operation::RichtextSample => unreachable!("the rich text sample has its own path"),
+        Operation::RichcommentSample => unreachable!("the rich comment sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4075,6 +4110,136 @@ fn richtext_read_back(
     Ok((sst_after, inline_after, runs_after, text_after, bold_first))
 }
 
+/// The rich comment sample (`specs/0024-rich-text.md`, "Harness runs",
+/// `--richcomment-sample`): a comment of two runs on the cell below W's last
+/// row, the output written and read back. A failure after the output is in
+/// place removes it; a refusal by the layer is exit 2 with no output.
+fn richcomment_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = comment_counts(&mut package, &part)?;
+    let rich_before = rich_comments(&mut package, &part, None)?.0;
+    let (legacy_before, r_bound_before) =
+        container_and_binding(&mut package, &part, b"legacyDrawing")?;
+    let comments_part_before = related(&mut package, &part, COMMENTS)?.is_some();
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    let cell = CellRef { row, col: 1 };
+    package.add_rich_comment(
+        &part,
+        cell,
+        SAMPLE_AUTHOR,
+        &RichText {
+            runs: vec![
+                Run {
+                    text: "emend:".to_string(),
+                    font: Some(Font {
+                        bold: true,
+                        ..Font::default()
+                    }),
+                },
+                Run {
+                    text: " rich comment".to_string(),
+                    font: None,
+                },
+            ],
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let parts_more = match (legacy_before, comments_part_before) {
+        (false, _) => 2,
+        (true, false) => 1,
+        (true, true) => 0,
+    };
+    let checked = richcomment_read_back(output, &part, cell, &before, parts_more, rich_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, rich_after, runs_after, text_after) = checked?;
+    edit_line_named(
+        "richcomment",
+        &[
+            ("comments_before", before.comments),
+            ("comments_after", after.comments),
+            ("parts_before", before.parts),
+            ("parts_after", after.parts),
+            ("legacy_before", u64::from(legacy_before)),
+            ("comments_part_before", u64::from(comments_part_before)),
+            ("r_bound_before", u64::from(r_bound_before)),
+            ("shapes_before", before.shapes),
+            ("shapes_after", after.shapes),
+            ("authors_before", before.authors),
+            ("authors_after", after.authors),
+            ("rich_comments_before", rich_before),
+            ("rich_comments_after", rich_after),
+            ("runs_after", runs_after),
+            ("text_after", u64::from(text_after)),
+        ],
+    )
+}
+
+/// The entries `Package::comments` reads from W whose `runs` is `Some`, and
+/// the entry on `at` when one is named and read.
+fn rich_comments<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    at: Option<CellRef>,
+) -> Result<(u64, Option<CommentEntry>), Error> {
+    let mut count = 0;
+    let mut found = None;
+    for entry in package.comments(part)? {
+        if entry.runs.is_some() {
+            count += 1;
+        }
+        if Some(entry.cell) == at {
+            found = Some(entry);
+        }
+    }
+    Ok((count, found))
+}
+
+/// Reopens the rich comment sample's output and asserts the comment
+/// sample's counts, one more rich comment on W, and the written comment's
+/// two runs and its text; gives the counts and the flag.
+fn richcomment_read_back(
+    output: &Path,
+    part: &[u8],
+    cell: CellRef,
+    before: &CommentCounts,
+    parts_more: u64,
+    rich_before: u64,
+) -> Result<(CommentCounts, u64, u64, bool), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = comment_counts_after(&mut package, part, before, parts_more)?;
+    let (rich_after, entry) = rich_comments(&mut package, part, Some(cell))?;
+    if rich_after != rich_before + 1 {
+        return Err(Error::RichcommentSample("rich comment count"));
+    }
+    let entry = entry.ok_or(Error::RichcommentSample("written comment"))?;
+    let runs = entry
+        .runs
+        .ok_or(Error::RichcommentSample("written comment's runs"))?;
+    let runs_after = runs.runs.len() as u64;
+    if runs_after != 2 {
+        return Err(Error::RichcommentSample("written comment's run count"));
+    }
+    let text_after = entry.text == "emend: rich comment";
+    if !text_after {
+        return Err(Error::RichcommentSample("written comment's text"));
+    }
+    Ok((after, rich_after, runs_after, text_after))
+}
+
 /// What the image sample counts on each side of the write: W's images, the
 /// root children of W's drawing part, and the archive's media entries by
 /// name.
@@ -4228,19 +4393,7 @@ fn comment_read_back(
 ) -> Result<(CommentCounts, (u64, u64)), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
-    let after = comment_counts(&mut package, part)?;
-    if after.comments != before.comments + 1 {
-        return Err(Error::CommentSample("comment count"));
-    }
-    if after.parts != before.parts + parts_more {
-        return Err(Error::CommentSample("comments and VML part count"));
-    }
-    if after.shapes != before.shapes + 1 {
-        return Err(Error::CommentSample("note shape count"));
-    }
-    if after.authors != before.authors + u64::from(!before.author_kept) {
-        return Err(Error::CommentSample("author count"));
-    }
+    let after = comment_counts_after(&mut package, part, before, parts_more)?;
     // The comment removed again in memory (specs/0022 "P2"): the write goes
     // into a Cursor that is reopened, for the comments and the parts.
     package.remove_comment(part, cell)?;
@@ -4261,6 +4414,32 @@ fn comment_read_back(
         ));
     }
     Ok((after, removed))
+}
+
+/// The comment sample's counts of W in its reopened output, asserted: one
+/// more comment and note shape, `parts_more` more comments and VML entries,
+/// and one more author unless the sample's was kept. The rich comment sample
+/// asserts the same.
+fn comment_counts_after<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+    before: &CommentCounts,
+    parts_more: u64,
+) -> Result<CommentCounts, Error> {
+    let after = comment_counts(package, part)?;
+    if after.comments != before.comments + 1 {
+        return Err(Error::CommentSample("comment count"));
+    }
+    if after.parts != before.parts + parts_more {
+        return Err(Error::CommentSample("comments and VML part count"));
+    }
+    if after.shapes != before.shapes + 1 {
+        return Err(Error::CommentSample("note shape count"));
+    }
+    if after.authors != before.authors + u64::from(!before.author_kept) {
+        return Err(Error::CommentSample("author count"));
+    }
+    Ok(after)
 }
 
 /// The archive's entries `xl/comments*.xml` and
