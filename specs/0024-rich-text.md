@@ -72,21 +72,26 @@ a feature cost above 55000, planning is told in the report.
 ## Facts planning checked (2026-10-02)
 
 - The corpus, counted by planning with Python's `zipfile` and a
-  regular expression over the raw parts, names and counts only:
-  8 of the 26 workbooks `*.xls*` takes carry `<r>` runs in the
-  shared strings table (18d1e8ba72b5 21 runs, 9ada43d71c80
-  and f56906d42e0a 23 each, f9efcac9808f 11, 80adab651c77 and
-  d8245b84086f 5 each, ed4c55f07c69 2), 22 rich items in all with
-  2 to 9 runs each and no plain `<t>` before the runs; no
+  regular expression over the raw parts, names and counts only,
+  as corrected by P1 verification ruling 1 (planning's first
+  count used a glob that missed the one `.xltx`): 8 of the 27
+  workbooks carry `<r>` runs in the shared strings table
+  (18d1e8ba72b5 21 runs in 3 items, 9ada43d71c80, ed2fbd304d51
+  and f56906d42e0a 23 runs in 7 items each, f9efcac9808f 11 in
+  2, 80adab651c77 and d8245b84086f 5 in 1 each, ed4c55f07c69 2
+  in 1), 29 rich items and 113 runs in all, 2 to 9 runs per item,
+  no plain `<t>` before or after the runs and no empty run; no
   workbook has an inline string (`t="inlineStr"` 0 everywhere);
   5 workbooks carry runs in a comments part (75387404b8af 7,
   9ada43d71c80 and f56906d42e0a 6 each, 054df34b1472 and
   f8459281d739 2 each), every comment run with an `<rPr>`; no
   `<rPh>` anywhere (`specs/0010`'s fact still holds).
-- The corpus's `<rPr>` children, by name and order, 16 distinct
-  sequences in the table and 3 in comments: every one is a
-  subsequence of `b`, `i`, `strike`, `u`, `sz`, `color`, `rFont`,
-  `family`, `charset`, `scheme`. `Font::compose`
+- The corpus's `<rPr>` children, by name and order, 17 distinct
+  sequences over the table and the comments of all 27 workbooks
+  (ruling 1's recount): every one is a subsequence of `b`, `i`,
+  `strike`, `u`, `sz`, `color`, `rFont`, `family`, `charset`,
+  `scheme`; `charset` occurs 28 times and no `tint` sits beside
+  an `rgb` or `indexed`. `Font::compose`
   (`crates/emend/src/styles/elements.rs`) writes `b`, `i`,
   `strike`, `u`, `vertAlign`, `sz`, `color`, `name`, `family`,
   `scheme`: the same order with `name` in `rFont`'s place and
@@ -149,13 +154,15 @@ is off.
 
 In `cells`, feature `richtext`:
 
-- `Run { text: String, font: Option<Font> }`, derived `Clone`,
-  `Debug`, `PartialEq`: one `<r>`; `font` is the `<rPr>`,
+- `Run { text: String, font: Option<Font> }`, derived `Clone`
+  and `Debug`, `PartialEq` and `Eq` by hand (P1 ruling 1): one
+  `<r>`; `font` is the `<rPr>`,
   `None` for a run without one. `Font` is `styles::Font`
   (decision 3): `name` is the run's `rFont`, every other field
   the child of the same name.
-- `RichText { runs: Vec<Run> }`, derived `Clone`, `Debug`,
-  `Default`, `PartialEq`, with `text(&self) -> String`, the runs'
+- `RichText { runs: Vec<Run> }`, derived `Clone`, `Debug` and
+  `Default`, `PartialEq` and `Eq` by hand (P1 ruling 1), with
+  `text(&self) -> String`, the runs'
   texts concatenated, which is what `Cell::value` and
   `SharedStrings::get` hold for the same cell.
 - `Value::Rich(RichText)`, a variant of `Value` present with the
@@ -494,6 +501,141 @@ is run (Milestone 2's acceptance record then follows Milestone
 7). The push script prints no maintainer decision; the deferral's
 record is this spec in the pushed range, and the record commit's
 message names it.
+
+## Planning rulings during P1 (2026-10-02)
+
+Asked by the implementing session after the doc commit e11d0f5
+and the carry commit e51ec15, before any feature code.
+
+1. `Eq` on the three types that gain `runs`. `Cell`,
+   `SharedStrings` and `CommentEntry` derive `Eq` today and keep
+   it: the feature stays additive and no existing derive moves.
+   `Run` and `RichText` therefore implement `Eq`, and honestly: a
+   hand-written `PartialEq` for `Run` compares `text` and then
+   the font field by field, each `f64` (`size`, a theme colour's
+   `tint`) by `f64::to_bits`, so the relation is reflexive for
+   every value the type can hold (a NaN size equals itself, and
+   `0.0` differs from `-0.0`), and `impl Eq for Run {}` and for
+   `RichText` (its `Vec<Run>`) are sound, not documented caveats.
+   `Font`'s own derived `PartialEq` is untouched. A rustdoc line
+   on `Run` says how it compares. Not taken: dropping `Eq` under
+   the feature (a consumer's `Cell: Eq` would break when any crate
+   in the build turns the feature on); a marker `Eq` over the
+   derived float comparison (false for a hand-built NaN); runs
+   kept outside `Cell` (the spec's field stands).
+2. Readings accepted: `scheme val="none"` reads as `None`, as `u
+   val="none"` does; `color` reads `auto` (`1` or `true`) as
+   `Auto`, else `rgb` of exactly 8 hex digits as `Rgb`, `theme`
+   with its `tint` as `Theme`, `indexed` as `Indexed`; a `color`
+   with none of these, an `rgb` of another length, a `sz` or
+   `tint` that does not parse or is not finite, or a `tint`
+   outside `-1.0..=1.0` is refused with "a run's properties cannot
+   be read", so every value the reader gives is one the write
+   accepts. The implementing session's shape survey of the
+   corpus's `<rPr>` children (shapes and counts only, no text)
+   goes in P1's run log before the run.
+3. Noted, no change: the two messages enter the catalogue in P1
+   (the catalogue test requires it; P3 writes the limits); one
+   run-container walk with a listener, the core's listener a
+   no-op, the table's rich items in a sparse list sorted by index,
+   nothing per plain item. The core's growth from the
+   parameterised walk is what P3's size log prints; "Size"'s 2000
+   threshold applies.
+
+## Planning verification and rulings on P1 (2026-10-02)
+
+Verified by planning from primaries: the doc commit e11d0f5 holds
+this file at ae37a294, `specs/0023-scale.md` at edd14565 and
+`ROADMAP.md` at 0850dc68, the hashes planning sent; the carry
+commit e51ec15 changes `//!` lines alone (0 other lines); the
+crate commit 1174bf1 and the tool commit 7d2f40d read in full by
+planning; the record commit c53bbb3 adds the six logs and four
+records; 5 of 5 messages ASCII, ending with the Co-Authored-By
+line only; the logs at the reported hashes, each ending all as
+expected, the scan RESULT: PASS, every log pinning ae37a294; the
+compound-shape grep over the five logs 0; planning's own build at
+7d2f40d in a detached worktree: 513 crate tests with the feature
+off, 531 with it on and 745 with every feature, on both targets,
+914 workspace tests on both, clippy (the crate with and without
+features, the workspace) and doc 0 lines; the i686 release
+`emend-copy` at the run log's hash a282e9f4 (the host's differs
+by build path, as in every phase); planning's own run of
+`--richtext-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's recount of the
+corpus's rich items over all 27 workbooks, 29 items and 113 runs,
+equal to the run log's independent count; planning's own privacy
+scan 3cbd6fd..c53bbb3, 5 commits, 1153 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset.
+
+1. Finding 1 is planning's error: the fact in "Facts planning
+   checked" was counted with a glob that took 26 of the 27
+   workbooks and missed ed2fbd304d51, the `.xltx`, so it named 7
+   workbooks and 22 items where there are 8 and 29 (113 runs).
+   The bullet reads as corrected above, with the recounted
+   `<rPr>` sequences; the run log's count and the tool's
+   `sst_rich_before` agree with planning's in 27 of 27. Recorded
+   as a gotcha: a corpus count names its glob and checks its
+   file count against the manifest's 27.
+2. Finding 2 accepted: the write's font check runs on every font
+   read, so a size of zero or below and an empty `rFont` are
+   refused at the read too; that is ruling 2's principle, stated
+   now for every field. Finding 3 accepted: one definition of the
+   text message.
+3. Finding 4, the `rm -rf` disclosure. Planning read every
+   occurrence in the five logs: each removes a directory the
+   script made in the same run (a `mktemp -d` directory, the
+   trap's own, the gate's consumer crate and its target under the
+   gate's own build root); nothing that existed before a run was
+   removed. But the run log's change JI says "No `rm -rf`
+   anywhere" while its printed script holds one (the counting
+   controls' directory, line 1735), as the negative log's does
+   (line 851); the report's sentence that both scripts were
+   rewritten without it is wrong. Ruling: P1's logs stand as
+   recorded. From P2 on, no script of this project contains
+   `rm -rf` in any form, the maintainer's literal rule
+   (2026-09-27): a directory a script made in its own run is
+   removed by name with `rm -r`, traps included, or kept; the
+   carried gate, test and scan scripts change so, the change
+   named in their headers; and the scan log counts `rm -rf` over
+   every log of the phase, expecting 0. Disclosed to the
+   maintainer in planning's report; if the maintainer exempts a
+   script's own temporaries, this ruling is amended here first.
+4. Check observation O1, an empty run: ruled for P2's first code
+   commit. An `<r/>`, and a run whose `<t>` texts total empty, is
+   dropped at the read; a container whose every run is empty
+   reads with `runs` `None` (its flattened text is empty and it
+   holds nothing the write could carry). So every rich value the
+   reader gives is one the write accepts, runs and fonts alike.
+   A test on each container, and in P2 on a comment.
+5. O2 and O3 accepted as the code does: a `tint` beside `rgb` or
+   `indexed` is dropped from the typed view (the corpus has none;
+   the write never writes one), and a `<t>` after the runs, which
+   the schema does not allow, reads as a run of its own in its
+   place, so the flattened text stays the runs' text. P3's
+   catalogue names both beside the five dropped children.
+6. O4, the run log's checks, for P2's run script: the summary
+   requires every row ok (a refusal by the layer is a finding, not
+   an accepted outcome); the survey checks the `val` shapes
+   (flags, keywords, numbers) and the colour attribute forms,
+   since P2's comment `<rPr>` is its subject; the survey script
+   takes the corpus directory as `<corpus>` and hard-codes no
+   location; `flagged` and `out_only` are checked against an
+   expectation the log derives (the descriptor rows of the entries
+   table; the appended elements per changed worksheet).
+7. The tool commit's amend before any log ran (92f06df, the same
+   change plus the two tool tests): recorded, no change, as
+   `specs/0023` P3 ruling 3. The check's items with no primary:
+   the pre-check hash a3df3f43 is printed by scan.log line 58; the
+   rest are the implementing session's working state, labelled so
+   in its report. The check's reservation on `ROADMAP.md` and
+   `specs/0023`: their hashes in the doc commit are the ones
+   planning sent, verified by planning. Accepted.
+8. P1 is DONE. P2 is released: its doc commit carries this file
+   with "Planning rulings during P1" and this section, and
+   `ROADMAP.md`'s P1 row; its first code commit is ruling 4's
+   drop of empty runs with its tests; its scripts follow rulings
+   3 and 6.
 
 ## Decisions for the maintainer
 
