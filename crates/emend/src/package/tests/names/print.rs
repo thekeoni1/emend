@@ -398,3 +398,133 @@ fn the_p3_refusals() {
         );
     }
 }
+
+#[test]
+fn the_three_calls_on_a_replaced_part_are_refused() {
+    // specs/0025 P3 verification ruling 1: the replaced-part refusal of
+    // the write's existing check over the edited parts.
+    type Edit = fn(&mut Package<Cursor<Vec<u8>>>);
+    let edits: [Edit; 3] = [
+        |p| {
+            p.set_print_area(&sheet_part(1), &[area("A1:B2")])
+                .expect("recorded")
+        },
+        |p| {
+            p.set_print_titles(&sheet_part(1), Some((1, 1)), None)
+                .expect("recorded")
+        },
+        |p| {
+            p.set_auto_filter(&sheet_part(1), Some(area("A1:B2")))
+                .expect("recorded")
+        },
+    ];
+    for edit in edits {
+        let (_, mut package) = opened(book(1, ""));
+        edit(&mut package);
+        package.replace_part(
+            &sheet_part(1),
+            replacement_from_reader(Cursor::new(b"x".to_vec())),
+        );
+        assert_package(
+            refused(package),
+            "a cell edit to a part this write replaces",
+        );
+    }
+}
+
+#[cfg(feature = "rowcol")]
+#[test]
+fn a_print_area_or_titles_beside_a_shift_are_written_unadjusted() {
+    // P3 verification ruling 1: the two calls rewrite the workbook alone,
+    // so a shift on their part is allowed and the names are written as
+    // given, never adjusted; the autofilter, which rewrites the part, is
+    // refused beside one.
+    let (_, mut package) = opened(book(1, ""));
+    package.insert_rows(&sheet_part(1), 1, 2).expect("recorded");
+    package
+        .set_print_area(&sheet_part(1), &[area("A1:B2")])
+        .expect("recorded");
+    package
+        .set_print_titles(&sheet_part(1), Some((1, 1)), None)
+        .expect("recorded");
+    let out = written(package);
+    let mut reopened = Package::open(Cursor::new(out)).expect("open the output");
+    assert_eq!(
+        names_of(&mut reopened),
+        vec![
+            name("_xlnm.Print_Area", "'S1'!$A$1:$B$2", Some(0), false),
+            name("_xlnm.Print_Titles", "'S1'!$1:$1", Some(0), false),
+        ]
+    );
+    let (_, mut package) = opened(book(1, ""));
+    package.insert_rows(&sheet_part(1), 1, 2).expect("recorded");
+    package
+        .set_auto_filter(&sheet_part(1), Some(area("A1:B2")))
+        .expect("recorded");
+    assert_package(
+        refused(package),
+        "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
+    );
+}
+
+#[test]
+fn an_autofilter_whose_table_part_is_missing_is_refused() {
+    // P3 verification ruling 2 (R1): a table relationship naming no part.
+    let mut parts = book(1, "");
+    set(
+        &mut parts,
+        &sheet_part(1),
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><sheetData/><tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts></worksheet>"
+        ),
+    );
+    with_part(
+        &mut parts,
+        "xl/worksheets/_rels/sheet1.xml.rels",
+        &rels(&relationship(
+            "rId1",
+            &format!("{ATTR_NS}/table"),
+            "../tables/table1.xml",
+        )),
+        None,
+    );
+    let (_, mut package) = opened(parts);
+    package
+        .set_auto_filter(&sheet_part(1), Some(area("A1:B2")))
+        .expect("recorded");
+    assert_package(
+        refused(package),
+        "a table overlaps a table, a pivot table, a merge or the autofilter",
+    );
+}
+
+#[cfg(feature = "tables")]
+#[test]
+fn an_autofilter_overlapping_a_table_the_same_write_adds_is_refused() {
+    // P3 verification ruling 2 (R1), under the Cargo feature `tables` too.
+    let table = || Table {
+        name: "T",
+        columns: &["x", "y"],
+        style: None,
+    };
+    let (_, mut package) = opened(book(1, ""));
+    package
+        .add_table(&sheet_part(1), area("A1:B3"), table())
+        .expect("recorded");
+    package
+        .set_auto_filter(&sheet_part(1), Some(area("B2:C4")))
+        .expect("recorded");
+    assert_package(
+        refused(package),
+        "a table overlaps a table, a pivot table, a merge or the autofilter",
+    );
+    // The control: one clear of the added table is written.
+    let (_, mut package) = opened(book(1, ""));
+    package
+        .add_table(&sheet_part(1), area("A1:B3"), table())
+        .expect("recorded");
+    package
+        .set_auto_filter(&sheet_part(1), Some(area("D1:E3")))
+        .expect("recorded");
+    written(package);
+}
