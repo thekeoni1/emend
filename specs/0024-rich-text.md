@@ -82,10 +82,12 @@ a feature cost above 55000, planning is told in the report.
   in 1), 29 rich items and 113 runs in all, 2 to 9 runs per item,
   no plain `<t>` before or after the runs and no empty run; no
   workbook has an inline string (`t="inlineStr"` 0 everywhere);
-  5 workbooks carry runs in a comments part (75387404b8af 7,
-  9ada43d71c80 and f56906d42e0a 6 each, 054df34b1472 and
-  f8459281d739 2 each), every comment run with an `<rPr>`; no
-  `<rPh>` anywhere (`specs/0010`'s fact still holds).
+  6 workbooks carry runs in a comments part, counted as runs
+  (corrected by P2 verification ruling 1, the same glob):
+  75387404b8af 7 in 6 comments, 9ada43d71c80, ed2fbd304d51 and
+  f56906d42e0a 6 each, 054df34b1472 and f8459281d739 2 each, 29
+  runs in all, every one with an `<rPr>`; no `<rPh>` anywhere
+  (`specs/0010`'s fact still holds).
 - The corpus's `<rPr>` children, by name and order, 17 distinct
   sequences over the table and the comments of all 27 workbooks
   (ruling 1's recount): every one is a subsequence of `b`, `i`,
@@ -592,15 +594,11 @@ scan 3cbd6fd..c53bbb3, 5 commits, 1153 blobs, 0 findings;
    controls' directory, line 1735), as the negative log's does
    (line 851); the report's sentence that both scripts were
    rewritten without it is wrong. Ruling: P1's logs stand as
-   recorded. From P2 on, no script of this project contains
-   `rm -rf` in any form, the maintainer's literal rule
-   (2026-09-27): a directory a script made in its own run is
-   removed by name with `rm -r`, traps included, or kept; the
-   carried gate, test and scan scripts change so, the change
-   named in their headers; and the scan log counts `rm -rf` over
-   every log of the phase, expecting 0. Disclosed to the
-   maintainer in planning's report; if the maintainer exempts a
-   script's own temporaries, this ruling is amended here first.
+   recorded. Planning's first ruling here (no `rm -rf` in any
+   script from P2 on) was amended before any P2 code by the
+   maintainer's decision of 2026-10-02, "Planning rulings during
+   P2" ruling 1: a script may run `rm -rf` only on a directory it
+   created itself in the same run.
 4. Check observation O1, an empty run: ruled for P2's first code
    commit. An `<r/>`, and a run whose `<t>` texts total empty, is
    dropped at the read; a container whose every run is empty
@@ -636,6 +634,124 @@ scan 3cbd6fd..c53bbb3, 5 commits, 1153 blobs, 0 findings;
    `ROADMAP.md`'s P1 row; its first code commit is ruling 4's
    drop of empty runs with its tests; its scripts follow rulings
    3 and 6.
+
+## Planning rulings during P2 (2026-10-02)
+
+1. The reach of the maintainer's `rm -rf` rule, asked by the
+   implementing session after P2's doc commit fc24238 (six
+   committed scripts, `check.sh`, `counting.sh`,
+   `gate-self-test.sh`, `lo-check.sh`, `passthrough-run.sh` and
+   `privacy.sh`, run it on directories they create; every phase
+   log prints `counting.sh`). Decided by the maintainer in the
+   planning session, 2026-10-02 ("Exempt scripts' own
+   temporaries"): `rm -rf` is allowed only on a directory the
+   same script created in that run (a `mktemp -d` directory, a
+   directory under the script's own build root, a scratch
+   repository's own fixture directory); it is never run on
+   anything that existed before the run, which is the rule's
+   absolute case (the cleanup of 2026-10-02). No committed script
+   changes for this; the scan log's count of 0 in P1 verification
+   ruling 3 is withdrawn. A script written or changed from P2 on
+   writes the target as `"${var:?}"` or `"${var:?}/<name>"`, so an
+   unset variable stops the command rather than widening it; the
+   committed scripts' existing forms stand until a part touches
+   them, and part 7's backlog lists them. P1 verification ruling
+   3 reads as amended.
+
+## Planning verification and rulings on P2 (2026-10-03)
+
+Verified by planning from primaries: the doc commit fc24238 holds
+this file at 23c6111c and `ROADMAP.md` at 9f9be59b, the hashes
+planning sent; the empty-run commit 8a268f2, the crate commit
+17d1e6b and the tool commit dc33002 read in full by planning; the
+record commit ea4a090 adds the six logs and four records; 5 of 5
+messages ASCII, ending with the Co-Authored-By line only (two
+with a trailing empty line, ruling 2); the logs at the reported
+hashes, each ending all as expected, the scan RESULT: PASS, every
+log pinning 23c6111c and printing d6137d52 as planning's working
+copy; the compound-shape grep 0; planning's own build at dc33002
+in a detached worktree: 513 crate tests with no feature, 532 with
+`richtext`, 546 with `comments`, 574 with both and 755 with every
+feature, on both targets, 926 workspace tests on both, clippy and
+doc 0 lines; the i686 release `emend-copy` at the run log's hash
+29a94ace (the host's differs by build path); planning's own run
+of `--richcomment-sample` with its own binaries over all 27
+corpus workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's recount of the
+corpus's comment runs over all 27 workbooks, 29 runs in 6
+workbooks, equal to the run log's; planning's own privacy scan
+c53bbb3..ea4a090, 5 commits, 1161 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset.
+
+1. Disclosure 3 is planning's error again, from the glob P1
+   verification ruling 1 named: the comment bullet of "Facts
+   planning checked" was left at 5 workbooks when the table
+   bullet was corrected. It reads as corrected above: 6 workbooks,
+   ed2fbd304d51 named, the figures run counts (75387404b8af has 7
+   runs in 6 comments), 29 runs in all. The gotcha stands.
+2. The history rebuild before the report (e1e9601 to 17d1e6b,
+   4f29957 to dc33002, the keep-directory defect in one test
+   fixed by three lines added and one removed, every log rerun at
+   dc33002, the superseded logs and records kept and hashed in
+   the rerun lines): recorded, accepted, as `specs/0023` P3
+   ruling 3. The two rebuilt messages end with a trailing empty
+   line after the Co-Authored-By line, from `commit-tree` over
+   `git log %B`: whitespace, not a line; the rule holds; accepted.
+   From now on a rebuild amends with `git commit --amend -C` or a
+   rebase, which strip it, never `commit-tree` over `%B`. The
+   report's "messages unchanged" and "one line" were wrong and
+   the check caught both; corrected in the report before it
+   reached planning.
+3. The two fork-script defects (gate attempt 1, a count joined to
+   an `is` verdict; test attempt 1, an output joined to a `yn`
+   verdict), each caught by its own log's last line and rerun
+   with the attempt named and hashed: accepted; the shape is the
+   one `gotchas` lists, and the logs' own checks did their job.
+4. Design points, each accepted as the code does and stated by
+   P3's catalogue: `CommentEntry::text` stays every `<t>`
+   descendant as `specs/0022` defines it, so it holds a phonetic
+   run's text while `runs` skips the `<rPh>` as a cell's read
+   does (the two differ only for a comment with an `<rPh>`; the
+   corpus has none; a test pins it); an empty `<t>` after the
+   runs is dropped, P1 verification ruling 4's rule applied to a
+   trailing `<t>` as to a run; a container whose only text is a
+   leading plain `<t>` reads as that one run with no font; with
+   `comments` and `richtext` both on, `Package::comments` refuses
+   a kept comment whose `<rPr>` it cannot read, which is "Errors"
+   ("at the read of a comment"), so `--comment-sample` refuses
+   such a workbook (the corpus has none, the run log's survey
+   shows every comment `<rPr>` reads).
+5. Carried into P3, its first code commit: the catalogue's "a
+   run's properties cannot be read" sentence names
+   `Package::comments` beside `cells` and `shared_strings`; a
+   test of the comment call's colour refusal (a theme tint
+   outside `-1.0..=1.0`, refused with "a style field is out of
+   range" and nothing recorded), the one call-time refusal P2's
+   tests reach only through a size of zero.
+6. The check's weaknesses, for P3's scripts: a planted-flag
+   control runs on an appended-parts workbook as well as on a
+   created-parts one; each plant fails at its own assertion line;
+   the test log runs the crate's tests once with `EMEND_KEEP_DIR`
+   set, so a keep-only failure is caught before the run log; a
+   failing `cargo test` prints the failing test's name into the
+   log; a module count printed twice with different figures (43
+   and 42 for the comments module) is explained by a printed line
+   or checked; the run script's change list says what the script
+   does (no stale "no `rm -rf` anywhere").
+7. The check's items with no primary (the scan's own hash, the
+   fork notes, "the colour path is tested for the cell write in
+   P1", which is `richtext::the_write_refuses_each_rule` in P1's
+   diff): the implementing session's working state, labelled so;
+   the run log's unchecked "17 distinct sequences" equals
+   planning's own recount. Accepted.
+8. P2 is DONE. P3 is released: its doc commit carries this file
+   with "Planning rulings during P2" and this section, and
+   `ROADMAP.md`'s P2 row; its first code commit is ruling 5's
+   two items; then the catalogue and limits, the two probes, the
+   size log and record, the negative log, the three read runs
+   with decision 4's measured contract, both samples rerun, the
+   open record, as "P3: the catalogue and limits, the probes, the
+   size record" says.
 
 ## Decisions for the maintainer
 

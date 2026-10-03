@@ -744,7 +744,7 @@ before this part's close-out push (decision 7).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the feature, `Run`, `RichText`, `Value::Rich`, the inline write, `Cell::runs`, `SharedStrings::runs_of`, the `rPr` reader, `--richtext-sample` on the corpus | DONE 2026-10-02 (doc e11d0f5, carry e51ec15, crate 1174bf1, tool 7d2f40d, record c53bbb3; 27 of 27 ok on both labels, LibreOffice ok, every entry identical but the edited worksheet; 18 crate and 2 tool tests; planning's own rerun byte-identical; planning's corpus fact corrected, P1 verification ruling 1) |
-| P2 | `add_rich_comment`, `CommentEntry::runs`, `--richcomment-sample` on the corpus | PENDING |
+| P2 | `add_rich_comment`, `CommentEntry::runs`, `--richcomment-sample` on the corpus | DONE 2026-10-03 (doc fc24238, empty runs 8a268f2, crate 17d1e6b, tool dc33002, record ea4a090; 27 of 27 ok on both labels, LibreOffice ok; 12 tests; planning's own rerun byte-identical; planning's comment-run fact corrected, P2 verification ruling 1) |
 | P3 | the catalogue and limits; the two probes and the size record; part 1's three read runs repeated with the no-growth contract; both samples rerun byte-identical | PENDING |
 | Close | close-out push after P3, carrying 3cbd6fd and this part's commits, the previous-record pattern naming 3cbd6fd, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
