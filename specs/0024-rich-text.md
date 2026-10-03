@@ -837,6 +837,51 @@ privacy scan ea4a090..b018e52, 5 commits, 1174 blobs, 0 findings;
    `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
    "Close-out push (after P3)" says.
 
+## Planning verification and rulings on the close-out (2026-10-03)
+
+Verified by planning from primaries: `origin/main` at the
+close-out doc commit 50d9e70, 17 commits over 21b89bb (3cbd6fd,
+this part's fifteen and the doc commit), the doc commit holding
+this file at f3ca3c68 and `ROADMAP.md` at c2c98069, the hashes
+planning sent; the CI run 37118021913 completed with success on
+50d9e70, read by planning through `gh`; the record commit
+21f1434, parent 50d9e70, exactly the three logs, the one local
+commit ahead, its message naming decision 7's deferral; the logs
+at the reported hashes, each ending all as expected, the scan
+RESULT: PASS with the `ANTHROPIC_API_KEY` check; push.log's push
+mode showing the authorisation typed by the maintainer in the
+implementing session ("authorised", 10/3/26) and git's own
+`21b89bb..50d9e70`; 17 of 17 pushed messages ASCII, ending with
+the Co-Authored-By line only; the repository PRIVATE; planning's
+own privacy scan 21b89bb..21f1434, 18 commits, 1202 blobs, 0
+findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations (the carried scripts'
+   equality with part 1's printed ones, an unlogged aside the
+   implementing session ran; the header comment blocks; the push
+   script's tip as HEAD, part 1's form; `counting.sh`'s own
+   `rm -rf` form standing under P2 ruling 1; the scan log's own
+   hash; "first run" resting on the absence of rerun lines; the
+   Close row pending until this section): working-state facts or
+   allowed by `specs/0001` and P2 ruling 1; accepted, no change,
+   as `specs/0023`'s close-out ruling 1.
+2. Milestone 3 part 2 is DONE and PUSHED. The record commit
+   21f1434 goes with the next push; the next part's push script
+   names it by `^M3 part 2 close-out record`, its base this
+   close-out's doc commit 50d9e70 by its subject ("M3 part 2
+   close-out: commit planning docs (the P3 verification and
+   rulings, decision 7 deferred again)").
+3. Carried into part 3's first code commit: P3 verification
+   ruling 3's three `//!` edits to the catalogue and ruling 4's
+   unbound-prefix test. Into part 3's scripts: the `TMPDIR`
+   device line (ruling 5). Into part 7's backlog: a cause per
+   probe in the size log (ruling 5); the committed scripts'
+   `rm -rf` forms (P2 ruling 1). The Milestone 2 Excel check,
+   with this part's two samples on its list, is due before part
+   3's close-out push (decision 7).
+4. These rulings are written into the working spec after the
+   close-out doc commit; they go in part 3's first doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-02: 1 to 6 as recommended (A in

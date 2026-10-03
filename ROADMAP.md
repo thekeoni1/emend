@@ -722,7 +722,7 @@ draft sized it at 48 from a guessed bytes-per-cell).
 | P3 | the decision record; the catalogue block "What streams and what is held"; the size record; part 4d's two samples rerun; the open record | DONE 2026-10-02 (doc c9a59be, catalogue 6578925, record fe3c19e; the core grew 128 section bytes, all the grid fix's, the catalogue 0, budget 435352, 23400 under; the decision record `records/scale-m3p1-2026-10-02-6578925.md`: every sample's class on every tier, tier c's outcomes, the shared strings table held at 46.2 bytes per unique item on i686 (carried to part 5), the VML and drawing whole reads (part 6), the runner and record-script carries (part 7); tier c `--cells` streams 125829220 cells under 8 MB on both targets; part 4d's two samples rerun byte-identical to 4d's; no open verdict moved; verified by planning from primaries with its own build, its own size probes at three commits reproducing every figure, its own read runs and sample reruns, its own scan; `specs/0023` "Planning verification and rulings on P3") |
 | Close | close-out push after P3, carrying ab5b3aa and this part's commits, the scan script's key check and the ci-run newline, the previous-record pattern naming ab5b3aa, one independent check; Milestone 2's Excel check run or deferred again before it | DONE 2026-10-02 (doc 21b89bb pushed, origin/main at 21b89bb, 11 commits, CI 37005285780 success, scan PASS with the key line, record 3cbd6fd local; decision 6 deferred a sixth time; verified by planning from git, gh and its own scan; `specs/0023` "Planning verification and rulings on the close-out") |
 
-### Part 2: rich text (`specs/0024-rich-text.md`, IN PROGRESS from 2026-10-02)
+### Part 2: rich text (`specs/0024-rich-text.md`, DONE and PUSHED 2026-10-03)
 
 Approved by the maintainer 2026-10-02 ("A on all"): runs with
 their own font in a cell, written as an inline string (never the
@@ -746,7 +746,36 @@ before this part's close-out push (decision 7).
 | P1 | the feature, `Run`, `RichText`, `Value::Rich`, the inline write, `Cell::runs`, `SharedStrings::runs_of`, the `rPr` reader, `--richtext-sample` on the corpus | DONE 2026-10-02 (doc e11d0f5, carry e51ec15, crate 1174bf1, tool 7d2f40d, record c53bbb3; 27 of 27 ok on both labels, LibreOffice ok, every entry identical but the edited worksheet; 18 crate and 2 tool tests; planning's own rerun byte-identical; planning's corpus fact corrected, P1 verification ruling 1) |
 | P2 | `add_rich_comment`, `CommentEntry::runs`, `--richcomment-sample` on the corpus | DONE 2026-10-03 (doc fc24238, empty runs 8a268f2, crate 17d1e6b, tool dc33002, record ea4a090; 27 of 27 ok on both labels, LibreOffice ok; 12 tests; planning's own rerun byte-identical; planning's comment-run fact corrected, P2 verification ruling 1) |
 | P3 | the catalogue and limits; the two probes and the size record; part 1's three read runs repeated with the no-growth contract; both samples rerun byte-identical | DONE 2026-10-03 (doc 7e14eab, carry 7c1e11e, catalogue d07793a, probes 0c3e4fa, record b018e52; `richtext` costs 12672 section bytes, the pair with `comments` 14820, the core grew 368, budget 435720, 23032 under; tier d peaks within 104 kB of part 1's on both labels, tier c within 200 kB; both samples byte-identical to P1's and P2's runs; planning's own probes and runs reproduce every figure) |
-| Close | close-out push after P3, carrying 3cbd6fd and this part's commits, the previous-record pattern naming 3cbd6fd, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
+| Close | close-out push after P3, carrying 3cbd6fd and this part's commits, the previous-record pattern naming 3cbd6fd, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-03 (doc 50d9e70 pushed, origin/main 21b89bb..50d9e70, 17 commits, CI 37118021913 success, record 21f1434 local; the Excel check deferred a seventh time, decision 7) |
+
+### Part 3: sheet and print settings (`specs/0025-sheet-and-print-settings.md`, IN PROGRESS from 2026-10-03)
+
+Approved by the maintainer 2026-10-03 ("A on all"): the tab colour
+and fit-to-page under `sheetPr`; zoom, gridlines, headings and the
+view kind on the first `sheetView`; print options, margins and
+page setup; the six header and footer texts as the format's code
+strings with a `section` builder; the print area and print titles
+as the sheet-scoped built-in names in Excel's form; a sheet-level
+autofilter with its hidden `_FilterDatabase` name; each element
+replaced with only its modelled attributes changed and the rest
+kept (a `pageSetup`'s printer-settings `r:id` survives), or created
+in schema position. Writes only; the typed read-back is part 5's.
+Feature `sheetprops`, off by default, two probes (the feature
+alone; with `metadata` for the three name-writing calls);
+planning's estimate 18000 to 30000 section bytes for the feature
+and 3000 to 8000 for the pair, priced from part 2 since no part is
+created. The corpus carries every element on most of its 95
+sheets, 41 root-child orders all in the schema table, and the
+three built-in names. The Milestone 2 Excel check is due before
+this part's close-out push (decision 7).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature, the settings pass with its attribute merge, `set_tab_color`, `set_sheet_view`, `--sheetview-sample` on the corpus | PENDING |
+| P2 | `set_print_options`, `set_page_margins`, `set_page_setup`, `set_header_footer` with `section`, `--pagesetup-sample` on the corpus | PENDING |
+| P3 | `set_print_area`, `set_print_titles`, `set_auto_filter` with the built-in names through the `metadata` writer, `--printarea-sample` on the corpus | PENDING |
+| P4 | the catalogue and limits; the two probes and the size record with a cause per probe; the three samples rerun byte-identical | PENDING |
+| Close | close-out push after P4, carrying 21f1434 and this part's commits, the previous-record pattern naming 21f1434, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
 ## Unscoped
 
