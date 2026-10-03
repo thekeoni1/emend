@@ -1,0 +1,1141 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m3p2-p1-negative.sh 7d2f40d5177275d7cac1cae4a2c1141950dd7ac6 <home>/.cache/emend-build/m3p2-p1/logs/gate.log <gatebuild>
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: NEGATIVE_BUILD: unset (the build root, <build>)
+input: the gate log: <home>/.cache/emend-build/m3p2-p1/logs/gate.log
+input: the gate build directory: <gatebuild>
+input: python3: Python 3.14.4
+about: M3 part 2 P1 phase commit 7d2f40d5177275d7cac1cae4a2c1141950dd7ac6; HEAD at run: 7d2f40d5177275d7cac1cae4a2c1141950dd7ac6
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  M3 part 1's close-out record commit (the base): 3cbd6fd021d4c194e10baa6760cedbe9b980f793
+  the doc commit: e11d0f505cc18a06541fd58ceff7596b14333303
+  code commit 1 (the carry): e51ec15de50a2bf420f19b8592d3a9baf7ff1f92
+  code commit 2 (the crate): 1174bf1151f870327d408aac3d275d140e542580
+  code commit 3 (the tool): 7d2f40d5177275d7cac1cae4a2c1141950dd7ac6
+command: git rev-parse <phase commit>~0 to <phase commit>~4
+    7d2f40d5177275d7cac1cae4a2c1141950dd7ac6
+    1174bf1151f870327d408aac3d275d140e542580
+    e51ec15de50a2bf420f19b8592d3a9baf7ff1f92
+    e11d0f505cc18a06541fd58ceff7596b14333303
+    3cbd6fd021d4c194e10baa6760cedbe9b980f793
+  code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit: yes
+  control: roles_in_order refuses code commit 2 named as code commit 3: yes
+
+phase: Milestone 3 part 2 P1 (specs/0024-rich-text.md) negative.log; run at 2026-10-02T23:42:59Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds nothing
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log (<home>/.cache/emend-build/m3p2-p1/logs/gate.log) is read for the binary's hash, the template files, crates/emend/src/cells.rs, crates/emend/src/package.rs, crates/emend/src/package/tests/richtext.rs and specs/0024-rich-text.md are read from it by git show, and specs/0024-rich-text.md's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there
+root: <home> stands for the home directory of the account that ran this script
+root: <scripts> stands for <home>/.cache/emend-build/m3p2-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p2-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit by git worktree remove
+root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m3p2-p1/gate unless the third argument names another, from which the gate's host debug binary is copied; read only
+root: <superseded> stands for <home>/.cache/emend-build/m3p2-p1/superseded, where a rerun's superseded files are kept; read only
+root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message reader, the source copies, the generator, its fixtures and the cases' outputs), kept on the disk after the run (change EF)
+  the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other): yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them this phase's logs or records or planning's spec 1; the lines:
+     M specs/0024-rich-text.md
+  the phase commit given to this script: 7d2f40d5177275d7cac1cae4a2c1141950dd7ac6
+  git rev-parse HEAD at this run:        7d2f40d5177275d7cac1cae4a2c1141950dd7ac6
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit 7d2f40d5177275d7cac1cae4a2c1141950dd7ac0 (the given one, its last hex digit changed); the short sha 7d2f40d
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+  control: the phase's status pattern refuses a modified source file: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0024: yes
+  control: the phase's status pattern takes this phase's two record stems and log, and no size record or earlier phase's record: yes
+command: git show <phase commit>:specs/0024-rich-text.md | sha256sum: ae37a294c82c9ef5e2c8e918fe79e487016c01ae357042256018cc030e4bff6a; sha256sum specs/0024-rich-text.md (the working file, planning's uncommitted rulings during P1, printed and not asserted; change EA): b0b73334185b44a8539ef4b8ad81c2f693f765a568f670706b699e8798406340
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+every fixture is built by this log from the phase commit's template files; no corpus file is copied or read
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 3 part 2 P1 negative.log (specs/0024-rich-text.md, "P1": "The
+    # negative log through the binary: the sample on a fixture from the template
+    # whose first sheet's last row is 1048576 (refused with the index message, a
+    # control)"). One family, the gate's host debug binary copied into a detached
+    # worktree of the phase commit and checked against gate.log's hash, on
+    # fictional packages this log builds from the phase commit's template files.
+    # The template's worksheet holds an empty sheetData alone and its workbook no
+    # shared strings part:
+    #
+    # (R) --richtext-sample, the template's worksheet's sheetData, and a shared
+    #     strings part with its relationship and Override where the case holds
+    #     one, set per case:
+    #       R0 the bare template: M is 0, the rich value goes on A1, exit 0, its
+    #          line;
+    #       R1 one row numbered 1048576, the grid's last, holding one number
+    #          cell: the sample's cell is past the grid, the index message;
+    #       R1C the same with the row numbered 1048575, the control for R1: the
+    #          rich value goes on the grid's last row, exit 0, its line;
+    #       R2 a shared strings part whose one item has a run whose rPr holds a
+    #          b with a val this layer cannot read: the run properties message,
+    #          from the table's read;
+    #       R2C the same with a plain b, the control for R2: exit 0, its line,
+    #          the table's one rich item counted before and after;
+    #       R3 an inline string cell on A1 whose run's rPr holds the same b: the
+    #          run properties message, from the cell read;
+    #       R3C the same with a plain b, the control for R3: exit 0, its line,
+    #          the inline rich cell counted before and two after.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the messages of this phase,
+    # read from the source by constant name, compared as SETS with those reached
+    # here and those the log states unreachable, with the reason and the covering
+    # test for each; and usage shapes.
+    #
+    # CARRIED TO M3 part 2 P1 from M2 part 4d P1's negative script (printed in
+    # records/logs/m2p4d-p1/negative.log, byte-identical to its copy kept on the
+    # disk under <home>/.cache/emend-build/m2p4d-p1/scripts, which this phase
+    # keeps as <home>/.cache/emend-build/m3p2-p1/gen/negative-template-m2p4d-p1.sh;
+    # its change lists CA to DD stand in that log), edited by hand and grepped for
+    # part 4d's tokens in every form (m2p4d, the 4d P1 subjects, a207e175,
+    # specs/0022, comment-sample, the C cases, COMMENT_ and COMMENTS_). What
+    # differs, and why:
+    #  EA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 2 P1's. The base is M3 part 1's close-out record commit
+    #      ("M3 part 1 close-out record:"); the doc commit and the three code
+    #      commits by their full P1 subjects. The spec pin is specs/0024's blob
+    #      at P1's doc commit, ae37a294. The working file holds planning's
+    #      uncommitted "Planning rulings during P1"; the status pattern allows
+    #      that one line, this phase's logs and its records/m3p2-p1- and
+    #      records/m3p2-open- stems.
+    #  EB. The family is R0 to R3C above, the generator gen-r.py setting the
+    #      template's sheetData per case and adding a shared strings part, its
+    #      relationship and its Override where the case holds one. The spec's
+    #      refusal with its control is R1 and R1C; R2 and R3 reach this phase's
+    #      read message through the binary from the table and from a cell, each
+    #      with its control.
+    #  EC. The messages of this phase are the two constants from
+    #      RICH_TEXT_INVALID to RUN_PROPERTIES_UNREADABLE in the phase commit's
+    #      crates/emend/src/cells.rs, where they are raised, read by constant
+    #      name; the index message R1 reaches is part 3's, INDEX_OUT_OF_RANGE in
+    #      crates/emend/src/package.rs, read by constant name the same way and
+    #      not one of this phase's. The reader takes a constant with or without
+    #      pub(crate). "a rich text is not valid" is stated unreachable, with
+    #      its covering test in package/tests/richtext.rs.
+    #  ED. Carried from M3 part 1 P1's negative script (records/logs/m3p1-p1/
+    #      negative.log): the helper ynnot for a condition that must not hold,
+    #      with its control, and the shape greps reading ynnot beside yn, is
+    #      and isnot; the scratch directory made under <build> on the disk.
+    #  EE. specs/0023 P1 verification ruling 1: the phase commit is checked a
+    #      full sha that is HEAD, with controls that the same checks refuse the
+    #      null commit, a fabricated commit (the real one with its last hex
+    #      digit changed) and a short sha of the real commit.
+    #  EF. Nothing is removed in bulk (the maintainer's rule of 2026-09-27): the
+    #      scratch directory under <build> is kept after the run, where part 4d's
+    #      cleanup removed its mktemp directory; the worktree is removed by git
+    #      worktree remove. The root line says so.
+    #  EG. The usage shapes: an extra argument after the flag, and the sample
+    #      with another sample.
+    #
+    # Usage: m3p2-p1-negative.sh <phase commit> [<gate log> [<gate build dir>]]
+    # > <file outside the tree>; the caller moves the output to
+    # records/logs/m3p2-p1/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/negative.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    GATE_LOG=${2:-records/logs/m3p2-p1/gate.log}
+    GATE_BUILD=${3:-$HOME/.cache/emend-build/m3p2-p1/gate}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    BUILD_ROOT=${NEGATIVE_BUILD:-$HOME/.cache/emend-build/m3p2-p1/negative}
+    SUPERSEDED_DIR=$HOME/.cache/emend-build/m3p2-p1/superseded
+    GATE_BIN=$GATE_BUILD/target/debug/emend-copy
+    SPEC=specs/0024-rich-text.md
+    SPEC_WANT=ae37a294c82c9ef5e2c8e918fe79e487016c01ae357042256018cc030e4bff6a
+    mkdir -p "$BUILD_ROOT" || exit 2
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    # Change EF: made on the disk under <build> and kept after the run.
+    B=$(mktemp -d -p "$BUILD_ROOT") || exit 2
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    # Change EE: the real commit with its last hex digit changed, and its short form.
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT_SHA=${C:0:7}
+    # This phase's logs and records, and planning's uncommitted spec (change EA).
+    OURS='^((\?\?| ?[MARCD]) records/logs/m3p2-p1|(\?\?| ?[MARCD]) records/m3p2-(p1|open)-| M specs/0024-rich-text[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs, records and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$TREE#<tree>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$GATE_BUILD#<gatebuild>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: NEGATIVE_BUILD: ${NEGATIVE_BUILD:-unset} (the build root, <build>)"
+    echo "input: the gate log: $GATE_LOG"
+    echo "input: the gate build directory: $GATE_BUILD"
+    echo "input: python3: $(python3 --version 2>&1)"
+    echo "about: M3 part 2 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M3 part 1 close-out record: the push, the CI run and the scan')
+    DOC1=$(by_subject 'M3 part 2 P1: commit planning docs (the spec, the part 1 close-out rulings, the part 2 outline)')
+    CODE1=$(by_subject "M3 part 2 P1: the streams block names P3's run log beside P2's")
+    CODE2=$(by_subject 'M3 part 2 P1: rich text in a cell behind the feature richtext')
+    CODE3=$(by_subject 'M3 part 2 P1: emend-copy --richtext-sample')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  M3 part 1's close-out record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1 (the carry): ${CODE1:-none}"
+    echo "  code commit 2 (the crate): ${CODE2:-none}"
+    echo "  code commit 3 (the tool): ${CODE3:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~4"
+    for k in 0 1 2 3 4; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE3" "$CODE2" "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 3, 2 and 1, the doc commit and the base, each the next one's parent, code commit 3 the phase commit" "$(yn roles_in_order)"
+    roles_ctl() { local CODE3=$CODE2; roles_in_order; }
+    check "control: roles_in_order refuses code commit 2 named as code commit 3" "$(ynnot roles_ctl)"
+    echo
+    echo "phase: Milestone 3 part 2 P1 ($SPEC) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds nothing"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log ($GATE_LOG) is read for the binary's hash, the template files, crates/emend/src/cells.rs, crates/emend/src/package.rs, crates/emend/src/package/tests/richtext.rs and $SPEC are read from it by git show, and $SPEC's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scripts> stands for <home>/.cache/emend-build/m3p2-p1/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p2-p1/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit by git worktree remove"
+    echo "root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m3p2-p1/gate unless the third argument names another, from which the gate's host debug binary is copied; read only"
+    echo "root: <superseded> stands for <home>/.cache/emend-build/m3p2-p1/superseded, where a rerun's superseded files are kept; read only"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message reader, the source copies, the generator, its fixtures and the cases' outputs), kept on the disk after the run (change EF)"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$TREE" "$B" && apart "$GATE_BUILD" "$BUILD_ROOT" && apart "$GATE_BUILD" "$SELF_DIR" && apart "$GATE_BUILD" "$MAIN" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN" && apart "$SUPERSEDED_DIR" "$GATE_BUILD"; }
+    check "the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$TREE" "$BUILD_ROOT"; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(ynnot roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or records or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT_SHA")"
+    short_names_head() { [ "$(git rev-parse "$SHORT_SHA")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    ours_ctl() { printf ' M crates/emend/src/cells.rs\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified source file" "$(ynnot ours_ctl)"
+    ours_spec_ctl() { printf ' M specs/0023-scale.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0024" "$(ynnot ours_spec_ctl)"
+    ours_rec_ctl() { printf '?? records/m3p2-p1-2026-01-01-abcdef0.md\n?? records/m3p2-open-2026-01-01-abcdef0.md\n?? records/size-m3p2-2026-01-01-abcdef0.md\n?? records/m3p1-p3-x.md\n?? records/logs/m3p2-p1/gate.log\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's two record stems and log, and no size record or earlier phase's record" "$(yn [ "$(ours_rec_ctl)" = 3 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, planning's uncommitted rulings during P1, printed and not asserted; change EA): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo "every fixture is built by this log from the phase commit's template files; no corpus file is copied or read"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    echo "## the rich text family through the gate's binary, copied into a worktree"
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >/dev/null 2>&1
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    HASH_FORM='^  <[a-z]+>/target/debug/emend-copy: sha256 [0-9a-f]{64}, bytes [0-9]+$'
+    nhash=$(count_matches -E "$HASH_FORM" "$GATE_LOG")
+    GATED=$(sed -n -E 's#^  <[a-z]+>/target/debug/emend-copy: sha256 ([0-9a-f]{64}), bytes [0-9]+$#\1#p' "$GATE_LOG" | head -n 1)
+    echo "command: count_matches -E and sed for the host emend-copy hash line in $GATE_LOG (sha256 $(sha_of "$GATE_LOG")): lines $nhash; hash $GATED"
+    check "gate.log holds exactly one host emend-copy hash line" "$(yn [ "$nhash" = 1 ])"
+    printf '  <build>/target/debug/emend-copy: sha256 %s, bytes 1\n  <build>/target/i686-unknown-linux-musl/debug/emend-copy: sha256 %s, bytes 1\n' \
+      "$(printf 'a' | sha256sum | cut -d' ' -f1)" "$(printf 'b' | sha256sum | cut -d' ' -f1)" >"$B/c-gate.log"
+    check "control: the same form counts one line in a fixture holding a host and an i686 line" "$(yn [ "$(count_matches -E "$HASH_FORM" "$B/c-gate.log")" = 1 ])"
+    echo "command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy"
+    mkdir "$TREE/bin" && cp "$GATE_BIN" "$TREE/bin/emend-copy"
+    BIN=$TREE/bin/emend-copy
+    echo "  <tree>/bin/emend-copy: sha256 $(sha_of "$BIN")"
+    check "the copied binary is the one gate.log hashed, not a rebuild" "$(yn [ "$(sha_of "$BIN")" = "$GATED" ])"
+    check "control: the reader found a hash in gate.log" "$(yn [ -n "$GATED" ])"
+    echo
+    echo "### the messages, read from the phase commit's source by constant name (change EC)"
+    git show "$C:crates/emend/src/cells.rs" >"$B/cells.rs"
+    git show "$C:crates/emend/src/package.rs" >"$B/package.rs"
+    cat >"$B/messages.py" <<'PY'
+    """The Error::Package messages of a Rust source file, by constant name, one
+    per line as NAME<TAB>message in source order; a constant with or without
+    pub(crate). With --from A --to B, only the block from A to B; with --name N,
+    only N.
+    Usage: messages.py <file.rs> [--from A --to B | --name N]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^(?:pub\(crate\) )?const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);',
+                       text, re.M)
+    args = sys.argv[2:]
+    if args[:1] == ["--from"]:
+        names = [n for n, _ in found]
+        a, b = names.index(args[1]), names.index(args[3])
+        found = found[a:b + 1]
+    elif args[:1] == ["--name"]:
+        found = [(n, m) for n, m in found if n == args[1]]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+    PY
+    sed 's/^/    /' "$B/messages.py"
+    echo "command: python3 <scratch>/w/messages.py <scratch>/w/cells.rs --from RICH_TEXT_INVALID --to RUN_PROPERTIES_UNREADABLE, the file from git show <phase commit>:crates/emend/src/cells.rs"
+    python3 "$B/messages.py" "$B/cells.rs" --from RICH_TEXT_INVALID --to RUN_PROPERTIES_UNREADABLE >"$B/part.tsv"
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/part.tsv"
+    echo "command: python3 <scratch>/w/messages.py <scratch>/w/package.rs --name INDEX_OUT_OF_RANGE, the file from git show <phase commit>:crates/emend/src/package.rs (part 3's index message, not this phase's)"
+    python3 "$B/messages.py" "$B/package.rs" --name INDEX_OUT_OF_RANGE >"$B/index.tsv"
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/index.tsv"
+    npart=$(count_lines "$B/part.tsv")
+    nempty=$(awk -F"$TAB" '$2 == "" { n++ } END { print n + 0 }' "$B/part.tsv")
+    nindex=$(count_lines "$B/index.tsv")
+    echo "  this phase's messages in the source block: $npart; with an empty message: $nempty; the index message's lines: $nindex"
+    block_ok() { [ "$npart" -ge 1 ] && [ "$nempty" = 0 ]; }
+    check "the block holds messages and none is empty" "$(yn block_ok)"
+    index_ok() { [ "$nindex" = 1 ] && [ -n "$(cut -f2 "$B/index.tsv")" ]; }
+    check "the index message is read, once and not empty" "$(yn index_ok)"
+    printf 'const A: Error = Error::Package("x");\nconst RICH_TEXT_INVALID: Error = Error::Package("one");\npub(crate) const B: Error =\n    Error::Package("two");\nconst RUN_PROPERTIES_UNREADABLE: Error = Error::Package(\n    "three",\n);\nconst C: Error = Error::Package("y");\n' >"$B/c-cells.rs"
+    python3 "$B/messages.py" "$B/c-cells.rs" --from RICH_TEXT_INVALID --to RUN_PROPERTIES_UNREADABLE >"$B/c-part.tsv"
+    check "control: the reader takes the block's three constants, one-line, wrapped with pub(crate) and multi-line, and nothing outside it" "$(yn [ "$(cut -f2 "$B/c-part.tsv" | tr '\n' ' ')" = "one two three " ])"
+    python3 "$B/messages.py" "$B/c-cells.rs" --name B >"$B/c-name.tsv"
+    check "control: --name takes the one constant named, pub(crate) or not" "$(yn [ "$(cut -f2 "$B/c-name.tsv")" = two ])"
+    cat "$B/part.tsv" "$B/index.tsv" >"$B/known.tsv"
+    # msg <NAME>: the message the source holds for the constant, as the tool prints it.
+    msg() { awk -F"$TAB" -v n="$1" '$1 == n { print "error: " $2 }' "$B/known.tsv"; }
+    # Each message looked for in the committed spec and in planning's working
+    # file, whitespace folded, since the spec wraps its lines (change EA).
+    git show "$C:$SPEC" >"$B/spec-committed.md"
+    python3 - "$B/part.tsv" "$B/spec-committed.md" "$SPEC" >"$B/in-spec.tsv" <<'PY'
+    import re
+    import sys
+    committed = re.sub(r"\s+", " ", open(sys.argv[2]).read())
+    working = re.sub(r"\s+", " ", open(sys.argv[3]).read())
+    for line in open(sys.argv[1]):
+        name, message = line.rstrip("\n").split("\t", 1)
+        print("%s\tcommitted=%s\tworking=%s" % (name, "yes" if message in committed else "no",
+                                                "yes" if message in working else "no"))
+    PY
+    echo "command: each message of the block, looked for in the committed $SPEC (git show <phase commit>) and in its working file, whitespace folded"
+    sed 's/^/    /' "$B/in-spec.tsv"
+    nin=$(count_matches -E "working=yes\$" "$B/in-spec.tsv")
+    all_in_spec() { [ "$nin" = "$npart" ]; }
+    check "every message of the block is one planning's working spec names" "$(yn all_in_spec)"
+    printf 'X\tcommitted=yes\tworking=no\n' >"$B/c-in-spec.tsv"
+    check "control: the same count finds no working=yes on a line that says working=no" "$(yn [ "$(count_matches -E "working=yes\$" "$B/c-in-spec.tsv")" = 0 ])"
+    echo
+    echo "### this log's generator, from the phase commit's template files"
+    mkdir "$B/template" "$B/fx"
+    for f in '[Content_Types].xml' _rels/.rels xl/workbook.xml xl/_rels/workbook.xml.rels xl/worksheets/sheet1.xml xl/styles.xml; do
+      mkdir -p "$B/template/$(dirname "$f")"
+      git show "$C:crates/emend/template/$f" >"$B/template/$f"
+    done
+    cat >"$B/gen-r.py" <<'PY'
+    """Fictional packages for M3 part 2 P1's negative log: the phase commit's
+    template files, zipped in the template's order, the R cases setting the
+    worksheet part's sheetData and adding a shared strings part, its
+    relationship and its Override where the case holds one.
+    Usage: gen-r.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    SST = "xl/sharedStrings.xml"
+    MAIN = b"http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    REL = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    SST_TYPE = b"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
+    DECL = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    wbrels = parts["xl/_rels/workbook.xml.rels"]
+    assert sheet.count(b"<sheetData/>") == 1
+    assert sheet.count(b"<c ") == 0
+    assert types.count(b"</Types>") == 1
+    assert wbrels.count(b"</Relationships>") == 1
+    assert wbrels.count(b"sharedStrings") == 0
+    
+    
+    def case(data=None, sst=None):
+        """The template with its sheetData holding `data` and, when `sst` is
+        given, a shared strings part holding it, with its relationship and
+        Override."""
+        p = dict(parts)
+        if data is not None:
+            p["xl/worksheets/sheet1.xml"] = sheet.replace(b"<sheetData/>", b"<sheetData>" + data + b"</sheetData>")
+        if sst is not None:
+            p[SST] = DECL + b'<sst xmlns="' + MAIN + b'" count="1" uniqueCount="1">' + sst + b"</sst>"
+            p["[Content_Types].xml"] = types.replace(
+                b"</Types>", b'<Override PartName="/' + SST.encode() + b'" ContentType="' + SST_TYPE + b'"/></Types>')
+            p["xl/_rels/workbook.xml.rels"] = wbrels.replace(
+                b"</Relationships>", b'<Relationship Id="rId9" Type="' + REL
+                + b'/sharedStrings" Target="sharedStrings.xml"/></Relationships>')
+        return p
+    
+    
+    def last_row(n):
+        return b'<row r="' + n + b'"><c r="A' + n + b'"><v>1</v></c></row>'
+    
+    
+    def item(b):
+        return b"<si><r><rPr>" + b + b"</rPr><t>a</t></r></si>"
+    
+    
+    def inline(b):
+        return b'<row r="1"><c r="A1" t="inlineStr"><is><r><rPr>' + b + b"</rPr><t>a</t></r></is></c></row>"
+    
+    
+    BAD = b'<b val="yes"/>'
+    GOOD = b"<b/>"
+    CASES = {
+        "r0": case(),
+        "r1": case(last_row(b"1048576")),
+        "r1c": case(last_row(b"1048575")),
+        "r2": case(sst=item(BAD)),
+        "r2c": case(sst=item(GOOD)),
+        "r3": case(inline(BAD)),
+        "r3c": case(inline(GOOD)),
+    }
+    for name, p in CASES.items():
+        names = ORDER + [n for n in (SST,) if n in p]
+        with zipfile.ZipFile(os.path.join(out, name + ".xlsx"), "w") as z:
+            for n in names:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        s = p["xl/worksheets/sheet1.xml"]
+        print("%s %d entries:%d rows:%d last_row_1048576:%d last_row_1048575:%d inline:%d sst_part:%d bad_b:%d" % (
+            name + ".xlsx", os.path.getsize(os.path.join(out, name + ".xlsx")), len(names),
+            s.count(b"<row "), s.count(b'<row r="1048576"'), s.count(b'<row r="1048575"'),
+            s.count(b't="inlineStr"'), int(SST in p), (s + p.get(SST, b"")).count(BAD)))
+    PY
+    sed 's/^/    /' "$B/gen-r.py"
+    echo "command: python3 <scratch>/w/gen-r.py <scratch>/w/template <scratch>/w/fx"
+    python3 "$B/gen-r.py" "$B/template" "$B/fx" >"$B/gen-r.out" 2>&1
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/gen-r.out"
+    check "the seven fixtures were written, and nothing else" "$(yn [ "$(find "$B/fx" -type f | wc -l)" = 7 ])"
+    # run_bin <case> <args...>: the copied binary, the command printed with the
+    # paths it names, stdout, stderr and exit kept.
+    run_bin() {
+      local case=$1
+      shift
+      "$BIN" "$@" >"$B/$case.stdout" 2>"$B/$case.stderr" </dev/null
+      echo $? >"$B/$case.status"
+      echo "command: <tree>/bin/emend-copy $*"
+      echo "  exit: $(cat "$B/$case.status")"
+      echo "  stdout:"; sed 's/^/    /' "$B/$case.stdout"
+      echo "  stderr:"; sed 's/^/    /' "$B/$case.stderr"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    refused_with() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ -n "$2" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    no_output() { [ ! -e "$B/out/$1.xlsx" ]; }
+    has_output() { [ -s "$B/out/$1.xlsx" ]; }
+    usage_refused() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(count_matches -F 'error: usage: emend-copy' "$B/$1.stderr")" = 1 ]; }
+    line_is() { status_is "$1" 0 && [ ! -s "$B/$1.stderr" ] && [ "$(cat "$B/$1.stdout")" = "$2" ] && has_output "$1"; }
+    mkdir "$B/out"
+    for case in r0 r1 r1c r2 r2c r3 r3c; do
+      echo
+      echo "### ${case^^} (--richtext-sample)"
+      run_bin "$case" "$B/fx/$case.xlsx" "$B/out/$case.xlsx" --richtext-sample
+    done
+    echo
+    echo "### the checks"
+    # The template has no shared strings part and its worksheet root binds no
+    # relationships prefix: R0 and R1C count no rich item or cell before and
+    # one rich cell after. R2C's table holds one rich item, before and after;
+    # R3C's sheet one rich inline cell before and two after.
+    richtext_line() { printf 'richtext\tsst_rich_before=%s\tsst_rich_after=%s\tinline_rich_before=%s\tinline_rich_after=%s\truns_after=%s\ttext_after=%s\tbold_first=%s\tr_bound_before=%s' "$@"; }
+    L_NONE=$(richtext_line 0 0 0 1 2 1 1 0)
+    L_SST=$(richtext_line 1 1 0 1 2 1 1 0)
+    L_INLINE=$(richtext_line 0 0 1 2 2 1 1 0)
+    check "R0: exit 0, its line, an output (the bare template)" "$(yn line_is r0 "$L_NONE")"
+    # The refusals: case, constant, the control's case and its line. A refusal
+    # that holds records its constant as reached; part 3's index message is
+    # recorded apart, since it is not one of this phase's.
+    : >"$B/reached"
+    : >"$B/reached-other"
+    refusal() {
+      local case=$1 name=$2 ctl=$3 want=$4 expect
+      expect=$(msg "$name")
+      check "${ctl^^}: exit 0, its line, an output (the control for ${case^^})" "$(yn line_is "$ctl" "$want")"
+      check "${case^^}: exit 2, no stdout, the error line exactly $name's message" "$(yn refused_with "$case" "$expect")"
+      check "${case^^}: no output file" "$(yn no_output "$case")"
+      if refused_with "$case" "$expect"; then
+        if [ "$name" = INDEX_OUT_OF_RANGE ]; then printf '%s\n' "$name" >>"$B/reached-other"; else printf '%s\n' "$name" >>"$B/reached"; fi
+      fi
+    }
+    refusal r1 INDEX_OUT_OF_RANGE r1c "$L_NONE"
+    refusal r2 RUN_PROPERTIES_UNREADABLE r2c "$L_SST"
+    refusal r3 RUN_PROPERTIES_UNREADABLE r3c "$L_INLINE"
+    check "the spec's refusal, the index message at the grid's last row, was reached (R1)" "$(yn [ "$(count_lines "$B/reached-other")" = 1 ])"
+    not_refused() { refused_with r1c "$(msg INDEX_OUT_OF_RANGE)"; }
+    check "control: refused_with says no on R1C's run" "$(ynnot not_refused)"
+    other_message() { refused_with r1 "$(msg RUN_PROPERTIES_UNREADABLE)"; }
+    check "control: refused_with says no on R1's run against the run properties message" "$(ynnot other_message)"
+    r2_other() { refused_with r2 "$(msg INDEX_OUT_OF_RANGE)"; }
+    check "control: refused_with says no on R2's run against the index message" "$(ynnot r2_other)"
+    empty_message() { refused_with r1 ""; }
+    check "control: refused_with says no against an empty message" "$(ynnot empty_message)"
+    line_ctl() { line_is r2c "$L_NONE"; }
+    check "control: line_is says no on R2C's run against R0's line" "$(ynnot line_ctl)"
+    r3c_line_ctl() { line_is r3c "$L_SST"; }
+    check "control: line_is says no on R3C's run against R2C's line" "$(ynnot r3c_line_ctl)"
+    out_ctl() { line_is r1 ""; }
+    check "control: line_is says no on R1's refused run, which left no output" "$(ynnot out_ctl)"
+    nout=$(find "$B/out" -type f | wc -l)
+    echo "  output files: $nout, the four controls' outputs (R0, R1C, R2C, R3C)"
+    check "no output but the four controls', and no temporary beside them" "$(yn [ "$nout" = 4 ])"
+    echo
+    echo "### the messages reached and the messages stated unreachable, as sets (change EC)"
+    # The third column names the crate test that covers the message.
+    cat >"$B/unreachable" <<'UNR'
+    RICH_TEXT_INVALID	raised at the write for a rich value with no run or a run with no text; the sample's two runs are the tool's constants, each with its text	the_write_refuses_each_rule
+    UNR
+    echo "  reached here, from the checks above that held (each constant once):"
+    LC_ALL=C sort -u "$B/reached" >"$B/reached.set"
+    sed 's/^/    /' "$B/reached.set"
+    echo "  stated unreachable, with the reason:"
+    sed 's/^/    /' "$B/unreachable"
+    cut -f1 "$B/unreachable" | LC_ALL=C sort -u >"$B/unreachable.set"
+    cut -f1 "$B/part.tsv" | LC_ALL=C sort -u >"$B/part.set"
+    LC_ALL=C sort -u "$B/reached.set" "$B/unreachable.set" >"$B/union.set"
+    nboth=$(LC_ALL=C comm -12 "$B/reached.set" "$B/unreachable.set" | count_lines /dev/stdin)
+    echo "  the source block $(count_lines "$B/part.set"); reached $(count_lines "$B/reached.set"); stated unreachable $(count_lines "$B/unreachable.set"); in both $nboth"
+    union_is_part() { cmp -s "$B/union.set" "$B/part.set"; }
+    check "reached and stated unreachable together are exactly the source block's constants" "$(yn union_is_part)"
+    check "no constant is both reached and stated unreachable" "$(yn [ "$nboth" = 0 ])"
+    reasons_ok() { [ "$(awk -F"$TAB" '$2 != "" { n++ } END { print n + 0 }' "$B/unreachable")" = "$(count_lines "$B/unreachable")" ]; }
+    check "every unreachable constant carries its reason" "$(yn reasons_ok)"
+    # Each named test is a #[test] fn of the phase commit's rich text tests, and
+    # its body names the constant's message.
+    git show "$C:crates/emend/src/package/tests/richtext.rs" >"$B/richtext-tests.rs"
+    test_holds() {
+      awk -v f="fn $1() {" '$0 == f { on = 1 } on { print } on && /^}$/ { exit }' "$B/richtext-tests.rs" >"$B/body"
+      [ "$(count_lines "$B/body")" -ge 2 ] && [ -n "$2" ] &&
+        python3 -c 'import re, sys; t = re.sub(r"\s+", " ", open(sys.argv[1]).read()); sys.exit(0 if sys.argv[2] in t else 1)' "$B/body" "$2"
+    }
+    echo "command: for each stated-unreachable constant, the named test's fn in the phase commit's crates/emend/src/package/tests/richtext.rs, its body looked for the constant's message, whitespace folded"
+    while IFS="$TAB" read -r name _ test; do
+      message=$(awk -F"$TAB" -v n="$name" '$1 == n { print $2 }' "$B/part.tsv")
+      echo "    $name: $test"
+      check "  $name: covered by $test, which holds its message" "$(yn test_holds "$test" "$message")"
+    done <"$B/unreachable"
+    covers_ctl() { test_holds a_rich_value_off_the_grid_is_refused "$(awk -F"$TAB" '$1 == "RICH_TEXT_INVALID" { print $2 }' "$B/part.tsv")"; }
+    check "control: test_holds refuses the off-grid test against the rich text message" "$(ynnot covers_ctl)"
+    missing_ctl() { test_holds zzz_no_such_test "a"; }
+    check "control: test_holds refuses a test the file lacks" "$(ynnot missing_ctl)"
+    union_ctl() { LC_ALL=C sort -u "$B/unreachable.set" | cmp -s - "$B/part.set"; }
+    check "control: the comparison refuses the stated-unreachable set alone, without the reached constants" "$(ynnot union_ctl)"
+    echo
+    echo "### two usage shapes (change EG)"
+    run_bin u1 "$B/fx/r0.xlsx" "$B/out/u1.xlsx" --richtext-sample extra
+    check "U1: exit 2, the usage line" "$(yn usage_refused u1)"
+    run_bin u2 "$B/fx/r0.xlsx" "$B/out/u2.xlsx" --richtext-sample --comment-sample
+    check "U2: exit 2, the usage line" "$(yn usage_refused u2)"
+    usage_ctl() { usage_refused r0; }
+    check "control: usage_refused says no on R0's run" "$(ynnot usage_ctl)"
+    check "U1 and U2 left no output" "$(yn [ "$(find "$B/out" -type f | wc -l)" = 4 ])"
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$TREE" /dev/stdin)" = 0 ])"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr "$B"/gen-r.out; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or records or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or records or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/negative.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the rich text family through the gate's binary, copied into a worktree
+command: git worktree add --detach <tree> <phase commit>
+  the worktree is at the phase commit: yes
+command: count_matches -E and sed for the host emend-copy hash line in <home>/.cache/emend-build/m3p2-p1/logs/gate.log (sha256 694dd7c537f7973deb25a358c1d8b2577d266120285156d24682a4154d8cbe8f): lines 1; hash 3d31e9f4ed9eee53bec56a7f0b902f74c5db66ff3391038c7770469e3c08842f
+  gate.log holds exactly one host emend-copy hash line: yes
+  control: the same form counts one line in a fixture holding a host and an i686 line: yes
+command: mkdir <tree>/bin; cp <gatebuild>/target/debug/emend-copy <tree>/bin/emend-copy
+  <tree>/bin/emend-copy: sha256 3d31e9f4ed9eee53bec56a7f0b902f74c5db66ff3391038c7770469e3c08842f
+  the copied binary is the one gate.log hashed, not a rebuild: yes
+  control: the reader found a hash in gate.log: yes
+
+### the messages, read from the phase commit's source by constant name (change EC)
+    """The Error::Package messages of a Rust source file, by constant name, one
+    per line as NAME<TAB>message in source order; a constant with or without
+    pub(crate). With --from A --to B, only the block from A to B; with --name N,
+    only N.
+    Usage: messages.py <file.rs> [--from A --to B | --name N]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^(?:pub\(crate\) )?const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);',
+                       text, re.M)
+    args = sys.argv[2:]
+    if args[:1] == ["--from"]:
+        names = [n for n, _ in found]
+        a, b = names.index(args[1]), names.index(args[3])
+        found = found[a:b + 1]
+    elif args[:1] == ["--name"]:
+        found = [(n, m) for n, m in found if n == args[1]]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+command: python3 <scratch>/w/messages.py <scratch>/w/cells.rs --from RICH_TEXT_INVALID --to RUN_PROPERTIES_UNREADABLE, the file from git show <phase commit>:crates/emend/src/cells.rs
+  exit: 0
+    RICH_TEXT_INVALID	a rich text is not valid
+    RUN_PROPERTIES_UNREADABLE	a run's properties cannot be read
+command: python3 <scratch>/w/messages.py <scratch>/w/package.rs --name INDEX_OUT_OF_RANGE, the file from git show <phase commit>:crates/emend/src/package.rs (part 3's index message, not this phase's)
+  exit: 0
+    INDEX_OUT_OF_RANGE	a row or column index or count is out of range
+  this phase's messages in the source block: 2; with an empty message: 0; the index message's lines: 1
+  the block holds messages and none is empty: yes
+  the index message is read, once and not empty: yes
+  control: the reader takes the block's three constants, one-line, wrapped with pub(crate) and multi-line, and nothing outside it: yes
+  control: --name takes the one constant named, pub(crate) or not: yes
+command: each message of the block, looked for in the committed specs/0024-rich-text.md (git show <phase commit>) and in its working file, whitespace folded
+    RICH_TEXT_INVALID	committed=yes	working=yes
+    RUN_PROPERTIES_UNREADABLE	committed=yes	working=yes
+  every message of the block is one planning's working spec names: yes
+  control: the same count finds no working=yes on a line that says working=no: yes
+
+### this log's generator, from the phase commit's template files
+    """Fictional packages for M3 part 2 P1's negative log: the phase commit's
+    template files, zipped in the template's order, the R cases setting the
+    worksheet part's sheetData and adding a shared strings part, its
+    relationship and its Override where the case holds one.
+    Usage: gen-r.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    SST = "xl/sharedStrings.xml"
+    MAIN = b"http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    REL = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    SST_TYPE = b"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
+    DECL = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    wbrels = parts["xl/_rels/workbook.xml.rels"]
+    assert sheet.count(b"<sheetData/>") == 1
+    assert sheet.count(b"<c ") == 0
+    assert types.count(b"</Types>") == 1
+    assert wbrels.count(b"</Relationships>") == 1
+    assert wbrels.count(b"sharedStrings") == 0
+    
+    
+    def case(data=None, sst=None):
+        """The template with its sheetData holding `data` and, when `sst` is
+        given, a shared strings part holding it, with its relationship and
+        Override."""
+        p = dict(parts)
+        if data is not None:
+            p["xl/worksheets/sheet1.xml"] = sheet.replace(b"<sheetData/>", b"<sheetData>" + data + b"</sheetData>")
+        if sst is not None:
+            p[SST] = DECL + b'<sst xmlns="' + MAIN + b'" count="1" uniqueCount="1">' + sst + b"</sst>"
+            p["[Content_Types].xml"] = types.replace(
+                b"</Types>", b'<Override PartName="/' + SST.encode() + b'" ContentType="' + SST_TYPE + b'"/></Types>')
+            p["xl/_rels/workbook.xml.rels"] = wbrels.replace(
+                b"</Relationships>", b'<Relationship Id="rId9" Type="' + REL
+                + b'/sharedStrings" Target="sharedStrings.xml"/></Relationships>')
+        return p
+    
+    
+    def last_row(n):
+        return b'<row r="' + n + b'"><c r="A' + n + b'"><v>1</v></c></row>'
+    
+    
+    def item(b):
+        return b"<si><r><rPr>" + b + b"</rPr><t>a</t></r></si>"
+    
+    
+    def inline(b):
+        return b'<row r="1"><c r="A1" t="inlineStr"><is><r><rPr>' + b + b"</rPr><t>a</t></r></is></c></row>"
+    
+    
+    BAD = b'<b val="yes"/>'
+    GOOD = b"<b/>"
+    CASES = {
+        "r0": case(),
+        "r1": case(last_row(b"1048576")),
+        "r1c": case(last_row(b"1048575")),
+        "r2": case(sst=item(BAD)),
+        "r2c": case(sst=item(GOOD)),
+        "r3": case(inline(BAD)),
+        "r3c": case(inline(GOOD)),
+    }
+    for name, p in CASES.items():
+        names = ORDER + [n for n in (SST,) if n in p]
+        with zipfile.ZipFile(os.path.join(out, name + ".xlsx"), "w") as z:
+            for n in names:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        s = p["xl/worksheets/sheet1.xml"]
+        print("%s %d entries:%d rows:%d last_row_1048576:%d last_row_1048575:%d inline:%d sst_part:%d bad_b:%d" % (
+            name + ".xlsx", os.path.getsize(os.path.join(out, name + ".xlsx")), len(names),
+            s.count(b"<row "), s.count(b'<row r="1048576"'), s.count(b'<row r="1048575"'),
+            s.count(b't="inlineStr"'), int(SST in p), (s + p.get(SST, b"")).count(BAD)))
+command: python3 <scratch>/w/gen-r.py <scratch>/w/template <scratch>/w/fx
+  exit: 0
+    r0.xlsx 2011 entries:6 rows:0 last_row_1048576:0 last_row_1048575:0 inline:0 sst_part:0 bad_b:0
+    r1.xlsx 2044 entries:6 rows:1 last_row_1048576:1 last_row_1048575:0 inline:0 sst_part:0 bad_b:0
+    r1c.xlsx 2044 entries:6 rows:1 last_row_1048576:0 last_row_1048575:1 inline:0 sst_part:0 bad_b:0
+    r2.xlsx 2319 entries:7 rows:0 last_row_1048576:0 last_row_1048575:0 inline:0 sst_part:1 bad_b:1
+    r2c.xlsx 2314 entries:7 rows:0 last_row_1048576:0 last_row_1048575:0 inline:0 sst_part:1 bad_b:0
+    r3.xlsx 2067 entries:6 rows:1 last_row_1048576:0 last_row_1048575:0 inline:1 sst_part:0 bad_b:1
+    r3c.xlsx 2063 entries:6 rows:1 last_row_1048576:0 last_row_1048575:0 inline:1 sst_part:0 bad_b:0
+  the seven fixtures were written, and nothing else: yes
+
+### R0 (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r0.xlsx <scratch>/w/out/r0.xlsx --richtext-sample
+  exit: 0
+  stdout:
+    richtext	sst_rich_before=0	sst_rich_after=0	inline_rich_before=0	inline_rich_after=1	runs_after=2	text_after=1	bold_first=1	r_bound_before=0
+  stderr:
+
+### R1 (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r1.xlsx <scratch>/w/out/r1.xlsx --richtext-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a row or column index or count is out of range
+
+### R1C (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r1c.xlsx <scratch>/w/out/r1c.xlsx --richtext-sample
+  exit: 0
+  stdout:
+    richtext	sst_rich_before=0	sst_rich_after=0	inline_rich_before=0	inline_rich_after=1	runs_after=2	text_after=1	bold_first=1	r_bound_before=0
+  stderr:
+
+### R2 (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r2.xlsx <scratch>/w/out/r2.xlsx --richtext-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a run's properties cannot be read
+
+### R2C (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r2c.xlsx <scratch>/w/out/r2c.xlsx --richtext-sample
+  exit: 0
+  stdout:
+    richtext	sst_rich_before=1	sst_rich_after=1	inline_rich_before=0	inline_rich_after=1	runs_after=2	text_after=1	bold_first=1	r_bound_before=0
+  stderr:
+
+### R3 (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r3.xlsx <scratch>/w/out/r3.xlsx --richtext-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a run's properties cannot be read
+
+### R3C (--richtext-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r3c.xlsx <scratch>/w/out/r3c.xlsx --richtext-sample
+  exit: 0
+  stdout:
+    richtext	sst_rich_before=0	sst_rich_after=0	inline_rich_before=1	inline_rich_after=2	runs_after=2	text_after=1	bold_first=1	r_bound_before=0
+  stderr:
+
+### the checks
+  R0: exit 0, its line, an output (the bare template): yes
+  R1C: exit 0, its line, an output (the control for R1): yes
+  R1: exit 2, no stdout, the error line exactly INDEX_OUT_OF_RANGE's message: yes
+  R1: no output file: yes
+  R2C: exit 0, its line, an output (the control for R2): yes
+  R2: exit 2, no stdout, the error line exactly RUN_PROPERTIES_UNREADABLE's message: yes
+  R2: no output file: yes
+  R3C: exit 0, its line, an output (the control for R3): yes
+  R3: exit 2, no stdout, the error line exactly RUN_PROPERTIES_UNREADABLE's message: yes
+  R3: no output file: yes
+  the spec's refusal, the index message at the grid's last row, was reached (R1): yes
+  control: refused_with says no on R1C's run: yes
+  control: refused_with says no on R1's run against the run properties message: yes
+  control: refused_with says no on R2's run against the index message: yes
+  control: refused_with says no against an empty message: yes
+  control: line_is says no on R2C's run against R0's line: yes
+  control: line_is says no on R3C's run against R2C's line: yes
+  control: line_is says no on R1's refused run, which left no output: yes
+  output files: 4, the four controls' outputs (R0, R1C, R2C, R3C)
+  no output but the four controls', and no temporary beside them: yes
+
+### the messages reached and the messages stated unreachable, as sets (change EC)
+  reached here, from the checks above that held (each constant once):
+    RUN_PROPERTIES_UNREADABLE
+  stated unreachable, with the reason:
+    RICH_TEXT_INVALID	raised at the write for a rich value with no run or a run with no text; the sample's two runs are the tool's constants, each with its text	the_write_refuses_each_rule
+  the source block 2; reached 1; stated unreachable 1; in both 0
+  reached and stated unreachable together are exactly the source block's constants: yes
+  no constant is both reached and stated unreachable: yes
+  every unreachable constant carries its reason: yes
+command: for each stated-unreachable constant, the named test's fn in the phase commit's crates/emend/src/package/tests/richtext.rs, its body looked for the constant's message, whitespace folded
+    RICH_TEXT_INVALID: the_write_refuses_each_rule
+    RICH_TEXT_INVALID: covered by the_write_refuses_each_rule, which holds its message: yes
+  control: test_holds refuses the off-grid test against the rich text message: yes
+  control: test_holds refuses a test the file lacks: yes
+  control: the comparison refuses the stated-unreachable set alone, without the reached constants: yes
+
+### two usage shapes (change EG)
+command: <tree>/bin/emend-copy <scratch>/w/fx/r0.xlsx <scratch>/w/out/u1.xlsx --richtext-sample extra
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample | --image-sample | --richtext-sample]
+  U1: exit 2, the usage line: yes
+command: <tree>/bin/emend-copy <scratch>/w/fx/r0.xlsx <scratch>/w/out/u2.xlsx --richtext-sample --comment-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample | --image-sample | --richtext-sample]
+  U2: exit 2, the usage line: yes
+  control: usage_refused says no on R0's run: yes
+  U1 and U2 left no output: yes
+  the worktree is gone from git's list: yes
+
+## the log itself
+  captured outputs: 19; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0024-rich-text.md
+status lines: 1; of them this phase's logs or records or planning's spec: 1
+  every change in the working tree is this phase's logs or records or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/negative.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-02T23:43:00Z
+negative log checks all as expected: yes
