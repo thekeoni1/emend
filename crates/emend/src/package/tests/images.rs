@@ -937,3 +937,64 @@ fn a_drawing_and_a_legacy_drawing_created_in_one_write_come_in_schema_order() {
         )
     );
 }
+
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+#[test]
+fn the_four_page_elements_land_between_a_created_hyperlinks_and_a_created_drawing() {
+    // specs/0025 P2 verification ruling 2 (C2): with a `<hyperlinks>` and a
+    // `<drawing>` created in the same write, the settings pass's four
+    // elements go between them in schema order, at the root's end and
+    // before a later root child alike.
+    let page = "<printOptions horizontalCentered=\"1\"/><pageMargins left=\"0.5\" right=\"0.7\" \
+                top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/><pageSetup \
+                orientation=\"landscape\"/><headerFooter><oddHeader>&amp;Ca</oddHeader></headerFooter>";
+    let link = "<hyperlinks><hyperlink ref=\"A1\" location=\"S!A1\"/></hyperlinks>";
+    for after in ["", "<webPublishItems count=\"0\"/>"] {
+        let mut parts = smallest();
+        set(&mut parts, SHEET, sheet_r(&format!("<sheetData/>{after}")));
+        let output = edited_output(parts, |p| {
+            p.set_header_footer(
+                SHEET,
+                &HeaderFooter {
+                    odd_header: Some("&Ca".to_string()),
+                    ..HeaderFooter::default()
+                },
+            )
+            .expect("recorded");
+            p.set_page_setup(
+                SHEET,
+                &PageSetup {
+                    orientation: Some(Orientation::Landscape),
+                    ..PageSetup::default()
+                },
+            )
+            .expect("recorded");
+            p.set_page_margins(
+                SHEET,
+                &PageMargins {
+                    left: Some(0.5),
+                    ..PageMargins::default()
+                },
+            )
+            .expect("recorded");
+            p.set_print_options(
+                SHEET,
+                &PrintOptions {
+                    horizontal_centered: Some(true),
+                    ..PrintOptions::default()
+                },
+            )
+            .expect("recorded");
+            add(p, "B3");
+            p.set_hyperlink(SHEET, at("A1"), LinkTarget::Location("S!A1"), None)
+                .expect("set");
+        });
+        assert_eq!(
+            text_of(&output, SHEET),
+            sheet_r(&format!(
+                "<sheetData/>{link}{page}<drawing r:id=\"rId1\"/>{after}"
+            )),
+            "{after}"
+        );
+    }
+}
