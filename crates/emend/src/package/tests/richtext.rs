@@ -576,6 +576,23 @@ fn a_run_property_that_cannot_be_read_is_refused() {
 }
 
 #[test]
+fn an_unbound_prefix_on_a_run_property_is_refused_by_the_prefix_rule() {
+    // specs/0024 P3 verification ruling 4: a prefix nothing binds on an
+    // `<rPr>` child is refused by part 2's rule before the run reader sees
+    // the child, so the table's read gives part 2's message, not this part's.
+    assert_package(
+        table_refused("<si><r><rPr><o:b/></rPr><t>a</t></r></si>"),
+        "an element or attribute uses a prefix its document does not bind",
+    );
+    // The control: the same child with its prefix bound reaches the run
+    // reader, which refuses a child outside the main namespace.
+    assert_package(
+        table_refused("<si><r><rPr><o:b xmlns:o=\"urn:other\"/></rPr><t>a</t></r></si>"),
+        "a run's properties cannot be read",
+    );
+}
+
+#[test]
 fn a_value_or_colour_the_write_would_refuse_is_refused_at_the_read() {
     for rpr in [
         "<sz val=\"NaN\"/>",

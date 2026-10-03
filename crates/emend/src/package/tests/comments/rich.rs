@@ -325,6 +325,39 @@ fn a_comment_s_run_properties_that_cannot_be_read_are_refused() {
 }
 
 #[test]
+fn an_unbound_prefix_on_a_comment_s_run_property_is_refused_by_the_prefix_rule() {
+    // specs/0024 P3 verification ruling 4, through a comment: part 2's
+    // prefix rule refuses the child before the run reader sees it; the
+    // control binds the prefix and reaches the run reader's own refusal.
+    for (rpr, message) in [
+        (
+            "<o:b/>",
+            "an element or attribute uses a prefix its document does not bind",
+        ),
+        (
+            "<o:b xmlns:o=\"urn:other\"/>",
+            "a run's properties cannot be read",
+        ),
+    ] {
+        let body = format!(
+            "<comment ref=\"A1\" authorId=\"0\"><text><r><rPr>{rpr}</rPr><t>a</t></r></text>\
+             </comment>"
+        );
+        let parts = with_parts(
+            sheet_r("<sheetData/><legacyDrawing r:id=\"rId2\"/>"),
+            Some(&comments_rel("rId1", "../comments1.xml")),
+            &[(
+                "xl/comments1.xml",
+                comments_xml(&["Ann"], &body),
+                COMMENTS_TYPE,
+            )],
+        );
+        let (_, mut package) = opened(parts);
+        assert_package(package.comments(SHEET).expect_err("refused"), message);
+    }
+}
+
+#[test]
 fn the_call_refuses_each_rule_and_records_nothing() {
     let half = "t".repeat(16384);
     let cases: Vec<(CellRef, String, RichText, &str)> = vec![

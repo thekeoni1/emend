@@ -1272,9 +1272,11 @@
 //!   (`t="inlineStr"`) whose `<is>` holds one `<r>` per run: the run's
 //!   `<rPr>` first when it has a font, then `<t xml:space="preserve">`, a
 //!   carriage return as `&#13;`. The `<rPr>` is the font's `<font>` element
-//!   renamed, the typeface child `rFont` for `name`, the children in the
-//!   order the corpus measured (`b`, `i`, `strike`, `u`, `vertAlign`, `sz`,
-//!   `color`, `rFont`, `family`, `scheme`); a default font is `<rPr/>`.
+//!   renamed, the typeface child `rFont` for `name`, the children in
+//!   `Font::compose`'s order (`b`, `i`, `strike`, `u`, `vertAlign`, `sz`,
+//!   `color`, `rFont`, `family`, `scheme`), of which each of the corpus's 17
+//!   measured sequences is a subsequence (M3 part 2 P2's run log,
+//!   `records/logs/m3p2-p2/run.log`); a default font is `<rPr/>`.
 //!   `Package::add_rich_comment` is `add_comment` with its `<text>` holding
 //!   the runs so, each `<t>` with `xml:space="preserve"` only when its text
 //!   begins or ends with whitespace, as a plain comment's.
@@ -1286,13 +1288,13 @@
 //!   comment call refuse.
 //! - What is read back: `Cell::runs` for an inline string,
 //!   `SharedStrings::runs_of` for an item of the table and
-//!   `CommentEntry::runs` for a comment, each `Some` when the container
-//!   holds at least one `<r>` with text, beside the flattened text the
-//!   value, the item and the comment's `text` keep. A plain `<t>` before
-//!   the runs reads as a first run with no font, so a container whose only
-//!   text is such a `<t>` reads as that one run; a `<t>` after the runs,
-//!   which the schema does not allow, reads as a run of its own in its
-//!   place.
+//!   `CommentEntry::runs` for a comment, each `Some` when an `<r>` was met
+//!   and a run with text is left, a leading plain `<t>` counted, beside the
+//!   flattened text the value, the item and the comment's `text` keep. A
+//!   plain `<t>` before the runs reads as a first run with no font, so a
+//!   container whose only text is such a `<t>` reads as that one run; a
+//!   `<t>` after the runs, which the schema does not allow, reads as a run
+//!   of its own in its place.
 //! - What the read drops from the typed view: the five children above; a
 //!   `tint` beside `rgb` or `indexed` (P1 verification ruling 5); an
 //!   `<r/>`, a run whose `<t>` texts total empty and an empty `<t>` after
@@ -1317,8 +1319,10 @@
 //!   the reader's listener allocates nothing until an `<r>` is met (P1
 //!   ruling 3). The contract (decision 4) is that the table's memory for an
 //!   item without runs does not grow; its measure is M3 part 2 P3's run
-//!   log, which repeats part 1's three read runs and checks each peak RSS
-//!   against part 1's decision record.
+//!   log (`records/logs/m3p2-p3/run.log`), which repeats part 1's three read
+//!   runs and checks each peak RSS against part 1's decision record: on tier
+//!   d (4800000 items, none rich) each of `--shared-strings` and `--cells`
+//!   peaked within 104 kB of part 1's on both labels.
 //! - None of this has been through an Excel check yet; what Excel shows for
 //!   a run is Excel's.
 //!
