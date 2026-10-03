@@ -6,6 +6,9 @@
 
 use super::*;
 
+#[cfg(feature = "sheetprops")]
+mod print;
+
 /// The `calcPr` the formula-change rule creates where the file has none.
 const NEW_CALC: &str = "<calcPr fullCalcOnLoad=\"1\"/>";
 

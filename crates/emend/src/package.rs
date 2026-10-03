@@ -603,6 +603,8 @@
 //!   `sheetprops::two_page_setups_or_one_out_of_schema_order_are_refused`).
 //! - "a header or footer text is not valid"
 //!   (`sheetprops::the_p2_refusals_at_the_call_record_nothing`).
+//! - "a print area or title is not valid", the Cargo features `sheetprops`
+//!   and `metadata` together (`names::print::the_p3_refusals`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -1497,7 +1499,11 @@ pub const THEME: [&[u8]; 2] = [
 /// The `table` relationship type, transitional then strict
 /// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`,
 /// and feature `tables` for `specs/0021-tables.md`).
-#[cfg(any(feature = "rowcol", feature = "tables"))]
+#[cfg(any(
+    feature = "rowcol",
+    feature = "tables",
+    all(feature = "sheetprops", feature = "metadata")
+))]
 pub const TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/table",
@@ -2354,6 +2360,11 @@ struct Recorded {
     /// `(part, texts)`: header and footer texts, as `print_options`.
     #[cfg(feature = "sheetprops")]
     header_footers: Vec<(Vec<u8>, HeaderFooter)>,
+    /// `(part, area)`: an autofilter set, or dropped when `None`, the last
+    /// for a part winning ("The calls"). The Cargo features `sheetprops`
+    /// and `metadata`.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    auto_filters: Vec<(Vec<u8>, Option<Area>)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2373,6 +2384,116 @@ enum NameEdit {
         name: String,
         sheet: Option<Vec<u8>>,
     },
+    /// A built-in name of the sheet whose entry is `sheet`: the file's of
+    /// that name and scope dropped, and `text`'s written when given
+    /// (`specs/0025-sheet-and-print-settings.md`, "The calls"). The Cargo
+    /// features `sheetprops` and `metadata`.
+    #[cfg(feature = "sheetprops")]
+    Builtin {
+        kind: Builtin,
+        sheet: Vec<u8>,
+        text: Option<BuiltinText>,
+    },
+}
+
+/// The three built-in names this layer writes. The Cargo features
+/// `sheetprops` and `metadata`.
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Builtin {
+    PrintArea,
+    PrintTitles,
+    FilterDatabase,
+}
+
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+impl Builtin {
+    fn name(self) -> &'static str {
+        match self {
+            Self::PrintArea => "_xlnm.Print_Area",
+            Self::PrintTitles => "_xlnm.Print_Titles",
+            Self::FilterDatabase => "_xlnm._FilterDatabase",
+        }
+    }
+}
+
+/// What a built-in name's text is built from at the write, with the
+/// sheet's name in the projected list.
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+#[derive(Clone)]
+enum BuiltinText {
+    /// Areas, joined by `,`.
+    Areas(Vec<Area>),
+    /// Title rows and columns, each `(first, last)`.
+    Titles {
+        rows: Option<(u32, u32)>,
+        cols: Option<(u32, u32)>,
+    },
+}
+
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+impl BuiltinText {
+    /// The text for the sheet named `sheet` ("Planning rulings during P3",
+    /// rulings 3 and 6): each area as two absolute corners, a title as
+    /// whole rows or whole columns, the columns before the rows, each
+    /// behind the sheet's name as [`sheet_in_formula`] writes it.
+    fn text(&self, sheet: &str) -> String {
+        let sheet = sheet_in_formula(sheet);
+        let mut parts: Vec<String> = Vec::new();
+        match self {
+            Self::Areas(areas) => {
+                for area in areas {
+                    parts.push(format!(
+                        "{sheet}!{}:{}",
+                        absolute(area.first),
+                        absolute(area.last)
+                    ));
+                }
+            }
+            Self::Titles { rows, cols } => {
+                if let Some((first, last)) = cols {
+                    let letters = |col: u32| {
+                        CellRef { row: 1, col }
+                            .a1()
+                            .trim_end_matches(|c: char| c.is_ascii_digit())
+                            .to_string()
+                    };
+                    parts.push(format!("{sheet}!${}:${}", letters(*first), letters(*last)));
+                }
+                if let Some((first, last)) = rows {
+                    parts.push(format!("{sheet}!${first}:${last}"));
+                }
+            }
+        }
+        parts.join(",")
+    }
+}
+
+/// A cell as an absolute reference, `$A$1`.
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+fn absolute(cell: CellRef) -> String {
+    let a1 = cell.a1();
+    let digits = a1.find(|c: char| c.is_ascii_digit()).unwrap_or(a1.len());
+    format!("${}${}", &a1[..digits], &a1[digits..])
+}
+
+/// A sheet's name as a formula writes it before `!` ("Planning rulings
+/// during P3", ruling 6): bare when it starts with a letter or `_`, holds
+/// only letters, digits, `_` and `.`, and does not name a cell; else
+/// quoted, an apostrophe doubled.
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+fn sheet_in_formula(name: &str) -> String {
+    let mut chars = name.chars();
+    let plain = chars
+        .next()
+        .is_some_and(|first| first.is_alphabetic() || first == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+        && !names_a_cell(name);
+    if plain {
+        name.to_string()
+    } else {
+        format!("'{}'", name.replace('\'', "''"))
+    }
 }
 
 /// One field of a column's or a row's format as a call records it.
@@ -3763,6 +3884,21 @@ impl Recorded {
             && self.page_margins.is_empty()
             && self.page_setups.is_empty()
             && self.header_footers.is_empty()
+            && self.no_filter_edits()
+    }
+
+    /// Whether no autofilter is recorded; always, without the features
+    /// `sheetprops` and `metadata`.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn no_filter_edits(&self) -> bool {
+        self.auto_filters.is_empty()
+    }
+
+    /// Whether no autofilter is recorded; always, without the features
+    /// `sheetprops` and `metadata`.
+    #[cfg(all(feature = "sheetprops", not(feature = "metadata")))]
+    fn no_filter_edits(&self) -> bool {
+        true
     }
 
     /// Whether no sheet setting is recorded; always, without the feature
@@ -3829,6 +3965,45 @@ impl Recorded {
     #[cfg(feature = "metadata")]
     fn no_name_edits(&self) -> bool {
         self.name_edits.is_empty()
+    }
+
+    /// Whether a name edit falls under the formula-change rule: any but the
+    /// three built-in names, which are exempt
+    /// (`specs/0025-sheet-and-print-settings.md`, "Planning rulings during
+    /// P3", ruling 2).
+    #[cfg(feature = "metadata")]
+    fn names_under_rule(&self) -> bool {
+        self.name_edits.iter().any(|edit| match edit {
+            NameEdit::Add { .. } | NameEdit::Remove { .. } => true,
+            #[cfg(feature = "sheetprops")]
+            NameEdit::Builtin { .. } => false,
+        })
+    }
+
+    /// No name edit, without the feature `metadata`.
+    #[cfg(not(feature = "metadata"))]
+    fn names_under_rule(&self) -> bool {
+        false
+    }
+
+    /// The worksheet parts a built-in name edit names, which the write
+    /// checks as it checks an edited part (`specs/0025-sheet-and-print-
+    /// settings.md`, "Planning rulings during P3", ruling 4).
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn builtin_parts(&self) -> Vec<Vec<u8>> {
+        self.name_edits
+            .iter()
+            .filter_map(|edit| match edit {
+                NameEdit::Builtin { sheet, .. } => Some(sheet.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// No built-in name edit, without the features.
+    #[cfg(not(all(feature = "sheetprops", feature = "metadata")))]
+    fn builtin_parts(&self) -> Vec<Vec<u8>> {
+        Vec::new()
     }
 
     /// Whether no hyperlink, core property or protection is edited;
@@ -3938,6 +4113,8 @@ impl Recorded {
             .chain(self.page_margins.iter().map(|(part, _)| part))
             .chain(self.page_setups.iter().map(|(part, _)| part))
             .chain(self.header_footers.iter().map(|(part, _)| part));
+        #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+        let named = named.chain(self.auto_filters.iter().map(|(part, _)| part));
         // A comment edit rewrites the worksheet only when its
         // `<legacyDrawing>` is created or dropped
         // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
@@ -4134,6 +4311,15 @@ impl Recorded {
             margins,
             page_setup,
             header_footer,
+            #[cfg(feature = "metadata")]
+            auto_filter: self
+                .auto_filters
+                .iter()
+                .rev()
+                .find(|(at, _)| at.as_slice() == part)
+                .map(|(_, area)| *area),
+            #[cfg(not(feature = "metadata"))]
+            auto_filter: None,
         }
     }
 
@@ -4886,6 +5072,73 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "sheetprops")]
     pub fn set_header_footer(&mut self, part: &[u8], texts: &HeaderFooter) -> Result<(), Error> {
         self.parts().set_header_footer(part, texts)
+    }
+
+    /// Records the print area of the worksheet part `part`: the
+    /// sheet-scoped `_xlnm.Print_Area` whose text is `areas` joined by `,`,
+    /// each as `Sheet!$A$1:$B$2` with the sheet's name as a formula writes
+    /// it; the file's for that sheet replaced; an empty slice drops it. The
+    /// workbook part is rewritten as [`Package::add_defined_name`]'s edit
+    /// rewrites it, the name's `localSheetId` following its sheet through
+    /// the write's sheet edits, but the formula-change rule does not apply.
+    /// The last record for a part wins. The Cargo features `sheetprops` and
+    /// `metadata` (`specs/0025-sheet-and-print-settings.md`, "The calls",
+    /// and "Planning rulings during P3").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for an area outside the grid; nothing is recorded when this fails.
+    /// The write refuses a part the archive lacks, "no such part"; a part
+    /// this write removes, "an edit to a removed part"; and a workbook part
+    /// with two `<definedNames>`.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    pub fn set_print_area(&mut self, part: &[u8], areas: &[Area]) -> Result<(), Error> {
+        self.parts().set_print_area(part, areas)
+    }
+
+    /// Records the print titles of the worksheet part `part`, each pair
+    /// `(first, last)`: the sheet-scoped `_xlnm.Print_Titles` whose text is
+    /// the columns as `Sheet!$A:$B`, then the rows as `Sheet!$1:$3`, joined
+    /// by `,`, openpyxl's order; the file's for that sheet replaced; both
+    /// `None` drops it. Written as [`Package::set_print_area`] writes. The
+    /// Cargo features `sheetprops` and `metadata`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a print area or title is not valid" for a pair
+    /// whose first is past its last, or with a row or column of 0 or past
+    /// the grid; nothing is recorded when this fails. The write refuses
+    /// what [`Package::set_print_area`] says it refuses.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    pub fn set_print_titles(
+        &mut self,
+        part: &[u8],
+        rows: Option<(u32, u32)>,
+        cols: Option<(u32, u32)>,
+    ) -> Result<(), Error> {
+        self.parts().set_print_titles(part, rows, cols)
+    }
+
+    /// Records the autofilter of the worksheet part `part`: `Some` writes
+    /// `<autoFilter ref>` in schema position, replacing the part's, its
+    /// columns and sort state dropped, and the hidden sheet-scoped
+    /// `_xlnm._FilterDatabase` with the area's text as
+    /// [`Package::set_print_area`] writes one; `None` drops both. The last
+    /// record for a part wins. The Cargo features `sheetprops` and
+    /// `metadata` (`specs/0025-sheet-and-print-settings.md`, "The calls").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for an area outside the grid; nothing is recorded when this fails.
+    /// The write refuses an area overlapping a table of the part, "a table
+    /// overlaps a table, a pivot table, a merge or the autofilter"; a part
+    /// with two `<autoFilter>` or one out of schema order; and what
+    /// [`Package::set_print_options`] says it refuses.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    pub fn set_auto_filter(&mut self, part: &[u8], area: Option<Area>) -> Result<(), Error> {
+        self.parts().set_auto_filter(part, area)
     }
 
     /// Records `area` in the worksheet part `part` merged.
@@ -6491,6 +6744,64 @@ impl<'a> Parts<'a> {
         self.edits
             .header_footers
             .push((part.to_vec(), texts.clone()));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_print_area`].
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn set_print_area(&mut self, part: &[u8], areas: &[Area]) -> Result<(), Error> {
+        let areas: Vec<Area> = areas.iter().map(|area| area.normalised()).collect();
+        if areas
+            .iter()
+            .any(|area| !in_grid(area.first) || !in_grid(area.last))
+        {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let text = (!areas.is_empty()).then_some(BuiltinText::Areas(areas));
+        self.edits.name_edits.push(NameEdit::Builtin {
+            kind: Builtin::PrintArea,
+            sheet: part.to_vec(),
+            text,
+        });
+        Ok(())
+    }
+
+    /// The body of [`Package::set_print_titles`].
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn set_print_titles(
+        &mut self,
+        part: &[u8],
+        rows: Option<(u32, u32)>,
+        cols: Option<(u32, u32)>,
+    ) -> Result<(), Error> {
+        let fits = |pair: Option<(u32, u32)>, most: u32| {
+            pair.is_none_or(|(first, last)| first >= 1 && first <= last && last <= most)
+        };
+        if !fits(rows, GRID_ROWS) || !fits(cols, GRID_COLUMNS) {
+            return Err(PRINT_INVALID);
+        }
+        let text = (rows.is_some() || cols.is_some()).then_some(BuiltinText::Titles { rows, cols });
+        self.edits.name_edits.push(NameEdit::Builtin {
+            kind: Builtin::PrintTitles,
+            sheet: part.to_vec(),
+            text,
+        });
+        Ok(())
+    }
+
+    /// The body of [`Package::set_auto_filter`].
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn set_auto_filter(&mut self, part: &[u8], area: Option<Area>) -> Result<(), Error> {
+        let area = area.map(|area| area.normalised());
+        if area.is_some_and(|area| !in_grid(area.first) || !in_grid(area.last)) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        self.edits.auto_filters.push((part.to_vec(), area));
+        self.edits.name_edits.push(NameEdit::Builtin {
+            kind: Builtin::FilterDatabase,
+            sheet: part.to_vec(),
+            text: area.map(|area| BuiltinText::Areas(vec![area])),
+        });
         Ok(())
     }
 
@@ -8335,6 +8646,8 @@ impl<'a> Parts<'a> {
         self.edits.page_setups.retain(|(at, _)| at != part);
         #[cfg(feature = "sheetprops")]
         self.edits.header_footers.retain(|(at, _)| at != part);
+        #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+        self.edits.auto_filters.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
@@ -8427,7 +8740,7 @@ impl<'a> Parts<'a> {
         }
         // A defined name added or removed is a formula change too
         // (`specs/0019-names-links-properties-protection.md`, decision 2 A).
-        if changed_formula || !self.edits.no_name_edits() {
+        if changed_formula || self.edits.names_under_rule() {
             self.formula_change_rule()?;
         }
 
@@ -8511,7 +8824,15 @@ impl<'a> Parts<'a> {
         let protecting = protection.is_some_and(|edit| edit != (None, true));
         #[cfg(not(feature = "metadata"))]
         let protecting = false;
-        if self.edits.recalculate || plan.is_some() || protecting {
+        // A name edit rewrites the part itself: the built-in names, exempt
+        // from the formula-change rule, set no recalculation that would
+        // (`specs/0025-sheet-and-print-settings.md`, "Planning rulings
+        // during P3", ruling 2).
+        #[cfg(feature = "metadata")]
+        let naming = names.is_some();
+        #[cfg(not(feature = "metadata"))]
+        let naming = false;
+        if self.edits.recalculate || plan.is_some() || protecting || naming {
             let part = self.workbook()?.part.clone();
             let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
             let book = BookEdits {
@@ -8771,7 +9092,9 @@ impl<'a> Parts<'a> {
         // removes nor replaces, and carries a value the format can hold
         // (`specs/0011-editing-cells.md`, "Module `package`").
         let added_sheets = self.edits.added_sheet_parts();
-        for part in self.edits.cell_parts() {
+        let mut checked = self.edits.cell_parts();
+        checked.extend(self.edits.builtin_parts());
+        for part in checked {
             if self.archive.index_of(&part).is_none() && !added_sheets.contains(&part) {
                 return Err(NO_SUCH_PART);
             }
@@ -8913,7 +9236,7 @@ impl<'a> Parts<'a> {
         // one `calcPr` (`specs/0013-formulas.md`, P1 ruling 3). A rule fired
         // by a removed formula is checked when the rule validates again.
         let calc =
-            self.edits.recalculate || self.edits.writes_formula() || !self.edits.no_name_edits();
+            self.edits.recalculate || self.edits.writes_formula() || self.edits.names_under_rule();
         let sheets = !self.edits.sheet_edits.is_empty();
         #[cfg(feature = "metadata")]
         let protecting = !self.edits.book_protections.is_empty();
@@ -8979,6 +9302,63 @@ impl<'a> Parts<'a> {
         if !self.edits.name_edits.is_empty() {
             self.name_plan()?;
         }
+        // An autofilter overlaps no table of its part
+        // (`specs/0025-sheet-and-print-settings.md`, "The calls", and
+        // "Planning rulings during P3", ruling 1).
+        #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+        self.filters_clear_of_tables()?;
+        Ok(())
+    }
+
+    /// Refuses an autofilter whose area overlaps the `ref` of a table its
+    /// part names, each `table` relationship's part read for its root's
+    /// `ref`, and with the Cargo feature `tables` a table the same write
+    /// adds to the part; a table part that is not there, or a `ref` that is
+    /// absent or does not parse, is refused the same way.
+    #[cfg(all(feature = "sheetprops", feature = "metadata"))]
+    fn filters_clear_of_tables(&mut self) -> Result<(), Error> {
+        let filters: Vec<(Vec<u8>, Area)> = self
+            .edits
+            .auto_filters
+            .iter()
+            .enumerate()
+            .filter(|(at, (part, _))| {
+                !self.edits.auto_filters[at + 1..]
+                    .iter()
+                    .any(|(later, _)| later == part)
+            })
+            .filter_map(|(_, (part, area))| area.map(|area| (part.clone(), area)))
+            .collect();
+        for (part, area) in filters {
+            #[cfg(feature = "tables")]
+            if self
+                .edits
+                .table_works
+                .iter()
+                .any(|(at, table, _)| *at == part && table.area.overlaps(&area))
+            {
+                return Err(TABLE_OVERLAP);
+            }
+            if self.archive.index_of(&part).is_none() {
+                // A sheet this write adds has no relationships part yet.
+                continue;
+            }
+            let rels = self.relationships(&part)?;
+            let mut targets: Vec<Vec<u8>> = Vec::new();
+            for form in TABLE {
+                for rel in rels.of_kind(form) {
+                    targets.push(rels.target_part(rel).map_err(|_| TABLE_OVERLAP)?);
+                }
+            }
+            for target in targets {
+                let index = self.archive.index_of(&target).ok_or(TABLE_OVERLAP)?;
+                let value = part_ref(self.archive, index, false)?.ok_or(TABLE_OVERLAP)?;
+                let table = Area::parse(&value).ok_or(TABLE_OVERLAP)?;
+                if table.overlaps(&area) {
+                    return Err(TABLE_OVERLAP);
+                }
+            }
+        }
         Ok(())
     }
 
@@ -9013,6 +9393,8 @@ impl<'a> Parts<'a> {
             NameEdit::Add { name, sheet, .. } | NameEdit::Remove { name, sheet } => {
                 (folded(name), sheet.clone())
             }
+            #[cfg(feature = "sheetprops")]
+            NameEdit::Builtin { kind, sheet, .. } => (folded(kind.name()), Some(sheet.clone())),
         };
         let mut added = Vec::new();
         for (at, edit) in edits.iter().enumerate() {
@@ -9045,7 +9427,7 @@ impl<'a> Parts<'a> {
                     Some(u32::try_from(at).map_err(|_| SHEET_EDIT_STALE)?)
                 }
             };
-            added.push((name.clone(), text.clone(), index));
+            added.push((name.clone(), text.clone(), index, false));
         }
         let mut removed: Vec<usize> = Vec::new();
         for edit in &edits {
@@ -9062,6 +9444,46 @@ impl<'a> Parts<'a> {
             if removed.len() == before {
                 return Err(NO_SUCH_NAME);
             }
+        }
+        // The built-in names: for each name and sheet the last edit, the
+        // file's of that name and scope dropped and the edit's text written
+        // with the sheet's projected name ("Planning rulings during P3").
+        #[cfg(feature = "sheetprops")]
+        for (at, edit) in edits.iter().enumerate() {
+            let NameEdit::Builtin { kind, sheet, text } = edit else {
+                continue;
+            };
+            let later = edits[at + 1..].iter().any(|other| {
+                matches!(other, NameEdit::Builtin { kind: k, sheet: s, .. } if k == kind && s == sheet)
+            });
+            if later {
+                continue;
+            }
+            let scope = Some(sheet.clone());
+            let folded_name = folded(kind.name());
+            for (ordinal, have) in file.iter().enumerate() {
+                if folded(&have.name) == folded_name
+                    && file_scope(have.sheet, &scope)
+                    && !removed.contains(&ordinal)
+                {
+                    removed.push(ordinal);
+                }
+            }
+            let Some(text) = text else {
+                continue;
+            };
+            let at = plan
+                .list
+                .iter()
+                .position(|entry| entry.sheet.part == *sheet)
+                .ok_or(NO_SUCH_PART)?;
+            let name_of_sheet = plan.list[at].sheet.name.clone();
+            added.push((
+                kind.name().to_string(),
+                text.text(&name_of_sheet),
+                Some(u32::try_from(at).map_err(|_| SHEET_EDIT_STALE)?),
+                *kind == Builtin::FilterDatabase,
+            ));
         }
         // A name whose sheet the write removes goes with it, as the rewrite
         // drops it (`specs/0016-new-workbook-and-sheets.md`, P3 ruling 5).
@@ -9534,7 +9956,7 @@ const TABLE_STYLE_RANGE: Error = Error::Package("a table style number is out of 
 const TABLE_TOO_SMALL: Error = Error::Package("a table area is too small");
 #[cfg(feature = "tables")]
 const TABLE_NAME_IN_USE: Error = Error::Package("a table name is already in use");
-#[cfg(feature = "tables")]
+#[cfg(any(feature = "tables", all(feature = "sheetprops", feature = "metadata")))]
 const TABLE_OVERLAP: Error =
     Error::Package("a table overlaps a table, a pivot table, a merge or the autofilter");
 #[cfg(feature = "tables")]
@@ -9580,6 +10002,12 @@ const SETTING_OUT_OF_RANGE: Error = Error::Package("a sheet setting is out of ra
 /// character XML cannot carry ("Errors"). The Cargo feature `sheetprops`.
 #[cfg(feature = "sheetprops")]
 const HEADER_FOOTER_INVALID: Error = Error::Package("a header or footer text is not valid");
+
+/// A print title pair out of order, or with a row or column of 0 or past
+/// the grid ("Errors", and "Planning rulings during P3", ruling 5). The
+/// Cargo features `sheetprops` and `metadata`.
+#[cfg(all(feature = "sheetprops", feature = "metadata"))]
+const PRINT_INVALID: Error = Error::Package("a print area or title is not valid");
 
 /// A worksheet whose settings element the write cannot place: two of one,
 /// or one after a root child the schema puts after it ("The pass"). The
@@ -10809,12 +11237,13 @@ fn book_protection_element((hash, structure, windows): BookLock, prefix: &[u8]) 
 }
 
 /// The added `<definedName>` elements, back to back, with `prefix`: `name`
-/// escaped as an attribute, `localSheetId` when the name has a scope, and
+/// escaped as an attribute, `localSheetId` when the name has a scope,
+/// `hidden="1"` for a hidden one, and
 /// the text escaped as a cell's text is (`specs/0011-editing-cells.md`).
 #[cfg(feature = "metadata")]
-fn name_elements(added: &[(String, String, Option<u32>)], prefix: &[u8]) -> Vec<u8> {
+fn name_elements(added: &[(String, String, Option<u32>, bool)], prefix: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
-    for (name, text, sheet) in added {
+    for (name, text, sheet, hidden) in added {
         out.extend_from_slice(b"<");
         out.extend_from_slice(prefix);
         out.extend_from_slice(b"definedName name=\"");
@@ -10824,6 +11253,9 @@ fn name_elements(added: &[(String, String, Option<u32>)], prefix: &[u8]) -> Vec<
             out.extend_from_slice(b" localSheetId=\"");
             out.extend_from_slice(sheet.to_string().as_bytes());
             out.push(b'"');
+        }
+        if *hidden {
+            out.extend_from_slice(b" hidden=\"1\"");
         }
         out.push(b'>');
         out.extend_from_slice(escape(text.as_str()).replace('\r', "&#13;").as_bytes());
@@ -10841,9 +11273,9 @@ struct NamePlan {
     /// The ordinals, in document order among the root's `<definedNames>`
     /// children, of the file's names recorded for removal.
     removed: Vec<usize>,
-    /// The additions in record order: name, text and the scope's index in
-    /// the output's sheet list.
-    added: Vec<(String, String, Option<u32>)>,
+    /// The additions in record order: name, text, the scope's index in the
+    /// output's sheet list and whether the name is hidden.
+    added: Vec<(String, String, Option<u32>, bool)>,
     /// Whether the file's `<definedNames>` is left empty and dropped.
     drop: bool,
     /// Whether the workbook has no `<definedNames>` and one is created.
@@ -12068,6 +12500,15 @@ fn rewrite_worksheet_from(
                             {
                                 out.write_all(&bytes)?;
                             }
+                            // A created `<autoFilter>` goes after a created
+                            // `<sheetProtection>` and before `<mergeCells>`.
+                            #[cfg(feature = "sheetprops")]
+                            out.write_all(&settings.create_before(
+                                position,
+                                at,
+                                &root_prefix,
+                                index,
+                            )?)?;
                             if needed[which] && !met[which] && at < position {
                                 out.write_all(&created_element(which, work, &root_prefix, index)?)?;
                                 met[which] = true;
@@ -12271,6 +12712,13 @@ fn rewrite_worksheet_from(
                             {
                                 out.write_all(&bytes)?;
                             }
+                            #[cfg(feature = "sheetprops")]
+                            out.write_all(&settings.create_before(
+                                usize::MAX,
+                                schema_position(CREATED[which]).unwrap_or(0),
+                                &root_prefix,
+                                index,
+                            )?)?;
                             if needed[which] {
                                 out.write_all(&created_element(which, work, &root_prefix, index)?)?;
                                 met[which] = true;
@@ -12716,6 +13164,13 @@ fn rewrite_worksheet_from(
                                     {
                                         out.write_all(&bytes)?;
                                     }
+                                    #[cfg(feature = "sheetprops")]
+                                    out.write_all(&settings.create_before(
+                                        usize::MAX,
+                                        schema_position(CREATED[which]).unwrap_or(0),
+                                        &root_prefix,
+                                        index,
+                                    )?)?;
                                     if needed[which] && !met[which] {
                                         out.write_all(&created_element(
                                             which,
@@ -13676,6 +14131,10 @@ struct Settings {
     margins: Option<PageMargins>,
     page_setup: Option<PageSetup>,
     header_footer: Option<HeaderFooter>,
+    /// `Some(Some(area))` an autofilter over `area`, `Some(None)` its
+    /// removal, `None` no autofilter edit (the Cargo feature `metadata`
+    /// too).
+    auto_filter: Option<Option<Area>>,
 }
 
 #[cfg(all(feature = "sheetprops", feature = "rowcol"))]
@@ -13687,6 +14146,7 @@ impl Settings {
             && self.margins.is_none()
             && self.page_setup.is_none()
             && self.header_footer.is_none()
+            && self.auto_filter.is_none()
     }
 }
 
@@ -13697,6 +14157,7 @@ impl Settings {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Setting {
     SheetPr,
+    AutoFilter,
     PrintOptions,
     PageMargins,
     PageSetup,
@@ -13704,8 +14165,9 @@ enum Setting {
 }
 
 #[cfg(feature = "sheetprops")]
-const SETTINGS: [(Setting, &[u8]); 5] = [
+const SETTINGS: [(Setting, &[u8]); 6] = [
     (Setting::SheetPr, b"sheetPr"),
+    (Setting::AutoFilter, b"autoFilter"),
     (Setting::PrintOptions, b"printOptions"),
     (Setting::PageMargins, b"pageMargins"),
     (Setting::PageSetup, b"pageSetup"),
@@ -13895,7 +14357,7 @@ struct SettingsPass<'w> {
     work: &'w Settings,
     /// For each of [`SETTINGS`], whether the part's element has been met or
     /// created.
-    met: [bool; 5],
+    met: [bool; 6],
     /// The greatest place in [`WORKSHEET_CHILDREN`] of a root child met.
     last: Option<usize>,
     /// The element being read.
@@ -13907,7 +14369,7 @@ impl<'w> SettingsPass<'w> {
     fn new(work: &'w Settings) -> Self {
         Self {
             work,
-            met: [false; 5],
+            met: [false; 6],
             last: None,
             held: None,
         }
@@ -13937,6 +14399,7 @@ impl<'w> SettingsPass<'w> {
                 .page_setup
                 .is_some_and(|setup| !setup.attributes().is_empty()),
             Setting::HeaderFooter => work.header_footer.is_some(),
+            Setting::AutoFilter => work.auto_filter.is_some(),
         }
     }
 
@@ -13964,6 +14427,7 @@ impl<'w> SettingsPass<'w> {
                     .iter()
                     .any(|(_, text)| HeaderFooter::writes(text))
             }),
+            Setting::AutoFilter => matches!(work.auto_filter, Some(Some(_))),
         }
     }
 
@@ -14099,6 +14563,11 @@ impl<'w> SettingsPass<'w> {
                 .as_ref()
                 .map(HeaderFooter::attributes)
                 .unwrap_or_default(),
+            Setting::AutoFilter => match work.auto_filter {
+                Some(Some(area)) => vec![(b"ref".as_slice(), area.a1().into_bytes())],
+                // The removal drops the element whole.
+                _ => return Ok(Vec::new()),
+            },
         };
         let start = merged_tag(&held.start, &set, index)?;
         let mut children = held.children;
@@ -14110,6 +14579,12 @@ impl<'w> SettingsPass<'w> {
             Setting::HeaderFooter => {
                 self.header_footer_children(&mut children, &held.prefix);
                 true
+            }
+            // A filter's columns and sort state belong to the old range
+            // (`specs/0025-sheet-and-print-settings.md`, "The calls").
+            Setting::AutoFilter => {
+                children.clear();
+                false
             }
             _ => false,
         };
@@ -18439,7 +18914,11 @@ fn shifted_formula(
 
 /// The `ref` a table part's root carries, or a pivot table part's first
 /// `<location>`, read by a pass over the part's tokens.
-#[cfg(any(feature = "rowcol", feature = "tables"))]
+#[cfg(any(
+    feature = "rowcol",
+    feature = "tables",
+    all(feature = "sheetprops", feature = "metadata")
+))]
 fn part_ref(archive: &mut Core, index: usize, location: bool) -> Result<Option<Vec<u8>>, Error> {
     let mut stream = Stream::new(archive.read(index)?, index)?;
     let mut scope = Scope::new(index);
