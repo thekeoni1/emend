@@ -63,6 +63,12 @@ images = ["emend", "xml", "emend/images"]
 # (specs/0024-rich-text.md, "Size", under decision 1 A), each built with its
 # own feature set as the comments probe is.
 richtext = ["emend", "xml", "emend/richtext"]
+# Enables emend's own `sheetprops` feature, for
+# probe-emend-sheetprops-write-xml alone, and with `metadata` for
+# probe-emend-printnames-write-xml (specs/0025-sheet-and-print-settings.md,
+# "Size", under decision 1 A), each built with its own feature set as the
+# richtext probes are.
+sheetprops = ["emend", "xml", "emend/sheetprops"]
 
 [[bin]]
 name = "probe-zip"
@@ -177,3 +183,13 @@ required-features = ["richtext"]
 name = "probe-emend-richcomment-write-xml"
 path = "src/bin/probe-emend-richcomment-write-xml.rs"
 required-features = ["comments", "richtext"]
+
+[[bin]]
+name = "probe-emend-sheetprops-write-xml"
+path = "src/bin/probe-emend-sheetprops-write-xml.rs"
+required-features = ["sheetprops"]
+
+[[bin]]
+name = "probe-emend-printnames-write-xml"
+path = "src/bin/probe-emend-printnames-write-xml.rs"
+required-features = ["metadata", "sheetprops"]
