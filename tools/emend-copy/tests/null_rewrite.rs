@@ -4653,3 +4653,122 @@ fn the_pagesetup_sample_refuses_two_page_setups_and_leaves_nothing() {
         "--pagesetup-sample",
     );
 }
+
+/// The edit sample's package (W one cell on row 1, so M is 1) with
+/// `names` after the workbook's `<sheets>`, the workbook part STORED so a
+/// test can compare its rewritten bytes without an inflater. Fictional.
+fn printarea_specs(names: &str) -> Vec<Spec> {
+    let mut specs = edit_specs(A_CELL);
+    for spec in &mut specs {
+        if spec.name == b"xl/workbook.xml" {
+            let workbook = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("</sheets>", &format!("</sheets>{names}"));
+            *spec = Spec::stored(b"xl/workbook.xml", workbook.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_printarea_sample_writes_the_three_names_and_the_autofilter() {
+    // `specs/0025-sheet-and-print-settings.md`, "Harness runs": M is 1, so
+    // the area is A1:H2; the three names created, and replaced where W
+    // already has them, another sheet's kept.
+    for (label, names, line, written) in [
+        (
+            "printarea-sample-created",
+            String::new(),
+            "printarea\tnames_before=0\tnames_after=3\tarea_ok=1\ttitles_ok=1\tfilterdb_ok=1\
+             \tautofilter_before=0\tautofilter_after=1\thidden_ok=1\tr_bound_before=0\n",
+            "",
+        ),
+        (
+            "printarea-sample-replaced",
+            "<definedNames><definedName name=\"_xlnm.Print_Area\" localSheetId=\"0\">Sheet1!$A$1</definedName>\
+             <definedName name=\"Kept\">1</definedName></definedNames>"
+                .to_string(),
+            "printarea\tnames_before=2\tnames_after=4\tarea_ok=1\ttitles_ok=1\tfilterdb_ok=1\
+             \tautofilter_before=0\tautofilter_after=1\thidden_ok=1\tr_bound_before=0\n",
+            "<definedName name=\"Kept\">1</definedName>",
+        ),
+    ] {
+        let specs = printarea_specs(&names);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--printarea-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\"><dimension ref=\"A1\"/>{A_CELL}\
+                 <autoFilter ref=\"A1:H2\"/><pageMargins left=\"0.7\"/></worksheet>"
+            ),
+            "the sheet"
+        );
+        let workbook = entry_named(&entries, b"xl/workbook.xml");
+        assert_eq!(workbook.method, 0, "a rewritten part is stored");
+        let workbook = String::from_utf8(workbook.compressed.clone()).expect("UTF-8");
+        assert!(
+            workbook.contains(&format!(
+                "<definedNames>{written}<definedName name=\"_xlnm.Print_Area\" localSheetId=\"0\">Sheet1!$A$1:$H$2</definedName>\
+                 <definedName name=\"_xlnm.Print_Titles\" localSheetId=\"0\">Sheet1!$1:$1</definedName>\
+                 <definedName name=\"_xlnm._FilterDatabase\" localSheetId=\"0\" hidden=\"1\">Sheet1!$A$1:$H$2</definedName>\
+                 </definedNames>"
+            )),
+            "the workbook: {workbook}"
+        );
+        untouched_but(
+            &entries,
+            &specs,
+            &[b"xl/worksheets/sheet1.xml", b"xl/workbook.xml"],
+        );
+    }
+}
+
+#[test]
+fn the_printarea_sample_refuses_a_table_over_the_area_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0025-sheet-and-print-settings.md`, "P3").
+    let mut specs = edit_specs(&format!(
+        "{A_CELL}<tableParts count=\"1\"><tablePart r:id=\"rId1\"/></tableParts>"
+    ));
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            let sheet = String::from_utf8(spec.payload()).expect("UTF-8").replace(
+                &format!("<worksheet xmlns=\"{MAIN_NS}\">"),
+                &format!("<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">"),
+            );
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs.push(Spec::stored(
+        b"xl/worksheets/_rels/sheet1.xml.rels",
+        format!(
+            "<Relationships xmlns=\"{RELS_NS}\"><Relationship Id=\"rId1\" Type=\"{ATTR_NS}/table\" Target=\"../tables/table1.xml\"/></Relationships>"
+        )
+        .as_bytes(),
+    ));
+    specs.push(Spec::stored(
+        b"xl/tables/table1.xml",
+        format!("<table xmlns=\"{MAIN_NS}\" id=\"1\" name=\"T\" displayName=\"T\" ref=\"A1:H2\"/>")
+            .as_bytes(),
+    ));
+    styled_run_refused(
+        "printarea-sample-table",
+        &specs,
+        "a table overlaps a table, a pivot table, a merge or the autofilter",
+        "--printarea-sample",
+    );
+}

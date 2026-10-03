@@ -505,6 +505,23 @@
 //!   a failure is exit 2 with the message and no output, and so is a
 //!   refusal by the layer (two of an element the sample sets on W, or one
 //!   out of schema order).
+//! - `--printarea-sample`: the print area sample of
+//!   `specs/0025-sheet-and-print-settings.md`, "Harness runs": on W, with M
+//!   its largest row number as the cell read gives it, the print area A1 to
+//!   (M + 1, 8), the print titles of row 1, and an autofilter over the same
+//!   area. The output is reopened. One line: the word `printarea` then
+//!   `names_before` and `names_after` (the workbook's defined names),
+//!   `area_ok`, `titles_ok` and `filterdb_ok` (1 when W's sheet-scoped
+//!   `_xlnm.Print_Area`, `_xlnm.Print_Titles` and `_xlnm._FilterDatabase`
+//!   exist, each once, with the expected text behind W's name bare or
+//!   quoted), `autofilter_before` and `autofilter_after` (W's `<autoFilter>`
+//!   root children), `hidden_ok` (1 when the filter database is hidden) and
+//!   `r_bound_before`. COUNTS ONLY: no name, reference or text is printed.
+//!   Asserted: `names_after` three more than before less those of the three
+//!   W already had, the three flags and `hidden_ok` 1, `autofilter_after`
+//!   1; a failure is exit 2 with the message and no output, and so is a
+//!   refusal by the layer (a table of W overlapping the area, two
+//!   `<autoFilter>` on W, or M + 1 past the grid).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -549,7 +566,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
-| --richcomment-sample | --sheetview-sample | --pagesetup-sample]";
+| --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -636,6 +653,8 @@ enum Operation {
     /// Print options, margins, a page setup and a header and footer, and
     /// the counts.
     PagesetupSample,
+    /// A print area, print titles and an autofilter, and the counts.
+    PrintareaSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -678,6 +697,7 @@ enum Error {
     RichcommentSample(&'static str),
     SheetviewSample(&'static str),
     PagesetupSample(&'static str),
+    PrintareaSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -767,6 +787,9 @@ impl fmt::Display for Error {
             }
             Error::PagesetupSample(what) => {
                 write!(f, "the output's {what} is not what the page setup implies")
+            }
+            Error::PrintareaSample(what) => {
+                write!(f, "the output's {what} is not what the print area implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -901,6 +924,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::PagesetupSample,
+        ),
+        [input, output, flag] if flag == "--printarea-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::PrintareaSample,
         ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
@@ -1039,6 +1067,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::PagesetupSample) {
         return pagesetup_sample(input, output);
     }
+    if matches!(operation, Operation::PrintareaSample) {
+        return printarea_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1093,6 +1124,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::RichcommentSample => unreachable!("the rich comment sample has its own path"),
         Operation::SheetviewSample => unreachable!("the sheet view sample has its own path"),
         Operation::PagesetupSample => unreachable!("the page setup sample has its own path"),
+        Operation::PrintareaSample => unreachable!("the print area sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4857,6 +4889,132 @@ fn sheetview_read_back(
         return Err(Error::SheetviewSample("kept sheetView attributes"));
     }
     Ok((after, kept_after.len() as u64))
+}
+
+/// The three built-in names the print area sample writes, in its line's
+/// order.
+const PRINT_NAMES: [&str; 3] = [
+    "_xlnm.Print_Area",
+    "_xlnm.Print_Titles",
+    "_xlnm._FilterDatabase",
+];
+
+/// Whether `text` is `reference` behind the sheet named `sheet`, the name
+/// bare or quoted with an apostrophe doubled; the crate decides which
+/// (`specs/0025-sheet-and-print-settings.md`, "Planning rulings during P3",
+/// ruling 6) and the run log's own check pins the choice.
+fn behind_sheet(text: &str, sheet: &str, reference: &str) -> bool {
+    let quoted = format!("'{}'", sheet.replace('\'', "''"));
+    text == format!("{sheet}!{reference}") || text == format!("{quoted}!{reference}")
+}
+
+/// The print area sample (`specs/0025-sheet-and-print-settings.md`,
+/// "Harness runs", `--printarea-sample`): a print area, print titles and an
+/// autofilter on W, the output written and read back. A failure after the
+/// output is in place removes it; a refusal by the layer is exit 2 with no
+/// output.
+fn printarea_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let (at, sheet) = workbook
+        .sheets
+        .iter()
+        .enumerate()
+        .find(|(_, sheet)| sheet.kind == SheetKind::Worksheet)
+        .map(|(at, sheet)| (at as u32, sheet.clone()))
+        .ok_or(Error::NoWorksheet)?;
+    let part = sheet.part.clone();
+    let names_before = workbook.defined_names().len() as u64;
+    let had = PRINT_NAMES
+        .iter()
+        .filter(|name| {
+            workbook
+                .defined_names()
+                .iter()
+                .any(|have| have.sheet == Some(at) && have.name.eq_ignore_ascii_case(name))
+        })
+        .count() as u64;
+    let sampled = sample(&mut package, &part)?;
+    let autofilter_before = root_children(&mut package, &part, b"autoFilter")?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    // A row past the grid is the layer's to refuse, with its index message.
+    let last = CellRef {
+        row: sampled.max_row.saturating_add(1),
+        col: 8,
+    };
+    let area = Area {
+        first: CellRef { row: 1, col: 1 },
+        last,
+    };
+    package.set_print_area(&part, &[area])?;
+    package.set_print_titles(&part, Some((1, 1)), None)?;
+    package.set_auto_filter(&part, Some(area))?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = printarea_read_back(output, &part, at, &sheet.name, last.row, names_before, had);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (names_after, autofilter_after) = checked?;
+    edit_line_named(
+        "printarea",
+        &[
+            ("names_before", names_before),
+            ("names_after", names_after),
+            ("area_ok", 1),
+            ("titles_ok", 1),
+            ("filterdb_ok", 1),
+            ("autofilter_before", autofilter_before),
+            ("autofilter_after", autofilter_after),
+            ("hidden_ok", 1),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// Reopens the print area sample's output and asserts what
+/// `--printarea-sample` says it asserts; gives the name count and W's
+/// `<autoFilter>` count.
+fn printarea_read_back(
+    output: &Path,
+    part: &[u8],
+    at: u32,
+    sheet: &str,
+    last_row: u32,
+    names_before: u64,
+    had: u64,
+) -> Result<(u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let names = workbook.defined_names();
+    let names_after = names.len() as u64;
+    if names_after + had != names_before + 3 {
+        return Err(Error::PrintareaSample("defined name count"));
+    }
+    let area = format!("$A$1:$H${last_row}");
+    for (name, reference, what) in [
+        (PRINT_NAMES[0], area.as_str(), "print area"),
+        (PRINT_NAMES[1], "$1:$1", "print titles"),
+        (PRINT_NAMES[2], area.as_str(), "filter database"),
+    ] {
+        let found: Vec<_> = names
+            .iter()
+            .filter(|have| have.sheet == Some(at) && have.name == name)
+            .collect();
+        if found.len() != 1 || !behind_sheet(&found[0].text, sheet, reference) {
+            return Err(Error::PrintareaSample(what));
+        }
+        if name == PRINT_NAMES[2] && !found[0].hidden {
+            return Err(Error::PrintareaSample("filter database's hidden flag"));
+        }
+    }
+    let autofilter_after = root_children(&mut package, part, b"autoFilter")?;
+    if autofilter_after != 1 {
+        return Err(Error::PrintareaSample("autoFilter count"));
+    }
+    Ok((names_after, autofilter_after))
 }
 
 /// The four root children the page setup sample sets, by local name.
