@@ -4466,3 +4466,95 @@ fn the_richtext_sample_refuses_unreadable_run_properties_or_a_full_sheet_and_lea
         "--richtext-sample",
     );
 }
+
+/// The edit sample's package with W holding `head` before `<dimension>` and
+/// `views` between it and the one-cell `<sheetData>`. Fictional.
+fn sheetview_specs(head: &str, views: &str) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\">{head}<dimension ref=\"A1\"/>{views}{A_CELL}\
+         <pageMargins left=\"0.7\"/></worksheet>"
+    );
+    let mut specs = cells_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_sheetview_sample_sets_the_tab_colour_and_the_view_and_keeps_the_rest() {
+    // `specs/0025-sheet-and-print-settings.md`, "Harness runs": the tab
+    // colour and the view set on W, created when W has neither element and
+    // merged into the ones it has, every other attribute and child kept.
+    let tab = "<tabColor rgb=\"FF00AA55\"/>";
+    for (label, head, views, line, sheet_head, sheet_views) in [
+        (
+            "sheetview-sample-created",
+            "",
+            "",
+            "sheetview\tsheetpr_before=0\tsheetpr_after=1\ttabcolor_before=0\ttabcolor_after=1\
+             \tviews_before=0\tviews_after=1\tzoom_ok=1\tgrid_ok=1\theadings_ok=1\tkept_attrs=1\
+             \tr_bound_before=0\n",
+            format!("<sheetPr>{tab}</sheetPr>"),
+            "<sheetViews><sheetView showGridLines=\"0\" showRowColHeaders=\"1\" zoomScale=\"85\" \
+             workbookViewId=\"0\"/></sheetViews>"
+                .to_string(),
+        ),
+        (
+            "sheetview-sample-kept",
+            "<sheetPr codeName=\"Sheet1\"><tabColor theme=\"4\"/><pageSetUpPr fitToPage=\"1\"/></sheetPr>",
+            "<sheetViews><sheetView showGridLines=\"1\" tabSelected=\"1\" zoomScale=\"100\" \
+             zoomScaleNormal=\"100\" workbookViewId=\"0\"><selection activeCell=\"A1\" sqref=\"A1\"/>\
+             </sheetView></sheetViews>",
+            "sheetview\tsheetpr_before=1\tsheetpr_after=1\ttabcolor_before=1\ttabcolor_after=1\
+             \tviews_before=1\tviews_after=1\tzoom_ok=1\tgrid_ok=1\theadings_ok=1\tkept_attrs=3\
+             \tr_bound_before=0\n",
+            format!("<sheetPr codeName=\"Sheet1\">{tab}<pageSetUpPr fitToPage=\"1\"/></sheetPr>"),
+            "<sheetViews><sheetView showGridLines=\"0\" showRowColHeaders=\"1\" zoomScale=\"85\" \
+             tabSelected=\"1\" zoomScaleNormal=\"100\" workbookViewId=\"0\"><selection \
+             activeCell=\"A1\" sqref=\"A1\"/></sheetView></sheetViews>"
+                .to_string(),
+        ),
+    ] {
+        let specs = sheetview_specs(head, views);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--sheetview-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\">{sheet_head}<dimension ref=\"A1\"/>\
+                 {sheet_views}{A_CELL}<pageMargins left=\"0.7\"/></worksheet>"
+            ),
+            "the sheet"
+        );
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_sheetview_sample_refuses_two_sheet_pr_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0025-sheet-and-print-settings.md`, "P1").
+    styled_run_refused(
+        "sheetview-sample-two",
+        &sheetview_specs("<sheetPr/><sheetPr/>", ""),
+        "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
+        "--sheetview-sample",
+    );
+}

@@ -460,6 +460,27 @@
 //!   with the message and no output, and so is a refusal by the layer
 //!   (threaded comments on W, a part it cannot read, run properties it
 //!   cannot read, or M + 1 past the grid).
+//! - `--sheetview-sample`: the sheet view sample of
+//!   `specs/0025-sheet-and-print-settings.md`, "Harness runs": on W, the
+//!   tab colour `FF00AA55` and a sheet view of zoom 85, gridlines off and
+//!   headings on. The output is reopened and W read by this tool's own pass
+//!   over its tokens. One line: the word `sheetview` then `sheetpr_before`
+//!   and `sheetpr_after` (W's `<sheetPr>` elements), `tabcolor_before` and
+//!   `tabcolor_after` (the `<tabColor>` children of W's `<sheetPr>`),
+//!   `views_before` and `views_after` (W's `<sheetView>` elements),
+//!   `zoom_ok`, `grid_ok` and `headings_ok` (1 when the first `<sheetView>`
+//!   carries `zoomScale="85"`, `showGridLines="0"` and
+//!   `showRowColHeaders="1"`), `kept_attrs` (the first `<sheetView>`'s
+//!   attributes other than those three, after the write) and
+//!   `r_bound_before` (1 when W's root binds a prefix to the relationships
+//!   namespace). COUNTS ONLY: the settings are this tool's constants and no
+//!   reference is printed. Asserted: `sheetpr_after` 1, `tabcolor_after` 1
+//!   with `rgb="FF00AA55"`, `views_after` equal to before or 1 when W had
+//!   none, the three flags 1, and the kept attributes the same names and
+//!   bytes in the same order as before (for a created view, exactly
+//!   `workbookViewId="0"`); a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer (two `<sheetPr>` on W, one out
+//!   of schema order, or two `<sheetViews>`).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -485,9 +506,9 @@ use emend::dates::{DateTime, Epoch};
 use emend::package::{
     COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentEntry, DRAWING,
     ErrorStyle, HYPERLINK, IconSetKind, Image, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package,
-    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, TABLE, Table,
-    TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
-    rels_part_source,
+    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView,
+    TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind,
+    legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -503,7 +524,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
-| --richcomment-sample]";
+| --richcomment-sample | --sheetview-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -585,6 +606,8 @@ enum Operation {
     RichtextSample,
     /// A comment of runs past the last row, and the counts.
     RichcommentSample,
+    /// A tab colour and a sheet view, and the counts.
+    SheetviewSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -625,6 +648,7 @@ enum Error {
     ImageSample(&'static str),
     RichtextSample(&'static str),
     RichcommentSample(&'static str),
+    SheetviewSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -708,6 +732,9 @@ impl fmt::Display for Error {
                     f,
                     "the output's {what} is not what the rich comment implies"
                 )
+            }
+            Error::SheetviewSample(what) => {
+                write!(f, "the output's {what} is not what the sheet view implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -832,6 +859,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::RichcommentSample,
+        ),
+        [input, output, flag] if flag == "--sheetview-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::SheetviewSample,
         ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
@@ -964,6 +996,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RichcommentSample) {
         return richcomment_sample(input, output);
     }
+    if matches!(operation, Operation::SheetviewSample) {
+        return sheetview_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1016,6 +1051,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ImageSample => unreachable!("the image sample has its own path"),
         Operation::RichtextSample => unreachable!("the rich text sample has its own path"),
         Operation::RichcommentSample => unreachable!("the rich comment sample has its own path"),
+        Operation::SheetviewSample => unreachable!("the sheet view sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4562,6 +4598,224 @@ fn table_relationships<R: io::Read + io::Seek>(
         .into_iter()
         .map(|form| rels.of_kind(form).count() as u64)
         .sum())
+}
+
+/// What the sheet view sample reads of W by this tool's own pass over its
+/// tokens: the `<sheetPr>` root children, the `<tabColor>` children of the
+/// first and the `rgb` of the last of those, the `<sheetView>` children of
+/// the `<sheetViews>` root children, and the first `<sheetView>`'s start
+/// tag.
+struct ViewFacts {
+    sheet_pr: u64,
+    tab_color: u64,
+    tab_rgb: Option<Vec<u8>>,
+    views: u64,
+    first_view: Option<Vec<u8>>,
+}
+
+/// The sheet view sample's reading of `part`.
+fn view_facts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<ViewFacts, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    // The root child open at depth 2, when it is of the main namespace.
+    let mut open: Vec<u8> = Vec::new();
+    let mut facts = ViewFacts {
+        sheet_pr: 0,
+        tab_color: 0,
+        tab_rgb: None,
+        views: 0,
+        first_view: None,
+    };
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let main = MAIN.contains(&element_namespace(raw, &root).as_slice());
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            open = if main {
+                tag_local_name(raw).to_vec()
+            } else {
+                Vec::new()
+            };
+            if open == b"sheetPr" {
+                facts.sheet_pr += 1;
+            }
+        } else if depth == 3 && main {
+            let local = tag_local_name(raw);
+            if open == b"sheetPr" && local == b"tabColor" && facts.sheet_pr == 1 {
+                facts.tab_color += 1;
+                facts.tab_rgb = tag_attribute(raw, b"rgb");
+            } else if open == b"sheetViews" && local == b"sheetView" {
+                facts.views += 1;
+                if facts.first_view.is_none() {
+                    facts.first_view = Some(raw.to_vec());
+                }
+            }
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(facts)
+}
+
+/// A start tag's attributes in order, each as its name and its bytes from
+/// the name to the closing quote; namespace declarations among them.
+fn tag_attributes(raw: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    let space = |byte: u8| matches!(byte, b' ' | b'\t' | b'\n' | b'\r');
+    let mut out = Vec::new();
+    let mut at = raw
+        .iter()
+        .position(|byte| space(*byte))
+        .unwrap_or(raw.len());
+    loop {
+        while at < raw.len() && space(raw[at]) {
+            at += 1;
+        }
+        if at >= raw.len() || matches!(raw[at], b'/' | b'>') {
+            return out;
+        }
+        let start = at;
+        while at < raw.len() && raw[at] != b'=' && !space(raw[at]) {
+            at += 1;
+        }
+        let name = raw[start..at].to_vec();
+        while at < raw.len() && raw[at] != b'"' && raw[at] != b'\'' {
+            at += 1;
+        }
+        let Some(&quote) = raw.get(at) else {
+            return out;
+        };
+        let Some(length) = raw[at + 1..].iter().position(|byte| *byte == quote) else {
+            return out;
+        };
+        at += length + 2;
+        out.push((name, raw[start..at].to_vec()));
+    }
+}
+
+/// The attributes the sheet view sample sets.
+const VIEW_SET: [&[u8]; 3] = [b"zoomScale", b"showGridLines", b"showRowColHeaders"];
+
+/// The first `<sheetView>`'s attributes other than [`VIEW_SET`]'s.
+fn kept_view_attributes(view: Option<&[u8]>) -> Vec<(Vec<u8>, Vec<u8>)> {
+    view.map(tag_attributes)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(name, _)| !VIEW_SET.contains(&name.as_slice()))
+        .collect()
+}
+
+/// The sheet view sample (`specs/0025-sheet-and-print-settings.md`,
+/// "Harness runs", `--sheetview-sample`): a tab colour and a sheet view on
+/// W, the output written and read back. A failure after the output is in
+/// place removes it; a refusal by the layer is exit 2 with no output.
+fn sheetview_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let before = view_facts(&mut package, &part)?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    package.set_tab_color(&part, Some(Color::Rgb(0xFF00_AA55)))?;
+    package.set_sheet_view(
+        &part,
+        &SheetView {
+            zoom: Some(85),
+            show_grid_lines: Some(false),
+            show_headings: Some(true),
+            ..SheetView::default()
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = sheetview_read_back(output, &part, &before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, kept) = checked?;
+    edit_line_named(
+        "sheetview",
+        &[
+            ("sheetpr_before", before.sheet_pr),
+            ("sheetpr_after", after.sheet_pr),
+            ("tabcolor_before", before.tab_color),
+            ("tabcolor_after", after.tab_color),
+            ("views_before", before.views),
+            ("views_after", after.views),
+            ("zoom_ok", 1),
+            ("grid_ok", 1),
+            ("headings_ok", 1),
+            ("kept_attrs", kept),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// Reopens the sheet view sample's output and asserts what
+/// `--sheetview-sample` says it asserts; gives W's reading and the count of
+/// kept attributes.
+fn sheetview_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ViewFacts,
+) -> Result<(ViewFacts, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = view_facts(&mut package, part)?;
+    if after.sheet_pr != 1 {
+        return Err(Error::SheetviewSample("sheetPr count"));
+    }
+    if after.tab_color != 1 || after.tab_rgb.as_deref() != Some(b"FF00AA55".as_slice()) {
+        return Err(Error::SheetviewSample("tabColor"));
+    }
+    let views_ok = if before.views == 0 {
+        after.views == 1
+    } else {
+        after.views == before.views
+    };
+    if !views_ok {
+        return Err(Error::SheetviewSample("sheetView count"));
+    }
+    let view = after.first_view.as_deref().unwrap_or_default();
+    for (name, value, what) in [
+        (b"zoomScale".as_slice(), b"85".as_slice(), "zoomScale"),
+        (b"showGridLines", b"0", "showGridLines"),
+        (b"showRowColHeaders", b"1", "showRowColHeaders"),
+    ] {
+        if tag_attribute(view, name).as_deref() != Some(value) {
+            return Err(Error::SheetviewSample(what));
+        }
+    }
+    let kept_before = kept_view_attributes(before.first_view.as_deref());
+    let kept_after = kept_view_attributes(after.first_view.as_deref());
+    let kept_ok = if before.views == 0 {
+        kept_after == [(b"workbookViewId".to_vec(), b"workbookViewId=\"0\"".to_vec())]
+    } else {
+        kept_after == kept_before
+    };
+    if !kept_ok {
+        return Err(Error::SheetviewSample("kept sheetView attributes"));
+    }
+    Ok((after, kept_after.len() as u64))
 }
 
 /// Whether the part's root has a main-namespace child named `name`

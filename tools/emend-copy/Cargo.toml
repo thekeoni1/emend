@@ -28,5 +28,8 @@ publish = false
 # (specs/0022-comments-and-images.md, decision 1 A), which has none either.
 # It enables the core's `richtext` feature for --richtext-sample
 # (specs/0024-rich-text.md, decision 1 A), which has none either.
+# It enables the core's `sheetprops` feature for --sheetview-sample
+# (specs/0025-sheet-and-print-settings.md, decision 1 A), which has none
+# either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext", "sheetprops"] }
