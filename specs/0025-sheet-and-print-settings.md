@@ -211,9 +211,13 @@ the call, so a sheet `add_sheet` adds in the same write is
 accepted and the edit lands on its blank worksheet; a part
 neither in the archive nor added refused at the write with "no
 such part" by the write's existing check over the edited parts;
-a part this write removes or replaces, or a part with a row or
-column shift in the same write, refused at the write with part
-1's and part 3's messages. The last call for one element on one
+a part this write removes or replaces refused at the write with
+part 1's messages; a part with a row or column shift in the same
+write refused with part 3's message by every call that rewrites
+the worksheet (the print area and print titles rewrite the
+workbook part alone and are not refused beside a shift; the name
+is written as given, no reference fixup, `CLAUDE.md`; P3
+verification ruling 1). The last call for one element on one
 part wins, field by field: two calls each set the fields they
 give.
 
@@ -243,25 +247,30 @@ give.
   set when an even or first text is written, kept otherwise.
 - `set_print_area(part, areas: &[Area])` (with `metadata`): writes
   the sheet-scoped `_xlnm.Print_Area` whose text is the areas
-  joined by `,`, each as `'<sheet name>'!$A$1:$B$2` with the sheet
-  name quoted as a formula quotes it (an apostrophe doubled);
-  replaces one the file has for that sheet; an empty slice drops
-  it. `set_print_titles(part, rows: Option<(u32, u32)>, cols:
-  Option<(u32, u32)>)`: `_xlnm.Print_Titles` as `'<name>'!$1:$3`,
-  `'<name>'!$A:$B`, or both joined by `,`; both `None` drops it.
+  joined by `,`, each as `<sheet>!$A$1:$B$2` (two corners always,
+  a one-cell area `$A$1:$A$1`), the sheet name bare when it is a
+  plain identifier and otherwise quoted with an apostrophe
+  doubled, Excel's measured form (P3 ruling 6); replaces one the
+  file has for that sheet; an empty slice drops it.
+  `set_print_titles(part, rows: Option<(u32, u32)>, cols:
+  Option<(u32, u32)>)`: `_xlnm.Print_Titles` as `<sheet>!$1:$3`,
+  `<sheet>!$A:$B`, or both joined by `,` columns first (P3 ruling
+  3); both `None` drops it.
   Each goes through `specs/0019`'s name edit with the built-in
   check lifted for these two names and the scope fixed to the
-  part's sheet, so the workbook rewrite, the `localSheetId`
-  remapping and the formula-change rule are the ones already
-  measured. The names are never parsed on read.
+  part's sheet, so the workbook rewrite and the `localSheetId`
+  remapping are the ones already measured; the three built-in
+  names are exempt from the formula-change rule (P3 ruling 2).
+  The names are never parsed on read.
 - `set_auto_filter(part, area: Option<Area>)` (with `metadata`):
   `Some` writes `<autoFilter ref>` in schema position (replacing
   one the part has, its children dropped, since a filter's
   columns and sort state belong to the old range) and the hidden
   sheet-scoped `_xlnm._FilterDatabase` with the area's text as
   the print area's; `None` drops both. A part whose area overlaps
-  a table's `ref` is refused at the write, "a table overlaps a
-  table, a merge or an autofilter" (`specs/0021`'s message, since
+  a table's `ref`, the write's own additions included, is refused
+  at the write, "a table overlaps a table, a pivot table, a merge
+  or the autofilter" (`specs/0021`'s constant, P3 ruling 1, since
   Excel keeps the two apart); the table's own `<autoFilter>` is
   inside its part and untouched.
 
@@ -307,9 +316,9 @@ earlier parts' are, one constant each, marked by feature:
   pageMargins, pageSetup or headerFooter elements"
 
 `sheetprops` and `metadata`:
-- "a print area or title is not valid" (at the call: an empty
-  area list past the drop case, a title row or column pair out of
-  order or off the grid)
+- "a print area or title is not valid" (at the call: a title row
+  or column pair out of order, or with a row or column of 0 or
+  past the grid; P3 ruling 5)
 
 Shared (constants under the feature, one definition): part 3's
 index message for an area off the grid; part 1's "no such part",
@@ -657,6 +666,64 @@ and the carry commit 688d059, before any log.
    listing gives it, and the test that pins each element's bytes
    is the order's record. "The pass" reads as corrected.
 
+## Planning rulings during P3 (2026-10-03)
+
+Asked by the implementing session after the doc commit 4359bdb
+and the carry commit d4f9456, before any log.
+
+1. The overlap message is `specs/0021`'s constant as it reads, "a
+   table overlaps a table, a pivot table, a merge or the
+   autofilter"; "The calls" misquoted it. Its `cfg` and the table
+   part reader's widen to `any(tables, all(sheetprops,
+   metadata))`, one definition each; under the pair the write
+   reads the part's table relationships and each table part's
+   root `ref` as the tables feature does, a missing table part or
+   a `ref` that does not parse refused with the same message; with
+   `tables` on, the tables the same write adds to the part are
+   checked too.
+2. The formula-change rule (option b): the three built-in names
+   are exempt. A print area, print titles and a filter database
+   are print and filter settings, not names a formula's chain
+   tracks; openpyxl writes them without asking for a
+   recalculation; and "Harness runs" expects no chain drop and
+   only W and `xl/workbook.xml` changed. So no `calcChain` drop,
+   no `fullCalcOnLoad`, no `[Content_Types].xml` or workbook rels
+   change for these three; every other name edit stays under the
+   rule. The catalogue says so; a test pins a print area on a
+   workbook with a chain keeping it.
+3. Titles with both rows and columns: columns first,
+   `<sheet>!$A:$B,<sheet>!$1:$2`, which is openpyxl's join as
+   planning reads it and Excel's as the implementing session
+   remembers it; the corpus's 23 `Print_Titles` are rows alone,
+   so no primary decides it, and the catalogue states the order
+   as openpyxl's.
+4. A part that is not a sheet in the projected list: these calls
+   take a part and never look it up at the call (P1 ruling 1);
+   their parts join the edited parts, so an absent part is "no
+   such part" and a part removed in the same write "an edit to a
+   removed part", both from the write's existing checks; "no
+   sheet of that name" is not raised by them.
+5. "Errors"' "empty area list past the drop case" was planning's
+   error (an empty slice is the drop). The message covers a title
+   pair out of order, or with a row or column of 0 or past the
+   grid; an area off the grid gets part 3's index message; an
+   area's corners are normalised as `merge_cells` normalises them.
+   "Errors" reads as corrected.
+6. The text's form, measured by planning over the corpus's 26
+   built-in name texts (shapes and counts only): the sheet name
+   is bare when it is a plain identifier (18) and quoted otherwise
+   (8), never quoted when plain; the areas use two corners (2) or
+   whole columns (1); no one-cell area. Ruling: the sheet name is
+   written bare when it starts with a letter or underscore, holds
+   only letters, digits, underscores and full stops, and does not
+   name a cell (`names_a_cell`), else quoted with an apostrophe
+   doubled; the name is the projected one at the write, so a
+   rename in the same write is followed; an area is always two
+   corners, a one-cell area `$A$1:$A$1`, written by the name's
+   own formatter (`Area::a1` collapses a one-cell area to one
+   corner, so it is not used; P3 verification ruling 5). "The
+   calls" reads as corrected.
+
 ## Planning verification and rulings on P1 (2026-10-03)
 
 Verified by planning from primaries: the doc commit e5f998a holds
@@ -794,6 +861,78 @@ scan 138fe80..25f9bba, 0 findings; `ANTHROPIC_API_KEY` unset.
    `ROADMAP.md`'s P2 row; its first code commit is ruling 2's
    test; then "P3: the print area, the print titles, the
    autofilter".
+
+## Planning verification and rulings on P3 (2026-10-03)
+
+Verified by planning from primaries: the doc commit 4359bdb holds
+this file at 338f0e8b and `ROADMAP.md` at d3eaf68d, the hashes
+planning sent; the carry commit d4f9456 is test code alone; the
+crate commit 8faf378 and the tool commit 5c1a6b3 read in full by
+planning; the record commit 38d4008 adds the six logs and four
+records; 5 of 5 messages ASCII, ending with the Co-Authored-By
+line only; the logs at the reported hashes, each ending all as
+expected, the scan RESULT: PASS, every log pinning 338f0e8b and
+printing 6569ec1e as planning's working copy; the compound-shape
+grep 0; every `rm -rf` in the logs the guarded form on a
+directory the script made or `counting.sh`'s own; planning's own
+build at 5c1a6b3 in a detached worktree: 513 crate tests with the
+features off, 540 with `sheetprops`, 599 with the pair and 796
+with every feature, on both targets, 973 workspace tests on both,
+clippy and doc 0 lines; the i686 release `emend-copy` at the run
+log's hash ff48d650 (the host's differs by build path); planning's
+own run of `--printarea-sample` with its own binaries over all 27
+corpus workbooks on both labels: 21 outputs and 21 tool lines
+byte-identical to the run directory's per label, and the same six
+workbooks refused with the overlap message on both labels
+(054df34b1472, 40d747fb5d9e, 6778a242d1f9, 75387404b8af,
+ed4c55f07c69, f8459281d739); planning's own privacy scan
+25f9bba..38d4008, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. R2, the shift refusal. "The calls" gave it to every call;
+   the print area and print titles rewrite the workbook part
+   alone, so a shift beside them moves nothing they rewrite, and
+   the name is written as given with no reference fixup, which
+   `CLAUDE.md` makes a limit by design. Ruling: the shift refusal
+   is every call's that rewrites the worksheet, the autofilter's
+   among them; a print area or titles edit beside a shift is
+   allowed and the catalogue says the name is not adjusted. "The
+   calls" reads as corrected. A test pinning the replaced-part
+   refusal for the three calls, and one pinning a print area
+   beside a shift written unadjusted, go in P4's first code
+   commit.
+2. R1: the two refusal paths without a test (a missing table
+   part; a table the same write adds, under `tables` too) get
+   their tests in P4's first code commit. R3 and R4 accepted
+   (the unchanged refusal; the tool's case-folded "had" count
+   against its exact read-back, harmless since the crate writes
+   the canonical names).
+3. The six refusals on the corpus are the finding "Harness runs"
+   foresaw: six workbooks whose first sheet carries a table within
+   the first eight columns, so the sample's filter area overlaps
+   it and the write refuses, exactly the survey's prediction on
+   both labels, recorded as error rows with their ids. Accepted;
+   no change to the sample, which proves the refusal on real
+   files as well as the write on 21.
+4. The log reservations: L1, the chain kept is shown by the
+   entries rule (every entry but W and the workbook identical) and
+   the record's family table; P4's run log counts the chain
+   workbooks and names the rule that covers them in one line; L2,
+   the survey's M beside the id is a count, allowed; L3 accepted
+   as before.
+5. The corrections: the name writer gained the hidden flag (the
+   report's "unchanged" was wrong and the check caught it);
+   `Area::a1` collapses a one-cell area to one corner, so the
+   built-in text's formatter writes the two corners itself, and
+   ruling 6's "as `Area`'s text" read the other way; ruling 6
+   reads as corrected. The run script's hand rerun before the
+   logged run after a fork's edit: working state, accepted.
+6. P3 is DONE. P4 is released: its doc commit carries this file
+   with "Planning rulings during P3" and this section, and
+   `ROADMAP.md`'s P3 row; its first code commit is rulings 1 and
+   2's tests; then "P4: the catalogue and limits, the probes, the
+   size record", the catalogue carrying P1 verification ruling 3,
+   P2 rulings 1 and 3, P2 verification rulings 1 and 2 and P3
+   rulings 2 and 3 as they say.
 
 ## Decisions for the maintainer
 
