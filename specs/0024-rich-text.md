@@ -753,6 +753,90 @@ c53bbb3..ea4a090, 5 commits, 1161 blobs, 0 findings;
    open record, as "P3: the catalogue and limits, the probes, the
    size record" says.
 
+## Planning verification and rulings on P3 (2026-10-03)
+
+Verified by planning from primaries: the doc commit 7e14eab holds
+this file at ca2e40a7 and `ROADMAP.md` at 021cdad3, the hashes
+planning sent; the carry commit 7c1e11e (14 `//!` lines and the
+tint case), the catalogue commit d07793a (`//!` lines alone, 0
+other lines) and the probes commit 0c3e4fa read in full; the
+record commit b018e52 adds the seven logs and seven records; 5 of
+5 messages ASCII, ending with the Co-Authored-By line only; the
+logs at the reported hashes, each ending all as expected, the
+scan RESULT: PASS, every log pinning ca2e40a7; the compound-shape
+grep 0; planning's own build at 0c3e4fa in a detached worktree:
+513 and 755 crate tests on both targets, 926 workspace tests on
+both, clippy and doc 0 lines; planning's own probes in the size
+profile on i686: `probe-zip-xml` 533216, the format probe 968936
+(968568 at 6578925 in its own worktree), the comments probe
+1026160, the richtext probe 981608 and the richcomment probe
+1040980 section bytes, so the feature's cost 12672, the pair's
+14820, the part's growth 368 and the budget 435720 (23032 under
+458752) are reproduced to the byte; the i686 release `emend-copy`
+at the logs' hash 6084faa0 (the host's differs by build path);
+planning's own three read runs with its own binaries under the
+cap, each output byte-identical to its input and each tool line
+to the run directory's: tier d `--shared-strings` 266372 / 216548
+kB, tier d `--cells` 266344 / 216676, tier c `--cells` 3844 /
+3660 (the runner's peaks are a few MB above planning's, as in
+part 1; every figure within 2048 kB of the decision record's);
+planning's own reruns of both samples over all 27 corpus
+workbooks on both labels, 108 outputs and 108 tool lines
+byte-identical to the two run directories'; planning's own
+privacy scan ea4a090..b018e52, 5 commits, 1174 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset.
+
+1. Decision 4's contract is measured and holds: with the feature
+   on, the table's peaks on tier d (4800000 items, none rich) are
+   within 104 kB of part 1's on both labels, and tier c's cell
+   pass within 200 kB. Recorded in `ROADMAP.md`'s P3 row.
+2. Size. The feature costs 12672 section bytes against planning's
+   estimate of 30000 to 45000: the estimate scaled from features
+   that create parts, and this one creates none; the pair's 14820
+   is within its 5000 to 15000. The core grew 368 where "Size"
+   said it does not move by design: the sentence meant no core
+   change was intended, and the growth is P1's parameterised
+   walk (ruling 3 there), planning's reading, within the 2000
+   threshold and recorded. Headroom is 23032. For part 3's
+   estimate, a capability that creates no part is priced from
+   this part, not from `tables` or `comments`.
+3. Catalogue wording, carried to part 3's first code commit as
+   `//!` edits: the read-back sentence says `Some` "when the
+   container holds at least one `<r>` with text", which excludes
+   the leading plain `<t>` case the next sentence gives (ruled in
+   P2 verification ruling 4); it reads "when an `<r>` was met and
+   a run with text is left, a leading plain `<t>` counted";
+   `vertAlign` is named inside "the order the corpus measured"
+   when the corpus has none: the order is `Font::compose`'s,
+   which the corpus's 17 sequences are subsequences of; and the
+   table's contract gains its measured figures from this phase's
+   run log (tier d within 104 kB of part 1's on both labels).
+4. The negative log's three shared messages left to earlier
+   parts' logs: accepted. An unbound prefix on a kept `<rPr>`
+   child is refused by part 2's rule before the reader sees the
+   child; a test pinning that through the table and a comment
+   goes in part 3's first code commit beside ruling 3's edits.
+5. The check's weaknesses, recorded: `sst_rich` is 0 by the
+   fixture (the read of `runs_of` is shown by the crate's tests
+   and the corpus runs); the cause check names the same six crate
+   commits for every probe (part 7's backlog: a cause per probe
+   from the diff's paths); a flag plant shows its own flag turning
+   and not the others staying; the test plant fails at the loop's
+   shared line; `TMPDIR` on the disk is asserted by a root line
+   (part 3's scripts print the device of `TMPDIR` and of the
+   scale directory, equal); two lines call the committed spec
+   planning's uncommitted copy (harmless). The scan ran with
+   `PLANNING_SPEC` unset because the working copy equalled the
+   committed one on a clean tree and the script's control fails
+   on equality, as its header says: accepted; the note the
+   implementing session cites is its working state.
+6. P3 is DONE. Decision 7 was asked and the maintainer deferred
+   the Milestone 2 Excel check a seventh time (recorded under
+   decision 7). The close-out is released: its doc commit carries
+   this file with this section and decision 7's outcome, and
+   `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
+   "Close-out push (after P3)" says.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-02: 1 to 6 as recommended (A in
@@ -795,7 +879,13 @@ question, typed in the planning session; 7 recorded.
    twice on 2026-09-30, 2026-10-01 and 2026-10-02 (`specs/0023`
    decision 6), to run before this part's close-out push at the
    latest or be deferred again by a decision recorded here.
-   Recorded, not asked now; asked at the close-out.
+   Recorded, not asked now; asked at the close-out. Deferred a
+   seventh time on 2026-10-03 ("Defer again (7th)", typed in the
+   planning session after P3's verification, before the
+   close-out's doc commit): the check, now with this part's two
+   samples on its list, runs before Milestone 3 part 3's close-out
+   push at the latest or is deferred again by a decision recorded
+   in part 3's spec; the push proceeds without it.
 
 ## Out of scope
 
