@@ -457,6 +457,46 @@ fn an_inline_string_without_runs_reads_none() {
 }
 
 #[test]
+fn an_empty_run_is_dropped_at_the_read() {
+    // P1 verification ruling 4: an `<r/>`, and a run whose `<t>` texts total
+    // empty, is dropped, its font with it; a container whose every run is
+    // empty reads with `runs` `None`. The shared strings table first.
+    let table = table_of(
+        "<si><r/><r><rPr><b/></rPr><t>a</t></r><r><rPr><i/></rPr><t></t><t/></r>\
+         <r><t>b</t></r><r><rPr><b/></rPr></r></si>\
+         <si><r/><r><rPr><b/></rPr><t></t></r></si>\
+         <si><t>lead</t><r/></si>\
+         <si><r><t>c</t></r><t></t></si>",
+    );
+    assert_eq!(table.get(0), Some("ab"), "get flattens as before");
+    assert_eq!(
+        table.runs_of(0),
+        Some(&rich(vec![run("a", Some(bold())), run("b", None)])),
+        "the empty runs are dropped"
+    );
+    assert_eq!(table.get(1), Some(""));
+    assert_eq!(table.runs_of(1), None, "every run empty reads as no runs");
+    assert_eq!(table.get(2), Some("lead"));
+    assert_eq!(
+        table.runs_of(2),
+        Some(&rich(vec![run("lead", None)])),
+        "a plain <t> before the runs is a run with text, so the item keeps it"
+    );
+    assert_eq!(
+        table.runs_of(3),
+        Some(&rich(vec![run("c", None)])),
+        "an empty <t> after the runs is no run"
+    );
+    // The inline string.
+    let (runs, text) = inline_runs("<r/><r><rPr><b/></rPr><t>a</t></r><r><t></t></r>");
+    assert_eq!(text.as_deref(), Some("a"));
+    assert_eq!(runs, Some(rich(vec![run("a", Some(bold()))])));
+    let (runs, text) = inline_runs("<r/><r><rPr><i/></rPr><t/></r>");
+    assert_eq!(text.as_deref(), Some(""));
+    assert_eq!(runs, None, "every run empty reads as no runs");
+}
+
+#[test]
 fn a_phonetic_run_inside_a_rich_item_is_skipped() {
     let table = table_of(
         "<si><r><t>ab</t></r><rPh sb=\"0\" eb=\"1\"><t>skipped</t></rPh>\

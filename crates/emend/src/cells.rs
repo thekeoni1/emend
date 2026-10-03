@@ -184,8 +184,8 @@ use std::marker::PhantomData;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SharedStrings {
     items: Vec<String>,
-    /// The items that hold at least one `<r>`, as runs, by item index in
-    /// ascending order; nothing for an item without runs
+    /// The items that hold at least one `<r>` with text, as runs, by item
+    /// index in ascending order; nothing for an item without runs
     /// (`specs/0024-rich-text.md`, "The read", decision 4). The Cargo feature
     /// `richtext`.
     #[cfg(feature = "richtext")]
@@ -216,9 +216,10 @@ impl SharedStrings {
     }
 
     /// The runs of the item at `index`: `Some` for an item holding at least
-    /// one `<r>`, `None` for an item without runs and past the end. The item's
-    /// flattened text is [`SharedStrings::get`]'s. The Cargo feature
-    /// `richtext`.
+    /// one `<r>`, `None` for an item without runs and past the end. A run
+    /// with no text is dropped, and an item whose every run is empty gives
+    /// `None`. The item's flattened text is [`SharedStrings::get`]'s. The
+    /// Cargo feature `richtext`.
     #[cfg(feature = "richtext")]
     pub fn runs_of(&self, index: u32) -> Option<&RichText> {
         let at = self
@@ -623,9 +624,10 @@ pub struct Cell {
     /// The cell's formula, when it has one.
     pub formula: Option<Formula>,
     /// The runs of an inline string whose `<is>` holds at least one `<r>`,
-    /// else `None`; [`Cell::value`] is their flattened text as for any inline
-    /// string (`specs/0024-rich-text.md`, "The read"). The Cargo feature
-    /// `richtext`.
+    /// else `None`; a run with no text is dropped, and an `<is>` whose every
+    /// run is empty gives `None`. [`Cell::value`] is their flattened text as
+    /// for any inline string (`specs/0024-rich-text.md`, "The read"). The
+    /// Cargo feature `richtext`.
     #[cfg(feature = "richtext")]
     pub runs: Option<RichText>,
 }
@@ -1747,8 +1749,15 @@ struct Collect {
 
 #[cfg(feature = "richtext")]
 impl Collect {
-    /// The runs, when the container held at least one `<r>`; `flat` is the
-    /// container's flattened text, which [`text_under`] returned.
+    /// The runs, when the container held at least one `<r>` and at least one
+    /// run with text is left; `flat` is the container's flattened text, which
+    /// [`text_under`] returned.
+    ///
+    /// A run with no text, an `<r/>` or one whose `<t>` texts total empty, was
+    /// dropped as it closed, so a container whose every run is empty reads
+    /// as `None`: its flattened text is empty and it holds nothing the write
+    /// could carry, and every rich text this gives is one the write accepts
+    /// (`specs/0024-rich-text.md`, P1 verification ruling 4).
     fn rich(mut self, flat: &str) -> Option<RichText> {
         if !self.any {
             return None;
@@ -1763,6 +1772,9 @@ impl Collect {
                     font: None,
                 },
             );
+        }
+        if self.runs.is_empty() {
+            return None;
         }
         Some(RichText { runs: self.runs })
     }
@@ -1779,7 +1791,11 @@ impl Runs for Collect {
     }
 
     fn close_run(&mut self) {
-        if let Some(run) = self.open.take() {
+        // A run with no text is dropped here, its font with it (P1
+        // verification ruling 4).
+        if let Some(run) = self.open.take()
+            && !run.text.is_empty()
+        {
             self.runs.push(run);
         }
     }
@@ -1810,7 +1826,9 @@ impl Runs for Collect {
             // flattened text.
             _ if !self.any => self.lead += text.len(),
             // One after them, which the schema does not allow, is a run of
-            // its own in its place.
+            // its own in its place, unless it is empty, as an empty run is
+            // dropped.
+            _ if text.is_empty() => {}
             _ => self.runs.push(Run {
                 text: text.to_owned(),
                 font: None,
