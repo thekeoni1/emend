@@ -569,17 +569,19 @@
 //! (`specs/0024-rich-text.md`, "Errors"; without the feature no value
 //! carries runs and neither is raised); both are raised in `cells`, the
 //! first by a rich value's check and reported by [`Package::write_to`], the
-//! second by the read of a cell, through [`Package::cells`], and of the
-//! shared strings table, through [`Package::shared_strings`]. A rich value
-//! also meets, at the write, "a text holds a character XML cannot carry",
-//! the font refusals of [`Package::add_style`] and the off-grid refusal
-//! (`richtext::the_write_refuses_each_rule`,
+//! second by the read of a cell, through [`Package::cells`], of the shared
+//! strings table, through [`Package::shared_strings`], and, with the Cargo
+//! feature `comments` too, of a comment, through `Package::comments`. A
+//! rich value also meets, at the write, "a text holds a character XML
+//! cannot carry", the font refusals of [`Package::add_style`] and the
+//! off-grid refusal (`richtext::the_write_refuses_each_rule`,
 //! `richtext::a_rich_value_off_the_grid_is_refused`):
 //!
 //! - "a rich text is not valid" (`richtext::the_write_refuses_each_rule`).
 //! - "a run's properties cannot be read"
 //!   (`richtext::a_run_property_that_cannot_be_read_is_refused`,
-//!   `richtext::a_value_or_colour_the_write_would_refuse_is_refused_at_the_read`).
+//!   `richtext::a_value_or_colour_the_write_would_refuse_is_refused_at_the_read`,
+//!   `comments::rich::a_comment_s_run_properties_that_cannot_be_read_are_refused`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules

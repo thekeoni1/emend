@@ -378,6 +378,21 @@ fn the_call_refuses_each_rule_and_records_nothing() {
         ),
         (
             at("A1"),
+            "Ann".to_string(),
+            rich(vec![run(
+                "a",
+                Some(Font {
+                    color: Some(Color::Theme {
+                        index: 1,
+                        tint: Some(1.5),
+                    }),
+                    ..Font::default()
+                }),
+            )]),
+            "a style field is out of range",
+        ),
+        (
+            at("A1"),
             String::new(),
             sample(),
             "a comment author is not valid",
