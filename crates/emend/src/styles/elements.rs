@@ -523,8 +523,10 @@ impl Composed {
 /// A colour element named `name`, as a font or a fill writes one, for a
 /// conditional format's visual rule
 /// (`specs/0020-validation-and-conditional-formatting.md`, "Conditional
-/// formatting"). The Cargo feature `rules`.
-#[cfg(feature = "rules")]
+/// formatting"), and for a worksheet's `<tabColor>`
+/// (`specs/0025-sheet-and-print-settings.md`, "Types"). The Cargo feature
+/// `rules` or `sheetprops`.
+#[cfg(any(feature = "rules", feature = "sheetprops"))]
 pub(crate) fn color_element(name: &str, color: &Color) -> Composed {
     let mut out = Composed::new();
     out.color(name, color);

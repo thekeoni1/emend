@@ -7413,6 +7413,8 @@ mod protection;
 #[cfg(feature = "richtext")]
 mod richtext;
 mod rowcol;
+#[cfg(feature = "sheetprops")]
+mod sheetprops;
 #[cfg(feature = "rowcol")]
 mod shift;
 #[cfg(feature = "tables")]

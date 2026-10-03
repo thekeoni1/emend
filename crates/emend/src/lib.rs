@@ -63,6 +63,8 @@ pub use package::{Comment, CommentEntry};
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
 };
+#[cfg(feature = "sheetprops")]
+pub use package::{SheetView, ViewKind};
 #[cfg(feature = "tables")]
 pub use package::{Table, TableEntry, TableStyle, TableStyleInfo};
 pub use styles::{

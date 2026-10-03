@@ -583,6 +583,23 @@
 //!   `richtext::a_value_or_colour_the_write_would_refuse_is_refused_at_the_read`,
 //!   `comments::rich::a_comment_s_run_properties_that_cannot_be_read_are_refused`).
 //!
+//! Sheet and print settings add these, the Cargo feature `sheetprops`'s
+//! messages (`specs/0025-sheet-and-print-settings.md`, "Errors"; without the
+//! feature neither is raised), the first at the call and the second at the
+//! write. A setting also meets, at the write, "no such part", "an edit to a
+//! removed part", "a cell edit to a part this write replaces" and part 3's
+//! one-shift message, as any edit of the part does
+//! (`sheetprops::a_setting_on_a_removed_replaced_or_absent_part_is_refused`,
+//! `sheetprops::a_setting_on_a_part_with_a_pending_shift_is_refused`), and a
+//! sheet view part 3's message for two `<sheetViews>` or one without a
+//! `<sheetView>`
+//! (`sheetprops::a_view_on_two_sheet_views_or_one_without_a_view_is_refused`):
+//!
+//! - "a sheet setting is out of range"
+//!   (`sheetprops::a_setting_out_of_range_is_refused_at_the_call_and_records_nothing`).
+//! - "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements"
+//!   (`sheetprops::two_sheet_pr_or_one_out_of_schema_order_are_refused`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -1400,7 +1417,7 @@ use crate::styles::{
     Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
     Styles, counted, num_fmt_element, scan_start_tag,
 };
-#[cfg(feature = "rules")]
+#[cfg(any(feature = "rules", feature = "sheetprops"))]
 use crate::styles::{Color, color_element};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
 
@@ -2311,6 +2328,15 @@ struct Recorded {
     /// it validates.
     #[cfg(feature = "images")]
     image_works: Vec<(Vec<u8>, DrawingWork)>,
+    /// `(part, colour)`: a tab colour set, or dropped when `None`, the last
+    /// for a part winning (`specs/0025-sheet-and-print-settings.md`, "The
+    /// calls").
+    #[cfg(feature = "sheetprops")]
+    tab_colors: Vec<(Vec<u8>, Option<Color>)>,
+    /// `(part, view)`: a sheet view's settings, in record order, so the
+    /// last for a field wins ("The calls").
+    #[cfg(feature = "sheetprops")]
+    sheet_views: Vec<(Vec<u8>, SheetView)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2426,6 +2452,10 @@ struct SheetWork {
     /// namespace).
     #[cfg(feature = "images")]
     drawing_strict: bool,
+    /// The part's sheet settings (`specs/0025-sheet-and-print-settings.md`,
+    /// "The pass").
+    #[cfg(feature = "sheetprops")]
+    settings: Settings,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -3393,6 +3423,20 @@ fn no_links(_: &SheetWork) -> bool {
     true
 }
 
+/// Whether the part's rewrite carries no sheet setting (the Cargo feature
+/// `sheetprops`).
+#[cfg(all(feature = "rowcol", feature = "sheetprops"))]
+fn no_settings(work: &SheetWork) -> bool {
+    work.settings.is_empty()
+}
+
+/// Whether the part's rewrite carries no sheet setting; always, without the
+/// feature `sheetprops`.
+#[cfg(all(feature = "rowcol", not(feature = "sheetprops")))]
+fn no_settings(_: &SheetWork) -> bool {
+    true
+}
+
 impl SheetWork {
     /// The merge other than at its top-left that covers `cell`, if any.
     fn covers(&self, cell: CellRef) -> bool {
@@ -3689,6 +3733,21 @@ impl Recorded {
             && self.no_table_edits()
             && self.no_comment_edits()
             && self.no_image_edits()
+            && self.no_setting_edits()
+    }
+
+    /// Whether no sheet setting is recorded; always, without the feature
+    /// `sheetprops`.
+    #[cfg(feature = "sheetprops")]
+    fn no_setting_edits(&self) -> bool {
+        self.tab_colors.is_empty() && self.sheet_views.is_empty()
+    }
+
+    /// Whether no sheet setting is recorded; always, without the feature
+    /// `sheetprops`.
+    #[cfg(not(feature = "sheetprops"))]
+    fn no_setting_edits(&self) -> bool {
+        true
     }
 
     /// Whether no comment is added; always, without the feature `comments`.
@@ -3847,6 +3906,12 @@ impl Recorded {
         let named = named
             .chain(self.table_additions.iter().map(|(part, _)| part))
             .chain(self.table_removals.iter().map(|(part, _)| part));
+        // A sheet setting (`specs/0025-sheet-and-print-settings.md`,
+        // "Planning rulings during P1", ruling 1).
+        #[cfg(feature = "sheetprops")]
+        let named = named
+            .chain(self.tab_colors.iter().map(|(part, _)| part))
+            .chain(self.sheet_views.iter().map(|(part, _)| part));
         // A comment edit rewrites the worksheet only when its
         // `<legacyDrawing>` is created or dropped
         // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
@@ -3991,6 +4056,30 @@ impl Recorded {
                 .image_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.strict),
+            #[cfg(feature = "sheetprops")]
+            settings: self.settings_of(part),
+        }
+    }
+
+    /// One part's sheet settings: the last tab colour recorded, and the
+    /// sheet view's fields each from the last call that gives it
+    /// (`specs/0025-sheet-and-print-settings.md`, "The calls").
+    #[cfg(feature = "sheetprops")]
+    fn settings_of(&self, part: &[u8]) -> Settings {
+        let mut view: Option<SheetView> = None;
+        for (at, later) in &self.sheet_views {
+            if at.as_slice() == part {
+                view = Some(view.unwrap_or_default().then(later));
+            }
+        }
+        Settings {
+            tab: self
+                .tab_colors
+                .iter()
+                .rev()
+                .find(|(at, _)| at.as_slice() == part)
+                .map(|(_, color)| *color),
+            view,
         }
     }
 
@@ -4601,6 +4690,61 @@ impl<R: Read + Seek> Package<R> {
     /// is recorded when this fails.
     pub fn freeze_panes(&mut self, part: &[u8], at: Option<CellRef>) -> Result<(), Error> {
         self.parts().freeze_panes(part, at)
+    }
+
+    /// Records the tab colour of the worksheet part `part`: `Some` writes
+    /// `<tabColor>` under `<sheetPr>`, its attributes as a font's colour
+    /// writes them, `None` drops it; the last record for a part wins. The
+    /// write replaces the part's `<tabColor>`, or creates one first among
+    /// `<sheetPr>`'s children, creating `<sheetPr>` in schema position when
+    /// the part lacks it, every other attribute and child of `<sheetPr>`
+    /// kept; a `<sheetPr>` the drop leaves with no attribute and no child
+    /// goes with it. The Cargo feature `sheetprops`
+    /// (`specs/0025-sheet-and-print-settings.md`, "The calls", "The pass").
+    ///
+    /// The part is not looked up here: a sheet [`Package::add_sheet`] adds
+    /// in the same write takes the colour on its blank worksheet ("Planning
+    /// rulings during P1", ruling 1).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a sheet setting is out of range" for a theme
+    /// colour whose tint is not finite or lies outside `-1.0..=1.0`; nothing
+    /// is recorded when this fails. The write refuses a part the archive
+    /// lacks, "no such part"; a part with two `<sheetPr>` or one after
+    /// another root child, "a worksheet has two sheetPr, autoFilter,
+    /// printOptions, pageMargins, pageSetup or headerFooter elements"; a
+    /// part with a row or column shift in the same write; and what a cell
+    /// edit to the part would meet.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_tab_color(&mut self, part: &[u8], color: Option<Color>) -> Result<(), Error> {
+        self.parts().set_tab_color(part, color)
+    }
+
+    /// Records the settings of the worksheet part `part`'s first
+    /// `<sheetView>`: each `Some` field written as its attribute, the
+    /// fields of two calls on one part each standing unless the later call
+    /// gives them. The write sets the attributes the call gives first, in
+    /// the schema's order, and keeps every other attribute after them byte
+    /// for byte, `tabSelected` and `workbookViewId` among them, and every
+    /// child; a part with no `<sheetViews>` gains one holding
+    /// `<sheetView workbookViewId="0">`, as [`Package::freeze_panes`]
+    /// creates one. A freeze in the same write is applied to the same
+    /// `<sheetView>`, the pane after the attributes. The Cargo feature
+    /// `sheetprops` (`specs/0025-sheet-and-print-settings.md`, "The calls",
+    /// "The pass").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a sheet setting is out of range" for a zoom
+    /// outside `10..=400`; nothing is recorded when this fails. The write
+    /// refuses a part the archive lacks, "no such part"; a part with two
+    /// `<sheetViews>`, or one without a `<sheetView>`, with part 3's
+    /// message; a part with a row or column shift in the same write; and
+    /// what a cell edit to the part would meet.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_sheet_view(&mut self, part: &[u8], view: &SheetView) -> Result<(), Error> {
+        self.parts().set_sheet_view(part, view)
     }
 
     /// Records `area` in the worksheet part `part` merged.
@@ -6141,6 +6285,30 @@ impl<'a> Parts<'a> {
             }
         }
         self.edits.panes.push((part.to_vec(), at));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_tab_color`].
+    #[cfg(feature = "sheetprops")]
+    fn set_tab_color(&mut self, part: &[u8], color: Option<Color>) -> Result<(), Error> {
+        if let Some(Color::Theme {
+            tint: Some(tint), ..
+        }) = color
+            && !(-1.0..=1.0).contains(&tint)
+        {
+            return Err(SETTING_OUT_OF_RANGE);
+        }
+        self.edits.tab_colors.push((part.to_vec(), color));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_sheet_view`].
+    #[cfg(feature = "sheetprops")]
+    fn set_sheet_view(&mut self, part: &[u8], view: &SheetView) -> Result<(), Error> {
+        if view.zoom.is_some_and(|zoom| !(10..=400).contains(&zoom)) {
+            return Err(SETTING_OUT_OF_RANGE);
+        }
+        self.edits.sheet_views.push((part.to_vec(), *view));
         Ok(())
     }
 
@@ -7973,6 +8141,10 @@ impl<'a> Parts<'a> {
         self.edits.table_additions.retain(|(at, _)| at != part);
         #[cfg(feature = "tables")]
         self.edits.table_removals.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.tab_colors.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.sheet_views.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
@@ -8745,7 +8917,8 @@ impl<'a> Parts<'a> {
                 && work.unmerges.is_empty()
                 && no_links(work)
                 && no_rules(work)
-                && no_tables(work);
+                && no_tables(work)
+                && no_settings(work);
             if !alone {
                 return Err(SHIFT_ALONE);
             }
@@ -9203,6 +9376,21 @@ const IMAGE_NOT_PNG_OR_JPEG: Error = Error::Package("an image is not a PNG or JP
 const IMAGE_SIZE_INVALID: Error = Error::Package("an image size is out of range");
 #[cfg(feature = "images")]
 const TWO_DRAWINGS: Error = Error::Package("a worksheet has two drawing elements");
+
+/// A sheet setting a call cannot record: a zoom outside `10..=400`, a tab
+/// colour's tint not finite or outside `-1.0..=1.0`
+/// (`specs/0025-sheet-and-print-settings.md`, "Errors"). The Cargo feature
+/// `sheetprops`.
+#[cfg(feature = "sheetprops")]
+const SETTING_OUT_OF_RANGE: Error = Error::Package("a sheet setting is out of range");
+
+/// A worksheet whose settings element the write cannot place: two of one,
+/// or one after a root child the schema puts after it ("The pass"). The
+/// Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+const TWO_SETTINGS: Error = Error::Package(
+    "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
+);
 #[cfg(feature = "images")]
 const DRAWING_UNREADABLE: Error =
     Error::Package("a drawing part or its relationship cannot be read");
@@ -11413,24 +11601,24 @@ fn created_element(
 ) -> Result<Vec<u8>, Error> {
     let p = prefix;
     match which {
-        VIEWS => match work.pane {
-            Some(Some(at)) => {
-                let mut out = [
-                    b"<".as_slice(),
-                    p,
-                    b"sheetViews><",
-                    p,
-                    b"sheetView workbookViewId=\"0\">",
-                ]
-                .concat();
-                out.extend_from_slice(&pane_elements(at, p));
-                out.extend_from_slice(
-                    &[b"</".as_slice(), p, b"sheetView></", p, b"sheetViews>"].concat(),
-                );
-                Ok(out)
+        VIEWS => {
+            // The created view takes the view settings by the settings pass's
+            // merge (`specs/0025-sheet-and-print-settings.md`, "The calls").
+            let base = [b"<".as_slice(), p, b"sheetView workbookViewId=\"0\"/>"].concat();
+            let tag = view_tag(work, &base, index)?;
+            let mut out = [b"<".as_slice(), p, b"sheetViews>"].concat();
+            match work.pane {
+                Some(Some(at)) => {
+                    out.extend_from_slice(&opened_up(&tag, index)?);
+                    out.extend_from_slice(&pane_elements(at, p));
+                    out.extend_from_slice(&[b"</".as_slice(), p, b"sheetView>"].concat());
+                }
+                _ if view_edit(work).1 => out.extend_from_slice(&tag),
+                _ => return Ok(Vec::new()),
             }
-            _ => Ok(Vec::new()),
-        },
+            out.extend_from_slice(&[b"</".as_slice(), p, b"sheetViews>"].concat());
+            Ok(out)
+        }
         COLS => {
             let (content, any) = cols_content(&[], &work.columns, p, index)?;
             if !any {
@@ -11530,12 +11718,12 @@ fn rewrite_worksheet_from(
     // Which of `CREATED` the write touches, which it must create when the
     // part lacks it, and which the pass has met or created.
     let touched = [
-        work.pane.is_some(),
+        work.pane.is_some() || view_edit(work).0,
         !work.columns.is_empty(),
         !work.merges.is_empty() || !work.unmerges.is_empty(),
     ];
     let needed = [
-        matches!(work.pane, Some(Some(_))),
+        matches!(work.pane, Some(Some(_))) || view_edit(work).1,
         work.columns
             .iter()
             .any(|(_, format)| format.writes_when_absent()),
@@ -11567,6 +11755,8 @@ fn rewrite_worksheet_from(
     let mut drawing = ElementPass::new(DRAWING_ELEMENT, work.drawing.as_deref());
     #[cfg(feature = "comments")]
     let mut legacy = ElementPass::new(LEGACY_DRAWING, work.legacy.as_deref());
+    #[cfg(feature = "sheetprops")]
+    let mut settings = SettingsPass::new(&work.settings);
 
     while let Some(token) = stream.next()? {
         match token.event {
@@ -11580,6 +11770,18 @@ fn rewrite_worksheet_from(
                 // write adds (`specs/0021-tables.md`, decision 4 A).
                 #[cfg(feature = "tables")]
                 tables.observe(token.raw, (local, ours, depth), &work.unmerges, index)?;
+                // Inside a held `<sheetPr>`: its children are the settings
+                // pass's (`specs/0025-sheet-and-print-settings.md`, "The
+                // pass").
+                #[cfg(feature = "sheetprops")]
+                if settings.held.is_some() {
+                    settings.child(token.raw, local, ours, depth);
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
                 // Inside a held `<hyperlinks>`: its children are the links
                 // pass's (`specs/0019-names-links-properties-protection.md`).
                 #[cfg(feature = "metadata")]
@@ -11641,6 +11843,19 @@ fn rewrite_worksheet_from(
                     // element met twice or after it was created (P1 ruling
                     // 2).
                     if let Some(position) = schema_position(local) {
+                        // The settings elements: the refusal of one met twice
+                        // or out of order, and the creation of one before
+                        // every element above (`specs/0025-sheet-and-print-
+                        // settings.md`, "The pass").
+                        #[cfg(feature = "sheetprops")]
+                        {
+                            settings.observe(local, position)?;
+                            out.write_all(&settings.create_before(
+                                position,
+                                &root_prefix,
+                                index,
+                            )?)?;
+                        }
                         for which in 0..CREATED.len() {
                             let at = schema_position(CREATED[which]).unwrap_or(0);
                             // A created `<sheetProtection>` goes in its
@@ -11704,6 +11919,27 @@ fn rewrite_worksheet_from(
                     }
                     scope.end();
                     depth -= 1;
+                    continue;
+                }
+                // The part's `<sheetPr>`, held to its end tag and rewritten
+                // (`specs/0025-sheet-and-print-settings.md`, "The pass").
+                #[cfg(feature = "sheetprops")]
+                if root && depth == 2 && ours && local == SHEET_PR && settings.touches_sheet_pr() {
+                    let held = Held {
+                        depth,
+                        start: token.raw.to_vec(),
+                        empty,
+                        name: start.name().into_inner().as_bytes().to_vec(),
+                        prefix: prefix_of(start),
+                        children: Vec::new(),
+                    };
+                    if empty {
+                        out.write_all(&settings.sheet_pr_written(held, index)?)?;
+                        scope.end();
+                        depth -= 1;
+                    } else {
+                        settings.held = Some(held);
+                    }
                     continue;
                 }
                 // The part's `<sheetProtection>`: replaced whole or dropped,
@@ -11801,8 +12037,12 @@ fn rewrite_worksheet_from(
                     let links_needed = links_needed || work.legacy.is_some();
                     #[cfg(feature = "images")]
                     let links_needed = links_needed || work.drawing.is_some();
+                    #[cfg(feature = "sheetprops")]
+                    let links_needed = links_needed || settings.needs_sheet_pr();
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
+                        #[cfg(feature = "sheetprops")]
+                        out.write_all(&settings.create_before(usize::MAX, &root_prefix, index)?)?;
                         for which in 0..CREATED.len() {
                             #[cfg(feature = "metadata")]
                             if schema_position(CREATED[which]).unwrap_or(0)
@@ -11909,20 +12149,25 @@ fn rewrite_worksheet_from(
                 {
                     has_view = true;
                     let prefix = prefix_of(start);
+                    // Its attributes with the view settings merged
+                    // (`specs/0025-sheet-and-print-settings.md`, "The pass").
+                    let raw = view_tag(work, token.raw, index)?;
                     match (work.pane, empty) {
                         (Some(Some(at)), true) => {
-                            out.write_all(&opened_up(token.raw, index)?)?;
+                            out.write_all(&opened_up(&raw, index)?)?;
                             out.write_all(&pane_elements(at, &prefix))?;
                             out.write_all(b"</")?;
                             out.write_all(start.name().into_inner().as_bytes())?;
                             out.write_all(b">")?;
                         }
                         (pane, _) => {
-                            out.write_all(token.raw)?;
+                            out.write_all(&raw)?;
                             if let Some(Some(at)) = pane {
                                 out.write_all(&pane_elements(at, &prefix))?;
                             }
-                            if !empty {
+                            // Its pane and selections go only for a freeze or
+                            // an unfreeze.
+                            if !empty && pane.is_some() {
                                 first_view = Some(depth);
                             }
                         }
@@ -12125,6 +12370,13 @@ fn rewrite_worksheet_from(
                 }
             }
             Event::End(_) => {
+                #[cfg(feature = "sheetprops")]
+                if let Some(bytes) = settings.end(token.raw, depth, index)? {
+                    out.write_all(&bytes)?;
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 #[cfg(feature = "metadata")]
                 if let Some(bytes) = links.held(token.raw, Some(depth), index)? {
                     out.write_all(&bytes)?;
@@ -12221,6 +12473,12 @@ fn rewrite_worksheet_from(
                             } else if depth == 1 {
                                 // The root's end: whatever the write needs and
                                 // the part still lacks goes here.
+                                #[cfg(feature = "sheetprops")]
+                                out.write_all(&settings.create_before(
+                                    usize::MAX,
+                                    &root_prefix,
+                                    index,
+                                )?)?;
                                 for which in 0..CREATED.len() {
                                     #[cfg(feature = "metadata")]
                                     if schema_position(CREATED[which]).unwrap_or(0)
@@ -12278,6 +12536,10 @@ fn rewrite_worksheet_from(
                 depth -= 1;
             }
             _ => {
+                #[cfg(feature = "sheetprops")]
+                if settings.other(token.raw, depth) {
+                    continue;
+                }
                 #[cfg(feature = "metadata")]
                 if links.held(token.raw, None, index)?.is_some() {
                     continue;
@@ -12720,6 +12982,415 @@ fn sheet_protection_element(
     }
     out.extend_from_slice(b"/>");
     out
+}
+
+/// The settings of a worksheet's first `<sheetView>` that
+/// [`Package::set_sheet_view`] writes, each `Some` field as its attribute
+/// and each `None` field leaving the file's as it is
+/// (`specs/0025-sheet-and-print-settings.md`, "Types"). Which sheet is
+/// selected (`tabSelected`) and which window the view belongs to
+/// (`workbookViewId`) are the workbook's and not modelled. The Cargo
+/// feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SheetView {
+    /// `zoomScale`, a percentage in `10..=400`.
+    pub zoom: Option<u32>,
+    /// `showGridLines`.
+    pub show_grid_lines: Option<bool>,
+    /// `showRowColHeaders`: the row and column headings.
+    pub show_headings: Option<bool>,
+    /// `showZeros`.
+    pub show_zeros: Option<bool>,
+    /// `showFormulas`: formulas shown in place of their values.
+    pub show_formulas: Option<bool>,
+    /// `rightToLeft`.
+    pub right_to_left: Option<bool>,
+    /// `view`.
+    pub view: Option<ViewKind>,
+}
+
+/// A sheet view's kind, the `view` attribute's three values. The Cargo
+/// feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ViewKind {
+    /// `normal`.
+    #[default]
+    Normal,
+    /// `pageBreakPreview`.
+    PageBreakPreview,
+    /// `pageLayout`.
+    PageLayout,
+}
+
+#[cfg(feature = "sheetprops")]
+impl ViewKind {
+    fn keyword(self) -> &'static [u8] {
+        match self {
+            Self::Normal => b"normal",
+            Self::PageBreakPreview => b"pageBreakPreview",
+            Self::PageLayout => b"pageLayout",
+        }
+    }
+}
+
+#[cfg(feature = "sheetprops")]
+impl SheetView {
+    /// These fields with each `Some` field of `later` in its place.
+    fn then(self, later: &SheetView) -> SheetView {
+        SheetView {
+            zoom: later.zoom.or(self.zoom),
+            show_grid_lines: later.show_grid_lines.or(self.show_grid_lines),
+            show_headings: later.show_headings.or(self.show_headings),
+            show_zeros: later.show_zeros.or(self.show_zeros),
+            show_formulas: later.show_formulas.or(self.show_formulas),
+            right_to_left: later.right_to_left.or(self.right_to_left),
+            view: later.view.or(self.view),
+        }
+    }
+
+    /// The attributes the `Some` fields write, in the order ECMA-376 Part
+    /// 1, 18.3.1.87 gives them, a flag as `1` or `0`.
+    fn attributes(&self) -> Vec<(&'static [u8], Vec<u8>)> {
+        let flag = |on: bool| if on { b"1".to_vec() } else { b"0".to_vec() };
+        let mut out: Vec<(&'static [u8], Vec<u8>)> = Vec::new();
+        for (name, value) in [
+            (b"showFormulas".as_slice(), self.show_formulas),
+            (b"showGridLines", self.show_grid_lines),
+            (b"showRowColHeaders", self.show_headings),
+            (b"showZeros", self.show_zeros),
+            (b"rightToLeft", self.right_to_left),
+        ] {
+            if let Some(on) = value {
+                out.push((name, flag(on)));
+            }
+        }
+        if let Some(view) = self.view {
+            out.push((b"view", view.keyword().to_vec()));
+        }
+        if let Some(zoom) = self.zoom {
+            out.push((b"zoomScale", zoom.to_string().into_bytes()));
+        }
+        out
+    }
+}
+
+/// One worksheet's sheet settings in one write
+/// (`specs/0025-sheet-and-print-settings.md`, "The pass"). The Cargo feature
+/// `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Default)]
+struct Settings {
+    /// `Some(Some(colour))` a tab colour, `Some(None)` its removal, `None`
+    /// no tab colour edit.
+    tab: Option<Option<Color>>,
+    /// The first `<sheetView>`'s fields, `None` when no call names them.
+    view: Option<SheetView>,
+}
+
+#[cfg(all(feature = "sheetprops", feature = "rowcol"))]
+impl Settings {
+    fn is_empty(&self) -> bool {
+        self.tab.is_none() && self.view.is_none()
+    }
+}
+
+/// `<sheetPr>`'s name, and its children in the order ECMA-376 Part 1,
+/// 18.3.1.82 gives them.
+#[cfg(feature = "sheetprops")]
+const SHEET_PR: &[u8] = b"sheetPr";
+#[cfg(feature = "sheetprops")]
+const SHEET_PR_CHILDREN: [&[u8]; 3] = [b"tabColor", b"outlinePr", b"pageSetUpPr"];
+
+/// The one attribute-merge routine of the settings pass
+/// (`specs/0025-sheet-and-print-settings.md`, "The pass", decision 2 A): a
+/// start tag with each of `set` written first, in the order given, which is
+/// the schema's, and every other attribute after them, byte for byte and in
+/// its order; an attribute is one of `set`'s when its unprefixed name is.
+/// The element's name and whether its tag is empty are kept, and with
+/// nothing to set the tag is returned as it is.
+#[cfg(feature = "sheetprops")]
+fn merged_tag(raw: &[u8], set: &[(&[u8], Vec<u8>)], index: usize) -> Result<Vec<u8>, Error> {
+    if set.is_empty() {
+        return Ok(raw.to_vec());
+    }
+    let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
+    let mut out = raw[..tag.name_end].to_vec();
+    for (name, value) in set {
+        out.push(b' ');
+        out.extend_from_slice(name);
+        out.extend_from_slice(b"=\"");
+        out.extend_from_slice(value);
+        out.push(b'"');
+    }
+    for attribute in &tag.attributes {
+        let name = &raw[attribute.name.clone()];
+        if set.iter().any(|(given, _)| *given == name) {
+            continue;
+        }
+        out.push(b' ');
+        // The closing quote follows the value.
+        out.extend_from_slice(&raw[attribute.name.start..=attribute.value.end]);
+    }
+    out.extend_from_slice(if raw.ends_with(b"/>") {
+        b"/>".as_slice()
+    } else {
+        b">"
+    });
+    Ok(out)
+}
+
+/// A first `<sheetView>`'s start tag with the part's view settings merged.
+#[cfg(feature = "sheetprops")]
+fn view_tag(work: &SheetWork, raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    match &work.settings.view {
+        Some(view) => merged_tag(raw, &view.attributes(), index),
+        None => Ok(raw.to_vec()),
+    }
+}
+
+/// A first `<sheetView>`'s start tag as it is, without the feature
+/// `sheetprops`.
+#[cfg(not(feature = "sheetprops"))]
+fn view_tag(_: &SheetWork, raw: &[u8], _: usize) -> Result<Vec<u8>, Error> {
+    Ok(raw.to_vec())
+}
+
+/// Whether the write edits the part's first `<sheetView>`'s attributes, and
+/// whether it sets any, which creates a `<sheetViews>` the part lacks.
+#[cfg(feature = "sheetprops")]
+fn view_edit(work: &SheetWork) -> (bool, bool) {
+    match &work.settings.view {
+        Some(view) => (true, !view.attributes().is_empty()),
+        None => (false, false),
+    }
+}
+
+/// No view edit, without the feature `sheetprops`.
+#[cfg(not(feature = "sheetprops"))]
+fn view_edit(_: &SheetWork) -> (bool, bool) {
+    (false, false)
+}
+
+/// An element the settings pass holds to its end tag: its start tag,
+/// whether that tag was empty, its qualified name, its prefix and its
+/// children so far. The Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+struct Held {
+    depth: usize,
+    start: Vec<u8>,
+    empty: bool,
+    name: Vec<u8>,
+    prefix: Vec<u8>,
+    children: Vec<HeldChild>,
+}
+
+/// One piece of a held element's content.
+#[cfg(feature = "sheetprops")]
+enum HeldChild {
+    /// A child element of the main namespace: its local name and its bytes,
+    /// start tag to end tag.
+    Element { local: Vec<u8>, bytes: Vec<u8> },
+    /// Anything else: text between the children, a comment, an element of
+    /// another namespace with its content.
+    Other(Vec<u8>),
+}
+
+#[cfg(feature = "sheetprops")]
+impl HeldChild {
+    fn bytes(&mut self) -> &mut Vec<u8> {
+        match self {
+            Self::Element { bytes, .. } | Self::Other(bytes) => bytes,
+        }
+    }
+
+    fn is(&self, name: &[u8]) -> bool {
+        matches!(self, Self::Element { local, .. } if local.as_slice() == name)
+    }
+}
+
+/// The settings pass of a worksheet rewrite
+/// (`specs/0025-sheet-and-print-settings.md`, "The pass"): the part's
+/// `<sheetPr>` held to its end tag and rewritten, or created in schema
+/// position with the root's prefix, and the refusal of one met twice or out
+/// of schema order. The first `<sheetView>`'s attributes go through the same
+/// merge routine where the rewrite meets that element ([`view_tag`]). The
+/// Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+struct SettingsPass<'w> {
+    work: &'w Settings,
+    /// Whether the part's `<sheetPr>` has been met or created.
+    sheet_pr_met: bool,
+    /// The greatest place in [`WORKSHEET_CHILDREN`] of a root child met.
+    last: Option<usize>,
+    /// The `<sheetPr>` being read.
+    held: Option<Held>,
+}
+
+#[cfg(feature = "sheetprops")]
+impl<'w> SettingsPass<'w> {
+    fn new(work: &'w Settings) -> Self {
+        Self {
+            work,
+            sheet_pr_met: false,
+            last: None,
+            held: None,
+        }
+    }
+
+    /// Whether the write edits the part's `<sheetPr>`.
+    fn touches_sheet_pr(&self) -> bool {
+        self.work.tab.is_some()
+    }
+
+    /// Whether the write creates a `<sheetPr>` the part lacks.
+    fn needs_sheet_pr(&self) -> bool {
+        matches!(self.work.tab, Some(Some(_)))
+    }
+
+    /// A root child of the main namespace met at `position` in
+    /// [`WORKSHEET_CHILDREN`]: a `<sheetPr>` the write edits is refused when
+    /// it is the second, or comes after a root child the schema puts after
+    /// it, which is also the case of one met after the write created one.
+    fn observe(&mut self, local: &[u8], position: usize) -> Result<(), Error> {
+        if local == SHEET_PR && self.touches_sheet_pr() {
+            if self.sheet_pr_met || self.last.is_some_and(|last| last > position) {
+                return Err(TWO_SETTINGS);
+            }
+            self.sheet_pr_met = true;
+        }
+        self.last = Some(self.last.map_or(position, |last| last.max(position)));
+        Ok(())
+    }
+
+    /// The elements the write creates before a root child at `position`,
+    /// or at the root's end for `usize::MAX`, with the root's `prefix`.
+    fn create_before(
+        &mut self,
+        position: usize,
+        prefix: &[u8],
+        index: usize,
+    ) -> Result<Vec<u8>, Error> {
+        let at = schema_position(SHEET_PR).unwrap_or(0);
+        if self.needs_sheet_pr() && !self.sheet_pr_met && at < position {
+            self.sheet_pr_met = true;
+            let name = [prefix, SHEET_PR].concat();
+            let held = Held {
+                depth: 0,
+                start: [b"<".as_slice(), &name, b"/>"].concat(),
+                empty: true,
+                name,
+                prefix: prefix.to_vec(),
+                children: Vec::new(),
+            };
+            return self.sheet_pr_written(held, index);
+        }
+        Ok(Vec::new())
+    }
+
+    /// A token inside the held `<sheetPr>` at `depth`, a start or empty tag
+    /// of local name `local`: a child of its own one deeper, or more of the
+    /// child it is inside.
+    fn child(&mut self, raw: &[u8], local: &[u8], ours: bool, depth: usize) {
+        if let Some(held) = self.held.as_mut() {
+            if depth == held.depth + 1 {
+                held.children.push(if ours {
+                    HeldChild::Element {
+                        local: local.to_vec(),
+                        bytes: raw.to_vec(),
+                    }
+                } else {
+                    HeldChild::Other(raw.to_vec())
+                });
+            } else if let Some(last) = held.children.last_mut() {
+                last.bytes().extend_from_slice(raw);
+            }
+        }
+    }
+
+    /// Any token other than a tag while a `<sheetPr>` is held: text between
+    /// its children is a piece of its own, anything deeper belongs to the
+    /// child it is in. Whether the pass took it.
+    fn other(&mut self, raw: &[u8], depth: usize) -> bool {
+        let Some(held) = self.held.as_mut() else {
+            return false;
+        };
+        match held.children.last_mut() {
+            Some(last) if depth > held.depth => last.bytes().extend_from_slice(raw),
+            _ => held.children.push(HeldChild::Other(raw.to_vec())),
+        }
+        true
+    }
+
+    /// An end tag at `depth` while a `<sheetPr>` is held: the rewritten
+    /// element at its own end, nothing at a child's, which joins the child;
+    /// `None` when nothing is held.
+    fn end(&mut self, raw: &[u8], depth: usize, index: usize) -> Result<Option<Vec<u8>>, Error> {
+        let Some(held) = self.held.as_mut() else {
+            return Ok(None);
+        };
+        if depth == held.depth {
+            return match self.held.take() {
+                Some(held) => self.sheet_pr_written(held, index).map(Some),
+                None => Ok(None),
+            };
+        }
+        match held.children.last_mut() {
+            Some(last) => last.bytes().extend_from_slice(raw),
+            None => held.children.push(HeldChild::Other(raw.to_vec())),
+        }
+        Ok(Some(Vec::new()))
+    }
+
+    /// A held `<sheetPr>` with the tab colour edit applied: the part's
+    /// `<tabColor>` dropped, the edit's placed before the first child the
+    /// schema puts after it, every other attribute and child kept; nothing
+    /// when the element is left with no attribute and no child.
+    fn sheet_pr_written(&self, held: Held, index: usize) -> Result<Vec<u8>, Error> {
+        let mut children = held.children;
+        if self.work.tab.is_some() {
+            children.retain(|child| !child.is(SHEET_PR_CHILDREN[0]));
+        }
+        if let Some(Some(color)) = &self.work.tab {
+            let at = children
+                .iter()
+                .position(|child| SHEET_PR_CHILDREN[1..].iter().any(|name| child.is(name)))
+                .unwrap_or(children.len());
+            children.insert(
+                at,
+                HeldChild::Element {
+                    local: SHEET_PR_CHILDREN[0].to_vec(),
+                    bytes: color_element("tabColor", color).element(&held.prefix),
+                },
+            );
+        }
+        let tag = scan_start_tag(&held.start).ok_or(Error::Xml(index))?;
+        let content = children.iter().any(|child| match child {
+            HeldChild::Other(bytes) => !bytes.iter().all(u8::is_ascii_whitespace),
+            HeldChild::Element { .. } => true,
+        });
+        if tag.attributes.is_empty() && !content {
+            return Ok(Vec::new());
+        }
+        if children.is_empty() {
+            let mut out = held.start;
+            if !held.empty {
+                out.extend_from_slice(&[b"</".as_slice(), &held.name, b">"].concat());
+            }
+            return Ok(out);
+        }
+        let mut out = if held.empty {
+            opened_up(&held.start, index)?
+        } else {
+            held.start
+        };
+        for mut child in children {
+            out.append(child.bytes());
+        }
+        out.extend_from_slice(&[b"</".as_slice(), &held.name, b">"].concat());
+        Ok(out)
+    }
 }
 
 /// The hyperlinks' part of a worksheet rewrite

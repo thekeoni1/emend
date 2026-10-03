@@ -49,6 +49,12 @@ comments = []
 # font in a cell, and with `comments` in a comment. Off by default, with no
 # dependency of its own, measured beside the core as `comments` is.
 richtext = []
+# The sheet and print settings of specs/0025-sheet-and-print-settings.md
+# (decision 1 A): the tab colour, the sheet view and, in later phases, the
+# print options, margins, page setup, headers and footers. Off by default,
+# with no dependency of its own, measured beside the core as `richtext` is;
+# the calls that write defined names need `metadata` too.
+sheetprops = []
 # The images of specs/0022-comments-and-images.md (decision 1 A): off by
 # default, with no dependency of its own, measured beside the core as
 # `comments` is.
