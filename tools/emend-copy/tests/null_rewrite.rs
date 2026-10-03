@@ -4558,3 +4558,98 @@ fn the_sheetview_sample_refuses_two_sheet_pr_and_leaves_nothing() {
         "--sheetview-sample",
     );
 }
+
+/// The edit sample's package with W's root binding `r` and holding `tail`
+/// after the one-cell `<sheetData>`. Fictional.
+fn pagesetup_specs(tail: &str) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><dimension ref=\"A1\"/>{A_CELL}{tail}</worksheet>"
+    );
+    let mut specs = cells_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_pagesetup_sample_sets_the_four_elements_and_keeps_the_rest() {
+    // `specs/0025-sheet-and-print-settings.md`, "Harness runs": the four
+    // elements created where W lacks them and merged where it has them,
+    // the relationship id and the other header children kept.
+    let header = "<oddHeader>&amp;Lemend&amp;R&amp;P of &amp;N</oddHeader><oddFooter>&amp;Cemend</oddFooter>";
+    for (label, tail, line, written) in [
+        (
+            "pagesetup-sample-created",
+            "<pageMargins left=\"0.7\"/>".to_string(),
+            "pagesetup\tprintOptions_before=0\tprintOptions_after=1\tpageMargins_before=1\
+             \tpageMargins_after=1\tpageSetup_before=0\tpageSetup_after=1\theaderFooter_before=0\
+             \theaderFooter_after=1\trid_kept=1\tfit_ok=1\tmargin_ok=1\torient_ok=1\theader_ok=1\
+             \tfooter_ok=1\thf_kept=0\tr_bound_before=1\n",
+            format!(
+                "<printOptions horizontalCentered=\"1\"/><pageMargins left=\"0.5\"/>\
+                 <pageSetup fitToWidth=\"1\" fitToHeight=\"0\" orientation=\"landscape\"/>\
+                 <headerFooter>{header}</headerFooter>"
+            ),
+        ),
+        (
+            "pagesetup-sample-kept",
+            "<printOptions gridLines=\"1\"/><pageMargins left=\"1\" right=\"1\" top=\"1\" \
+             bottom=\"1\" header=\"0.5\" footer=\"0.5\"/><pageSetup orientation=\"portrait\" \
+             r:id=\"rId1\"/><headerFooter differentFirst=\"1\"><oddHeader>old</oddHeader>\
+             <firstHeader>f</firstHeader></headerFooter>"
+                .to_string(),
+            "pagesetup\tprintOptions_before=1\tprintOptions_after=1\tpageMargins_before=1\
+             \tpageMargins_after=1\tpageSetup_before=1\tpageSetup_after=1\theaderFooter_before=1\
+             \theaderFooter_after=1\trid_kept=1\tfit_ok=1\tmargin_ok=1\torient_ok=1\theader_ok=1\
+             \tfooter_ok=1\thf_kept=1\tr_bound_before=1\n",
+            format!(
+                "<printOptions horizontalCentered=\"1\" gridLines=\"1\"/><pageMargins left=\"0.5\" \
+                 right=\"1\" top=\"1\" bottom=\"1\" header=\"0.5\" footer=\"0.5\"/><pageSetup \
+                 fitToWidth=\"1\" fitToHeight=\"0\" orientation=\"landscape\" r:id=\"rId1\"/>\
+                 <headerFooter differentFirst=\"1\">{header}<firstHeader>f</firstHeader></headerFooter>"
+            ),
+        ),
+    ] {
+        let specs = pagesetup_specs(&tail);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--pagesetup-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><sheetPr><pageSetUpPr \
+                 fitToPage=\"1\"/></sheetPr><dimension ref=\"A1\"/>{A_CELL}{written}</worksheet>"
+            ),
+            "the sheet"
+        );
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_pagesetup_sample_refuses_two_page_setups_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0025-sheet-and-print-settings.md`, "P2").
+    styled_run_refused(
+        "pagesetup-sample-two",
+        &pagesetup_specs("<pageSetup/><pageSetup/>"),
+        "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
+        "--pagesetup-sample",
+    );
+}

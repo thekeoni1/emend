@@ -481,6 +481,30 @@
 //!   `workbookViewId="0"`); a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer (two `<sheetPr>` on W, one out
 //!   of schema order, or two `<sheetViews>`).
+//! - `--pagesetup-sample`: the page setup sample of
+//!   `specs/0025-sheet-and-print-settings.md`, "Harness runs": on W, print
+//!   options centred horizontally, a left margin of 0.5, a page setup of
+//!   landscape fitted one page wide and automatic tall with fit to page
+//!   on, an odd header `HeaderFooter::section("emend", "", "&P of &N")` and
+//!   an odd footer `section("", "emend", "")`. The output is reopened and W
+//!   read by this tool's own pass over its tokens. One line: the word
+//!   `pagesetup` then, for each of `printOptions`, `pageMargins`,
+//!   `pageSetup` and `headerFooter`, `<name>_before` and `<name>_after` (W's
+//!   root children of that name), then `rid_kept` (1 when W's `<pageSetup>`
+//!   had a relationship id and keeps that attribute byte for byte, or had
+//!   none), `fit_ok` (1 when `<sheetPr>`'s `<pageSetUpPr>` carries
+//!   `fitToPage="1"` and `<pageSetup>` `fitToWidth="1"` and
+//!   `fitToHeight="0"`), `margin_ok` (`left="0.5"`), `orient_ok`
+//!   (`orientation="landscape"`), `header_ok` and `footer_ok` (1 when the
+//!   odd header and footer hold the two texts), `hf_kept` (the
+//!   `<headerFooter>` children other than those two, after the write) and
+//!   `r_bound_before`. COUNTS ONLY: the settings are this tool's constants
+//!   and no reference or text from the input is printed. Asserted: each
+//!   `_after` 1, `rid_kept`, the five flags 1, and the other
+//!   `<headerFooter>` children the same bytes in the same order as before;
+//!   a failure is exit 2 with the message and no output, and so is a
+//!   refusal by the layer (two of an element the sample sets on W, or one
+//!   out of schema order).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -505,10 +529,11 @@ use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
     COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentEntry, DRAWING,
-    ErrorStyle, HYPERLINK, IconSetKind, Image, LinkTarget, MAIN, Operator, PIVOT_TABLE, Package,
-    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView,
-    TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind,
-    legacy_password_hash, rels_part_source,
+    ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image, LinkTarget, MAIN, Operator,
+    Orientation, PIVOT_TABLE, Package, PageMargins, PageSetup, PrintOptions, Properties, Property,
+    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView, TABLE, Table, TableStyle,
+    TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
+    rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -524,7 +549,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
-| --richcomment-sample | --sheetview-sample]";
+| --richcomment-sample | --sheetview-sample | --pagesetup-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -608,6 +633,9 @@ enum Operation {
     RichcommentSample,
     /// A tab colour and a sheet view, and the counts.
     SheetviewSample,
+    /// Print options, margins, a page setup and a header and footer, and
+    /// the counts.
+    PagesetupSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -649,6 +677,7 @@ enum Error {
     RichtextSample(&'static str),
     RichcommentSample(&'static str),
     SheetviewSample(&'static str),
+    PagesetupSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -735,6 +764,9 @@ impl fmt::Display for Error {
             }
             Error::SheetviewSample(what) => {
                 write!(f, "the output's {what} is not what the sheet view implies")
+            }
+            Error::PagesetupSample(what) => {
+                write!(f, "the output's {what} is not what the page setup implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -864,6 +896,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::SheetviewSample,
+        ),
+        [input, output, flag] if flag == "--pagesetup-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::PagesetupSample,
         ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
@@ -999,6 +1036,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::SheetviewSample) {
         return sheetview_sample(input, output);
     }
+    if matches!(operation, Operation::PagesetupSample) {
+        return pagesetup_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1052,6 +1092,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::RichtextSample => unreachable!("the rich text sample has its own path"),
         Operation::RichcommentSample => unreachable!("the rich comment sample has its own path"),
         Operation::SheetviewSample => unreachable!("the sheet view sample has its own path"),
+        Operation::PagesetupSample => unreachable!("the page setup sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4816,6 +4857,280 @@ fn sheetview_read_back(
         return Err(Error::SheetviewSample("kept sheetView attributes"));
     }
     Ok((after, kept_after.len() as u64))
+}
+
+/// The four root children the page setup sample sets, by local name.
+const PAGE_ELEMENTS: [&[u8]; 4] = [
+    b"printOptions",
+    b"pageMargins",
+    b"pageSetup",
+    b"headerFooter",
+];
+
+/// What the page setup sample reads of W by this tool's own pass over its
+/// tokens: the count of each of [`PAGE_ELEMENTS`] among the root's
+/// main-namespace children, the start tags of the first of each (the
+/// `<headerFooter>`'s children as their local names and bytes), and the
+/// start tag of the first `<sheetPr>`'s `<pageSetUpPr>`.
+#[derive(Default)]
+struct PageFacts {
+    counts: [u64; 4],
+    tags: [Option<Vec<u8>>; 4],
+    hf_children: Vec<(Vec<u8>, Vec<u8>)>,
+    set_up_pr: Option<Vec<u8>>,
+}
+
+/// The page setup sample's reading of `part`.
+fn page_facts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<PageFacts, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    // The main-namespace root child open at depth 2, and whether it is the
+    // first of its name.
+    let mut open: Vec<u8> = Vec::new();
+    let mut first = false;
+    let mut sheet_prs = 0u64;
+    let mut facts = PageFacts::default();
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            if depth == 3
+                && open == b"headerFooter"
+                && first
+                && let Some((_, bytes)) = facts.hf_children.last_mut()
+            {
+                bytes.extend_from_slice(raw);
+            }
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            if depth == 3
+                && open == b"headerFooter"
+                && first
+                && let Some((_, bytes)) = facts.hf_children.last_mut()
+            {
+                bytes.extend_from_slice(raw);
+            }
+            continue;
+        }
+        depth += 1;
+        let main = MAIN.contains(&element_namespace(raw, &root).as_slice());
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            open = if main {
+                tag_local_name(raw).to_vec()
+            } else {
+                Vec::new()
+            };
+            first = false;
+            if open == b"sheetPr" {
+                sheet_prs += 1;
+            }
+            if let Some(at) = PAGE_ELEMENTS
+                .iter()
+                .position(|name| *name == open.as_slice())
+            {
+                facts.counts[at] += 1;
+                if facts.tags[at].is_none() {
+                    facts.tags[at] = Some(raw.to_vec());
+                    first = true;
+                }
+            }
+        } else if depth == 3 && main && open == b"headerFooter" && first {
+            facts
+                .hf_children
+                .push((tag_local_name(raw).to_vec(), raw.to_vec()));
+        } else if depth == 3
+            && main
+            && open == b"sheetPr"
+            && sheet_prs == 1
+            && tag_local_name(raw) == b"pageSetUpPr"
+            && facts.set_up_pr.is_none()
+        {
+            facts.set_up_pr = Some(raw.to_vec());
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(facts)
+}
+
+/// The relationship id attribute of a `<pageSetup>` start tag, as its
+/// bytes, when it has one: the attribute whose name ends `:id`.
+fn relationship_id(tag: Option<&[u8]>) -> Option<Vec<u8>> {
+    tag_attributes(tag?)
+        .into_iter()
+        .find(|(name, _)| name.ends_with(b":id"))
+        .map(|(_, bytes)| bytes)
+}
+
+/// The odd header and footer the page setup sample writes, as their
+/// elements' escaped text.
+const SAMPLE_HEADER: &[u8] = b"&amp;Lemend&amp;R&amp;P of &amp;N";
+const SAMPLE_FOOTER: &[u8] = b"&amp;Cemend";
+
+/// The `<headerFooter>` children other than the odd header and footer.
+fn other_hf_children(children: &[(Vec<u8>, Vec<u8>)]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    children
+        .iter()
+        .filter(|(local, _)| local != b"oddHeader" && local != b"oddFooter")
+        .cloned()
+        .collect()
+}
+
+/// Whether a `<headerFooter>` child named `local` holds exactly `text`.
+fn hf_text(children: &[(Vec<u8>, Vec<u8>)], local: &[u8], text: &[u8]) -> bool {
+    children.iter().any(|(name, bytes)| {
+        name == local
+            && bytes.ends_with(b">")
+            && bytes
+                .iter()
+                .position(|byte| *byte == b'>')
+                .and_then(|open| {
+                    let close = bytes.iter().rposition(|byte| *byte == b'<')?;
+                    Some(&bytes[open + 1..close] == text)
+                })
+                .unwrap_or(false)
+    })
+}
+
+/// The page setup sample (`specs/0025-sheet-and-print-settings.md`,
+/// "Harness runs", `--pagesetup-sample`): print options, a margin, a page
+/// setup and a header and footer on W, the output written and read back.
+/// A failure after the output is in place removes it; a refusal by the
+/// layer is exit 2 with no output.
+fn pagesetup_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let before = page_facts(&mut package, &part)?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    package.set_print_options(
+        &part,
+        &PrintOptions {
+            horizontal_centered: Some(true),
+            ..PrintOptions::default()
+        },
+    )?;
+    package.set_page_margins(
+        &part,
+        &PageMargins {
+            left: Some(0.5),
+            ..PageMargins::default()
+        },
+    )?;
+    package.set_page_setup(
+        &part,
+        &PageSetup {
+            orientation: Some(Orientation::Landscape),
+            fit_to_width: Some(1),
+            fit_to_height: Some(0),
+            fit_to_page: Some(true),
+            ..PageSetup::default()
+        },
+    )?;
+    package.set_header_footer(
+        &part,
+        &HeaderFooter {
+            odd_header: Some(HeaderFooter::section("emend", "", "&P of &N")),
+            odd_footer: Some(HeaderFooter::section("", "emend", "")),
+            ..HeaderFooter::default()
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = pagesetup_read_back(output, &part, &before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, kept) = checked?;
+    let mut pairs: Vec<(String, u64)> = Vec::new();
+    for (at, name) in PAGE_ELEMENTS.iter().enumerate() {
+        let name = String::from_utf8_lossy(name);
+        pairs.push((format!("{name}_before"), before.counts[at]));
+        pairs.push((format!("{name}_after"), after.counts[at]));
+    }
+    for (key, value) in [
+        ("rid_kept", 1),
+        ("fit_ok", 1),
+        ("margin_ok", 1),
+        ("orient_ok", 1),
+        ("header_ok", 1),
+        ("footer_ok", 1),
+        ("hf_kept", kept),
+        ("r_bound_before", u64::from(r_bound_before)),
+    ] {
+        pairs.push((key.to_string(), value));
+    }
+    let borrowed: Vec<(&str, u64)> = pairs
+        .iter()
+        .map(|(key, value)| (key.as_str(), *value))
+        .collect();
+    edit_line_named("pagesetup", &borrowed)
+}
+
+/// Reopens the page setup sample's output and asserts what
+/// `--pagesetup-sample` says it asserts; gives W's reading and the count of
+/// the other `<headerFooter>` children.
+fn pagesetup_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &PageFacts,
+) -> Result<(PageFacts, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = page_facts(&mut package, part)?;
+    if after.counts != [1; 4] {
+        return Err(Error::PagesetupSample(
+            "printOptions, pageMargins, pageSetup or headerFooter count",
+        ));
+    }
+    let tag = |at: usize| after.tags[at].as_deref().unwrap_or_default();
+    if relationship_id(before.tags[2].as_deref()) != relationship_id(after.tags[2].as_deref()) {
+        return Err(Error::PagesetupSample("pageSetup relationship id"));
+    }
+    let fit = after
+        .set_up_pr
+        .as_deref()
+        .is_some_and(|pr| tag_attribute(pr, b"fitToPage").as_deref() == Some(b"1".as_slice()))
+        && tag_attribute(tag(2), b"fitToWidth").as_deref() == Some(b"1".as_slice())
+        && tag_attribute(tag(2), b"fitToHeight").as_deref() == Some(b"0".as_slice());
+    if !fit {
+        return Err(Error::PagesetupSample("fit to page"));
+    }
+    if tag_attribute(tag(1), b"left").as_deref() != Some(b"0.5".as_slice()) {
+        return Err(Error::PagesetupSample("left margin"));
+    }
+    if tag_attribute(tag(2), b"orientation").as_deref() != Some(b"landscape".as_slice()) {
+        return Err(Error::PagesetupSample("orientation"));
+    }
+    if tag_attribute(tag(0), b"horizontalCentered").as_deref() != Some(b"1".as_slice()) {
+        return Err(Error::PagesetupSample("horizontalCentered"));
+    }
+    if !hf_text(&after.hf_children, b"oddHeader", SAMPLE_HEADER) {
+        return Err(Error::PagesetupSample("odd header"));
+    }
+    if !hf_text(&after.hf_children, b"oddFooter", SAMPLE_FOOTER) {
+        return Err(Error::PagesetupSample("odd footer"));
+    }
+    let kept = other_hf_children(&after.hf_children);
+    if kept != other_hf_children(&before.hf_children) {
+        return Err(Error::PagesetupSample("other headerFooter children"));
+    }
+    Ok((after, kept.len() as u64))
 }
 
 /// Whether the part's root has a main-namespace child named `name`
