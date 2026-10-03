@@ -58,6 +58,11 @@ comments = ["emend", "xml", "emend/comments"]
 # alone (specs/0022-comments-and-images.md, "Size", under decision 1 A),
 # built with its own feature set as the comments probe is.
 images = ["emend", "xml", "emend/images"]
+# Enables emend's own `richtext` feature, for probe-emend-richtext-write-xml
+# alone, and with `comments` for probe-emend-richcomment-write-xml
+# (specs/0024-rich-text.md, "Size", under decision 1 A), each built with its
+# own feature set as the comments probe is.
+richtext = ["emend", "xml", "emend/richtext"]
 
 [[bin]]
 name = "probe-zip"
@@ -162,3 +167,13 @@ required-features = ["comments"]
 name = "probe-emend-images-write-xml"
 path = "src/bin/probe-emend-images-write-xml.rs"
 required-features = ["images"]
+
+[[bin]]
+name = "probe-emend-richtext-write-xml"
+path = "src/bin/probe-emend-richtext-write-xml.rs"
+required-features = ["richtext"]
+
+[[bin]]
+name = "probe-emend-richcomment-write-xml"
+path = "src/bin/probe-emend-richcomment-write-xml.rs"
+required-features = ["comments", "richtext"]
