@@ -1349,6 +1349,88 @@
 //! - None of this has been through an Excel check yet; what Excel shows for
 //!   a run is Excel's.
 //!
+//! Sheet and print settings add these, the Cargo feature `sheetprops`'s,
+//! the print area, the print titles and the autofilter with `metadata` too
+//! (`specs/0025-sheet-and-print-settings.md`, "Design", decisions 1 to 6,
+//! and the rulings of P1 to P3), the caller's picture:
+//!
+//! - What it touches: `Package::set_tab_color`,
+//!   `Package::set_sheet_view`, `Package::set_print_options`,
+//!   `Package::set_page_margins`, `Package::set_page_setup`,
+//!   `Package::set_header_footer` and `Package::set_auto_filter` are each
+//!   an edit in the worksheet's one rewrite, through the settings pass:
+//!   `<sheetPr>` (`<tabColor>` and `<pageSetUpPr>`), the first
+//!   `<sheetView>`, `<autoFilter>`, `<printOptions>`, `<pageMargins>`,
+//!   `<pageSetup>` and `<headerFooter>`, each element the write edits held
+//!   to its end tag and nothing else of the part. `Package::set_print_area`,
+//!   `Package::set_print_titles` and the autofilter's name rewrite the
+//!   workbook part's `<definedNames>` alone. Each call's fields stand until
+//!   a later call gives them; the part is never looked up at the call.
+//! - The attribute merge, for every element: the attributes a call sets
+//!   are written first, in the order the corpus's parts carry them, then
+//!   every other attribute the element has, each attribute's bytes kept
+//!   and the attributes in their order; the separators between them are
+//!   not kept (one space before each, none before the tag's end). A
+//!   prefixed attribute of the same local name is another attribute and is
+//!   kept. So `fitToPage` goes before a kept `autoPageBreaks`, and a
+//!   `<pageSetup>`'s `r:id` and a `<sheetView>`'s `tabSelected` survive.
+//! - What is created: an element the part lacks, in schema position among
+//!   the root's children and the other elements the rewrite creates, with
+//!   the root's prefix; a `<sheetViews>` holding `<sheetView
+//!   workbookViewId="0">`, as a freeze creates one; a `<pageMargins>` with
+//!   all six margins, Excel's default (0.7, 0.7, 0.75, 0.75, 0.3, 0.3) for
+//!   each not given. No corpus worksheet the samples edit lacks
+//!   `<sheetViews>`, `<pageMargins>` or `<pageSetup>`, so those created
+//!   paths are proven by the crate's and the tool's tests, and a created
+//!   `<pageMargins>` and `<pageSetup>` through the binary by M3 part 3
+//!   P2's negative log.
+//! - What is never written: `tabSelected`, `workbookViewId`,
+//!   `gridLinesSet`, `autoPageBreaks`, `outlinePr`, `cellComments`,
+//!   `errors`, `useFirstPageNumber` without a first page number, the
+//!   printer settings part, a filter's columns or sort state (a replaced
+//!   `<autoFilter>` keeps its other attributes and drops its children),
+//!   and an even or first header or footer text without its
+//!   `differentOddEven` or `differentFirst`; a `<sheetPr>` or a
+//!   `<headerFooter>` left with no attribute and no child is dropped.
+//! - The bounds: a zoom and a scale in `10..=400`, a paper size, a first
+//!   page number and copies at least 1, the fit counts any `u32`, margins
+//!   finite and at least zero, a tab colour's tint finite in `-1.0..=1.0`,
+//!   a header or footer text at most 255 characters; what Excel refuses
+//!   above these is Excel's.
+//! - Headers and footers: each text is the format's code string, escaped
+//!   and never parsed; `HeaderFooter::section` adds `&L`, `&C` and `&R`
+//!   before each part that is not empty and passes the parts through,
+//!   codes included, so a literal `&` is the caller's `&&`.
+//! - The built-in names: `_xlnm.Print_Area`, `_xlnm.Print_Titles` and
+//!   `_xlnm._FilterDatabase`, sheet-scoped, the last hidden, each
+//!   replacing the file's for that sheet; `Package::add_defined_name`
+//!   still refuses every `_xlnm.` name. The text is written with the
+//!   sheet's name as it is in the output's list: bare when it starts with
+//!   a letter or `_`, holds only letters, digits, `_` and `.`, and does
+//!   not name a cell, else quoted with an apostrophe doubled; an area as
+//!   two absolute corners, a one-cell area too; titles as whole columns
+//!   then whole rows, openpyxl's order; the text escaped by the defined
+//!   names' writer, an apostrophe as `&apos;`. The three are exempt from
+//!   the formula-change rule (no calculation chain dropped, no
+//!   `fullCalcOnLoad`), and a row or column shift in the same write never
+//!   adjusts them: a print area or titles edit beside a shift is written
+//!   as given; the autofilter, which rewrites the part, is refused beside
+//!   one.
+//! - What cannot be written: an autofilter whose area overlaps the `ref`
+//!   of a table of its part, or of a table the same write adds, "a table
+//!   overlaps a table, a pivot table, a merge or the autofilter"; two of
+//!   an element a call edits, or one out of schema order, the settings
+//!   message (part 3's for `<sheetViews>`).
+//! - What is read back: the defined names through
+//!   [`Package::workbook`], the built-in three among them; the typed
+//!   read-back of the settings (`sheet_view`, `page_setup` and the rest)
+//!   is Milestone 3 part 5's, and until then an element is read by a
+//!   caller's own pass over the part's tokens, as `emend-copy`'s samples
+//!   read them.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice, which does not show how a setting
+//!   renders; what Excel shows is Excel's.
+//!
 //! # What streams and what is held
 //!
 //! Measured on the generated scale workbooks of `specs/0023-scale.md`
