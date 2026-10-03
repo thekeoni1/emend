@@ -184,7 +184,9 @@ In `package`, feature `sheetprops`, each derived `Clone`, `Debug`,
   draft: Option<bool>, copies: Option<u32>, page_order:
   Option<PageOrder> }`; `Orientation { Portrait, Landscape }`,
   `PageOrder { DownThenOver, OverThenDown }`. `scale` 10 to 400;
-  `copies` at least 1; `fit_to_page` is `<pageSetUpPr fitToPage>`
+  `copies`, `paper_size` and `first_page_number` at least 1; the
+  fit counts any `u32`, 0 the format's "automatic" (P2 ruling 1);
+  `fit_to_page` is `<pageSetUpPr fitToPage>`
   under `<sheetPr>`, which is where the format keeps the switch
   the two `fitTo` counts depend on, so one call sets all three;
   `first_page_number` writes `useFirstPageNumber="1"` with it.
@@ -194,8 +196,10 @@ In `package`, feature `sheetprops`, each derived `Clone`, `Debug`,
   joins it, stored and escaped, never parsed; `HeaderFooter::
   section(left, center, right) -> String` builds one from three
   parts, writing `&L`, `&C`, `&R` before each non-empty part and
-  a literal `&` as `&&`. `differentOddEven` is written when an
-  even text is given, `differentFirst` when a first text is.
+  the parts as given, codes included; a caller writes a literal
+  `&` as `&&` itself (P2 ruling 2). `differentOddEven` is written
+  when an even text is given, `differentFirst` when a first text
+  is.
 
 ### The calls
 
@@ -270,8 +274,9 @@ One routine, "the settings pass", inside the worksheet rewrite of
 edit, the element is held whole to its end tag (bounded by its
 own size, never by the sheet's rows), its attributes read, the
 modelled ones replaced, the rest kept in their order, the modelled
-ones written first in the schema's attribute order and the kept
-ones after; its children kept, except the ones a call replaces
+ones written first in the order the corpus's parts carry them
+(P2 ruling 3) and the kept ones after; its children kept, except
+the ones a call replaces
 (`tabColor` and `pageSetUpPr` under `sheetPr`, the six texts under
 `headerFooter`, every child of a replaced `autoFilter`). An absent
 element is created in schema position by `specs/0018`'s rule and
@@ -289,10 +294,12 @@ Four new `Error::Package` messages, in the catalogue as the
 earlier parts' are, one constant each, marked by feature:
 
 `sheetprops`:
-- "a sheet setting is out of range" (at the call: zoom, scale,
-  copies, paper size, a page number, a fit count, a margin not
-  finite or below zero, a theme tab colour's tint not finite or
-  outside `-1.0..=1.0`; P1 verification ruling 1)
+- "a sheet setting is out of range" (at the call: a zoom or a
+  scale outside 10 to 400, a copies count, paper size or page
+  number of 0, a margin not finite or below zero, a theme tab
+  colour's tint not finite or outside `-1.0..=1.0`; P1
+  verification ruling 1 and P2 ruling 1; a fit count is never out
+  of range)
 - "a header or footer text is not valid" (at the call: a text
   over 255 characters, Excel's limit, or holding a forbidden
   character)
@@ -511,8 +518,9 @@ one; each header and footer child written and replaced, `Some("")`
 dropping one, `None` keeping one, `differentFirst` and
 `differentOddEven` set and kept; `section` with every part empty
 ("" written as no text), with an `&` in a part (`&&`), with codes
-in a part (passed through); the refusals (scale 9, copies 0, a
-negative margin, a NaN margin, a 256-character header, a
+in a part (passed through, a caller's `&&` among them); the
+refusals (scale 9 and 401, copies 0, paper size 0, page number 0,
+a negative margin, a NaN margin, a 256-character header, a
 forbidden character); the four elements all created in one write
 in schema order; the tool's line. The negative log through the
 binary: the sample on a fixture with two `<pageSetup>` (refused,
@@ -609,6 +617,46 @@ and the carry commit bf5e877, before any log.
    as corrected. A test pins a tab colour on a sheet added in the
    same write.
 
+## Planning rulings during P2 (2026-10-03)
+
+Asked by the implementing session after the doc commit cf70ada
+and the carry commit 688d059, before any log.
+
+1. Bounds. No figure without a primary goes into a rule, and the
+   32767 ceilings the implementing session remembers from Excel's
+   dialogs have none; the format types every one of these as an
+   unsigned integer and bounds none of them. Ruling: `scale` 10 to
+   400 (the one bound the design states, openpyxl's and Excel's);
+   `copies`, `paper_size` and `first_page_number` at least 1, since
+   0 names nothing; `fit_to_width` and `fit_to_height` any `u32`,
+   0 the format's "automatic"; margins finite and at least 0. No
+   upper bound beyond `u32`; what Excel refuses above these is
+   Excel's, and the catalogue says so. "Types" and "Errors" read
+   as corrected.
+2. `section` (option a): the three parts are passed through as
+   given, codes included; `section` adds only `&L`, `&C` and `&R`
+   before each non-empty part; a caller wanting a literal `&`
+   writes `&&` itself, as openpyxl's items are written. "Types"
+   and P2's test list read as corrected (the sentence "a literal
+   `&` as `&&`" was planning's, and conflicted with the sample).
+3. Attribute order. XML gives attributes no order and the schema
+   none either, so "the schema's attribute order" named nothing;
+   planning holds no copy of ECMA-376 and does not confirm an
+   order from memory. Ruling: the set attributes are written in
+   the order the corpus's parts carry them, read from the survey
+   of all 95 worksheet parts that P2's run log prints (names and
+   counts only): `printOptions` `headings`, `gridLines`,
+   `horizontalCentered`, `verticalCentered`; `pageMargins` `left`,
+   `right`, `top`, `bottom`, `header`, `footer`; `headerFooter`
+   `differentFirst`, `differentOddEven`; `pageSetUpPr`
+   `autoPageBreaks` (never written by this part) then `fitToPage`;
+   `pageSetup` in the order the survey shows for the attributes
+   this part writes, `firstPageNumber` and `useFirstPageNumber`
+   after the ones the corpus puts before them. An attribute the
+   corpus never writes takes the place the implementing session's
+   listing gives it, and the test that pins each element's bytes
+   is the order's record. "The pass" reads as corrected.
+
 ## Planning verification and rulings on P1 (2026-10-03)
 
 Verified by planning from primaries: the doc commit e5f998a holds
@@ -684,6 +732,68 @@ commits, 0 findings; `ANTHROPIC_API_KEY` unset.
    `ROADMAP.md`'s P1 row; its first code commit is ruling 2's
    items (the `//` wording fix and the view-only test); then
    "P2: print options, margins, page setup, headers and footers".
+
+## Planning verification and rulings on P2 (2026-10-03)
+
+Verified by planning from primaries: the doc commit cf70ada holds
+this file at 6c6e87e3 and `ROADMAP.md` at 75e558a2, the hashes
+planning sent; the carry commit 688d059 changes `///` lines alone
+in `package.rs` (0 other lines) and adds the view-only test with
+its control; the crate commit 791a794 and the tool commit a6cf46f
+read in full by planning; the record commit 25f9bba adds the six
+logs and four records; 5 of 5 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS, every log pinning
+6c6e87e3 and printing 75fed424 as planning's working copy; the
+compound-shape grep 0; every `rm -rf` in the logs the guarded
+form on a directory the script made or `counting.sh`'s own;
+planning's own build at a6cf46f in a detached worktree: 513 crate
+tests with the feature off, 540 with it on and 785 with every
+feature, on both targets, 960 workspace tests on both, clippy and
+doc 0 lines; the i686 release `emend-copy` at the run log's hash
+95fdca42 (the host's differs by build path); planning's own run of
+`--pagesetup-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own privacy
+scan 138fe80..25f9bba, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. C3, `pageSetUpPr`: the code's reading is right. "The pass"
+   puts the set attributes first and the kept ones after, for
+   every element; ruling 3's listing of `pageSetUpPr` described
+   the order the corpus writes the two, not an exception for a
+   kept attribute, and `autoPageBreaks` is never set by this
+   part, so a set `fitToPage` goes first and a kept
+   `autoPageBreaks` after it on the 31 parts that carry both.
+   Accepted; P4's catalogue says "set first, kept after" once for
+   every element.
+2. C1 and C5 (the replace test's `<headerFooter>` lacking
+   `differentOddEven`, which another test keeps; the length
+   refusal tested on a footer): accepted, the coverage is there.
+   C2, creation relative to other created elements tested only
+   against `<mergeCells>`: a test with a created `<hyperlinks>`
+   and a created `<drawing>` in the same write, the four elements
+   landing between them in schema order, goes in P3's first code
+   commit. C4: the two catalogue sentences (separators not kept;
+   what Excel refuses above the bounds is Excel's) go in P4's
+   catalogue with the rest, as "P4" says.
+3. The log reservations: the survey's part lines carry workbook
+   ids, which the corpus rules allow (ids, counts and names;
+   never content), accepted; the run log's change list keeps its
+   history entry with the correction, accepted as at P1.
+4. The report's correction (the created `<pageMargins>` and
+   `<pageSetup>` paths are reached through the binary by the
+   negative log's controls, their default bytes proven by the
+   crate test and its plant): accepted as corrected. The
+   disclosures (the FACTS miscount; a hung command whose patch
+   applied after the kill, checked before any further edit, and
+   a stray empty file of its own removed; the run script rerun by
+   hand before the logged run after a fork's fix): working state,
+   none touching a primary; accepted.
+5. P2 is DONE. P3 is released: its doc commit carries this file
+   with "Planning rulings during P2" and this section, and
+   `ROADMAP.md`'s P2 row; its first code commit is ruling 2's
+   test; then "P3: the print area, the print titles, the
+   autofilter".
 
 ## Decisions for the maintainer
 
