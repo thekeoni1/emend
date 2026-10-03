@@ -1324,6 +1324,8 @@ use crate::archive::{Archive, Core, Edits, Error, Replacement, TempFile, replace
 use crate::cells::{
     Area, CellRef, Cells, SharedStrings, Value, decimal, forbidden_in_xml, number_text,
 };
+#[cfg(all(feature = "comments", feature = "richtext"))]
+use crate::cells::{Collect, RichText, Runs};
 use crate::styles::{
     Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
     Styles, counted, num_fmt_element, scan_start_tag,
@@ -3140,6 +3142,15 @@ pub struct CommentEntry {
     /// Every `t` descendant of the comment's `text`, in document order,
     /// runs flattened.
     pub text: String,
+    /// The runs of the comment's `text` when it holds at least one `<r>`,
+    /// else `None`, read as a cell's inline string's runs are: an `<rPr>`
+    /// through the one reader, a run with no text dropped and a `text` whose
+    /// every run is empty giving `None`, an `<rPh>` skipped
+    /// (`specs/0024-rich-text.md`, "Comments"). [`CommentEntry::text`] stays
+    /// every `t` descendant, so the two differ only by a phonetic run's text.
+    /// The Cargo features `comments` and `richtext`.
+    #[cfg(feature = "richtext")]
+    pub runs: Option<RichText>,
 }
 
 /// One worksheet part's comment edits, as the write resolves them in record
@@ -3165,12 +3176,17 @@ struct LegacyWork {
     strict: bool,
 }
 
-/// A comment to add, as [`Package::add_comment`] checked it.
+/// A comment to add, as [`Package::add_comment`] or, with the Cargo feature
+/// `richtext`, [`Package::add_rich_comment`] checked it: `text` the
+/// flattened text, and `runs` the runs written in its place when the comment
+/// is rich.
 #[cfg(feature = "comments")]
 #[derive(Clone)]
 struct NewComment {
     author: String,
     text: String,
+    #[cfg(feature = "richtext")]
+    runs: Option<RichText>,
 }
 
 /// An image as a caller gives it to [`Package::add_image`]
@@ -5227,6 +5243,37 @@ impl<R: Read + Seek> Package<R> {
         self.parts().add_comment(part, cell, comment)
     }
 
+    /// Records a comment by `author` whose text is `text`'s runs on `cell` of
+    /// the worksheet part `part`. The Cargo features `comments` and
+    /// `richtext` (`specs/0024-rich-text.md`, "Comments").
+    ///
+    /// [`Package::add_comment`] with the comment's `<text>` holding one `<r>`
+    /// per run, in order: the run's `<rPr>` first when it has a font, written
+    /// as a rich cell value's is, then its `<t>`, with `xml:space="preserve"`
+    /// when the run's text begins or ends with whitespace. The author rule,
+    /// the replacement of a kept comment, the parts, the note shape and
+    /// [`Package::remove_comment`] are `add_comment`'s.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: what
+    /// [`Package::add_comment`] refuses at the call, the text rules applied
+    /// to the runs: "a text holds a character XML cannot carry" for a run's
+    /// text holding one; "a comment text is not valid" for no run, a run
+    /// with no text, or runs whose texts together pass 32767 characters; and
+    /// a run's font [`Package::add_style`] would refuse, with its messages.
+    /// The write refuses what [`Package::add_comment`] says it refuses.
+    #[cfg(all(feature = "comments", feature = "richtext"))]
+    pub fn add_rich_comment(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        author: &str,
+        text: &RichText,
+    ) -> Result<(), Error> {
+        self.parts().add_rich_comment(part, cell, author, text)
+    }
+
     /// Records the removal of the comment on `cell` of the worksheet part
     /// `part`. The Cargo feature `comments` (`specs/0022-comments-and-
     /// images.md`, "Comments: the calls").
@@ -6845,6 +6892,52 @@ impl<'a> Parts<'a> {
             Some(NewComment {
                 author: comment.author.to_string(),
                 text: comment.text.to_string(),
+                #[cfg(feature = "richtext")]
+                runs: None,
+            }),
+        ));
+        Ok(())
+    }
+
+    /// The body of [`Package::add_rich_comment`]: [`Parts::add_comment`]'s
+    /// checks on the author and on the flattened text, each run's text and
+    /// font checked as the cell write checks them, then the comment recorded
+    /// with its runs (`specs/0024-rich-text.md`, "Comments").
+    #[cfg(all(feature = "comments", feature = "richtext"))]
+    fn add_rich_comment(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        author: &str,
+        text: &RichText,
+    ) -> Result<(), Error> {
+        if !in_grid(cell) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let forbidden = |text: &str| text.chars().any(crate::cells::forbidden_in_xml);
+        if forbidden(author) || text.runs.iter().any(|run| forbidden(&run.text)) {
+            return Err(TEXT_NOT_XML);
+        }
+        if !(1..=255).contains(&author.chars().count()) {
+            return Err(COMMENT_AUTHOR_INVALID);
+        }
+        let flat = text.text();
+        if text.runs.is_empty()
+            || text.runs.iter().any(|run| run.text.is_empty())
+            || flat.chars().count() > 32767
+        {
+            return Err(COMMENT_TEXT_INVALID);
+        }
+        for font in text.runs.iter().filter_map(|run| run.font.as_ref()) {
+            font.check()?;
+        }
+        self.edits.comment_edits.push((
+            part.to_vec(),
+            cell,
+            Some(NewComment {
+                author: author.to_string(),
+                text: flat,
+                runs: Some(text.clone()),
             }),
         ));
         Ok(())
@@ -13913,7 +14006,8 @@ fn author_elements(authors: &[String], prefix: &[u8]) -> Vec<u8> {
 
 /// The `<comment>` elements for the additions, with `prefix`: one run with
 /// no properties, `xml:space="preserve"` on its `<t>` when the text begins
-/// or ends with whitespace.
+/// or ends with whitespace; with the Cargo feature `richtext`, a rich
+/// comment's runs, one `<r>` each.
 #[cfg(feature = "comments")]
 fn comment_elements(additions: &[(CellRef, NewComment)], ids: &[u64], prefix: &[u8]) -> Vec<u8> {
     let p = prefix;
@@ -13922,17 +14016,39 @@ fn comment_elements(additions: &[(CellRef, NewComment)], ids: &[u64], prefix: &[
         out.extend_from_slice(&[b"<".as_slice(), p, b"comment ref=\""].concat());
         out.extend_from_slice(cell.a1().as_bytes());
         out.extend_from_slice(format!("\" authorId=\"{id}\"><").as_bytes());
-        out.extend_from_slice(&[p, b"text><", p, b"t"].concat());
-        let space = |c: Option<char>| c.is_some_and(|c| matches!(c, ' ' | '\t' | '\n' | '\r'));
-        if space(comment.text.chars().next()) || space(comment.text.chars().last()) {
-            out.extend_from_slice(b" xml:space=\"preserve\"");
+        out.extend_from_slice(&[p, b"text>"].concat());
+        #[cfg(feature = "richtext")]
+        if let Some(rich) = &comment.runs {
+            for run in &rich.runs {
+                out.extend_from_slice(&[b"<".as_slice(), p, b"r>"].concat());
+                if let Some(font) = &run.font {
+                    out.extend_from_slice(&font.composed("rPr", "rFont").element(p));
+                }
+                out.extend_from_slice(&comment_t(&run.text, p));
+                out.extend_from_slice(&[b"</".as_slice(), p, b"r>"].concat());
+            }
+            out.extend_from_slice(&[b"</".as_slice(), p, b"text></", p, b"comment>"].concat());
+            continue;
         }
-        out.push(b'>');
-        out.extend_from_slice(&content_escaped(&comment.text));
-        out.extend_from_slice(
-            &[b"</".as_slice(), p, b"t></", p, b"text></", p, b"comment>"].concat(),
-        );
+        out.extend_from_slice(&comment_t(&comment.text, p));
+        out.extend_from_slice(&[b"</".as_slice(), p, b"text></", p, b"comment>"].concat());
     }
+    out
+}
+
+/// One `<t>` of a written comment holding `text`, with `prefix`:
+/// `xml:space="preserve"` when the text begins or ends with whitespace.
+#[cfg(feature = "comments")]
+fn comment_t(text: &str, prefix: &[u8]) -> Vec<u8> {
+    let p = prefix;
+    let mut out = [b"<".as_slice(), p, b"t"].concat();
+    let space = |c: Option<char>| c.is_some_and(|c| matches!(c, ' ' | '\t' | '\n' | '\r'));
+    if space(text.chars().next()) || space(text.chars().last()) {
+        out.extend_from_slice(b" xml:space=\"preserve\"");
+    }
+    out.push(b'>');
+    out.extend_from_slice(&content_escaped(text));
+    out.extend_from_slice(&[b"</".as_slice(), p, b"t>"].concat());
     out
 }
 
@@ -14131,6 +14247,13 @@ fn comments_appended(
 
 /// Reads a comments part into its entries (`specs/0022-comments-and-
 /// images.md`, "Comments: the calls"), streamed once.
+///
+/// With the Cargo feature `richtext` the walk also tells a comment's runs to
+/// the listener a cell's inline string has (`specs/0024-rich-text.md`,
+/// "Comments"): each `<r>` child of `<text>` opened and closed, its `<rPr>`
+/// read by the one reader, and each `<t>` with whether it is a run's; a
+/// `<t>` under an `<rPh>` child goes to the text, as it always has, and not
+/// to the runs, as a cell's phonetic run does not.
 #[cfg(feature = "comments")]
 fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Error> {
     let mut stream = Stream::new(input, index)?;
@@ -14144,6 +14267,17 @@ fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Er
     // depth of its `<text>` while that is open.
     let mut comment: Option<(CellRef, u64, String, Option<usize>)> = None;
     let mut entries: Vec<CommentEntry> = Vec::new();
+    // The open comment's runs, the texts given to them (the flattened text
+    // their first-run rule reads, which a phonetic run's text is not part
+    // of), whether a run is open, and the depth of an `<rPh>` being passed.
+    #[cfg(feature = "richtext")]
+    let mut runs = Collect::default();
+    #[cfg(feature = "richtext")]
+    let mut runs_text = String::new();
+    #[cfg(feature = "richtext")]
+    let mut in_run = false;
+    #[cfg(feature = "richtext")]
+    let mut phonetic: Option<usize> = None;
     while let Some(token) = stream.next()? {
         match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
@@ -14188,14 +14322,50 @@ fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Er
                         entries.push(comment_entry(cell, id, String::new(), &authors));
                     } else {
                         comment = Some((cell, id, String::new(), None));
+                        #[cfg(feature = "richtext")]
+                        {
+                            runs = Collect::default();
+                            runs_text.clear();
+                            in_run = false;
+                            phonetic = None;
+                        }
                     }
                 } else if let Some((_, _, text, inside)) = comment.as_mut() {
                     if depth == 4 && ours && local == b"text" {
                         *inside = (!empty).then_some(depth);
                     } else if inside.is_some() && ours && local == b"t" && !empty {
-                        text.push_str(&crate::cells::text_of(&mut stream, &mut scope, index)?);
+                        let read = crate::cells::text_of(&mut stream, &mut scope, index)?;
+                        #[cfg(feature = "richtext")]
+                        if phonetic.is_none() {
+                            runs.text(&read, in_run);
+                            runs_text.push_str(&read);
+                        }
+                        text.push_str(&read);
                         depth -= 1;
                         continue;
+                    }
+                    // A child of `<text>` the runs hear: an `<rPh>` passed,
+                    // an `<r>` opened, and the open run's `<rPr>` read.
+                    #[cfg(feature = "richtext")]
+                    if inside.is_some() && ours && phonetic.is_none() {
+                        if depth == 5 && local == b"rPh" && !empty {
+                            phonetic = Some(depth);
+                        } else if depth == 5 && local == b"r" {
+                            runs.open_run();
+                            if empty {
+                                runs.close_run();
+                            } else {
+                                in_run = true;
+                            }
+                        } else if depth == 6 && in_run && local == b"rPr" {
+                            runs.properties(&mut stream, &mut scope, index, empty)?;
+                            if !empty {
+                                // The reader consumed the `<rPr>` through its
+                                // end tag and gave it back to `scope`.
+                                depth -= 1;
+                                continue;
+                            }
+                        }
                     }
                 }
                 if empty {
@@ -14204,6 +14374,13 @@ fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Er
                 }
             }
             Event::End(_) => {
+                #[cfg(feature = "richtext")]
+                if phonetic == Some(depth) {
+                    phonetic = None;
+                } else if in_run && depth == 5 {
+                    in_run = false;
+                    runs.close_run();
+                }
                 if let Some((_, _, _, inside)) = comment.as_mut()
                     && *inside == Some(depth)
                 {
@@ -14211,7 +14388,13 @@ fn read_comments(input: impl Read, index: usize) -> Result<Vec<CommentEntry>, Er
                 } else if depth == 3
                     && let Some((cell, id, text, _)) = comment.take()
                 {
-                    entries.push(comment_entry(cell, id, text, &authors));
+                    let entry = comment_entry(cell, id, text, &authors);
+                    #[cfg(feature = "richtext")]
+                    let entry = CommentEntry {
+                        runs: std::mem::take(&mut runs).rich(&runs_text),
+                        ..entry
+                    };
+                    entries.push(entry);
                 } else if depth == 2 {
                     in_authors = false;
                     in_list = false;
@@ -14237,7 +14420,13 @@ fn comment_entry(cell: CellRef, id: u64, text: String, authors: &[String]) -> Co
         .and_then(|at| authors.get(at))
         .cloned()
         .unwrap_or_default();
-    CommentEntry { cell, author, text }
+    CommentEntry {
+        cell,
+        author,
+        text,
+        #[cfg(feature = "richtext")]
+        runs: None,
+    }
 }
 
 /// What the write reads of a kept VML part (`specs/0022-comments-and-

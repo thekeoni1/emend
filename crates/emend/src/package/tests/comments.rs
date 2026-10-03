@@ -180,7 +180,32 @@ fn entry(cell: &str, author: &str, text: &str) -> CommentEntry {
         cell: at(cell),
         author: author.to_string(),
         text: text.to_string(),
+        #[cfg(feature = "richtext")]
+        runs: None,
     }
+}
+
+/// The entry `comments` reads for a [`kept_comment`] on `cell`: with the
+/// Cargo feature `richtext`, its one run in bold 9 point Tahoma
+/// (`specs/0024-rich-text.md`, "Comments").
+fn kept_entry(cell: &str, author: &str, text: &str) -> CommentEntry {
+    let entry = entry(cell, author, text);
+    #[cfg(feature = "richtext")]
+    let entry = CommentEntry {
+        runs: Some(crate::cells::RichText {
+            runs: vec![crate::cells::Run {
+                text: text.to_string(),
+                font: Some(crate::styles::Font {
+                    name: Some("Tahoma".to_string()),
+                    size: Some(9.0),
+                    bold: true,
+                    ..crate::styles::Font::default()
+                }),
+            }],
+        }),
+        ..entry
+    };
+    entry
 }
 
 /// A worksheet with both parts in Excel's form: two comments by `Ann` on
@@ -241,15 +266,36 @@ fn the_comments_of_a_part_with_two_authors_runs_and_a_plain_t_and_of_one_with_no
         &[("xl/comments1.xml", comments, COMMENTS_TYPE)],
     );
     let (_, mut package) = opened(parts);
-    assert_eq!(
-        package.comments(SHEET).expect("read"),
-        [
-            entry("A1", "Ann", "one"),
-            entry("B2", "Bob & Co", "plain <text>"),
-            entry("C3", "Ann", "first and second"),
-            entry("D4", "", "past the list"),
-        ]
-    );
+    let expected = [
+        kept_entry("A1", "Ann", "one"),
+        entry("B2", "Bob & Co", "plain <text>"),
+        entry("C3", "Ann", "first and second"),
+        entry("D4", "", "past the list"),
+    ];
+    // With the Cargo feature `richtext` the comment with runs reads them too
+    // (`specs/0024-rich-text.md`, "Comments").
+    #[cfg(feature = "richtext")]
+    let expected = {
+        use crate::cells::{RichText, Run};
+        let mut expected = expected;
+        expected[2].runs = Some(RichText {
+            runs: vec![
+                Run {
+                    text: "first ".to_string(),
+                    font: Some(crate::styles::Font {
+                        bold: true,
+                        ..crate::styles::Font::default()
+                    }),
+                },
+                Run {
+                    text: "and second".to_string(),
+                    font: None,
+                },
+            ],
+        });
+        expected
+    };
+    assert_eq!(package.comments(SHEET).expect("read"), expected);
     let (_, mut package) = opened(smallest());
     assert_eq!(package.comments(SHEET).expect("read"), []);
 }
@@ -386,8 +432,8 @@ fn an_addition_to_a_sheet_with_both_parts_appends_to_each_and_reuses_an_equal_au
     assert_eq!(
         package.comments(SHEET).expect("read back"),
         [
-            entry("A1", "Ann", "one"),
-            entry("C3", "Ann", "two"),
+            kept_entry("A1", "Ann", "one"),
+            kept_entry("C3", "Ann", "two"),
             entry("B5", "Ann", "three"),
         ]
     );
@@ -1303,3 +1349,6 @@ fn a_removal_emptying_a_comments_part_this_write_removes_is_refused() {
         "an edit to a removed part",
     );
 }
+
+#[cfg(feature = "richtext")]
+mod rich;

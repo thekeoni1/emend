@@ -1560,8 +1560,10 @@ fn text_under<R: Read, L: Runs>(
 }
 
 /// What [`text_under`] tells its listener beyond the text: the runs. Every
-/// method does nothing by default, which is the core's `()`.
-trait Runs {
+/// method does nothing by default, which is the core's `()`. With the Cargo
+/// features `richtext` and `comments` the comments read tells the same
+/// listener a comment's runs.
+pub(crate) trait Runs {
     /// An `<r>` of the container's own level opened.
     fn open_run(&mut self) {}
 
@@ -1735,7 +1737,7 @@ impl RichText {
 /// (`specs/0024-rich-text.md`, decision 4).
 #[cfg(feature = "richtext")]
 #[derive(Default)]
-struct Collect {
+pub(crate) struct Collect {
     runs: Vec<Run>,
     /// The run opened and not yet closed.
     open: Option<Run>,
@@ -1758,7 +1760,7 @@ impl Collect {
     /// as `None`: its flattened text is empty and it holds nothing the write
     /// could carry, and every rich text this gives is one the write accepts
     /// (`specs/0024-rich-text.md`, P1 verification ruling 4).
-    fn rich(mut self, flat: &str) -> Option<RichText> {
+    pub(crate) fn rich(mut self, flat: &str) -> Option<RichText> {
         if !self.any {
             return None;
         }
