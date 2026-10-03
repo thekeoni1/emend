@@ -694,7 +694,8 @@
 //!   formula and its value; a cell written into a row that has
 //!   `customFormat` takes no style from the row.
 //! - Text is written as an inline string. Nothing is appended to the shared
-//!   strings table, and no rich text run is written.
+//!   strings table, and no rich text run is written but a rich value's, the
+//!   Cargo feature `richtext`'s, also inline (below).
 //! - Nothing is recomputed. The cached values of formulas that depend on an
 //!   edited cell stay as the producer wrote them, because emend does not
 //!   evaluate. A write that changes a formula asks for a recalculation on
@@ -1223,13 +1224,15 @@
 //!   is missing or doubled, or a kept `comment` without a `ref` that parses;
 //!   a VML part whose root is not an unprefixed `xml` or does not bind a
 //!   prefix to each of the three VML namespaces.
-//! - What is never written: formatting runs, a comment's size or position
-//!   beyond the fixed box, a threaded comment. A sheet with a threaded
-//!   comments relationship refuses every comment edit (decision 3 A);
-//!   `Package::comments` reads such a sheet's legacy fallback, the comments
-//!   part Excel writes beside the threaded one.
+//! - What is never written: formatting runs (but through
+//!   `Package::add_rich_comment`, the Cargo feature `richtext`'s, below), a
+//!   comment's size or position beyond the fixed box, a threaded comment. A
+//!   sheet with a threaded comments relationship refuses every comment edit
+//!   (decision 3 A); `Package::comments` reads such a sheet's legacy fallback,
+//!   the comments part Excel writes beside the threaded one.
 //! - What is read back: `Package::comments` gives each comment's cell,
-//!   author and text, runs flattened; a snapshot of the file.
+//!   author and text, runs flattened, and with `richtext` its runs (below);
+//!   a snapshot of the file.
 //!
 //! Images add these, all the Cargo feature `images`'s
 //! (`specs/0022-comments-and-images.md`, "Images: the calls" and "Images:
@@ -1259,6 +1262,65 @@
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice; what Excel shows for a note or a picture
 //!   is Excel's.
+//!
+//! Rich text adds these, all the Cargo feature `richtext`'s, a comment's
+//! runs with `comments` too (`specs/0024-rich-text.md`, "Design", decisions
+//! 2 to 5, the P1 and P2 rulings), the caller's picture:
+//!
+//! - What it touches: a `Value::Rich` is one cell edit in the worksheet's
+//!   one rewrite, as `Value::Text` is, written as an inline string
+//!   (`t="inlineStr"`) whose `<is>` holds one `<r>` per run: the run's
+//!   `<rPr>` first when it has a font, then `<t xml:space="preserve">`, a
+//!   carriage return as `&#13;`. The `<rPr>` is the font's `<font>` element
+//!   renamed, the typeface child `rFont` for `name`, the children in the
+//!   order the corpus measured (`b`, `i`, `strike`, `u`, `vertAlign`, `sz`,
+//!   `color`, `rFont`, `family`, `scheme`); a default font is `<rPr/>`.
+//!   `Package::add_rich_comment` is `add_comment` with its `<text>` holding
+//!   the runs so, each `<t>` with `xml:space="preserve"` only when its text
+//!   begins or ends with whitespace, as a plain comment's.
+//! - What is never written: a run into the shared strings table (a rich
+//!   value is always an inline string, decision 2); the five run
+//!   properties [`crate::styles::Font`] has no field for, `charset`,
+//!   `outline`, `shadow`, `condense` and `extend`; a phonetic run
+//!   (`<rPh>`, `<phoneticPr>`); a run with no text, which the write and the
+//!   comment call refuse.
+//! - What is read back: `Cell::runs` for an inline string,
+//!   `SharedStrings::runs_of` for an item of the table and
+//!   `CommentEntry::runs` for a comment, each `Some` when the container
+//!   holds at least one `<r>` with text, beside the flattened text the
+//!   value, the item and the comment's `text` keep. A plain `<t>` before
+//!   the runs reads as a first run with no font, so a container whose only
+//!   text is such a `<t>` reads as that one run; a `<t>` after the runs,
+//!   which the schema does not allow, reads as a run of its own in its
+//!   place.
+//! - What the read drops from the typed view: the five children above; a
+//!   `tint` beside `rgb` or `indexed` (P1 verification ruling 5); an
+//!   `<r/>`, a run whose `<t>` texts total empty and an empty `<t>` after
+//!   the runs, so a container whose every run is empty reads `None` (P1
+//!   verification ruling 4, P2 verification ruling 4); an `<rPh>`, skipped
+//!   as the flattened text of a cell or an item skips it. A comment's
+//!   `text` still holds a phonetic run's text, as `specs/0022` defines it,
+//!   so it and the runs differ only for a comment with an `<rPh>`. An
+//!   unedited cell, item or comment is copied raw, so the file keeps
+//!   everything the typed view drops.
+//! - What cannot be read, "a run's properties cannot be read" at the read of a
+//!   cell, the table or a comment: an `<rPr>` child outside the main namespace,
+//!   one this layer does not know or holding an element, a `val` that does not
+//!   parse, a colour with no form [`crate::styles::Color`] has, a size or tint
+//!   that is not finite, a tint outside `-1.0..=1.0`, and any font
+//!   [`Package::add_style`] would refuse, so every rich text the read gives is
+//!   one the write accepts. With `comments` and `richtext` both on,
+//!   `Package::comments` refuses a kept comment whose `<rPr>` it cannot read,
+//!   so a reader of comments refuses that workbook.
+//! - The table's runs: the rich items' runs sit in one list sorted by item
+//!   index, found by binary search, with nothing for an item without runs;
+//!   the reader's listener allocates nothing until an `<r>` is met (P1
+//!   ruling 3). The contract (decision 4) is that the table's memory for an
+//!   item without runs does not grow; its measure is M3 part 2 P3's run
+//!   log, which repeats part 1's three read runs and checks each peak RSS
+//!   against part 1's decision record.
+//! - None of this has been through an Excel check yet; what Excel shows for
+//!   a run is Excel's.
 //!
 //! # What streams and what is held
 //!
@@ -1294,7 +1356,9 @@
 //!
 //! - The shared strings table: [`Package::shared_strings`] returns it as
 //!   an owned list of every item; its cost at scale is the decision record
-//!   of `specs/0023-scale.md`'s P3.
+//!   of `specs/0023-scale.md`'s P3. With the Cargo feature `richtext` the
+//!   rich items' runs are held beside it, and nothing for any other item
+//!   (Limits, rich text).
 //! - The workbook, content types, relationships and styles parts, each
 //!   parsed into its model once; and an existing comments VML part or
 //!   drawing part, read whole when a comment or an image is added beside
