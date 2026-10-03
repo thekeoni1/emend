@@ -627,3 +627,584 @@ fn a_pending_sheet_removed_drops_its_settings() {
     assert_names(&out, &part_names(&parts));
     assert_untouched(&out, &parts, &[]);
 }
+
+// --- P2: print options, margins, page setup, headers and footers ---
+
+/// The package type the tests open.
+type Fixture = Package<Cursor<Vec<u8>>>;
+
+/// Print options with every field given.
+fn all_options() -> PrintOptions {
+    PrintOptions {
+        horizontal_centered: Some(true),
+        vertical_centered: Some(false),
+        headings: Some(true),
+        grid_lines: Some(false),
+    }
+}
+
+/// A page setup of landscape, fit to one page wide, fit to page on.
+fn fit_wide() -> PageSetup {
+    PageSetup {
+        orientation: Some(Orientation::Landscape),
+        fit_to_width: Some(1),
+        fit_to_height: Some(0),
+        fit_to_page: Some(true),
+        ..PageSetup::default()
+    }
+}
+
+#[test]
+fn each_element_is_created_in_schema_position_on_a_part_lacking_it() {
+    let body = "<sheetData/><rowBreaks count=\"0\"/>";
+    assert_eq!(
+        edited(body, |p| p
+            .set_print_options(SHEET, &all_options())
+            .expect("recorded")),
+        worksheet(
+            "<sheetData/><printOptions headings=\"1\" gridLines=\"0\" horizontalCentered=\"1\" verticalCentered=\"0\"/><rowBreaks count=\"0\"/>"
+        )
+    );
+    // Excel's defaults for the margins not given.
+    let left = PageMargins {
+        left: Some(0.5),
+        ..PageMargins::default()
+    };
+    assert_eq!(
+        edited(body, |p| p
+            .set_page_margins(SHEET, &left)
+            .expect("recorded")),
+        worksheet(
+            "<sheetData/><pageMargins left=\"0.5\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/><rowBreaks count=\"0\"/>"
+        )
+    );
+    let setup = PageSetup {
+        paper_size: Some(9),
+        scale: Some(85),
+        fit_to_width: Some(2),
+        fit_to_height: Some(3),
+        page_order: Some(PageOrder::OverThenDown),
+        orientation: Some(Orientation::Portrait),
+        black_and_white: Some(true),
+        draft: Some(false),
+        first_page_number: Some(4),
+        copies: Some(2),
+        fit_to_page: None,
+    };
+    assert_eq!(
+        edited(body, |p| p.set_page_setup(SHEET, &setup).expect("recorded")),
+        worksheet(
+            "<sheetData/><pageSetup paperSize=\"9\" scale=\"85\" fitToWidth=\"2\" fitToHeight=\"3\" pageOrder=\"overThenDown\" orientation=\"portrait\" blackAndWhite=\"1\" draft=\"0\" firstPageNumber=\"4\" useFirstPageNumber=\"1\" copies=\"2\"/><rowBreaks count=\"0\"/>"
+        )
+    );
+    let texts = HeaderFooter {
+        odd_header: Some("&Ca".to_string()),
+        even_footer: Some("&Rb".to_string()),
+        first_header: Some("&Lc".to_string()),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited(body, |p| p
+            .set_header_footer(SHEET, &texts)
+            .expect("recorded")),
+        worksheet(
+            "<sheetData/><headerFooter differentFirst=\"1\" differentOddEven=\"1\"><oddHeader>&amp;Ca</oddHeader><evenFooter>&amp;Rb</evenFooter><firstHeader>&amp;Lc</firstHeader></headerFooter><rowBreaks count=\"0\"/>"
+        )
+    );
+}
+
+#[test]
+fn the_four_elements_are_created_in_one_write_in_schema_order() {
+    let margins = PageMargins {
+        top: Some(1.0),
+        ..PageMargins::default()
+    };
+    let texts = HeaderFooter {
+        odd_footer: Some("&P".to_string()),
+        ..HeaderFooter::default()
+    };
+    let got = edited("<sheetData/>", |p| {
+        // Recorded in reverse, with a merge the write also creates.
+        p.set_header_footer(SHEET, &texts).expect("recorded");
+        p.set_page_setup(SHEET, &fit_wide()).expect("recorded");
+        p.set_page_margins(SHEET, &margins).expect("recorded");
+        p.set_print_options(SHEET, &all_options())
+            .expect("recorded");
+        p.merge_cells(SHEET, Area::parse(b"A1:B1").expect("an area"))
+            .expect("recorded");
+    });
+    assert_eq!(
+        got,
+        worksheet(
+            "<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr><sheetData/><mergeCells count=\"1\"><mergeCell ref=\"A1:B1\"/></mergeCells><printOptions headings=\"1\" gridLines=\"0\" horizontalCentered=\"1\" verticalCentered=\"0\"/><pageMargins left=\"0.7\" right=\"0.7\" top=\"1\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/><pageSetup fitToWidth=\"1\" fitToHeight=\"0\" orientation=\"landscape\"/><headerFooter><oddFooter>&amp;P</oddFooter></headerFooter>"
+        )
+    );
+    // At the root's end of a prefixed, empty root.
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!("{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_NS}\"/>"),
+    );
+    let output = edited_output(parts, |p| {
+        p.set_print_options(SHEET, &all_options())
+            .expect("recorded");
+        p.set_page_margins(SHEET, &margins).expect("recorded");
+    });
+    assert_eq!(
+        String::from_utf8(stored_data(&output, SHEET)).expect("UTF-8"),
+        format!(
+            "{DECLARATION}\n<x:worksheet xmlns:x=\"{MAIN_NS}\"><x:printOptions headings=\"1\" gridLines=\"0\" horizontalCentered=\"1\" verticalCentered=\"0\"/><x:pageMargins left=\"0.7\" right=\"0.7\" top=\"1\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/></x:worksheet>"
+        )
+    );
+}
+
+#[test]
+fn each_element_is_replaced_the_set_attributes_first_the_rest_kept_in_order() {
+    let options = "<printOptions headings=\"0\" gridLines=\"0\" gridLinesSet=\"1\" horizontalCentered=\"0\" verticalCentered=\"0\"/>";
+    let margins = "<pageMargins left=\"0.25\" right=\"0.25\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>";
+    let setup = "<pageSetup paperSize=\"9\" scale=\"80\" fitToWidth=\"1\" fitToHeight=\"0\" pageOrder=\"downThenOver\" orientation=\"portrait\" blackAndWhite=\"0\" draft=\"0\" cellComments=\"none\" firstPageNumber=\"1\" useFirstPageNumber=\"0\" horizontalDpi=\"600\" verticalDpi=\"600\" copies=\"1\" r:id=\"rId1\"/>";
+    let footer = "<headerFooter differentFirst=\"0\" alignWithMargins=\"0\"><oddFooter>&amp;P</oddFooter></headerFooter>";
+    let body = format!("<sheetData/>{options}{margins}{setup}{footer}");
+    let root = |body: &str| {
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">{body}</worksheet>"
+        )
+    };
+    let edited_r = |edit: &dyn Fn(&mut Fixture)| {
+        let mut parts = smallest();
+        set(&mut parts, SHEET, root(&body));
+        let output = edited_output(parts.clone(), |p| edit(p));
+        assert_untouched(&output, &parts, &[SHEET]);
+        String::from_utf8(stored_data(&output, SHEET)).expect("UTF-8")
+    };
+    let centred = PrintOptions {
+        vertical_centered: Some(true),
+        ..PrintOptions::default()
+    };
+    assert_eq!(
+        edited_r(&|p| p.set_print_options(SHEET, &centred).expect("recorded")),
+        root(&body.replace(
+            options,
+            "<printOptions verticalCentered=\"1\" headings=\"0\" gridLines=\"0\" gridLinesSet=\"1\" horizontalCentered=\"0\"/>"
+        ))
+    );
+    let wider = PageMargins {
+        right: Some(1.5),
+        footer: Some(0.0),
+        ..PageMargins::default()
+    };
+    assert_eq!(
+        edited_r(&|p| p.set_page_margins(SHEET, &wider).expect("recorded")),
+        root(&body.replace(
+            margins,
+            "<pageMargins right=\"1.5\" footer=\"0\" left=\"0.25\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\"/>"
+        ))
+    );
+    let landscape = PageSetup {
+        orientation: Some(Orientation::Landscape),
+        first_page_number: Some(3),
+        copies: Some(2),
+        ..PageSetup::default()
+    };
+    assert_eq!(
+        edited_r(&|p| p.set_page_setup(SHEET, &landscape).expect("recorded")),
+        root(&body.replace(
+            setup,
+            "<pageSetup orientation=\"landscape\" firstPageNumber=\"3\" useFirstPageNumber=\"1\" copies=\"2\" paperSize=\"9\" scale=\"80\" fitToWidth=\"1\" fitToHeight=\"0\" pageOrder=\"downThenOver\" blackAndWhite=\"0\" draft=\"0\" cellComments=\"none\" horizontalDpi=\"600\" verticalDpi=\"600\" r:id=\"rId1\"/>"
+        ))
+    );
+    let first = HeaderFooter {
+        first_header: Some("x".to_string()),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited_r(&|p| p.set_header_footer(SHEET, &first).expect("recorded")),
+        root(&body.replace(
+            footer,
+            "<headerFooter differentFirst=\"1\" alignWithMargins=\"0\"><oddFooter>&amp;P</oddFooter><firstHeader>x</firstHeader></headerFooter>"
+        ))
+    );
+}
+
+#[test]
+fn fit_to_page_sets_or_creates_page_set_up_pr_under_sheet_pr() {
+    let fit = PageSetup {
+        fit_to_page: Some(true),
+        ..PageSetup::default()
+    };
+    let cases = [
+        // Under a created `<sheetPr>`, and no `<pageSetup>` touched.
+        ("", "<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>"),
+        // Under an existing one, after its `<tabColor>`.
+        (
+            "<sheetPr codeName=\"a\"><tabColor theme=\"1\"/></sheetPr>",
+            "<sheetPr codeName=\"a\"><tabColor theme=\"1\"/><pageSetUpPr fitToPage=\"1\"/></sheetPr>",
+        ),
+        // Set on an existing `<pageSetUpPr>`, `autoPageBreaks` kept after it.
+        (
+            "<sheetPr><pageSetUpPr autoPageBreaks=\"0\" fitToPage=\"0\"/></sheetPr>",
+            "<sheetPr><pageSetUpPr fitToPage=\"1\" autoPageBreaks=\"0\"/></sheetPr>",
+        ),
+        (
+            "<sheetPr><pageSetUpPr autoPageBreaks=\"0\"></pageSetUpPr></sheetPr>",
+            "<sheetPr><pageSetUpPr fitToPage=\"1\" autoPageBreaks=\"0\"></pageSetUpPr></sheetPr>",
+        ),
+    ];
+    for (before, after) in cases {
+        assert_eq!(
+            edited(&format!("{before}<sheetData/>"), |p| p
+                .set_page_setup(SHEET, &fit)
+                .expect("recorded")),
+            worksheet(&format!("{after}<sheetData/>")),
+            "{before}"
+        );
+    }
+    // With a tab colour in the same write: `tabColor` first.
+    assert_eq!(
+        edited("<sheetData/>", |p| {
+            p.set_page_setup(SHEET, &fit).expect("recorded");
+            p.set_tab_color(SHEET, Some(RED)).expect("recorded");
+        }),
+        worksheet(
+            "<sheetPr><tabColor rgb=\"FFFF0000\"/><pageSetUpPr fitToPage=\"1\"/></sheetPr><sheetData/>"
+        )
+    );
+}
+
+#[test]
+fn each_header_and_footer_child_is_written_replaced_dropped_or_kept() {
+    let all = "<headerFooter><oddHeader>oh</oddHeader><oddFooter>of</oddFooter><evenHeader>eh</evenHeader><evenFooter>ef</evenFooter><firstHeader>fh</firstHeader><firstFooter>ff</firstFooter></headerFooter>";
+    let body = format!("<sheetData/>{all}");
+    let names = [
+        "oddHeader",
+        "oddFooter",
+        "evenHeader",
+        "evenFooter",
+        "firstHeader",
+        "firstFooter",
+    ];
+    for (at, name) in names.iter().enumerate() {
+        let text = |value: &str| {
+            let mut texts = HeaderFooter::default();
+            let field = match at {
+                0 => &mut texts.odd_header,
+                1 => &mut texts.odd_footer,
+                2 => &mut texts.even_header,
+                3 => &mut texts.even_footer,
+                4 => &mut texts.first_header,
+                _ => &mut texts.first_footer,
+            };
+            *field = Some(value.to_string());
+            texts
+        };
+        let flags = match at {
+            2 | 3 => " differentOddEven=\"1\"",
+            4 | 5 => " differentFirst=\"1\"",
+            _ => "",
+        };
+        let old = [names[at], ">"].concat();
+        let replaced = all
+            .replace(&format!("<{old}"), &format!("<{name}>new<{old}"))
+            .replace("<headerFooter>", &format!("<headerFooter{flags}>"));
+        // Replaced: the new text in place of the old.
+        let original = match at {
+            0 => "oh",
+            1 => "of",
+            2 => "eh",
+            3 => "ef",
+            4 => "fh",
+            _ => "ff",
+        };
+        let replaced = replaced.replace(
+            &format!("<{name}>new<{name}>{original}</{name}>"),
+            &format!("<{name}>new</{name}>"),
+        );
+        assert_eq!(
+            edited(&body, |p| p
+                .set_header_footer(SHEET, &text("new"))
+                .expect("recorded")),
+            worksheet(&format!("<sheetData/>{replaced}")),
+            "{name} replaced"
+        );
+        // Dropped by `Some("")`, the others kept.
+        let dropped = all.replace(&format!("<{name}>{original}</{name}>"), "");
+        assert_eq!(
+            edited(&body, |p| p
+                .set_header_footer(SHEET, &text(""))
+                .expect("recorded")),
+            worksheet(&format!("<sheetData/>{dropped}")),
+            "{name} dropped"
+        );
+    }
+    // `None` everywhere keeps the element as it is.
+    assert_eq!(
+        edited(&body, |p| p
+            .set_header_footer(SHEET, &HeaderFooter::default())
+            .expect("recorded")),
+        worksheet(&body)
+    );
+    // The flags kept when nothing even or first is written.
+    let flagged = "<headerFooter differentOddEven=\"1\" differentFirst=\"1\"><evenHeader>e</evenHeader></headerFooter>";
+    let odd = HeaderFooter {
+        odd_header: Some("o".to_string()),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited(&format!("<sheetData/>{flagged}"), |p| p
+            .set_header_footer(SHEET, &odd)
+            .expect("recorded")),
+        worksheet(
+            "<sheetData/><headerFooter differentOddEven=\"1\" differentFirst=\"1\"><oddHeader>o</oddHeader><evenHeader>e</evenHeader></headerFooter>"
+        )
+    );
+    // Dropping the last text drops an element left with no attribute.
+    let one = "<sheetData/><headerFooter><oddHeader>x</oddHeader></headerFooter>";
+    let gone = HeaderFooter {
+        odd_header: Some(String::new()),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited(one, |p| p
+            .set_header_footer(SHEET, &gone)
+            .expect("recorded")),
+        worksheet("<sheetData/>")
+    );
+    // A text with markup characters and a carriage return, escaped.
+    let marked = HeaderFooter {
+        odd_header: Some("a<b>&c\r".to_string()),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited("<sheetData/>", |p| p
+            .set_header_footer(SHEET, &marked)
+            .expect("recorded")),
+        worksheet(
+            "<sheetData/><headerFooter><oddHeader>a&lt;b&gt;&amp;c&#13;</oddHeader></headerFooter>"
+        )
+    );
+}
+
+#[test]
+fn section_writes_the_codes_before_each_part_and_passes_the_parts_through() {
+    // "Planning rulings during P2", ruling 2.
+    assert_eq!(HeaderFooter::section("", "", ""), "");
+    assert_eq!(HeaderFooter::section("a", "", ""), "&La");
+    assert_eq!(HeaderFooter::section("", "b", "c"), "&Cb&Rc");
+    assert_eq!(
+        HeaderFooter::section("emend", "", "&P of &N"),
+        "&Lemend&R&P of &N"
+    );
+    // A literal `&` is the caller's `&&`, passed through as given.
+    assert_eq!(HeaderFooter::section("", "R&&D", ""), "&CR&&D");
+    // All three empty write no text: the element is not created.
+    let empty = HeaderFooter {
+        odd_header: Some(HeaderFooter::section("", "", "")),
+        ..HeaderFooter::default()
+    };
+    assert_eq!(
+        edited("<sheetData/>", |p| p
+            .set_header_footer(SHEET, &empty)
+            .expect("recorded")),
+        worksheet("<sheetData/>")
+    );
+}
+
+#[test]
+fn the_p2_refusals_at_the_call_record_nothing() {
+    let (parts, mut package) = opened(smallest());
+    let out_of_range = "a sheet setting is out of range";
+    for setup in [
+        PageSetup {
+            scale: Some(9),
+            ..PageSetup::default()
+        },
+        PageSetup {
+            scale: Some(401),
+            ..PageSetup::default()
+        },
+        PageSetup {
+            copies: Some(0),
+            ..PageSetup::default()
+        },
+        PageSetup {
+            paper_size: Some(0),
+            ..PageSetup::default()
+        },
+        PageSetup {
+            first_page_number: Some(0),
+            ..PageSetup::default()
+        },
+    ] {
+        assert_package(
+            package.set_page_setup(SHEET, &setup).expect_err("refused"),
+            out_of_range,
+        );
+    }
+    for bad in [-0.1, f64::NAN, f64::INFINITY] {
+        let margins = PageMargins {
+            bottom: Some(bad),
+            ..PageMargins::default()
+        };
+        assert_package(
+            package
+                .set_page_margins(SHEET, &margins)
+                .expect_err("refused"),
+            out_of_range,
+        );
+    }
+    let invalid = "a header or footer text is not valid";
+    for bad in ["a".repeat(256), "a\u{1}b".to_string()] {
+        let texts = HeaderFooter {
+            first_footer: Some(bad),
+            ..HeaderFooter::default()
+        };
+        assert_package(
+            package
+                .set_header_footer(SHEET, &texts)
+                .expect_err("refused"),
+            invalid,
+        );
+    }
+    assert_untouched(&written(package), &parts, &[]);
+    // The bounds: any fit count, 255 characters, a zero margin.
+    let (_, mut package) = opened(smallest());
+    let setup = PageSetup {
+        scale: Some(400),
+        copies: Some(1),
+        paper_size: Some(1),
+        first_page_number: Some(1),
+        fit_to_width: Some(u32::MAX),
+        fit_to_height: Some(0),
+        ..PageSetup::default()
+    };
+    package.set_page_setup(SHEET, &setup).expect("in range");
+    let zero = PageMargins {
+        left: Some(0.0),
+        ..PageMargins::default()
+    };
+    package.set_page_margins(SHEET, &zero).expect("in range");
+    let long = HeaderFooter {
+        odd_header: Some("\u{e9}".repeat(255)),
+        ..HeaderFooter::default()
+    };
+    package.set_header_footer(SHEET, &long).expect("in range");
+}
+
+#[test]
+fn two_page_setups_or_one_out_of_schema_order_are_refused() {
+    let message = "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements";
+    let landscape = PageSetup {
+        orientation: Some(Orientation::Landscape),
+        ..PageSetup::default()
+    };
+    for body in [
+        "<sheetData/><pageSetup/><pageSetup/>",
+        "<sheetData/><headerFooter/><pageSetup/>",
+    ] {
+        assert_package(
+            refused_body(body, |p| {
+                p.set_page_setup(SHEET, &landscape).expect("recorded")
+            }),
+            message,
+        );
+    }
+    assert_package(
+        refused_body("<sheetData/><printOptions/><printOptions/>", |p| {
+            p.set_print_options(SHEET, &all_options())
+                .expect("recorded")
+        }),
+        message,
+    );
+    assert_package(
+        refused_body("<sheetData/><pageSetup/><pageMargins/>", |p| {
+            p.set_page_margins(SHEET, &PageMargins::default())
+                .expect("recorded")
+        }),
+        message,
+    );
+    assert_package(
+        refused_body("<sheetData/><headerFooter/><headerFooter/>", |p| {
+            p.set_header_footer(SHEET, &HeaderFooter::default())
+                .expect("recorded")
+        }),
+        message,
+    );
+    // The control: one in its place is written.
+    assert_eq!(
+        edited("<sheetData/><pageSetup/>", |p| p
+            .set_page_setup(SHEET, &landscape)
+            .expect("recorded")),
+        worksheet("<sheetData/><pageSetup orientation=\"landscape\"/>")
+    );
+}
+
+#[test]
+fn two_calls_on_one_part_each_set_the_p2_fields_they_give() {
+    let got = edited("<sheetData/>", |p| {
+        p.set_page_setup(
+            SHEET,
+            &PageSetup {
+                scale: Some(50),
+                orientation: Some(Orientation::Portrait),
+                ..PageSetup::default()
+            },
+        )
+        .expect("recorded");
+        p.set_page_setup(
+            SHEET,
+            &PageSetup {
+                scale: Some(75),
+                ..PageSetup::default()
+            },
+        )
+        .expect("recorded");
+        p.set_header_footer(
+            SHEET,
+            &HeaderFooter {
+                odd_header: Some("a".to_string()),
+                odd_footer: Some("b".to_string()),
+                ..HeaderFooter::default()
+            },
+        )
+        .expect("recorded");
+        p.set_header_footer(
+            SHEET,
+            &HeaderFooter {
+                odd_footer: Some(String::new()),
+                ..HeaderFooter::default()
+            },
+        )
+        .expect("recorded");
+    });
+    assert_eq!(
+        got,
+        worksheet(
+            "<sheetData/><pageSetup scale=\"75\" orientation=\"portrait\"/><headerFooter><oddHeader>a</oddHeader></headerFooter>"
+        )
+    );
+}
+
+#[test]
+fn a_p2_setting_on_a_sheet_added_in_the_same_write_lands_on_its_blank_worksheet() {
+    let (_, mut package) = opened(smallest());
+    let part = package.add_sheet("Two").expect("add_sheet");
+    package
+        .set_page_setup(&part, &fit_wide())
+        .expect("recorded");
+    let out = written(package);
+    let mut reopened = Package::open(Cursor::new(out)).expect("open the output");
+    let index = reopened.part(&part).expect("the added worksheet");
+    let mut text = String::new();
+    reopened
+        .read_part(index)
+        .expect("read_part")
+        .read_to_string(&mut text)
+        .expect("UTF-8");
+    assert_eq!(
+        text,
+        worksheet(
+            "<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr><sheetData/><pageSetup fitToWidth=\"1\" fitToHeight=\"0\" orientation=\"landscape\"/>"
+        )
+    );
+}

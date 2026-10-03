@@ -585,8 +585,8 @@
 //!
 //! Sheet and print settings add these, the Cargo feature `sheetprops`'s
 //! messages (`specs/0025-sheet-and-print-settings.md`, "Errors"; without the
-//! feature neither is raised), the first at the call and the second at the
-//! write. A setting also meets, at the write, "no such part", "an edit to a
+//! feature none is raised), the first and the third at the call and the
+//! second at the write. A setting also meets, at the write, "no such part", "an edit to a
 //! removed part", "a cell edit to a part this write replaces" and part 3's
 //! one-shift message, as any edit of the part does
 //! (`sheetprops::a_setting_on_a_removed_replaced_or_absent_part_is_refused`,
@@ -596,9 +596,13 @@
 //! (`sheetprops::a_view_on_two_sheet_views_or_one_without_a_view_is_refused`):
 //!
 //! - "a sheet setting is out of range"
-//!   (`sheetprops::a_setting_out_of_range_is_refused_at_the_call_and_records_nothing`).
+//!   (`sheetprops::a_setting_out_of_range_is_refused_at_the_call_and_records_nothing`,
+//!   `sheetprops::the_p2_refusals_at_the_call_record_nothing`).
 //! - "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements"
-//!   (`sheetprops::two_sheet_pr_or_one_out_of_schema_order_are_refused`).
+//!   (`sheetprops::two_sheet_pr_or_one_out_of_schema_order_are_refused`,
+//!   `sheetprops::two_page_setups_or_one_out_of_schema_order_are_refused`).
+//! - "a header or footer text is not valid"
+//!   (`sheetprops::the_p2_refusals_at_the_call_record_nothing`).
 //!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
@@ -2337,6 +2341,19 @@ struct Recorded {
     /// last for a field wins ("The calls").
     #[cfg(feature = "sheetprops")]
     sheet_views: Vec<(Vec<u8>, SheetView)>,
+    /// `(part, options)`: print options, in record order, so the last for
+    /// a field wins ("The calls").
+    #[cfg(feature = "sheetprops")]
+    print_options: Vec<(Vec<u8>, PrintOptions)>,
+    /// `(part, margins)`: page margins, as `print_options`.
+    #[cfg(feature = "sheetprops")]
+    page_margins: Vec<(Vec<u8>, PageMargins)>,
+    /// `(part, setup)`: a page setup, as `print_options`.
+    #[cfg(feature = "sheetprops")]
+    page_setups: Vec<(Vec<u8>, PageSetup)>,
+    /// `(part, texts)`: header and footer texts, as `print_options`.
+    #[cfg(feature = "sheetprops")]
+    header_footers: Vec<(Vec<u8>, HeaderFooter)>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -3740,7 +3757,12 @@ impl Recorded {
     /// `sheetprops`.
     #[cfg(feature = "sheetprops")]
     fn no_setting_edits(&self) -> bool {
-        self.tab_colors.is_empty() && self.sheet_views.is_empty()
+        self.tab_colors.is_empty()
+            && self.sheet_views.is_empty()
+            && self.print_options.is_empty()
+            && self.page_margins.is_empty()
+            && self.page_setups.is_empty()
+            && self.header_footers.is_empty()
     }
 
     /// Whether no sheet setting is recorded; always, without the feature
@@ -3911,7 +3933,11 @@ impl Recorded {
         #[cfg(feature = "sheetprops")]
         let named = named
             .chain(self.tab_colors.iter().map(|(part, _)| part))
-            .chain(self.sheet_views.iter().map(|(part, _)| part));
+            .chain(self.sheet_views.iter().map(|(part, _)| part))
+            .chain(self.print_options.iter().map(|(part, _)| part))
+            .chain(self.page_margins.iter().map(|(part, _)| part))
+            .chain(self.page_setups.iter().map(|(part, _)| part))
+            .chain(self.header_footers.iter().map(|(part, _)| part));
         // A comment edit rewrites the worksheet only when its
         // `<legacyDrawing>` is created or dropped
         // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
@@ -4061,8 +4087,8 @@ impl Recorded {
         }
     }
 
-    /// One part's sheet settings: the last tab colour recorded, and the
-    /// sheet view's fields each from the last call that gives it
+    /// One part's sheet settings: the last tab colour recorded, and each
+    /// element's fields each from the last call that gives it
     /// (`specs/0025-sheet-and-print-settings.md`, "The calls").
     #[cfg(feature = "sheetprops")]
     fn settings_of(&self, part: &[u8]) -> Settings {
@@ -4070,6 +4096,30 @@ impl Recorded {
         for (at, later) in &self.sheet_views {
             if at.as_slice() == part {
                 view = Some(view.unwrap_or_default().then(later));
+            }
+        }
+        let mut print_options: Option<PrintOptions> = None;
+        for (at, later) in &self.print_options {
+            if at.as_slice() == part {
+                print_options = Some(print_options.unwrap_or_default().then(later));
+            }
+        }
+        let mut margins: Option<PageMargins> = None;
+        for (at, later) in &self.page_margins {
+            if at.as_slice() == part {
+                margins = Some(margins.unwrap_or_default().then(later));
+            }
+        }
+        let mut page_setup: Option<PageSetup> = None;
+        for (at, later) in &self.page_setups {
+            if at.as_slice() == part {
+                page_setup = Some(page_setup.unwrap_or_default().then(later));
+            }
+        }
+        let mut header_footer: Option<HeaderFooter> = None;
+        for (at, later) in &self.header_footers {
+            if at.as_slice() == part {
+                header_footer = Some(header_footer.unwrap_or_default().then(later));
             }
         }
         Settings {
@@ -4080,6 +4130,10 @@ impl Recorded {
                 .find(|(at, _)| at.as_slice() == part)
                 .map(|(_, color)| *color),
             view,
+            print_options,
+            margins,
+            page_setup,
+            header_footer,
         }
     }
 
@@ -4745,6 +4799,93 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "sheetprops")]
     pub fn set_sheet_view(&mut self, part: &[u8], view: &SheetView) -> Result<(), Error> {
         self.parts().set_sheet_view(part, view)
+    }
+
+    /// Records the print options of the worksheet part `part`: each `Some`
+    /// field written as its attribute on `<printOptions>`, every other
+    /// attribute kept, the element created in schema position when the
+    /// part lacks it; the fields of two calls on one part each standing
+    /// unless the later call gives them. The Cargo feature `sheetprops`
+    /// (`specs/0025-sheet-and-print-settings.md`, "The calls", "The pass").
+    ///
+    /// # Errors
+    ///
+    /// None at the call. The write refuses a part the archive lacks, "no
+    /// such part"; a part with two `<printOptions>` or one out of schema
+    /// order, "a worksheet has two sheetPr, autoFilter, printOptions,
+    /// pageMargins, pageSetup or headerFooter elements"; a part with a row
+    /// or column shift in the same write; and what a cell edit to the part
+    /// would meet.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_print_options(&mut self, part: &[u8], options: &PrintOptions) -> Result<(), Error> {
+        self.edits.print_options.push((part.to_vec(), *options));
+        Ok(())
+    }
+
+    /// Records the page margins of the worksheet part `part`, in inches:
+    /// each `Some` field written as its attribute on `<pageMargins>`, every
+    /// other attribute kept; a `<pageMargins>` the part lacks is created in
+    /// schema position with all six, Excel's default (0.7, 0.7, 0.75, 0.75,
+    /// 0.3, 0.3) for each field not given, since the schema requires them.
+    /// The Cargo feature `sheetprops` (`specs/0025-sheet-and-print-
+    /// settings.md`, "The calls").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a sheet setting is out of range" for a margin
+    /// that is not finite or lies below zero; nothing is recorded when this
+    /// fails. The write refuses what [`Package::set_print_options`] says it
+    /// refuses.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_page_margins(&mut self, part: &[u8], margins: &PageMargins) -> Result<(), Error> {
+        self.parts().set_page_margins(part, margins)
+    }
+
+    /// Records the page setup of the worksheet part `part`: each `Some`
+    /// field written as its attribute on `<pageSetup>`, every other
+    /// attribute kept (`r:id`, which names the printer settings, among
+    /// them), the element created in schema position when the part lacks
+    /// it; `first_page_number` writes `useFirstPageNumber="1"` with it;
+    /// `fit_to_page` is written as `fitToPage` on `<sheetPr>`'s
+    /// `<pageSetUpPr>`, each created when absent, as
+    /// [`Package::set_tab_color`] places a `<tabColor>`. The Cargo feature
+    /// `sheetprops` (`specs/0025-sheet-and-print-settings.md`, "The
+    /// calls").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a sheet setting is out of range" for a scale
+    /// outside `10..=400`, or a paper size, a first page number or copies
+    /// of zero; nothing is recorded when this fails. What Excel refuses
+    /// above these is Excel's. The write refuses what
+    /// [`Package::set_print_options`] says it refuses, for `<pageSetup>`
+    /// and for `<sheetPr>`.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_page_setup(&mut self, part: &[u8], setup: &PageSetup) -> Result<(), Error> {
+        self.parts().set_page_setup(part, setup)
+    }
+
+    /// Records the header and footer texts of the worksheet part `part`:
+    /// each `Some` text not empty written as its child of `<headerFooter>`
+    /// in schema order, replacing the part's of that name; `Some("")` drops
+    /// the part's; `None` leaves it as it is. Writing an even text sets
+    /// `differentOddEven="1"`, a first text `differentFirst="1"`; every
+    /// other attribute and child is kept; the element is created in schema
+    /// position when the part lacks it and a text is written, and dropped
+    /// when left with no attribute and no child. The texts are the format's
+    /// code strings, escaped and never parsed; [`HeaderFooter::section`]
+    /// builds one from three parts. The Cargo feature `sheetprops`
+    /// (`specs/0025-sheet-and-print-settings.md`, "The calls", decision 3).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a header or footer text is not valid" for a text
+    /// over 255 characters or holding a character XML cannot carry;
+    /// nothing is recorded when this fails. The write refuses what
+    /// [`Package::set_print_options`] says it refuses.
+    #[cfg(feature = "sheetprops")]
+    pub fn set_header_footer(&mut self, part: &[u8], texts: &HeaderFooter) -> Result<(), Error> {
+        self.parts().set_header_footer(part, texts)
     }
 
     /// Records `area` in the worksheet part `part` merged.
@@ -6309,6 +6450,47 @@ impl<'a> Parts<'a> {
             return Err(SETTING_OUT_OF_RANGE);
         }
         self.edits.sheet_views.push((part.to_vec(), *view));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_page_margins`].
+    #[cfg(feature = "sheetprops")]
+    fn set_page_margins(&mut self, part: &[u8], margins: &PageMargins) -> Result<(), Error> {
+        let fields = margins.fields();
+        if fields
+            .iter()
+            .any(|(_, value, _)| value.is_some_and(|inches| !inches.is_finite() || inches < 0.0))
+        {
+            return Err(SETTING_OUT_OF_RANGE);
+        }
+        self.edits.page_margins.push((part.to_vec(), *margins));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_page_setup`].
+    #[cfg(feature = "sheetprops")]
+    fn set_page_setup(&mut self, part: &[u8], setup: &PageSetup) -> Result<(), Error> {
+        if !setup.in_range() {
+            return Err(SETTING_OUT_OF_RANGE);
+        }
+        self.edits.page_setups.push((part.to_vec(), *setup));
+        Ok(())
+    }
+
+    /// The body of [`Package::set_header_footer`].
+    #[cfg(feature = "sheetprops")]
+    fn set_header_footer(&mut self, part: &[u8], texts: &HeaderFooter) -> Result<(), Error> {
+        let invalid = |text: &Option<String>| {
+            text.as_deref().is_some_and(|text| {
+                text.chars().count() > 255 || text.chars().any(forbidden_in_xml)
+            })
+        };
+        if texts.texts().iter().any(|(_, text)| invalid(text)) {
+            return Err(HEADER_FOOTER_INVALID);
+        }
+        self.edits
+            .header_footers
+            .push((part.to_vec(), texts.clone()));
         Ok(())
     }
 
@@ -8145,6 +8327,14 @@ impl<'a> Parts<'a> {
         self.edits.tab_colors.retain(|(at, _)| at != part);
         #[cfg(feature = "sheetprops")]
         self.edits.sheet_views.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.print_options.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.page_margins.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.page_setups.retain(|(at, _)| at != part);
+        #[cfg(feature = "sheetprops")]
+        self.edits.header_footers.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
@@ -9377,12 +9567,19 @@ const IMAGE_SIZE_INVALID: Error = Error::Package("an image size is out of range"
 #[cfg(feature = "images")]
 const TWO_DRAWINGS: Error = Error::Package("a worksheet has two drawing elements");
 
-/// A sheet setting a call cannot record: a zoom outside `10..=400`, a tab
-/// colour's tint not finite or outside `-1.0..=1.0`
+/// A sheet setting a call cannot record: a zoom or a scale outside
+/// `10..=400`, a paper size, a first page number or copies of zero, a
+/// margin not finite or below zero, a tab colour's tint not finite or
+/// outside `-1.0..=1.0`
 /// (`specs/0025-sheet-and-print-settings.md`, "Errors"). The Cargo feature
 /// `sheetprops`.
 #[cfg(feature = "sheetprops")]
 const SETTING_OUT_OF_RANGE: Error = Error::Package("a sheet setting is out of range");
+
+/// A header or footer text over 255 characters, Excel's limit, or holding a
+/// character XML cannot carry ("Errors"). The Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+const HEADER_FOOTER_INVALID: Error = Error::Package("a header or footer text is not valid");
 
 /// A worksheet whose settings element the write cannot place: two of one,
 /// or one after a root child the schema puts after it ("The pass"). The
@@ -11359,6 +11556,10 @@ const CREATED: [&[u8]; 3] = [b"sheetViews", b"cols", b"mergeCells"];
 const VIEWS: usize = 0;
 const COLS: usize = 1;
 const MERGES: usize = 2;
+/// `<sheetViews>`'s place in [`WORKSHEET_CHILDREN`]: the settings pass
+/// creates what goes before it ahead of the elements of [`CREATED`].
+#[cfg(feature = "sheetprops")]
+const VIEWS_POSITION: usize = 2;
 
 /// A root child's place in [`WORKSHEET_CHILDREN`].
 fn schema_position(local: &[u8]) -> Option<usize> {
@@ -11770,7 +11971,7 @@ fn rewrite_worksheet_from(
                 // write adds (`specs/0021-tables.md`, decision 4 A).
                 #[cfg(feature = "tables")]
                 tables.observe(token.raw, (local, ours, depth), &work.unmerges, index)?;
-                // Inside a held `<sheetPr>`: its children are the settings
+                // Inside a held settings element: its children are the settings
                 // pass's (`specs/0025-sheet-and-print-settings.md`, "The
                 // pass").
                 #[cfg(feature = "sheetprops")]
@@ -11852,6 +12053,7 @@ fn rewrite_worksheet_from(
                             settings.observe(local, position)?;
                             out.write_all(&settings.create_before(
                                 position,
+                                VIEWS_POSITION,
                                 &root_prefix,
                                 index,
                             )?)?;
@@ -11887,6 +12089,13 @@ fn rewrite_worksheet_from(
                         if let Some(bytes) = links.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
+                        #[cfg(feature = "sheetprops")]
+                        out.write_all(&settings.create_before(
+                            position,
+                            usize::MAX,
+                            &root_prefix,
+                            index,
+                        )?)?;
                         #[cfg(feature = "images")]
                         if let Some(bytes) = drawing.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
@@ -11921,11 +12130,17 @@ fn rewrite_worksheet_from(
                     depth -= 1;
                     continue;
                 }
-                // The part's `<sheetPr>`, held to its end tag and rewritten
-                // (`specs/0025-sheet-and-print-settings.md`, "The pass").
+                // A settings element the write edits, held to its end tag and
+                // rewritten (`specs/0025-sheet-and-print-settings.md`, "The
+                // pass").
                 #[cfg(feature = "sheetprops")]
-                if root && depth == 2 && ours && local == SHEET_PR && settings.touches_sheet_pr() {
+                if root
+                    && depth == 2
+                    && ours
+                    && let Some(setting) = settings.held_setting(local)
+                {
                     let held = Held {
+                        setting,
                         depth,
                         start: token.raw.to_vec(),
                         empty,
@@ -11934,7 +12149,7 @@ fn rewrite_worksheet_from(
                         children: Vec::new(),
                     };
                     if empty {
-                        out.write_all(&settings.sheet_pr_written(held, index)?)?;
+                        out.write_all(&settings.written(held, index)?)?;
                         scope.end();
                         depth -= 1;
                     } else {
@@ -12038,11 +12253,16 @@ fn rewrite_worksheet_from(
                     #[cfg(feature = "images")]
                     let links_needed = links_needed || work.drawing.is_some();
                     #[cfg(feature = "sheetprops")]
-                    let links_needed = links_needed || settings.needs_sheet_pr();
+                    let links_needed = links_needed || settings.needs_any();
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
                         #[cfg(feature = "sheetprops")]
-                        out.write_all(&settings.create_before(usize::MAX, &root_prefix, index)?)?;
+                        out.write_all(&settings.create_before(
+                            usize::MAX,
+                            VIEWS_POSITION,
+                            &root_prefix,
+                            index,
+                        )?)?;
                         for which in 0..CREATED.len() {
                             #[cfg(feature = "metadata")]
                             if schema_position(CREATED[which]).unwrap_or(0)
@@ -12072,6 +12292,13 @@ fn rewrite_worksheet_from(
                         if let Some(bytes) = links.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
+                        #[cfg(feature = "sheetprops")]
+                        out.write_all(&settings.create_before(
+                            usize::MAX,
+                            usize::MAX,
+                            &root_prefix,
+                            index,
+                        )?)?;
                         #[cfg(feature = "images")]
                         if let Some(bytes) = drawing.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
@@ -12476,6 +12703,7 @@ fn rewrite_worksheet_from(
                                 #[cfg(feature = "sheetprops")]
                                 out.write_all(&settings.create_before(
                                     usize::MAX,
+                                    VIEWS_POSITION,
                                     &root_prefix,
                                     index,
                                 )?)?;
@@ -12515,6 +12743,13 @@ fn rewrite_worksheet_from(
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
+                                #[cfg(feature = "sheetprops")]
+                                out.write_all(&settings.create_before(
+                                    usize::MAX,
+                                    usize::MAX,
+                                    &root_prefix,
+                                    index,
+                                )?)?;
                                 #[cfg(feature = "images")]
                                 if let Some(bytes) = drawing.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
@@ -13076,32 +13311,423 @@ impl SheetView {
     }
 }
 
-/// One worksheet's sheet settings in one write
-/// (`specs/0025-sheet-and-print-settings.md`, "The pass"). The Cargo feature
+/// The print options of a worksheet's `<printOptions>` that
+/// [`Package::set_print_options`] writes, each `Some` field as its
+/// attribute (`specs/0025-sheet-and-print-settings.md`, "Types"); the four
+/// openpyxl exposes, `gridLinesSet` not modelled. The Cargo feature
 /// `sheetprops`.
 #[cfg(feature = "sheetprops")]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PrintOptions {
+    /// `horizontalCentered`: the printed area centred across the page.
+    pub horizontal_centered: Option<bool>,
+    /// `verticalCentered`: the printed area centred down the page.
+    pub vertical_centered: Option<bool>,
+    /// `headings`: the row and column headings printed.
+    pub headings: Option<bool>,
+    /// `gridLines`: the gridlines printed.
+    pub grid_lines: Option<bool>,
+}
+
+/// The margins of a worksheet's `<pageMargins>` that
+/// [`Package::set_page_margins`] writes, in inches, each finite and at least
+/// zero (`specs/0025-sheet-and-print-settings.md`, "Types"). The Cargo
+/// feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PageMargins {
+    /// `left`.
+    pub left: Option<f64>,
+    /// `right`.
+    pub right: Option<f64>,
+    /// `top`.
+    pub top: Option<f64>,
+    /// `bottom`.
+    pub bottom: Option<f64>,
+    /// `header`: from the page's top edge to the header.
+    pub header: Option<f64>,
+    /// `footer`: from the page's bottom edge to the footer.
+    pub footer: Option<f64>,
+}
+
+/// The page setup of a worksheet's `<pageSetup>` that
+/// [`Package::set_page_setup`] writes, each `Some` field as its attribute,
+/// and the fit-to-page switch, which the format keeps on `<sheetPr>`'s
+/// `<pageSetUpPr>` (`specs/0025-sheet-and-print-settings.md`, "Types").
+/// The Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PageSetup {
+    /// `orientation`.
+    pub orientation: Option<Orientation>,
+    /// `paperSize`, the format's paper code, at least 1.
+    pub paper_size: Option<u32>,
+    /// `scale`, a percentage in `10..=400`.
+    pub scale: Option<u32>,
+    /// `fitToWidth`: pages across, 0 for automatic.
+    pub fit_to_width: Option<u32>,
+    /// `fitToHeight`: pages down, 0 for automatic.
+    pub fit_to_height: Option<u32>,
+    /// `<pageSetUpPr fitToPage>` under `<sheetPr>`: whether the two fit
+    /// counts apply rather than the scale.
+    pub fit_to_page: Option<bool>,
+    /// `firstPageNumber`, written with `useFirstPageNumber="1"`.
+    pub first_page_number: Option<u32>,
+    /// `blackAndWhite`.
+    pub black_and_white: Option<bool>,
+    /// `draft`.
+    pub draft: Option<bool>,
+    /// `copies`, at least 1.
+    pub copies: Option<u32>,
+    /// `pageOrder`.
+    pub page_order: Option<PageOrder>,
+}
+
+/// A page's orientation, the `orientation` attribute's values other than
+/// `default`. The Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Orientation {
+    /// `portrait`.
+    #[default]
+    Portrait,
+    /// `landscape`.
+    Landscape,
+}
+
+/// The order pages print in, the `pageOrder` attribute's two values. The
+/// Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PageOrder {
+    /// `downThenOver`.
+    #[default]
+    DownThenOver,
+    /// `overThenDown`.
+    OverThenDown,
+}
+
+/// The six header and footer texts of a worksheet's `<headerFooter>` that
+/// [`Package::set_header_footer`] writes: each the format's code string
+/// (`&L`, `&C`, `&R`, `&P` and the rest), stored and escaped, never parsed;
+/// `Some("")` drops the text, `None` leaves the file's
+/// (`specs/0025-sheet-and-print-settings.md`, "Types", decision 3 A). The
+/// Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HeaderFooter {
+    /// `<oddHeader>`, every page's header unless the even or first one
+    /// applies.
+    pub odd_header: Option<String>,
+    /// `<oddFooter>`.
+    pub odd_footer: Option<String>,
+    /// `<evenHeader>`, written with `differentOddEven="1"`.
+    pub even_header: Option<String>,
+    /// `<evenFooter>`, written with `differentOddEven="1"`.
+    pub even_footer: Option<String>,
+    /// `<firstHeader>`, written with `differentFirst="1"`.
+    pub first_header: Option<String>,
+    /// `<firstFooter>`, written with `differentFirst="1"`.
+    pub first_footer: Option<String>,
+}
+
+#[cfg(feature = "sheetprops")]
+impl Orientation {
+    fn keyword(self) -> &'static [u8] {
+        match self {
+            Self::Portrait => b"portrait",
+            Self::Landscape => b"landscape",
+        }
+    }
+}
+
+#[cfg(feature = "sheetprops")]
+impl PageOrder {
+    fn keyword(self) -> &'static [u8] {
+        match self {
+            Self::DownThenOver => b"downThenOver",
+            Self::OverThenDown => b"overThenDown",
+        }
+    }
+}
+
+/// `1` or `0`.
+#[cfg(feature = "sheetprops")]
+fn flag(on: bool) -> Vec<u8> {
+    if on { b"1".to_vec() } else { b"0".to_vec() }
+}
+
+#[cfg(feature = "sheetprops")]
+impl PrintOptions {
+    /// These fields with each `Some` field of `later` in its place.
+    fn then(self, later: &PrintOptions) -> PrintOptions {
+        PrintOptions {
+            horizontal_centered: later.horizontal_centered.or(self.horizontal_centered),
+            vertical_centered: later.vertical_centered.or(self.vertical_centered),
+            headings: later.headings.or(self.headings),
+            grid_lines: later.grid_lines.or(self.grid_lines),
+        }
+    }
+
+    /// The attributes the `Some` fields write, in the order the corpus's
+    /// parts carry them ("Planning rulings during P2", ruling 3).
+    fn attributes(&self) -> Vec<(&'static [u8], Vec<u8>)> {
+        [
+            (b"headings".as_slice(), self.headings),
+            (b"gridLines", self.grid_lines),
+            (b"horizontalCentered", self.horizontal_centered),
+            (b"verticalCentered", self.vertical_centered),
+        ]
+        .into_iter()
+        .filter_map(|(name, value)| value.map(|on| (name, flag(on))))
+        .collect()
+    }
+}
+
+#[cfg(feature = "sheetprops")]
+impl PageMargins {
+    /// These fields with each `Some` field of `later` in its place.
+    fn then(self, later: &PageMargins) -> PageMargins {
+        PageMargins {
+            left: later.left.or(self.left),
+            right: later.right.or(self.right),
+            top: later.top.or(self.top),
+            bottom: later.bottom.or(self.bottom),
+            header: later.header.or(self.header),
+            footer: later.footer.or(self.footer),
+        }
+    }
+
+    /// The six fields in the order the corpus's parts carry them ("Planning
+    /// rulings during P2", ruling 3), beside Excel's default for each (`specs/0025-sheet-and-print-
+    /// settings.md`, "The calls").
+    fn fields(&self) -> [(&'static [u8], Option<f64>, f64); 6] {
+        [
+            (b"left", self.left, 0.7),
+            (b"right", self.right, 0.7),
+            (b"top", self.top, 0.75),
+            (b"bottom", self.bottom, 0.75),
+            (b"header", self.header, 0.3),
+            (b"footer", self.footer, 0.3),
+        ]
+    }
+
+    /// The attributes the `Some` fields write, or for a created element all
+    /// six, Excel's default for each field not given, since the schema
+    /// requires them.
+    fn attributes(&self, created: bool) -> Vec<(&'static [u8], Vec<u8>)> {
+        self.fields()
+            .into_iter()
+            .filter_map(|(name, value, default)| {
+                let value = if created {
+                    Some(value.unwrap_or(default))
+                } else {
+                    value
+                };
+                value.map(|inches| (name, number_text(inches).into_bytes()))
+            })
+            .collect()
+    }
+}
+
+#[cfg(feature = "sheetprops")]
+impl PageSetup {
+    /// These fields with each `Some` field of `later` in its place.
+    fn then(self, later: &PageSetup) -> PageSetup {
+        PageSetup {
+            orientation: later.orientation.or(self.orientation),
+            paper_size: later.paper_size.or(self.paper_size),
+            scale: later.scale.or(self.scale),
+            fit_to_width: later.fit_to_width.or(self.fit_to_width),
+            fit_to_height: later.fit_to_height.or(self.fit_to_height),
+            fit_to_page: later.fit_to_page.or(self.fit_to_page),
+            first_page_number: later.first_page_number.or(self.first_page_number),
+            black_and_white: later.black_and_white.or(self.black_and_white),
+            draft: later.draft.or(self.draft),
+            copies: later.copies.or(self.copies),
+            page_order: later.page_order.or(self.page_order),
+        }
+    }
+
+    /// The `<pageSetup>` attributes the `Some` fields write, in the order
+    /// the corpus's parts carry them, `firstPageNumber` and
+    /// `useFirstPageNumber` after the others the corpus puts before them
+    /// ("Planning rulings during P2", ruling 3); `fit_to_page` is
+    /// `<sheetPr>`'s.
+    fn attributes(&self) -> Vec<(&'static [u8], Vec<u8>)> {
+        let number = |value: u32| value.to_string().into_bytes();
+        let mut out: Vec<(&'static [u8], Vec<u8>)> = Vec::new();
+        let mut push = |name: &'static [u8], value: Option<Vec<u8>>| {
+            if let Some(value) = value {
+                out.push((name, value));
+            }
+        };
+        push(b"paperSize", self.paper_size.map(number));
+        push(b"scale", self.scale.map(number));
+        push(b"fitToWidth", self.fit_to_width.map(number));
+        push(b"fitToHeight", self.fit_to_height.map(number));
+        push(
+            b"pageOrder",
+            self.page_order.map(|order| order.keyword().to_vec()),
+        );
+        push(
+            b"orientation",
+            self.orientation
+                .map(|orientation| orientation.keyword().to_vec()),
+        );
+        push(b"blackAndWhite", self.black_and_white.map(flag));
+        push(b"draft", self.draft.map(flag));
+        push(b"firstPageNumber", self.first_page_number.map(number));
+        push(
+            b"useFirstPageNumber",
+            self.first_page_number.map(|_| b"1".to_vec()),
+        );
+        push(b"copies", self.copies.map(number));
+        out
+    }
+
+    /// Whether every field is in its range: a scale in `10..=400`, a paper
+    /// size, a first page number and copies at least 1, the fit counts any
+    /// `u32` (`specs/0025-sheet-and-print-settings.md`, "Planning rulings
+    /// during P2", ruling 1).
+    fn in_range(&self) -> bool {
+        self.scale.is_none_or(|scale| (10..=400).contains(&scale))
+            && self.paper_size.is_none_or(|size| size >= 1)
+            && self.first_page_number.is_none_or(|number| number >= 1)
+            && self.copies.is_none_or(|copies| copies >= 1)
+    }
+}
+
+#[cfg(feature = "sheetprops")]
+impl HeaderFooter {
+    /// One header or footer text from three parts, as openpyxl's
+    /// `HeaderFooterItem` joins them: `&L`, `&C` and `&R` before each
+    /// part that is not empty, the parts passed through as code strings;
+    /// all three empty give an empty text, which drops the element.
+    pub fn section(left: &str, center: &str, right: &str) -> String {
+        let mut out = String::new();
+        for (code, part) in [("&L", left), ("&C", center), ("&R", right)] {
+            if !part.is_empty() {
+                out.push_str(code);
+                out.push_str(part);
+            }
+        }
+        out
+    }
+
+    /// These fields with each `Some` field of `later` in its place.
+    fn then(self, later: &HeaderFooter) -> HeaderFooter {
+        let pick = |later: &Option<String>, earlier: Option<String>| later.clone().or(earlier);
+        HeaderFooter {
+            odd_header: pick(&later.odd_header, self.odd_header),
+            odd_footer: pick(&later.odd_footer, self.odd_footer),
+            even_header: pick(&later.even_header, self.even_header),
+            even_footer: pick(&later.even_footer, self.even_footer),
+            first_header: pick(&later.first_header, self.first_header),
+            first_footer: pick(&later.first_footer, self.first_footer),
+        }
+    }
+
+    /// The six texts in the order ECMA-376 Part 1, 18.3.1.46 gives the
+    /// children.
+    fn texts(&self) -> [(&'static [u8], &Option<String>); 6] {
+        [
+            (HEADER_FOOTER_CHILDREN[0], &self.odd_header),
+            (HEADER_FOOTER_CHILDREN[1], &self.odd_footer),
+            (HEADER_FOOTER_CHILDREN[2], &self.even_header),
+            (HEADER_FOOTER_CHILDREN[3], &self.even_footer),
+            (HEADER_FOOTER_CHILDREN[4], &self.first_header),
+            (HEADER_FOOTER_CHILDREN[5], &self.first_footer),
+        ]
+    }
+
+    /// Whether a text is written: given and not empty.
+    fn writes(text: &Option<String>) -> bool {
+        text.as_deref().is_some_and(|text| !text.is_empty())
+    }
+
+    /// The flags the texts written set: `differentFirst` for a first
+    /// text, `differentOddEven` for an even one, in the order the corpus's
+    /// parts carry them ("Planning rulings during P2", ruling 3).
+    fn attributes(&self) -> Vec<(&'static [u8], Vec<u8>)> {
+        let mut out: Vec<(&'static [u8], Vec<u8>)> = Vec::new();
+        if Self::writes(&self.first_header) || Self::writes(&self.first_footer) {
+            out.push((b"differentFirst", b"1".to_vec()));
+        }
+        if Self::writes(&self.even_header) || Self::writes(&self.even_footer) {
+            out.push((b"differentOddEven", b"1".to_vec()));
+        }
+        out
+    }
+}
+
+/// One worksheet's sheet settings in one write, each element's fields the
+/// last recorded (`specs/0025-sheet-and-print-settings.md`, "The pass").
+/// The Cargo feature `sheetprops`.
+#[cfg(feature = "sheetprops")]
+#[derive(Clone, Default)]
 struct Settings {
     /// `Some(Some(colour))` a tab colour, `Some(None)` its removal, `None`
     /// no tab colour edit.
     tab: Option<Option<Color>>,
     /// The first `<sheetView>`'s fields, `None` when no call names them.
     view: Option<SheetView>,
+    print_options: Option<PrintOptions>,
+    margins: Option<PageMargins>,
+    page_setup: Option<PageSetup>,
+    header_footer: Option<HeaderFooter>,
 }
 
 #[cfg(all(feature = "sheetprops", feature = "rowcol"))]
 impl Settings {
     fn is_empty(&self) -> bool {
-        self.tab.is_none() && self.view.is_none()
+        self.tab.is_none()
+            && self.view.is_none()
+            && self.print_options.is_none()
+            && self.margins.is_none()
+            && self.page_setup.is_none()
+            && self.header_footer.is_none()
     }
 }
 
-/// `<sheetPr>`'s name, and its children in the order ECMA-376 Part 1,
-/// 18.3.1.82 gives them.
+/// The root children the settings pass holds or creates, in schema order
+/// (`specs/0025-sheet-and-print-settings.md`, "The pass"); the first
+/// `<sheetView>` is the view pass's.
 #[cfg(feature = "sheetprops")]
-const SHEET_PR: &[u8] = b"sheetPr";
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Setting {
+    SheetPr,
+    PrintOptions,
+    PageMargins,
+    PageSetup,
+    HeaderFooter,
+}
+
+#[cfg(feature = "sheetprops")]
+const SETTINGS: [(Setting, &[u8]); 5] = [
+    (Setting::SheetPr, b"sheetPr"),
+    (Setting::PrintOptions, b"printOptions"),
+    (Setting::PageMargins, b"pageMargins"),
+    (Setting::PageSetup, b"pageSetup"),
+    (Setting::HeaderFooter, b"headerFooter"),
+];
+
+/// `<sheetPr>`'s children in the order ECMA-376 Part 1, 18.3.1.82 gives
+/// them.
 #[cfg(feature = "sheetprops")]
 const SHEET_PR_CHILDREN: [&[u8]; 3] = [b"tabColor", b"outlinePr", b"pageSetUpPr"];
+
+/// `<headerFooter>`'s children in the order ECMA-376 Part 1, 18.3.1.46
+/// gives them.
+#[cfg(feature = "sheetprops")]
+const HEADER_FOOTER_CHILDREN: [&[u8]; 6] = [
+    b"oddHeader",
+    b"oddFooter",
+    b"evenHeader",
+    b"evenFooter",
+    b"firstHeader",
+    b"firstFooter",
+];
 
 /// The one attribute-merge routine of the settings pass
 /// (`specs/0025-sheet-and-print-settings.md`, "The pass", decision 2 A): a
@@ -13177,17 +13803,35 @@ fn view_edit(_: &SheetWork) -> (bool, bool) {
     (false, false)
 }
 
-/// An element the settings pass holds to its end tag: its start tag,
-/// whether that tag was empty, its qualified name, its prefix and its
+/// An element the settings pass holds to its end tag: which one, its start
+/// tag, whether that tag was empty, its qualified name, its prefix and its
 /// children so far. The Cargo feature `sheetprops`.
 #[cfg(feature = "sheetprops")]
 struct Held {
+    setting: Setting,
     depth: usize,
     start: Vec<u8>,
     empty: bool,
     name: Vec<u8>,
     prefix: Vec<u8>,
     children: Vec<HeldChild>,
+}
+
+#[cfg(feature = "sheetprops")]
+impl Held {
+    /// The element of `setting` the write creates, empty, with `prefix`.
+    fn created(setting: Setting, local: &[u8], prefix: &[u8]) -> Held {
+        let name = [prefix, local].concat();
+        Held {
+            setting,
+            depth: 0,
+            start: [b"<".as_slice(), &name, b"/>"].concat(),
+            empty: true,
+            name,
+            prefix: prefix.to_vec(),
+            children: Vec::new(),
+        }
+    }
 }
 
 /// One piece of a held element's content.
@@ -13214,21 +13858,47 @@ impl HeldChild {
     }
 }
 
+/// `children` with `bytes`, the element `local`, placed before the first
+/// child element that `order` puts after it, or at the end.
+#[cfg(feature = "sheetprops")]
+fn insert_ordered(children: &mut Vec<HeldChild>, order: &[&[u8]], local: &[u8], bytes: Vec<u8>) {
+    let rank = order.iter().position(|name| *name == local);
+    let at = children
+        .iter()
+        .position(|child| match child {
+            HeldChild::Element { local: other, .. } => order
+                .iter()
+                .position(|name| *name == other.as_slice())
+                .is_some_and(|other| rank.is_some_and(|rank| other > rank)),
+            HeldChild::Other(_) => false,
+        })
+        .unwrap_or(children.len());
+    children.insert(
+        at,
+        HeldChild::Element {
+            local: local.to_vec(),
+            bytes,
+        },
+    );
+}
+
 /// The settings pass of a worksheet rewrite
-/// (`specs/0025-sheet-and-print-settings.md`, "The pass"): the part's
-/// `<sheetPr>` held to its end tag and rewritten, or created in schema
-/// position with the root's prefix, and the refusal of one met twice or out
-/// of schema order. The first `<sheetView>`'s attributes go through the same
-/// merge routine where the rewrite meets that element ([`view_tag`]). The
-/// Cargo feature `sheetprops`.
+/// (`specs/0025-sheet-and-print-settings.md`, "The pass"): each settings
+/// element the write edits held to its end tag and rewritten through
+/// [`merged_tag`], or created in schema position with the root's prefix,
+/// and the refusal of one met twice or out of schema order. The first
+/// `<sheetView>`'s attributes go through the same merge routine where the
+/// rewrite meets that element ([`view_tag`]). The Cargo feature
+/// `sheetprops`.
 #[cfg(feature = "sheetprops")]
 struct SettingsPass<'w> {
     work: &'w Settings,
-    /// Whether the part's `<sheetPr>` has been met or created.
-    sheet_pr_met: bool,
+    /// For each of [`SETTINGS`], whether the part's element has been met or
+    /// created.
+    met: [bool; 5],
     /// The greatest place in [`WORKSHEET_CHILDREN`] of a root child met.
     last: Option<usize>,
-    /// The `<sheetPr>` being read.
+    /// The element being read.
     held: Option<Held>,
 }
 
@@ -13237,64 +13907,123 @@ impl<'w> SettingsPass<'w> {
     fn new(work: &'w Settings) -> Self {
         Self {
             work,
-            sheet_pr_met: false,
+            met: [false; 5],
             last: None,
             held: None,
         }
     }
 
-    /// Whether the write edits the part's `<sheetPr>`.
-    fn touches_sheet_pr(&self) -> bool {
-        self.work.tab.is_some()
+    /// The setting a root child of local name `local` is.
+    fn setting_of(local: &[u8]) -> Option<(usize, Setting)> {
+        SETTINGS
+            .iter()
+            .position(|(_, name)| *name == local)
+            .map(|at| (at, SETTINGS[at].0))
     }
 
-    /// Whether the write creates a `<sheetPr>` the part lacks.
-    fn needs_sheet_pr(&self) -> bool {
-        matches!(self.work.tab, Some(Some(_)))
+    /// Whether the write edits the part's element of `setting`.
+    fn touches(&self, setting: Setting) -> bool {
+        let work = self.work;
+        match setting {
+            Setting::SheetPr => {
+                work.tab.is_some()
+                    || work
+                        .page_setup
+                        .is_some_and(|setup| setup.fit_to_page.is_some())
+            }
+            Setting::PrintOptions => work.print_options.is_some(),
+            Setting::PageMargins => work.margins.is_some(),
+            Setting::PageSetup => work
+                .page_setup
+                .is_some_and(|setup| !setup.attributes().is_empty()),
+            Setting::HeaderFooter => work.header_footer.is_some(),
+        }
+    }
+
+    /// Whether the write creates the element of `setting` when the part
+    /// lacks it: when it has something to write there.
+    fn needs(&self, setting: Setting) -> bool {
+        let work = self.work;
+        match setting {
+            Setting::SheetPr => {
+                matches!(work.tab, Some(Some(_)))
+                    || work
+                        .page_setup
+                        .is_some_and(|setup| setup.fit_to_page.is_some())
+            }
+            Setting::PrintOptions => work
+                .print_options
+                .is_some_and(|options| !options.attributes().is_empty()),
+            Setting::PageMargins => work
+                .margins
+                .is_some_and(|margins| !margins.attributes(false).is_empty()),
+            Setting::PageSetup => self.touches(Setting::PageSetup),
+            Setting::HeaderFooter => work.header_footer.as_ref().is_some_and(|texts| {
+                texts
+                    .texts()
+                    .iter()
+                    .any(|(_, text)| HeaderFooter::writes(text))
+            }),
+        }
+    }
+
+    /// Whether the write creates any settings element the part lacks.
+    fn needs_any(&self) -> bool {
+        SETTINGS.iter().any(|(setting, _)| self.needs(*setting))
+    }
+
+    /// The setting the write holds when it meets a root child `local`.
+    fn held_setting(&self, local: &[u8]) -> Option<Setting> {
+        Self::setting_of(local)
+            .map(|(_, setting)| setting)
+            .filter(|setting| self.touches(*setting))
     }
 
     /// A root child of the main namespace met at `position` in
-    /// [`WORKSHEET_CHILDREN`]: a `<sheetPr>` the write edits is refused when
-    /// it is the second, or comes after a root child the schema puts after
-    /// it, which is also the case of one met after the write created one.
+    /// [`WORKSHEET_CHILDREN`]: a settings element the write edits is
+    /// refused when it is the second, or comes after a root child the
+    /// schema puts after it, which is also the case of one met after the
+    /// write created one.
     fn observe(&mut self, local: &[u8], position: usize) -> Result<(), Error> {
-        if local == SHEET_PR && self.touches_sheet_pr() {
-            if self.sheet_pr_met || self.last.is_some_and(|last| last > position) {
+        if let Some((at, setting)) = Self::setting_of(local)
+            && self.touches(setting)
+        {
+            if self.met[at] || self.last.is_some_and(|last| last > position) {
                 return Err(TWO_SETTINGS);
             }
-            self.sheet_pr_met = true;
+            self.met[at] = true;
         }
         self.last = Some(self.last.map_or(position, |last| last.max(position)));
         Ok(())
     }
 
     /// The elements the write creates before a root child at `position`,
-    /// or at the root's end for `usize::MAX`, with the root's `prefix`.
+    /// or at the root's end for `usize::MAX`, each whose place lies before
+    /// `below` too, with the root's `prefix`: the caller asks once before
+    /// the root children the rewrite creates and once after the
+    /// hyperlinks, so each element lands in schema order among them.
     fn create_before(
         &mut self,
         position: usize,
+        below: usize,
         prefix: &[u8],
         index: usize,
     ) -> Result<Vec<u8>, Error> {
-        let at = schema_position(SHEET_PR).unwrap_or(0);
-        if self.needs_sheet_pr() && !self.sheet_pr_met && at < position {
-            self.sheet_pr_met = true;
-            let name = [prefix, SHEET_PR].concat();
-            let held = Held {
-                depth: 0,
-                start: [b"<".as_slice(), &name, b"/>"].concat(),
-                empty: true,
-                name,
-                prefix: prefix.to_vec(),
-                children: Vec::new(),
-            };
-            return self.sheet_pr_written(held, index);
+        let mut out = Vec::new();
+        for (at, (setting, local)) in SETTINGS.iter().enumerate() {
+            let place = schema_position(local).unwrap_or(0);
+            if self.needs(*setting) && !self.met[at] && place < position && place < below {
+                self.met[at] = true;
+                out.extend_from_slice(
+                    &self.written(Held::created(*setting, local, prefix), index)?,
+                );
+            }
         }
-        Ok(Vec::new())
+        Ok(out)
     }
 
-    /// A token inside the held `<sheetPr>` at `depth`, a start or empty tag
-    /// of local name `local`: a child of its own one deeper, or more of the
+    /// A token inside the held element at `depth`, a start or empty tag of
+    /// local name `local`: a child of its own one deeper, or more of the
     /// child it is inside.
     fn child(&mut self, raw: &[u8], local: &[u8], ours: bool, depth: usize) {
         if let Some(held) = self.held.as_mut() {
@@ -13313,7 +14042,7 @@ impl<'w> SettingsPass<'w> {
         }
     }
 
-    /// Any token other than a tag while a `<sheetPr>` is held: text between
+    /// Any token other than a tag while an element is held: text between
     /// its children is a piece of its own, anything deeper belongs to the
     /// child it is in. Whether the pass took it.
     fn other(&mut self, raw: &[u8], depth: usize) -> bool {
@@ -13327,7 +14056,7 @@ impl<'w> SettingsPass<'w> {
         true
     }
 
-    /// An end tag at `depth` while a `<sheetPr>` is held: the rewritten
+    /// An end tag at `depth` while an element is held: the rewritten
     /// element at its own end, nothing at a child's, which joins the child;
     /// `None` when nothing is held.
     fn end(&mut self, raw: &[u8], depth: usize, index: usize) -> Result<Option<Vec<u8>>, Error> {
@@ -13336,7 +14065,7 @@ impl<'w> SettingsPass<'w> {
         };
         if depth == held.depth {
             return match self.held.take() {
-                Some(held) => self.sheet_pr_written(held, index).map(Some),
+                Some(held) => self.written(held, index).map(Some),
                 None => Ok(None),
             };
         }
@@ -13347,53 +14076,133 @@ impl<'w> SettingsPass<'w> {
         Ok(Some(Vec::new()))
     }
 
-    /// A held `<sheetPr>` with the tab colour edit applied: the part's
-    /// `<tabColor>` dropped, the edit's placed before the first child the
-    /// schema puts after it, every other attribute and child kept; nothing
-    /// when the element is left with no attribute and no child.
-    fn sheet_pr_written(&self, held: Held, index: usize) -> Result<Vec<u8>, Error> {
+    /// A held or created element with the edits applied: its attributes
+    /// through [`merged_tag`], its children as the setting gives; a
+    /// `<sheetPr>` or a `<headerFooter>` left with no attribute and no
+    /// child is dropped.
+    fn written(&self, held: Held, index: usize) -> Result<Vec<u8>, Error> {
+        let created = held.depth == 0;
+        let work = self.work;
+        let set = match held.setting {
+            Setting::SheetPr => Vec::new(),
+            Setting::PrintOptions => work
+                .print_options
+                .map(|o| o.attributes())
+                .unwrap_or_default(),
+            Setting::PageMargins => work
+                .margins
+                .map(|margins| margins.attributes(created))
+                .unwrap_or_default(),
+            Setting::PageSetup => work.page_setup.map(|s| s.attributes()).unwrap_or_default(),
+            Setting::HeaderFooter => work
+                .header_footer
+                .as_ref()
+                .map(HeaderFooter::attributes)
+                .unwrap_or_default(),
+        };
+        let start = merged_tag(&held.start, &set, index)?;
         let mut children = held.children;
-        if self.work.tab.is_some() {
-            children.retain(|child| !child.is(SHEET_PR_CHILDREN[0]));
-        }
-        if let Some(Some(color)) = &self.work.tab {
-            let at = children
-                .iter()
-                .position(|child| SHEET_PR_CHILDREN[1..].iter().any(|name| child.is(name)))
-                .unwrap_or(children.len());
-            children.insert(
-                at,
-                HeldChild::Element {
-                    local: SHEET_PR_CHILDREN[0].to_vec(),
-                    bytes: color_element("tabColor", color).element(&held.prefix),
-                },
-            );
-        }
-        let tag = scan_start_tag(&held.start).ok_or(Error::Xml(index))?;
+        let droppable = match held.setting {
+            Setting::SheetPr => {
+                self.sheet_pr_children(&mut children, &held.prefix, index)?;
+                true
+            }
+            Setting::HeaderFooter => {
+                self.header_footer_children(&mut children, &held.prefix);
+                true
+            }
+            _ => false,
+        };
+        let tag = scan_start_tag(&start).ok_or(Error::Xml(index))?;
         let content = children.iter().any(|child| match child {
             HeldChild::Other(bytes) => !bytes.iter().all(u8::is_ascii_whitespace),
             HeldChild::Element { .. } => true,
         });
-        if tag.attributes.is_empty() && !content {
+        if droppable && tag.attributes.is_empty() && !content {
             return Ok(Vec::new());
         }
         if children.is_empty() {
-            let mut out = held.start;
+            let mut out = start;
             if !held.empty {
                 out.extend_from_slice(&[b"</".as_slice(), &held.name, b">"].concat());
             }
             return Ok(out);
         }
         let mut out = if held.empty {
-            opened_up(&held.start, index)?
+            opened_up(&start, index)?
         } else {
-            held.start
+            start
         };
         for mut child in children {
             out.append(child.bytes());
         }
         out.extend_from_slice(&[b"</".as_slice(), &held.name, b">"].concat());
         Ok(out)
+    }
+
+    /// `<sheetPr>`'s children with the tab colour and the fit-to-page edits
+    /// applied: the part's `<tabColor>` dropped and the edit's placed before
+    /// the first child the schema puts after it; `fitToPage` set on the
+    /// part's `<pageSetUpPr>` through [`merged_tag`], or one created in its
+    /// place; every other child kept.
+    fn sheet_pr_children(
+        &self,
+        children: &mut Vec<HeldChild>,
+        prefix: &[u8],
+        index: usize,
+    ) -> Result<(), Error> {
+        let work = self.work;
+        if work.tab.is_some() {
+            children.retain(|child| !child.is(SHEET_PR_CHILDREN[0]));
+        }
+        if let Some(Some(color)) = &work.tab {
+            let bytes = color_element("tabColor", color).element(prefix);
+            insert_ordered(children, &SHEET_PR_CHILDREN, SHEET_PR_CHILDREN[0], bytes);
+        }
+        if let Some(fit) = work.page_setup.and_then(|setup| setup.fit_to_page) {
+            let set = [(b"fitToPage".as_slice(), flag(fit))];
+            match children
+                .iter_mut()
+                .find(|child| child.is(SHEET_PR_CHILDREN[2]))
+            {
+                Some(child) => {
+                    let bytes = child.bytes();
+                    let tag = scan_start_tag(bytes).ok_or(Error::Xml(index))?;
+                    let rest = bytes.split_off(tag.end);
+                    *bytes = merged_tag(bytes, &set, index)?;
+                    bytes.extend_from_slice(&rest);
+                }
+                None => {
+                    let base = [b"<".as_slice(), prefix, SHEET_PR_CHILDREN[2], b"/>"].concat();
+                    let bytes = merged_tag(&base, &set, index)?;
+                    insert_ordered(children, &SHEET_PR_CHILDREN, SHEET_PR_CHILDREN[2], bytes);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// `<headerFooter>`'s children with the texts applied: each text given
+    /// drops the part's child of its name, and one not empty is written in
+    /// its place in schema order, escaped; every other child kept.
+    fn header_footer_children(&self, children: &mut Vec<HeldChild>, prefix: &[u8]) {
+        let Some(texts) = &self.work.header_footer else {
+            return;
+        };
+        for (local, text) in texts.texts() {
+            let Some(text) = text else {
+                continue;
+            };
+            children.retain(|child| !child.is(local));
+            if text.is_empty() {
+                continue;
+            }
+            let name = [prefix, local].concat();
+            let mut bytes = [b"<".as_slice(), &name, b">"].concat();
+            bytes.extend_from_slice(escape(text.as_str()).replace('\r', "&#13;").as_bytes());
+            bytes.extend_from_slice(&[b"</".as_slice(), &name, b">"].concat());
+            insert_ordered(children, &HEADER_FOOTER_CHILDREN, local, bytes);
+        }
     }
 }
 

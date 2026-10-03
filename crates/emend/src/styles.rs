@@ -674,7 +674,7 @@ pub(crate) struct ScannedTag {
     pub(crate) name_end: usize,
     pub(crate) attributes: Vec<ScannedAttribute>,
     /// The position after the tag's closing `>`.
-    end: usize,
+    pub(crate) end: usize,
     /// Whether it closed with `/>`.
     empty: bool,
 }
