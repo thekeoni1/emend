@@ -934,6 +934,83 @@ ed4c55f07c69, f8459281d739); planning's own privacy scan
    P2 rulings 1 and 3, P2 verification rulings 1 and 2 and P3
    rulings 2 and 3 as they say.
 
+## Planning verification and rulings on P4 (2026-10-03)
+
+Verified by planning from primaries: the doc commit 2b19bb6 holds
+this file at efdacd5c and `ROADMAP.md` at 8e1658d3, the hashes
+planning sent; the carry commit f59c78c is test code alone (the
+four tests of P3 verification rulings 1 and 2); the catalogue
+commit b0c6bd8 changes `//!` lines alone (0 other lines) and was
+read in full; the probes commit 01b14c0 adds the manifest's
+feature and two probes whose calls are "Size"'s; the record
+commit 6d57689 adds the seven logs and nine records; 5 of 5
+messages ASCII, ending with the Co-Authored-By line only; the
+logs at the reported hashes, each ending all as expected, the
+scan RESULT: PASS, every log pinning efdacd5c; the compound-shape
+grep 0; every `rm -rf` in the logs the guarded form on a
+directory the script made or `counting.sh`'s own; planning's own
+build at 01b14c0 in a detached worktree: 513 crate tests with the
+features off and 800 with every feature, on both targets, 977
+workspace tests on both, clippy and doc 0 lines; planning's own
+probes in the size profile on i686: `probe-zip-xml` 533216, the
+format probe 969672 (968936 at 0c3e4fa in its own worktree), the
+metadata probe 1019676, the sheetprops probe 997820 and the
+printnames probe 1054144 section bytes, so the feature's cost
+28148, the pair's 34468, the part's growth 736 and the budget
+436456 (22296 under 458752) are reproduced to the byte; the i686
+release `emend-copy` at the size log's hash fb2c86a7 (the host's
+differs by build path); planning's own reruns of the three
+samples with its own binaries over all 27 corpus workbooks on
+both labels: 27, 27 and 21 outputs and tool lines byte-identical
+to the run directories' per label, the same six workbooks refused
+by the overlap; planning's own privacy scan 38d4008..6d57689, 0
+findings; `ANTHROPIC_API_KEY` unset.
+
+1. Size. The feature costs 28148 section bytes, inside planning's
+   18000 to 30000; the pair 34468, above its 3000 to 8000: the
+   estimate missed that the three calls carry a second name-edit
+   kind through the workbook rewrite, the built-in text builder,
+   the quoting rule and the overlap check with the table part
+   reader, which is most of the tables feature's reader. Recorded;
+   the figure is what it is and nothing is traded for it. The core
+   grew 736, under the 2000 threshold: the files the diff changed
+   with no feature on are the five the size log names, and the
+   growth is the feature-off arms the settings pass left in the
+   core path (planning's reading, the same kind as part 2's 368).
+   Headroom is 22296. Part 4's estimate is priced from this part.
+2. R1 accepted: the four messages are catalogued by feature in
+   the header's "Errors" list with their tests, which is where the
+   earlier parts' are; the limits block need not repeat them. R2
+   accepted: the two sentences describe P1 to P3's code and are
+   pinned by the tests named. R3: the probe counts events through
+   the crate's `Stream`, as the format probe does; "Size"'s "own
+   `quick-xml` count" meant that and reads as it. R4: the
+   missing-table test has no control; plant V3 shows it can fail;
+   accepted.
+3. The run log's three attempts: attempt 1 ended all as expected
+   and its scan pre-check failed one structural check (a carried
+   history entry naming a root with no root line); attempt 2 was
+   stopped by hand for the same slip in its rerun note; attempt 3
+   differs from attempt 1's script by the six lines that fix it,
+   every superseded file hashed on the rerun lines, nothing lost,
+   as the check judged. Accepted. The stopping point of attempt 2
+   and the superseded run directories' contents are working
+   state. The three samples' outputs, lines and diff tables equal
+   P1's, P2's and P3's runs by sha256, and planning's own reruns
+   agree.
+4. L2, the same five cause files for every emend probe: the
+   cause-per-probe rule names the diff's paths, and the diff
+   touched the five for every probe; a finer attribution is part
+   7's backlog with the earlier note. The disclosures (two stray
+   empty files of its own made and removed in the same command;
+   the gotchas recorded): working state, accepted.
+5. P4 is DONE. Decision 7 was asked and the maintainer deferred
+   the Milestone 2 Excel check an eighth time (recorded under
+   decision 7). The close-out is released: its doc commit
+   carries this file with this section and decision 7's outcome,
+   and `ROADMAP.md`'s P4 row and Milestone 2 heading; the rest as
+   "Close-out push (after P4)" says.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-03: 1 to 6 as recommended (A in
@@ -976,6 +1053,12 @@ question, typed in the planning session; 7 recorded.
    2026-10-03 (`specs/0024` decision 7), to run before this part's
    close-out push at the latest or be deferred again by a decision
    recorded here. Recorded, not asked now; asked at the close-out.
+   Deferred an eighth time on 2026-10-04 ("Defer again (8th)",
+   typed in the planning session after P4's verification, before
+   the close-out's doc commit): the check, now with this part's
+   three samples on its list, runs before Milestone 3 part 4's
+   close-out push at the latest or is deferred again by a decision
+   recorded in part 4's spec; the push proceeds without it.
 
 ## Out of scope
 
