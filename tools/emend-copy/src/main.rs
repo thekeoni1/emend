@@ -572,7 +572,8 @@
 //!   `xfs_before` and `xfs_after` (the styles part's cell formats) and
 //!   `r_bound_before`. COUNTS ONLY: the font and the indices are this
 //!   tool's constants and no reference is printed. Asserted: `rows_after`
-//!   equal to `rows_before + 1 - rows_present`, the two flags 1, the kept
+//!   equal to `rows_before + 1 - rows_present` with row M + 1 present
+//!   after the write, the two flags 1, `col_split` from 1 to 3, the kept
 //!   attributes, `xfs_after` one more than before and i equal to
 //!   `xfs_before`; a failure is exit 2 with the message and no output, and
 //!   so is a refusal by the layer (M + 1 past the grid, a styles part the

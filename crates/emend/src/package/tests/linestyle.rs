@@ -138,6 +138,19 @@ fn a_column_style_at_each_end_and_over_a_whole_col() {
 }
 
 #[test]
+fn a_column_style_on_a_col_covering_the_column_alone_is_replaced_in_place() {
+    // P2 verification ruling 2: a `<col>` already covering exactly the
+    // column takes the style in place, every other byte kept.
+    let body = "<cols><col min=\"8\" max=\"8\" width=\"5\" style=\"3\"/><col min=\"9\" max=\"9\" width=\"5\" style=\"3\" customWidth=\"1\"/></cols><sheetData/>";
+    assert_eq!(
+        edited(body, column(9, Some(2))),
+        worksheet(
+            "<cols><col min=\"8\" max=\"8\" width=\"5\" style=\"3\"/><col min=\"9\" max=\"9\" width=\"5\" style=\"2\" customWidth=\"1\"/></cols><sheetData/>"
+        )
+    );
+}
+
+#[test]
 fn a_column_style_on_uncovered_columns_creates_one_element() {
     let edit = |p: &mut Package<Cursor<Vec<u8>>>| {
         p.set_column_style(SHEET, 8, Some(1)).expect("recorded");
