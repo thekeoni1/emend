@@ -528,9 +528,11 @@
 //!   M + 2 grouped at level 1 hidden, row M + 3 collapsed, the columns 2 to
 //!   3 grouped at level 1 shown, and the summary rows above their groups.
 //!   The output is reopened and W read by this tool's own pass over its
-//!   tokens. One line: the word `group` then `rows_before` and `rows_after`
-//!   (W's `<row>` elements), `level_rows` (rows carrying `outlineLevel="1"`
-//!   after), `hidden_rows` (of those, the ones carrying `hidden="1"`),
+//!   tokens. One line: the word `group` then `rows_before` (W's `<row>`
+//!   elements), `rows_present` (the input's `<row>` elements numbered M + 1
+//!   to M + 3, rows with no cell, which the write edits in place;
+//!   "Planning rulings during P1", ruling 6), `rows_after`, `level_rows`
+//!   (rows carrying `outlineLevel="1"` after), `hidden_rows` (of those, the ones carrying `hidden="1"`),
 //!   `collapsed_rows` (rows carrying `collapsed="1"`), `cols_before` and
 //!   `cols_after` (W's `<col>` elements), `level_cols` (`<col>` elements
 //!   carrying `outlineLevel="1"` after), `max_row_ok` and `max_col_ok` (1
@@ -541,7 +543,7 @@
 //!   `outlineLevel`, `hidden` and `collapsed`, each the same name and bytes
 //!   before and after) and `r_bound_before`. COUNTS ONLY: the levels and the
 //!   flags are this tool's constants and no reference is printed. Asserted:
-//!   `rows_after` three more than before, `level_rows` 2, `hidden_rows` 2,
+//!   `rows_after` equal to `rows_before + 3 - rows_present`, `level_rows` 2, `hidden_rows` 2,
 //!   `collapsed_rows` 1, the `<col>` elements carrying the level covering
 //!   exactly columns 2 to 3 between them and numbering 1 when the input's
 //!   attributes for the two columns, as the write leaves them, are the same
@@ -5335,11 +5337,13 @@ fn pagesetup_read_back(
 }
 
 /// What the group sample reads of W by this tool's own pass over its
-/// tokens: each `<row>`'s level, hidden and collapsed flags, each `<col>`'s
-/// start tag, the first `<sheetFormatPr>`'s start tag and the first
-/// `<sheetPr>`'s `<outlinePr>` start tag.
+/// tokens: each `<row>`'s level, hidden and collapsed flags, the `<row>`
+/// elements numbered inside a window, each `<col>`'s start tag, the first
+/// `<sheetFormatPr>`'s start tag and the first `<sheetPr>`'s `<outlinePr>`
+/// start tag.
 struct GroupFacts {
     rows: u64,
+    in_window: u64,
     level_rows: u64,
     hidden_rows: u64,
     collapsed_rows: u64,
@@ -5348,10 +5352,12 @@ struct GroupFacts {
     outline: Option<Vec<u8>>,
 }
 
-/// The group sample's reading of `part`.
+/// The group sample's reading of `part`, `window` the row numbers counted
+/// in [`GroupFacts::in_window`].
 fn group_facts<R: io::Read + io::Seek>(
     package: &mut Package<R>,
     part: &[u8],
+    window: (u32, u32),
 ) -> Result<GroupFacts, Error> {
     let index = package.part(part).ok_or(Error::NoSuchName)?;
     let mut stream = Stream::new(package.read_part(index)?, index)?;
@@ -5362,6 +5368,7 @@ fn group_facts<R: io::Read + io::Seek>(
     let mut sheet_prs = 0u64;
     let mut facts = GroupFacts {
         rows: 0,
+        in_window: 0,
         level_rows: 0,
         hidden_rows: 0,
         collapsed_rows: 0,
@@ -5398,6 +5405,11 @@ fn group_facts<R: io::Read + io::Seek>(
             let local = tag_local_name(raw);
             if open == b"sheetData" && local == b"row" {
                 facts.rows += 1;
+                let number = tag_attribute(raw, b"r")
+                    .and_then(|r| std::str::from_utf8(&r).ok()?.parse::<u32>().ok());
+                if number.is_some_and(|r| (window.0..=window.1).contains(&r)) {
+                    facts.in_window += 1;
+                }
                 let flag =
                     |name: &[u8]| tag_attribute(raw, name).as_deref() == Some(b"1".as_slice());
                 if flag(b"outlineLevel") {
@@ -5502,17 +5514,18 @@ fn group_sample(input: &Path, output: &Path) -> Result<(), Error> {
         .map(|sheet| sheet.part.clone())
         .ok_or(Error::NoWorksheet)?;
     let sampled = sample(&mut package, &part)?;
-    let before = group_facts(&mut package, &part)?;
-    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
     // Past the grid, the layer's own refusal names the index.
     let first = sampled.max_row.saturating_add(1);
+    let window = (first, first.saturating_add(2));
+    let before = group_facts(&mut package, &part, window)?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
     package.group_rows(&part, first, first.saturating_add(1), 1, true)?;
     package.set_row_collapsed(&part, first.saturating_add(2), true)?;
     package.group_columns(&part, 2, 3, 1, false)?;
     package.set_outline_summary(&part, Some(false), None);
     write_into(package, output)?;
     // The output is in place: a failure from here on removes it.
-    let checked = group_read_back(output, &part, &before);
+    let checked = group_read_back(output, &part, &before, window);
     if checked.is_err() {
         let _ = fs::remove_file(output);
     }
@@ -5521,6 +5534,7 @@ fn group_sample(input: &Path, output: &Path) -> Result<(), Error> {
         "group",
         &[
             ("rows_before", before.rows),
+            ("rows_present", before.in_window),
             ("rows_after", after.rows),
             ("level_rows", after.level_rows),
             ("hidden_rows", after.hidden_rows),
@@ -5544,11 +5558,14 @@ fn group_read_back(
     output: &Path,
     part: &[u8],
     before: &GroupFacts,
+    window: (u32, u32),
 ) -> Result<(GroupFacts, u64, u64), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
-    let after = group_facts(&mut package, part)?;
-    if after.rows != before.rows + 3 {
+    let after = group_facts(&mut package, part, window)?;
+    // The rows of the window the input lacks are created, the rest edited
+    // in place ("Planning rulings during P1", ruling 6).
+    if after.rows != before.rows + 3 - before.in_window || after.in_window != 3 {
         return Err(Error::GroupSample("row count"));
     }
     if after.level_rows != 2 || after.hidden_rows != 2 {

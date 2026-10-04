@@ -4808,7 +4808,7 @@ fn the_group_sample_groups_rows_and_columns_and_keeps_the_rest() {
             "group-sample-created",
             "",
             "",
-            "group\trows_before=1\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
+            "group\trows_before=1\trows_present=0\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
              \tcols_before=0\tcols_after=1\tlevel_cols=1\tmax_row_ok=1\tmax_col_ok=1\
              \tsummary_ok=1\tkept_cols=0\tr_bound_before=0\n",
             "<sheetPr><outlinePr summaryBelow=\"0\"/></sheetPr>",
@@ -4821,7 +4821,7 @@ fn the_group_sample_groups_rows_and_columns_and_keeps_the_rest() {
             "<sheetFormatPr defaultRowHeight=\"15\" outlineLevelRow=\"0\"/><cols><col min=\"1\" \
              max=\"2\" width=\"9\" customWidth=\"1\" style=\"3\"/><col min=\"3\" max=\"3\" \
              width=\"12\" customWidth=\"1\" hidden=\"1\"/></cols>",
-            "group\trows_before=1\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
+            "group\trows_before=1\trows_present=0\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
              \tcols_before=2\tcols_after=3\tlevel_cols=2\tmax_row_ok=1\tmax_col_ok=1\
              \tsummary_ok=1\tkept_cols=5\tr_bound_before=0\n",
             "<sheetPr codeName=\"Sheet1\"><tabColor theme=\"4\"/><outlinePr summaryBelow=\"0\"/>\
@@ -4888,4 +4888,52 @@ fn the_group_sample_refuses_a_row_past_the_grid_and_leaves_nothing() {
         "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
         "--group-sample",
     );
+}
+
+#[test]
+fn the_group_sample_edits_present_rows_in_place_and_creates_the_rest() {
+    // "Planning rulings during P1", ruling 6: rows with no cell past M are
+    // edited in place, every byte kept but the attributes the sample sets,
+    // and only the rows the input lacks are created.
+    let specs = group_specs(
+        "",
+        "",
+        "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"2\" spans=\"1:1\"/>\
+         <row r=\"3\" ht=\"9\" customHeight=\"1\"/></sheetData>",
+    );
+    let dir = TempDir::new("group-sample-present");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--group-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "group\trows_before=3\trows_present=2\trows_after=4\tlevel_rows=2\thidden_rows=2\
+         \tcollapsed_rows=1\tcols_before=0\tcols_after=1\tlevel_cols=1\tmax_row_ok=1\
+         \tmax_col_ok=1\tsummary_ok=1\tkept_cols=0\tr_bound_before=0\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let sheet = String::from_utf8(
+        entry_named(&entries, b"xl/worksheets/sheet1.xml")
+            .compressed
+            .clone(),
+    )
+    .expect("UTF-8");
+    assert_eq!(
+        sheet,
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+             <worksheet xmlns=\"{MAIN_NS}\"><sheetPr><outlinePr summaryBelow=\"0\"/></sheetPr>\
+             <dimension ref=\"A1\"/><sheetFormatPr defaultRowHeight=\"15\" outlineLevelRow=\"1\" \
+             outlineLevelCol=\"1\"/><cols><col min=\"2\" max=\"3\" outlineLevel=\"1\"/></cols>\
+             <sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"2\" spans=\"1:1\" \
+             hidden=\"1\" outlineLevel=\"1\"/><row r=\"3\" ht=\"9\" customHeight=\"1\" \
+             hidden=\"1\" outlineLevel=\"1\"/><row r=\"4\" collapsed=\"1\"/></sheetData>\
+             <pageMargins left=\"0.7\"/></worksheet>"
+        ),
+        "the sheet"
+    );
+    untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
 }
