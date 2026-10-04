@@ -161,12 +161,16 @@ last call for an index wins per field.
   creates one; a range over absent rows creates each, which is the
   caller's cost. `group_columns(part, first, last, level, hidden)`:
   the same on the `<col>` elements covering the range through the
-  split rule, then coalesced (decision 2): after the edit,
-  adjacent `<col>` elements whose attributes other than `min` and
-  `max` are byte-identical are merged into one, so a group over a
-  range the file covered with one element is still one element,
-  and a range no element covered gets one element with `min`,
-  `max` and the edited attributes.
+  split rule, then coalesced (decision 2, P1 ruling 2): on a part
+  where the write records one of this part's column calls, the
+  pieces the split produced and the elements the write created
+  are merged with an adjacent piece or created element whose
+  attributes other than `min` and `max` are byte-identical, so a
+  group over a range the file covered with one element is still
+  one element, and a range no element covered gets one element
+  with `min`, `max` and the edited attributes; an element the
+  write did not touch is never merged into or changed, and the
+  core's width and hidden calls alone write today's bytes.
 - `set_row_collapsed(part, row, collapsed: bool)` and
   `set_column_collapsed(part, column, collapsed)`: `collapsed="1"`
   set on, or removed from, the `<row>` or the covering `<col>`,
@@ -262,8 +266,11 @@ output and reads the attributes it wrote with the tool's own
 - `--group-sample <in> <out>` (P1): `group_rows(W, M + 1, M + 2,
   1, true)`, `set_row_collapsed(W, M + 3, true)`, `group_columns(W,
   2, 3, 1, false)`, `set_outline_summary(W, Some(false), None)`;
-  prints `group` with `rows_before`, `rows_after` (`<row>` of W;
-  `+ 3`, asserted, the three created), `level_rows` (rows carrying
+  prints `group` with `rows_before`, `rows_present` (the input's
+  `<row>` elements numbered M + 1 to M + 3, rows with no cell past
+  the cell read's M, which the write edits in place; P1 ruling 6),
+  `rows_after` (`<row>` of W; `rows_before + 3 - rows_present`,
+  asserted), `level_rows` (rows carrying
   `outlineLevel="1"` after; 2, asserted), `hidden_rows` (of those
   two, 2, asserted), `collapsed_rows` (1, asserted), `cols_before`,
   `cols_after` (`<col>` of W), `level_cols` (`<col>` elements
@@ -303,9 +310,11 @@ reports a planted difference per check, printing no name, no
 reference and no text from the corpus:
 
 - W, group: every `<row>` of the input byte-identical in the
-  output except none (the three rows are created after M), the
-  created rows carrying exactly `r`, `outlineLevel`, `hidden` or
-  `collapsed` as the sample set; `<cols>`: every `<col>` not
+  output except a present row numbered M + 1 to M + 3, which keeps
+  every byte but the attributes the sample sets, appended or
+  replaced in place; an absent one of the three created with
+  exactly `r` and those attributes (P1 ruling 6); `<cols>`: every
+  `<col>` not
   covering columns 2 or 3 byte-identical, those covering them
   split and coalesced as "The calls" says with the other
   attributes kept; `<sheetFormatPr>`'s other attributes
@@ -434,6 +443,129 @@ Milestone 3's samples on its list), deferred by the maintainer
 eight times, last on 2026-10-04, is run (Milestone 2's acceptance
 record then follows Milestone 1's form) or deferred again by a
 decision recorded here (decision 7).
+
+## Planning rulings during P1 (2026-10-04)
+
+Asked by the implementing session after the doc commit 56ebb3f,
+before any code.
+
+1. A part with two `<sheetFormatPr>`, or one out of schema order,
+   is refused with the settings message as it stands (option a),
+   since `<sheetFormatPr>` is the pass's fourth held element and
+   the part allows one new message; the catalogue says the
+   message covers it. No existing message changes.
+2. The coalescing's scope: option (a) within option (b), as "The
+   calls" now reads. Only the pieces the split produced and the
+   elements the write created are merged, each with an adjacent
+   piece or created element whose tag is byte-identical once
+   `min` and `max` are set aside; an element the write did not
+   touch is never merged into or changed; and the merge runs only
+   on a part where the write records one of this part's column
+   calls (`group_columns`, `set_column_collapsed`,
+   `set_column_style`), so `set_column_width` and
+   `set_column_hidden` alone write exactly today's bytes with the
+   feature on or off, and part 3's and the earlier parts' outputs
+   stay what they were.
+3. `hidden: false` in a group call removes `hidden="1"` from a row
+   or column that carries it, as `set_row_hidden(false)` does, and
+   the sample's `group_columns(W, 2, 3, 1, false)` does so on a
+   corpus column that is hidden (the run log reports the count).
+   The group sample's `kept_cols` compares every attribute other
+   than `min`, `max`, `outlineLevel`, `hidden` and `collapsed`;
+   the spans are checked through `level_cols` and the run log's
+   own check (P1 verification ruling 4).
+4. An `outlineLevelRow` or `outlineLevelCol` whose value is not a
+   whole number from 0 to 255 counts as 0 and is replaced by the
+   write's level, since the maximum only sizes the outline bar
+   and the output is then well-formed; the catalogue says so. The
+   corpus's 45 carry 0.
+5. The unasked proposals accepted: a created `<sheetFormatPr>` is
+   `defaultRowHeight="15"` then the two maximums, a present one
+   through the merge (set first, kept after); on a `<row>` the new
+   attributes are appended after `ht` and `hidden` as
+   `outlineLevel` then `collapsed`, or replaced in place; a column
+   range records one field per column, the range's length the
+   cost, and absent rows are created.
+6. The group sample's row count (asked after the crate commit
+   7b3d9b2 and the tool commit 7693267, before any log, from a
+   dry run): two corpus workbooks carry `<row>` elements with no
+   cell past the cell read's M, inside M + 1 to M + 3, which the
+   write edits in place as "The calls" says; the sample's "+ 3,
+   the three created" assumed all three absent, planning's error.
+   Ruling (option a): the line gains `rows_present` after
+   `rows_before`, the input's `<row>` elements numbered M + 1 to
+   M + 3, and asserts `rows_after = rows_before + 3 -
+   rows_present`; the other asserts stand; the run log's check
+   reads as "Harness runs" now says, so the corpus exercises the
+   edit in place and the creation. The tool change goes in a new
+   phase commit on top of 7693267 before any log; M stays the
+   cell read's, as every sample's.
+
+## Planning verification and rulings on P1 (2026-10-04)
+
+Verified by planning from primaries: the doc commit 56ebb3f holds
+this file at 36fa82a5, `specs/0025-sheet-and-print-settings.md`
+at ef2fe222 and `ROADMAP.md` at 86d03fb9, the hashes planning
+sent; the crate commit 7b3d9b2, the tool commit 7693267 and the
+phase commit 93a92d5 (ruling 6's `rows_present`) read in full by
+planning; the record commit d26c470 adds the six logs and four
+records; 5 of 5 messages ASCII, ending with the Co-Authored-By
+line only; the logs at the reported hashes, each ending all as
+expected, the scan RESULT: PASS, every log pinning 36fa82a5 and
+printing c62113dc as planning's working copy; the check answer
+ASCII with its raw hash in its header; the compound-shape grep 0;
+every `rm -rf` in the logs the guarded form on a directory the
+script made or `counting.sh`'s own; planning's own build at
+93a92d5 in a detached worktree: 513 crate tests with the features
+off, 568 with `rowcol`, 596 with `rowcol` and `sheetprops`, 540
+with `sheetprops` alone and 822 with every feature, on both
+targets, 1002 workspace tests on both, clippy and doc 0 lines; the
+i686 release `emend-copy` at the run log's hash e8ef8757 (the
+host's differs by build path); planning's own run of
+`--group-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own privacy scan
+0caa390..d26c470, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Finding 1: a group's `hidden: false` drops a `hidden` attribute
+   of any value, as `set_column_hidden(false)` does, and the
+   sample dropped 28 such attributes in 17 workbooks (LibreOffice
+   writes `hidden="false"`); the value is the run log's "any
+   value", the report's "false" unmeasured. Accepted; the
+   attribute's meaning is unchanged. The survey counts `hidden`
+   as `1` or `true` from P2 on (the check's note).
+2. Finding 2, the latent mismatch: whitespace between two `<col>`
+   pieces ends the merge, where the sample's `level_cols` and the
+   spec's "one element" expect a merge. Ruling: a whitespace-only
+   run between two pieces the write produced is dropped and the
+   pieces merge across it; a comment or any other content ends
+   the merge as a kept element does. A test on an indented
+   `<cols>` goes in P2's first code commit. The corpus's `<cols>`
+   carry no whitespace between elements (27 of 27 ok).
+3. Findings 3 and 4: the core's `cols_content` now writes through
+   `ColsOut` in every build with the same bytes (the keep's pairs
+   that differ: 0), and the `sheetprops`-only build changed in
+   its settings table; accepted, P3's size log measures the core.
+   P2's gate runs the crate's tests with `sheetprops` alone as
+   well (planning's own run: 540 on both targets).
+4. Finding 5: the sample's `in_window` assertion is listed in its
+   doc comment in P2's first code commit; `kept_cols` as coded
+   (every attribute but `min`, `max`, `outlineLevel`, `hidden`
+   and `collapsed`, the spans checked through `level_cols` and the
+   run log) is what P1 ruling 3 meant, and the ruling reads so.
+   Finding 6: a test that `set_column_hidden` alone writes
+   today's bytes goes in P2's first code commit with ruling 2's.
+5. The scan's first final attempt failed on one en dash in the
+   check's answer, recorded as a hyphen with the raw answer's hash
+   kept in the header; the script history (a usage comment, a
+   control that could not hold, two dry runs, an `rmdir`) is
+   working state. Accepted.
+6. P1 is DONE. P2 is released: its doc commit carries this file
+   with "Planning rulings during P1" and this section, and
+   `ROADMAP.md`'s P1 row; its first code commit is rulings 2 and 4's
+   items (the whitespace merge with its test, the doc comment, the
+   hidden-alone test); its gate adds the `sheetprops`-alone test
+   run; then "P2: row and column styles".
 
 ## Decisions for the maintainer
 
