@@ -543,7 +543,8 @@
 //!   `outlineLevel`, `hidden` and `collapsed`, each the same name and bytes
 //!   before and after) and `r_bound_before`. COUNTS ONLY: the levels and the
 //!   flags are this tool's constants and no reference is printed. Asserted:
-//!   `rows_after` equal to `rows_before + 3 - rows_present`, `level_rows` 2, `hidden_rows` 2,
+//!   `rows_after` equal to `rows_before + 3 - rows_present` with the rows
+//!   M + 1 to M + 3 all present after the write, `level_rows` 2, `hidden_rows` 2,
 //!   `collapsed_rows` 1, the `<col>` elements carrying the level covering
 //!   exactly columns 2 to 3 between them and numbering 1 when the input's
 //!   attributes for the two columns, as the write leaves them, are the same

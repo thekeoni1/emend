@@ -12504,7 +12504,7 @@ fn cols_content(
     };
     for item in items {
         match item {
-            ColItem::Other(raw) => out.kept(raw, false)?,
+            ColItem::Other(raw) => out.between(raw)?,
             ColItem::Col {
                 start,
                 rest,
@@ -12573,7 +12573,10 @@ fn cols_content(
 /// two tags are byte-identical once `min` and `max` are set aside, their
 /// content too (`specs/0026-grouping-and-line-styles.md`, "Planning rulings
 /// during P1", ruling 2). An element the write did not touch is kept and
-/// ends any merge.
+/// ends any merge, as a comment or any other content does; a run of
+/// whitespace alone between two pieces is dropped when they merge across
+/// it, and kept when they do not ("Planning verification and rulings on
+/// P1", ruling 2).
 struct ColsOut {
     out: Vec<u8>,
     any: bool,
@@ -12583,6 +12586,10 @@ struct ColsOut {
     coalesce: bool,
     #[cfg(feature = "rowcol")]
     open: Option<OpenPiece>,
+    /// Whitespace met after the piece waiting, written after it unless the
+    /// next piece merges into it.
+    #[cfg(feature = "rowcol")]
+    gap: Vec<u8>,
     #[cfg(feature = "rowcol")]
     index: usize,
 }
@@ -12603,8 +12610,21 @@ impl ColsOut {
             #[cfg(feature = "rowcol")]
             open: None,
             #[cfg(feature = "rowcol")]
+            gap: Vec::new(),
+            #[cfg(feature = "rowcol")]
             index,
         }
+    }
+
+    /// Bytes between the `<col>` elements: whitespace alone after a piece
+    /// waiting for a merge is held, anything else kept.
+    fn between(&mut self, raw: &[u8]) -> Result<(), Error> {
+        #[cfg(feature = "rowcol")]
+        if self.open.is_some() && raw.iter().all(u8::is_ascii_whitespace) {
+            self.gap.extend_from_slice(raw);
+            return Ok(());
+        }
+        self.kept(raw, false)
     }
 
     /// Bytes kept as they are, `col` when they are part of a `<col>`.
@@ -12640,6 +12660,7 @@ impl ColsOut {
         {
             *open_max = max;
             *widened = true;
+            self.gap.clear();
             return Ok(());
         }
         self.flush()?;
@@ -12659,6 +12680,7 @@ impl ColsOut {
             }
             self.out.extend_from_slice(&rest);
         }
+        self.out.append(&mut self.gap);
         Ok(())
     }
 

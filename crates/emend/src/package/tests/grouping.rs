@@ -315,6 +315,54 @@ fn widths_alone_write_today_s_split_without_the_coalescing() {
     );
 }
 
+#[test]
+fn hidden_flags_alone_write_today_s_split_without_the_coalescing() {
+    // P1 verification ruling 4 (finding 6): `set_column_hidden` alone keeps
+    // specs/0018's bytes with the feature on, the equal pieces unmerged.
+    let body = format!("{COLS5}<sheetData/>");
+    let hidden = |p: &mut Package<Cursor<Vec<u8>>>| {
+        p.set_column_hidden(SHEET, 2, true).expect("recorded");
+        p.set_column_hidden(SHEET, 3, true).expect("recorded");
+    };
+    assert_eq!(
+        edited(&body, hidden),
+        worksheet(
+            "<cols><col min=\"1\" max=\"1\" width=\"9\" customWidth=\"1\" style=\"3\"/><col min=\"2\" max=\"2\" width=\"9\" customWidth=\"1\" style=\"3\" hidden=\"1\"/><col min=\"3\" max=\"3\" width=\"9\" customWidth=\"1\" style=\"3\" hidden=\"1\"/><col min=\"4\" max=\"5\" width=\"9\" customWidth=\"1\" style=\"3\"/></cols><sheetData/>"
+        )
+    );
+}
+
+#[test]
+fn pieces_merge_across_whitespace_alone_and_not_across_a_comment() {
+    // P1 verification ruling 2: a whitespace-only run between two pieces the
+    // write produced is dropped when they merge; a comment ends the merge;
+    // whitespace between pieces that do not merge is kept.
+    let indented = "<cols>\n  <col min=\"2\" max=\"2\" width=\"9\"/>\n  <col min=\"3\" max=\"3\" width=\"9\"/>\n</cols><sheetData/>";
+    assert_eq!(
+        edited(indented, columns(2, 3, 1, false)),
+        worksheet(&format!(
+            "{}<cols>\n  <col min=\"2\" max=\"3\" width=\"9\" outlineLevel=\"1\"/>\n</cols><sheetData/>",
+            created_format(0, 1)
+        ))
+    );
+    let commented = "<cols><col min=\"2\" max=\"2\" width=\"9\"/><!-- c --><col min=\"3\" max=\"3\" width=\"9\"/></cols><sheetData/>";
+    assert_eq!(
+        edited(commented, columns(2, 3, 1, false)),
+        worksheet(&format!(
+            "{}<cols><col min=\"2\" max=\"2\" width=\"9\" outlineLevel=\"1\"/><!-- c --><col min=\"3\" max=\"3\" width=\"9\" outlineLevel=\"1\"/></cols><sheetData/>",
+            created_format(0, 1)
+        ))
+    );
+    let unequal = "<cols>\n  <col min=\"2\" max=\"2\" width=\"9\"/>\n  <col min=\"3\" max=\"3\" width=\"12\"/>\n</cols><sheetData/>";
+    assert_eq!(
+        edited(unequal, columns(2, 3, 1, false)),
+        worksheet(&format!(
+            "{}<cols>\n  <col min=\"2\" max=\"2\" width=\"9\" outlineLevel=\"1\"/>\n  <col min=\"3\" max=\"3\" width=\"12\" outlineLevel=\"1\"/>\n</cols><sheetData/>",
+            created_format(0, 1)
+        ))
+    );
+}
+
 // --- the maximums ---
 
 #[test]
