@@ -4937,3 +4937,95 @@ fn the_group_sample_edits_present_rows_in_place_and_creates_the_rest() {
     );
     untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
 }
+
+/// A styles part with one font, the two fills, one border and two cell
+/// formats. Fictional.
+fn linestyle_styles() -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><fonts count=\"1\"><font><sz val=\"11\"/></font></fonts>\
+         <fills count=\"2\"><fill><patternFill patternType=\"none\"/></fill>\
+         <fill><patternFill patternType=\"gray125\"/></fill></fills>\
+         <borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\
+         <cellXfs count=\"2\"><xf/><xf/></cellXfs></styleSheet>"
+    )
+}
+
+#[test]
+fn the_linestyle_sample_styles_a_row_and_a_column_and_keeps_the_rest() {
+    // `specs/0026-grouping-and-line-styles.md`, "Harness runs", with
+    // "Planning rulings during P2" 1 and 2: the row after M created, or
+    // edited in place when present, and column 9 split out of its covering
+    // `<col>` or given one of its own, each styled with the format added.
+    for (label, body, line, written) in [
+        (
+            "linestyle-sample-split",
+            "<cols><col min=\"8\" max=\"10\" width=\"12\" customWidth=\"1\"/></cols>\
+             <sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>",
+            "linestyle\trows_before=1\trows_present=0\trows_after=2\trow_style_ok=1\
+             \tcols_before=1\tcols_after=3\tcol_style_ok=1\tcol_split=3\tkept_cols=2\
+             \txfs_before=2\txfs_after=3\tr_bound_before=0\n",
+            "<cols><col min=\"8\" max=\"8\" width=\"12\" customWidth=\"1\"/><col min=\"9\" \
+             max=\"9\" width=\"12\" customWidth=\"1\" style=\"2\"/><col min=\"10\" max=\"10\" \
+             width=\"12\" customWidth=\"1\"/></cols><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v>\
+             </c></row><row r=\"2\" s=\"2\" customFormat=\"1\"/></sheetData>",
+        ),
+        (
+            "linestyle-sample-present",
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"2\" spans=\"1:1\"/>\
+             </sheetData>",
+            "linestyle\trows_before=2\trows_present=1\trows_after=2\trow_style_ok=1\
+             \tcols_before=0\tcols_after=1\tcol_style_ok=1\tcol_split=1\tkept_cols=0\
+             \txfs_before=2\txfs_after=3\tr_bound_before=0\n",
+            "<cols><col min=\"9\" max=\"9\" style=\"2\"/></cols><sheetData><row r=\"1\">\
+             <c r=\"A1\"><v>1</v></c></row><row r=\"2\" spans=\"1:1\" s=\"2\" customFormat=\"1\"/>\
+             </sheetData>",
+        ),
+    ] {
+        let specs = styled_specs(body, &linestyle_styles());
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--linestyle-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\"><dimension ref=\"A1\"/>{written}\
+                 <pageMargins left=\"0.7\"/></worksheet>"
+            ),
+            "the sheet"
+        );
+        untouched_but(
+            &entries,
+            &specs,
+            &[b"xl/worksheets/sheet1.xml", b"xl/styles.xml"],
+        );
+    }
+}
+
+#[test]
+fn the_linestyle_sample_refuses_a_full_sheet_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0026-grouping-and-line-styles.md`, "P2"): M is 1048576, so row
+    // M + 1 is past the grid.
+    styled_run_refused(
+        "linestyle-sample-full",
+        &styled_specs(
+            "<sheetData><row r=\"1048576\"><c r=\"A1048576\"><v>1</v></c></row></sheetData>",
+            &linestyle_styles(),
+        ),
+        "a row or column index or count is out of range",
+        "--linestyle-sample",
+    );
+}

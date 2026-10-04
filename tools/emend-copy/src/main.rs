@@ -553,6 +553,30 @@
 //!   exit 2 with the message and no output, and so is a refusal by the
 //!   layer (M + 3 past the grid, two `<sheetPr>` or `<sheetFormatPr>` on W,
 //!   or one out of schema order).
+//! - `--linestyle-sample`: the line style sample of
+//!   `specs/0026-grouping-and-line-styles.md`, "Harness runs": a bold font
+//!   added on cell format 0 as the format i, row M + 1 of W styled i and
+//!   column 9 of W styled i. The output is reopened and W read by this
+//!   tool's own pass over its tokens, the styles part through the layer.
+//!   One line: the word `linestyle` then `rows_before` (W's `<row>`
+//!   elements), `rows_present` (the input's `<row>` numbered M + 1, 0 or 1,
+//!   which the write edits in place; "Planning rulings during P2", ruling
+//!   1), `rows_after`, `row_style_ok` (1 when row M + 1 carries `s="i"` and
+//!   `customFormat="1"`), `cols_before` and `cols_after` (W's `<col>`
+//!   elements), `col_style_ok` (1 when the `<col>` covering column 9 covers
+//!   it alone and carries `style="i"`), `col_split` (the number of `<col>`
+//!   elements after the write inside the span of the input's `<col>`
+//!   covering column 9, 1 to 3; 1 when none covered it), `kept_cols` (the
+//!   attributes of the `<col>` covering column 9 other than `min`, `max`
+//!   and `style`, each the same name and bytes before and after),
+//!   `xfs_before` and `xfs_after` (the styles part's cell formats) and
+//!   `r_bound_before`. COUNTS ONLY: the font and the indices are this
+//!   tool's constants and no reference is printed. Asserted: `rows_after`
+//!   equal to `rows_before + 1 - rows_present`, the two flags 1, the kept
+//!   attributes, `xfs_after` one more than before and i equal to
+//!   `xfs_before`; a failure is exit 2 with the message and no output, and
+//!   so is a refusal by the layer (M + 1 past the grid, a styles part the
+//!   layer cannot take a format into).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -598,7 +622,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
-| --group-sample]";
+| --group-sample | --linestyle-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -690,6 +714,8 @@ enum Operation {
     /// Rows and columns grouped, a row collapsed and the outline summary,
     /// and the counts.
     GroupSample,
+    /// A style on a row and a column, and the counts.
+    LinestyleSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -734,6 +760,7 @@ enum Error {
     PagesetupSample(&'static str),
     PrintareaSample(&'static str),
     GroupSample(&'static str),
+    LinestyleSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -829,6 +856,9 @@ impl fmt::Display for Error {
             }
             Error::GroupSample(what) => {
                 write!(f, "the output's {what} is not what the groups imply")
+            }
+            Error::LinestyleSample(what) => {
+                write!(f, "the output's {what} is not what the line styles imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -972,6 +1002,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--group-sample" => {
             run(Path::new(input), Path::new(output), Operation::GroupSample)
         }
+        [input, output, flag] if flag == "--linestyle-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::LinestyleSample,
+        ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -1115,6 +1150,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::GroupSample) {
         return group_sample(input, output);
     }
+    if matches!(operation, Operation::LinestyleSample) {
+        return linestyle_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1171,6 +1209,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::PagesetupSample => unreachable!("the page setup sample has its own path"),
         Operation::PrintareaSample => unreachable!("the print area sample has its own path"),
         Operation::GroupSample => unreachable!("the group sample has its own path"),
+        Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -5345,6 +5384,8 @@ fn pagesetup_read_back(
 struct GroupFacts {
     rows: u64,
     in_window: u64,
+    /// The start tags of the rows inside the window, in order.
+    window_rows: Vec<Vec<u8>>,
     level_rows: u64,
     hidden_rows: u64,
     collapsed_rows: u64,
@@ -5370,6 +5411,7 @@ fn group_facts<R: io::Read + io::Seek>(
     let mut facts = GroupFacts {
         rows: 0,
         in_window: 0,
+        window_rows: Vec::new(),
         level_rows: 0,
         hidden_rows: 0,
         collapsed_rows: 0,
@@ -5410,6 +5452,7 @@ fn group_facts<R: io::Read + io::Seek>(
                     .and_then(|r| std::str::from_utf8(&r).ok()?.parse::<u32>().ok());
                 if number.is_some_and(|r| (window.0..=window.1).contains(&r)) {
                     facts.in_window += 1;
+                    facts.window_rows.push(raw.to_vec());
                 }
                 let flag =
                     |name: &[u8]| tag_attribute(raw, name).as_deref() == Some(b"1".as_slice());
@@ -5616,6 +5659,135 @@ fn group_read_back(
         return Err(Error::GroupSample("outline summary"));
     }
     Ok((after, expected.len() as u64, kept))
+}
+
+/// The line style sample (`specs/0026-grouping-and-line-styles.md`,
+/// "Harness runs", `--linestyle-sample`): a bold font added on cell format
+/// 0, the new format set on row M + 1 and on column 9 of W, the output
+/// written and read back. A failure after the output is in place removes it;
+/// a refusal by the layer is exit 2 with no output.
+fn linestyle_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let xfs_before = package.styles()?.cell_xfs.len() as u64;
+    let sampled = sample(&mut package, &part)?;
+    // Past the grid, the layer's own refusal names the index.
+    let row = sampled.max_row.saturating_add(1);
+    let before = group_facts(&mut package, &part, (row, row))?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    let bold = Style {
+        font: Some(Font {
+            bold: true,
+            ..Font::default()
+        }),
+        ..Style::default()
+    };
+    let style = package.add_style(Some(0), &bold)?;
+    package.set_row_style(&part, row, Some(style))?;
+    package.set_column_style(&part, LINESTYLE_COLUMN, Some(style))?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = linestyle_read_back(output, &part, &before, row, style, xfs_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, split, kept, xfs_after) = checked?;
+    edit_line_named(
+        "linestyle",
+        &[
+            ("rows_before", before.rows),
+            ("rows_present", before.in_window),
+            ("rows_after", after.rows),
+            ("row_style_ok", 1),
+            ("cols_before", before.cols.len() as u64),
+            ("cols_after", after.cols.len() as u64),
+            ("col_style_ok", 1),
+            ("col_split", split),
+            ("kept_cols", kept),
+            ("xfs_before", xfs_before),
+            ("xfs_after", xfs_after),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// The column the line style sample styles.
+const LINESTYLE_COLUMN: u32 = 9;
+
+/// The attributes the line style sample's split and edit set on a `<col>`.
+const LINESTYLE_SET: [&[u8]; 3] = [b"min", b"max", b"style"];
+
+/// Reopens the line style sample's output and asserts what
+/// `--linestyle-sample` says it asserts; gives W's reading, `col_split`,
+/// the count of kept attributes and the cell formats after.
+fn linestyle_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &GroupFacts,
+    row: u32,
+    style: u32,
+    xfs_before: u64,
+) -> Result<(GroupFacts, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = group_facts(&mut package, part, (row, row))?;
+    let xfs_after = package.styles()?.cell_xfs.len() as u64;
+    if xfs_after != xfs_before + 1 || u64::from(style) != xfs_before {
+        return Err(Error::LinestyleSample("cell format count"));
+    }
+    // A present row is edited in place, an absent one created ("Planning
+    // rulings during P2", ruling 1).
+    if after.rows != before.rows + 1 - before.in_window || after.in_window != 1 {
+        return Err(Error::LinestyleSample("row count"));
+    }
+    let index = style.to_string().into_bytes();
+    let styled_row = after.window_rows.first().is_some_and(|tag| {
+        tag_attribute(tag, b"s").as_deref() == Some(index.as_slice())
+            && tag_attribute(tag, b"customFormat").as_deref() == Some(b"1".as_slice())
+    });
+    if !styled_row {
+        return Err(Error::LinestyleSample("row style"));
+    }
+    let column = covering(&after.cols, LINESTYLE_COLUMN);
+    let styled_column = column.is_some_and(|tag| {
+        col_span(tag) == Some((LINESTYLE_COLUMN, LINESTYLE_COLUMN))
+            && tag_attribute(tag, b"style").as_deref() == Some(index.as_slice())
+    });
+    if !styled_column {
+        return Err(Error::LinestyleSample("column style"));
+    }
+    let input = covering(&before.cols, LINESTYLE_COLUMN);
+    let keep = |tag: Option<&[u8]>| -> Vec<(Vec<u8>, Vec<u8>)> {
+        tag.map(tag_attributes)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(name, _)| !LINESTYLE_SET.contains(&name.as_slice()))
+            .collect()
+    };
+    let kept = keep(column);
+    if kept != keep(input) {
+        return Err(Error::LinestyleSample("kept col attributes"));
+    }
+    let split = match input.and_then(col_span) {
+        Some((min, max)) => after
+            .cols
+            .iter()
+            .filter_map(|tag| col_span(tag))
+            .filter(|(from, to)| *from >= min && *to <= max)
+            .count() as u64,
+        None => 1,
+    };
+    if !(1..=3).contains(&split) {
+        return Err(Error::LinestyleSample("col split"));
+    }
+    Ok((after, split, kept.len() as u64, xfs_after))
 }
 
 /// Whether the part's root has a main-namespace child named `name`
