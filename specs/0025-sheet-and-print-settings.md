@@ -1011,6 +1011,48 @@ findings; `ANTHROPIC_API_KEY` unset.
    and `ROADMAP.md`'s P4 row and Milestone 2 heading; the rest as
    "Close-out push (after P4)" says.
 
+## Planning verification and rulings on the close-out (2026-10-04)
+
+Verified by planning from primaries: `origin/main` at the
+close-out doc commit a8dd1d3, 22 commits over 50d9e70 (21f1434,
+this part's twenty and the doc commit), the doc commit holding
+this file at 1f062e0c and `ROADMAP.md` at 3727bac8, the hashes
+planning sent; the CI run 37223570403 completed with success on
+a8dd1d3, read by planning through `gh`; the record commit
+0caa390, parent a8dd1d3, exactly the three logs, the one local
+commit ahead, its message naming decision 7's deferral; the logs
+at the reported hashes, each ending all as expected, the scan
+RESULT: PASS with the `ANTHROPIC_API_KEY` check; push.log's push
+mode showing the authorisation typed by the maintainer in the
+implementing session ("push", 10/4/2026) and git's own
+`50d9e70..a8dd1d3`; 22 of 22 pushed messages ASCII, ending with
+the Co-Authored-By line only; the repository PRIVATE; planning's
+own privacy scan 50d9e70..0caa390, 23 commits, 1265 blobs, 0
+findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations (the header comment
+   blocks and the earlier-scan line beyond the listed changes,
+   part 2's convention; `counting.sh`'s own form under `specs/
+   0024` P2 ruling 1; the scan log's own hash; the report's "at
+   push time" corrected to "after the push"; the next-push plan):
+   working-state facts or allowed; accepted, no change, as the
+   earlier close-outs.
+2. Milestone 3 part 3 is DONE and PUSHED. The record commit
+   0caa390 goes with the next push; the next part's push script
+   names it by `^M3 part 3 close-out record`, its base this
+   close-out's doc commit a8dd1d3 by its subject ("M3 part 3
+   close-out: commit planning docs (the P4 verification and
+   rulings, decision 7 deferred again)").
+3. Carried into part 7's backlog: a finer cause attribution per
+   probe in the size log (P4 verification ruling 4); the
+   committed scripts' `rm -rf` forms (`specs/0024` P2 ruling 1).
+   The Milestone 2 Excel check, with this part's three samples on
+   its list, is due before part 4's close-out push (decision 7).
+   Part 4's estimate is priced from parts 2 and 3 (P4
+   verification ruling 1).
+4. These rulings are written into the working spec after the
+   close-out doc commit; they go in part 4's first doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-03: 1 to 6 as recommended (A in

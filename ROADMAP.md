@@ -748,7 +748,7 @@ before this part's close-out push (decision 7).
 | P3 | the catalogue and limits; the two probes and the size record; part 1's three read runs repeated with the no-growth contract; both samples rerun byte-identical | DONE 2026-10-03 (doc 7e14eab, carry 7c1e11e, catalogue d07793a, probes 0c3e4fa, record b018e52; `richtext` costs 12672 section bytes, the pair with `comments` 14820, the core grew 368, budget 435720, 23032 under; tier d peaks within 104 kB of part 1's on both labels, tier c within 200 kB; both samples byte-identical to P1's and P2's runs; planning's own probes and runs reproduce every figure) |
 | Close | close-out push after P3, carrying 3cbd6fd and this part's commits, the previous-record pattern naming 3cbd6fd, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-03 (doc 50d9e70 pushed, origin/main 21b89bb..50d9e70, 17 commits, CI 37118021913 success, record 21f1434 local; the Excel check deferred a seventh time, decision 7) |
 
-### Part 3: sheet and print settings (`specs/0025-sheet-and-print-settings.md`, IN PROGRESS from 2026-10-03)
+### Part 3: sheet and print settings (`specs/0025-sheet-and-print-settings.md`, DONE and PUSHED 2026-10-04)
 
 Approved by the maintainer 2026-10-03 ("A on all"): the tab colour
 and fit-to-page under `sheetPr`; zoom, gridlines, headings and the
@@ -775,7 +775,34 @@ this part's close-out push (decision 7).
 | P2 | `set_print_options`, `set_page_margins`, `set_page_setup`, `set_header_footer` with `section`, `--pagesetup-sample` on the corpus | DONE 2026-10-03 (doc cf70ada, carry 688d059, crate 791a794, tool a6cf46f, record 25f9bba; 27 of 27 ok on both labels, LibreOffice ok, the printer-settings `r:id` kept on every sheet that had one; 27 crate and 2 tool tests; planning's own rerun byte-identical) |
 | P3 | `set_print_area`, `set_print_titles`, `set_auto_filter` with the built-in names through the `metadata` writer, `--printarea-sample` on the corpus | DONE 2026-10-03 (doc 4359bdb, carry d4f9456, crate 8faf378, tool 5c1a6b3, record 38d4008; 21 of 27 ok on both labels and 6 refused by the table overlap the survey predicted, LibreOffice ok on the 21, the calc chain kept; planning's own rerun byte-identical with the same six refusals) |
 | P4 | the catalogue and limits; the two probes and the size record with a cause per probe; the three samples rerun byte-identical | DONE 2026-10-03 (doc 2b19bb6, carry f59c78c, catalogue b0c6bd8, probes 01b14c0, record 6d57689; `sheetprops` costs 28148 section bytes, the pair with `metadata` 34468, the core grew 736, budget 436456, 22296 under; the three samples byte-identical to P1's, P2's and P3's runs; planning's own probes and reruns reproduce every figure) |
-| Close | close-out push after P4, carrying 21f1434 and this part's commits, the previous-record pattern naming 21f1434, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
+| Close | close-out push after P4, carrying 21f1434 and this part's commits, the previous-record pattern naming 21f1434, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-04 (doc a8dd1d3 pushed, origin/main 50d9e70..a8dd1d3, 22 commits, CI 37223570403 success, record 0caa390 local; the Excel check deferred an eighth time, decision 7) |
+
+### Part 4: outline grouping and row and column styles (`specs/0026-grouping-and-line-styles.md`, IN PROGRESS from 2026-10-04)
+
+Approved by the maintainer 2026-10-04 ("A on all"): outline levels
+1 to 7 on rows and on columns with the hidden flag of the group
+call, the collapsed flag by a call on the row or column the caller
+names (openpyxl's shape, nothing automatic), the sheet's outline
+maximums raised and never lowered, the summary position under
+`sheetPr`'s `outlinePr`; a style on a whole row (`s` with
+`customFormat`) or a whole column (`style`), the index checked at
+the write as a cell's is; column ranges through part 3's split
+rule then coalesced, so a group is one `col` element as Excel
+writes it; every attribute kept through a shift as it already
+travels. Writes only; the typed read-back is part 5's. The feature
+`rowcol` grows and its probe grows; planning's estimate 10000 to
+20000 section bytes of growth, priced from parts 2 and 3. The
+corpus holds no grouping at all (every level 0), so the samples
+write the first witnesses; row styles sit in 6 workbooks and
+column styles in 26. The Milestone 2 Excel check is due before
+this part's close-out push (decision 7).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the settings pass gated under either feature, `group_rows`, `group_columns` with the coalescing, `set_row_collapsed`, `set_column_collapsed`, `set_outline_summary`, the `sheetFormatPr` maximums, `--group-sample` on the corpus | PENDING |
+| P2 | `set_row_style`, `set_column_style` with the index check at the write, `--linestyle-sample` on the corpus | PENDING |
+| P3 | the catalogue and limits; the rowcol probe grown and the size record; both samples rerun byte-identical | PENDING |
+| Close | close-out push after P3, carrying 0caa390 and this part's commits, the previous-record pattern naming 0caa390, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
 ## Unscoped
 
