@@ -4,8 +4,17 @@
 //! decision 7 A).
 //!
 //! `probe-emend-format-write-xml`'s work, unchanged, then the second output
-//! opened and written a fourth time with `insert_rows` of one row at a row
-//! from the command line, then that opened and written a fifth time with
+//! opened and written to the group output with M3 part 4's calls
+//! (`specs/0026-grouping-and-line-styles.md`, "Size"): two rows from the
+//! group row grouped at level 1 hidden, the row after them collapsed, two
+//! columns from the group column grouped at level 1, the summary rows
+//! above, and a style the probe adds on the row after the collapsed one and
+//! on the column after the group; the rows and columns carrying a level,
+//! `collapsed` and a style read back through the probe's own `quick-xml`
+//! walk, five more lines, `level_rows`, `collapsed_rows`, `styled_rows`,
+//! `level_cols` and `styled_cols`. That output is then opened and written a
+//! fourth time with `insert_rows` of one row at a row from the command line,
+//! which moves the groups, then that opened and written a fifth time with
 //! `delete_columns` of one column at a column from the command line. After
 //! each, the sheet's cell count and the number cell, found by its value (P4
 //! ruling 3), read back: four more lines, `cells_inserted`, `moved_row`,
@@ -17,7 +26,7 @@
 //! or a read path dead and drop it.
 
 use std::fs::File;
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::process::ExitCode;
 
@@ -36,7 +45,7 @@ const USAGE: &str = "usage: probe-emend-rowcol-write-xml <archive> <output> \
 <number at> <text at> <boolean at> <clear at> <second output> <format code> \
 <formula at> <formula text> <sheet name> <new sheet name> <third output> <font name> \
 <column> <row> <freeze at> <merge area> <fourth output> <insert row> <fifth output> \
-<delete column>";
+<delete column> <group output> <group row> <group column>";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -67,6 +76,9 @@ fn main() -> ExitCode {
         insert_row,
         fifth,
         delete_column,
+        grouped,
+        group_row,
+        group_column,
     ] = args.as_slice()
     else {
         let _ = writeln!(io::stderr(), "error: {USAGE}");
@@ -120,6 +132,16 @@ fn main() -> ExitCode {
         );
         return ExitCode::from(2);
     };
+    let (Some(group_row), Some(group_column)) = (
+        group_row.to_str().and_then(|r| r.parse::<u32>().ok()),
+        group_column.to_str().and_then(|c| c.parse::<u32>().ok()),
+    ) else {
+        let _ = writeln!(
+            io::stderr(),
+            "error: the group row or column is not a decimal u32"
+        );
+        return ExitCode::from(2);
+    };
     let (Some(freeze_at), Some(merge_area)) = (
         CellRef::parse(freeze_at.as_bytes()),
         Area::parse(merge_area.as_bytes()),
@@ -153,18 +175,19 @@ fn main() -> ExitCode {
     let result = run(input, output, &names).and_then(|counts| {
         let written = edit(input, second, names.sheet, &edits)?;
         let new_bytes = new_workbook(third)?;
+        let outline = outline(second, grouped, names.sheet, group_row, group_column)?;
         let shifted = shifts(
-            second,
+            grouped,
             fourth,
             fifth,
             names.sheet,
             insert_row,
             delete_column,
         )?;
-        Ok((counts, written, new_bytes, shifted))
+        Ok((counts, written, new_bytes, outline, shifted))
     });
     match result {
-        Ok((counts, written, new_bytes, shifted)) => {
+        Ok((counts, written, new_bytes, outline, shifted)) => {
             let _ = writeln!(
                 io::stdout(),
                 "sheets {}\nelements {}\nitems {}\ncells {}\nsum {}\ntext {}\nwritten {}\n\
@@ -172,8 +195,9 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}\nmerges {}\ncells_inserted {}\nmoved_row {}\n\
-                 cells_deleted {}\nmoved_col {}",
+                 full_border {}\nmerges {}\nlevel_rows {}\ncollapsed_rows {}\n\
+                 styled_rows {}\nlevel_cols {}\nstyled_cols {}\ncells_inserted {}\n\
+                 moved_row {}\ncells_deleted {}\nmoved_col {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -202,6 +226,11 @@ fn main() -> ExitCode {
                 style(written.full_ids.1),
                 style(written.full_ids.2),
                 written.merges,
+                outline.level_rows,
+                outline.collapsed_rows,
+                outline.styled_rows,
+                outline.level_cols,
+                outline.styled_cols,
                 shifted.cells_inserted,
                 shifted.moved_row,
                 shifted.cells_deleted,
@@ -426,6 +455,116 @@ fn edit(
     })
 }
 
+/// What the group write is checked by: the rows carrying a level above 0,
+/// `collapsed="1"` and the probe's style with `customFormat="1"`, and the
+/// columns carrying a level above 0 and the probe's style.
+struct Outline {
+    level_rows: u64,
+    collapsed_rows: u64,
+    styled_rows: u64,
+    level_cols: u64,
+    styled_cols: u64,
+}
+
+/// M3 part 4's own work: `second` opened and written to `grouped` with the
+/// groups, the collapsed row, the summary and the two line styles, then the
+/// sheet part read back.
+fn outline(
+    second: &std::ffi::OsStr,
+    grouped: &std::ffi::OsStr,
+    sheet: &[u8],
+    row: u32,
+    column: u32,
+) -> Result<Outline, String> {
+    let file = File::open(second).map_err(|e| e.kind().to_string())?;
+    let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
+    let last_row = row
+        .checked_add(1)
+        .ok_or("the group row is near the last u32")?;
+    let last_column = column
+        .checked_add(1)
+        .ok_or("the group column is near the last u32")?;
+    let bold = Style {
+        font: Some(Font {
+            bold: true,
+            ..Font::default()
+        }),
+        ..Style::default()
+    };
+    let added = package
+        .add_style(Some(0), &bold)
+        .map_err(|e| e.to_string())?;
+    package
+        .group_rows(sheet, row, last_row, 1, true)
+        .map_err(|e| e.to_string())?;
+    package
+        .set_row_collapsed(sheet, last_row + 1, true)
+        .map_err(|e| e.to_string())?;
+    package
+        .group_columns(sheet, column, last_column, 1, false)
+        .map_err(|e| e.to_string())?;
+    package.set_outline_summary(sheet, Some(false), None);
+    package
+        .set_row_style(sheet, last_row + 2, Some(added))
+        .map_err(|e| e.to_string())?;
+    package
+        .set_column_style(sheet, last_column + 1, Some(added))
+        .map_err(|e| e.to_string())?;
+    write_package(package, grouped)?;
+
+    let file = File::open(grouped).map_err(|e| e.kind().to_string())?;
+    let mut written = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
+    let index = written
+        .part(sheet)
+        .ok_or("the output has no such sheet part")?;
+    let mut part = written.read_part(index).map_err(|e| e.to_string())?;
+    let mut xml = Vec::new();
+    part.read_to_end(&mut xml)
+        .map_err(|e| e.kind().to_string())?;
+    let style = added.to_string().into_bytes();
+    let mut reader = Reader::from_reader(xml.as_slice());
+    let mut buf = Vec::new();
+    let mut counts = Outline {
+        level_rows: 0,
+        collapsed_rows: 0,
+        styled_rows: 0,
+        level_cols: 0,
+        styled_cols: 0,
+    };
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(start) | Event::Empty(start)) => {
+                let local = start.local_name().into_inner().as_bytes().to_vec();
+                let value = |name: &[u8]| -> Option<Vec<u8>> {
+                    start
+                        .attributes()
+                        .flatten()
+                        .find(|attribute| attribute.key.into_inner().as_bytes() == name)
+                        .map(|attribute| attribute.value.as_bytes().to_vec())
+                };
+                let leveled = value(b"outlineLevel").is_some_and(|level| level != b"0");
+                let styled = |name: &[u8]| value(name).as_deref() == Some(style.as_slice());
+                if local == b"row" {
+                    counts.level_rows += u64::from(leveled);
+                    counts.collapsed_rows +=
+                        u64::from(value(b"collapsed").as_deref() == Some(b"1".as_slice()));
+                    counts.styled_rows += u64::from(
+                        styled(b"s") && value(b"customFormat").as_deref() == Some(b"1".as_slice()),
+                    );
+                } else if local == b"col" {
+                    counts.level_cols += u64::from(leveled);
+                    counts.styled_cols += u64::from(styled(b"style"));
+                }
+            }
+            Ok(Event::Eof) => break,
+            Ok(_) => {}
+            Err(_) => return Err("the sheet part is not well-formed XML".into()),
+        }
+        buf.clear();
+    }
+    Ok(counts)
+}
+
 /// What the fourth and fifth writes are checked by: the sheet's cell count
 /// after each, and the number cell's row after the insertion and its column
 /// after the deletion, found by its value.
@@ -436,8 +575,8 @@ struct Shifted {
     moved_col: u32,
 }
 
-/// The feature's own work: `second` opened and written to `fourth` with one
-/// row inserted at `row`, that opened and written to `fifth` with one column
+/// The feature's own work: the group output opened and written to `fourth`
+/// with one row inserted at `row`, that opened and written to `fifth` with one column
 /// deleted at `column`, each read back.
 fn shifts(
     second: &std::ffi::OsStr,
