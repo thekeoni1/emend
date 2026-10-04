@@ -287,7 +287,9 @@ output and reads the attributes it wrote with the tool's own
 - `--linestyle-sample <in> <out>` (P2): `add_style(0, bold font)`
   giving `i`, `set_row_style(W, M + 1, Some(i))`,
   `set_column_style(W, 9, Some(i))`; prints `linestyle` with
-  `rows_before`, `rows_after` (`+ 1`, asserted), `row_style_ok` (1
+  `rows_before`, `rows_present` (the input's `<row>` numbered
+  M + 1, 0 or 1; P2 ruling 1), `rows_after` (`rows_before + 1 -
+  rows_present`, asserted), `row_style_ok` (1
   when row M + 1 carries `s="i"` and `customFormat="1"`, asserted),
   `cols_before`, `cols_after`, `col_style_ok` (1 when the `<col>`
   covering column 9 alone carries `style="i"`, asserted),
@@ -321,8 +323,10 @@ reference and no text from the corpus:
   byte-identical and the two maximums as expected; `<sheetPr>`
   created or kept with `<outlinePr>` in 18.3.1.82's position and
   every other child kept; every other root child byte-identical.
-- W, linestyle: the created row carrying `r`, `s` and
-  `customFormat` alone; the `<col>` split as the width sample of
+- W, linestyle: a present row M + 1 keeping every byte but `s`
+  and `customFormat`, set or replaced in place; a created one
+  carrying `r`, `s` and `customFormat` alone (P2 ruling 1); the
+  `<col>` split as the width sample of
   part 3 is checked; `xl/styles.xml`: `cellXfs` one longer, the
   input's entries a byte-identical prefix, `fonts` one longer.
 
@@ -501,6 +505,28 @@ before any code.
    phase commit on top of 7693267 before any log; M stays the
    cell read's, as every sample's.
 
+## Planning rulings during P2 (2026-10-04)
+
+Asked by the implementing session after the doc commit c7c9e39
+and the carry commit d1278c3, before the tool.
+
+1. The linestyle sample's row count meets P1 ruling 6's case
+   (the same two workbooks carry an empty `<row>` numbered M + 1):
+   the same ruling. The line gains `rows_present` after
+   `rows_before`, the input's `<row>` numbered M + 1 (0 or 1), and
+   asserts `rows_after = rows_before + 1 - rows_present`;
+   `row_style_ok` stands; the run log checks a present row as
+   edited in place (every byte kept but `s` and `customFormat`)
+   and a created one as `r`, `s` and `customFormat` alone; M stays
+   the cell read's. "Harness runs" reads as corrected; the "+ 1"
+   was planning's, the gotcha of ruling 6 not yet applied to this
+   sample.
+2. On a `<row>`, `s` and `customFormat` are replaced in place or
+   appended before the size, hidden, outline and collapsed
+   attributes the same write sets, so a created row reads
+   `<row r="N" s="i" customFormat="1"/>`, near the schema's order.
+   Confirmed.
+
 ## Planning verification and rulings on P1 (2026-10-04)
 
 Verified by planning from primaries: the doc commit 56ebb3f holds
@@ -566,6 +592,64 @@ byte-identical to the run directory's; planning's own privacy scan
    items (the whitespace merge with its test, the doc comment, the
    hidden-alone test); its gate adds the `sheetprops`-alone test
    run; then "P2: row and column styles".
+
+## Planning verification and rulings on P2 (2026-10-04)
+
+Verified by planning from primaries: the doc commit c7c9e39 holds
+this file at 5f0a8192 and `ROADMAP.md` at 540b78b1, the hashes
+planning sent; the carry commit d1278c3 (the whitespace merge
+with its test, the hidden-alone test, `//!` lines alone in the
+tool), the crate commit 9d266f0 and the tool commit 8416a1e read
+in full by planning; the record commit 4a23c4b adds the six logs
+and four records; 5 of 5 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS, every log pinning
+5f0a8192 and printing b69da8a3 as planning's working copy; the
+check answer ASCII; the compound-shape grep 0; every `rm -rf` in
+the logs the guarded form on a directory the script made or
+`counting.sh`'s own; planning's own build at 8416a1e in a
+detached worktree: 513 crate tests with the features off, 583
+with `rowcol`, 611 with `rowcol` and `sheetprops`, 540 with
+`sheetprops` alone and 837 with every feature, on both targets,
+1019 workspace tests on both, clippy and doc 0 lines; the i686
+release `emend-copy` at the run log's hash be8edbc2 (the host's
+differs by build path); planning's own run of
+`--linestyle-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own privacy
+scan d26c470..4a23c4b, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Observation 1 (more ungated core code with the same
+   behaviour: `ColsOut::between`, the style check's loop over
+   `line_styles`): accepted, P3's size log measures the core.
+   Observation 3 (every recorded `Style(Some(i))` index-checked,
+   an index a later call replaced included): consistent with how
+   cell style edits are checked; accepted and stated in the
+   catalogue. Observations 6 and 7 (form feed, which XML 1.0
+   forbids anyway; the commit message's sentence true when
+   written): accepted.
+2. Observation 2: the linestyle sample's doc comment names its
+   two unlisted assertions (the present row after the write; the
+   split in 1 to 3) in P3's first code commit, `//!` lines alone.
+   Observation 6's untested case (a `<col>` already covering
+   exactly column 9 given `Some(i)`): a crate test in the same
+   commit.
+3. Observation 4: P3's rerun of both samples adds a planted-flag
+   control on a workbook whose row M + 1 is present (two of the
+   corpus's are), so the in-place branch is shown by a plant as
+   well as by the two corpus rows. Observation 5: P1 verification
+   ruling 1 (the survey counting `hidden` as `1` or `true`)
+   applies to P3's rerun of the group sample; the linestyle sample
+   touches no hidden flag.
+4. The disclosure (a stray `cat >` line, the killed shell, an
+   empty file of its own removed; the gotcha recorded): working
+   state, accepted; no hand `rm -rf`.
+5. P2 is DONE. P3 is released: its doc commit carries this file
+   with "Planning rulings during P2" and this section, and
+   `ROADMAP.md`'s P2 row; its first code commit is ruling 2's
+   items; then "P3: the catalogue and limits, the probe, the size
+   record", the rerun with ruling 3's plant and the survey's
+   `hidden` rule.
 
 ## Decisions for the maintainer
 

@@ -800,7 +800,7 @@ this part's close-out push (decision 7).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the settings pass gated under either feature, `group_rows`, `group_columns` with the coalescing, `set_row_collapsed`, `set_column_collapsed`, `set_outline_summary`, the `sheetFormatPr` maximums, `--group-sample` on the corpus | DONE 2026-10-04 (doc 56ebb3f, crate 7b3d9b2, tool 7693267 and 93a92d5, record d26c470; 27 of 27 ok on both labels, LibreOffice ok, five rows edited in place and the rest created; 22 crate and 3 tool tests; planning's own rerun byte-identical) |
-| P2 | `set_row_style`, `set_column_style` with the index check at the write, `--linestyle-sample` on the corpus | PENDING |
+| P2 | `set_row_style`, `set_column_style` with the index check at the write, `--linestyle-sample` on the corpus | DONE 2026-10-04 (doc c7c9e39, carry d1278c3, crate 9d266f0, tool 8416a1e, record 4a23c4b; 27 of 27 ok on both labels, LibreOffice ok, W and the styles part changed and every other entry identical; 13 crate and 2 tool tests; planning's own rerun byte-identical) |
 | P3 | the catalogue and limits; the rowcol probe grown and the size record; both samples rerun byte-identical | PENDING |
 | Close | close-out push after P3, carrying 0caa390 and this part's commits, the previous-record pattern naming 0caa390, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
