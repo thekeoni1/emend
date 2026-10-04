@@ -2609,6 +2609,10 @@ enum LineField {
     /// The collapsed flag. The Cargo feature `rowcol`.
     #[cfg(feature = "rowcol")]
     Collapsed(bool),
+    /// A style on the whole row or column, `None` to remove it. The Cargo
+    /// feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    Style(Option<u32>),
 }
 
 /// A column's or a row's format edits in one write, each field the last
@@ -2625,6 +2629,9 @@ struct LineFormat {
     /// `Some(flag)` the collapsed flag set or removed.
     #[cfg(feature = "rowcol")]
     collapsed: Option<bool>,
+    /// `Some(Some(i))` the style `i` set, `Some(None)` removed.
+    #[cfg(feature = "rowcol")]
+    style: Option<Option<u32>>,
 }
 
 impl LineFormat {
@@ -2634,8 +2641,10 @@ impl LineFormat {
     fn writes_when_absent(&self) -> bool {
         let writes = matches!(self.size, Some(Some(_))) || self.hidden == Some(true);
         #[cfg(feature = "rowcol")]
-        let writes =
-            writes || self.level.is_some_and(|level| level > 0) || self.collapsed == Some(true);
+        let writes = writes
+            || self.level.is_some_and(|level| level > 0)
+            || self.collapsed == Some(true)
+            || matches!(self.style, Some(Some(_)));
         writes
     }
 }
@@ -3995,6 +4004,26 @@ impl Recorded {
             && self.no_outline_edits()
     }
 
+    /// The style indices the row and column style calls name; none, without
+    /// the feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    fn line_styles(&self) -> Vec<u32> {
+        self.row_formats
+            .iter()
+            .chain(&self.column_formats)
+            .filter_map(|(_, _, field)| match field {
+                LineField::Style(style) => *style,
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// None, without the feature `rowcol`.
+    #[cfg(not(feature = "rowcol"))]
+    fn line_styles(&self) -> Vec<u32> {
+        Vec::new()
+    }
+
     /// Whether no outline summary is recorded; always, without the feature
     /// `rowcol`.
     #[cfg(feature = "rowcol")]
@@ -4301,6 +4330,8 @@ impl Recorded {
                         LineField::Level(level) => format.level = Some(*level),
                         #[cfg(feature = "rowcol")]
                         LineField::Collapsed(collapsed) => format.collapsed = Some(*collapsed),
+                        #[cfg(feature = "rowcol")]
+                        LineField::Style(style) => format.style = Some(*style),
                     }
                 }
             }
@@ -4427,7 +4458,10 @@ impl Recorded {
             #[cfg(feature = "rowcol")]
             coalesce: self.column_formats.iter().any(|(at, _, field)| {
                 at.as_slice() == part
-                    && matches!(field, LineField::Level(_) | LineField::Collapsed(_))
+                    && matches!(
+                        field,
+                        LineField::Level(_) | LineField::Collapsed(_) | LineField::Style(_)
+                    )
             }),
         }
     }
@@ -5230,6 +5264,56 @@ impl<R: Read + Seek> Package<R> {
         self.edits
             .outline_summaries
             .push((part.to_vec(), [below, right]));
+    }
+
+    /// Records a style on the whole of `row` in the worksheet part `part`:
+    /// `Some(i)` writes `s="i" customFormat="1"` on the `<row>`, creating it
+    /// when absent, as [`Package::set_row_height`] places a height; `None`
+    /// removes both. A cell's own `s` is never changed: what a consumer shows
+    /// for a cell with no `s` in a styled row is the consumer's. The Cargo
+    /// feature `rowcol` (`specs/0026-grouping-and-line-styles.md`, "The
+    /// calls").
+    ///
+    /// The index names a cell format the styles part has or one
+    /// [`Package::add_style`] returns in the same write, and is checked
+    /// by [`Package::write_to`], as a cell's style is; the last call for a
+    /// row wins.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a row outside `1..=1048576`. Nothing is recorded when this fails.
+    /// The write refuses an index past the styles part's cell formats, "a
+    /// style index is out of range", and what a row format meets.
+    #[cfg(feature = "rowcol")]
+    pub fn set_row_style(
+        &mut self,
+        part: &[u8],
+        row: u32,
+        style: Option<u32>,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, row, LineField::Style(style), true)
+    }
+
+    /// Records a style on the whole of `column` in the worksheet part `part`:
+    /// `Some(i)` writes `style="i"` on the `<col>` that covers the column
+    /// through the split of [`Package::set_column_width`], the pieces
+    /// coalesced as [`Package::group_columns`] says; `None` removes it. The
+    /// Cargo feature `rowcol`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Package::set_row_style`], for a column outside `1..=16384`.
+    #[cfg(feature = "rowcol")]
+    pub fn set_column_style(
+        &mut self,
+        part: &[u8],
+        column: u32,
+        style: Option<u32>,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, column, LineField::Style(style), false)
     }
 
     /// Records the worksheet part `part` frozen at `at`: `Some(c)` freezes
@@ -9554,13 +9638,23 @@ impl<'a> Parts<'a> {
         // styles part at all. An addition goes into a styles part this write
         // neither removes nor replaces (`specs/0012-styles.md`, "Module
         // `package`").
+        // A row's or a column's style likewise
+        // (`specs/0026-grouping-and-line-styles.md`, decision 5 A).
         let additions = self.edits.xf_additions.len();
-        if additions > 0 || self.edits.style_edits.iter().any(|(_, _, s)| s.is_some()) {
+        let line_styles = self.edits.line_styles();
+        if additions > 0
+            || self.edits.style_edits.iter().any(|(_, _, s)| s.is_some())
+            || !line_styles.is_empty()
+        {
             let count = self.styles()?.cell_xfs.len() + additions;
-            for (_, _, style) in &self.edits.style_edits {
-                if let Some(style) = style
-                    && usize::try_from(*style).map_or(true, |style| style >= count)
-                {
+            let named = self
+                .edits
+                .style_edits
+                .iter()
+                .filter_map(|(_, _, style)| *style)
+                .chain(line_styles);
+            for style in named {
+                if usize::try_from(style).map_or(true, |style| style >= count) {
                     return Err(STYLE_OUT_OF_RANGE);
                 }
             }
@@ -12061,6 +12155,27 @@ fn line_formatted(
     index: usize,
 ) -> Result<Vec<u8>, Error> {
     let mut tag = raw.to_vec();
+    // A style on the whole row, `s` and `customFormat`, or column, `style`
+    // (`specs/0026-grouping-and-line-styles.md`, "The calls").
+    #[cfg(feature = "rowcol")]
+    if let Some(style) = format.style {
+        let row = names == ROW_SIZE;
+        let name: &[u8] = if row { b"s" } else { b"style" };
+        match style {
+            Some(xf) => {
+                tag = with_attribute(&tag, name, xf.to_string().as_bytes(), index)?;
+                if row {
+                    tag = with_attribute(&tag, b"customFormat", b"1", index)?;
+                }
+            }
+            None => {
+                tag = without_attribute(&tag, name, index)?;
+                if row {
+                    tag = without_attribute(&tag, b"customFormat", index)?;
+                }
+            }
+        }
+    }
     match format.size {
         Some(Some(size)) => {
             tag = with_attribute(&tag, names[0], number_text(size).as_bytes(), index)?;

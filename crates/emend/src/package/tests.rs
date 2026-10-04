@@ -7404,6 +7404,8 @@ mod dxf;
 mod grouping;
 #[cfg(feature = "images")]
 mod images;
+#[cfg(feature = "rowcol")]
+mod linestyle;
 #[cfg(feature = "metadata")]
 mod links;
 #[cfg(feature = "metadata")]
