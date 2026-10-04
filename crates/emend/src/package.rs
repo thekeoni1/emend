@@ -617,6 +617,14 @@
 //! - "an outline level is out of range"
 //!   (`grouping::the_refusals_at_the_call_record_nothing`).
 //!
+//! A row or column style meets `specs/0012-styles.md`'s "a style index is
+//! out of range" at the write for an index past the styles part's cell
+//! formats and those the same write adds, every recorded style checked, one
+//! a later call for the same row or column replaced included, as a cell's
+//! style edits are (`linestyle::an_index_past_cell_xfs_is_refused_at_the_write`;
+//! `specs/0026-grouping-and-line-styles.md`, "Planning verification and
+//! rulings on P2", ruling 1).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -986,7 +994,9 @@
 //!   `<row>`, every other attribute and child kept, or create it empty in
 //!   row order. A number is written by the cell edits' form. Styles on rows
 //!   and columns (`<row s>`, `<col style>`), outline levels and
-//!   `sheetFormatPr` defaults are kept when present and never set.
+//!   `sheetFormatPr` defaults are kept when present and never set by these
+//!   four calls; the Cargo feature `rowcol`'s outline and line style calls
+//!   set them, as their block below says.
 //! - Panes: [`Package::freeze_panes`] replaces the first `<sheetView>`'s
 //!   `<pane>` and every `<selection>` with the frozen pane and one
 //!   selection, or removes both for `None`; the view's other children and
@@ -1396,7 +1406,8 @@
 //!   `<pageMargins>` and `<pageSetup>` through the binary by M3 part 3
 //!   P2's negative log.
 //! - What is never written: `tabSelected`, `workbookViewId`,
-//!   `gridLinesSet`, `autoPageBreaks`, `outlinePr`, `cellComments`,
+//!   `gridLinesSet`, `autoPageBreaks`, `outlinePr` (but through the Cargo
+//!   feature `rowcol`'s `Package::set_outline_summary`), `cellComments`,
 //!   `errors`, `useFirstPageNumber` without a first page number, the
 //!   printer settings part, a filter's columns or sort state (a replaced
 //!   `<autoFilter>` keeps its other attributes and drops its children),
@@ -1441,6 +1452,71 @@
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice, which does not show how a setting
 //!   renders; what Excel shows is Excel's.
+//!
+//! Outline grouping and line styles add these, the Cargo feature
+//! `rowcol`'s (`specs/0026-grouping-and-line-styles.md`, "Design",
+//! decisions 1 to 6 and the rulings of P1 and P2), the caller's picture:
+//!
+//! - What it touches: `Package::group_rows`, `Package::group_columns`,
+//!   `Package::set_row_collapsed`, `Package::set_column_collapsed`,
+//!   `Package::set_row_style` and `Package::set_column_style` are row and
+//!   column formats, written as a height or a width is: a `<row>` retagged
+//!   in place or created in row order, a `<col>` split so the edited
+//!   columns alone carry the change; a group records its level and its
+//!   hidden flag on every row or column of the range, so a range over
+//!   absent rows creates each. `Package::set_outline_summary` and the
+//!   maximums go through the settings pass of part 3, which this feature
+//!   shares: `<sheetPr>`'s `<outlinePr>` and `<sheetFormatPr>`. The last
+//!   call for an index wins per field; the part is never looked up at the
+//!   call.
+//! - The attributes: on a `<row>`, `s` and `customFormat` first, then the
+//!   height, `hidden`, `outlineLevel` and `collapsed`, each replaced in
+//!   place or appended, so a created row reads `<row r="5" s="2"
+//!   customFormat="1"/>`; on a `<col>`, `style` likewise. A level of 0
+//!   removes `outlineLevel`; a hidden flag of `false` removes a `hidden`
+//!   attribute of any value, LibreOffice's `hidden="false"` included, as
+//!   [`Package::set_column_hidden`] does.
+//! - The coalescing: on a part where the write records a group, a
+//!   collapsed column or a column style, the `<col>` pieces the split
+//!   produces and the elements the write creates are merged with an
+//!   adjacent one whose tag is byte-identical once `min` and `max` are set
+//!   aside, its content too, so a group over a range one `<col>` covered
+//!   stays one element and a range no element covered gets one; a run of
+//!   whitespace alone between two pieces is dropped when they merge, and a
+//!   comment or any other content ends the merge. An element the write did
+//!   not touch is never merged into or changed, and the core's width and
+//!   hidden calls alone write the split as before.
+//! - The maximums: a write that sets a level above 0 raises
+//!   `<sheetFormatPr>`'s `outlineLevelRow` or `outlineLevelCol` to the
+//!   highest level it sets, the set attributes first and the rest kept;
+//!   a file value already as high is kept as it is, so a maximum is never
+//!   lowered (decision 3 A), and one that is not a whole number from 0 to
+//!   255 counts as 0 and is replaced. An absent `<sheetFormatPr>` is
+//!   created in schema position as `defaultRowHeight="15"` then the
+//!   maximums, the height the schema requires.
+//! - The summary: `summaryBelow` and `summaryRight` merged into the part's
+//!   `<outlinePr>`, or one created between `<tabColor>` and
+//!   `<pageSetUpPr>`, `<sheetPr>` created first among the root's children
+//!   when absent.
+//! - What is never written: a `collapsed` the caller did not ask for (the
+//!   summary row is the caller's, openpyxl's shape, decision 4 A), a
+//!   summary row chosen by the write, an `outlineLevel` above 7 (refused at
+//!   the call), and a style on a cell: a row or column style leaves every
+//!   cell's own `s` as it is, and what a consumer shows for a cell with no
+//!   `s` in a styled row or column is the consumer's.
+//! - Through a shift: a grouped, collapsed or styled row or column moves
+//!   whole with its attributes, as part 3's shift rule carries
+//!   `outlineLevel`, `collapsed`, `s`, `customFormat` and `style`; the
+//!   maximums and the summary stay. One shift per worksheet per write, so
+//!   a group beside a shift of its part is refused and written in a second
+//!   write.
+//! - What is read back: nothing as a typed value yet. Levels, flags, the
+//!   maximums, the summary and line styles are Milestone 3 part 5's read
+//!   (decision 6 A); until then a caller reads them by its own pass over
+//!   the part's tokens, as `emend-copy`'s samples do.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice, which does not show how a group folds or
+//!   a line style renders; what Excel shows is Excel's.
 //!
 //! # What streams and what is held
 //!
