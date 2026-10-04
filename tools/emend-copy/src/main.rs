@@ -522,6 +522,34 @@
 //!   1; a failure is exit 2 with the message and no output, and so is a
 //!   refusal by the layer (a table of W overlapping the area, two
 //!   `<autoFilter>` on W, or M + 1 past the grid).
+//! - `--group-sample`: the group sample of
+//!   `specs/0026-grouping-and-line-styles.md`, "Harness runs": on W, with M
+//!   its largest row number as the cell read gives it, the rows M + 1 to
+//!   M + 2 grouped at level 1 hidden, row M + 3 collapsed, the columns 2 to
+//!   3 grouped at level 1 shown, and the summary rows above their groups.
+//!   The output is reopened and W read by this tool's own pass over its
+//!   tokens. One line: the word `group` then `rows_before` and `rows_after`
+//!   (W's `<row>` elements), `level_rows` (rows carrying `outlineLevel="1"`
+//!   after), `hidden_rows` (of those, the ones carrying `hidden="1"`),
+//!   `collapsed_rows` (rows carrying `collapsed="1"`), `cols_before` and
+//!   `cols_after` (W's `<col>` elements), `level_cols` (`<col>` elements
+//!   carrying `outlineLevel="1"` after), `max_row_ok` and `max_col_ok` (1
+//!   when `<sheetFormatPr>` carries `outlineLevelRow` and `outlineLevelCol`
+//!   at least 1), `summary_ok` (1 when `<sheetPr>`'s `<outlinePr>` carries
+//!   `summaryBelow="0"`), `kept_cols` (summed over columns 2 and 3, the
+//!   attributes of the `<col>` covering the column other than `min`, `max`,
+//!   `outlineLevel`, `hidden` and `collapsed`, each the same name and bytes
+//!   before and after) and `r_bound_before`. COUNTS ONLY: the levels and the
+//!   flags are this tool's constants and no reference is printed. Asserted:
+//!   `rows_after` three more than before, `level_rows` 2, `hidden_rows` 2,
+//!   `collapsed_rows` 1, the `<col>` elements carrying the level covering
+//!   exactly columns 2 to 3 between them and numbering 1 when the input's
+//!   attributes for the two columns, as the write leaves them, are the same
+//!   name and bytes in the same order, else 2 ("Planning rulings during
+//!   P1", ruling 2), the kept attributes and the three flags; a failure is
+//!   exit 2 with the message and no output, and so is a refusal by the
+//!   layer (M + 3 past the grid, two `<sheetPr>` or `<sheetFormatPr>` on W,
+//!   or one out of schema order).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -566,7 +594,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
-| --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample]";
+| --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
+| --group-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -655,6 +684,9 @@ enum Operation {
     PagesetupSample,
     /// A print area, print titles and an autofilter, and the counts.
     PrintareaSample,
+    /// Rows and columns grouped, a row collapsed and the outline summary,
+    /// and the counts.
+    GroupSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -698,6 +730,7 @@ enum Error {
     SheetviewSample(&'static str),
     PagesetupSample(&'static str),
     PrintareaSample(&'static str),
+    GroupSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -790,6 +823,9 @@ impl fmt::Display for Error {
             }
             Error::PrintareaSample(what) => {
                 write!(f, "the output's {what} is not what the print area implies")
+            }
+            Error::GroupSample(what) => {
+                write!(f, "the output's {what} is not what the groups imply")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -930,6 +966,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::PrintareaSample,
         ),
+        [input, output, flag] if flag == "--group-sample" => {
+            run(Path::new(input), Path::new(output), Operation::GroupSample)
+        }
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -1070,6 +1109,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::PrintareaSample) {
         return printarea_sample(input, output);
     }
+    if matches!(operation, Operation::GroupSample) {
+        return group_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1125,6 +1167,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::SheetviewSample => unreachable!("the sheet view sample has its own path"),
         Operation::PagesetupSample => unreachable!("the page setup sample has its own path"),
         Operation::PrintareaSample => unreachable!("the print area sample has its own path"),
+        Operation::GroupSample => unreachable!("the group sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -5289,6 +5332,272 @@ fn pagesetup_read_back(
         return Err(Error::PagesetupSample("other headerFooter children"));
     }
     Ok((after, kept.len() as u64))
+}
+
+/// What the group sample reads of W by this tool's own pass over its
+/// tokens: each `<row>`'s level, hidden and collapsed flags, each `<col>`'s
+/// start tag, the first `<sheetFormatPr>`'s start tag and the first
+/// `<sheetPr>`'s `<outlinePr>` start tag.
+struct GroupFacts {
+    rows: u64,
+    level_rows: u64,
+    hidden_rows: u64,
+    collapsed_rows: u64,
+    cols: Vec<Vec<u8>>,
+    format: Option<Vec<u8>>,
+    outline: Option<Vec<u8>>,
+}
+
+/// The group sample's reading of `part`.
+fn group_facts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<GroupFacts, Error> {
+    let index = package.part(part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut depth = 0usize;
+    let mut root: Vec<u8> = Vec::new();
+    // The root child open at depth 2, when it is of the main namespace.
+    let mut open: Vec<u8> = Vec::new();
+    let mut sheet_prs = 0u64;
+    let mut facts = GroupFacts {
+        rows: 0,
+        level_rows: 0,
+        hidden_rows: 0,
+        collapsed_rows: 0,
+        cols: Vec::new(),
+        format: None,
+        outline: None,
+    };
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        depth += 1;
+        let main = MAIN.contains(&element_namespace(raw, &root).as_slice());
+        if depth == 1 {
+            root = raw.to_vec();
+        } else if depth == 2 {
+            open = if main {
+                tag_local_name(raw).to_vec()
+            } else {
+                Vec::new()
+            };
+            if open == b"sheetPr" {
+                sheet_prs += 1;
+            }
+            if open == b"sheetFormatPr" && facts.format.is_none() {
+                facts.format = Some(raw.to_vec());
+            }
+        } else if depth == 3 && main {
+            let local = tag_local_name(raw);
+            if open == b"sheetData" && local == b"row" {
+                facts.rows += 1;
+                let flag =
+                    |name: &[u8]| tag_attribute(raw, name).as_deref() == Some(b"1".as_slice());
+                if flag(b"outlineLevel") {
+                    facts.level_rows += 1;
+                    if flag(b"hidden") {
+                        facts.hidden_rows += 1;
+                    }
+                }
+                if flag(b"collapsed") {
+                    facts.collapsed_rows += 1;
+                }
+            } else if open == b"cols" && local == b"col" {
+                facts.cols.push(raw.to_vec());
+            } else if open == b"sheetPr"
+                && local == b"outlinePr"
+                && sheet_prs == 1
+                && facts.outline.is_none()
+            {
+                facts.outline = Some(raw.to_vec());
+            }
+        }
+        if raw.ends_with(b"/>") {
+            depth -= 1;
+        }
+    }
+    Ok(facts)
+}
+
+/// A `<col>`'s `min` and `max`, when both are whole numbers.
+fn col_span(tag: &[u8]) -> Option<(u32, u32)> {
+    let number = |name: &[u8]| -> Option<u32> {
+        std::str::from_utf8(&tag_attribute(tag, name)?)
+            .ok()?
+            .parse()
+            .ok()
+    };
+    Some((number(b"min")?, number(b"max")?))
+}
+
+/// The start tag of the `<col>` in `cols` that covers `column`.
+fn covering(cols: &[Vec<u8>], column: u32) -> Option<&[u8]> {
+    cols.iter()
+        .find(|tag| col_span(tag).is_some_and(|(min, max)| (min..=max).contains(&column)))
+        .map(Vec::as_slice)
+}
+
+/// The attributes the group sample's split and edit set or move.
+const GROUP_SET: [&[u8]; 5] = [b"min", b"max", b"outlineLevel", b"hidden", b"collapsed"];
+
+/// A `<col>`'s attributes other than [`GROUP_SET`]'s.
+fn kept_col_attributes(tag: Option<&[u8]>) -> Vec<(Vec<u8>, Vec<u8>)> {
+    tag.map(tag_attributes)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(name, _)| !GROUP_SET.contains(&name.as_slice()))
+        .collect()
+}
+
+/// The attributes, other than `min` and `max`, that the write leaves on the
+/// `<col>` covering a column the input's `tag` covered (none for `None`):
+/// `hidden` dropped and `outlineLevel="1"` set in place or appended, as the
+/// crate's row and column format does.
+fn grouped_col_attributes(tag: Option<&[u8]>) -> Vec<(Vec<u8>, Vec<u8>)> {
+    let mut attributes: Vec<(Vec<u8>, Vec<u8>)> = tag
+        .map(tag_attributes)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(name, _)| !matches!(name.as_slice(), b"min" | b"max" | b"hidden"))
+        .collect();
+    let level = (b"outlineLevel".to_vec(), b"outlineLevel=\"1\"".to_vec());
+    match attributes
+        .iter_mut()
+        .find(|(name, _)| name.as_slice() == b"outlineLevel")
+    {
+        Some(present) => *present = level,
+        None => attributes.push(level),
+    }
+    attributes
+}
+
+/// Whether a start tag carries the attribute `name` as a whole number at
+/// least 1.
+fn at_least_one(tag: Option<&[u8]>, name: &[u8]) -> bool {
+    tag.and_then(|tag| tag_attribute(tag, name))
+        .and_then(|value| std::str::from_utf8(&value).ok()?.parse::<u8>().ok())
+        .is_some_and(|value| value >= 1)
+}
+
+/// The group sample (`specs/0026-grouping-and-line-styles.md`, "Harness
+/// runs", `--group-sample`): two rows grouped hidden, the row after them
+/// collapsed, two columns grouped and the summary rows above, on W, the
+/// output written and read back. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn group_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = group_facts(&mut package, &part)?;
+    let (_, r_bound_before) = container_and_binding(&mut package, &part, b"sheetData")?;
+    // Past the grid, the layer's own refusal names the index.
+    let first = sampled.max_row.saturating_add(1);
+    package.group_rows(&part, first, first.saturating_add(1), 1, true)?;
+    package.set_row_collapsed(&part, first.saturating_add(2), true)?;
+    package.group_columns(&part, 2, 3, 1, false)?;
+    package.set_outline_summary(&part, Some(false), None);
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = group_read_back(output, &part, &before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, level_cols, kept) = checked?;
+    edit_line_named(
+        "group",
+        &[
+            ("rows_before", before.rows),
+            ("rows_after", after.rows),
+            ("level_rows", after.level_rows),
+            ("hidden_rows", after.hidden_rows),
+            ("collapsed_rows", after.collapsed_rows),
+            ("cols_before", before.cols.len() as u64),
+            ("cols_after", after.cols.len() as u64),
+            ("level_cols", level_cols),
+            ("max_row_ok", 1),
+            ("max_col_ok", 1),
+            ("summary_ok", 1),
+            ("kept_cols", kept),
+            ("r_bound_before", u64::from(r_bound_before)),
+        ],
+    )
+}
+
+/// Reopens the group sample's output and asserts what `--group-sample`
+/// says it asserts; gives W's reading, the `<col>` elements carrying the
+/// level and the count of kept attributes.
+fn group_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &GroupFacts,
+) -> Result<(GroupFacts, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = group_facts(&mut package, part)?;
+    if after.rows != before.rows + 3 {
+        return Err(Error::GroupSample("row count"));
+    }
+    if after.level_rows != 2 || after.hidden_rows != 2 {
+        return Err(Error::GroupSample("grouped rows"));
+    }
+    if after.collapsed_rows != 1 {
+        return Err(Error::GroupSample("collapsed rows"));
+    }
+    let leveled: Vec<(u32, u32)> = after
+        .cols
+        .iter()
+        .filter(|tag| tag_attribute(tag, b"outlineLevel").as_deref() == Some(b"1".as_slice()))
+        .filter_map(|tag| col_span(tag))
+        .collect();
+    let input_two = covering(&before.cols, 2);
+    let input_three = covering(&before.cols, 3);
+    let expected: &[(u32, u32)] =
+        if grouped_col_attributes(input_two) == grouped_col_attributes(input_three) {
+            &[(2, 3)]
+        } else {
+            &[(2, 2), (3, 3)]
+        };
+    if leveled != expected {
+        return Err(Error::GroupSample("grouped columns"));
+    }
+    let mut kept = 0u64;
+    for (column, input) in [(2, input_two), (3, input_three)] {
+        let kept_before = kept_col_attributes(input);
+        let kept_after = kept_col_attributes(covering(&after.cols, column));
+        if kept_after != kept_before {
+            return Err(Error::GroupSample("kept col attributes"));
+        }
+        kept += kept_after.len() as u64;
+    }
+    if !at_least_one(after.format.as_deref(), b"outlineLevelRow")
+        || !at_least_one(after.format.as_deref(), b"outlineLevelCol")
+    {
+        return Err(Error::GroupSample("outline maximums"));
+    }
+    if after
+        .outline
+        .as_deref()
+        .and_then(|tag| tag_attribute(tag, b"summaryBelow"))
+        .as_deref()
+        != Some(b"0".as_slice())
+    {
+        return Err(Error::GroupSample("outline summary"));
+    }
+    Ok((after, expected.len() as u64, kept))
 }
 
 /// Whether the part's root has a main-namespace child named `name`

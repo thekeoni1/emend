@@ -4772,3 +4772,120 @@ fn the_printarea_sample_refuses_a_table_over_the_area_and_leaves_nothing() {
         "--printarea-sample",
     );
 }
+
+/// The edit sample's package with W holding `head` before `<dimension>`,
+/// `middle` between it and `data`, and `<pageMargins>` after. Fictional.
+fn group_specs(head: &str, middle: &str, data: &str) -> Vec<Spec> {
+    let sheet = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <worksheet xmlns=\"{MAIN_NS}\">{head}<dimension ref=\"A1\"/>{middle}{data}\
+         <pageMargins left=\"0.7\"/></worksheet>"
+    );
+    let mut specs = cells_specs();
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::stored(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_group_sample_groups_rows_and_columns_and_keeps_the_rest() {
+    // `specs/0026-grouping-and-line-styles.md`, "Harness runs": the rows
+    // after M grouped and collapsed, columns 2 to 3 grouped, the maximums
+    // and the summary created when W lacks them and merged into the ones it
+    // has; the columns coalesced to one element when the input's attributes
+    // for the two agree, else two ("Planning rulings during P1", rulings 2
+    // and 3).
+    let rows = "<row r=\"2\" hidden=\"1\" outlineLevel=\"1\"/><row r=\"3\" hidden=\"1\" \
+                outlineLevel=\"1\"/><row r=\"4\" collapsed=\"1\"/>";
+    let data = |extra: &str| {
+        format!("<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>{extra}</sheetData>")
+    };
+    for (label, head, middle, line, sheet_head, sheet_middle) in [
+        (
+            "group-sample-created",
+            "",
+            "",
+            "group\trows_before=1\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
+             \tcols_before=0\tcols_after=1\tlevel_cols=1\tmax_row_ok=1\tmax_col_ok=1\
+             \tsummary_ok=1\tkept_cols=0\tr_bound_before=0\n",
+            "<sheetPr><outlinePr summaryBelow=\"0\"/></sheetPr>",
+            "<sheetFormatPr defaultRowHeight=\"15\" outlineLevelRow=\"1\" outlineLevelCol=\"1\"/>\
+             <cols><col min=\"2\" max=\"3\" outlineLevel=\"1\"/></cols>",
+        ),
+        (
+            "group-sample-kept",
+            "<sheetPr codeName=\"Sheet1\"><tabColor theme=\"4\"/></sheetPr>",
+            "<sheetFormatPr defaultRowHeight=\"15\" outlineLevelRow=\"0\"/><cols><col min=\"1\" \
+             max=\"2\" width=\"9\" customWidth=\"1\" style=\"3\"/><col min=\"3\" max=\"3\" \
+             width=\"12\" customWidth=\"1\" hidden=\"1\"/></cols>",
+            "group\trows_before=1\trows_after=4\tlevel_rows=2\thidden_rows=2\tcollapsed_rows=1\
+             \tcols_before=2\tcols_after=3\tlevel_cols=2\tmax_row_ok=1\tmax_col_ok=1\
+             \tsummary_ok=1\tkept_cols=5\tr_bound_before=0\n",
+            "<sheetPr codeName=\"Sheet1\"><tabColor theme=\"4\"/><outlinePr summaryBelow=\"0\"/>\
+             </sheetPr>",
+            "<sheetFormatPr outlineLevelRow=\"1\" outlineLevelCol=\"1\" defaultRowHeight=\"15\"/>\
+             <cols><col min=\"1\" max=\"1\" width=\"9\" customWidth=\"1\" style=\"3\"/><col \
+             min=\"2\" max=\"2\" width=\"9\" customWidth=\"1\" style=\"3\" outlineLevel=\"1\"/>\
+             <col min=\"3\" max=\"3\" width=\"12\" customWidth=\"1\" outlineLevel=\"1\"/></cols>",
+        ),
+    ] {
+        let specs = group_specs(head, middle, &data(""));
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--group-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let sheet = String::from_utf8(
+            entry_named(&entries, b"xl/worksheets/sheet1.xml")
+                .compressed
+                .clone(),
+        )
+        .expect("UTF-8");
+        assert_eq!(
+            sheet,
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                 <worksheet xmlns=\"{MAIN_NS}\">{sheet_head}<dimension ref=\"A1\"/>\
+                 {sheet_middle}{}<pageMargins left=\"0.7\"/></worksheet>",
+                data(rows)
+            ),
+            "the sheet"
+        );
+        untouched_but(&entries, &specs, &[b"xl/worksheets/sheet1.xml"]);
+    }
+}
+
+#[test]
+fn the_group_sample_refuses_a_row_past_the_grid_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0026-grouping-and-line-styles.md`, "P1"): M is 1048574, so the
+    // collapsed row M + 3 is past the grid.
+    styled_run_refused(
+        "group-sample-full",
+        &group_specs(
+            "",
+            "",
+            "<sheetData><row r=\"1048574\"><c r=\"A1048574\"><v>1</v></c></row></sheetData>",
+        ),
+        "a row or column index or count is out of range",
+        "--group-sample",
+    );
+    // Two `<sheetFormatPr>` on W, with the settings message ("Planning
+    // rulings during P1", ruling 1).
+    styled_run_refused(
+        "group-sample-two",
+        &group_specs(
+            "",
+            "<sheetFormatPr defaultRowHeight=\"15\"/><sheetFormatPr defaultRowHeight=\"15\"/>",
+            A_CELL,
+        ),
+        "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
+        "--group-sample",
+    );
+}
