@@ -7400,6 +7400,8 @@ mod comments;
 mod conditional;
 #[cfg(feature = "rules")]
 mod dxf;
+#[cfg(feature = "rowcol")]
+mod grouping;
 #[cfg(feature = "images")]
 mod images;
 #[cfg(feature = "metadata")]

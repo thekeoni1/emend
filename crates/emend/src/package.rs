@@ -606,6 +606,17 @@
 //! - "a print area or title is not valid", the Cargo features `sheetprops`
 //!   and `metadata` together (`names::print::the_p3_refusals`).
 //!
+//! Outline grouping adds one, the Cargo feature `rowcol`'s
+//! (`specs/0026-grouping-and-line-styles.md`, "Errors"), raised at the call.
+//! A group, a collapsed flag or an outline summary also meets at the write
+//! what a row or column format or a setting meets; the settings message
+//! above covers a part with two `<sheetFormatPr>` or one out of schema order
+//! when the write raises its maximums ("Planning rulings during P1", ruling
+//! 1; `grouping::the_write_refusals`):
+//!
+//! - "an outline level is out of range"
+//!   (`grouping::the_refusals_at_the_call_record_nothing`).
+//!
 //! The `cells` module raises its messages through the same error and they are
 //! catalogued here with the rest, so there is one list for the modules
 //! (`specs/0010-reading-cells.md`, "Errors"):
@@ -2447,6 +2458,12 @@ struct Recorded {
     /// and `metadata`.
     #[cfg(all(feature = "sheetprops", feature = "metadata"))]
     auto_filters: Vec<(Vec<u8>, Option<Area>)>,
+    /// `(part, [below, right])`: an outline summary position, in record
+    /// order, so the last for a field wins
+    /// (`specs/0026-grouping-and-line-styles.md`, "The calls"). The Cargo
+    /// feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    outline_summaries: Vec<(Vec<u8>, [Option<bool>; 2])>,
 }
 
 /// One recorded change to the workbook's defined names. A scope is the
@@ -2584,6 +2601,14 @@ enum LineField {
     /// A width or a height, `None` to remove it.
     Size(Option<f64>),
     Hidden(bool),
+    /// An outline level, 0 to remove it
+    /// (`specs/0026-grouping-and-line-styles.md`, "The calls"). The Cargo
+    /// feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    Level(u8),
+    /// The collapsed flag. The Cargo feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    Collapsed(bool),
 }
 
 /// A column's or a row's format edits in one write, each field the last
@@ -2593,13 +2618,25 @@ enum LineField {
 struct LineFormat {
     size: Option<Option<f64>>,
     hidden: Option<bool>,
+    /// `Some(level)` the outline level set, or removed for 0. The Cargo
+    /// feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    level: Option<u8>,
+    /// `Some(flag)` the collapsed flag set or removed.
+    #[cfg(feature = "rowcol")]
+    collapsed: Option<bool>,
 }
 
 impl LineFormat {
     /// Whether the format writes an attribute where there is no element:
-    /// a size, or the hidden flag set.
+    /// a size, the hidden flag set, and with the feature `rowcol` a level
+    /// above 0 or the collapsed flag set.
     fn writes_when_absent(&self) -> bool {
-        matches!(self.size, Some(Some(_))) || self.hidden == Some(true)
+        let writes = matches!(self.size, Some(Some(_))) || self.hidden == Some(true);
+        #[cfg(feature = "rowcol")]
+        let writes =
+            writes || self.level.is_some_and(|level| level > 0) || self.collapsed == Some(true);
+        writes
     }
 }
 
@@ -2673,9 +2710,16 @@ struct SheetWork {
     #[cfg(feature = "images")]
     drawing_strict: bool,
     /// The part's sheet settings (`specs/0025-sheet-and-print-settings.md`,
-    /// "The pass").
-    #[cfg(feature = "sheetprops")]
+    /// "The pass"), and the outline's (`specs/0026-grouping-and-line-
+    /// styles.md`).
+    #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
     settings: Settings,
+    /// Whether the `<col>` pieces the write produces are coalesced: the
+    /// write records one of part 4's column calls for the part
+    /// (`specs/0026-grouping-and-line-styles.md`, "Planning rulings during
+    /// P1", ruling 2). The Cargo feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    coalesce: bool,
 }
 
 /// A hyperlink's target as a caller gives it
@@ -3643,18 +3687,12 @@ fn no_links(_: &SheetWork) -> bool {
     true
 }
 
-/// Whether the part's rewrite carries no sheet setting (the Cargo feature
-/// `sheetprops`).
-#[cfg(all(feature = "rowcol", feature = "sheetprops"))]
+/// Whether the part's rewrite carries no sheet setting, the outline
+/// summary included (`specs/0026-grouping-and-line-styles.md`, "The
+/// calls").
+#[cfg(feature = "rowcol")]
 fn no_settings(work: &SheetWork) -> bool {
     work.settings.is_empty()
-}
-
-/// Whether the part's rewrite carries no sheet setting; always, without the
-/// feature `sheetprops`.
-#[cfg(all(feature = "rowcol", not(feature = "sheetprops")))]
-fn no_settings(_: &SheetWork) -> bool {
-    true
 }
 
 impl SheetWork {
@@ -3954,6 +3992,20 @@ impl Recorded {
             && self.no_comment_edits()
             && self.no_image_edits()
             && self.no_setting_edits()
+            && self.no_outline_edits()
+    }
+
+    /// Whether no outline summary is recorded; always, without the feature
+    /// `rowcol`.
+    #[cfg(feature = "rowcol")]
+    fn no_outline_edits(&self) -> bool {
+        self.outline_summaries.is_empty()
+    }
+
+    /// No outline summary, without the feature `rowcol`.
+    #[cfg(not(feature = "rowcol"))]
+    fn no_outline_edits(&self) -> bool {
+        true
     }
 
     /// Whether no sheet setting is recorded; always, without the feature
@@ -4197,6 +4249,10 @@ impl Recorded {
             .chain(self.header_footers.iter().map(|(part, _)| part));
         #[cfg(all(feature = "sheetprops", feature = "metadata"))]
         let named = named.chain(self.auto_filters.iter().map(|(part, _)| part));
+        // An outline summary (`specs/0026-grouping-and-line-styles.md`, "The
+        // calls").
+        #[cfg(feature = "rowcol")]
+        let named = named.chain(self.outline_summaries.iter().map(|(part, _)| part));
         // A comment edit rewrites the worksheet only when its
         // `<legacyDrawing>` is created or dropped
         // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
@@ -4241,6 +4297,10 @@ impl Recorded {
                     match field {
                         LineField::Size(size) => format.size = Some(*size),
                         LineField::Hidden(hidden) => format.hidden = Some(*hidden),
+                        #[cfg(feature = "rowcol")]
+                        LineField::Level(level) => format.level = Some(*level),
+                        #[cfg(feature = "rowcol")]
+                        LineField::Collapsed(collapsed) => format.collapsed = Some(*collapsed),
                     }
                 }
             }
@@ -4253,10 +4313,31 @@ impl Recorded {
                 .map(|(_, area)| *area)
                 .collect()
         };
+        let rows: Vec<(u32, LineFormat)> = lines(&self.row_formats);
+        let columns: Vec<(u32, LineFormat)> = lines(&self.column_formats);
+        // The highest level the write sets on each axis
+        // (`specs/0026-grouping-and-line-styles.md`, "The calls").
+        #[cfg(feature = "rowcol")]
+        let highest = |formats: &[(u32, LineFormat)]| {
+            formats
+                .iter()
+                .filter_map(|(_, format)| format.level)
+                .max()
+                .unwrap_or(0)
+        };
+        #[cfg(feature = "rowcol")]
+        let mut settings = self.settings_of(part);
+        #[cfg(feature = "rowcol")]
+        {
+            settings.summary = self.summary_of(part);
+            settings.outline_max = [highest(&rows), highest(&columns)];
+        }
+        #[cfg(all(feature = "sheetprops", not(feature = "rowcol")))]
+        let settings = self.settings_of(part);
         SheetWork {
             cells: self.cell_edits_of(part),
-            rows: lines(&self.row_formats),
-            columns: lines(&self.column_formats),
+            rows,
+            columns,
             pane: self
                 .panes
                 .iter()
@@ -4341,8 +4422,13 @@ impl Recorded {
                 .image_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.strict),
-            #[cfg(feature = "sheetprops")]
-            settings: self.settings_of(part),
+            #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
+            settings,
+            #[cfg(feature = "rowcol")]
+            coalesce: self.column_formats.iter().any(|(at, _, field)| {
+                at.as_slice() == part
+                    && matches!(field, LineField::Level(_) | LineField::Collapsed(_))
+            }),
         }
     }
 
@@ -4402,7 +4488,35 @@ impl Recorded {
                 .map(|(_, area)| *area),
             #[cfg(not(feature = "metadata"))]
             auto_filter: None,
+            #[cfg(feature = "rowcol")]
+            summary: [None, None],
+            #[cfg(feature = "rowcol")]
+            outline_max: [0, 0],
         }
+    }
+
+    /// No sheet setting but the outline's, without the feature `sheetprops`.
+    #[cfg(all(feature = "rowcol", not(feature = "sheetprops")))]
+    fn settings_of(&self, _: &[u8]) -> Settings {
+        Settings::default()
+    }
+
+    /// One part's outline summary position, each field from the last call
+    /// that gives it (`specs/0026-grouping-and-line-styles.md`, "The
+    /// calls").
+    #[cfg(feature = "rowcol")]
+    fn summary_of(&self, part: &[u8]) -> [Option<bool>; 2] {
+        let mut summary = [None, None];
+        for (at, later) in &self.outline_summaries {
+            if at.as_slice() == part {
+                for (field, value) in summary.iter_mut().zip(later) {
+                    if value.is_some() {
+                        *field = *value;
+                    }
+                }
+            }
+        }
+        summary
     }
 
     /// One part's hyperlink edits: each cell's last record, in the order of
@@ -4993,6 +5107,129 @@ impl<R: Read + Seek> Package<R> {
     pub fn set_row_hidden(&mut self, part: &[u8], row: u32, hidden: bool) -> Result<(), Error> {
         self.parts()
             .line_format(part, row, LineField::Hidden(hidden), true)
+    }
+
+    /// Records the rows `first` to `last` of the worksheet part `part` at
+    /// the outline level `level`, hidden or shown: on each `<row>`,
+    /// `outlineLevel="level"` for a level 1 to 7, or the attribute removed
+    /// for 0, and `hidden="1"` set or removed as
+    /// [`Package::set_row_hidden`] does. A row the part does not have is
+    /// created when the call writes an attribute on it, so a range over
+    /// absent rows creates each. The write raises `<sheetFormatPr>`'s
+    /// `outlineLevelRow` to the highest level it sets, never lowering it,
+    /// creating the element when the part lacks it. Which row carries
+    /// `collapsed` is the caller's ([`Package::set_row_collapsed`]). The
+    /// Cargo feature `rowcol` (`specs/0026-grouping-and-line-styles.md`,
+    /// "The calls").
+    ///
+    /// The part is not looked up here; the last call for a row wins per
+    /// field.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a row outside `1..=1048576` or `first > last`; "an outline
+    /// level is out of range" for a level above 7. Nothing is recorded
+    /// when this fails. The write refuses what a row format meets.
+    #[cfg(feature = "rowcol")]
+    pub fn group_rows(
+        &mut self,
+        part: &[u8],
+        first: u32,
+        last: u32,
+        level: u8,
+        hidden: bool,
+    ) -> Result<(), Error> {
+        self.parts().group(part, (first, last), level, hidden, true)
+    }
+
+    /// Records the columns `first` to `last` of the worksheet part `part` at
+    /// the outline level `level`, hidden or shown, as
+    /// [`Package::group_rows`] does for rows, on the `<col>` elements that
+    /// cover them through the split of [`Package::set_column_width`]; the
+    /// pieces the write produces are then coalesced, each merged with the
+    /// adjacent one whose attributes other than `min` and `max` are the
+    /// same bytes, so a group over a range one `<col>` covered stays one
+    /// element. An element the write does not touch is never merged. The
+    /// write raises `outlineLevelCol` as [`Package::group_rows`] raises
+    /// `outlineLevelRow`. The Cargo feature `rowcol`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Package::group_rows`], for a column outside `1..=16384`.
+    #[cfg(feature = "rowcol")]
+    pub fn group_columns(
+        &mut self,
+        part: &[u8],
+        first: u32,
+        last: u32,
+        level: u8,
+        hidden: bool,
+    ) -> Result<(), Error> {
+        self.parts()
+            .group(part, (first, last), level, hidden, false)
+    }
+
+    /// Records `row` in the worksheet part `part` collapsed or not:
+    /// `collapsed="1"` set on, or removed from, the `<row>`, as
+    /// [`Package::set_row_hidden`] places the hidden flag. The write sets
+    /// nothing on its own: which row is a group's summary row is the
+    /// caller's. The Cargo feature `rowcol`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a row outside `1..=1048576`. Nothing is recorded when this fails.
+    #[cfg(feature = "rowcol")]
+    pub fn set_row_collapsed(
+        &mut self,
+        part: &[u8],
+        row: u32,
+        collapsed: bool,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, row, LineField::Collapsed(collapsed), true)
+    }
+
+    /// Records `column` in the worksheet part `part` collapsed or not, on
+    /// the `<col>` that covers it, as [`Package::set_row_collapsed`] does
+    /// for a row; the pieces are coalesced as [`Package::group_columns`]
+    /// says. The Cargo feature `rowcol`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a row or column index or count is out of range"
+    /// for a column outside `1..=16384`. Nothing is recorded when this fails.
+    #[cfg(feature = "rowcol")]
+    pub fn set_column_collapsed(
+        &mut self,
+        part: &[u8],
+        column: u32,
+        collapsed: bool,
+    ) -> Result<(), Error> {
+        self.parts()
+            .line_format(part, column, LineField::Collapsed(collapsed), false)
+    }
+
+    /// Records where the worksheet part `part` puts its outline's summary
+    /// rows and columns: each `Some` written as `summaryBelow` or
+    /// `summaryRight` on `<sheetPr>`'s `<outlinePr>`, merged into the one
+    /// the part has or created in its schema place, `<sheetPr>` created when
+    /// the part lacks it, every other attribute and child kept; `None`
+    /// leaves the attribute as it is. The last call for a field wins. The
+    /// Cargo feature `rowcol` (`specs/0026-grouping-and-line-styles.md`,
+    /// "The calls").
+    ///
+    /// The part is not looked up here. The write refuses a part the archive
+    /// lacks, "no such part"; a part with two `<sheetPr>` or one after
+    /// another root child, the settings message; a part with a row or
+    /// column shift in the same write; and what a cell edit to the part
+    /// would meet.
+    #[cfg(feature = "rowcol")]
+    pub fn set_outline_summary(&mut self, part: &[u8], below: Option<bool>, right: Option<bool>) {
+        self.edits
+            .outline_summaries
+            .push((part.to_vec(), [below, right]));
     }
 
     /// Records the worksheet part `part` frozen at `at`: `Some(c)` freezes
@@ -6747,6 +6984,37 @@ impl<'a> Parts<'a> {
             &mut self.edits.column_formats
         };
         recorded.push((part.to_vec(), index, field));
+        Ok(())
+    }
+
+    /// The body of [`Package::group_rows`] (`row` true) and
+    /// [`Package::group_columns`]: the range and the level checked, then a
+    /// level and a hidden flag recorded for each index.
+    #[cfg(feature = "rowcol")]
+    fn group(
+        &mut self,
+        part: &[u8],
+        (first, last): (u32, u32),
+        level: u8,
+        hidden: bool,
+        row: bool,
+    ) -> Result<(), Error> {
+        let limit = if row { GRID_ROWS } else { GRID_COLUMNS };
+        if first == 0 || first > last || last > limit {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        if level > 7 {
+            return Err(LEVEL_OUT_OF_RANGE);
+        }
+        let recorded = if row {
+            &mut self.edits.row_formats
+        } else {
+            &mut self.edits.column_formats
+        };
+        for index in first..=last {
+            recorded.push((part.to_vec(), index, LineField::Level(level)));
+            recorded.push((part.to_vec(), index, LineField::Hidden(hidden)));
+        }
         Ok(())
     }
 
@@ -8730,6 +8998,8 @@ impl<'a> Parts<'a> {
         self.edits.header_footers.retain(|(at, _)| at != part);
         #[cfg(all(feature = "sheetprops", feature = "metadata"))]
         self.edits.auto_filters.retain(|(at, _)| at != part);
+        #[cfg(feature = "rowcol")]
+        self.edits.outline_summaries.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
@@ -9955,6 +10225,11 @@ const TWO_ELEMENTS: Error = Error::Package(
 const SHIFT_ALONE: Error = Error::Package(
     "a worksheet with a row or column insertion or deletion takes no other edit in the same write",
 );
+/// An outline level above 7, Excel's deepest
+/// (`specs/0026-grouping-and-line-styles.md`, "Errors"). The Cargo feature
+/// `rowcol`.
+#[cfg(feature = "rowcol")]
+const LEVEL_OUT_OF_RANGE: Error = Error::Package("an outline level is out of range");
 #[cfg(feature = "rowcol")]
 const OFF_GRID: Error = Error::Package("a row or column would be moved off the worksheet");
 #[cfg(feature = "rowcol")]
@@ -10092,9 +10367,11 @@ const HEADER_FOOTER_INVALID: Error = Error::Package("a header or footer text is 
 const PRINT_INVALID: Error = Error::Package("a print area or title is not valid");
 
 /// A worksheet whose settings element the write cannot place: two of one,
-/// or one after a root child the schema puts after it ("The pass"). The
-/// Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// or one after a root child the schema puts after it ("The pass"), and a
+/// `<sheetFormatPr>` likewise (`specs/0026-grouping-and-line-styles.md`,
+/// "Planning rulings during P1", ruling 1). The Cargo feature `sheetprops`
+/// or `rowcol`.
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 const TWO_SETTINGS: Error = Error::Package(
     "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
 );
@@ -11800,6 +12077,24 @@ fn line_formatted(
         Some(false) => tag = without_attribute(&tag, b"hidden", index)?,
         None => {}
     }
+    // The outline level and the collapsed flag, appended after the size and
+    // the hidden flag or replaced in place
+    // (`specs/0026-grouping-and-line-styles.md`, "Planning rulings during
+    // P1", ruling 5).
+    #[cfg(feature = "rowcol")]
+    match format.level {
+        Some(0) => tag = without_attribute(&tag, b"outlineLevel", index)?,
+        Some(level) => {
+            tag = with_attribute(&tag, b"outlineLevel", level.to_string().as_bytes(), index)?;
+        }
+        None => {}
+    }
+    #[cfg(feature = "rowcol")]
+    match format.collapsed {
+        Some(true) => tag = with_attribute(&tag, b"collapsed", b"1", index)?,
+        Some(false) => tag = without_attribute(&tag, b"collapsed", index)?,
+        None => {}
+    }
     Ok(tag)
 }
 
@@ -12072,7 +12367,7 @@ const COLS: usize = 1;
 const MERGES: usize = 2;
 /// `<sheetViews>`'s place in [`WORKSHEET_CHILDREN`]: the settings pass
 /// creates what goes before it ahead of the elements of [`CREATED`].
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 const VIEWS_POSITION: usize = 2;
 
 /// A root child's place in [`WORKSHEET_CHILDREN`].
@@ -12189,16 +12484,17 @@ fn bare_col(raw: &[u8], index: usize) -> Result<bool, Error> {
 /// alone carries the change, the other pieces keeping every attribute with
 /// `min` and `max` set; a column no `<col>` covers given one of its own,
 /// placed by `min`, when the format writes something; an edited piece left
-/// with `min` and `max` alone dropped. The elements are refused when out of
-/// order or overlapping.
+/// with `min` and `max` alone dropped. With `coalesce`, the pieces and the
+/// created elements are merged as [`ColsOut`] says. The elements are
+/// refused when out of order or overlapping.
 fn cols_content(
     items: &[ColItem],
     formats: &[(u32, LineFormat)],
+    coalesce: bool,
     prefix: &[u8],
     index: usize,
 ) -> Result<(Vec<u8>, bool), Error> {
-    let mut out = Vec::new();
-    let mut any = false;
+    let mut out = ColsOut::new(coalesce, index);
     let mut next = 0usize;
     let mut last_max = 0u32;
     let created = |column: u32, format: &LineFormat| -> Result<Vec<u8>, Error> {
@@ -12208,7 +12504,7 @@ fn cols_content(
     };
     for item in items {
         match item {
-            ColItem::Other(raw) => out.extend_from_slice(raw),
+            ColItem::Other(raw) => out.kept(raw, false)?,
             ColItem::Col {
                 start,
                 rest,
@@ -12223,8 +12519,7 @@ fn cols_content(
                     && *column < *min
                 {
                     if format.writes_when_absent() {
-                        out.extend_from_slice(&created(*column, format)?);
-                        any = true;
+                        out.made(created(*column, format)?, &[], *column, *column)?;
                     }
                     next += 1;
                 }
@@ -12233,9 +12528,12 @@ fn cols_content(
                     && *column <= *max
                 {
                     if *column > from {
-                        out.extend_from_slice(&col_retagged(start, from, column - 1, index)?);
-                        out.extend_from_slice(rest);
-                        any = true;
+                        out.made(
+                            col_retagged(start, from, column - 1, index)?,
+                            rest,
+                            from,
+                            column - 1,
+                        )?;
                     }
                     let edited = line_formatted(
                         &col_retagged(start, *column, *column, index)?,
@@ -12244,32 +12542,144 @@ fn cols_content(
                         index,
                     )?;
                     if !bare_col(&edited, index)? {
-                        out.extend_from_slice(&edited);
-                        out.extend_from_slice(rest);
-                        any = true;
+                        out.made(edited, rest, *column, *column)?;
                     }
                     from = column + 1;
                     next += 1;
                 }
                 if from <= *max {
                     if from == *min {
-                        out.extend_from_slice(start);
+                        out.kept(start, true)?;
+                        out.kept(rest, true)?;
                     } else {
-                        out.extend_from_slice(&col_retagged(start, from, *max, index)?);
+                        out.made(col_retagged(start, from, *max, index)?, rest, from, *max)?;
                     }
-                    out.extend_from_slice(rest);
-                    any = true;
                 }
             }
         }
     }
     for (column, format) in &formats[next..] {
         if format.writes_when_absent() {
-            out.extend_from_slice(&created(*column, format)?);
-            any = true;
+            out.made(created(*column, format)?, &[], *column, *column)?;
         }
     }
-    Ok((out, any))
+    out.finish()
+}
+
+/// The children of a rewritten `<cols>` as they are produced: bytes kept as
+/// they are, and the `<col>` pieces the split produces and the elements the
+/// write creates, written as they come or, with `coalesce`, each merged
+/// with the one before it when that one ends at the column before and the
+/// two tags are byte-identical once `min` and `max` are set aside, their
+/// content too (`specs/0026-grouping-and-line-styles.md`, "Planning rulings
+/// during P1", ruling 2). An element the write did not touch is kept and
+/// ends any merge.
+struct ColsOut {
+    out: Vec<u8>,
+    any: bool,
+    /// Whether the pieces are coalesced, and the piece waiting for a merge.
+    /// The Cargo feature `rowcol`.
+    #[cfg(feature = "rowcol")]
+    coalesce: bool,
+    #[cfg(feature = "rowcol")]
+    open: Option<OpenPiece>,
+    #[cfg(feature = "rowcol")]
+    index: usize,
+}
+
+/// A `<col>` piece waiting for a merge: its tag, its content, its `min`, its
+/// `max` and whether a merge widened it.
+#[cfg(feature = "rowcol")]
+type OpenPiece = (Vec<u8>, Vec<u8>, u32, u32, bool);
+
+impl ColsOut {
+    #[cfg_attr(not(feature = "rowcol"), allow(unused_variables))]
+    fn new(coalesce: bool, index: usize) -> Self {
+        Self {
+            out: Vec::new(),
+            any: false,
+            #[cfg(feature = "rowcol")]
+            coalesce,
+            #[cfg(feature = "rowcol")]
+            open: None,
+            #[cfg(feature = "rowcol")]
+            index,
+        }
+    }
+
+    /// Bytes kept as they are, `col` when they are part of a `<col>`.
+    fn kept(&mut self, raw: &[u8], col: bool) -> Result<(), Error> {
+        #[cfg(feature = "rowcol")]
+        self.flush()?;
+        self.out.extend_from_slice(raw);
+        self.any |= col;
+        Ok(())
+    }
+
+    /// A piece or a created element over `min..=max`, `rest` its content and
+    /// end tag.
+    #[cfg_attr(not(feature = "rowcol"), allow(unused_variables))]
+    fn made(&mut self, tag: Vec<u8>, rest: &[u8], min: u32, max: u32) -> Result<(), Error> {
+        self.any = true;
+        #[cfg(feature = "rowcol")]
+        if self.coalesce {
+            return self.merged(tag, rest, min, max);
+        }
+        self.out.extend_from_slice(&tag);
+        self.out.extend_from_slice(rest);
+        Ok(())
+    }
+
+    /// [`ColsOut::made`] with the coalescing.
+    #[cfg(feature = "rowcol")]
+    fn merged(&mut self, tag: Vec<u8>, rest: &[u8], min: u32, max: u32) -> Result<(), Error> {
+        if let Some((open, open_rest, _, open_max, widened)) = self.open.as_mut()
+            && *open_max + 1 == min
+            && open_rest.as_slice() == rest
+            && col_retagged(open, 1, 1, self.index)? == col_retagged(&tag, 1, 1, self.index)?
+        {
+            *open_max = max;
+            *widened = true;
+            return Ok(());
+        }
+        self.flush()?;
+        self.open = Some((tag, rest.to_vec(), min, max, false));
+        Ok(())
+    }
+
+    /// Writes the piece waiting, its `max` set when a merge widened it.
+    #[cfg(feature = "rowcol")]
+    fn flush(&mut self) -> Result<(), Error> {
+        if let Some((tag, rest, min, max, widened)) = self.open.take() {
+            if widened {
+                self.out
+                    .extend_from_slice(&col_retagged(&tag, min, max, self.index)?);
+            } else {
+                self.out.extend_from_slice(&tag);
+            }
+            self.out.extend_from_slice(&rest);
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "rowcol"), allow(unused_mut))]
+    fn finish(mut self) -> Result<(Vec<u8>, bool), Error> {
+        #[cfg(feature = "rowcol")]
+        self.flush()?;
+        Ok((self.out, self.any))
+    }
+}
+
+/// Whether the write coalesces the part's `<col>` pieces.
+#[cfg(feature = "rowcol")]
+fn coalesces(work: &SheetWork) -> bool {
+    work.coalesce
+}
+
+/// Never, without the feature `rowcol`.
+#[cfg(not(feature = "rowcol"))]
+fn coalesces(_: &SheetWork) -> bool {
+    false
 }
 
 /// A `<mergeCells>` being read: its start tag, its prefix, the bytes of the
@@ -12335,7 +12745,7 @@ fn created_element(
             Ok(out)
         }
         COLS => {
-            let (content, any) = cols_content(&[], &work.columns, p, index)?;
+            let (content, any) = cols_content(&[], &work.columns, coalesces(work), p, index)?;
             if !any {
                 return Ok(Vec::new());
             }
@@ -12470,7 +12880,7 @@ fn rewrite_worksheet_from(
     let mut drawing = ElementPass::new(DRAWING_ELEMENT, work.drawing.as_deref());
     #[cfg(feature = "comments")]
     let mut legacy = ElementPass::new(LEGACY_DRAWING, work.legacy.as_deref());
-    #[cfg(feature = "sheetprops")]
+    #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
     let mut settings = SettingsPass::new(&work.settings);
 
     while let Some(token) = stream.next()? {
@@ -12488,7 +12898,7 @@ fn rewrite_worksheet_from(
                 // Inside a held settings element: its children are the settings
                 // pass's (`specs/0025-sheet-and-print-settings.md`, "The
                 // pass").
-                #[cfg(feature = "sheetprops")]
+                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                 if settings.held.is_some() {
                     settings.child(token.raw, local, ours, depth);
                     if empty {
@@ -12562,7 +12972,7 @@ fn rewrite_worksheet_from(
                         // or out of order, and the creation of one before
                         // every element above (`specs/0025-sheet-and-print-
                         // settings.md`, "The pass").
-                        #[cfg(feature = "sheetprops")]
+                        #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                         {
                             settings.observe(local, position)?;
                             out.write_all(&settings.create_before(
@@ -12584,7 +12994,7 @@ fn rewrite_worksheet_from(
                             }
                             // A created `<autoFilter>` goes after a created
                             // `<sheetProtection>` and before `<mergeCells>`.
-                            #[cfg(feature = "sheetprops")]
+                            #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                             out.write_all(&settings.create_before(
                                 position,
                                 at,
@@ -12612,7 +13022,7 @@ fn rewrite_worksheet_from(
                         if let Some(bytes) = links.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
-                        #[cfg(feature = "sheetprops")]
+                        #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                         out.write_all(&settings.create_before(
                             position,
                             usize::MAX,
@@ -12656,7 +13066,7 @@ fn rewrite_worksheet_from(
                 // A settings element the write edits, held to its end tag and
                 // rewritten (`specs/0025-sheet-and-print-settings.md`, "The
                 // pass").
-                #[cfg(feature = "sheetprops")]
+                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                 if root
                     && depth == 2
                     && ours
@@ -12775,11 +13185,11 @@ fn rewrite_worksheet_from(
                     let links_needed = links_needed || work.legacy.is_some();
                     #[cfg(feature = "images")]
                     let links_needed = links_needed || work.drawing.is_some();
-                    #[cfg(feature = "sheetprops")]
+                    #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                     let links_needed = links_needed || settings.needs_any();
                     if empty && (needed.iter().any(|need| *need) || links_needed) {
                         out.write_all(&opened_up(&root_raw, index)?)?;
-                        #[cfg(feature = "sheetprops")]
+                        #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                         out.write_all(&settings.create_before(
                             usize::MAX,
                             VIEWS_POSITION,
@@ -12794,7 +13204,7 @@ fn rewrite_worksheet_from(
                             {
                                 out.write_all(&bytes)?;
                             }
-                            #[cfg(feature = "sheetprops")]
+                            #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                             out.write_all(&settings.create_before(
                                 usize::MAX,
                                 schema_position(CREATED[which]).unwrap_or(0),
@@ -12822,7 +13232,7 @@ fn rewrite_worksheet_from(
                         if let Some(bytes) = links.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
-                        #[cfg(feature = "sheetprops")]
+                        #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                         out.write_all(&settings.create_before(
                             usize::MAX,
                             usize::MAX,
@@ -12946,7 +13356,7 @@ fn rewrite_worksheet_from(
                         open: false,
                     };
                     if empty {
-                        out.write_all(&cols_written(&buffer, &work.columns, index)?)?;
+                        out.write_all(&cols_written(&buffer, work, index)?)?;
                     } else {
                         cols = Some(buffer);
                     }
@@ -13127,7 +13537,7 @@ fn rewrite_worksheet_from(
                 }
             }
             Event::End(_) => {
-                #[cfg(feature = "sheetprops")]
+                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                 if let Some(bytes) = settings.end(token.raw, depth, index)? {
                     out.write_all(&bytes)?;
                     scope.end();
@@ -13165,7 +13575,7 @@ fn rewrite_worksheet_from(
                 if let Some(buffer) = cols.as_mut() {
                     if depth == buffer.depth {
                         if let Some(buffer) = cols.take() {
-                            out.write_all(&cols_written(&buffer, &work.columns, index)?)?;
+                            out.write_all(&cols_written(&buffer, work, index)?)?;
                         }
                     } else {
                         buffer.push(token.raw);
@@ -13230,7 +13640,7 @@ fn rewrite_worksheet_from(
                             } else if depth == 1 {
                                 // The root's end: whatever the write needs and
                                 // the part still lacks goes here.
-                                #[cfg(feature = "sheetprops")]
+                                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                                 out.write_all(&settings.create_before(
                                     usize::MAX,
                                     VIEWS_POSITION,
@@ -13246,7 +13656,7 @@ fn rewrite_worksheet_from(
                                     {
                                         out.write_all(&bytes)?;
                                     }
-                                    #[cfg(feature = "sheetprops")]
+                                    #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                                     out.write_all(&settings.create_before(
                                         usize::MAX,
                                         schema_position(CREATED[which]).unwrap_or(0),
@@ -13280,7 +13690,7 @@ fn rewrite_worksheet_from(
                                 if let Some(bytes) = links.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
-                                #[cfg(feature = "sheetprops")]
+                                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                                 out.write_all(&settings.create_before(
                                     usize::MAX,
                                     usize::MAX,
@@ -13308,7 +13718,7 @@ fn rewrite_worksheet_from(
                 depth -= 1;
             }
             _ => {
-                #[cfg(feature = "sheetprops")]
+                #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                 if settings.other(token.raw, depth) {
                     continue;
                 }
@@ -13369,12 +13779,14 @@ fn rewrite_worksheet_from(
 /// A `<cols>` with the column formats applied: its start tag (opened up
 /// when it was empty), the children [`cols_content`] gives and its end tag,
 /// or nothing when no `<col>` is left.
-fn cols_written(
-    buffer: &ColsBuffer,
-    formats: &[(u32, LineFormat)],
-    index: usize,
-) -> Result<Vec<u8>, Error> {
-    let (content, any) = cols_content(&buffer.items, formats, &buffer.prefix, index)?;
+fn cols_written(buffer: &ColsBuffer, work: &SheetWork, index: usize) -> Result<Vec<u8>, Error> {
+    let (content, any) = cols_content(
+        &buffer.items,
+        &work.columns,
+        coalesces(work),
+        &buffer.prefix,
+        index,
+    )?;
     if !any {
         return Ok(Vec::new());
     }
@@ -13989,7 +14401,7 @@ impl PageOrder {
 }
 
 /// `1` or `0`.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 fn flag(on: bool) -> Vec<u8> {
     if on { b"1".to_vec() } else { b"0".to_vec() }
 }
@@ -14200,45 +14612,69 @@ impl HeaderFooter {
 
 /// One worksheet's sheet settings in one write, each element's fields the
 /// last recorded (`specs/0025-sheet-and-print-settings.md`, "The pass").
-/// The Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// The Cargo feature `sheetprops`, and `rowcol` for the outline's
+/// (`specs/0026-grouping-and-line-styles.md`, "Crate").
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 #[derive(Clone, Default)]
 struct Settings {
     /// `Some(Some(colour))` a tab colour, `Some(None)` its removal, `None`
     /// no tab colour edit.
+    #[cfg(feature = "sheetprops")]
     tab: Option<Option<Color>>,
     /// The first `<sheetView>`'s fields, `None` when no call names them.
+    #[cfg(feature = "sheetprops")]
     view: Option<SheetView>,
+    #[cfg(feature = "sheetprops")]
     print_options: Option<PrintOptions>,
+    #[cfg(feature = "sheetprops")]
     margins: Option<PageMargins>,
+    #[cfg(feature = "sheetprops")]
     page_setup: Option<PageSetup>,
+    #[cfg(feature = "sheetprops")]
     header_footer: Option<HeaderFooter>,
     /// `Some(Some(area))` an autofilter over `area`, `Some(None)` its
     /// removal, `None` no autofilter edit (the Cargo feature `metadata`
     /// too).
+    #[cfg(feature = "sheetprops")]
     auto_filter: Option<Option<Area>>,
+    /// `<outlinePr>`'s `summaryBelow` and `summaryRight`, each the last
+    /// recorded (`specs/0026-grouping-and-line-styles.md`, "The calls").
+    #[cfg(feature = "rowcol")]
+    summary: [Option<bool>; 2],
+    /// The highest outline level the write sets on the part's rows and on
+    /// its columns, 0 for none: `<sheetFormatPr>`'s maximums are raised
+    /// to them, never lowered (decision 3 A).
+    #[cfg(feature = "rowcol")]
+    outline_max: [u8; 2],
 }
 
-#[cfg(all(feature = "sheetprops", feature = "rowcol"))]
+#[cfg(feature = "rowcol")]
 impl Settings {
     fn is_empty(&self) -> bool {
-        self.tab.is_none()
+        let empty = self.summary == [None, None] && self.outline_max == [0, 0];
+        #[cfg(feature = "sheetprops")]
+        let empty = empty
+            && self.tab.is_none()
             && self.view.is_none()
             && self.print_options.is_none()
             && self.margins.is_none()
             && self.page_setup.is_none()
             && self.header_footer.is_none()
-            && self.auto_filter.is_none()
+            && self.auto_filter.is_none();
+        empty
     }
 }
 
 /// The root children the settings pass holds or creates, in schema order
 /// (`specs/0025-sheet-and-print-settings.md`, "The pass"); the first
-/// `<sheetView>` is the view pass's.
-#[cfg(feature = "sheetprops")]
+/// `<sheetView>` is the view pass's. `<sheetFormatPr>` is the fourth held
+/// element, for the outline maximums (`specs/0026-grouping-and-line-
+/// styles.md`, "Planning rulings during P1", ruling 1).
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Setting {
     SheetPr,
+    SheetFormatPr,
     AutoFilter,
     PrintOptions,
     PageMargins,
@@ -14246,9 +14682,10 @@ enum Setting {
     HeaderFooter,
 }
 
-#[cfg(feature = "sheetprops")]
-const SETTINGS: [(Setting, &[u8]); 6] = [
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
+const SETTINGS: [(Setting, &[u8]); 7] = [
     (Setting::SheetPr, b"sheetPr"),
+    (Setting::SheetFormatPr, b"sheetFormatPr"),
     (Setting::AutoFilter, b"autoFilter"),
     (Setting::PrintOptions, b"printOptions"),
     (Setting::PageMargins, b"pageMargins"),
@@ -14256,9 +14693,13 @@ const SETTINGS: [(Setting, &[u8]); 6] = [
     (Setting::HeaderFooter, b"headerFooter"),
 ];
 
+/// Attributes a start tag is given through [`merged_tag`], by name.
+#[cfg(feature = "rowcol")]
+type Attributes = Vec<(&'static [u8], Vec<u8>)>;
+
 /// `<sheetPr>`'s children in the order ECMA-376 Part 1, 18.3.1.82 gives
 /// them.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 const SHEET_PR_CHILDREN: [&[u8]; 3] = [b"tabColor", b"outlinePr", b"pageSetUpPr"];
 
 /// `<headerFooter>`'s children in the order ECMA-376 Part 1, 18.3.1.46
@@ -14284,7 +14725,7 @@ const HEADER_FOOTER_CHILDREN: [&[u8]; 6] = [
 /// attribute and is kept (`specs/0025-sheet-and-print-settings.md`, P1
 /// verification ruling 2). The element's name and whether its tag is empty
 /// are kept, and with nothing to set the tag is returned as it is.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 fn merged_tag(raw: &[u8], set: &[(&[u8], Vec<u8>)], index: usize) -> Result<Vec<u8>, Error> {
     if set.is_empty() {
         return Ok(raw.to_vec());
@@ -14349,8 +14790,8 @@ fn view_edit(_: &SheetWork) -> (bool, bool) {
 
 /// An element the settings pass holds to its end tag: which one, its start
 /// tag, whether that tag was empty, its qualified name, its prefix and its
-/// children so far. The Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// children so far. The Cargo feature `sheetprops` or `rowcol`.
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 struct Held {
     setting: Setting,
     depth: usize,
@@ -14361,7 +14802,7 @@ struct Held {
     children: Vec<HeldChild>,
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 impl Held {
     /// The element of `setting` the write creates, empty, with `prefix`.
     fn created(setting: Setting, local: &[u8], prefix: &[u8]) -> Held {
@@ -14379,7 +14820,7 @@ impl Held {
 }
 
 /// One piece of a held element's content.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 enum HeldChild {
     /// A child element of the main namespace: its local name and its bytes,
     /// start tag to end tag.
@@ -14389,7 +14830,7 @@ enum HeldChild {
     Other(Vec<u8>),
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 impl HeldChild {
     fn bytes(&mut self) -> &mut Vec<u8> {
         match self {
@@ -14404,7 +14845,7 @@ impl HeldChild {
 
 /// `children` with `bytes`, the element `local`, placed before the first
 /// child element that `order` puts after it, or at the end.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 fn insert_ordered(children: &mut Vec<HeldChild>, order: &[&[u8]], local: &[u8], bytes: Vec<u8>) {
     let rank = order.iter().position(|name| *name == local);
     let at = children
@@ -14426,6 +14867,34 @@ fn insert_ordered(children: &mut Vec<HeldChild>, order: &[&[u8]], local: &[u8], 
     );
 }
 
+/// `children` with `set` merged through [`merged_tag`] into the child
+/// element `local`, or that child created with `prefix` and placed in
+/// `<sheetPr>`'s schema order when there is none.
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
+fn merged_child(
+    children: &mut Vec<HeldChild>,
+    prefix: &[u8],
+    local: &[u8],
+    set: &[(&[u8], Vec<u8>)],
+    index: usize,
+) -> Result<(), Error> {
+    match children.iter_mut().find(|child| child.is(local)) {
+        Some(child) => {
+            let bytes = child.bytes();
+            let tag = scan_start_tag(bytes).ok_or(Error::Xml(index))?;
+            let rest = bytes.split_off(tag.end);
+            *bytes = merged_tag(bytes, set, index)?;
+            bytes.extend_from_slice(&rest);
+        }
+        None => {
+            let base = [b"<".as_slice(), prefix, local, b"/>"].concat();
+            let bytes = merged_tag(&base, set, index)?;
+            insert_ordered(children, &SHEET_PR_CHILDREN, local, bytes);
+        }
+    }
+    Ok(())
+}
+
 /// The settings pass of a worksheet rewrite
 /// (`specs/0025-sheet-and-print-settings.md`, "The pass"): each settings
 /// element the write edits held to its end tag and rewritten through
@@ -14433,25 +14902,26 @@ fn insert_ordered(children: &mut Vec<HeldChild>, order: &[&[u8]], local: &[u8], 
 /// and the refusal of one met twice or out of schema order. The first
 /// `<sheetView>`'s attributes go through the same merge routine where the
 /// rewrite meets that element ([`view_tag`]). The Cargo feature
-/// `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// `sheetprops`, or `rowcol` for `<outlinePr>` and `<sheetFormatPr>`
+/// (`specs/0026-grouping-and-line-styles.md`, "Crate").
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 struct SettingsPass<'w> {
     work: &'w Settings,
     /// For each of [`SETTINGS`], whether the part's element has been met or
     /// created.
-    met: [bool; 6],
+    met: [bool; SETTINGS.len()],
     /// The greatest place in [`WORKSHEET_CHILDREN`] of a root child met.
     last: Option<usize>,
     /// The element being read.
     held: Option<Held>,
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
 impl<'w> SettingsPass<'w> {
     fn new(work: &'w Settings) -> Self {
         Self {
             work,
-            met: [false; 6],
+            met: [false; SETTINGS.len()],
             last: None,
             held: None,
         }
@@ -14467,50 +14937,119 @@ impl<'w> SettingsPass<'w> {
 
     /// Whether the write edits the part's element of `setting`.
     fn touches(&self, setting: Setting) -> bool {
-        let work = self.work;
         match setting {
-            Setting::SheetPr => {
-                work.tab.is_some()
-                    || work
-                        .page_setup
-                        .is_some_and(|setup| setup.fit_to_page.is_some())
-            }
-            Setting::PrintOptions => work.print_options.is_some(),
-            Setting::PageMargins => work.margins.is_some(),
-            Setting::PageSetup => work
+            Setting::SheetPr => self.sheet_pr_edit().0,
+            Setting::SheetFormatPr => self.sets_maximums(),
+            #[cfg(feature = "sheetprops")]
+            Setting::PrintOptions => self.work.print_options.is_some(),
+            #[cfg(feature = "sheetprops")]
+            Setting::PageMargins => self.work.margins.is_some(),
+            #[cfg(feature = "sheetprops")]
+            Setting::PageSetup => self
+                .work
                 .page_setup
                 .is_some_and(|setup| !setup.attributes().is_empty()),
-            Setting::HeaderFooter => work.header_footer.is_some(),
-            Setting::AutoFilter => work.auto_filter.is_some(),
+            #[cfg(feature = "sheetprops")]
+            Setting::HeaderFooter => self.work.header_footer.is_some(),
+            #[cfg(feature = "sheetprops")]
+            Setting::AutoFilter => self.work.auto_filter.is_some(),
+            #[cfg(not(feature = "sheetprops"))]
+            _ => false,
         }
     }
 
     /// Whether the write creates the element of `setting` when the part
     /// lacks it: when it has something to write there.
     fn needs(&self, setting: Setting) -> bool {
-        let work = self.work;
         match setting {
-            Setting::SheetPr => {
-                matches!(work.tab, Some(Some(_)))
-                    || work
-                        .page_setup
-                        .is_some_and(|setup| setup.fit_to_page.is_some())
-            }
-            Setting::PrintOptions => work
+            Setting::SheetPr => self.sheet_pr_edit().1,
+            Setting::SheetFormatPr => self.sets_maximums(),
+            #[cfg(feature = "sheetprops")]
+            Setting::PrintOptions => self
+                .work
                 .print_options
                 .is_some_and(|options| !options.attributes().is_empty()),
-            Setting::PageMargins => work
+            #[cfg(feature = "sheetprops")]
+            Setting::PageMargins => self
+                .work
                 .margins
                 .is_some_and(|margins| !margins.attributes(false).is_empty()),
+            #[cfg(feature = "sheetprops")]
             Setting::PageSetup => self.touches(Setting::PageSetup),
-            Setting::HeaderFooter => work.header_footer.as_ref().is_some_and(|texts| {
+            #[cfg(feature = "sheetprops")]
+            Setting::HeaderFooter => self.work.header_footer.as_ref().is_some_and(|texts| {
                 texts
                     .texts()
                     .iter()
                     .any(|(_, text)| HeaderFooter::writes(text))
             }),
-            Setting::AutoFilter => matches!(work.auto_filter, Some(Some(_))),
+            #[cfg(feature = "sheetprops")]
+            Setting::AutoFilter => matches!(self.work.auto_filter, Some(Some(_))),
+            #[cfg(not(feature = "sheetprops"))]
+            _ => false,
         }
+    }
+
+    /// Whether the write edits `<sheetPr>`, and whether it writes something
+    /// there, which creates one the part lacks: a tab colour, the
+    /// fit-to-page flag, the outline summary.
+    fn sheet_pr_edit(&self) -> (bool, bool) {
+        let (touches, needs) = (false, false);
+        #[cfg(feature = "sheetprops")]
+        let (touches, needs) = {
+            let work = self.work;
+            let fit = work
+                .page_setup
+                .is_some_and(|setup| setup.fit_to_page.is_some());
+            (
+                touches || work.tab.is_some() || fit,
+                needs || matches!(work.tab, Some(Some(_))) || fit,
+            )
+        };
+        #[cfg(feature = "rowcol")]
+        let (touches, needs) = {
+            let summary = self.work.summary != [None, None];
+            (touches || summary, needs || summary)
+        };
+        (touches, needs)
+    }
+
+    /// Whether the write sets an outline level above 0 on the part, which
+    /// raises `<sheetFormatPr>`'s maximums (`specs/0026-grouping-and-line-
+    /// styles.md`, "The calls").
+    #[cfg(feature = "rowcol")]
+    fn sets_maximums(&self) -> bool {
+        self.work.outline_max != [0, 0]
+    }
+
+    /// No outline level, without the feature `rowcol`.
+    #[cfg(not(feature = "rowcol"))]
+    fn sets_maximums(&self) -> bool {
+        false
+    }
+
+    /// `<sheetFormatPr>`'s attributes the write sets: on one it creates,
+    /// `defaultRowHeight="15"`, which the schema requires, then each
+    /// maximum above 0; on the part's, each maximum the write's level
+    /// exceeds, a value that is not a whole number from 0 to 255 counting
+    /// as 0 ("Planning rulings during P1", rulings 4 and 5).
+    #[cfg(feature = "rowcol")]
+    fn maximums(&self, raw: &[u8], created: bool, index: usize) -> Result<Attributes, Error> {
+        let mut set: Attributes = Vec::new();
+        if created {
+            set.push((b"defaultRowHeight", b"15".to_vec()));
+        }
+        let names: [&'static [u8]; 2] = [b"outlineLevelRow", b"outlineLevelCol"];
+        for (name, level) in names.into_iter().zip(self.work.outline_max) {
+            let have = attribute_value(raw, name, index)?
+                .and_then(|value| std::str::from_utf8(value).ok())
+                .and_then(|value| value.parse::<u8>().ok())
+                .unwrap_or(0);
+            if level > have {
+                set.push((name, level.to_string().into_bytes()));
+            }
+        }
+        Ok(set)
     }
 
     /// Whether the write creates any settings element the part lacks.
@@ -14628,28 +15167,39 @@ impl<'w> SettingsPass<'w> {
     /// child is dropped.
     fn written(&self, held: Held, index: usize) -> Result<Vec<u8>, Error> {
         let created = held.depth == 0;
+        #[cfg(feature = "sheetprops")]
         let work = self.work;
         let set = match held.setting {
             Setting::SheetPr => Vec::new(),
+            #[cfg(feature = "rowcol")]
+            Setting::SheetFormatPr => self.maximums(&held.start, created, index)?,
+            #[cfg(feature = "sheetprops")]
             Setting::PrintOptions => work
                 .print_options
                 .map(|o| o.attributes())
                 .unwrap_or_default(),
+            #[cfg(feature = "sheetprops")]
             Setting::PageMargins => work
                 .margins
                 .map(|margins| margins.attributes(created))
                 .unwrap_or_default(),
+            #[cfg(feature = "sheetprops")]
             Setting::PageSetup => work.page_setup.map(|s| s.attributes()).unwrap_or_default(),
+            #[cfg(feature = "sheetprops")]
             Setting::HeaderFooter => work
                 .header_footer
                 .as_ref()
                 .map(HeaderFooter::attributes)
                 .unwrap_or_default(),
+            #[cfg(feature = "sheetprops")]
             Setting::AutoFilter => match work.auto_filter {
                 Some(Some(area)) => vec![(b"ref".as_slice(), area.a1().into_bytes())],
                 // The removal drops the element whole.
                 _ => return Ok(Vec::new()),
             },
+            // Never held or created without the feature that edits it.
+            #[allow(unreachable_patterns)]
+            _ => Vec::new(),
         };
         let start = merged_tag(&held.start, &set, index)?;
         let mut children = held.children;
@@ -14658,12 +15208,14 @@ impl<'w> SettingsPass<'w> {
                 self.sheet_pr_children(&mut children, &held.prefix, index)?;
                 true
             }
+            #[cfg(feature = "sheetprops")]
             Setting::HeaderFooter => {
                 self.header_footer_children(&mut children, &held.prefix);
                 true
             }
             // A filter's columns and sort state belong to the old range
             // (`specs/0025-sheet-and-print-settings.md`, "The calls").
+            #[cfg(feature = "sheetprops")]
             Setting::AutoFilter => {
                 children.clear();
                 false
@@ -14697,11 +15249,13 @@ impl<'w> SettingsPass<'w> {
         Ok(out)
     }
 
-    /// `<sheetPr>`'s children with the tab colour and the fit-to-page edits
-    /// applied: the part's `<tabColor>` dropped and the edit's placed before
-    /// the first child the schema puts after it; `fitToPage` set on the
-    /// part's `<pageSetUpPr>` through [`merged_tag`], or one created in its
-    /// place; every other child kept.
+    /// `<sheetPr>`'s children with the tab colour, the outline summary and
+    /// the fit-to-page edits applied: the part's `<tabColor>` dropped and the
+    /// edit's placed before the first child the schema puts after it;
+    /// `summaryBelow` and `summaryRight` set on the part's `<outlinePr>`
+    /// (`specs/0026-grouping-and-line-styles.md`, "The calls") and
+    /// `fitToPage` on its `<pageSetUpPr>`, each through [`merged_tag`], or
+    /// the child created in its place; every other child kept.
     fn sheet_pr_children(
         &self,
         children: &mut Vec<HeldChild>,
@@ -14709,32 +15263,31 @@ impl<'w> SettingsPass<'w> {
         index: usize,
     ) -> Result<(), Error> {
         let work = self.work;
+        #[cfg(feature = "sheetprops")]
         if work.tab.is_some() {
             children.retain(|child| !child.is(SHEET_PR_CHILDREN[0]));
         }
+        #[cfg(feature = "sheetprops")]
         if let Some(Some(color)) = &work.tab {
             let bytes = color_element("tabColor", color).element(prefix);
             insert_ordered(children, &SHEET_PR_CHILDREN, SHEET_PR_CHILDREN[0], bytes);
         }
+        #[cfg(feature = "rowcol")]
+        {
+            let names: [&'static [u8]; 2] = [b"summaryBelow", b"summaryRight"];
+            let set: Vec<(&[u8], Vec<u8>)> = names
+                .into_iter()
+                .zip(work.summary)
+                .filter_map(|(name, value)| value.map(|on| (name, flag(on))))
+                .collect();
+            if !set.is_empty() {
+                merged_child(children, prefix, SHEET_PR_CHILDREN[1], &set, index)?;
+            }
+        }
+        #[cfg(feature = "sheetprops")]
         if let Some(fit) = work.page_setup.and_then(|setup| setup.fit_to_page) {
             let set = [(b"fitToPage".as_slice(), flag(fit))];
-            match children
-                .iter_mut()
-                .find(|child| child.is(SHEET_PR_CHILDREN[2]))
-            {
-                Some(child) => {
-                    let bytes = child.bytes();
-                    let tag = scan_start_tag(bytes).ok_or(Error::Xml(index))?;
-                    let rest = bytes.split_off(tag.end);
-                    *bytes = merged_tag(bytes, &set, index)?;
-                    bytes.extend_from_slice(&rest);
-                }
-                None => {
-                    let base = [b"<".as_slice(), prefix, SHEET_PR_CHILDREN[2], b"/>"].concat();
-                    let bytes = merged_tag(&base, &set, index)?;
-                    insert_ordered(children, &SHEET_PR_CHILDREN, SHEET_PR_CHILDREN[2], bytes);
-                }
-            }
+            merged_child(children, prefix, SHEET_PR_CHILDREN[2], &set, index)?;
         }
         Ok(())
     }
@@ -14742,6 +15295,7 @@ impl<'w> SettingsPass<'w> {
     /// `<headerFooter>`'s children with the texts applied: each text given
     /// drops the part's child of its name, and one not empty is written in
     /// its place in schema order, escaped; every other child kept.
+    #[cfg(feature = "sheetprops")]
     fn header_footer_children(&self, children: &mut Vec<HeldChild>, prefix: &[u8]) {
         let Some(texts) = &self.work.header_footer else {
             return;
