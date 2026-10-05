@@ -617,6 +617,18 @@
 //! - "an outline level is out of range"
 //!   (`grouping::the_refusals_at_the_call_record_nothing`).
 //!
+//! Reading back adds this, the Cargo feature `read`'s
+//! (`specs/0027-read-back.md`, "Errors"; without the feature it is not
+//! raised), raised in `styles` at the read of the styles part, through
+//! [`Package::styles`], and at the resolution of a cell format, through
+//! `Package::cell_style`:
+//!
+//! - "a style cannot be read"
+//!   (`readback::a_child_outside_the_namespace_or_unknown_to_the_type_is_refused`,
+//!   `readback::a_value_that_does_not_parse_is_refused`,
+//!   `readback::a_colour_with_no_form_is_refused`,
+//!   `readback::an_id_past_its_list_is_refused`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
