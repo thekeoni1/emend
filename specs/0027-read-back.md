@@ -775,6 +775,45 @@ findings; `ANTHROPIC_API_KEY` unset.
    `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
    "Close-out push (after P3)" says.
 
+## Planning verification and rulings on the close-out (2026-10-05)
+
+Verified by planning from primaries: `origin/main` at the
+close-out doc commit 9d62635, 18 commits over 6e03f98 (d64b4e8,
+this part's sixteen and the doc commit), the doc commit holding
+this file at aa565ef1 and `ROADMAP.md` at 3e12064d, the hashes
+planning sent; the CI run 37385478857 completed with success on
+9d62635, read by planning through `gh`; the record commit
+6aba171, parent 9d62635, exactly the three logs, the one local
+commit ahead, its message naming decision 7's tenth deferral;
+the logs at the reported hashes, each ending all as expected,
+the scan RESULT: PASS with the `ANTHROPIC_API_KEY` check;
+push.log's push mode showing the authorisation typed by the
+maintainer in the implementing session ("push", 10/5/26) and
+git's own `6e03f98..9d62635`; 18 of 18 pushed messages ASCII,
+ending with the Co-Authored-By line only; the repository
+PRIVATE; planning's own privacy scan 6e03f98..6aba171, 19
+commits, 1346 blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations (the report's quote of
+   the typed authorisation, corrected in the report to the log's
+   form; the carried scripts' provenance and the pre-staging hash
+   check, session checks without a log): working-state facts or
+   allowed; accepted, no change, as the earlier close-outs. The
+   authorisation was typed in the implementing session, where the
+   maintainer answers that script.
+2. Milestone 3 part 5 is DONE and PUSHED. The record commit
+   6aba171 goes with the next push; the next part's push script
+   names it by `^M3 part 5 close-out record`, its base this
+   close-out's doc commit 9d62635 by its subject ("M3 part 5
+   close-out: commit planning docs (the P3 verification and
+   rulings, decision 7 deferred again)").
+3. Nothing is carried into part 6's first code commit. The
+   Milestone 2 Excel check, with this part's samples on its list,
+   is due before part 6's close-out push at the latest (decision
+   7). Part 6's estimate is priced from parts 2 to 5.
+4. These rulings are written into the working spec after the
+   close-out doc commit; they go in part 6's first doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 6 as recommended (A in

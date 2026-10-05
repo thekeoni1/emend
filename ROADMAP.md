@@ -392,7 +392,7 @@ LibreOffice's.
 | P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
 | Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit f6c2dba and record commit 065f3e4 local, verified by planning, go with the next push) |
 
-## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred a tenth time on 2026-10-05 at Milestone 3 part 5's close-out, `specs/0027` decision 7; due before Milestone 3 part 6's close-out push at the latest)
+## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred an eleventh time on 2026-10-05 at Milestone 3 part 6's scoping, `specs/0028` decision 9; due before Milestone 3 part 7's close-out push at the latest)
 
 Outline approved as a proposal by the maintainer on 2026-09-23,
 after planning's comparison with openpyxl. Every part is DONE and
@@ -804,7 +804,7 @@ this part's close-out push (decision 7).
 | P3 | the catalogue and limits; the rowcol probe grown and the size record; both samples rerun byte-identical | DONE 2026-10-05 (doc dcdb50d, carry 34ac951, catalogue de5c09f, probe ef392d4, record 23f9589; `rowcol` grew 22888 section bytes to 58136, the core grew 472, budget 436928, 21824 under; both samples byte-identical to P1's and P2's runs; planning's own probes and reruns reproduce every figure) |
 | Close | close-out push after P3, carrying 0caa390 and this part's commits, the previous-record pattern naming 0caa390, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-05 (doc 6e03f98 pushed, origin/main a8dd1d3..6e03f98, 17 commits, CI 37307047253 success, record d64b4e8 local; the Excel check deferred a ninth time, decision 7) |
 
-### Part 5: reading back as typed values (`specs/0027-read-back.md`, IN PROGRESS from 2026-10-05)
+### Part 5: reading back as typed values (`specs/0027-read-back.md`, DONE and PUSHED 2026-10-05)
 
 Approved by the maintainer 2026-10-05 ("A on all"): a cell's
 format resolved on request through `cellXfs` into the writers'
@@ -830,7 +830,35 @@ part's close-out push (decision 7).
 | P1 | the feature, the font reader shared with part 2, the fill, border, alignment and protection readers, `Styles`'s typed fields, `CellStyle` and `cell_style`, `--roundtrip-sample` on the corpus | DONE 2026-10-05 (doc 6d49977, carry fbb171e, crate c019afa, tool 8d4d468, phase e727b25, record 4264cd0; 27 of 27 ok on both labels, every one of W's 362 used cell formats read and written back equal, LibreOffice ok; 18 crate and 2 tool tests; planning's own rerun byte-identical) |
 | P2 | `columns`, the `rows` iterator, `sheet_settings` in one pass with `HyperlinkEntry`, `shared_string_items`, `--read-sample` on the corpus and tier d's `--items` under the cap | DONE 2026-10-05 (doc 35d1bab, carry 712d53d, crate bd02ce4, tool 6ec0055, record 9d89487; 27 of 27 read on both labels with every entry identical, every count equal to the survey's; tier d's 4800000 items walked at 7720 and 7536 kB peak against the held table's 266288 and 216572; 15 crate and 2 tool tests; planning's own reruns byte-identical) |
 | P3 | the catalogue and limits; the probe and the size record; both samples rerun byte-identical | DONE 2026-10-05 (doc 71d338e, carry afc6a91, catalogue 6b531f6, probe 6b6125b, record bec28eb; `read` costs 51972 section bytes, the core grew 0, budget 436928, 21824 under; both samples byte-identical to P1's and P2's runs; planning's own probes and reruns reproduce every figure) |
-| Close | close-out push after P3, carrying d64b4e8 and this part's commits, the previous-record pattern naming d64b4e8, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
+| Close | close-out push after P3, carrying d64b4e8 and this part's commits, the previous-record pattern naming d64b4e8, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-05 (doc 9d62635 pushed, origin/main 6e03f98..9d62635, 18 commits, CI 37385478857 success, record 6aba171 local; the Excel check deferred a tenth time, decision 7; `specs/0027` "Planning verification and rulings on the close-out") |
+
+### Part 6: images and comments, the second half (`specs/0028-images-and-comments-second-half.md`, IN PROGRESS from 2026-10-05)
+
+Approved by the maintainer 2026-10-05 ("A on all"): an image
+removed by its index in `images` with its anchor skipped, its
+relationships dropped and its media entry dropped when the removal
+walk finds nothing else reaching it, an emptied drawing dropped
+whole; an image added on a two-cell or an absolute anchor through
+`add_image_at`, `add_image` unchanged; a comment's box (pixels, as
+openpyxl) and visibility set on an addition and read back on
+`CommentEntry`; `copy_sheet` within a workbook by one streaming
+pass over the source (cells, formats, merges, settings, hyperlinks
+and, with `comments`, the comments carried; images, charts, tables,
+the extension list and local defined names not), behind a new
+feature `copy`. The features `images` and `comments` grow in place;
+the VML and drawing whole-part holds stated as the scale record's
+carry. Planning's estimate 30000 to 45000 section bytes over the
+three features, priced from parts 2 to 5. The Milestone 2 Excel
+check was deferred an eleventh time at this scoping (decision 9),
+due before part 7's close-out push at the latest.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `CommentBox`, `set_comment_box`, the shape writer's size and visibility, the `shape` read, `--commentbox-sample` on the corpus | PENDING |
+| P2 | `ImageAnchor`, `EditAs`, `add_image_at`, `remove_image` with the relationship and media drops through the walk, `--anchor-sample` and `--remove-image-sample` on the corpus | PENDING |
+| P3 | the feature `copy`, `copy_sheet` with the pass, the hyperlink relationships, the comment carry and the formula-change rule, `--copy-sample` on the corpus | PENDING |
+| P4 | the catalogue and limits; the two grown and two new probes and the size record; the four samples rerun byte-identical | PENDING |
+| Close | close-out push after P4, carrying 6aba171 and this part's commits, the previous-record pattern naming 6aba171, one independent check; the Milestone 2 Excel check asked again before it | PENDING |
 
 ## Unscoped
 
