@@ -699,3 +699,186 @@ fn a_value_read_from_another_form_round_trips_equal() {
     assert_eq!(read.font.size, Some(10.0));
     assert_eq!(read.number_format, NumberFormat::BuiltIn(49));
 }
+
+#[test]
+fn an_attribute_the_types_do_not_name_is_read_past() {
+    // `specs/0027-read-back.md`, "Planning verification and rulings on P1",
+    // ruling 2 (R3): on every element the module reads, as the three named
+    // alignment attributes are.
+    let style = style_of(
+        "<font extra=\"1\"><b val=\"1\" extra=\"x\"/><color theme=\"1\" extra=\"y\"/></font>",
+        "<fill extra=\"1\"><patternFill patternType=\"solid\" extra=\"2\">\
+         <fgColor indexed=\"8\" extra=\"3\"/></patternFill></fill>",
+        "<border outline=\"0\" extra=\"1\"><left style=\"thin\" extra=\"2\">\
+         <color auto=\"1\" extra=\"3\"/></left></border>",
+        "<xf extra=\"1\"><alignment vertical=\"top\" extra=\"2\"/>\
+         <protection hidden=\"1\" extra=\"3\"/></xf>",
+    )
+    .expect("read");
+    assert!(style.font.bold);
+    assert_eq!(
+        style.font.color,
+        Some(Color::Theme {
+            index: 1,
+            tint: None
+        })
+    );
+    assert_eq!(
+        style.fill,
+        Some(Fill {
+            pattern: Pattern::Solid,
+            foreground: Some(Color::Indexed(8)),
+            background: None,
+        })
+    );
+    assert_eq!(
+        style.border.left,
+        Some(Side {
+            style: BorderStyle::Thin,
+            color: Some(Color::Auto),
+        })
+    );
+    assert_eq!(
+        style.alignment,
+        Some(Alignment {
+            vertical: Some(Vertical::Top),
+            ..Alignment::default()
+        })
+    );
+    assert_eq!(
+        style.protection,
+        Some(Protection {
+            locked: None,
+            hidden: Some(true),
+        })
+    );
+}
+
+#[test]
+fn every_enum_variant_round_trips_through_add_style() {
+    // `specs/0027-read-back.md`, "Planning verification and rulings on P1",
+    // ruling 3 (R4): each underline, vertical alignment, pattern, border
+    // style, horizontal and vertical alignment, each element in the
+    // writer's own form so the appended one is byte-identical to it.
+    let none_fill = "<fill><patternFill patternType=\"none\"/></fill>";
+    let empty_border = "<border><left/><right/><top/><bottom/><diagonal/></border>";
+    let plain_xf = "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/>";
+    let mut fonts = vec!["<font><u/></font>".to_string()];
+    for underline in [
+        Underline::Double,
+        Underline::SingleAccounting,
+        Underline::DoubleAccounting,
+    ] {
+        fonts.push(format!("<font><u val=\"{}\"/></font>", underline.keyword()));
+    }
+    for align in [
+        VerticalAlign::Superscript,
+        VerticalAlign::Subscript,
+        VerticalAlign::Baseline,
+    ] {
+        fonts.push(format!(
+            "<font><vertAlign val=\"{}\"/></font>",
+            align.keyword()
+        ));
+    }
+    let mut cases: Vec<(String, String, String, String)> = fonts
+        .into_iter()
+        .map(|font| (font, none_fill.into(), empty_border.into(), plain_xf.into()))
+        .collect();
+    for pattern in [
+        Pattern::None,
+        Pattern::Solid,
+        Pattern::MediumGray,
+        Pattern::DarkGray,
+        Pattern::LightGray,
+        Pattern::DarkHorizontal,
+        Pattern::DarkVertical,
+        Pattern::DarkDown,
+        Pattern::DarkUp,
+        Pattern::DarkGrid,
+        Pattern::DarkTrellis,
+        Pattern::LightHorizontal,
+        Pattern::LightVertical,
+        Pattern::LightDown,
+        Pattern::LightUp,
+        Pattern::LightGrid,
+        Pattern::LightTrellis,
+        Pattern::Gray125,
+        Pattern::Gray0625,
+    ] {
+        let fill = format!(
+            "<fill><patternFill patternType=\"{}\"/></fill>",
+            pattern.keyword()
+        );
+        cases.push(("<font/>".into(), fill, empty_border.into(), plain_xf.into()));
+    }
+    for style in [
+        BorderStyle::Thin,
+        BorderStyle::Medium,
+        BorderStyle::Thick,
+        BorderStyle::Dashed,
+        BorderStyle::Dotted,
+        BorderStyle::Double,
+        BorderStyle::Hair,
+        BorderStyle::MediumDashed,
+        BorderStyle::DashDot,
+        BorderStyle::MediumDashDot,
+        BorderStyle::DashDotDot,
+        BorderStyle::MediumDashDotDot,
+        BorderStyle::SlantDashDot,
+    ] {
+        let border = format!(
+            "<border><left/><right/><top style=\"{}\"/><bottom/><diagonal/></border>",
+            style.keyword()
+        );
+        cases.push(("<font/>".into(), none_fill.into(), border, plain_xf.into()));
+    }
+    let mut alignments = Vec::new();
+    for horizontal in [
+        Horizontal::General,
+        Horizontal::Left,
+        Horizontal::Center,
+        Horizontal::Right,
+        Horizontal::Fill,
+        Horizontal::Justify,
+        Horizontal::CenterContinuous,
+        Horizontal::Distributed,
+    ] {
+        alignments.push(format!(
+            "<alignment horizontal=\"{}\"/>",
+            horizontal.keyword()
+        ));
+    }
+    for vertical in [
+        Vertical::Top,
+        Vertical::Center,
+        Vertical::Bottom,
+        Vertical::Justify,
+        Vertical::Distributed,
+    ] {
+        alignments.push(format!("<alignment vertical=\"{}\"/>", vertical.keyword()));
+    }
+    for alignment in &alignments {
+        let xf =
+            format!("<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\">{alignment}</xf>");
+        cases.push(("<font/>".into(), none_fill.into(), empty_border.into(), xf));
+    }
+    // Every variant: 4 underlines (single as `<u/>`), 3 vertical
+    // alignments, 19 patterns, 13 border styles, 8 horizontal and 5
+    // vertical alignments.
+    assert_eq!(cases.len(), 4 + 3 + 19 + 13 + 8 + 5);
+    let mut alignments_written = 0;
+    for (font, fill, border, xf) in &cases {
+        let (read, back, styles) = round_trip(&one_of_each(font, fill, border, xf));
+        assert_eq!(back, read, "{font} {fill} {border} {xf}");
+        for element in [font, fill, border] {
+            assert_eq!(styles.matches(element.as_str()).count(), 2, "{element}");
+        }
+        // The alignment child, too, is written as it was read.
+        if let Some(alignment) = alignments.iter().find(|a| xf.contains(a.as_str())) {
+            assert_eq!(styles.matches(alignment.as_str()).count(), 2, "{alignment}");
+            alignments_written += 1;
+        }
+    }
+    assert_eq!(alignments_written, alignments.len());
+}

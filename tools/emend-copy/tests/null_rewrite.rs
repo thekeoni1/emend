@@ -5108,3 +5108,51 @@ fn the_roundtrip_sample_refuses_a_font_past_its_list_and_leaves_nothing() {
         "--roundtrip-sample",
     );
 }
+
+#[test]
+fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
+    // `specs/0027-read-back.md`, "Planning verification and rulings on P1",
+    // ruling 1: a gradient fill reads as `None`, `add_style` given no fill
+    // writes `fillId="0"`, and the added cell format reads back with fill 0's
+    // value, which the sample compares it with; no fill is appended.
+    let styles = roundtrip_styles("").replace(
+        "<fill><patternFill patternType=\"gray125\"/></fill></fills>",
+        "<fill><patternFill patternType=\"gray125\"/></fill><fill><gradientFill degree=\"90\">\
+         <stop position=\"0\"><color theme=\"0\"/></stop><stop position=\"1\">\
+         <color theme=\"4\"/></stop></gradientFill></fill></fills>",
+    );
+    let styles = styles
+        .replace("<fills count=\"2\">", "<fills count=\"3\">")
+        .replace("<fonts count=\"2\">", "<fonts count=\"1\">")
+        .replace(
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\"/>",
+            "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"2\" borderId=\"0\"/>",
+        );
+    let specs = styled_specs(
+        "<sheetData><row r=\"1\"><c r=\"A1\" s=\"2\"><v>1</v></c></row></sheetData>",
+        &styles,
+    );
+    let dir = TempDir::new("roundtrip-sample-gradient");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--roundtrip-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "roundtrip\tstyles_in=1\tstyles_added=1\txfs_before=3\txfs_after=4\
+         \tfonts_before=1\tfonts_after=2\tfills_before=3\tfills_after=3\tborders_before=1\
+         \tborders_after=2\tequal=1\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let written = String::from_utf8(entry_named(&entries, b"xl/styles.xml").compressed.clone())
+        .expect("UTF-8");
+    assert!(
+        written.contains(
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"1\" xfId=\"0\" \
+             applyNumberFormat=\"1\" applyFont=\"1\" applyBorder=\"1\"/>"
+        ),
+        "the added cell format names fill 0"
+    );
+}

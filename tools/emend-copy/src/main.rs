@@ -587,7 +587,11 @@
 //!   (distinct `s` on W), `styles_added`, `xfs_before`, `xfs_after`,
 //!   `fonts_before`, `fonts_after`, `fills_before`, `fills_after`,
 //!   `borders_before`, `borders_after` and `equal` (added cell formats that
-//!   read back equal to the value read from the input). COUNTS ONLY: no
+//!   read back equal to the value read from the input, every field but a
+//!   `None` fill, which `add_style` writes as `fillId="0"` and which is
+//!   compared with fill 0's read value: the value `cell_style` gives the
+//!   output's first cell format whose fill is fill 0; `specs/0027-read-back.md`,
+//!   "Planning verification and rulings on P1", ruling 1). COUNTS ONLY: no
 //!   reference, index, name or code is printed. Asserted: `styles_added`
 //!   equal to `styles_in`, `xfs_after` equal to `xfs_before + styles_in`,
 //!   each collection grown by the distinct values added (equal values share
@@ -5871,9 +5875,29 @@ fn roundtrip_read_back(
             return Err(Error::RoundtripSample(what));
         }
     }
+    // A `None` fill (a gradient, or no pattern) is written as fill 0, so it
+    // reads back as fill 0's value ("Planning verification and rulings on
+    // P1", ruling 1): read from the output's first cell format naming fill 0.
+    let fill_zero = match read.iter().any(|style| style.fill.is_none()) {
+        false => None,
+        true => {
+            let first = package
+                .styles()?
+                .cell_xfs
+                .iter()
+                .position(|xf| xf.fill_id.unwrap_or(0) == 0)
+                .ok_or(Error::RoundtripSample("fill 0"))?;
+            let first = u32::try_from(first).map_err(|_| Error::RoundtripSample("fill 0"))?;
+            package.cell_style(first)?.fill
+        }
+    };
     let mut equal = 0u64;
     for (style, &index) in read.iter().zip(added) {
-        if package.cell_style(index)? == *style {
+        let mut expected = style.clone();
+        if expected.fill.is_none() {
+            expected.fill = fill_zero;
+        }
+        if package.cell_style(index)? == expected {
             equal += 1;
         }
     }
