@@ -290,12 +290,15 @@ fn a_split_pane_or_a_pane_after_the_first_view_reads_no_freeze() {
 }
 
 #[test]
-fn absent_protection_attributes_take_the_struct_s_defaults() {
-    // "Planning rulings during P2", ruling 2: sixteen flags, each the
-    // struct's default when absent.
+fn absent_protection_attributes_take_the_schema_s_defaults() {
+    // "Planning verification and rulings on P2", ruling 3: sixteen flags,
+    // each the schema's default when absent, `sheet` false among them.
     assert_eq!(
         settings("<sheetData/><sheetProtection/>").protection,
-        Some(SheetProtection::default())
+        Some(SheetProtection {
+            sheet: false,
+            ..SheetProtection::default()
+        })
     );
     let read = settings(
         "<sheetData/><sheetProtection sheet=\"0\" objects=\"1\" scenarios=\"1\" \
@@ -708,5 +711,67 @@ fn the_writers_forms_read_back_as_written() {
             .map(|col| (col.first, col.last, col.outline_level))
             .collect::<Vec<_>>(),
         vec![(2, 3, 1)]
+    );
+}
+
+/// The writer's own form of a protection with `sheet` false, which it writes
+/// as `<sheetProtection/>`, reads back as written ("Planning verification
+/// and rulings on P2", ruling 3). The Cargo feature `metadata` besides
+/// `read`.
+#[cfg(feature = "metadata")]
+#[test]
+fn a_protection_with_sheet_false_round_trips_through_protect_sheet() {
+    for options in [
+        SheetProtection {
+            sheet: false,
+            ..SheetProtection::default()
+        },
+        SheetProtection {
+            sheet: false,
+            objects: true,
+            sort: false,
+            ..SheetProtection::default()
+        },
+        SheetProtection::default(),
+    ] {
+        let output = edited_output(with_rows(""), |p| {
+            p.protect_sheet(SHEET, None, options).expect("recorded")
+        });
+        let mut package = Package::open(Cursor::new(output)).expect("the output opens");
+        let read = package.sheet_settings(SHEET).expect("read");
+        assert_eq!(read.protection, Some(options));
+    }
+}
+
+#[test]
+fn a_url_hyperlink_with_a_range_ref_reads_its_top_left_cell() {
+    // The check's note on P2: the URL target with a range `ref`.
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!(
+            "{DECLARATION}\n<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><sheetData/>\
+             <hyperlinks><hyperlink ref=\"D7:B3\" r:id=\"rId1\"/></hyperlinks></worksheet>"
+        ),
+    );
+    with_part(
+        &mut parts,
+        "xl/worksheets/_rels/sheet1.xml.rels",
+        &rels(&format!(
+            "<Relationship Id=\"rId1\" Type=\"{ATTR_NS}/hyperlink\" \
+             Target=\"https://example.com/range\" TargetMode=\"External\"/>"
+        )),
+        None,
+    );
+    let read = opened(parts).1.sheet_settings(SHEET).expect("read");
+    assert_eq!(
+        read.hyperlinks,
+        vec![HyperlinkEntry {
+            cell: at("B3"),
+            target: Target::Url("https://example.com/range".into()),
+            display: None,
+            tooltip: None,
+        }]
     );
 }

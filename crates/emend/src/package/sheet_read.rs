@@ -146,9 +146,10 @@ pub struct SheetSettings {
     pub merges: Vec<Area>,
     /// Every `<hyperlink>`, in part order.
     pub hyperlinks: Vec<HyperlinkEntry>,
-    /// `<sheetProtection>`'s sixteen flags, each the struct's default when
-    /// absent ("Planning rulings during P2", ruling 2); the password hash
-    /// never read.
+    /// `<sheetProtection>`'s sixteen flags, each the schema's default when
+    /// absent, the value the writer omits (`sheet` false among them), from
+    /// the table the writer compares against ("Planning verification and
+    /// rulings on P2", ruling 3); the password hash never read.
     pub protection: Option<SheetProtection>,
     /// `<sheetFormatPr>`'s `outlineLevelRow` and `outlineLevelCol`.
     pub outline_max: (u8, u8),
@@ -529,10 +530,12 @@ impl Pass {
                 );
             }
             b"sheetProtection" => {
-                let default = SheetProtection::default();
-                let mut protection = default;
-                for (attribute, field, _) in default.options() {
-                    let value = element.flag(attribute)?.unwrap_or(field);
+                // Each flag its attribute, else the schema's default: the
+                // writer omits an attribute equal to it, so its own form
+                // reads back as written.
+                let mut protection = SheetProtection::default();
+                for (attribute, _, schema) in SheetProtection::default().options() {
+                    let value = element.flag(attribute)?.unwrap_or(schema);
                     *protection.field_mut(attribute) = value;
                 }
                 settings.protection = Some(protection);
