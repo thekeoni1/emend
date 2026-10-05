@@ -12,14 +12,14 @@
 //! on the column after the group; the rows and columns carrying a level,
 //! `collapsed` and a style read back through the probe's own `quick-xml`
 //! walk, five more lines, `level_rows`, `collapsed_rows`, `styled_rows`,
-//! `level_cols` and `styled_cols`. That output is then opened and written a
-//! fourth time with `insert_rows` of one row at a row from the command line,
-//! which moves the groups, then that opened and written a fifth time with
-//! `delete_columns` of one column at a column from the command line. After
-//! each, the sheet's cell count and the number cell, found by its value (P4
-//! ruling 3), read back: four more lines, `cells_inserted`, `moved_row`,
-//! `cells_deleted` and `moved_col`, so both axes and both directions of the
-//! rule are linked and nothing is dead.
+//! `level_cols` and `styled_cols`. That output is then opened and written to
+//! the fourth output with `insert_rows` of one row at a row from the command
+//! line, which moves the groups, then that opened and written to the fifth
+//! output with `delete_columns` of one column at a column from the command
+//! line. After each, the sheet's cell count and the number cell, found by its
+//! value (P4 ruling 3), read back: four more lines, `cells_inserted`,
+//! `moved_row`, `cells_deleted` and `moved_col`, so both axes and both
+//! directions of the rule are linked and nothing is dead.
 //!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area comes from the command line, so the compiler cannot prove an edit

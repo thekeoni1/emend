@@ -1480,12 +1480,12 @@
 //!   collapsed column or a column style, the `<col>` pieces the split
 //!   produces and the elements the write creates are merged with an
 //!   adjacent one whose tag is byte-identical once `min` and `max` are set
-//!   aside, its content too, so a group over a range one `<col>` covered
-//!   stays one element and a range no element covered gets one; a run of
-//!   whitespace alone between two pieces is dropped when they merge, and a
-//!   comment or any other content ends the merge. An element the write did
-//!   not touch is never merged into or changed, and the core's width and
-//!   hidden calls alone write the split as before.
+//!   aside, its content too, so a column group over a range one `<col>`
+//!   covered stays one element and a range no element covered gets one; a
+//!   run of whitespace alone between two pieces is dropped when they merge,
+//!   and a comment or any other content ends the merge. An element the
+//!   write did not touch is never merged into or changed, and the core's
+//!   width and hidden calls alone write the split as before.
 //! - The maximums: a write that sets a level above 0 raises
 //!   `<sheetFormatPr>`'s `outlineLevelRow` or `outlineLevelCol` to the
 //!   highest level it sets, the set attributes first and the rest kept;
