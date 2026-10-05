@@ -1354,7 +1354,11 @@ fn read_opening(
 /// catalogue holds one message for the case (P2 ruling 2). Refusing it is
 /// what keeps every reference the reader emits inside the range
 /// `CellRef::parse` accepts, since a row with no `r` counts from 1.
-fn row_number(start: &BytesStart<'_>, scope: &Scope, index: usize) -> Result<Option<u32>, Error> {
+pub(crate) fn row_number(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<Option<u32>, Error> {
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|_| Error::Xml(index))?;
         if attribute.key.as_namespace_binding().is_some() {
@@ -1730,6 +1734,161 @@ impl RichText {
             }
         }
         Ok(())
+    }
+}
+
+/// One item of the shared strings table, as
+/// [`crate::package::Package::shared_string_items`] yields it: the
+/// `<si>`'s flattened text, as [`SharedStrings::get`] gives it, and with
+/// the Cargo feature `richtext` its runs, as `SharedStrings::runs_of`
+/// gives them (`specs/0027-read-back.md`, "The shared strings table",
+/// decision 6). The Cargo feature `read`.
+#[cfg(feature = "read")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Item {
+    /// The item's text.
+    pub text: String,
+    /// The item's runs, `None` for an item without them. The Cargo feature
+    /// `richtext`.
+    #[cfg(feature = "richtext")]
+    pub runs: Option<RichText>,
+}
+
+/// A streaming read of the shared strings table, one `<si>` at a time,
+/// built by [`crate::package::Package::shared_string_items`]. It reads
+/// forwards once, holds one item at a time, never seeks and borrows the
+/// package as [`Cells`] does, so a walk over the table never holds it
+/// whole; after an error it is spent. A workbook with no shared strings
+/// part yields nothing. The Cargo feature `read`.
+///
+/// # Errors
+///
+/// Each item may be [`Error::Package`] "the shared strings part's root is
+/// not sst", "a text element holds an element" or "a cell holds a reference
+/// this layer cannot expand", with `richtext` "a run's properties cannot be
+/// read", or [`Error::Xml`], as [`SharedStrings`]'s read refuses them.
+#[cfg(feature = "read")]
+pub struct Items<'p, R: Read + Seek> {
+    /// The walk, `None` for a workbook without the part.
+    walk: Option<ItemWalk<'p>>,
+    package: PhantomData<&'p mut Package<R>>,
+}
+
+#[cfg(feature = "read")]
+impl<'p, R: Read + Seek> Items<'p, R> {
+    /// The items of the part read from `reader`, entry `index`, or none.
+    pub(crate) fn new(reader: Option<(Box<dyn Read + 'p>, usize)>) -> Result<Self, Error> {
+        let walk = match reader {
+            None => None,
+            Some((reader, index)) => Some(ItemWalk {
+                stream: Stream::new(reader, index)?,
+                scope: Scope::new(index),
+                index,
+                root: false,
+                done: false,
+            }),
+        };
+        Ok(Self {
+            walk,
+            package: PhantomData,
+        })
+    }
+}
+
+#[cfg(feature = "read")]
+impl<R: Read + Seek> Iterator for Items<'_, R> {
+    type Item = Result<Item, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let walk = self.walk.as_mut()?;
+        if walk.done {
+            return None;
+        }
+        match walk.advance() {
+            Ok(Some(item)) => Some(Ok(item)),
+            Ok(None) => {
+                walk.done = true;
+                None
+            }
+            Err(error) => {
+                walk.done = true;
+                Some(Err(error))
+            }
+        }
+    }
+}
+
+/// The state of an [`Items`], naming no reader type. The Cargo feature
+/// `read`.
+#[cfg(feature = "read")]
+struct ItemWalk<'p> {
+    stream: Stream<Box<dyn Read + 'p>>,
+    scope: Scope,
+    index: usize,
+    root: bool,
+    done: bool,
+}
+
+#[cfg(feature = "read")]
+impl ItemWalk<'_> {
+    /// Reads forwards to the next `<si>`, as [`SharedStrings`]'s read reads
+    /// each, or to the end of the part.
+    fn advance(&mut self) -> Result<Option<Item>, Error> {
+        const NOT_SST: Error = Error::Package("the shared strings part's root is not sst");
+        while let Some(token) = self.stream.next()? {
+            let mut open_item = false;
+            let mut empty_item = false;
+            match token.event {
+                Event::Start(ref start) | Event::Empty(ref start) => {
+                    let empty = matches!(token.event, Event::Empty(_));
+                    self.scope.start(start)?;
+                    let (namespace, local) = self.scope.resolve_element(start.name())?;
+                    let ours = MAIN.contains(&namespace.unwrap_or_default());
+                    if !self.root {
+                        if !ours || local != b"sst" {
+                            return Err(NOT_SST);
+                        }
+                        self.root = true;
+                    } else if ours && local == b"si" {
+                        if empty {
+                            empty_item = true;
+                        } else {
+                            open_item = true;
+                        }
+                    }
+                    if empty {
+                        self.scope.end();
+                    }
+                }
+                Event::End(_) => self.scope.end(),
+                _ => {}
+            }
+            if empty_item {
+                return Ok(Some(Item {
+                    text: String::new(),
+                    #[cfg(feature = "richtext")]
+                    runs: None,
+                }));
+            }
+            if open_item {
+                #[cfg(not(feature = "richtext"))]
+                return Ok(Some(Item {
+                    text: text_under(&mut self.stream, &mut self.scope, self.index, &mut ())?,
+                }));
+                #[cfg(feature = "richtext")]
+                {
+                    let mut runs = Collect::default();
+                    let text =
+                        text_under(&mut self.stream, &mut self.scope, self.index, &mut runs)?;
+                    let runs = runs.rich(&text);
+                    return Ok(Some(Item { text, runs }));
+                }
+            }
+        }
+        if !self.root {
+            return Err(NOT_SST);
+        }
+        Ok(None)
     }
 }
 

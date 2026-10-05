@@ -617,7 +617,7 @@
 //! - "an outline level is out of range"
 //!   (`grouping::the_refusals_at_the_call_record_nothing`).
 //!
-//! Reading back adds this, the Cargo feature `read`'s
+//! Reading back adds these, the Cargo feature `read`'s
 //! (`specs/0027-read-back.md`, "Errors"; without the feature it is not
 //! raised), raised in `styles` at the read of the styles part, through
 //! [`Package::styles`], and at the resolution of a cell format, through
@@ -628,6 +628,12 @@
 //!   `readback::a_value_that_does_not_parse_is_refused`,
 //!   `readback::a_colour_with_no_form_is_refused`,
 //!   `readback::an_id_past_its_list_is_refused`).
+//! - "a sheet setting cannot be read", raised in `package` at the read of a
+//!   worksheet through `Package::columns`, `Package::rows` and
+//!   `Package::sheet_settings`
+//!   (`sheetread::a_value_that_does_not_parse_or_lies_outside_the_writer_s_range_is_refused`,
+//!   `sheetread::a_ref_that_is_not_an_area_is_refused`,
+//!   `sheetread::a_hyperlink_naming_no_relationship_or_no_target_is_refused`).
 //!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
@@ -1582,6 +1588,10 @@
 //! memory, as some of the harness tool's read-backs do, holds the whole
 //! output archive itself; that is the caller's memory, not this layer's.
 
+#[cfg(feature = "read")]
+mod sheet_read;
+#[cfg(feature = "read")]
+pub use sheet_read::{ColumnFormat, HyperlinkEntry, RowFormat, Rows, SheetSettings, Target};
 #[cfg(test)]
 mod tests;
 
@@ -1940,8 +1950,8 @@ impl Properties {
 /// default is the protected sheet with every option at the schema's own
 /// default, which writes `<sheetProtection sheet="1"/>`: `objects`,
 /// `scenarios`, `select_locked_cells` and `select_unlocked_cells` unlocked,
-/// every other action locked. The Cargo feature `metadata`.
-#[cfg(feature = "metadata")]
+/// every other action locked. The Cargo feature `metadata` or `read`.
+#[cfg(any(feature = "metadata", feature = "read"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct SheetProtection {
@@ -1963,7 +1973,7 @@ pub struct SheetProtection {
     pub select_unlocked_cells: bool,
 }
 
-#[cfg(feature = "metadata")]
+#[cfg(any(feature = "metadata", feature = "read"))]
 impl std::default::Default for SheetProtection {
     fn default() -> Self {
         SheetProtection {
@@ -1987,7 +1997,7 @@ impl std::default::Default for SheetProtection {
     }
 }
 
-#[cfg(feature = "metadata")]
+#[cfg(any(feature = "metadata", feature = "read"))]
 impl SheetProtection {
     /// Each option's attribute name, its value here and its schema
     /// default, in the schema's order.
@@ -4849,6 +4859,30 @@ impl<R: Read + Seek> Package<R> {
     /// since the relationship is followed through it.
     pub fn shared_strings(&mut self) -> Result<SharedStrings, Error> {
         self.parts().shared_strings()
+    }
+
+    /// A streaming read of the shared strings table, one item at a time
+    /// (`specs/0027-read-back.md`, "The shared strings table", decision 6):
+    /// for a consumer that walks the table without holding it, where
+    /// [`Package::shared_strings`] holds every item. Each item is the text
+    /// and, with the Cargo feature `richtext`, the runs that table gives at
+    /// the same index. A workbook with no `sharedStrings` relationship
+    /// yields nothing. The Cargo feature `read`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "no such part" for a relationship whose target the
+    /// archive does not hold, and whatever [`Package::workbook`] refuses;
+    /// each item may be refused as [`crate::cells::Items`] says.
+    #[cfg(feature = "read")]
+    pub fn shared_string_items(&mut self) -> Result<crate::cells::Items<'_, R>, Error> {
+        let part = self.workbook()?.shared_strings.clone();
+        let Some(part) = part else {
+            return crate::cells::Items::new(None);
+        };
+        let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+        let reader: Box<dyn Read + '_> = Box::new(self.archive.read(index)?);
+        crate::cells::Items::new(Some((reader, index)))
     }
 
     /// A streaming read over the worksheet part named `part`.
@@ -10460,7 +10494,7 @@ const TWO_BOOK_ELEMENTS: Error =
 const LINK_EMPTY: Error = Error::Package("a hyperlink target or location is empty");
 #[cfg(feature = "metadata")]
 const NO_SUCH_LINK: Error = Error::Package("no hyperlink on that cell");
-#[cfg(feature = "metadata")]
+#[cfg(any(feature = "metadata", feature = "read"))]
 const TWO_SHEET_ELEMENTS: Error =
     Error::Package("a worksheet has two hyperlinks or sheetProtection elements");
 #[cfg(feature = "metadata")]
@@ -10577,7 +10611,7 @@ const PRINT_INVALID: Error = Error::Package("a print area or title is not valid"
 /// `<sheetFormatPr>` likewise (`specs/0026-grouping-and-line-styles.md`,
 /// "Planning rulings during P1", ruling 1). The Cargo feature `sheetprops`
 /// or `rowcol`.
-#[cfg(any(feature = "sheetprops", feature = "rowcol"))]
+#[cfg(any(feature = "sheetprops", feature = "rowcol", feature = "read"))]
 const TWO_SETTINGS: Error = Error::Package(
     "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
 );
@@ -14418,13 +14452,13 @@ fn sheet_protection_element(
 }
 
 /// The settings of a worksheet's first `<sheetView>` that
-/// [`Package::set_sheet_view`] writes, each `Some` field as its attribute
+/// `Package::set_sheet_view` writes, each `Some` field as its attribute
 /// and each `None` field leaving the file's as it is
 /// (`specs/0025-sheet-and-print-settings.md`, "Types"). Which sheet is
 /// selected (`tabSelected`) and which window the view belongs to
 /// (`workbookViewId`) are the workbook's and not modelled. The Cargo
-/// feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SheetView {
     /// `zoomScale`, a percentage in `10..=400`.
@@ -14444,8 +14478,8 @@ pub struct SheetView {
 }
 
 /// A sheet view's kind, the `view` attribute's three values. The Cargo
-/// feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ViewKind {
     /// `normal`.
@@ -14457,7 +14491,7 @@ pub enum ViewKind {
     PageLayout,
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 impl ViewKind {
     fn keyword(self) -> &'static [u8] {
         match self {
@@ -14510,11 +14544,11 @@ impl SheetView {
 }
 
 /// The print options of a worksheet's `<printOptions>` that
-/// [`Package::set_print_options`] writes, each `Some` field as its
+/// `Package::set_print_options` writes, each `Some` field as its
 /// attribute (`specs/0025-sheet-and-print-settings.md`, "Types"); the four
 /// openpyxl exposes, `gridLinesSet` not modelled. The Cargo feature
-/// `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PrintOptions {
     /// `horizontalCentered`: the printed area centred across the page.
@@ -14528,10 +14562,10 @@ pub struct PrintOptions {
 }
 
 /// The margins of a worksheet's `<pageMargins>` that
-/// [`Package::set_page_margins`] writes, in inches, each finite and at least
+/// `Package::set_page_margins` writes, in inches, each finite and at least
 /// zero (`specs/0025-sheet-and-print-settings.md`, "Types"). The Cargo
-/// feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PageMargins {
     /// `left`.
@@ -14549,11 +14583,11 @@ pub struct PageMargins {
 }
 
 /// The page setup of a worksheet's `<pageSetup>` that
-/// [`Package::set_page_setup`] writes, each `Some` field as its attribute,
+/// `Package::set_page_setup` writes, each `Some` field as its attribute,
 /// and the fit-to-page switch, which the format keeps on `<sheetPr>`'s
 /// `<pageSetUpPr>` (`specs/0025-sheet-and-print-settings.md`, "Types").
-/// The Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// The Cargo feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PageSetup {
     /// `orientation`.
@@ -14582,8 +14616,8 @@ pub struct PageSetup {
 }
 
 /// A page's orientation, the `orientation` attribute's values other than
-/// `default`. The Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// `default`. The Cargo feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Orientation {
     /// `portrait`.
@@ -14594,8 +14628,8 @@ pub enum Orientation {
 }
 
 /// The order pages print in, the `pageOrder` attribute's two values. The
-/// Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// Cargo feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PageOrder {
     /// `downThenOver`.
@@ -14606,12 +14640,12 @@ pub enum PageOrder {
 }
 
 /// The six header and footer texts of a worksheet's `<headerFooter>` that
-/// [`Package::set_header_footer`] writes: each the format's code string
+/// `Package::set_header_footer` writes: each the format's code string
 /// (`&L`, `&C`, `&R`, `&P` and the rest), stored and escaped, never parsed;
 /// `Some("")` drops the text, `None` leaves the file's
 /// (`specs/0025-sheet-and-print-settings.md`, "Types", decision 3 A). The
-/// Cargo feature `sheetprops`.
-#[cfg(feature = "sheetprops")]
+/// Cargo feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HeaderFooter {
     /// `<oddHeader>`, every page's header unless the even or first one
@@ -14629,7 +14663,7 @@ pub struct HeaderFooter {
     pub first_footer: Option<String>,
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 impl Orientation {
     fn keyword(self) -> &'static [u8] {
         match self {
@@ -14639,7 +14673,7 @@ impl Orientation {
     }
 }
 
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 impl PageOrder {
     fn keyword(self) -> &'static [u8] {
         match self {
@@ -14695,7 +14729,13 @@ impl PageMargins {
             footer: later.footer.or(self.footer),
         }
     }
+}
 
+/// The fields of the margins, which the typed read checks as the writer
+/// does (`specs/0027-read-back.md`, "The sheet in one pass"). The Cargo
+/// feature `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
+impl PageMargins {
     /// The six fields in the order the corpus's parts carry them ("Planning
     /// rulings during P2", ruling 3), beside Excel's default for each (`specs/0025-sheet-and-print-
     /// settings.md`, "The calls").
@@ -14709,7 +14749,10 @@ impl PageMargins {
             (b"footer", self.footer, 0.3),
         ]
     }
+}
 
+#[cfg(feature = "sheetprops")]
+impl PageMargins {
     /// The attributes the `Some` fields write, or for a created element all
     /// six, Excel's default for each field not given, since the schema
     /// requires them.
@@ -14783,7 +14826,13 @@ impl PageSetup {
         push(b"copies", self.copies.map(number));
         out
     }
+}
 
+/// The range the writer and the typed read both hold a page setup to
+/// (`specs/0027-read-back.md`, "The sheet in one pass"). The Cargo feature
+/// `sheetprops` or `read`.
+#[cfg(any(feature = "sheetprops", feature = "read"))]
+impl PageSetup {
     /// Whether every field is in its range: a scale in `10..=400`, a paper
     /// size, a first page number and copies at least 1, the fit counts any
     /// `u32` (`specs/0025-sheet-and-print-settings.md`, "Planning rulings
@@ -14953,7 +15002,7 @@ const SHEET_PR_CHILDREN: [&[u8]; 3] = [b"tabColor", b"outlinePr", b"pageSetUpPr"
 
 /// `<headerFooter>`'s children in the order ECMA-376 Part 1, 18.3.1.46
 /// gives them.
-#[cfg(feature = "sheetprops")]
+#[cfg(any(feature = "sheetprops", feature = "read"))]
 const HEADER_FOOTER_CHILDREN: [&[u8]; 6] = [
     b"oddHeader",
     b"oddFooter",

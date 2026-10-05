@@ -2339,6 +2339,9 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     // submodule, compiled with the Cargo feature `read` and read here
     // whatever the features.
     const READ: &str = include_str!("../styles/read.rs");
+    // Part 5 P2 adds the seventh: the worksheet's typed read raises from
+    // `package`'s own submodule, compiled with the Cargo feature `read`.
+    const SHEET_READ: &str = include_str!("sheet_read.rs");
 
     let (package_raised, package_calls, package_literals) = raised(PACKAGE);
     let (xml_raised, xml_calls, xml_literals) = raised(XML);
@@ -2346,7 +2349,8 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     let (styles_raised, styles_calls, styles_literals) = raised(STYLES);
     let (elements_raised, elements_calls, elements_literals) = raised(ELEMENTS);
     let (read_raised, read_calls, read_literals) = raised(READ);
-    // Every `Error::Package(` in any of the six takes a literal. If one
+    let (sheet_raised, sheet_calls, sheet_literals) = raised(SHEET_READ);
+    // Every `Error::Package(` in any of the seven takes a literal. If one
     // ever takes a variable the extractor cannot read it, and this is the
     // line that says so instead of the comparison quietly passing on a
     // subset.
@@ -2357,7 +2361,8 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
             cells_calls,
             styles_calls,
             elements_calls,
-            read_calls
+            read_calls,
+            sheet_calls
         ),
         (
             package_literals,
@@ -2365,14 +2370,15 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
             cells_literals,
             styles_literals,
             elements_literals,
-            read_literals
+            read_literals,
+            sheet_literals
         ),
         "an Error::Package is raised with something other than a literal"
     );
 
     // The catalogue lives in `package.rs`; `xml.rs`, `cells.rs`, `styles.rs`,
-    // `styles/elements.rs` and `styles/read.rs` say so rather than keeping a
-    // list of their own.
+    // `styles/elements.rs`, `styles/read.rs` and `package/sheet_read.rs` say
+    // so rather than keeping a list of their own.
     let catalogue = catalogued(PACKAGE);
     let mut raised_all = package_raised;
     raised_all.extend(xml_raised);
@@ -2380,6 +2386,7 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     raised_all.extend(styles_raised);
     raised_all.extend(elements_raised);
     raised_all.extend(read_raised);
+    raised_all.extend(sheet_raised);
 
     assert!(
         !catalogue.is_empty() && !raised_all.is_empty(),
@@ -7430,6 +7437,8 @@ mod richtext;
 mod rowcol;
 #[cfg(feature = "sheetprops")]
 mod sheetprops;
+#[cfg(feature = "read")]
+mod sheetread;
 #[cfg(feature = "rowcol")]
 mod shift;
 #[cfg(feature = "tables")]
