@@ -183,8 +183,9 @@ Protection> }`, derived `Clone`, `Debug`, `PartialEq`:
   `Pattern::None`), `None` for a `gradientFill`, which the type
   cannot hold (decision 3); the catalogue says so.
 - `border`: the five sides each `Some(Side)` when the element
-  carries `style`, its `color` into `Color`; `diagonalUp` and
-  `diagonalDown` as flags.
+  carries a `style` other than `none` (P1 verification ruling 2),
+  its `color` into `Color`; `diagonalUp` and `diagonalDown` as
+  flags.
 - `alignment` and `protection`: the `xf`'s children when present,
   each field from its attribute, the three alignment attributes
   the type has no field for read past.
@@ -496,6 +497,101 @@ Milestone 3's samples on its list), deferred by the maintainer
 nine times, last on 2026-10-05, is run (Milestone 2's acceptance
 record then follows Milestone 1's form) or deferred again by a
 decision recorded here (decision 7).
+
+## Planning rulings during P1 (2026-10-05)
+
+Asked by the implementing session after the doc commit 6d49977,
+before any code.
+
+1. The carried probe fix. `specs/0026` P3 verification ruling 2
+   called the probe's "a fourth time" a `//` comment with a
+   catalogue phrase to copy; it is a `//!` line (the probe's
+   crate doc, lines 15 to 17) and no catalogue text gives the
+   corrected phrase (the manifest's description carries the same
+   miscount). Ruling: the proposal is taken. Those lines name the
+   outputs by their arguments ("written to the fourth output with
+   `insert_rows` ..., then that opened and written to the fifth
+   output with `delete_columns` ..."), `//!` lines alone, in the
+   first code commit beside the catalogue's "a column group"; the
+   manifest's description is corrected in P3 with the size
+   record, where the probe table is written. `specs/0026`'s
+   ruling reads as corrected by this one.
+
+## Planning verification and rulings on P1 (2026-10-05)
+
+Verified by planning from primaries: the doc commit 6d49977 holds
+this file at a655b5fd, `specs/0026-grouping-and-line-styles.md`
+at aecc629a and `ROADMAP.md` at 53d2a173, the hashes planning
+sent; the carry commit fbb171e changes `//!` lines alone (0 other
+lines) in the catalogue and the rowcol probe; the crate commit
+c019afa (the font reader lifted under `any`, `color_from`, the
+styles read module, `CellStyle`, `cell_style`, 18 tests), the
+tool commit 8d4d468 and the phase commit e727b25 (the message
+catalogued, the module checked) read in full by planning; the
+record commit 4264cd0 adds the six logs and four records; 6 of 6
+messages ASCII, ending with the Co-Authored-By line only; the
+logs at the reported hashes, each ending all as expected, the
+scan RESULT: PASS, every log pinning a655b5fd and printing
+5209aecb as planning's working copy; the check answer ASCII; the
+compound-shape grep 0; every `rm -rf` in the logs the guarded
+form on a directory the script made or `counting.sh`'s own;
+planning's own build at e727b25 in a detached worktree: 513 crate
+tests with the features off, 530 with `read`, 533 with
+`richtext`, 550 with both and 855 with every feature, on both
+targets, 1039 workspace tests on both, clippy and doc 0 lines;
+the i686 release `emend-copy` at the run log's hash ed428826 (the
+host's differs by build path); planning's own run of
+`--roundtrip-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own privacy
+scan d64b4e8..4264cd0, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Item 1, the asymmetry: a `<fill>` holding no `patternFill` (a
+   gradient, or an empty fill) reads as `fill: None`, and
+   `add_style` given no fill writes `fillId="0"`, so such a cell
+   format reads back as fill 0's value, not as `None`; the
+   corpus's 362 used cell formats reach none (the survey), so the
+   sample's equality held on all 27. Ruling: decision 3's
+   consequence, stated in P3's catalogue; the sample's `equal`
+   compares every field but a `None` fill, which it compares with
+   fill 0's read value, so a workbook reaching one is not a
+   failure; the change, with a test, goes in P2's first code
+   commit. Item 2 (with `read` on, `Package::styles` refuses a
+   part the typed read cannot take, for every call reading the
+   part): the richtext precedent for comments; accepted and
+   stated in the catalogue; no corpus part meets it.
+2. R2: a side with `style="none"` reads as `None`, since
+   `BorderStyle` has no `none`; "Cell formats" reads as corrected
+   ("when it carries a `style` other than `none`"). R1: an empty
+   `<fill>` reads as `None` with the gradient; accepted. R3:
+   attributes the types do not name are read past on every
+   element the module reads, as the three named alignment ones
+   are, and a child inside `<alignment>` or `<protection>` is not
+   examined, since both are read from their start tags; accepted
+   as coded and stated in the catalogue; a test that an unknown
+   attribute is read past goes in P2's first code commit.
+3. R4: "a round trip of each" meant each field kind, which the
+   120 combinations cover, and the read-side tests cover every
+   variant; P2's first code commit extends the round-trip test
+   over every enum variant (each underline, vertical alignment,
+   pattern, border style, horizontal and vertical alignment),
+   since the loop is cheap and the writer's keywords are the
+   thing proved. R5, R6 (the gradient line and the Excel check
+   list): P3's catalogue and the close-out, as "Phases" says. R7
+   (the run reader's colour through `color_from`, equal by
+   construction and by the richtext tests): accepted. The
+   standing `CARGO_BUILD_JOBS` departure: accepted as before.
+4. The disclosure that the crate commit raised a message the
+   catalogue test did not compare until the phase commit: from
+   now on a message is catalogued in the commit that raises it
+   and the catalogue test reads the module in that commit, part
+   4's form; recorded, no change to P1.
+5. P1 is DONE. P2 is released: its doc commit carries this file
+   with "Planning rulings during P1" and this section, and
+   `ROADMAP.md`'s P1 row; its first code commit is rulings 1 to
+   3's items (the sample's `None`-fill comparison with a test,
+   the unknown-attribute test, the round-trip test over every
+   variant); then "P2: the sheet, the lines and the table".
 
 ## Decisions for the maintainer
 
