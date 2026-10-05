@@ -618,10 +618,23 @@
 //!   (`grouping::the_refusals_at_the_call_record_nothing`).
 //!
 //! Reading back adds these, the Cargo feature `read`'s
-//! (`specs/0027-read-back.md`, "Errors"; without the feature it is not
-//! raised), raised in `styles` at the read of the styles part, through
-//! [`Package::styles`], and at the resolution of a cell format, through
-//! `Package::cell_style`:
+//! (`specs/0027-read-back.md`, "Errors"; without the feature neither is
+//! raised). The first is raised in `styles` at the read of the styles part,
+//! through [`Package::styles`], so with the feature on every call that
+//! reads the styles part refuses a part the typed read cannot take, as the
+//! feature `richtext` does for comments ("Planning verification and rulings
+//! on P1", ruling 1), and at the resolution of a cell format, through
+//! `Package::cell_style`, for an index past `cellXfs` or an id past its
+//! list. The second is raised at the read of a worksheet, for a value that
+//! does not parse and for one outside its writer's range ("Planning
+//! verification and rulings on P2", ruling 1, the ranges in Limits). The
+//! reads also meet the writers' messages for two of an element: "a
+//! worksheet has two cols, sheetViews or mergeCells elements, or a
+//! sheetViews without a sheetView", "a worksheet has two hyperlinks or
+//! sheetProtection elements" and "a worksheet has two sheetPr, autoFilter,
+//! printOptions, pageMargins, pageSetup or headerFooter elements", the
+//! last for two `<sheetFormatPr>` too, each lifted under the feature `read`
+//! beside its own (`sheetread::two_of_an_element_the_writers_refuse_twice_are_refused_with_their_message`):
 //!
 //! - "a style cannot be read"
 //!   (`readback::a_child_outside_the_namespace_or_unknown_to_the_type_is_refused`,
@@ -853,10 +866,12 @@
 //!   or `<borders>`, equal ones recorded by one package sharing an element
 //!   and an id; [`Package::set_cell_style`] then names the index it returns.
 //! - What is not read: the part's own fonts, fills and borders are counted
-//!   and nothing inside them is read, so an added font equal to one the part
-//!   already has is a second copy (producers write such copies too);
-//!   nothing is deduplicated at the `xf` level. A cell format's alignment,
-//!   protection and apply flags are not read back as values: its ids are.
+//!   and, without the Cargo feature `read`, nothing inside them is read; an
+//!   added font equal to one the part already has is a second copy with or
+//!   without it (producers write such copies too); nothing is deduplicated
+//!   at the `xf` level. A cell format's apply flags are not read back as
+//!   values; with the feature `read` its alignment and protection are (the
+//!   read-back block below).
 //! - What is kept: `x14ac:knownFonts` on `fonts` as it was; `dxfs` (but
 //!   for the feature `rules`'s additions), `cellStyles`, `cellStyleXfs` and
 //!   the theme, untouched, so a
@@ -1054,9 +1069,12 @@
 //!   is in the input file's coordinates. A caller who wants to insert and
 //!   then fill writes twice: `write_to` into a `Cursor<Vec<u8>>`,
 //!   [`Package::open`] on its bytes, the edits, the second write.
-//! - Nothing of this is read back as a typed value: widths, heights, panes
-//!   and merges stay unmodelled on the read side, and a merged range reads
-//!   as its cells.
+//! - Without the Cargo feature `read` nothing of this is read back as a
+//!   typed value; with it, widths, hidden flags and styles of columns and
+//!   rows through `Package::columns` and `Package::rows`, and the frozen
+//!   pane and the merges through `Package::sheet_settings` (the read-back
+//!   block below). A merged range still reads as its cells through
+//!   [`Package::cells`].
 //! - Rows and columns have not been through an Excel check yet: the harness
 //!   opens every output in LibreOffice, and the Excel check of Milestone 2
 //!   follows its close-out push.
@@ -1114,7 +1132,9 @@
 //!   a `definedName` whose `localSheetId` is not a decimal `u32`, whose
 //!   attribute carries a prefix nothing binds, or whose text the cell
 //!   reader refuses, for every caller) and the core properties
-//!   (`Package::properties`). Hyperlinks and protection are not read back.
+//!   (`Package::properties`). Hyperlinks and protection are read back with
+//!   the Cargo feature `read`, through `Package::sheet_settings` (the
+//!   read-back block below).
 //! - With the feature on, [`Workbook`] holds `pub(crate)` fields for the
 //!   names it reads, so it is not constructible outside the crate.
 //! - None of this has been through an Excel check yet: the harness opens
@@ -1462,11 +1482,10 @@
 //!   an element a call edits, or one out of schema order, the settings
 //!   message (part 3's for `<sheetViews>`).
 //! - What is read back: the defined names through
-//!   [`Package::workbook`], the built-in three among them; the typed
-//!   read-back of the settings (`sheet_view`, `page_setup` and the rest)
-//!   is Milestone 3 part 5's, and until then an element is read by a
-//!   caller's own pass over the part's tokens, as `emend-copy`'s samples
-//!   read them.
+//!   [`Package::workbook`], the built-in three among them; with the Cargo
+//!   feature `read`, every setting this block writes through
+//!   `Package::sheet_settings`, into the types the calls take (the
+//!   read-back block below).
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice, which does not show how a setting
 //!   renders; what Excel shows is Excel's.
@@ -1528,13 +1547,89 @@
 //!   maximums and the summary stay. One shift per worksheet per write, so
 //!   a group beside a shift of its part is refused and written in a second
 //!   write.
-//! - What is read back: nothing as a typed value yet. Levels, flags, the
-//!   maximums, the summary and line styles are Milestone 3 part 5's read
-//!   (decision 6 A); until then a caller reads them by its own pass over
-//!   the part's tokens, as `emend-copy`'s samples do.
+//! - What is read back: with the Cargo feature `read`, levels, flags and
+//!   line styles through `Package::rows` and `Package::columns`, and the
+//!   maximums and the summary through `Package::sheet_settings` (the
+//!   read-back block below).
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice, which does not show how a group folds or
 //!   a line style renders; what Excel shows is Excel's.
+//!
+//! Reading back adds these, the Cargo feature `read`'s
+//! (`specs/0027-read-back.md`, "Design", decisions 1 to 6 and the rulings
+//! of P1 and P2), each read giving a value the matching writer accepts:
+//!
+//! - What it reads: `Package::cell_style` resolves a cell's `s` through
+//!   `cellXfs` into a `CellStyle`, the styles part read typed once, in the
+//!   same read [`Package::styles`] makes, and [`crate::cells::Cell`]
+//!   unchanged (decision 2 A); `Package::columns` gives a worksheet's
+//!   `<col>` elements, `Package::rows` its `<row>` formats one at a time,
+//!   a row without `r` numbered as [`Package::cells`] numbers it ("Planning
+//!   rulings during P2", ruling 1), and `Package::sheet_settings` its
+//!   settings in one pass (decision 5 A); `Package::shared_string_items`
+//!   walks the shared strings table one item at a time.
+//! - What the typed view drops, by element: a font's `charset`, `outline`,
+//!   `shadow`, `condense` and `extend`; an alignment's `justifyLastLine`,
+//!   `readingOrder` and `relativeIndent` (decision 3 A); every attribute
+//!   the types do not name, on every element the read takes, and anything
+//!   inside an `<alignment>` or a `<protection>`, which are read from
+//!   their start tags ("Planning verification and rulings on P1", ruling
+//!   2); a cell format's second and later `alignment` and `protection`; a
+//!   colour's attributes below the form it reads as (`auto` over `rgb`
+//!   over `theme` with its `tint` over `indexed`, so an `rgb`'s `tint` is
+//!   dropped); a sheet's second and later `<sheetView>`, every `<pane>` but
+//!   the first view's first, and a `<selection>`; the theme's colours,
+//!   which a `Color::Theme` or `Indexed` gives as the index it is; `dxfs`,
+//!   `cellStyles` and `cellStyleXfs`, which are not read.
+//! - What reads as `None`: a `<fill>` holding no `patternFill`, a gradient
+//!   or an empty fill (decision 3 A, P1 verification ruling 2); a border
+//!   side with no `style` or `style="none"`, its colour with it; a pane
+//!   that is not frozen, a split one among them; a flag child of a font
+//!   with `val` 0 or `false`, `u val="none"` and `scheme val="none"`; a
+//!   `pageSetup`'s `orientation="default"`, and its `firstPageNumber`
+//!   unless `useFirstPageNumber` is true, the writer writing the two
+//!   together ("Planning verification and rulings on P2", ruling 2).
+//! - The `None` fill's asymmetry: `Package::add_style` given no fill writes
+//!   `fillId="0"`, so a cell format whose fill read as `None` reads back,
+//!   after a round trip through the writer, as fill 0's value; `emend-copy
+//!   --roundtrip-sample` compares it so (P1 verification ruling 1).
+//! - The ranges refused, "a sheet setting cannot be read" ("Planning
+//!   verification and rulings on P2", ruling 1), the writers' own: a zoom
+//!   outside `10..=400`; a column width above 255 and a row height above
+//!   409, each finite and at least zero; an outline level above 7; a margin
+//!   that is not finite or below zero; a page setup's scale outside
+//!   `10..=400`, a paper size, a first page number or copies below 1; a
+//!   header or footer text over 255 characters or holding a character XML
+//!   cannot carry; a tab colour's tint outside `-1.0..=1.0`. In the styles
+//!   part, "a style cannot be read" refuses what `Package::add_style`
+//!   refuses, as a run's font read does (`specs/0024-rich-text.md`, P1
+//!   ruling 2).
+//! - Hyperlinks: one with an `r:id` reads as `Target::Url`, the target of
+//!   the part's relationship of that id unescaped from its `Target`
+//!   attribute, its `location` dropped; one without reads as
+//!   `Target::Location`; an `r:id` naming no relationship, no target and
+//!   an empty location are refused; a `ref` that is a range gives its
+//!   top-left cell. The part's relationships are read once and cached.
+//! - Protection: each of the sixteen flags from its attribute, the schema's
+//!   default when absent, the value the writer omits (`sheet` false among
+//!   them), so the writer's own form reads back as written ("Planning
+//!   verification and rulings on P2", ruling 3); the password hash is never
+//!   read.
+//! - Two of an element the writers refuse twice are refused with the
+//!   writers' messages, a second `<sheetFormatPr>` with the settings
+//!   message; schema order is not checked at the read ("Planning rulings
+//!   during P2", ruling 2).
+//! - What streams: `Package::rows` and `Package::shared_string_items` hold
+//!   one element at a time; `Package::columns` holds the `<col>` elements
+//!   of `<cols>`; `Package::sheet_settings` each small element to its end
+//!   tag and the merges and hyperlinks the part lists; the styles part's
+//!   typed lists are held beside its counts, bounded by the part (the
+//!   corpus's largest holds 473 fonts). The shared strings table's hold
+//!   and the iterator beside it are under "What streams and what is held".
+//! - None of this has been through an Excel check: a read writes nothing;
+//!   `emend-copy --roundtrip-sample` writes a styles part, which the
+//!   harness opens in LibreOffice and which joins Milestone 2's Excel check
+//!   list at this part's close-out (P1 verification ruling 3).
 //!
 //! # What streams and what is held
 //!
@@ -1570,9 +1665,18 @@
 //!
 //! - The shared strings table: [`Package::shared_strings`] returns it as
 //!   an owned list of every item; its cost at scale is the decision record
-//!   of `specs/0023-scale.md`'s P3. With the Cargo feature `richtext` the
-//!   rich items' runs are held beside it, and nothing for any other item
-//!   (Limits, rich text).
+//!   of `specs/0023-scale.md`'s P3: tier d's 4800000 items held at 216572
+//!   kB on `i686-unknown-linux-musl` and 266288 kB on the host, 46.2 and
+//!   56.8 bytes per item (`records/scale-m3p1-2026-10-02-6578925.md`), so a
+//!   ceiling near 46 million unique items under a 2048 MiB address space.
+//!   With the Cargo feature `richtext` the rich items' runs are held beside
+//!   it, and nothing for any other item (Limits, rich text). The hold
+//!   stays (`specs/0027-read-back.md`, decision 6 A): with the Cargo
+//!   feature `read`, `Package::shared_string_items` walks the same items
+//!   one at a time without the table, tier d's 4800000 in 7720 kB on the
+//!   host and 7536 kB on `i686-unknown-linux-musl`
+//!   (`records/m3p5-scale-d-items-2026-10-05-6ec0055.md`); a consumer that
+//!   resolves cells at random holds the table or builds its own index.
 //! - The workbook, content types, relationships and styles parts, each
 //!   parsed into its model once; and an existing comments VML part or
 //!   drawing part, read whole when a comment or an image is added beside
