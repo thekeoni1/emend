@@ -705,6 +705,76 @@ holds nothing of the table; planning's own privacy scan
    P1's and P2's rulings and the manifest's rowcol description
    corrected (P1 ruling 1).
 
+## Planning verification and rulings on P3 (2026-10-05)
+
+Verified by planning from primaries: the doc commit 71d338e holds
+this file at 32e73e1f and `ROADMAP.md` at dcce14a3, the hashes
+planning sent, and its message's two full hashes equal the blobs'
+(the amend the implementing session disclosed); the carry commit
+afc6a91 (the schema defaults for protection with its two tests
+and the URL range test), the catalogue commit 6b531f6 (`//!`
+lines alone, 0 other lines, read in full) and the probe commit
+6b6125b read by planning; the record commit bec28eb adds the seven
+logs and seven records; 5 of 5 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS, every log pinning
+32e73e1f; the check answer ASCII; the compound-shape grep 0; every
+`rm -rf` in the logs the guarded form on a directory the script
+made or `counting.sh`'s own; no `mailto` in the range's crate or
+tool diffs; planning's own build at 6b6125b in a detached
+worktree: 513 and 874 crate tests on both targets, 1061 workspace
+tests on both, clippy and doc 0 lines; planning's own probes in
+the size profile on i686: `probe-zip-xml` 533216, the format probe
+970144 (970144 at ef392d4 in its own worktree) and the read probe
+1022116 section bytes, so `read`'s cost 51972, the core's growth
+0 and the budget 436928 (21824 under 458752) are reproduced to the
+byte; the i686 release `emend-copy` at the size log's hash
+4744bea1 (the host's differs by build path); planning's own reruns
+of both samples with its own binaries over all 27 corpus
+workbooks on both labels, 108 outputs and 108 tool lines
+byte-identical to the two run directories'; the size record
+carrying the rowcol probe's corrected description and not the old
+wording; planning's own privacy scan 9d89487..bec28eb, 0
+findings; `ANTHROPIC_API_KEY` unset.
+
+1. Size. `read` costs 51972 section bytes, above planning's 35000
+   to 50000 and under the 55000 threshold: the one-pass sheet
+   reader over twelve elements with the writers' range checks is
+   most of the excess. Recorded; nothing traded for it. The core
+   grew 0. The richtext and richcomment probes grew 728 and 712
+   from P1's shared font reader (the refusal parameter and
+   `color_from`), so `richtext` now costs 13368; recorded in the
+   size record, a cost of sharing one reader. Headroom stays
+   21824. Part 6's estimate is priced from parts 2 to 5.
+2. The two disclosures. The doc commit's first message carried a
+   hash tail typed by hand, caught on reading `sha256sum` and
+   amended before any log; the gotcha (a hash in authored text is
+   always command substitution) stands for both sessions. The
+   carry's first form held a test fixture with an email-shaped
+   `mailto:` target, which the scan's dry run caught before any
+   log; the three local, unpushed code commits were rewritten
+   with the fixture as a plain URL, the old hashes gone, and
+   planning's own scan over the range finds 0. Accepted: a
+   rewrite of local, unpushed commits before any log is allowed,
+   and the rule that fixtures use `example.com` URLs and that
+   `privacy.sh` runs after each code commit is recorded in both
+   sessions' gotchas.
+3. The check's items: the richtext probes' growth (ruling 1); the
+   shared messages the negative log leaves to the earlier parts'
+   logs as a group, as `specs/0025` P3 verification ruling 4 and
+   `specs/0026` P3 verification ruling 3 ruled, accepted; the
+   56.8 bytes per item, whose primary is the scale record's line
+   105; the iterator peaks quoted as the runner's, which are the
+   records', planning's lower own figures in this spec; the size
+   record checked by planning for the old wording (0) and the new
+   (present); the standing `CARGO_BUILD_JOBS` departure. Accepted.
+4. P3 is DONE. Decision 7 was asked and the maintainer deferred
+   the Milestone 2 Excel check a tenth time (recorded under
+   decision 7). The close-out is released: its doc commit carries
+   this file with this section and decision 7's outcome, and
+   `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
+   "Close-out push (after P3)" says.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 6 as recommended (A in
@@ -743,6 +813,13 @@ question, typed in the planning session; 7 recorded.
    2026-10-05 (`specs/0026` decision 7), to run before this part's
    close-out push at the latest or be deferred again by a decision
    recorded here. Recorded, not asked now; asked at the close-out.
+   Deferred a tenth time on 2026-10-05 ("Defer again (10th)",
+   typed in the planning session after P3's verification, before
+   the close-out's doc commit): the check, now with this part's
+   round-trip sample on its list, runs before Milestone 3 part
+   6's close-out push at the latest or is deferred again by a
+   decision recorded in part 6's spec; the push proceeds without
+   it.
 
 ## Out of scope
 
