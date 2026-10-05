@@ -828,7 +828,7 @@ part's close-out push (decision 7).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the feature, the font reader shared with part 2, the fill, border, alignment and protection readers, `Styles`'s typed fields, `CellStyle` and `cell_style`, `--roundtrip-sample` on the corpus | DONE 2026-10-05 (doc 6d49977, carry fbb171e, crate c019afa, tool 8d4d468, phase e727b25, record 4264cd0; 27 of 27 ok on both labels, every one of W's 362 used cell formats read and written back equal, LibreOffice ok; 18 crate and 2 tool tests; planning's own rerun byte-identical) |
-| P2 | `columns`, the `rows` iterator, `sheet_settings` in one pass with `HyperlinkEntry`, `shared_string_items`, `--read-sample` on the corpus and tier d's `--items` under the cap | PENDING |
+| P2 | `columns`, the `rows` iterator, `sheet_settings` in one pass with `HyperlinkEntry`, `shared_string_items`, `--read-sample` on the corpus and tier d's `--items` under the cap | DONE 2026-10-05 (doc 35d1bab, carry 712d53d, crate bd02ce4, tool 6ec0055, record 9d89487; 27 of 27 read on both labels with every entry identical, every count equal to the survey's; tier d's 4800000 items walked at 7720 and 7536 kB peak against the held table's 266288 and 216572; 15 crate and 2 tool tests; planning's own reruns byte-identical) |
 | P3 | the catalogue and limits; the probe and the size record; both samples rerun byte-identical | PENDING |
 | Close | close-out push after P3, carrying d64b4e8 and this part's commits, the previous-record pattern naming d64b4e8, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 

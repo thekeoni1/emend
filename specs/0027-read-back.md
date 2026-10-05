@@ -212,8 +212,10 @@ readers do, so a cell pass costs what it costs today.
   custom_format: bool, outline_level: u8, collapsed: bool }` per
   `<row>` of `sheetData`, one at a time, never holding the sheet
   (decision 4); it borrows the package as `Cells` does. A `<row>`
-  without `r` is refused with part 4's message, as `Cells`
-  refuses it.
+  without `r` is numbered as `Cells` numbers it, the previous row
+  plus one and 1 for the first, so rows and cells agree on one
+  part and a read refuses nothing a read already accepts (P2
+  ruling 1).
 
 ### The sheet in one pass
 
@@ -244,8 +246,11 @@ outline_max: (u8, u8) }`, derived `Clone`, `Debug`, `PartialEq`:
   String)` resolved through the part's rels (an `r:id` naming no
   relationship refused) or `Target::Location(String)`, a
   hyperlink whose `ref` is a range taking its top-left cell;
-  `protection` the fourteen flags of `SheetProtection` (the
-  password hash kept as `None`, never read back);
+  `protection` every flag of `SheetProtection`, sixteen (P2
+  ruling 2), each from its attribute with the schema's default
+  for one absent, the value the writer omits, `sheet` false among
+  them (P2 verification ruling 3; the password hash kept as
+  `None`, never read back);
   `outline_max` from `<sheetFormatPr>`.
 - The types are part 3's and part 4's where they exist
   (`SheetView`, `PrintOptions`, `PageMargins`, `PageSetup`,
@@ -280,11 +285,13 @@ parts' are, marked by feature:
   namespace or unknown to the type, a value that does not parse,
   an id past its list, a colour with no form `Color` has)
 - "a sheet setting cannot be read" (at the read: an attribute
-  value that does not parse, a `ref` that is not an area, a
+  value that does not parse or lies outside its writer's range,
+  P2 verification ruling 1; a `ref` that is not an area; a
   hyperlink `r:id` naming no relationship)
 
-Shared (constants under the feature, one definition): part 4's
-row and cell messages where `rows` meets them; the writers'
+Shared (constants under the feature, one definition): the cell
+reader's messages where `rows` meets them (a row without `r` is
+not one, P2 ruling 1); the writers'
 two-elements messages for a part with two `<sheetViews>`,
 `<cols>`, `<mergeCells>`, `<hyperlinks>`, `<sheetProtection>` or
 a settings element; `specs/0010`'s "a cell holds a reference this
@@ -334,9 +341,13 @@ samples print counts and flags.
   `columns` and `rows` of W, `sheet_settings` of W, and
   `shared_string_items`; prints `read` with `cells` (cells read),
   `styled` (cells with an `s`), `resolved` (cell styles resolved,
-  equal to `styled`, asserted), `fonts`, `fills`, `borders`,
-  `gradients` (fills read as `None`), `codes` (number formats
-  read as `Code`), `columns` (`<col>` of W), `rows` (rows of W),
+  equal to `styled`, asserted), and over the distinct cell formats
+  the workbook's cells use (P2 ruling 3): `fonts`, `fills`,
+  `borders` (the distinct resolved fonts, `Some` fills and
+  borders among them, equal values counted once as `add_style`
+  records them), `gradients` (formats whose fill reads as `None`),
+  `codes` (formats whose number format reads as `Code`); then
+  `columns` (`<col>` of W), `rows` (rows of W),
   `merges`, `links`, `frozen` (0 or 1), `protected` (0 or 1),
   `items` (table items iterated, equal to `shared_strings().len()`,
   asserted), `sst_items_equal` (every item's text equal to the
@@ -517,6 +528,38 @@ before any code.
    record, where the probe table is written. `specs/0026`'s
    ruling reads as corrected by this one.
 
+## Planning rulings during P2 (2026-10-05)
+
+Asked by the implementing session after the doc commit 35d1bab
+and the carry commit 712d53d, before the row reader.
+
+1. A `<row>` without `r` (option b): `rows` numbers it as `Cells`
+   does, the previous row plus one and 1 for the first (the
+   `Cells` doc and `Walk::advance`), so the two readers agree on
+   one part and a read refuses nothing a read already accepts;
+   the spec's "refused with part 4's message, as `Cells` refuses
+   it" was planning's error, since `Cells` does not refuse it and
+   the writers' refusal is `specs/0011`'s. "Columns and rows" and
+   "Errors" read as corrected.
+2. `SheetProtection` has sixteen flags, not fourteen; every one
+   is read from its attribute, the struct's default for one
+   absent. "The sheet in one pass" reads as corrected. Duplicates
+   are refused with the writers' three messages lifted under
+   `any(their feature, read)`; schema order is not checked at the
+   read, which only the writers need.
+3. The read sample's style counts (asked after the crate commit
+   bd02ce4): each is over the DISTINCT cell formats the workbook's
+   cells use, as the sample resolves them over every worksheet:
+   `fonts`, `fills` and `borders` the distinct resolved fonts,
+   `Some` fills and borders among those formats (`PartialEq`,
+   equal values once, as `add_style` records them); `gradients`
+   the formats whose fill reads as `None`; `codes` the formats
+   whose number format reads as `Code`. So each is a count the run
+   log's survey derives from the styles part under P1's drop
+   rule. The other fields as "Harness runs" says; `--items` prints
+   `items` with the count iterated and nothing else. "Harness
+   runs" reads as corrected.
+
 ## Planning verification and rulings on P1 (2026-10-05)
 
 Verified by planning from primaries: the doc commit 6d49977 holds
@@ -592,6 +635,75 @@ scan d64b4e8..4264cd0, 0 findings; `ANTHROPIC_API_KEY` unset.
    3's items (the sample's `None`-fill comparison with a test,
    the unknown-attribute test, the round-trip test over every
    variant); then "P2: the sheet, the lines and the table".
+
+## Planning verification and rulings on P2 (2026-10-05)
+
+Verified by planning from primaries: the doc commit 35d1bab holds
+this file at 5acfcd85 and `ROADMAP.md` at cccada0e, the hashes
+planning sent; the carry commit 712d53d (the three items of P1
+verification rulings 1 to 3), the crate commit bd02ce4 (the
+sheet-read module, the items iterator, the types lifted, the
+second message catalogued in it) and the tool commit 6ec0055 read
+in full by planning; the record commit 9d89487 adds the six logs
+and six records; 5 of 5 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS, every log pinning
+5acfcd85 and printing 439a1e0d as planning's working copy; the
+check answer ASCII; the compound-shape grep 0; every `rm -rf` in
+the logs the guarded form on a directory the script made or
+`counting.sh`'s own; planning's own build at 6ec0055 in a
+detached worktree: 513 crate tests with the features off, 546
+with `read`, 533 with `richtext`, 566 with both and 872 with every
+feature, on both targets, 1059 workspace tests on both, clippy and
+doc 0 lines; the i686 release `emend-copy` at the run log's hash
+2b595046 (the host's differs by build path); planning's own run
+of `--read-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own tier d
+`--items` under the cap: `items=4800000` on both labels, the
+output byte-identical to the input, peak RSS 4348 kB on the host
+and 3728 kB on i686 (the runner's 7720 and 7536 include its own
+overhead; every figure far under 16384), so decision 6's iterator
+holds nothing of the table; planning's own privacy scan
+4264cd0..9d89487, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Item 1 and the check's (a): every typed value outside its
+   writer's range is refused ("a sheet setting cannot be read"),
+   not only a parse failure, which is P1's principle for fonts
+   applied to the sheet; accepted, "Errors" reads as extended,
+   and the catalogue names the ranges. No corpus part meets one.
+2. Items 2, 3, 5 and 6, and the check's (e) to (i): accepted as
+   coded, each stated in P3's catalogue where it is a rule
+   (`firstPageNumber` read only with `useFirstPageNumber`;
+   `orientation="default"` as `None`; a hyperlink with both an
+   `r:id` and a `location` reads as the URL, the location
+   dropped; the URL unescaped from the relationship's `Target`; a
+   second `<sheetFormatPr>` refused with the settings message;
+   the relationships read once and cached; the tool's per-sheet
+   list of styled indices and its assertion that cannot fail
+   alone are the tool's; the survey's reader and the plants on
+   the host label are the log's).
+3. Item 4, `<sheetProtection>` without `sheet`: the writer writes
+   `<sheetProtection/>` for `sheet` false with the rest at the
+   schema's defaults (`specs/0019`), so reading an absent `sheet`
+   as true (the struct's default) breaks the round trip of the
+   writer's own form. Ruling: an absent attribute reads as the
+   schema's default, the value the writer omits (`sheet` false
+   among them), through the same table the writer compares
+   against; "The sheet in one pass" and P2 ruling 2 read as
+   corrected. The change, with a round-trip test of
+   `protect_sheet` with `sheet` false, goes in P3's first code
+   commit, beside a test of a URL hyperlink with a range `ref`
+   (the check's note that only the location one has one).
+4. The phase commit's amend before any log (one statement
+   formatted): recorded, no change, as the earlier amends.
+5. P2 is DONE. P3 is released: its doc commit carries this file
+   with "Planning rulings during P2" and this section, and
+   `ROADMAP.md`'s P2 row; its first code commit is ruling 3's
+   items; then "P3: the catalogue and limits, the probe, the size
+   record", the catalogue carrying every drop and refusal rule of
+   P1's and P2's rulings and the manifest's rowcol description
+   corrected (P1 ruling 1).
 
 ## Decisions for the maintainer
 
