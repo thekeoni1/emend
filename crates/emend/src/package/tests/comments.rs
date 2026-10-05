@@ -182,6 +182,21 @@ fn entry(cell: &str, author: &str, text: &str) -> CommentEntry {
         text: text.to_string(),
         #[cfg(feature = "richtext")]
         runs: None,
+        shape: None,
+    }
+}
+
+/// The entry `comments` reads for a comment this crate added with no box
+/// set: its note shape's default box, 144 by 79 pixels, hidden
+/// (`specs/0028-images-and-comments-second-half.md`, "A comment's box").
+fn added_entry(cell: &str, author: &str, text: &str) -> CommentEntry {
+    CommentEntry {
+        shape: Some(CommentBox {
+            width: 144,
+            height: 79,
+            visible: false,
+        }),
+        ..entry(cell, author, text)
     }
 }
 
@@ -434,7 +449,7 @@ fn an_addition_to_a_sheet_with_both_parts_appends_to_each_and_reuses_an_equal_au
         [
             kept_entry("A1", "Ann", "one"),
             kept_entry("C3", "Ann", "two"),
-            entry("B5", "Ann", "three"),
+            added_entry("B5", "Ann", "three"),
         ]
     );
 }
@@ -676,7 +691,7 @@ fn the_template_part_is_retagged_and_its_parts_and_rels_part_created() {
     );
     assert_eq!(
         reopened.comments(SHEET).expect("read back"),
-        [entry("A1", "emend", "a note")]
+        [added_entry("A1", "emend", "a note")]
     );
 }
 
@@ -1352,3 +1367,5 @@ fn a_removal_emptying_a_comments_part_this_write_removes_is_refused() {
 
 #[cfg(feature = "richtext")]
 mod rich;
+
+mod boxes;

@@ -188,9 +188,9 @@ fn a_rich_comment_is_appended_beside_kept_ones_which_stay_byte_identical() {
             kept_entry("C3", "Ann", "two"),
             CommentEntry {
                 runs: Some(sample()),
-                ..entry("B5", "Bob", "emend: rich comment")
+                ..added_entry("B5", "Bob", "emend: rich comment")
             },
-            entry("D2", "Ann", "plain"),
+            added_entry("D2", "Ann", "plain"),
         ]
     );
 }

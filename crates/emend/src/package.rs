@@ -539,7 +539,19 @@
 //! - "a comments part or its drawing cannot be read"
 //!   (`comments::a_read_refuses_what_it_cannot_read`,
 //!   `the_write_refuses_parts_it_cannot_read`,
-//!   `a_removal_on_a_sheet_whose_comments_part_is_missing_is_refused_at_the_write`).
+//!   `a_removal_on_a_sheet_whose_comments_part_is_missing_is_refused_at_the_write`,
+//!   `boxes::a_read_refuses_a_vml_part_it_cannot_read`).
+//!
+//! A comment's box adds these, the feature `comments`'s too
+//! (`specs/0028-images-and-comments-second-half.md`, "Errors"); the first
+//! is raised by `Package::set_comment_box`, which also meets "a row or
+//! column index or count is out of range", the second by
+//! [`Package::write_to`] after it:
+//!
+//! - "a comment box is out of range"
+//!   (`comments::boxes::the_call_refuses_a_box_out_of_range_and_records_nothing`).
+//! - "no comment addition on that cell"
+//!   (`comments::boxes::a_box_on_a_cell_this_write_adds_no_comment_on_is_refused_at_the_write`).
 //!
 //! Images add these, the Cargo feature `images`'s messages
 //! (`specs/0022-comments-and-images.md`, "Errors", and the P3 rulings;
@@ -2619,6 +2631,10 @@ struct Recorded {
     /// calls").
     #[cfg(feature = "comments")]
     comment_edits: Vec<(Vec<u8>, CellRef, Option<NewComment>)>,
+    /// `(part, cell, box)`: a comment box set, in record order
+    /// (`specs/0028-images-and-comments-second-half.md`, "A comment's box").
+    #[cfg(feature = "comments")]
+    comment_boxes: Vec<(Vec<u8>, CellRef, CommentBox)>,
     /// `(part, work)`: for each part whose `<legacyDrawing>` the write
     /// creates or drops, what the worksheet pass does, filled by
     /// [`Package::write_to`] before it validates.
@@ -3726,7 +3742,43 @@ pub struct CommentEntry {
     /// The Cargo features `comments` and `richtext`.
     #[cfg(feature = "richtext")]
     pub runs: Option<RichText>,
+    /// The comment's box, read from the note shape of the sheet's VML part
+    /// whose row and column are the comment's: `Some` when its `style`
+    /// carries both `width:` and `height:` in `pt` or `px` (`px` as is, `pt`
+    /// times four thirds rounded to the nearest pixel), each 1 to 65535
+    /// pixels, `visible` when the style carries `visibility:visible` or the
+    /// shape's `ClientData` an `x:Visible` child; `None` when the sheet has
+    /// no VML part, no note shape for the cell, or the shape no such size
+    /// (`specs/0028-images-and-comments-second-half.md`, "A comment's box").
+    pub shape: Option<CommentBox>,
 }
+
+/// A comment's box as a caller gives it to [`Package::set_comment_box`] and
+/// as [`Package::comments`] reads it: its width and height in pixels, 1 to
+/// 65535 each, and whether the comment shows without the pointer over its
+/// cell (`specs/0028-images-and-comments-second-half.md`, "A comment's
+/// box"). The note shape is written with the size in points, three
+/// quarters of the pixels. The Cargo feature `comments`.
+#[cfg(feature = "comments")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommentBox {
+    /// The width in pixels.
+    pub width: u32,
+    /// The height in pixels.
+    pub height: u32,
+    /// Whether the comment is shown.
+    pub visible: bool,
+}
+
+/// The box the note writer gives a comment with none set: openpyxl's
+/// default 144 by 79 pixels, hidden, which writes `width:108pt;
+/// height:59.25pt` and `visibility:hidden`.
+#[cfg(feature = "comments")]
+const DEFAULT_BOX: CommentBox = CommentBox {
+    width: 144,
+    height: 79,
+    visible: false,
+};
 
 /// One worksheet part's comment edits, as the write resolves them in record
 /// order: the additions, a cell's last winning in its place; the cells
@@ -3736,6 +3788,9 @@ pub struct CommentEntry {
 #[derive(Default)]
 struct PartComments {
     additions: Vec<(CellRef, NewComment)>,
+    /// The box of each addition's cell that [`Package::set_comment_box`]
+    /// set, the last set winning.
+    boxes: Vec<(CellRef, CommentBox)>,
     removals: Vec<CellRef>,
     replaced: Vec<CellRef>,
 }
@@ -4276,7 +4331,7 @@ impl Recorded {
     /// Whether no comment is added; always, without the feature `comments`.
     #[cfg(feature = "comments")]
     fn no_comment_edits(&self) -> bool {
-        self.comment_edits.is_empty()
+        self.comment_edits.is_empty() && self.comment_boxes.is_empty()
     }
 
     /// Whether no comment is added; always, without the feature `comments`.
@@ -6561,6 +6616,41 @@ impl<R: Read + Seek> Package<R> {
         self.parts().remove_comment(part, cell)
     }
 
+    /// Records `shape` as the box of the comment this write adds on `cell` of
+    /// the worksheet part `part` through [`Package::add_comment`] or, with
+    /// the feature `richtext`, `Package::add_rich_comment`, recorded before
+    /// this call or after it.
+    /// The Cargo feature `comments` (`specs/0028-images-and-comments-second-
+    /// half.md`, "A comment's box").
+    ///
+    /// The note shape is written with `width:` and `height:` in points, the
+    /// pixels times three quarters, printed as an integer when exact and
+    /// with two decimals at most otherwise; a visible box writes
+    /// `visibility:visible` and an empty `x:Visible` child in the shape's
+    /// `ClientData` before `x:Row`, a hidden one `visibility:hidden` and no
+    /// child. A comment added with no box set gets 144 by 79 pixels, hidden,
+    /// the shape written before this call existed. Of two boxes on one cell
+    /// the last wins. A kept comment's box is not changed: the caller
+    /// replaces the comment and sets the box on the addition.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a row or column
+    /// index or count is out of range" for a cell off the grid; "a comment
+    /// box is out of range" for a width or height of 0 or past 65535. The
+    /// write refuses a cell this write adds no comment on, "no comment
+    /// addition on that cell", and what [`Package::add_comment`] says it
+    /// refuses of the part.
+    #[cfg(feature = "comments")]
+    pub fn set_comment_box(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        shape: CommentBox,
+    ) -> Result<(), Error> {
+        self.parts().set_comment_box(part, cell, shape)
+    }
+
     /// The comments of the worksheet part `part`: each `<comment>` of the
     /// comments part its `comments` relationship names, in document order,
     /// with its cell, its author and its text; a snapshot of the file, not of
@@ -8365,6 +8455,25 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::set_comment_box`].
+    #[cfg(feature = "comments")]
+    fn set_comment_box(
+        &mut self,
+        part: &[u8],
+        cell: CellRef,
+        shape: CommentBox,
+    ) -> Result<(), Error> {
+        if !in_grid(cell) {
+            return Err(INDEX_OUT_OF_RANGE);
+        }
+        let size = 1..=65535;
+        if !size.contains(&shape.width) || !size.contains(&shape.height) {
+            return Err(COMMENT_BOX_OUT_OF_RANGE);
+        }
+        self.edits.comment_boxes.push((part.to_vec(), cell, shape));
+        Ok(())
+    }
+
     /// The body of [`Package::comments`].
     #[cfg(feature = "comments")]
     fn comments(&mut self, part: &[u8]) -> Result<Vec<CommentEntry>, Error> {
@@ -8373,7 +8482,61 @@ impl<'a> Parts<'a> {
             return Ok(Vec::new());
         };
         let index = self.archive.index_of(&target).ok_or(COMMENTS_UNREADABLE)?;
-        read_comments(self.archive.read(index)?, index)
+        let mut entries = read_comments(self.archive.read(index)?, index)?;
+        // Each comment's box, from the sheet's VML part held whole as the
+        // write holds it (`specs/0028-images-and-comments-second-half.md`,
+        // "A comment's box").
+        if let Some(vml) = self.comments_vml(part)? {
+            let at = self.archive.index_of(&vml).ok_or(COMMENTS_UNREADABLE)?;
+            let mut bytes = Vec::new();
+            self.archive.read(at)?.read_to_end(&mut bytes)?;
+            let read = read_vml(&bytes, at)?;
+            for entry in &mut entries {
+                entry.shape = read
+                    .shapes
+                    .iter()
+                    .find(|shape| shape.is_note && skips(shape, &[entry.cell]))
+                    .and_then(VmlShape::comment_box);
+            }
+        }
+        Ok(entries)
+    }
+
+    /// The VML part of `part`'s comments: the target of its one internal
+    /// relationship of type [`VML_DRAWING`], either form, or of the one its
+    /// `<legacyDrawing>` names when it has more than one; `None` when it has
+    /// none.
+    #[cfg(feature = "comments")]
+    fn comments_vml(&mut self, part: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        let rels = self.relationships(part)?;
+        let mut vml = rels
+            .all()
+            .iter()
+            .filter(|rel| !rel.external && VML_DRAWING.contains(&rel.kind.as_slice()));
+        let (Some(first), more) = (vml.next(), vml.next().is_some()) else {
+            return Ok(None);
+        };
+        let rel = if more {
+            let index = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
+            let id = element_rel_id(
+                self.archive.read(index)?,
+                index,
+                LEGACY_DRAWING,
+                TWO_LEGACY_DRAWINGS,
+                COMMENTS_UNREADABLE,
+            )?;
+            let rels = self.relationships(part)?;
+            match id.and_then(|id| rels.by_id(&id).cloned()) {
+                Some(rel) if !rel.external && VML_DRAWING.contains(&rel.kind.as_slice()) => rel,
+                _ => return Ok(None),
+            }
+        } else {
+            first.clone()
+        };
+        let rels = self.relationships(part)?;
+        Ok(Some(
+            rels.target_part(&rel).map_err(|_| COMMENTS_UNREADABLE)?,
+        ))
     }
 
     /// The part the first internal `comments` relationship of `part` names,
@@ -8417,7 +8580,7 @@ impl<'a> Parts<'a> {
     /// a replacement of a cell with no comment.
     #[cfg(feature = "comments")]
     fn record_comments(&mut self) -> Result<(), Error> {
-        if self.edits.comment_edits.is_empty() {
+        if self.edits.comment_edits.is_empty() && self.edits.comment_boxes.is_empty() {
             return Ok(());
         }
         let mut parts: Vec<(Vec<u8>, PartComments)> = Vec::new();
@@ -8453,6 +8616,20 @@ impl<'a> Parts<'a> {
                     edits.removals.push(cell);
                 }
             }
+        }
+        // A box goes with the addition on its cell, the last set winning; a
+        // box on a cell this write adds no comment on is refused
+        // (`specs/0028-images-and-comments-second-half.md`, "A comment's
+        // box").
+        for (part, cell, shape) in self.edits.comment_boxes.clone() {
+            let edits = parts
+                .iter_mut()
+                .find(|(have, _)| *have == part)
+                .map(|(_, edits)| edits)
+                .filter(|edits| edits.additions.iter().any(|(have, _)| *have == cell))
+                .ok_or(NO_COMMENT_ADDITION)?;
+            edits.boxes.retain(|(have, _)| *have != cell);
+            edits.boxes.push((cell, shape));
         }
         let mut entries = self.taken_entries();
         // The `idmap` numbers of the projected workbook's VML parts, read
@@ -8522,8 +8699,19 @@ impl<'a> Parts<'a> {
                 return Err(COMMENTS_UNREADABLE);
             }
             let strict = self.sheet_is_strict(&part)?;
-            let added: Vec<CellRef> = edits.additions.iter().map(|(cell, _)| *cell).collect();
-            let skipped: Vec<CellRef> = added.iter().chain(&edits.removals).copied().collect();
+            let added: Vec<(CellRef, CommentBox)> = edits
+                .additions
+                .iter()
+                .map(|(cell, _)| {
+                    let shape = edits.boxes.iter().find(|(have, _)| have == cell);
+                    (*cell, shape.map_or(DEFAULT_BOX, |(_, shape)| *shape))
+                })
+                .collect();
+            let skipped: Vec<CellRef> = added
+                .iter()
+                .map(|(cell, _)| *cell)
+                .chain(edits.removals.iter().copied())
+                .collect();
             let wanted: Vec<CellRef> = edits
                 .removals
                 .iter()
@@ -9336,6 +9524,8 @@ impl<'a> Parts<'a> {
         self.edits.outline_summaries.retain(|(at, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
+        #[cfg(feature = "comments")]
+        self.edits.comment_boxes.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
         self.edits.image_edits.retain(|(at, _, _)| at != part);
     }
@@ -10680,6 +10870,10 @@ const TWO_LEGACY_DRAWINGS: Error = Error::Package("a worksheet has two legacyDra
 const NO_SUCH_COMMENT: Error = Error::Package("no comment on that cell");
 #[cfg(feature = "comments")]
 const COMMENTS_UNREADABLE: Error = Error::Package("a comments part or its drawing cannot be read");
+#[cfg(feature = "comments")]
+const COMMENT_BOX_OUT_OF_RANGE: Error = Error::Package("a comment box is out of range");
+#[cfg(feature = "comments")]
+const NO_COMMENT_ADDITION: Error = Error::Package("no comment addition on that cell");
 
 /// The messages of the Cargo feature `images`
 /// (`specs/0022-comments-and-images.md`, "Errors").
@@ -17493,6 +17687,7 @@ fn comment_entry(cell: CellRef, id: u64, text: String, authors: &[String]) -> Co
         text,
         #[cfg(feature = "richtext")]
         runs: None,
+        shape: None,
     }
 }
 
@@ -17512,8 +17707,10 @@ struct VmlRead {
 
 /// One `<v:shape>` of a VML part: its bytes' span, the numbers its `id` and
 /// `o:spid` carry in the form `_x0000_s<n>`, whether it is a note shape
-/// (`ClientData` of `ObjectType` `Note`), and a note's zero-based row and
-/// column.
+/// (`ClientData` of `ObjectType` `Note`), a note's zero-based row and
+/// column, and its box as [`CommentEntry::shape`] reads it: the size its
+/// `style` gives in pixels, and whether the style or a `Visible` child of
+/// its `ClientData` shows it.
 #[cfg(feature = "comments")]
 struct VmlShape {
     start: usize,
@@ -17521,6 +17718,86 @@ struct VmlShape {
     numbers: Vec<u64>,
     is_note: bool,
     note: Option<(u64, u64)>,
+    size: Option<(u32, u32)>,
+    visible: bool,
+}
+
+#[cfg(feature = "comments")]
+impl VmlShape {
+    /// The shape's box, when its style gives a size.
+    fn comment_box(&self) -> Option<CommentBox> {
+        self.size.map(|(width, height)| CommentBox {
+            width,
+            height,
+            visible: self.visible,
+        })
+    }
+}
+
+/// The size and the visibility a shape's `style` gives
+/// (`specs/0028-images-and-comments-second-half.md`, "A comment's box"):
+/// the width and height in pixels when both are a decimal number in `pt`,
+/// times four thirds rounded to the nearest pixel, or in `px`, rounded, and
+/// each 1 to 65535; and whether `visibility` is `visible`. Property names
+/// and the `visible` keyword compare ASCII case folded.
+#[cfg(feature = "comments")]
+fn style_box(style: &[u8]) -> (Option<(u32, u32)>, bool) {
+    let (mut width, mut height, mut visible) = (None, None, false);
+    for declaration in style.split(|byte| *byte == b';') {
+        let Some(colon) = declaration.iter().position(|byte| *byte == b':') else {
+            continue;
+        };
+        let name = declaration[..colon].trim_ascii();
+        let value = declaration[colon + 1..].trim_ascii();
+        if name.eq_ignore_ascii_case(b"width") {
+            width = style_pixels(value);
+        } else if name.eq_ignore_ascii_case(b"height") {
+            height = style_pixels(value);
+        } else if name.eq_ignore_ascii_case(b"visibility") {
+            visible = value.eq_ignore_ascii_case(b"visible");
+        }
+    }
+    (width.zip(height), visible)
+}
+
+/// A style length in whole pixels: a decimal number of `pt`, times four
+/// thirds, or of `px`, rounded half up; `None` for any other form or a
+/// value outside 1 to 65535.
+#[cfg(feature = "comments")]
+fn style_pixels(value: &[u8]) -> Option<u32> {
+    let (number, points) = if let Some(number) = value.strip_suffix(b"pt") {
+        (number, true)
+    } else {
+        (value.strip_suffix(b"px")?, false)
+    };
+    let (whole, fraction) = match number.iter().position(|byte| *byte == b'.') {
+        Some(dot) => (&number[..dot], &number[dot + 1..]),
+        None => (number, &b""[..]),
+    };
+    // Six digits each way keep the arithmetic far inside u64.
+    if whole.len() + fraction.len() == 0
+        || whole.len() > 6
+        || fraction.len() > 6
+        || !whole.iter().chain(fraction).all(u8::is_ascii_digit)
+    {
+        return None;
+    }
+    let digits = |part: &[u8]| {
+        part.iter()
+            .fold(0u64, |value, digit| value * 10 + u64::from(digit - b'0'))
+    };
+    let scale = 10u64.pow(fraction.len() as u32);
+    let value = digits(whole) * scale + digits(fraction);
+    // value / scale, times 4/3 for points, rounded half up.
+    let (numerator, denominator) = if points {
+        (value * 4, scale * 3)
+    } else {
+        (value, scale)
+    };
+    let pixels = (2 * numerator + denominator) / (2 * denominator);
+    u32::try_from(pixels)
+        .ok()
+        .filter(|pixels| (1..=65535).contains(pixels))
 }
 
 /// Whether `shape` is the note of a cell in `cells`, to be left out.
@@ -17632,12 +17909,18 @@ fn read_vml(bytes: &[u8], index: usize) -> Result<VmlRead, Error> {
                             numbers.extend(shape_number(attribute.value.as_bytes()));
                         }
                     }
+                    let (size, visible) = match attribute_value(token.raw, b"style", index)? {
+                        Some(style) => style_box(style),
+                        None => (None, false),
+                    };
                     let shape = VmlShape {
                         start: from,
                         end: at,
                         numbers,
                         is_note: false,
                         note: None,
+                        size,
+                        visible,
                     };
                     if empty {
                         shapes.push(shape);
@@ -17645,11 +17928,16 @@ fn read_vml(bytes: &[u8], index: usize) -> Result<VmlRead, Error> {
                         open = Some((shape, depth, None, false));
                         cell = (None, None);
                     }
-                } else if let Some((_, _, client, note)) = open.as_mut() {
+                } else if let Some((shape, _, client, note)) = open.as_mut() {
                     if is(2) && local == b"ClientData" && client.is_none() {
                         *client = (!empty).then_some(depth);
                         *note = attribute_value(token.raw, b"ObjectType", index)?
                             == Some(b"Note".as_slice());
+                    } else if client.is_some_and(|at| depth == at + 1)
+                        && is(2)
+                        && local == b"Visible"
+                    {
+                        shape.visible = true;
                     } else if client.is_some_and(|at| depth == at + 1)
                         && is(2)
                         && (local == b"Row" || local == b"Column")
@@ -17794,11 +18082,19 @@ fn note_shapetype(v: &[u8], o: &[u8]) -> Vec<u8> {
     .concat()
 }
 
-/// A hidden note shape for `cell` with the id number `number` and the
-/// z-index `k`, with the `v`, `o` and `x` prefixes given (each with its
-/// colon): openpyxl's defaults, the box Excel places beside the cell.
+/// A note shape for `cell` with the id number `number`, the z-index `k`
+/// and the box `shape`, with the `v`, `o` and `x` prefixes given (each with
+/// its colon): openpyxl's placement, the box Excel places beside the cell;
+/// [`DEFAULT_BOX`] writes openpyxl's default size, hidden
+/// (`specs/0028-images-and-comments-second-half.md`, "A comment's box").
 #[cfg(feature = "comments")]
-fn note_shape(prefixes: [&[u8]; 3], number: u64, k: u64, cell: CellRef) -> Vec<u8> {
+fn note_shape(
+    prefixes: [&[u8]; 3],
+    number: u64,
+    k: u64,
+    cell: CellRef,
+    shape: CommentBox,
+) -> Vec<u8> {
     let [v, o, x] = prefixes;
     let row = u64::from(cell.row) - 1;
     let column = u64::from(cell.col) - 1;
@@ -17813,10 +18109,18 @@ fn note_shape(prefixes: [&[u8]; 3], number: u64, k: u64, cell: CellRef) -> Vec<u
     out.extend_from_slice(number.to_string().as_bytes());
     out.extend_from_slice(
         b"\" type=\"#_x0000_t202\" style=\"position:absolute;margin-left:59.25pt;\
-          margin-top:1.5pt;width:108pt;height:59.25pt;z-index:",
+          margin-top:1.5pt;width:",
     );
+    out.extend_from_slice(points(shape.width).as_bytes());
+    out.extend_from_slice(b"pt;height:");
+    out.extend_from_slice(points(shape.height).as_bytes());
+    out.extend_from_slice(b"pt;z-index:");
     out.extend_from_slice(k.to_string().as_bytes());
-    out.extend_from_slice(b";visibility:hidden\" fillcolor=\"#ffffe1\" ");
+    out.extend_from_slice(if shape.visible {
+        b";visibility:visible\" fillcolor=\"#ffffe1\" ".as_slice()
+    } else {
+        b";visibility:hidden\" fillcolor=\"#ffffe1\" ".as_slice()
+    });
     out.extend_from_slice(o);
     out.extend_from_slice(b"insetmode=\"auto\">");
     out.extend_from_slice(
@@ -17855,11 +18159,13 @@ fn note_shape(prefixes: [&[u8]; 3], number: u64, k: u64, cell: CellRef) -> Vec<u
             b"AutoFill>False</",
             x,
             b"AutoFill><",
-            x,
-            b"Row>",
         ]
         .concat(),
     );
+    if shape.visible {
+        out.extend_from_slice(&[x, b"Visible/><"].concat());
+    }
+    out.extend_from_slice(&[x, b"Row>"].concat());
     out.extend_from_slice(row.to_string().as_bytes());
     out.extend_from_slice(&[b"</".as_slice(), x, b"Row><", x, b"Column>"].concat());
     out.extend_from_slice(column.to_string().as_bytes());
@@ -17878,11 +18184,25 @@ fn note_shape(prefixes: [&[u8]; 3], number: u64, k: u64, cell: CellRef) -> Vec<u
     out
 }
 
+/// `pixels` times three quarters as a point value: an integer when exact,
+/// else with the two decimals or one a quarter needs.
+#[cfg(feature = "comments")]
+fn points(pixels: u32) -> String {
+    let quarters = u64::from(pixels) * 3;
+    let whole = quarters / 4;
+    match quarters % 4 {
+        1 => format!("{whole}.25"),
+        2 => format!("{whole}.5"),
+        3 => format!("{whole}.75"),
+        _ => whole.to_string(),
+    }
+}
+
 /// A created VML part's bytes (`specs/0022-comments-and-images.md`,
 /// "Comments: the parts"): one line, no declaration, `idmap` `block` and
 /// the note shapes numbered `1024 * block + K`, K from 1.
 #[cfg(feature = "comments")]
-fn vml_part_bytes(block: u64, cells: &[CellRef]) -> Vec<u8> {
+fn vml_part_bytes(block: u64, cells: &[(CellRef, CommentBox)]) -> Vec<u8> {
     let mut out = b"<xml".to_vec();
     for (name, namespace) in [b"v".as_slice(), b"o", b"x"]
         .into_iter()
@@ -17894,12 +18214,13 @@ fn vml_part_bytes(block: u64, cells: &[CellRef]) -> Vec<u8> {
     out.extend_from_slice(block.to_string().as_bytes());
     out.extend_from_slice(b"\"/></o:shapelayout>");
     out.extend_from_slice(&note_shapetype(b"v:", b"o:"));
-    for (k, cell) in (1u64..).zip(cells) {
+    for (k, (cell, shape)) in (1u64..).zip(cells) {
         out.extend_from_slice(&note_shape(
             [b"v:", b"o:", b"x:"],
             1024 * block + k,
             k,
             *cell,
+            *shape,
         ));
     }
     out.extend_from_slice(b"</xml>");
@@ -17919,7 +18240,7 @@ fn vml_appended(
     read: &VmlRead,
     block: u64,
     skipped: &[CellRef],
-    cells: &[CellRef],
+    cells: &[(CellRef, CommentBox)],
 ) -> Vec<u8> {
     let low = 1024 * block;
     let mut kept = 0u64;
@@ -17950,8 +18271,8 @@ fn vml_appended(
         out.extend_from_slice(&note_shapetype(&v, &o));
     }
     let first = kept.max(highest) + 1;
-    for (k, cell) in (first..).zip(cells) {
-        out.extend_from_slice(&note_shape([&v, &o, &x], low + k, k, *cell));
+    for (k, (cell, shape)) in (first..).zip(cells) {
+        out.extend_from_slice(&note_shape([&v, &o, &x], low + k, k, *cell, *shape));
     }
     out.extend_from_slice(&bytes[read.end..]);
     out

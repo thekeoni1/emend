@@ -58,7 +58,7 @@ pub use package::{
     ValidationEntry, ValidationKind,
 };
 #[cfg(feature = "comments")]
-pub use package::{Comment, CommentEntry};
+pub use package::{Comment, CommentBox, CommentEntry};
 #[cfg(feature = "metadata")]
 pub use package::{
     DefinedName, LinkTarget, Properties, Property, SheetProtection, legacy_password_hash,
