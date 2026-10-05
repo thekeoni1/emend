@@ -421,6 +421,11 @@ fn a_part_without_a_collection_counts_none_and_an_empty_one_zero() {
     );
 }
 
+// Without the Cargo feature `read`: with it, each counted child is read
+// typed, and the `font` nested in a `font` here is refused
+// (`specs/0027-read-back.md`, "Cell formats"; the read side is in
+// `package/tests/readback.rs`).
+#[cfg(not(feature = "read"))]
 #[test]
 fn the_counts_are_the_children_not_the_count_attribute() {
     // Only a main-namespace child of the container's own name counts, at

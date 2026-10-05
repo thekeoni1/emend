@@ -7414,6 +7414,8 @@ mod names;
 mod properties;
 #[cfg(feature = "metadata")]
 mod protection;
+#[cfg(feature = "read")]
+mod readback;
 #[cfg(feature = "richtext")]
 mod richtext;
 mod rowcol;

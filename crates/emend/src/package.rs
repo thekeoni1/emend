@@ -4923,6 +4923,30 @@ impl<R: Read + Seek> Package<R> {
         self.parts().into_styles()
     }
 
+    /// The cell format `index`, what a cell's `s="index"` names, resolved
+    /// into the types [`Package::add_style`] takes
+    /// (`specs/0027-read-back.md`, "Cell formats"). The Cargo feature
+    /// `read`.
+    ///
+    /// The styles part is read typed with [`Package::styles`], once, and
+    /// each call resolves from it: [`crate::cells::Cell`] carries its `s`
+    /// alone, and a caller resolves it here when it wants the picture
+    /// (decision 2). A gradient fill reads as `fill: None`, and what the
+    /// types have no field for is read past (decision 3).
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses, and with the feature
+    /// [`Error::Package`] "a style cannot be read" for a font, fill, border,
+    /// alignment or protection the types cannot hold (a child outside the
+    /// main namespace or unknown to the type, a value that does not parse, a
+    /// colour with no form [`crate::styles::Color`] has); and here for an
+    /// `index` past `cellXfs` or an id past its list.
+    #[cfg(feature = "read")]
+    pub fn cell_style(&mut self, index: u32) -> Result<crate::styles::CellStyle, Error> {
+        self.styles()?.cell_style(index)
+    }
+
     /// Records the removal of the relationship `id` from `source`'s rels part.
     ///
     /// Nothing is read or written here, and nothing else goes with it: the

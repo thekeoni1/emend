@@ -59,3 +59,9 @@ sheetprops = []
 # default, with no dependency of its own, measured beside the core as
 # `comments` is.
 images = []
+# The typed reads of specs/0027-read-back.md (decision 1 A): a cell's
+# format resolved into the types the writers take and, in later phases, the
+# column and row formats, the sheet's settings and the shared strings
+# iterator. Off by default, with no dependency of its own, measured beside
+# the core as `sheetprops` is.
+read = []

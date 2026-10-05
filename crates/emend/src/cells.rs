@@ -165,7 +165,7 @@ use quick_xml::events::{BytesRef, BytesStart, Event};
 
 use crate::archive::Error;
 use crate::package::{MAIN, Package, TEXT_NOT_XML};
-#[cfg(feature = "richtext")]
+#[cfg(any(feature = "richtext", feature = "read"))]
 use crate::styles::{Color, Font, Scheme, Underline, VerticalAlign};
 use crate::xml::{Scope, Stream};
 
@@ -1637,9 +1637,10 @@ impl Eq for Run {}
 /// Whether two fonts are equal field by field, each `f64` by its bits.
 ///
 /// The destructuring names every field, so a field added to [`Font`] fails
-/// to compile here until it is compared.
-#[cfg(feature = "richtext")]
-fn same_font(a: &Font, b: &Font) -> bool {
+/// to compile here until it is compared. The Cargo feature `richtext` or
+/// `read`.
+#[cfg(any(feature = "richtext", feature = "read"))]
+pub(crate) fn same_font(a: &Font, b: &Font) -> bool {
     let Font {
         name,
         size,
@@ -1664,9 +1665,10 @@ fn same_font(a: &Font, b: &Font) -> bool {
         && *scheme == b.scheme
 }
 
-/// Whether two colours are equal, a theme colour's tint by its bits.
-#[cfg(feature = "richtext")]
-fn same_color(a: Option<&Color>, b: Option<&Color>) -> bool {
+/// Whether two colours are equal, a theme colour's tint by its bits. The
+/// Cargo feature `richtext` or `read`.
+#[cfg(any(feature = "richtext", feature = "read"))]
+pub(crate) fn same_color(a: Option<&Color>, b: Option<&Color>) -> bool {
     match (a, b) {
         (
             Some(Color::Theme { index, tint }),
@@ -1812,7 +1814,7 @@ impl Runs for Collect {
         let font = if empty {
             Font::default()
         } else {
-            read_properties(stream, scope, index, b"rFont")?
+            read_properties(stream, scope, index, b"rFont", || RUN_PROPERTIES_UNREADABLE)?
         };
         if let Some(run) = &mut self.open {
             run.font = Some(font);
@@ -1839,30 +1841,33 @@ impl Runs for Collect {
     }
 }
 
-/// Reads an open `<rPr>`'s children into a [`Font`], through its end tag,
-/// which it gives back to `scope`.
+/// Reads an open `<rPr>`'s or `<font>`'s children into a [`Font`], through
+/// its end tag, which it gives back to `scope`.
 ///
-/// `name` is the local name of the typeface child: `rFont` in a run; part 5
-/// may give it `name` for a styles part's `<font>`. One reader for the cell,
-/// the table and the comment (`specs/0024-rich-text.md`, "The read").
-/// `charset`, `outline`, `shadow`, `condense` and `extend` are read past and
-/// not kept: [`Font`] has no field for them.
+/// `name` is the local name of the typeface child: `rFont` in a run, `name`
+/// in a styles part's `<font>` (`specs/0027-read-back.md`, "Crate"). One
+/// reader for the cell, the table, the comment (`specs/0024-rich-text.md`,
+/// "The read") and the styles part. `charset`, `outline`, `shadow`,
+/// `condense` and `extend` are read past and not kept: [`Font`] has no field
+/// for them. The Cargo feature `richtext` or `read`.
 ///
 /// # Errors
 ///
-/// [`Error::Package`] "a run's properties cannot be read" for a child
+/// [`Error::Package`] what `refusal` gives ("a run's properties cannot be
+/// read" for a run, "a style cannot be read" for a styles part) for a child
 /// outside the main namespace, a child this layer does not know, a child
 /// holding an element, a `val` that does not parse, a colour with no form
 /// [`Color`] has, a size or tint that is not finite, and any font
 /// [`crate::package::Package::add_style`] would refuse, so every font this
-/// gives is one the write accepts (P1 ruling 2). [`Error::Xml`] when the
-/// part ends first.
-#[cfg(feature = "richtext")]
-fn read_properties<R: Read>(
+/// gives is one the write accepts (`specs/0024-rich-text.md`, P1 ruling 2).
+/// [`Error::Xml`] when the part ends first.
+#[cfg(any(feature = "richtext", feature = "read"))]
+pub(crate) fn read_properties<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
     name: &[u8],
+    refusal: fn() -> Error,
 ) -> Result<Font, Error> {
     let mut font = Font::default();
     loop {
@@ -1878,9 +1883,9 @@ fn read_properties<R: Read>(
                 scope.start(start)?;
                 let (namespace, local) = scope.resolve_element(start.name())?;
                 if !MAIN.contains(&namespace.unwrap_or_default()) {
-                    return Err(RUN_PROPERTIES_UNREADABLE);
+                    return Err(refusal());
                 }
-                read_property(&mut font, local, name, start, scope, index)?;
+                read_property(&mut font, local, name, start, scope, index, refusal)?;
                 if empty {
                     scope.end();
                 } else {
@@ -1889,7 +1894,7 @@ fn read_properties<R: Read>(
             }
             Event::End(_) => {
                 scope.end();
-                font.check().map_err(|_| RUN_PROPERTIES_UNREADABLE)?;
+                font.check().map_err(|_| refusal())?;
                 return Ok(font);
             }
             // Whitespace between the children.
@@ -1903,7 +1908,7 @@ fn read_properties<R: Read>(
                     return Err(Error::Xml(index));
                 };
                 match token.event {
-                    Event::Start(_) | Event::Empty(_) => return Err(RUN_PROPERTIES_UNREADABLE),
+                    Event::Start(_) | Event::Empty(_) => return Err(refusal()),
                     Event::End(_) => {
                         scope.end();
                         break;
@@ -1915,8 +1920,8 @@ fn read_properties<R: Read>(
     }
 }
 
-/// Reads one `<rPr>` child, `local` its name, into `font`.
-#[cfg(feature = "richtext")]
+/// Reads one `<rPr>` or `<font>` child, `local` its name, into `font`.
+#[cfg(any(feature = "richtext", feature = "read"))]
 fn read_property(
     font: &mut Font,
     local: &[u8],
@@ -1924,6 +1929,7 @@ fn read_property(
     start: &BytesStart<'_>,
     scope: &Scope,
     index: usize,
+    refusal: fn() -> Error,
 ) -> Result<(), Error> {
     // The attributes the children carry, as written; `rFont`'s `val` is
     // unescaped and normalised below, as a styles part's names are.
@@ -1960,7 +1966,7 @@ fn read_property(
             attribute.value.as_ref().to_owned()
         });
     }
-    let bad = || RUN_PROPERTIES_UNREADABLE;
+    let bad = refusal;
     let flag = |val: Option<&str>| match val {
         None | Some("1") | Some("true") => Ok(true),
         Some("0") | Some("false") => Ok(false),
@@ -1995,31 +2001,16 @@ fn read_property(
         }
         b"sz" => font.size = Some(number(val.as_deref())?),
         b"color" => {
-            let tint = match tint.as_deref() {
-                None => None,
-                Some(text) => Some(number(Some(text))?),
-            };
-            let auto = match auto.as_deref() {
-                None => false,
-                Some(text) => flag(Some(text))?,
-            };
-            font.color = Some(if auto {
-                Color::Auto
-            } else if let Some(rgb) = rgb {
-                if rgb.len() != 8 || !rgb.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-                    return Err(bad());
-                }
-                Color::Rgb(u32::from_str_radix(&rgb, 16).map_err(|_| bad())?)
-            } else if let Some(theme) = theme {
-                Color::Theme {
-                    index: decimal(&theme).ok_or_else(bad)?,
+            font.color = Some(color_from(
+                ColorAttributes {
+                    rgb,
+                    theme,
                     tint,
-                }
-            } else if let Some(indexed) = indexed {
-                Color::Indexed(decimal(&indexed).ok_or_else(bad)?)
-            } else {
-                return Err(bad());
-            });
+                    indexed,
+                    auto,
+                },
+                refusal,
+            )?);
         }
         b"family" => font.family = Some(val.as_deref().and_then(decimal).ok_or_else(bad)?),
         b"scheme" => {
@@ -2037,6 +2028,75 @@ fn read_property(
     Ok(())
 }
 
+/// The attributes a colour element carries, as written. The Cargo feature
+/// `richtext` or `read`.
+#[cfg(any(feature = "richtext", feature = "read"))]
+#[derive(Default)]
+pub(crate) struct ColorAttributes {
+    pub(crate) rgb: Option<String>,
+    pub(crate) theme: Option<String>,
+    pub(crate) tint: Option<String>,
+    pub(crate) indexed: Option<String>,
+    pub(crate) auto: Option<String>,
+}
+
+/// The [`Color`] a colour element's attributes give: `auto` when it is
+/// true, else `rgb` (eight hex digits), else `theme` with its `tint`, else
+/// `indexed`. One reading for a run's, a font's, a fill's and a border's
+/// colours (`specs/0027-read-back.md`, "Cell formats"). The Cargo feature
+/// `richtext` or `read`.
+///
+/// # Errors
+///
+/// [`Error::Package`] what `refusal` gives for an attribute that does not
+/// parse, a tint that is not finite, and an element with none of the four
+/// forms.
+#[cfg(any(feature = "richtext", feature = "read"))]
+pub(crate) fn color_from(
+    attributes: ColorAttributes,
+    refusal: fn() -> Error,
+) -> Result<Color, Error> {
+    let ColorAttributes {
+        rgb,
+        theme,
+        tint,
+        indexed,
+        auto,
+    } = attributes;
+    let tint = match tint.as_deref() {
+        None => None,
+        Some(text) => Some(
+            text.parse::<f64>()
+                .ok()
+                .filter(|number| number.is_finite())
+                .ok_or_else(refusal)?,
+        ),
+    };
+    let auto = match auto.as_deref() {
+        None => false,
+        Some("1") | Some("true") => true,
+        Some("0") | Some("false") => false,
+        Some(_) => return Err(refusal()),
+    };
+    Ok(if auto {
+        Color::Auto
+    } else if let Some(rgb) = rgb {
+        if rgb.len() != 8 || !rgb.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(refusal());
+        }
+        Color::Rgb(u32::from_str_radix(&rgb, 16).map_err(|_| refusal())?)
+    } else if let Some(theme) = theme {
+        Color::Theme {
+            index: decimal(&theme).ok_or_else(refusal)?,
+            tint,
+        }
+    } else if let Some(indexed) = indexed {
+        Color::Indexed(decimal(&indexed).ok_or_else(refusal)?)
+    } else {
+        return Err(refusal());
+    })
+}
+
 /// Consumes an element's subtree, to and including its matching end tag.
 ///
 /// Called with the start tag already given to `scope`, and gives it back.
@@ -2048,7 +2108,7 @@ fn read_property(
 ///
 /// [`Error::Xml`] when the part ends before the end tag, and whatever
 /// [`Scope::start`] refuses.
-fn skip_subtree<R: Read>(
+pub(crate) fn skip_subtree<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,

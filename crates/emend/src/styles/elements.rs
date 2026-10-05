@@ -412,6 +412,40 @@ impl Vertical {
     }
 }
 
+/// The variant whose [`keyword`](Pattern::keyword) is `text`, for each enum
+/// a typed read parses (`specs/0027-read-back.md`, "Cell formats"): every
+/// variant listed once, so a keyword reads back as the variant that writes
+/// it, and the match below fails to compile when a variant is left out.
+/// The Cargo feature `read`.
+#[cfg(feature = "read")]
+macro_rules! parse_keyword {
+    ($type:ident: $($variant:ident),+ $(,)?) => {
+        const _: fn($type) = |variant| match variant {
+            $($type::$variant)|+ => {}
+        };
+        impl $type {
+            pub(crate) fn parse(text: &str) -> Option<Self> {
+                [$(Self::$variant),+]
+                    .into_iter()
+                    .find(|variant| variant.keyword() == text)
+            }
+        }
+    };
+}
+
+#[cfg(feature = "read")]
+parse_keyword!(Pattern: None, Solid, MediumGray, DarkGray, LightGray, DarkHorizontal,
+    DarkVertical, DarkDown, DarkUp, DarkGrid, DarkTrellis, LightHorizontal, LightVertical,
+    LightDown, LightUp, LightGrid, LightTrellis, Gray125, Gray0625);
+#[cfg(feature = "read")]
+parse_keyword!(BorderStyle: Thin, Medium, Thick, Dashed, Dotted, Double, Hair, MediumDashed,
+    DashDot, MediumDashDot, DashDotDot, MediumDashDotDot, SlantDashDot);
+#[cfg(feature = "read")]
+parse_keyword!(Horizontal: General, Left, Center, Right, Fill, Justify, CenterContinuous,
+    Distributed);
+#[cfg(feature = "read")]
+parse_keyword!(Vertical: Top, Center, Bottom, Justify, Distributed);
+
 /// An element composed when its addition is recorded, and the positions in
 /// it where its container's prefix goes: after each `<` and `</` that opens
 /// a name.

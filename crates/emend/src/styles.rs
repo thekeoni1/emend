@@ -14,6 +14,13 @@
 //! [`crate::package::Package::styles`] reads the part once and keeps the
 //! answer, as [`crate::package::Package::workbook`] does.
 //!
+//! With the Cargo feature `read`, the same one read also reads each font,
+//! fill and border, and each cell format's first `alignment` and
+//! `protection`, into the types [`Style`] carries, and
+//! `Package::cell_style` resolves a cell format into them as a `CellStyle`
+//! (`specs/0027-read-back.md`, "Cell formats"); what they
+//! cannot hold is read past or refused as that module says.
+//!
 //! # Number formats
 //!
 //! A cell format names its number format by id. An id of 164 or more is a
@@ -108,6 +115,8 @@ use crate::package::{MAIN, STYLE_OUT_OF_RANGE};
 use crate::xml::{Scope, Stream};
 
 mod elements;
+#[cfg(feature = "read")]
+mod read;
 #[cfg(test)]
 mod tests;
 
@@ -118,6 +127,8 @@ pub use elements::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, Pattern, Protection, Scheme,
     Side, Style, Underline, Vertical, VerticalAlign,
 };
+#[cfg(feature = "read")]
+pub use read::CellStyle;
 
 /// What a workbook's styles part defines, as far as this layer reads it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -136,6 +147,10 @@ pub struct Styles {
     fills: Option<u32>,
     /// The number of `border` children of `<borders>`, `None` without one.
     borders: Option<u32>,
+    /// The fonts, fills and borders read typed (`specs/0027-read-back.md`,
+    /// "Cell formats"). The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    typed: read::Typed,
 }
 
 /// One `<numFmt>`: a number format the part defines.
@@ -172,6 +187,12 @@ pub struct Xf {
     alignment: Option<std::ops::Range<usize>>,
     /// Where its first `protection` child lies in `raw`, likewise.
     protection: Option<std::ops::Range<usize>>,
+    /// Its first `alignment` child read typed. The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    alignment_value: Option<Alignment>,
+    /// Its first `protection` child read typed. The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    protection_value: Option<Protection>,
 }
 
 impl Xf {
@@ -252,19 +273,20 @@ impl Styles {
     }
 
     /// The number of fonts the part's `<fonts>` holds, `None` when it has
-    /// none. Nothing inside a font is read.
+    /// none. Nothing inside a font is read without the Cargo feature `read`.
     pub fn fonts(&self) -> Option<u32> {
         self.fonts
     }
 
     /// The number of fills the part's `<fills>` holds, `None` when it has
-    /// none. Nothing inside a fill is read.
+    /// none. Nothing inside a fill is read without the Cargo feature `read`.
     pub fn fills(&self) -> Option<u32> {
         self.fills
     }
 
-    /// The number of borders the part's `<borders>` holds, `None` when it has
-    /// none. Nothing inside a border is read.
+    /// The number of borders the part's `<borders>` holds, `None` when it
+    /// has none. Nothing inside a border is read without the Cargo feature
+    /// `read`.
     pub fn borders(&self) -> Option<u32> {
         self.borders
     }
@@ -461,6 +483,9 @@ impl Styles {
             // after it, because `token` borrows the stream the actions read.
             let mut skip = false;
             let mut xf: Option<(Xf, bool)> = None;
+            // A font, a fill or a border to read typed, with its start tag.
+            #[cfg(feature = "read")]
+            let mut typed: Option<(Container, read::Child)> = None;
             match token.event {
                 Event::Start(ref start) | Event::Empty(ref start) => {
                     let empty = matches!(token.event, Event::Empty(_));
@@ -495,7 +520,15 @@ impl Styles {
                     {
                         let counted = count.unwrap_or(0).checked_add(1);
                         *count = Some(counted.ok_or(STYLE_OUT_OF_RANGE)?);
-                        skip = !empty;
+                        #[cfg(not(feature = "read"))]
+                        {
+                            skip = !empty;
+                        }
+                        #[cfg(feature = "read")]
+                        {
+                            typed =
+                                Some((container, read::Child::of(start, &scope, index, empty)?));
+                        }
                     } else if depth == 3
                         && ours
                         && local == b"numFmt"
@@ -531,11 +564,37 @@ impl Styles {
                 // `xf` belong to nothing this layer reads.
                 _ => {}
             }
+            #[cfg(feature = "read")]
+            if let Some((container, element)) = typed {
+                let empty = element.empty();
+                let into = &mut styles.typed;
+                match container {
+                    Container::Fonts => into
+                        .fonts
+                        .push(read::read_font(stream, &mut scope, index, empty)?),
+                    Container::Fills => into
+                        .fills
+                        .push(read::read_fill(stream, &mut scope, index, empty)?),
+                    Container::Borders => into
+                        .borders
+                        .push(read::read_border(stream, &mut scope, index, &element)?),
+                    // Only the three counted containers record a child here.
+                    Container::NumFmts | Container::CellXfs => {}
+                }
+                if !empty {
+                    depth -= 1;
+                }
+            }
             if let Some((mut xf, empty)) = xf {
                 if !empty {
                     let spans = consume_subtree(stream, &mut scope, index, Some(&mut xf.raw))?;
                     xf.alignment = spans.alignment;
                     xf.protection = spans.protection;
+                    #[cfg(feature = "read")]
+                    {
+                        xf.alignment_value = spans.alignment_value;
+                        xf.protection_value = spans.protection_value;
+                    }
                     depth -= 1;
                 }
                 styles.cell_xfs.push(xf);
@@ -800,6 +859,10 @@ fn read_xf(start: &BytesStart<'_>, scope: &Scope, index: usize, raw: &[u8]) -> R
         raw: raw.to_vec(),
         alignment: None,
         protection: None,
+        #[cfg(feature = "read")]
+        alignment_value: None,
+        #[cfg(feature = "read")]
+        protection_value: None,
     };
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|_| Error::Xml(index))?;
@@ -829,6 +892,11 @@ fn read_xf(start: &BytesStart<'_>, scope: &Scope, index: usize, raw: &[u8]) -> R
 struct ChildSpans {
     alignment: Option<std::ops::Range<usize>>,
     protection: Option<std::ops::Range<usize>>,
+    /// The same two children read typed. The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    alignment_value: Option<Alignment>,
+    #[cfg(feature = "read")]
+    protection_value: Option<Protection>,
 }
 
 /// Consumes an element's subtree, to and including its matching end tag,
@@ -880,6 +948,14 @@ fn consume_subtree<R: Read>(
                             &mut spans.protection
                         };
                         if slot.is_none() {
+                            #[cfg(feature = "read")]
+                            if which {
+                                spans.alignment_value =
+                                    Some(read::read_alignment(start, scope, index)?);
+                            } else {
+                                spans.protection_value =
+                                    Some(read::read_protection(start, scope, index)?);
+                            }
                             if empty {
                                 *slot = Some(at..after);
                             } else {
