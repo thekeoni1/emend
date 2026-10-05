@@ -50,6 +50,28 @@
 //!   is printed, nor the length of one. A failed `resolve` is counted as
 //!   `unresolved` and the run carries on, so that count is the whole
 //!   workbook's; an error from any other parse is exit 2 with the message.
+//! - `--read-sample`: no edit either, so the output must be byte-identical
+//!   again (`specs/0027-read-back.md`, "Harness runs"), and one line goes to
+//!   stdout: the word `read` then tab-separated `key=value`, COUNTS ONLY.
+//!   Every cell of every sheet of kind `Worksheet` is read and each cell's
+//!   `s` resolved with `cell_style`; the columns, rows and settings of W,
+//!   the first such sheet, are read, and the shared strings table walked
+//!   item by item. The keys: `cells`, `styled` (cells with an `s`),
+//!   `resolved` (styles resolved, equal to `styled`, asserted), then over
+//!   the distinct cell formats the cells use: `fonts`, `fills` and `borders`
+//!   (the distinct fonts, `Some` fills and borders among them), `gradients`
+//!   (those whose fill reads as `None`) and `codes` (those whose number
+//!   format reads as a code); then `columns` (W's `<col>`), `rows` (W's
+//!   rows), `merges`, `links`, `frozen` and `protected` (1 when W has a
+//!   frozen pane, a `<sheetProtection>`), `items` (the table's items walked,
+//!   equal to the held table's length, asserted) and `sst_items_equal` (the
+//!   items whose text equals the held table's at the same index, equal to
+//!   `items`, asserted). A refusal by the layer, or an assertion that does
+//!   not hold, is exit 2 with no output.
+//! - `--items`: no edit either, so the output must be byte-identical again,
+//!   and one line goes to stdout: the word `items` then `items` (the
+//!   shared strings table's items, walked one at a time without the table
+//!   held, `specs/0027-read-back.md`, decision 6). A count and nothing else.
 //! - `--edit-sample`: the sample cell edit of `specs/0011-editing-cells.md`,
 //!   "Harness runs", on the first sheet of kind `Worksheet`: its first
 //!   `Number` or `SharedString` cell with a value and no formula set to
@@ -644,7 +666,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
-| --group-sample | --linestyle-sample | --roundtrip-sample]";
+| --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -664,6 +686,10 @@ enum Operation {
     SharedStrings,
     /// No edits, and count every cell of every sheet on stdout.
     Cells,
+    /// No edits, and count what the typed reads give on stdout.
+    ReadSample,
+    /// No edits, and count the shared strings table walked item by item.
+    Items,
     /// The sample cell edit, and its counts on stdout.
     EditSample,
     /// The formula sample edit, and its counts on stdout.
@@ -787,6 +813,7 @@ enum Error {
     GroupSample(&'static str),
     LinestyleSample(&'static str),
     RoundtripSample(&'static str),
+    ReadSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -889,6 +916,9 @@ impl fmt::Display for Error {
             Error::RoundtripSample(what) => {
                 write!(f, "the output's {what} is not what the round trip implies")
             }
+            Error::ReadSample(what) => {
+                write!(f, "the input's {what} is not what the reads imply")
+            }
             Error::NewReadBack { expected, found } => write!(
                 f,
                 "the output's sheet reads back {found} written value(s) and the edits imply \
@@ -926,6 +956,12 @@ fn main() -> ExitCode {
         ),
         [input, output, flag] if flag == "--cells" => {
             run(Path::new(input), Path::new(output), Operation::Cells)
+        }
+        [input, output, flag] if flag == "--read-sample" => {
+            run(Path::new(input), Path::new(output), Operation::ReadSample)
+        }
+        [input, output, flag] if flag == "--items" => {
+            run(Path::new(input), Path::new(output), Operation::Items)
         }
         [input, output, flag] if flag == "--edit-sample" => {
             run(Path::new(input), Path::new(output), Operation::EditSample)
@@ -1198,6 +1234,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::Survey => Some(survey(input)?.line()),
         Operation::SharedStrings => Some(shared_strings_line(input)?),
         Operation::Cells => Some(cells_line(input)?),
+        Operation::ReadSample => Some(read_line(input)?),
+        Operation::Items => Some(items_line(input)?),
         Operation::Styles => Some(styles_line(input)?),
         Operation::Calc => Some(calc_line(input)?),
         _ => None,
@@ -1252,6 +1290,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         | Operation::Survey
         | Operation::SharedStrings
         | Operation::Cells
+        | Operation::ReadSample
+        | Operation::Items
         | Operation::Styles
         | Operation::Calc => Vec::new(),
         Operation::Replace(name) => {
@@ -6457,6 +6497,116 @@ fn shared_strings_line(input: &Path) -> Result<String, Error> {
         bytes += item.len() as u64;
     }
     Ok(format!("strings\titems={items}\tbytes={bytes}"))
+}
+
+/// The line `--read-sample` prints (`specs/0027-read-back.md`, "Harness
+/// runs"): what the typed reads give over the workbook, counts only.
+fn read_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let worksheets: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let part = worksheets.first().cloned().ok_or(Error::NoWorksheet)?;
+    let (mut cells, mut styled, mut resolved) = (0u64, 0u64, 0u64);
+    let mut used = std::collections::BTreeSet::new();
+    for sheet in &worksheets {
+        let mut styles = Vec::new();
+        for cell in package.cells(sheet)? {
+            let cell = cell?;
+            cells += 1;
+            if let Some(style) = cell.style {
+                styled += 1;
+                styles.push(style);
+            }
+        }
+        // Each cell's style resolved, as a caller resolves `Cell::style`.
+        for style in styles {
+            package.cell_style(style)?;
+            resolved += 1;
+            used.insert(style);
+        }
+    }
+    if resolved != styled {
+        return Err(Error::ReadSample("resolved styles"));
+    }
+    let mut formats = Vec::new();
+    for &index in &used {
+        formats.push(package.cell_style(index)?);
+    }
+    let fonts = distinct(formats.iter().map(|format| &format.font));
+    let fills = distinct(formats.iter().filter_map(|format| format.fill.as_ref()));
+    let borders = distinct(formats.iter().map(|format| &format.border));
+    let gradients = formats
+        .iter()
+        .filter(|format| format.fill.is_none())
+        .count() as u64;
+    let codes = formats
+        .iter()
+        .filter(|format| matches!(format.number_format, NumberFormat::Code(_)))
+        .count() as u64;
+    let columns = package.columns(&part)?.len() as u64;
+    let mut rows = 0u64;
+    for row in package.rows(&part)? {
+        row?;
+        rows += 1;
+    }
+    let settings = package.sheet_settings(&part)?;
+    let table = package.shared_strings()?;
+    let (mut items, mut equal) = (0u64, 0u64);
+    for (at, item) in (0u32..).zip(package.shared_string_items()?) {
+        let item = item?;
+        items += 1;
+        if table.get(at) == Some(item.text.as_str()) {
+            equal += 1;
+        }
+    }
+    if items != u64::from(table.len()) {
+        return Err(Error::ReadSample("item count"));
+    }
+    if equal != items {
+        return Err(Error::ReadSample("item text"));
+    }
+    let fields = [
+        ("cells", cells),
+        ("styled", styled),
+        ("resolved", resolved),
+        ("fonts", fonts),
+        ("fills", fills),
+        ("borders", borders),
+        ("gradients", gradients),
+        ("codes", codes),
+        ("columns", columns),
+        ("rows", rows),
+        ("merges", settings.merges.len() as u64),
+        ("links", settings.hyperlinks.len() as u64),
+        ("frozen", u64::from(settings.freeze.is_some())),
+        ("protected", u64::from(settings.protection.is_some())),
+        ("items", items),
+        ("sst_items_equal", equal),
+    ];
+    let mut line = String::from("read");
+    for (key, value) in fields {
+        line.push_str(&format!("\t{key}={value}"));
+    }
+    Ok(line)
+}
+
+/// The line `--items` prints: the shared strings table's items, walked one
+/// at a time (`specs/0027-read-back.md`, decision 6).
+fn items_line(input: &Path) -> Result<String, Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let mut items = 0u64;
+    for item in package.shared_string_items()? {
+        item?;
+        items += 1;
+    }
+    Ok(format!("items\titems={items}"))
 }
 
 /// The counts `--cells` prints, one field per key.

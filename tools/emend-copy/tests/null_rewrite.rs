@@ -5156,3 +5156,57 @@ fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
         "the added cell format names fill 0"
     );
 }
+
+/// A worksheet body holding a frozen pane, one `<col>`, two rows of which
+/// row 1's first two cells name cell formats 1 and 2, a merge and a
+/// hyperlink. Fictional.
+const READ_SHEET: &str = "<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" \
+    topLeftCell=\"A2\" state=\"frozen\"/></sheetView></sheetViews><cols><col min=\"1\" max=\"2\" \
+    width=\"9\"/></cols><sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c><c r=\"B1\" \
+    s=\"2\"><v>2</v></c><c r=\"C1\"><v>3</v></c></row><row r=\"2\"/></sheetData><mergeCells>\
+    <mergeCell ref=\"D1:E1\"/></mergeCells><hyperlinks><hyperlink ref=\"A1\" location=\"A2\"/>\
+    </hyperlinks>";
+
+#[test]
+fn the_read_sample_counts_what_the_typed_reads_give_and_writes_the_input_back() {
+    // `specs/0027-read-back.md`, "Harness runs", `--read-sample`, with
+    // "Planning rulings during P2", ruling 3: cell formats 1 and 2 share
+    // font 1 and border 0 and differ in fill (gray125 and none), and both
+    // number formats are built in.
+    let specs = styled_specs(READ_SHEET, &roundtrip_styles("<font><b/></font>"));
+    let dir = TempDir::new("read-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let bytes = build(&specs);
+    fs::write(&input, &bytes).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--read-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "read\tcells=3\tstyled=2\tresolved=2\tfonts=1\tfills=2\tborders=1\tgradients=0\
+         \tcodes=0\tcolumns=1\trows=2\tmerges=1\tlinks=1\tfrozen=1\tprotected=0\titems=2\
+         \tsst_items_equal=2\n",
+        "the line"
+    );
+    assert_eq!(fs::read(&output).expect("read the output"), bytes, "a copy");
+    let ran = emend_copy_with(&input, &output, &["--items"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(ran.stdout, "items\titems=2\n", "the items line");
+    assert_eq!(fs::read(&output).expect("read the output"), bytes, "a copy");
+}
+
+#[test]
+fn the_read_sample_refuses_two_sheet_views_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0027-read-back.md`, "P2").
+    styled_run_refused(
+        "read-sample-two-views",
+        &styled_specs(
+            &format!("<sheetViews><sheetView workbookViewId=\"1\"/></sheetViews>{READ_SHEET}"),
+            &roundtrip_styles("<font><b/></font>"),
+        ),
+        "a worksheet has two cols, sheetViews or mergeCells elements, or a sheetViews without \
+         a sheetView",
+        "--read-sample",
+    );
+}
