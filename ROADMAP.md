@@ -777,7 +777,7 @@ this part's close-out push (decision 7).
 | P4 | the catalogue and limits; the two probes and the size record with a cause per probe; the three samples rerun byte-identical | DONE 2026-10-03 (doc 2b19bb6, carry f59c78c, catalogue b0c6bd8, probes 01b14c0, record 6d57689; `sheetprops` costs 28148 section bytes, the pair with `metadata` 34468, the core grew 736, budget 436456, 22296 under; the three samples byte-identical to P1's, P2's and P3's runs; planning's own probes and reruns reproduce every figure) |
 | Close | close-out push after P4, carrying 21f1434 and this part's commits, the previous-record pattern naming 21f1434, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-04 (doc a8dd1d3 pushed, origin/main 50d9e70..a8dd1d3, 22 commits, CI 37223570403 success, record 0caa390 local; the Excel check deferred an eighth time, decision 7) |
 
-### Part 4: outline grouping and row and column styles (`specs/0026-grouping-and-line-styles.md`, IN PROGRESS from 2026-10-04)
+### Part 4: outline grouping and row and column styles (`specs/0026-grouping-and-line-styles.md`, DONE and PUSHED 2026-10-05)
 
 Approved by the maintainer 2026-10-04 ("A on all"): outline levels
 1 to 7 on rows and on columns with the hidden flag of the group
@@ -802,7 +802,35 @@ this part's close-out push (decision 7).
 | P1 | the settings pass gated under either feature, `group_rows`, `group_columns` with the coalescing, `set_row_collapsed`, `set_column_collapsed`, `set_outline_summary`, the `sheetFormatPr` maximums, `--group-sample` on the corpus | DONE 2026-10-04 (doc 56ebb3f, crate 7b3d9b2, tool 7693267 and 93a92d5, record d26c470; 27 of 27 ok on both labels, LibreOffice ok, five rows edited in place and the rest created; 22 crate and 3 tool tests; planning's own rerun byte-identical) |
 | P2 | `set_row_style`, `set_column_style` with the index check at the write, `--linestyle-sample` on the corpus | DONE 2026-10-04 (doc c7c9e39, carry d1278c3, crate 9d266f0, tool 8416a1e, record 4a23c4b; 27 of 27 ok on both labels, LibreOffice ok, W and the styles part changed and every other entry identical; 13 crate and 2 tool tests; planning's own rerun byte-identical) |
 | P3 | the catalogue and limits; the rowcol probe grown and the size record; both samples rerun byte-identical | DONE 2026-10-05 (doc dcdb50d, carry 34ac951, catalogue de5c09f, probe ef392d4, record 23f9589; `rowcol` grew 22888 section bytes to 58136, the core grew 472, budget 436928, 21824 under; both samples byte-identical to P1's and P2's runs; planning's own probes and reruns reproduce every figure) |
-| Close | close-out push after P3, carrying 0caa390 and this part's commits, the previous-record pattern naming 0caa390, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
+| Close | close-out push after P3, carrying 0caa390 and this part's commits, the previous-record pattern naming 0caa390, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-05 (doc 6e03f98 pushed, origin/main a8dd1d3..6e03f98, 17 commits, CI 37307047253 success, record d64b4e8 local; the Excel check deferred a ninth time, decision 7) |
+
+### Part 5: reading back as typed values (`specs/0027-read-back.md`, IN PROGRESS from 2026-10-05)
+
+Approved by the maintainer 2026-10-05 ("A on all"): a cell's
+format resolved on request through `cellXfs` into the writers'
+own types (font, fill, border, alignment, protection, number
+format), the styles part parsed typed once and `Cell` unchanged;
+column formats as a list and row formats as a streaming iterator,
+part 4's levels, flags and styles among them; a worksheet's
+frozen pane, merges, hyperlinks, protection and every setting part
+3 writes read in one pass; what the writer types cannot hold (a
+gradient fill, a split pane, eight minor attributes) read as None
+or read past, each case named in the catalogue, so every value
+read is one the writer accepts, which a round-trip sample proves
+on the corpus; the shared strings table's hold stated with the
+scale record's figures and a streaming item iterator added beside
+it, measured on tier d. Reads only. Feature `read`, off by default,
+one probe, the writers' types lifted under either feature;
+planning's estimate 35000 to 50000 section bytes, priced from
+parts 2 to 4. The Milestone 2 Excel check is due before this
+part's close-out push (decision 7).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature, the font reader shared with part 2, the fill, border, alignment and protection readers, `Styles`'s typed fields, `CellStyle` and `cell_style`, `--roundtrip-sample` on the corpus | PENDING |
+| P2 | `columns`, the `rows` iterator, `sheet_settings` in one pass with `HyperlinkEntry`, `shared_string_items`, `--read-sample` on the corpus and tier d's `--items` under the cap | PENDING |
+| P3 | the catalogue and limits; the probe and the size record; both samples rerun byte-identical | PENDING |
+| Close | close-out push after P3, carrying d64b4e8 and this part's commits, the previous-record pattern naming d64b4e8, one independent check; the Milestone 2 Excel check run or deferred again before it | PENDING |
 
 ## Unscoped
 

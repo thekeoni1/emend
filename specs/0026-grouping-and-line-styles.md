@@ -719,6 +719,47 @@ two run directories'; planning's own privacy scan 4a23c4b..23f9589,
    `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
    "Close-out push (after P3)" says.
 
+## Planning verification and rulings on the close-out (2026-10-05)
+
+Verified by planning from primaries: `origin/main` at the
+close-out doc commit 6e03f98, 17 commits over a8dd1d3 (0caa390,
+this part's fifteen and the doc commit), the doc commit holding
+this file at 925aae32 and `ROADMAP.md` at a522deca, the hashes
+planning sent; the CI run 37307047253 completed with success on
+6e03f98, read by planning through `gh`; the record commit
+d64b4e8, parent 6e03f98, exactly the three logs, the one local
+commit ahead, its message naming decision 7's deferral; the logs
+at the reported hashes, each ending all as expected, the scan
+RESULT: PASS with the `ANTHROPIC_API_KEY` check; push.log's push
+mode showing the authorisation typed by the maintainer in the
+implementing session ("push", 10/5/26) and git's own
+`a8dd1d3..6e03f98`; 17 of 17 pushed messages ASCII, ending with
+the Co-Authored-By line only; the repository PRIVATE; planning's
+own privacy scan a8dd1d3..d64b4e8, 18 commits, 1292 blobs, 0
+findings; `ANTHROPIC_API_KEY` unset.
+
+1. The independent check's reservations (the carried scripts'
+   provenance, an unlogged aside the implementing session ran;
+   a diff header with machine paths kept uncommitted; the typed
+   authorisation proven by the inputs, its typing by the record
+   message and the session; the next-push intent): working-state
+   facts or allowed; accepted, no change, as the earlier
+   close-outs. The authorisation was typed in the implementing
+   session, where the maintainer answers that script.
+2. Milestone 3 part 4 is DONE and PUSHED. The record commit
+   d64b4e8 goes with the next push; the next part's push script
+   names it by `^M3 part 4 close-out record`, its base this
+   close-out's doc commit 6e03f98 by its subject ("M3 part 4
+   close-out: commit planning docs (the P3 verification and
+   rulings, decision 7 deferred again)").
+3. Carried into part 5's first code commit: the catalogue's "a
+   column group" and the probe's "a fourth time" (P3 verification
+   ruling 2). The Milestone 2 Excel check, with this part's two
+   samples on its list, is due before part 5's close-out push
+   (decision 7). Part 5's estimate is priced from parts 2 to 4.
+4. These rulings are written into the working spec after the
+   close-out doc commit; they go in part 5's first doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-04: 1 to 6 as recommended (A in
