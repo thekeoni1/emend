@@ -5210,3 +5210,99 @@ fn the_read_sample_refuses_two_sheet_views_and_leaves_nothing() {
         "--read-sample",
     );
 }
+
+// ----------------------------------------------------- --commentbox-sample
+
+/// `comment_specs` with the kept note shape's `style` given as `style`, and
+/// the VML part's root end tag left out when `ended` is false.
+fn commentbox_specs(style: Option<&str>, ended: bool) -> Vec<Spec> {
+    let mut specs = comment_specs(A_CELL, "<legacyDrawing r:id=\"rId2\"/>", Some("emend"));
+    for spec in &mut specs {
+        if spec.name == b"xl/drawings/vmlDrawing1.vml" {
+            let mut vml = String::from_utf8(spec.data.clone()).expect("UTF-8");
+            if let Some(style) = style {
+                vml = vml.replace(
+                    "type=\"#_x0000_t202\">",
+                    &format!("type=\"#_x0000_t202\" style=\"{style}\">"),
+                );
+            }
+            if !ended {
+                vml = vml.replace("</xml>", "");
+            }
+            *spec = Spec::stored(b"xl/drawings/vmlDrawing1.vml", vml.as_bytes());
+        }
+    }
+    specs
+}
+
+#[test]
+fn the_commentbox_sample_adds_a_shown_box_and_reads_it_back() {
+    // `specs/0028-images-and-comments-second-half.md`, "Harness runs": M is
+    // 1, so the comment goes on A2 with the box 200 by 100, shown, written
+    // as 150 by 75 points. With neither part both are created; with both,
+    // each is appended to, a kept shape with a size counting in
+    // `sized_before`.
+    for (label, specs, line) in [
+        (
+            "commentbox-sample-created",
+            comment_specs(A_CELL, "", None),
+            "commentbox\tcomments_before=0\tcomments_after=1\tshapes_before=0\tshapes_after=1\
+             \tsized_before=0\tbox_equal=1\tvisible_after=1\n",
+        ),
+        (
+            "commentbox-sample-appended",
+            commentbox_specs(None, true),
+            "commentbox\tcomments_before=1\tcomments_after=2\tshapes_before=1\tshapes_after=2\
+             \tsized_before=0\tbox_equal=1\tvisible_after=1\n",
+        ),
+        (
+            "commentbox-sample-sized",
+            commentbox_specs(Some("width:108pt;height:59.25pt;visibility:hidden"), true),
+            "commentbox\tcomments_before=1\tcomments_after=2\tshapes_before=1\tshapes_after=2\
+             \tsized_before=1\tbox_equal=1\tvisible_after=1\n",
+        ),
+    ] {
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--commentbox-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        if label != "commentbox-sample-created" {
+            let vml = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/vmlDrawing1.vml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert!(
+                vml.contains("width:150pt;height:75pt;z-index:2;visibility:visible\""),
+                "{vml}"
+            );
+            assert!(
+                vml.contains("<x:Visible/><x:Row>1</x:Row><x:Column>0</x:Column>"),
+                "{vml}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[b"xl/comments1.xml", b"xl/drawings/vmlDrawing1.vml"],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_commentbox_sample_refuses_a_vml_part_without_its_root_end_tag_and_leaves_nothing() {
+    // The negative log's fixture through the binary as well
+    // (`specs/0028-images-and-comments-second-half.md`, "P1"); its control
+    // is `commentbox-sample-appended` above, the same part with the end tag.
+    styled_run_refused(
+        "commentbox-sample-unended",
+        &commentbox_specs(None, false),
+        "a comments part or its drawing cannot be read",
+        "--commentbox-sample",
+    );
+}

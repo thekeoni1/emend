@@ -621,6 +621,22 @@
 //!   `styles_in`; a failure is exit 2 with the message and no output, and so
 //!   is a refusal by the layer (a style it cannot read, a value it cannot
 //!   write).
+//! - `--commentbox-sample`: the comment box sample of
+//!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
+//!   with M as `--table-sample` has it, a comment by `emend` with the text
+//!   `emend box` on (M + 1, 1), then its box set to 200 by 100 pixels,
+//!   shown. The output is reopened. One line: the word `commentbox` then
+//!   `comments_before` and `comments_after` (the entries `Package::comments`
+//!   reads from W), `shapes_before` and `shapes_after` (the note shapes of
+//!   W's VML part, by this tool's own pass), `sized_before` (the input's
+//!   entries whose box reads `Some`), `box_equal` (1 when the added entry's
+//!   box reads back equal to the box set) and `visible_after` (1 when it
+//!   reads back shown). COUNTS ONLY: the author, the text and the box are
+//!   this tool's constants and no reference is printed. Asserted:
+//!   `comments_after` and `shapes_after` one more than before, `box_equal`
+//!   and `visible_after` 1; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer (M + 1 past the grid, a VML
+//!   part it cannot read).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -644,12 +660,12 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentEntry, DRAWING,
-    ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image, LinkTarget, MAIN, Operator,
-    Orientation, PIVOT_TABLE, Package, PageMargins, PageSetup, PrintOptions, Properties, Property,
-    RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView, TABLE, Table, TableStyle,
-    TableStyleInfo, VML_DRAWING, Validation, ValidationKind, legacy_password_hash,
-    rels_part_source,
+    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentBox,
+    CommentEntry, DRAWING, ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image, LinkTarget,
+    MAIN, Operator, Orientation, PIVOT_TABLE, Package, PageMargins, PageSetup, PrintOptions,
+    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView,
+    TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind,
+    legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -666,7 +682,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
-| --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items]";
+| --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
+| --commentbox-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -767,6 +784,8 @@ enum Operation {
     /// Every cell format W uses read back typed and added again, and the
     /// counts.
     RoundtripSample,
+    /// A comment with a shown box past the last row, and the counts.
+    CommentboxSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -814,6 +833,7 @@ enum Error {
     LinestyleSample(&'static str),
     RoundtripSample(&'static str),
     ReadSample(&'static str),
+    CommentboxSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -918,6 +938,9 @@ impl fmt::Display for Error {
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
+            }
+            Error::CommentboxSample(what) => {
+                write!(f, "the output's {what} is not what the comment box implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -1071,6 +1094,11 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::LinestyleSample,
+        ),
+        [input, output, flag] if flag == "--commentbox-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::CommentboxSample,
         ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
@@ -1226,6 +1254,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RoundtripSample) {
         return roundtrip_sample(input, output);
     }
+    if matches!(operation, Operation::CommentboxSample) {
+        return commentbox_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1286,6 +1317,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::GroupSample => unreachable!("the group sample has its own path"),
         Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
         Operation::RoundtripSample => unreachable!("the round-trip sample has its own path"),
+        Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4177,6 +4209,110 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
 
 /// The comment sample's author, the tool's constant.
 const SAMPLE_AUTHOR: &str = "emend";
+
+/// The comment box sample's box, the tool's constant
+/// (`specs/0028-images-and-comments-second-half.md`, "Harness runs").
+const SAMPLE_BOX: CommentBox = CommentBox {
+    width: 200,
+    height: 100,
+    visible: true,
+};
+
+/// The comment box sample (`specs/0028-images-and-comments-second-half.md`,
+/// "Harness runs", `--commentbox-sample`): a comment on the cell below W's
+/// last row with the tool's box, the output written and read back. A failure
+/// after the output is in place removes it; a refusal by the layer is exit 2
+/// with no output.
+fn commentbox_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let kept = package.comments(&part)?;
+    let comments_before = kept.len() as u64;
+    let sized_before = kept.iter().filter(|entry| entry.shape.is_some()).count() as u64;
+    let shapes_before = match related(&mut package, &part, VML_DRAWING)? {
+        Some(target) => note_shapes(&mut package, &target)?,
+        None => 0,
+    };
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    let cell = CellRef { row, col: 1 };
+    package.add_comment(
+        &part,
+        cell,
+        Comment {
+            author: SAMPLE_AUTHOR,
+            text: "emend box",
+        },
+    )?;
+    package.set_comment_box(&part, cell, SAMPLE_BOX)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = commentbox_read_back(output, &part, cell, comments_before, shapes_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (comments_after, shapes_after, box_equal, visible_after) = checked?;
+    edit_line_named(
+        "commentbox",
+        &[
+            ("comments_before", comments_before),
+            ("comments_after", comments_after),
+            ("shapes_before", shapes_before),
+            ("shapes_after", shapes_after),
+            ("sized_before", sized_before),
+            ("box_equal", box_equal),
+            ("visible_after", visible_after),
+        ],
+    )
+}
+
+/// Reopens the comment box sample's output and asserts one more comment and
+/// note shape on W and the added comment's box read back equal and shown;
+/// gives the comments, the note shapes and the two flags.
+fn commentbox_read_back(
+    output: &Path,
+    part: &[u8],
+    cell: CellRef,
+    comments_before: u64,
+    shapes_before: u64,
+) -> Result<(u64, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let read = package.comments(part)?;
+    let comments_after = read.len() as u64;
+    if comments_after != comments_before + 1 {
+        return Err(Error::CommentboxSample("comment count"));
+    }
+    let shapes_after = match related(&mut package, part, VML_DRAWING)? {
+        Some(target) => note_shapes(&mut package, &target)?,
+        None => 0,
+    };
+    if shapes_after != shapes_before + 1 {
+        return Err(Error::CommentboxSample("note shape count"));
+    }
+    let shape = read
+        .iter()
+        .find(|entry| entry.cell == cell)
+        .ok_or(Error::CommentboxSample("written comment"))?
+        .shape;
+    let box_equal = u64::from(shape == Some(SAMPLE_BOX));
+    if box_equal != 1 {
+        return Err(Error::CommentboxSample("written comment's box"));
+    }
+    let visible_after = u64::from(shape.is_some_and(|shape| shape.visible));
+    if visible_after != 1 {
+        return Err(Error::CommentboxSample("written comment's visibility"));
+    }
+    Ok((comments_after, shapes_after, box_equal, visible_after))
+}
 
 /// The image sample's PNG, the tool's constant (`specs/0022-comments-and-
 /// images.md`, "Harness runs", and P3 ruling 2): 2 by 2 pixels, RGB, red,
