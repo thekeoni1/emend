@@ -651,6 +651,74 @@ scan d26c470..4a23c4b, 0 findings; `ANTHROPIC_API_KEY` unset.
    record", the rerun with ruling 3's plant and the survey's
    `hidden` rule.
 
+## Planning verification and rulings on P3 (2026-10-05)
+
+Verified by planning from primaries: the doc commit dcdb50d holds
+this file at 250ee898 and `ROADMAP.md` at f6a3afa7, the hashes
+planning sent; the carry commit 34ac951 (the doc lines, `//!`
+alone in the tool, and the exact-cover test), the catalogue
+commit de5c09f (`//!` lines alone, 0 other lines, read in full)
+and the probe commit ef392d4 read by planning; the record commit
+23f9589 adds the seven logs and seven records; 5 of 5 messages
+ASCII, ending with the Co-Authored-By line only; the logs at the
+hashes planning read from the files (the implementing session's
+message gave the run log's hash wrongly twice before pasting it;
+planning reads hashes from files, never from messages), each
+ending all as expected, the scan RESULT: PASS, every log pinning
+250ee898; the check answer ASCII; the compound-shape grep 0; every
+`rm -rf` in the logs the guarded form on a directory the script
+made or `counting.sh`'s own; planning's own build at ef392d4 in a
+detached worktree: 513 and 838 crate tests on both targets, 1020
+workspace tests on both, clippy and doc 0 lines; planning's own
+probes in the size profile on i686: `probe-zip-xml` 533216, the
+format probe 970144 (969672 at 01b14c0 in its own worktree) and
+the rowcol probe 1028280 section bytes, so `rowcol`'s cost 58136,
+its growth 22888 over part 3's 35248, the core's growth 472 and
+the budget 436928 (21824 under 458752) are reproduced to the byte;
+the i686 release `emend-copy` at the size log's hash eae9852c (the
+host's differs by build path); planning's own reruns of both
+samples with its own binaries over all 27 corpus workbooks on
+both labels, 108 outputs and 108 tool lines byte-identical to the
+two run directories'; planning's own privacy scan 4a23c4b..23f9589,
+0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Size. `rowcol` grew 22888 section bytes, above planning's
+   10000 to 20000 and under the 25000 threshold: the estimate
+   missed the per-column recording, the coalescing with its
+   whitespace handling and the settings pass's second feature
+   gate. Recorded; nothing traded for it. The core grew 472, under
+   2000, the ungated paths of P1 and P2 (planning's reading).
+   Headroom is 21824. Part 5's estimate is priced from parts 2 to
+   4.
+2. Finding 1: the catalogue's "a group" reads "a column group"
+   (P1 ruling 2 names the three column calls); "its content too"
+   is accurate. Finding 3: "Size"'s "on its fourth write before
+   the shift" could not be met literally, since a group beside a
+   shift of its part is refused, so the probe writes the group
+   output separately with three new arguments and the shifts
+   start from it; accepted, and "Size" reads as the probe does;
+   the probe's doc comment still saying "a fourth time" is fixed
+   with the catalogue phrase. Both `//!` and `//` fixes go in
+   part 5's first code commit; the commit message's sentence
+   stands as history.
+3. Finding 2: the shared messages reachable through the samples
+   (the cols-order message, `Error::Xml`) are the earlier parts'
+   constants, left to their negative logs as `specs/0025` P3
+   verification ruling 4 ruled; accepted. The scan ran with
+   `PLANNING_SPEC` unset on a clean tree, as part 3's P4 scan did;
+   accepted.
+4. The two wrong run-log hashes in the implementing session's
+   messages, corrected by it before planning read the file:
+   working state; the gotcha it recorded (a hash goes into a
+   message only after the command that prints it has returned)
+   stands for both sessions.
+5. P3 is DONE. Decision 7 was asked and the maintainer deferred
+   the Milestone 2 Excel check a ninth time (recorded under
+   decision 7). The close-out is released: its doc commit carries
+   this file with this section and decision 7's outcome, and
+   `ROADMAP.md`'s P3 row and Milestone 2 heading; the rest as
+   "Close-out push (after P3)" says.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-04: 1 to 6 as recommended (A in
@@ -685,6 +753,12 @@ question, typed in the planning session; 7 recorded.
    2026-10-04 (`specs/0025` decision 7), to run before this part's
    close-out push at the latest or be deferred again by a decision
    recorded here. Recorded, not asked now; asked at the close-out.
+   Deferred a ninth time on 2026-10-05 ("Defer again (9th)", typed
+   in the planning session after P3's verification, before the
+   close-out's doc commit): the check, now with this part's two
+   samples on its list, runs before Milestone 3 part 5's close-out
+   push at the latest or is deferred again by a decision recorded
+   in part 5's spec; the push proceeds without it.
 
 ## Out of scope
 
