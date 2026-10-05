@@ -32,4 +32,4 @@ publish = false
 # (specs/0025-sheet-and-print-settings.md, decision 1 A), which has none
 # either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext", "sheetprops"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext", "sheetprops", "read"] }

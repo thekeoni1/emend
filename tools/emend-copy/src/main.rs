@@ -578,6 +578,23 @@
 //!   `xfs_before`; a failure is exit 2 with the message and no output, and
 //!   so is a refusal by the layer (M + 1 past the grid, a styles part the
 //!   layer cannot take a format into).
+//! - `--roundtrip-sample`: the round-trip sample of
+//!   `specs/0027-read-back.md`, "Harness runs": for each distinct `s` of
+//!   W's cells, in increasing order, `cell_style(s)`, then `add_style` with
+//!   no base and every field of the value read (a fill of `None` given as no
+//!   fill). The output is reopened and each added cell format resolved with
+//!   `cell_style` again. One line: the word `roundtrip` then `styles_in`
+//!   (distinct `s` on W), `styles_added`, `xfs_before`, `xfs_after`,
+//!   `fonts_before`, `fonts_after`, `fills_before`, `fills_after`,
+//!   `borders_before`, `borders_after` and `equal` (added cell formats that
+//!   read back equal to the value read from the input). COUNTS ONLY: no
+//!   reference, index, name or code is printed. Asserted: `styles_added`
+//!   equal to `styles_in`, `xfs_after` equal to `xfs_before + styles_in`,
+//!   each collection grown by the distinct values added (equal values share
+//!   one element, as `add_style` records them), and `equal` equal to
+//!   `styles_in`; a failure is exit 2 with the message and no output, and so
+//!   is a refusal by the layer (a style it cannot read, a value it cannot
+//!   write).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -623,7 +640,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
-| --group-sample | --linestyle-sample]";
+| --group-sample | --linestyle-sample | --roundtrip-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -717,6 +734,9 @@ enum Operation {
     GroupSample,
     /// A style on a row and a column, and the counts.
     LinestyleSample,
+    /// Every cell format W uses read back typed and added again, and the
+    /// counts.
+    RoundtripSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -762,6 +782,7 @@ enum Error {
     PrintareaSample(&'static str),
     GroupSample(&'static str),
     LinestyleSample(&'static str),
+    RoundtripSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -860,6 +881,9 @@ impl fmt::Display for Error {
             }
             Error::LinestyleSample(what) => {
                 write!(f, "the output's {what} is not what the line styles imply")
+            }
+            Error::RoundtripSample(what) => {
+                write!(f, "the output's {what} is not what the round trip implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -1008,6 +1032,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::LinestyleSample,
         ),
+        [input, output, flag] if flag == "--roundtrip-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::RoundtripSample,
+        ),
         [input, output, flag] if flag == "--cf-sample" => {
             run(Path::new(input), Path::new(output), Operation::CfSample)
         }
@@ -1154,6 +1183,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::LinestyleSample) {
         return linestyle_sample(input, output);
     }
+    if matches!(operation, Operation::RoundtripSample) {
+        return roundtrip_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1211,6 +1243,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::PrintareaSample => unreachable!("the print area sample has its own path"),
         Operation::GroupSample => unreachable!("the group sample has its own path"),
         Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
+        Operation::RoundtripSample => unreachable!("the round-trip sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -5721,6 +5754,134 @@ fn linestyle_sample(input: &Path, output: &Path) -> Result<(), Error> {
 
 /// The column the line style sample styles.
 const LINESTYLE_COLUMN: u32 = 9;
+
+/// The round-trip sample (`specs/0027-read-back.md`, "Harness runs",
+/// `--roundtrip-sample`): each cell format W's cells name read with
+/// `cell_style`, added again with no base and every field of the value
+/// read, the output written and each addition read back. A failure after
+/// the output is in place removes it; a refusal by the layer is exit 2 with
+/// no output.
+fn roundtrip_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let mut used = std::collections::BTreeSet::new();
+    for cell in package.cells(&part)? {
+        if let Some(style) = cell?.style {
+            used.insert(style);
+        }
+    }
+    let before = collection_counts(&mut package)?;
+    let mut read = Vec::new();
+    for &index in &used {
+        read.push(package.cell_style(index)?);
+    }
+    let mut added = Vec::new();
+    for style in &read {
+        added.push(package.add_style(
+            None,
+            &Style {
+                number_format: Some(style.number_format.clone()),
+                font: Some(style.font.clone()),
+                fill: style.fill,
+                border: Some(style.border),
+                alignment: style.alignment,
+                protection: style.protection,
+            },
+        )?);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = roundtrip_read_back(output, &read, &added, before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, equal) = checked?;
+    edit_line_named(
+        "roundtrip",
+        &[
+            ("styles_in", used.len() as u64),
+            ("styles_added", added.len() as u64),
+            ("xfs_before", before[0]),
+            ("xfs_after", after[0]),
+            ("fonts_before", before[1]),
+            ("fonts_after", after[1]),
+            ("fills_before", before[2]),
+            ("fills_after", after[2]),
+            ("borders_before", before[3]),
+            ("borders_after", after[3]),
+            ("equal", equal),
+        ],
+    )
+}
+
+/// The styles part's cell formats, fonts, fills and borders, in that order,
+/// a missing collection as 0.
+fn collection_counts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<[u64; 4], Error> {
+    let styles = package.styles()?;
+    Ok([
+        styles.cell_xfs.len() as u64,
+        u64::from(styles.fonts().unwrap_or(0)),
+        u64::from(styles.fills().unwrap_or(0)),
+        u64::from(styles.borders().unwrap_or(0)),
+    ])
+}
+
+/// The number of distinct values among `values`, equal ones counted once,
+/// as `add_style` records one element for equal additions.
+fn distinct<T: PartialEq>(values: impl Iterator<Item = T>) -> u64 {
+    let mut seen: Vec<T> = Vec::new();
+    for value in values {
+        if !seen.contains(&value) {
+            seen.push(value);
+        }
+    }
+    seen.len() as u64
+}
+
+/// Reopens the round-trip sample's output and asserts what
+/// `--roundtrip-sample` says it asserts; gives the counts after and the
+/// number of additions that read back equal.
+fn roundtrip_read_back(
+    output: &Path,
+    read: &[emend::styles::CellStyle],
+    added: &[u32],
+    before: [u64; 4],
+) -> Result<([u64; 4], u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = collection_counts(&mut package)?;
+    let count = read.len() as u64;
+    if added.len() != read.len() || after[0] != before[0] + count {
+        return Err(Error::RoundtripSample("cell format count"));
+    }
+    let grown = [
+        distinct(read.iter().map(|style| &style.font)),
+        distinct(read.iter().filter_map(|style| style.fill.as_ref())),
+        distinct(read.iter().map(|style| &style.border)),
+    ];
+    for (at, what) in [(1, "font count"), (2, "fill count"), (3, "border count")] {
+        if after[at] != before[at] + grown[at - 1] {
+            return Err(Error::RoundtripSample(what));
+        }
+    }
+    let mut equal = 0u64;
+    for (style, &index) in read.iter().zip(added) {
+        if package.cell_style(index)? == *style {
+            equal += 1;
+        }
+    }
+    if equal != count {
+        return Err(Error::RoundtripSample("read-back style"));
+    }
+    Ok((after, equal))
+}
 
 /// The attributes the line style sample's split and edit set on a `<col>`.
 const LINESTYLE_SET: [&[u8]; 3] = [b"min", b"max", b"style"];

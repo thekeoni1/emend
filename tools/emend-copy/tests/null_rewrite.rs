@@ -5029,3 +5029,82 @@ fn the_linestyle_sample_refuses_a_full_sheet_and_leaves_nothing() {
         "--linestyle-sample",
     );
 }
+
+/// A styles part with two fonts, the two fills, one border and three cell
+/// formats, the second with an alignment, each element in the writer's own
+/// form. Fictional.
+fn roundtrip_styles(second_font: &str) -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><fonts count=\"2\"><font><sz val=\"11\"/></font>\
+         {second_font}</fonts><fills count=\"2\"><fill><patternFill patternType=\"none\"/></fill>\
+         <fill><patternFill patternType=\"gray125\"/></fill></fills>\
+         <borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\
+         <cellXfs count=\"3\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/>\
+         <xf numFmtId=\"10\" fontId=\"1\" fillId=\"1\" borderId=\"0\">\
+         <alignment horizontal=\"center\" wrapText=\"1\"/></xf>\
+         <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\"/></cellXfs></styleSheet>"
+    )
+}
+
+#[test]
+fn the_roundtrip_sample_adds_each_used_style_again_and_reads_it_back_equal() {
+    // `specs/0027-read-back.md`, "Harness runs", `--roundtrip-sample`: W's
+    // cells name cell formats 1 and 2, which share font 1; each is read and
+    // added again with no base, so one font, two fills and one border are
+    // appended, and both read back equal.
+    let font = "<font><b/><sz val=\"10\"/><color theme=\"1\"/><name val=\"Fict\"/></font>";
+    let specs = styled_specs(
+        "<sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c><c r=\"B1\" s=\"2\"><v>2</v>\
+         </c><c r=\"C1\"><v>3</v></c></row><row r=\"2\"><c r=\"A2\" s=\"1\"><v>4</v></c></row>\
+         </sheetData>",
+        &roundtrip_styles(font),
+    );
+    let dir = TempDir::new("roundtrip-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--roundtrip-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "roundtrip\tstyles_in=2\tstyles_added=2\txfs_before=3\txfs_after=5\
+         \tfonts_before=2\tfonts_after=3\tfills_before=2\tfills_after=4\tborders_before=1\
+         \tborders_after=2\tequal=2\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let styles = String::from_utf8(entry_named(&entries, b"xl/styles.xml").compressed.clone())
+        .expect("UTF-8");
+    // The appended elements are the ones read, in the writer's form.
+    for (element, times) in [
+        (font, 2),
+        ("<fill><patternFill patternType=\"gray125\"/></fill>", 2),
+        ("<fill><patternFill patternType=\"none\"/></fill>", 2),
+        (
+            "<border><left/><right/><top/><bottom/><diagonal/></border>",
+            2,
+        ),
+        ("<alignment horizontal=\"center\" wrapText=\"1\"/>", 2),
+    ] {
+        assert_eq!(styles.matches(element).count(), times, "{element}");
+    }
+    untouched_but(&entries, &specs, &[b"xl/styles.xml"]);
+}
+
+#[test]
+fn the_roundtrip_sample_refuses_a_font_past_its_list_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0027-read-back.md`, "P1"): cell format 1 names font 1 and
+    // `<fonts>` holds one.
+    let styles = roundtrip_styles("").replace("<fonts count=\"2\">", "<fonts count=\"1\">");
+    styled_run_refused(
+        "roundtrip-sample-font-past",
+        &styled_specs(
+            "<sheetData><row r=\"1\"><c r=\"A1\" s=\"1\"><v>1</v></c></row></sheetData>",
+            &styles,
+        ),
+        "a style cannot be read",
+        "--roundtrip-sample",
+    );
+}
