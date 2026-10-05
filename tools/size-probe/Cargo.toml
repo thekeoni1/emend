@@ -69,6 +69,10 @@ richtext = ["emend", "xml", "emend/richtext"]
 # "Size", under decision 1 A), each built with its own feature set as the
 # richtext probes are.
 sheetprops = ["emend", "xml", "emend/sheetprops"]
+# Enables emend's own `read` feature, for probe-emend-read-write-xml alone
+# (specs/0027-read-back.md, "Size", under decision 1 A), built with its own
+# feature set as the sheetprops probe is.
+read = ["emend", "xml", "emend/read"]
 
 [[bin]]
 name = "probe-zip"
@@ -193,3 +197,8 @@ required-features = ["sheetprops"]
 name = "probe-emend-printnames-write-xml"
 path = "src/bin/probe-emend-printnames-write-xml.rs"
 required-features = ["metadata", "sheetprops"]
+
+[[bin]]
+name = "probe-emend-read-write-xml"
+path = "src/bin/probe-emend-read-write-xml.rs"
+required-features = ["read"]
