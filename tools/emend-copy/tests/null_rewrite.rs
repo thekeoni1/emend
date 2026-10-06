@@ -5306,3 +5306,133 @@ fn the_commentbox_sample_refuses_a_vml_part_without_its_root_end_tag_and_leaves_
         "--commentbox-sample",
     );
 }
+
+// -------------------------------------- --anchor-sample, --remove-image-sample
+
+#[test]
+fn the_anchor_sample_adds_a_two_cell_and_an_absolute_image() {
+    // `specs/0028-images-and-comments-second-half.md`, "Harness runs": M is
+    // 1, so the two-cell anchor runs from A2 to C4, `editAs` `oneCell`, and
+    // the absolute one sits at 96 by 96 pixels, 4 by 4 pixels in size.
+    for (label, drawing, after, line) in [
+        (
+            "anchor-sample-created",
+            false,
+            "",
+            "anchor\timages_before=0\timages_after=2\ttwo_after=1\tabsolute_after=1\
+             \tanchors_before=0\tanchors_after=2\tmedia_before=0\tmedia_after=2\n",
+        ),
+        (
+            "anchor-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+            "anchor\timages_before=1\timages_after=3\ttwo_after=2\tabsolute_after=1\
+             \tanchors_before=1\tanchors_after=3\tmedia_before=1\tmedia_after=3\n",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--anchor-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert!(
+                text.contains(
+                    "<xdr:twoCellAnchor editAs=\"oneCell\"><xdr:from><xdr:col>0</xdr:col>\
+                     <xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff>\
+                     </xdr:from><xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff>\
+                     <xdr:row>3</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>"
+                ),
+                "{text}"
+            );
+            assert!(
+                text.contains(
+                    "<xdr:absoluteAnchor><xdr:pos x=\"914400\" y=\"914400\"/>\
+                     <xdr:ext cx=\"38100\" cy=\"38100\"/>"
+                ),
+                "{text}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_remove_image_sample_removes_its_addition_and_the_first_kept_image() {
+    // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
+    // no drawing, the addition and its removal leave none; with a drawing of
+    // one picture, the addition and the kept picture go, the drawing with
+    // its rels part, its media entry and the sheet's `<drawing>`.
+    for (label, drawing, after, line) in [
+        (
+            "removeimage-sample-none",
+            false,
+            "",
+            "removeimage\timages_before=0\timages_after=0\tkept_removed=0\tmedia_before=0\
+             \tmedia_after=0\tmedia_dropped=0\tdrawing_dropped=1\tanchors_before=0\
+             \tanchors_after=0\n",
+        ),
+        (
+            "removeimage-sample-kept",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+            "removeimage\timages_before=1\timages_after=0\tkept_removed=1\tmedia_before=1\
+             \tmedia_after=0\tmedia_dropped=1\tdrawing_dropped=0\tanchors_before=1\
+             \tanchors_after=0\n",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--remove-image-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for gone in [
+            b"xl/drawings/drawing1.xml".as_slice(),
+            b"xl/drawings/_rels/drawing1.xml.rels",
+            b"xl/media/image1.png",
+        ] {
+            assert!(
+                !entries.iter().any(|entry| entry.name == gone),
+                "{}",
+                String::from_utf8_lossy(gone)
+            );
+        }
+    }
+}
+
+#[test]
+fn the_remove_image_sample_refuses_a_missing_media_entry_and_leaves_nothing() {
+    // The negative log's fixture through the binary as well
+    // (`specs/0028-images-and-comments-second-half.md`, "P2"); its control
+    // is `removeimage-sample-kept` above, the same package with the entry.
+    let mut missing = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    missing.retain(|spec| spec.name != b"xl/media/image1.png");
+    styled_run_refused(
+        "removeimage-sample-missing",
+        &missing,
+        "a drawing part or its relationship cannot be read",
+        "--remove-image-sample",
+    );
+}

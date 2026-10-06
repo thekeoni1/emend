@@ -637,6 +637,41 @@
 //!   and `visible_after` 1; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer (M + 1 past the grid, a VML
 //!   part it cannot read).
+//! - `--anchor-sample`: the anchor sample of
+//!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
+//!   with M as `--table-sample` has it, the tool's PNG on a two-cell anchor
+//!   from (M + 1, 1) to (M + 3, 3), zero offsets, `editAs` `oneCell`, at its
+//!   own size, and on an absolute anchor at (96, 96) pixels sized 4 by 4.
+//!   The output is reopened. One line: the word `anchor` then
+//!   `images_before` and `images_after` (the entries `Package::images`
+//!   reads from W), `two_after` and `absolute_after` (those of each anchor
+//!   kind), `anchors_before` and `anchors_after` (the root children of W's
+//!   drawing part, by this tool's own pass), `media_before` and
+//!   `media_after` (the archive's entries under `xl/media/`). COUNTS ONLY.
+//!   Asserted: `images_after`, `anchors_after` and `media_after` two more
+//!   than before, `two_after` and `absolute_after` each one more than the
+//!   input's; a failure is exit 2 with the message and no output, and so is
+//!   a refusal by the layer (M + 3 past the grid, a drawing it cannot read).
+//! - `--remove-image-sample`: the image removal sample of
+//!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
+//!   with M as `--table-sample` has it, the tool's PNG on (M + 1, 1), the
+//!   write going into memory and that reopened; then `remove_image` of the
+//!   last index (the addition) and, when the input's `images(W)` is not
+//!   empty, of index 0 too; the output written and reopened. One line: the
+//!   word `removeimage` then `images_before` and `images_after`,
+//!   `kept_removed` (1 when the input had an image), `media_before`,
+//!   `media_after`, `media_dropped` (`media_before - media_after`),
+//!   `drawing_dropped` (1 when neither the input nor the output has a
+//!   drawing for W), `anchors_before` and `anchors_after`. COUNTS ONLY.
+//!   Asserted: `images_after` is `images_before - kept_removed`;
+//!   `media_dropped` is 0 when `kept_removed` is 0, else the count of media
+//!   entries the removed picture's root child names through `r:embed` or
+//!   `r:link`, by relationships no other root child of the drawing names,
+//!   that no other relationship of any rels part of the input targets, by
+//!   this tool's own pass; `drawing_dropped` is 1 when the input had no
+//!   drawing; a failure is exit 2 with the message and no output, and so is
+//!   a refusal by the layer (M + 1 past the grid, a drawing or a media entry
+//!   it cannot read).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -660,12 +695,12 @@ use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reade
 use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
-    COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentBox,
-    CommentEntry, DRAWING, ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image, LinkTarget,
-    MAIN, Operator, Orientation, PIVOT_TABLE, Package, PageMargins, PageSetup, PrintOptions,
-    Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind, SheetProtection, SheetView,
-    TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation, ValidationKind,
-    legacy_password_hash, rels_part_source,
+    Anchor, COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentBox,
+    CommentEntry, DRAWING, EditAs, ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image,
+    ImageAnchor, LinkTarget, MAIN, Operator, Orientation, PIVOT_TABLE, Package, PageMargins,
+    PageSetup, PrintOptions, Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind,
+    SheetProtection, SheetView, TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation,
+    ValidationKind, legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -683,7 +718,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
-| --commentbox-sample]";
+| --commentbox-sample | --anchor-sample | --remove-image-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -786,6 +821,11 @@ enum Operation {
     RoundtripSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
+    /// An image on a two-cell and one on an absolute anchor, and the counts.
+    AnchorSample,
+    /// An image added and removed again, the first kept one removed, and
+    /// the counts.
+    RemoveImageSample,
 }
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
@@ -834,6 +874,8 @@ enum Error {
     RoundtripSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
+    AnchorSample(&'static str),
+    RemoveImageSample(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -938,6 +980,12 @@ impl fmt::Display for Error {
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
+            }
+            Error::AnchorSample(what) => {
+                write!(f, "the output's {what} is not what the anchors imply")
+            }
+            Error::RemoveImageSample(what) => {
+                write!(f, "the output's {what} is not what the removal implies")
             }
             Error::CommentboxSample(what) => {
                 write!(f, "the output's {what} is not what the comment box implies")
@@ -1094,6 +1142,14 @@ fn main() -> ExitCode {
             Path::new(input),
             Path::new(output),
             Operation::LinestyleSample,
+        ),
+        [input, output, flag] if flag == "--anchor-sample" => {
+            run(Path::new(input), Path::new(output), Operation::AnchorSample)
+        }
+        [input, output, flag] if flag == "--remove-image-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::RemoveImageSample,
         ),
         [input, output, flag] if flag == "--commentbox-sample" => run(
             Path::new(input),
@@ -1257,6 +1313,12 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
+    if matches!(operation, Operation::AnchorSample) {
+        return anchor_sample(input, output);
+    }
+    if matches!(operation, Operation::RemoveImageSample) {
+        return remove_image_sample(input, output);
+    }
 
     // Both reading operations run first, so a package the layer cannot read
     // stops the run before any output file exists. Each yields the one line
@@ -1318,6 +1380,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
         Operation::RoundtripSample => unreachable!("the round-trip sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
+        Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
+        Operation::RemoveImageSample => unreachable!("the image removal sample has its own path"),
         Operation::None
         | Operation::Survey
         | Operation::SharedStrings
@@ -4751,6 +4815,338 @@ fn drawing_root_children<R: io::Read + io::Seek>(
         }
     }
     Ok(count)
+}
+
+/// The anchor sample (`specs/0028-images-and-comments-second-half.md`,
+/// "Harness runs", `--anchor-sample`): the tool's PNG on a two-cell and on
+/// an absolute anchor, the output written and read back. A failure after the
+/// output is in place removes it; a refusal by the layer is exit 2 with no
+/// output.
+fn anchor_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = image_counts(&mut package, &part)?;
+    let kinds_before = anchor_kinds(&mut package, &part)?;
+    // Rows past the grid are the layer's to refuse, with its index message.
+    let row = |more: u32| sampled.max_row.saturating_add(more);
+    package.add_image_at(
+        &part,
+        ImageAnchor::TwoCell {
+            from: CellRef {
+                row: row(1),
+                col: 1,
+            },
+            to: CellRef {
+                row: row(3),
+                col: 3,
+            },
+            from_offset: (0, 0),
+            to_offset: (0, 0),
+            edit_as: EditAs::OneCell,
+        },
+        Image {
+            bytes: &SAMPLE_PNG,
+            size: None,
+        },
+    )?;
+    package.add_image_at(
+        &part,
+        ImageAnchor::Absolute { position: (96, 96) },
+        Image {
+            bytes: &SAMPLE_PNG,
+            size: Some((4, 4)),
+        },
+    )?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = anchor_read_back(output, &part, &before, kinds_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, (two_after, absolute_after)) = checked?;
+    edit_line_named(
+        "anchor",
+        &[
+            ("images_before", before.images),
+            ("images_after", after.images),
+            ("two_after", two_after),
+            ("absolute_after", absolute_after),
+            ("anchors_before", before.anchors),
+            ("anchors_after", after.anchors),
+            ("media_before", before.media.len() as u64),
+            ("media_after", after.media.len() as u64),
+        ],
+    )
+}
+
+/// The first worksheet in `<sheets>` order, W.
+fn first_worksheet<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<Vec<u8>, Error> {
+    package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)
+}
+
+/// The images of W on a two-cell and on an absolute anchor.
+fn anchor_kinds<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(u64, u64), Error> {
+    let images = package.images(part)?;
+    let of = |kind: Anchor| images.iter().filter(|entry| entry.anchor == kind).count() as u64;
+    Ok((of(Anchor::TwoCell), of(Anchor::Absolute)))
+}
+
+/// Reopens the anchor sample's output and asserts two more images, anchors
+/// and media entries, one more of each anchor kind; gives the counts and the
+/// kinds after.
+fn anchor_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ImageCounts,
+    kinds_before: (u64, u64),
+) -> Result<(ImageCounts, (u64, u64)), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = image_counts(&mut package, part)?;
+    if after.images != before.images + 2 {
+        return Err(Error::AnchorSample("image count"));
+    }
+    if after.anchors != before.anchors + 2 {
+        return Err(Error::AnchorSample("drawing anchor count"));
+    }
+    if after.media.len() != before.media.len() + 2 {
+        return Err(Error::AnchorSample("media entry count"));
+    }
+    let kinds = anchor_kinds(&mut package, part)?;
+    if kinds.0 != kinds_before.0 + 1 {
+        return Err(Error::AnchorSample("two-cell image count"));
+    }
+    if kinds.1 != kinds_before.1 + 1 {
+        return Err(Error::AnchorSample("absolute image count"));
+    }
+    Ok((after, kinds))
+}
+
+/// The image removal sample (`specs/0028-images-and-comments-second-
+/// half.md`, "Harness runs", `--remove-image-sample`): the tool's PNG added
+/// below W's last row and written into memory, then that image removed and,
+/// when the input had one, the first kept image too; the output written and
+/// read back. A failure after the output is in place removes it; a refusal
+/// by the layer is exit 2 with no output.
+fn remove_image_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = image_counts(&mut package, &part)?;
+    let (drawing_before, _) = container_and_binding(&mut package, &part, b"drawing")?;
+    let kept_removed = u64::from(before.images > 0);
+    // What the removal of the first kept image drops, by this tool's own
+    // count, read before anything is written.
+    let expected_dropped = if kept_removed == 1 {
+        dropped_media(&mut package, &part)?
+    } else {
+        0
+    };
+    // A row past the grid is the layer's to refuse, with its index message.
+    let row = sampled.max_row.saturating_add(1);
+    package.add_image(
+        &part,
+        CellRef { row, col: 1 },
+        Image {
+            bytes: &SAMPLE_PNG,
+            size: None,
+        },
+    )?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut added = Package::open(buffer)?;
+    let last = added
+        .images(&part)?
+        .len()
+        .checked_sub(1)
+        .ok_or(Error::RemoveImageSample("image count after the addition"))?;
+    added.remove_image(&part, last)?;
+    if kept_removed == 1 {
+        added.remove_image(&part, 0)?;
+    }
+    write_into(added, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = removal_read_back(
+        output,
+        &part,
+        &before,
+        kept_removed,
+        expected_dropped,
+        drawing_before,
+    );
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, media_dropped, drawing_dropped) = checked?;
+    edit_line_named(
+        "removeimage",
+        &[
+            ("images_before", before.images),
+            ("images_after", after.images),
+            ("kept_removed", kept_removed),
+            ("media_before", before.media.len() as u64),
+            ("media_after", after.media.len() as u64),
+            ("media_dropped", media_dropped),
+            ("drawing_dropped", drawing_dropped),
+            ("anchors_before", before.anchors),
+            ("anchors_after", after.anchors),
+        ],
+    )
+}
+
+/// Reopens the image removal sample's output and asserts the images the
+/// input had less the one removed, the media entries the tool's own count
+/// says go, and no drawing where the input had none; gives the counts, the
+/// media entries dropped and whether the drawing is gone.
+fn removal_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ImageCounts,
+    kept_removed: u64,
+    expected_dropped: u64,
+    drawing_before: bool,
+) -> Result<(ImageCounts, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = image_counts(&mut package, part)?;
+    let (drawing_after, _) = container_and_binding(&mut package, part, b"drawing")?;
+    if after.images != before.images - kept_removed {
+        return Err(Error::RemoveImageSample("image count"));
+    }
+    let media_dropped = (before.media.len() as u64)
+        .checked_sub(after.media.len() as u64)
+        .ok_or(Error::RemoveImageSample("media entry count"))?;
+    if media_dropped != expected_dropped {
+        return Err(Error::RemoveImageSample("media entries dropped"));
+    }
+    let drawing_dropped = u64::from(!drawing_before && !drawing_after);
+    if !drawing_before && drawing_dropped != 1 {
+        return Err(Error::RemoveImageSample("drawing"));
+    }
+    Ok((after, media_dropped, drawing_dropped))
+}
+
+/// A drawing root child as [`dropped_media`] reads it: whether it holds a
+/// `pic`, its `embed` and `link` values, and every attribute value.
+type RootRefs = (bool, Vec<Vec<u8>>, Vec<Vec<u8>>);
+
+/// The media entries the removal of W's first image drops, by this tool's
+/// own pass: the first root child of W's drawing part that holds a `pic`;
+/// the values of its prefixed attributes named `embed` or `link` that no
+/// attribute of another root child carries; the internal targets those name
+/// through the drawing's rels part; and of those, the ones no other
+/// relationship of any rels part of the archive targets.
+fn dropped_media<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<u64, Error> {
+    let drawing =
+        related(package, part, DRAWING)?.ok_or(Error::RemoveImageSample("input's drawing"))?;
+    let index = package.part(&drawing).ok_or(Error::NoSuchName)?;
+    // Per root child: whether it holds a `pic`, its `embed` and `link`
+    // values, and every attribute value it carries.
+    let roots: Vec<RootRefs> = {
+        let mut stream = Stream::new(package.read_part(index)?, index)?;
+        let mut depth = 0usize;
+        let mut roots: Vec<RootRefs> = Vec::new();
+        while let Some(token) = stream.next()? {
+            let raw = token.raw;
+            if raw.starts_with(b"</") {
+                depth = depth.saturating_sub(1);
+                continue;
+            }
+            if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+                continue;
+            }
+            depth += 1;
+            if depth == 2 {
+                roots.push((false, Vec::new(), Vec::new()));
+            }
+            if depth >= 2
+                && let Some((pic, named, values)) = roots.last_mut()
+            {
+                *pic |= tag_local_name(raw) == b"pic";
+                for (name, bytes) in tag_attributes(raw) {
+                    // The value, between the quotes that end the span.
+                    let value = bytes
+                        .iter()
+                        .position(|byte| matches!(byte, b'"' | b'\''))
+                        .and_then(|open| bytes.get(open + 1..bytes.len() - 1))
+                        .unwrap_or_default()
+                        .to_vec();
+                    let local = name.rsplit(|byte| *byte == b':').next().unwrap_or(&name);
+                    if name.contains(&b':') && (local == b"embed" || local == b"link") {
+                        named.push(value.clone());
+                    }
+                    values.push(value);
+                }
+            }
+            if raw.ends_with(b"/>") {
+                depth -= 1;
+            }
+        }
+        roots
+    };
+    let first = roots
+        .iter()
+        .position(|(pic, _, _)| *pic)
+        .ok_or(Error::RemoveImageSample("input's picture"))?;
+    let mut removed: Vec<Vec<u8>> = Vec::new();
+    for id in &roots[first].1 {
+        let elsewhere = roots
+            .iter()
+            .enumerate()
+            .any(|(at, (_, _, values))| at != first && values.contains(id));
+        if !elsewhere && !removed.contains(id) {
+            removed.push(id.clone());
+        }
+    }
+    let mut targets: Vec<Vec<u8>> = Vec::new();
+    {
+        let rels = package.relationships(&drawing)?;
+        for id in &removed {
+            if let Some(rel) = rels.by_id(id).filter(|rel| !rel.external)
+                && let Ok(target) = rels.target_part(rel)
+                && !targets.contains(&target)
+            {
+                targets.push(target);
+            }
+        }
+    }
+    let sources: Vec<Vec<u8>> = package
+        .archive()
+        .entries()
+        .iter()
+        .filter_map(|entry| rels_part_source(entry.name()))
+        .collect();
+    let mut dropped = 0u64;
+    for target in targets {
+        let mut others = 0u64;
+        for source in &sources {
+            let rels = package.relationships(source)?;
+            for rel in rels.all() {
+                let skipped = *source == drawing && removed.contains(&rel.id);
+                if !rel.external && !skipped && rels.target_part(rel).is_ok_and(|at| at == target) {
+                    others += 1;
+                }
+            }
+        }
+        dropped += u64::from(others == 0);
+    }
+    Ok(dropped)
 }
 
 /// What the comment sample counts on each side of the write, and whether a
