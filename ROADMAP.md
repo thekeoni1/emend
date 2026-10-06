@@ -854,7 +854,7 @@ due before part 7's close-out push at the latest.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | `CommentBox`, `set_comment_box`, the shape writer's size and visibility, the `shape` read, `--commentbox-sample` on the corpus | PENDING |
+| P1 | `CommentBox`, `set_comment_box`, the shape writer's size and visibility, the `shape` read, `--commentbox-sample` on the corpus | DONE 2026-10-06 (2adf953, records 9cec1de, local; the `ClientData` content model confirmed a choice, so `x:Visible` before `x:Row` stands; the read's VML part choice, the `px` rounding and the dangling-relationship refusal accepted as rulings 2, 5 and 6; verified by planning from primaries, its own build, tests on both targets, privacy scan and its own `--commentbox-sample` run agreeing on all 27 on both labels; `specs/0028` "Planning verification and rulings on P1") |
 | P2 | `ImageAnchor`, `EditAs`, `add_image_at`, `remove_image` with the relationship and media drops through the walk, `--anchor-sample` and `--remove-image-sample` on the corpus | PENDING |
 | P3 | the feature `copy`, `copy_sheet` with the pass, the hyperlink relationships, the comment carry and the formula-change rule, `--copy-sample` on the corpus | PENDING |
 | P4 | the catalogue and limits; the two grown and two new probes and the size record; the four samples rerun byte-identical | PENDING |

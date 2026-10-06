@@ -642,6 +642,88 @@ eleven times, last at this part's scoping on 2026-10-05 (decision
 9), is run (Milestone 2's acceptance record then follows Milestone
 1's form) or deferred again by a decision recorded here.
 
+## Planning verification and rulings on P1 (2026-10-06)
+
+Verified by planning from primaries: the doc commit 7cfc6f5 holds
+this file at 8adfe67c, `specs/0027-read-back.md` at 93db44a7 and
+`ROADMAP.md` at 2b047990, the hashes planning sent (3 files, no
+other change); the crate commit 69b5e0e (`CommentBox`, the
+`DEFAULT_BOX` constant reproducing the shape written before,
+`set_comment_box` and its body, `comment_boxes` recorded and
+dropped with a removed part, the box joined to its addition at the
+write with the last set winning, `note_shape` taking the box and
+`points` printing three quarters of the pixels, `x:Visible` before
+`x:Row`, `comments_vml` and the `shape` read through `style_box`
+and `style_pixels`, the two messages catalogued in the same
+commit, `boxes.rs` with 12 tests and 1 under `richtext`) and the
+phase commit 2adf953 (`--commentbox-sample` with a 200 by 100
+shown box, the read-back asserting the comment count, the shape
+count, the box and its visibility, 2 tool tests) read in full by
+planning; the record commit 9cec1de adds the six logs and the two
+record pairs; 4 of 4 messages ASCII, ending with the
+Co-Authored-By line only; the logs at the reported hashes, each
+ending all as expected, the scan RESULT: PASS, every log pinning
+8adfe67c at the phase commit and at the doc commit and printing
+8adfe67c as planning's working copy (unedited through the phase);
+the check answer read in full; the compound-shape and email greps
+over the code diff 0; every live `rm -rf` in the phase's scripts
+the guarded form, the run script carrying none; planning's own
+build at 2adf953 in a detached worktree: 513 crate tests with the
+features off, 557 with `comments`, 588 with `comments,richtext`,
+591 with `comments,read` and 886 with every feature, on both
+targets, 1075 workspace tests on both, clippy and doc 0 lines; the
+i686 release `emend-copy` at the run log's hash 1efcb1b4 (the
+host's differs by build path); planning's own run of
+`--commentbox-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to the run directory's; planning's own privacy
+scan 6aba171..9cec1de, 4 commits, 1330 blobs, 0 findings;
+`ANTHROPIC_API_KEY` unset. P1 is DONE.
+
+1. Item 1, the off-grid cell: `set_comment_box` refuses a cell off
+   the grid at the call with part 3's "a row or column index or
+   count is out of range", as `add_comment` does. Ruling: accepted;
+   "Errors" reads with the index message at the call as well as
+   the range message. No code change.
+2. Item 2, the VML part the read takes: the sole internal
+   `vmlDrawing` relationship, or with two or more the one the
+   sheet's `legacyDrawing` names, `None` when that names no VML
+   relationship; the tool's shape counts take the first VML
+   relationship, which differs only with two VML relationships
+   (none in the corpus). Ruling: accepted; P4's catalogue states
+   the read's choice in one sentence; the tool's count stands.
+3. Item 3, a size whose rounding falls outside 1 to 65535 reads
+   `None`, as a shape carrying no size. Ruling: accepted; a box
+   `set_comment_box` would refuse is not read back as one.
+4. Item 4, any `x:Visible` child reads visible whatever its content.
+   Ruling: accepted; the schema's `Visible` is an empty element and
+   content, if any, is not a signal.
+5. Check item 5, `px` parsed as a decimal and rounded where this
+   file says "taken as is". Ruling: accepted; "as is" means no unit
+   conversion, and a fractional `px` rounds as `pt` does (the
+   corpus has no `px`). The doc comment's wording is the rule.
+6. Check item 6, `comments()` now refuses a VML relationship whose
+   target part is missing or does not resolve with the
+   cannot-be-read message, where part 3's read opened the comments
+   part alone. Ruling: accepted; "no VML part" above means no VML
+   relationship, and a dangling one is what the write refuses too,
+   so the read agrees with the write. Recorded here as the one
+   behaviour change to an existing read in this phase.
+7. Check item 7, `read_vml` marks visible on any shape with a
+   `Visible` child, notes or not; only notes are looked up.
+   Ruling: accepted, no change.
+8. The `ClientData` content model: the implementing session read
+   ISO/IEC 29500-4:2016's `vml-spreadsheetDrawing.xsd`, `CT_ClientData`
+   a `choice` with `minOccurs 0` and `maxOccurs unbounded`, children in
+   any order. Ruling: no sequence ruling is needed; `x:Visible`
+   before `x:Row` stands as written.
+9. The check's Q3 reservations: the per-commit `privacy.sh` runs
+   are session runs with no log, and "passed midnight" is read
+   from timestamps. Ruling: accepted; planning's own count-only
+   scan over 6aba171..9cec1de is the record of the phase's privacy
+   state (above), and the record pair's date is the run's UTC date
+   as the naming rule says, whatever the commits' date.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 8 as recommended (A in
