@@ -998,3 +998,7 @@ fn the_four_page_elements_land_between_a_created_hyperlinks_and_a_created_drawin
         );
     }
 }
+
+mod anchors;
+
+mod removal;

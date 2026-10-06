@@ -51,7 +51,7 @@ pub use cells::{RichText, Run};
 #[cfg(feature = "dates")]
 pub use dates::{DateTime, Epoch};
 #[cfg(feature = "images")]
-pub use package::{Anchor, Image, ImageEntry};
+pub use package::{Anchor, EditAs, Image, ImageAnchor, ImageEntry};
 #[cfg(feature = "rules")]
 pub use package::{
     Cfvo, CfvoKind, ErrorStyle, IconSetKind, Operator, Rule, RuleEntry, Validation,

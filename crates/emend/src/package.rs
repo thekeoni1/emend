@@ -575,7 +575,23 @@
 //! - "a drawing part or its relationship cannot be read"
 //!   (`images::a_read_refuses_what_it_cannot_read`,
 //!   `the_write_refuses_a_drawing_it_cannot_read`,
-//!   `a_drawing_whose_root_is_user_shapes_is_refused`).
+//!   `a_drawing_whose_root_is_user_shapes_is_refused`,
+//!   `images::removal::a_removal_reading_a_missing_media_entry_is_refused`).
+//!
+//! Anchors and removal add these, the feature `images`'s too
+//! (`specs/0028-images-and-comments-second-half.md`, "Errors"); the first
+//! two are raised by `Package::add_image_at`, which also meets "a row or
+//! column index or count is out of range", the third by
+//! [`Package::write_to`] after `Package::remove_image`, which also meets
+//! what a cell edit to the part meets and part 3's one-shift message
+//! (`images::removal::a_removal_on_a_removed_replaced_or_shifted_part_is_refused`):
+//!
+//! - "an image anchor is out of range"
+//!   (`images::anchors::the_call_refuses_each_anchor_rule_and_records_nothing`).
+//! - "an image size does not apply to a two-cell anchor"
+//!   (`images::anchors::the_call_refuses_each_anchor_rule_and_records_nothing`).
+//! - "no image at that position"
+//!   (`images::removal::an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write`).
 //!
 //! Rich text adds these, the Cargo feature `richtext`'s messages
 //! (`specs/0024-rich-text.md`, "Errors"; without the feature no value
@@ -2643,7 +2659,12 @@ struct Recorded {
     /// `(part, cell, image)`: an image added, in record order
     /// (`specs/0022-comments-and-images.md`, "Images: the calls").
     #[cfg(feature = "images")]
-    image_edits: Vec<(Vec<u8>, CellRef, NewImage)>,
+    image_edits: Vec<(Vec<u8>, ImageAnchor, NewImage)>,
+    /// `(part, index)`: an image removed, by its place in the list
+    /// [`Package::images`] gives, in record order
+    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
+    #[cfg(feature = "images")]
+    image_removals: Vec<(Vec<u8>, usize)>,
     /// `(part, work)`: for each part whose `<drawing>` the write creates,
     /// what the worksheet pass does, filled by [`Package::write_to`] before
     /// it validates.
@@ -2936,6 +2957,11 @@ struct SheetWork {
     /// namespace).
     #[cfg(feature = "images")]
     drawing_strict: bool,
+    /// Whether the write drops the part's `<drawing>`, its drawing part
+    /// gone with the last anchor (`specs/0028-images-and-comments-second-
+    /// half.md`, "Image removal").
+    #[cfg(feature = "images")]
+    drawing_drop: bool,
     /// The part's sheet settings (`specs/0025-sheet-and-print-settings.md`,
     /// "The pass"), and the outline's (`specs/0026-grouping-and-line-
     /// styles.md`).
@@ -3844,6 +3870,58 @@ pub enum Anchor {
     Absolute,
 }
 
+/// Where [`Package::add_image_at`] places an image
+/// (`specs/0028-images-and-comments-second-half.md`, "Anchors"). Every
+/// offset and position is in pixels, written as EMU at 9525 per pixel. The
+/// Cargo feature `images`.
+#[cfg(feature = "images")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageAnchor {
+    /// `oneCellAnchor`: the image's top-left corner at `from`'s, moved by
+    /// `offset` (across, down); its extent the image's size.
+    OneCell {
+        /// The cell.
+        from: CellRef,
+        /// The offset into the cell, across and down.
+        offset: (u32, u32),
+    },
+    /// `twoCellAnchor`: the image's corners at `from` and `to`, each moved
+    /// by its offset (across, down); `to` is not before `from` in row or
+    /// column.
+    TwoCell {
+        /// The cell of the top-left corner.
+        from: CellRef,
+        /// The cell of the bottom-right corner.
+        to: CellRef,
+        /// The offset into `from`, across and down.
+        from_offset: (u32, u32),
+        /// The offset into `to`, across and down.
+        to_offset: (u32, u32),
+        /// How an application moves and sizes the image with the cells.
+        edit_as: EditAs,
+    },
+    /// `absoluteAnchor`: the image's top-left corner at `position` (across,
+    /// down) from the sheet's; its extent the image's size.
+    Absolute {
+        /// The position, across and down.
+        position: (u32, u32),
+    },
+}
+
+/// A two-cell anchor's `editAs`, written always
+/// (`specs/0028-images-and-comments-second-half.md`, "Anchors"). The Cargo
+/// feature `images`.
+#[cfg(feature = "images")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditAs {
+    /// `twoCell`: moved and sized with the cells.
+    TwoCell,
+    /// `oneCell`: moved with the cells, not sized.
+    OneCell,
+    /// `absolute`: neither moved nor sized.
+    Absolute,
+}
+
 /// An image as [`Package::images`] reads it from a worksheet's drawing
 /// part. The Cargo feature `images`.
 #[cfg(feature = "images")]
@@ -3872,18 +3950,19 @@ struct NewImage {
     cy: u64,
 }
 
-/// One worksheet part's image additions, in record order, each at its
-/// cell.
+/// One worksheet part's image additions, in record order, each with its
+/// anchor.
 #[cfg(feature = "images")]
-type PartImages = Vec<(CellRef, NewImage)>;
+type PartImages = Vec<(ImageAnchor, NewImage)>;
 
 /// What a worksheet rewrite does with `<drawing>` for the images: creates it
 /// naming the drawing relationship `create`, in the worksheet's form
-/// `strict`.
+/// `strict`, or drops it with its drawing part, the last anchor removed.
 #[cfg(feature = "images")]
 #[derive(Clone)]
 struct DrawingWork {
-    create: Vec<u8>,
+    create: Option<Vec<u8>>,
+    drop: bool,
     strict: bool,
 }
 
@@ -4343,7 +4422,7 @@ impl Recorded {
     /// Whether no image is added; always, without the feature `images`.
     #[cfg(feature = "images")]
     fn no_image_edits(&self) -> bool {
-        self.image_edits.is_empty()
+        self.image_edits.is_empty() && self.image_removals.is_empty()
     }
 
     /// Whether no image is added; always, without the feature `images`.
@@ -4704,12 +4783,17 @@ impl Recorded {
                 .image_works
                 .iter()
                 .find(|(at, _)| at.as_slice() == part)
-                .map(|(_, work)| work.create.clone()),
+                .and_then(|(_, work)| work.create.clone()),
             #[cfg(feature = "images")]
             drawing_strict: self
                 .image_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.strict),
+            #[cfg(feature = "images")]
+            drawing_drop: self
+                .image_works
+                .iter()
+                .any(|(at, work)| at.as_slice() == part && work.drop),
             #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
             settings,
             #[cfg(feature = "rowcol")]
@@ -6713,7 +6797,76 @@ impl<R: Read + Seek> Package<R> {
     /// write, with part 3's one-shift message.
     #[cfg(feature = "images")]
     pub fn add_image(&mut self, part: &[u8], cell: CellRef, image: Image<'_>) -> Result<(), Error> {
-        self.parts().add_image(part, cell, image)
+        self.add_image_at(
+            part,
+            ImageAnchor::OneCell {
+                from: cell,
+                offset: (0, 0),
+            },
+            image,
+        )
+    }
+
+    /// Records `image` on the worksheet part `part`, placed by `anchor`. The
+    /// Cargo feature `images` (`specs/0028-images-and-comments-second-
+    /// half.md`, "Anchors").
+    ///
+    /// [`Package::add_image`]'s rules and parts, the anchor element chosen by
+    /// the variant: a one-cell anchor writes `oneCellAnchor` with the
+    /// offsets in `colOff` and `rowOff` and the extent from the image's
+    /// size; a two-cell anchor writes `twoCellAnchor` with `editAs`
+    /// (`twoCell`, `oneCell` or `absolute`, always written), `from` and `to`,
+    /// each with its `col`, `colOff`, `row` and `rowOff`; an absolute anchor
+    /// writes `absoluteAnchor` with `pos` and the extent from the image's
+    /// size. Offsets and positions are pixels times 9525 EMU.
+    /// [`Package::add_image`] is this call with a one-cell anchor at the
+    /// cell and zero offsets.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: "a row or column
+    /// index or count is out of range" for a cell of the anchor off the
+    /// grid; "an image anchor is out of range" for an offset or position
+    /// past `i32::MAX` EMU, or a two-cell anchor whose `to` is before its
+    /// `from` in row or column; "an image size does not apply to a two-cell
+    /// anchor" for an image with a size on a two-cell anchor; then what
+    /// [`Package::add_image`] refuses at the call. The write refuses what
+    /// [`Package::add_image`] says it refuses, and a part this write also
+    /// removes an image from, "no image at that position".
+    #[cfg(feature = "images")]
+    pub fn add_image_at(
+        &mut self,
+        part: &[u8],
+        anchor: ImageAnchor,
+        image: Image<'_>,
+    ) -> Result<(), Error> {
+        self.parts().add_image_at(part, anchor, image)
+    }
+
+    /// Records the removal of the image [`Package::images`] lists at `index`
+    /// for the worksheet part `part`. The Cargo feature `images`
+    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
+    ///
+    /// The write skips the root child of the drawing part that holds the
+    /// picture whole (its anchor, or the `AlternateContent` an anchor in
+    /// its first `Choice` sits in), every other byte kept; each relationship
+    /// an `r:embed` or `r:link` inside it names that no kept element of the
+    /// part names is removed from the drawing's rels part; and the media
+    /// entry each removed relationship targets is removed, with its
+    /// `Override`, when no relationship of the package reaches it once the
+    /// removed relationships are left out. A drawing left with no anchor
+    /// goes with its rels part, its `Override`, the sheet's relationship to
+    /// it and the sheet's `<drawing>`.
+    ///
+    /// # Errors
+    ///
+    /// None at the call. The write refuses an index past the list, an index
+    /// named twice, and a part this write also adds an image to, "no image
+    /// at that position" (the caller writes twice); and what
+    /// [`Package::add_image`] says it refuses of the part.
+    #[cfg(feature = "images")]
+    pub fn remove_image(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
+        self.parts().remove_image(part, index)
     }
 
     /// The images of the worksheet part `part`: each root child of the
@@ -8915,23 +9068,70 @@ impl<'a> Parts<'a> {
     /// recorded (`specs/0022-comments-and-images.md`, "Images: types" and
     /// "Images: the calls").
     #[cfg(feature = "images")]
-    fn add_image(&mut self, part: &[u8], cell: CellRef, image: Image<'_>) -> Result<(), Error> {
-        if !in_grid(cell) {
-            return Err(INDEX_OUT_OF_RANGE);
+    fn add_image_at(
+        &mut self,
+        part: &[u8],
+        anchor: ImageAnchor,
+        image: Image<'_>,
+    ) -> Result<(), Error> {
+        let most = u64::from(i32::MAX.unsigned_abs());
+        let fits = |(across, down): (u32, u32)| {
+            u64::from(across) * EMU_PER_PIXEL <= most && u64::from(down) * EMU_PER_PIXEL <= most
+        };
+        let in_range = match anchor {
+            ImageAnchor::OneCell { from, offset } => {
+                if !in_grid(from) {
+                    return Err(INDEX_OUT_OF_RANGE);
+                }
+                fits(offset)
+            }
+            ImageAnchor::TwoCell {
+                from,
+                to,
+                from_offset,
+                to_offset,
+                ..
+            } => {
+                if !in_grid(from) || !in_grid(to) {
+                    return Err(INDEX_OUT_OF_RANGE);
+                }
+                if !(to.row >= from.row
+                    && to.col >= from.col
+                    && fits(from_offset)
+                    && fits(to_offset))
+                {
+                    return Err(IMAGE_ANCHOR_OUT_OF_RANGE);
+                }
+                // The cells and offsets set the box, so a size would be
+                // silently ignored.
+                if image.size.is_some() {
+                    return Err(IMAGE_SIZE_TWO_CELL);
+                }
+                true
+            }
+            ImageAnchor::Absolute { position } => fits(position),
+        };
+        if !in_range {
+            return Err(IMAGE_ANCHOR_OUT_OF_RANGE);
         }
         let (png, width, height) = image_header(image.bytes)?;
-        let (width, height) = image.size.unwrap_or((width, height));
-        let most = u64::from(i32::MAX.unsigned_abs());
-        let extent = |pixels: u32| {
-            let emu = u64::from(pixels) * EMU_PER_PIXEL;
-            (pixels > 0 && emu <= most).then_some(emu)
-        };
-        let (Some(cx), Some(cy)) = (extent(width), extent(height)) else {
-            return Err(IMAGE_SIZE_INVALID);
+        let (cx, cy) = if matches!(anchor, ImageAnchor::TwoCell { .. }) {
+            // The cells and offsets set the box; no extent is written.
+            (0, 0)
+        } else {
+            let (width, height) = image.size.unwrap_or((width, height));
+            let extent = |pixels: u32| {
+                let emu = u64::from(pixels) * EMU_PER_PIXEL;
+                (pixels > 0 && emu <= most).then_some(emu)
+            };
+            let (Some(cx), Some(cy)) = (extent(width), extent(height)) else {
+                return Err(IMAGE_SIZE_INVALID);
+            };
+            (cx, cy)
         };
         self.edits.image_edits.push((
             part.to_vec(),
-            cell,
+            anchor,
             NewImage {
                 bytes: image.bytes.to_vec(),
                 png,
@@ -8939,6 +9139,13 @@ impl<'a> Parts<'a> {
                 cy,
             },
         ));
+        Ok(())
+    }
+
+    /// The body of [`Package::remove_image`].
+    #[cfg(feature = "images")]
+    fn remove_image(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
+        self.edits.image_removals.push((part.to_vec(), index));
         Ok(())
     }
 
@@ -9011,18 +9218,19 @@ impl<'a> Parts<'a> {
     /// cannot be read for.
     #[cfg(feature = "images")]
     fn record_images(&mut self) -> Result<(), Error> {
-        if self.edits.image_edits.is_empty() {
+        if self.edits.image_edits.is_empty() && self.edits.image_removals.is_empty() {
             return Ok(());
         }
         let mut parts: Vec<(Vec<u8>, PartImages)> = Vec::new();
-        for (part, cell, image) in self.edits.image_edits.clone() {
+        for (part, anchor, image) in self.edits.image_edits.clone() {
             match parts.iter_mut().find(|(have, _)| *have == part) {
-                Some((_, images)) => images.push((cell, image)),
-                None => parts.push((part, vec![(cell, image)])),
+                Some((_, images)) => images.push((anchor, image)),
+                None => parts.push((part, vec![(anchor, image)])),
             }
         }
-        let mut entries = self.taken_entries();
         let mut works: Vec<(Vec<u8>, DrawingWork)> = Vec::new();
+        self.record_image_removals(&parts, &mut works)?;
+        let mut entries = self.taken_entries();
         for (part, images) in parts {
             if self.edits.part_removals.contains(&part) {
                 return Err(REMOVED_PART_EDITED);
@@ -9073,7 +9281,7 @@ impl<'a> Parts<'a> {
                     let read = read_drawing(&bytes, at)?;
                     let mut out = bytes[..read.end].to_vec();
                     let mut id = read.highest;
-                    for ((cell, image), entry) in images.iter().zip(&media) {
+                    for ((anchor, image), entry) in images.iter().zip(&media) {
                         let rel = self.add_relationship(
                             &target,
                             IMAGE[usize::from(strict)],
@@ -9084,7 +9292,7 @@ impl<'a> Parts<'a> {
                             .checked_add(1)
                             .filter(|id| *id <= u64::from(u32::MAX))
                             .ok_or(DRAWING_UNREADABLE)?;
-                        out.extend_from_slice(&anchor_bytes(&read.form, *cell, image, id, &rel));
+                        out.extend_from_slice(&anchor_bytes(&read.form, anchor, image, id, &rel));
                     }
                     out.extend_from_slice(&bytes[read.end..]);
                     self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
@@ -9100,9 +9308,9 @@ impl<'a> Parts<'a> {
                     };
                     let mut anchors = Vec::new();
                     let mut rels = Vec::new();
-                    for (k, ((cell, image), media)) in (1u64..).zip(images.iter().zip(&media)) {
+                    for (k, ((anchor, image), media)) in (1u64..).zip(images.iter().zip(&media)) {
                         let rel = format!("rId{k}").into_bytes();
-                        anchors.extend_from_slice(&anchor_bytes(&form, *cell, image, k, &rel));
+                        anchors.extend_from_slice(&anchor_bytes(&form, anchor, image, k, &rel));
                         rels.extend_from_slice(
                             &[
                                 b"<Relationship Id=\"".as_slice(),
@@ -9143,11 +9351,192 @@ impl<'a> Parts<'a> {
                     let target = relative_target(&part, entry.as_bytes());
                     let id =
                         self.add_relationship(&part, DRAWING[usize::from(strict)], &target, false)?;
-                    works.push((part, DrawingWork { create: id, strict }));
+                    works.push((
+                        part,
+                        DrawingWork {
+                            create: Some(id),
+                            drop: false,
+                            strict,
+                        },
+                    ));
                 }
             }
         }
         self.edits.image_works = works;
+        Ok(())
+    }
+
+    /// Records each worksheet's image removals
+    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal"):
+    /// the root child holding each picture skipped in the drawing part, the
+    /// relationships only the skipped children named removed from its rels
+    /// part, a drawing left with no anchor dropped with its rels part, its
+    /// `Override`, the sheet's relationship and `<drawing>`; then each media
+    /// entry a removed relationship targets that no relationship of the
+    /// package reaches once the removed ones are left out, with its
+    /// `Override`. Part by part, in record order: an index named twice or
+    /// on a part `additions` also adds to, then the refusals of a removed,
+    /// replaced, absent or shifted part, then what the drawing cannot be
+    /// read for, then an index past the list.
+    #[cfg(feature = "images")]
+    fn record_image_removals(
+        &mut self,
+        additions: &[(Vec<u8>, PartImages)],
+        works: &mut Vec<(Vec<u8>, DrawingWork)>,
+    ) -> Result<(), Error> {
+        let mut parts: Vec<(Vec<u8>, Vec<usize>)> = Vec::new();
+        for (part, index) in self.edits.image_removals.clone() {
+            let at = match parts.iter().position(|(have, _)| *have == part) {
+                Some(at) => at,
+                None => {
+                    parts.push((part, Vec::new()));
+                    parts.len() - 1
+                }
+            };
+            // Named twice, or on a part this write adds to: the caller
+            // writes twice.
+            let (part, indexes) = &mut parts[at];
+            if indexes.contains(&index) || additions.iter().any(|(have, _)| have == part) {
+                return Err(NO_IMAGE_AT);
+            }
+            indexes.push(index);
+        }
+        // The relationships the removals leave out, and the media entries
+        // they named.
+        let mut skipped: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        let mut media: Vec<Vec<u8>> = Vec::new();
+        for (part, indexes) in parts {
+            if self.edits.part_removals.contains(&part) {
+                return Err(REMOVED_PART_EDITED);
+            }
+            if self
+                .edits
+                .part_replacements
+                .iter()
+                .any(|(name, _)| *name == part)
+            {
+                return Err(CELL_EDIT_REPLACED);
+            }
+            let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+            #[cfg(feature = "rowcol")]
+            if self.edits.shifts.iter().any(|(at, _)| *at == part) {
+                return Err(SHIFT_ALONE);
+            }
+            let element = element_rel_id(
+                self.archive.read(index)?,
+                index,
+                DRAWING_ELEMENT,
+                TWO_DRAWINGS,
+                DRAWING_UNREADABLE,
+            )?;
+            let drawing = self.drawing_of(&part, index)?;
+            self.edited_part_untouched(drawing.as_deref())?;
+            let (Some(target), Some(element)) = (drawing, element) else {
+                return Err(NO_IMAGE_AT);
+            };
+            // The list the caller's indexes name, read as `images` reads it.
+            let listed = self.images(&part)?.len();
+            if indexes.iter().any(|index| *index >= listed) {
+                return Err(NO_IMAGE_AT);
+            }
+            let at = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;
+            let mut bytes = Vec::new();
+            self.archive.read(at)?.read_to_end(&mut bytes)?;
+            let pictures = read_images(Cursor::new(&bytes), at)?;
+            let roots = read_drawing_roots(&bytes, at)?;
+            let gone: Vec<usize> = indexes.iter().map(|index| pictures[*index].root).collect();
+            let mut out = Vec::with_capacity(bytes.len());
+            let mut from = 0usize;
+            let mut named: Vec<Vec<u8>> = Vec::new();
+            let mut kept_refs: Vec<Vec<u8>> = Vec::new();
+            let mut anchors_left = false;
+            for (ordinal, root) in roots.iter().enumerate() {
+                if gone.contains(&ordinal) {
+                    out.extend_from_slice(&bytes[from..root.start]);
+                    from = root.end;
+                    named.extend(root.media.iter().cloned());
+                } else {
+                    kept_refs.extend(root.refs.iter().cloned());
+                    anchors_left |= root.anchor;
+                }
+            }
+            out.extend_from_slice(&bytes[from..]);
+            let mut removed: Vec<Vec<u8>> = Vec::new();
+            for id in named {
+                if !kept_refs.contains(&id) && !removed.contains(&id) {
+                    removed.push(id);
+                }
+            }
+            {
+                let rels = self.relationships(&target)?;
+                for id in &removed {
+                    if let Some(rel) = rels.by_id(id).filter(|rel| !rel.external)
+                        && let Ok(entry) = rels.target_part(rel)
+                        && !media.contains(&entry)
+                    {
+                        media.push(entry);
+                    }
+                }
+            }
+            for id in &removed {
+                skipped.push((target.clone(), id.clone()));
+            }
+            if anchors_left {
+                for id in &removed {
+                    self.remove_relationship(&target, id);
+                }
+                self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
+            } else {
+                // No anchor left: the drawing goes, with its rels part, and
+                // nothing reaches through it.
+                let strict = self.sheet_is_strict(&part)?;
+                self.drop_drawing(&part, &element, &target)?;
+                skipped.push((part.clone(), element));
+                works.push((
+                    part,
+                    DrawingWork {
+                        create: None,
+                        drop: true,
+                        strict,
+                    },
+                ));
+            }
+        }
+        if media.is_empty() {
+            return Ok(());
+        }
+        let reached = self.reachable(b"", &skipped, &[])?;
+        for entry in media {
+            if reached.contains(&entry) || self.edits.part_removals.contains(&entry) {
+                continue;
+            }
+            let over = self
+                .override_of(&entry)?
+                .filter(|over| !self.edits.override_removals.contains(over));
+            if let Some(over) = over {
+                self.remove_override(&over);
+            }
+            self.remove_part(&entry);
+        }
+        Ok(())
+    }
+
+    /// Drops the drawing part `target` of the worksheet part `part`, the
+    /// sheet's relationship `id` to it, its `Override` and its rels part.
+    #[cfg(feature = "images")]
+    fn drop_drawing(&mut self, part: &[u8], id: &[u8], target: &[u8]) -> Result<(), Error> {
+        let over = self
+            .override_of(target)?
+            .filter(|over| !self.edits.override_removals.contains(over));
+        self.remove_relationship(part, id);
+        if let Some(over) = over {
+            self.remove_override(&over);
+        }
+        self.remove_part(target);
+        let rels = rels_part_name(target);
+        if self.archive.index_of(&rels).is_some() && !self.edits.part_removals.contains(&rels) {
+            self.remove_part(&rels);
+        }
         Ok(())
     }
 
@@ -9528,6 +9917,8 @@ impl<'a> Parts<'a> {
         self.edits.comment_boxes.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
         self.edits.image_edits.retain(|(at, _, _)| at != part);
+        #[cfg(feature = "images")]
+        self.edits.image_removals.retain(|(at, _)| at != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
@@ -10881,6 +11272,13 @@ const NO_COMMENT_ADDITION: Error = Error::Package("no comment addition on that c
 const IMAGE_NOT_PNG_OR_JPEG: Error = Error::Package("an image is not a PNG or JPEG");
 #[cfg(feature = "images")]
 const IMAGE_SIZE_INVALID: Error = Error::Package("an image size is out of range");
+#[cfg(feature = "images")]
+const IMAGE_ANCHOR_OUT_OF_RANGE: Error = Error::Package("an image anchor is out of range");
+#[cfg(feature = "images")]
+const IMAGE_SIZE_TWO_CELL: Error =
+    Error::Package("an image size does not apply to a two-cell anchor");
+#[cfg(feature = "images")]
+const NO_IMAGE_AT: Error = Error::Package("no image at that position");
 #[cfg(feature = "images")]
 const TWO_DRAWINGS: Error = Error::Package("a worksheet has two drawing elements");
 
@@ -13635,6 +14033,18 @@ fn rewrite_worksheet_from(
                 // A `<legacyDrawing>` the write drops with its VML part, the
                 // last comment gone (`specs/0022-comments-and-images.md`,
                 // `remove_comment`).
+                // A `<drawing>` the write drops with its drawing part, the
+                // last anchor gone (`specs/0028-images-and-comments-second-
+                // half.md`, "Image removal").
+                #[cfg(feature = "images")]
+                if root && depth == 2 && ours && local == DRAWING_ELEMENT && work.drawing_drop {
+                    if !empty {
+                        skip_element(&mut stream, &mut scope)?;
+                    }
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
                 #[cfg(feature = "comments")]
                 if root && depth == 2 && ours && local == LEGACY_DRAWING && work.legacy_drop {
                     if !empty {
@@ -18553,16 +18963,19 @@ fn with_colon(prefix: &[u8]) -> Vec<u8> {
     }
 }
 
-/// An added image's `<oneCellAnchor>` (`specs/0022-comments-and-images.md`,
-/// "Images: the parts"): at `cell`'s top-left corner, the extent the image
-/// carries, the picture's `cNvPr` `id` and name from `id`, its `blip`
-/// naming the relationship `rel`; the DrawingML and relationships
-/// namespaces bound on the added elements when `form` says the root binds
-/// neither.
+/// An added image's anchor (`specs/0022-comments-and-images.md`, "Images:
+/// the parts", and `specs/0028-images-and-comments-second-half.md`,
+/// "Anchors"): the element `anchor` chooses, a `oneCellAnchor` with its
+/// `from` and the extent the image carries, a `twoCellAnchor` with
+/// `editAs`, `from` and `to`, or an `absoluteAnchor` with `pos` and the
+/// extent; then the picture, its `cNvPr` `id` and name from `id`, its
+/// `blip` naming the relationship `rel`, and `clientData`; the DrawingML
+/// and relationships namespaces bound on the added elements when `form`
+/// says the root binds neither.
 #[cfg(feature = "images")]
 fn anchor_bytes(
     form: &DrawingForm,
-    cell: CellRef,
+    anchor: &ImageAnchor,
     image: &NewImage,
     id: u64,
     rel: &[u8],
@@ -18588,46 +19001,114 @@ fn anchor_bytes(
         ]
         .concat(),
     };
-    let column = (cell.col - 1).to_string();
-    let row = (cell.row - 1).to_string();
+    let emu = |pixels: u32| (u64::from(pixels) * EMU_PER_PIXEL).to_string();
+    // A `from` or `to` marker: the cell's zero-based column and row with the
+    // offsets.
+    let marker = |name: &[u8], cell: CellRef, (across, down): (u32, u32)| {
+        let column = (cell.col - 1).to_string();
+        let row = (cell.row - 1).to_string();
+        [
+            b"<".as_slice(),
+            x,
+            name,
+            b"><",
+            x,
+            b"col>",
+            column.as_bytes(),
+            b"</",
+            x,
+            b"col><",
+            x,
+            b"colOff>",
+            emu(across).as_bytes(),
+            b"</",
+            x,
+            b"colOff><",
+            x,
+            b"row>",
+            row.as_bytes(),
+            b"</",
+            x,
+            b"row><",
+            x,
+            b"rowOff>",
+            emu(down).as_bytes(),
+            b"</",
+            x,
+            b"rowOff></",
+            x,
+            name,
+            b">",
+        ]
+        .concat()
+    };
     let (cx, cy) = (image.cx.to_string(), image.cy.to_string());
-    let id = id.to_string();
-    [
+    let extent = [
         b"<".as_slice(),
-        x,
-        b"oneCellAnchor",
-        &bind_a,
-        b"><",
-        x,
-        b"from><",
-        x,
-        b"col>",
-        column.as_bytes(),
-        b"</",
-        x,
-        b"col><",
-        x,
-        b"colOff>0</",
-        x,
-        b"colOff><",
-        x,
-        b"row>",
-        row.as_bytes(),
-        b"</",
-        x,
-        b"row><",
-        x,
-        b"rowOff>0</",
-        x,
-        b"rowOff></",
-        x,
-        b"from><",
         x,
         b"ext cx=\"",
         cx.as_bytes(),
         b"\" cy=\"",
         cy.as_bytes(),
-        b"\"/><",
+        b"\"/>",
+    ]
+    .concat();
+    let (element, attributes, placement): (&[u8], Vec<u8>, Vec<u8>) = match *anchor {
+        ImageAnchor::OneCell { from, offset } => (
+            b"oneCellAnchor",
+            Vec::new(),
+            [marker(b"from", from, offset), extent].concat(),
+        ),
+        ImageAnchor::TwoCell {
+            from,
+            to,
+            from_offset,
+            to_offset,
+            edit_as,
+        } => {
+            let edit_as: &[u8] = match edit_as {
+                EditAs::TwoCell => b"twoCell",
+                EditAs::OneCell => b"oneCell",
+                EditAs::Absolute => b"absolute",
+            };
+            (
+                b"twoCellAnchor",
+                [b" editAs=\"".as_slice(), edit_as, b"\""].concat(),
+                [
+                    marker(b"from", from, from_offset),
+                    marker(b"to", to, to_offset),
+                ]
+                .concat(),
+            )
+        }
+        ImageAnchor::Absolute {
+            position: (across, down),
+        } => (
+            b"absoluteAnchor",
+            Vec::new(),
+            [
+                b"<".as_slice(),
+                x,
+                b"pos x=\"",
+                emu(across).as_bytes(),
+                b"\" y=\"",
+                emu(down).as_bytes(),
+                b"\"/>",
+                &extent,
+            ]
+            .concat(),
+        ),
+    };
+    let id = id.to_string();
+    [
+        b"<".as_slice(),
+        x,
+        element,
+        &attributes,
+        &bind_a,
+        b">",
+        &placement,
+        b"<",
         x,
         b"pic><",
         x,
@@ -18675,7 +19156,8 @@ fn anchor_bytes(
         x,
         b"clientData/></",
         x,
-        b"oneCellAnchor>",
+        element,
+        b">",
     ]
     .concat()
 }
@@ -18699,12 +19181,109 @@ fn drawing_part_bytes(anchors: &[u8]) -> Vec<u8> {
 }
 
 /// A picture an anchor of a drawing part holds, as [`read_images`] finds
-/// it: the anchor's kind and `from`, and the `blip`'s `r:embed`.
+/// it: the anchor's kind and `from`, the `blip`'s `r:embed`, and the
+/// ordinal of the root child it sits in.
 #[cfg(feature = "images")]
 struct DrawingPicture {
     anchor: Anchor,
     from: (u32, u32),
     embed: Vec<u8>,
+    root: usize,
+}
+
+/// One root child of a drawing part, as [`read_drawing_roots`] reads it:
+/// its bytes' span, whether it is an anchor or holds one, the values of its
+/// and its descendants' attributes in the relationships namespace, and of
+/// those the `embed` and `link` ones
+/// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
+#[cfg(feature = "images")]
+struct DrawingRoot {
+    start: usize,
+    end: usize,
+    anchor: bool,
+    refs: Vec<Vec<u8>>,
+    media: Vec<Vec<u8>>,
+}
+
+/// The root children of a drawing part held whole, in document order; a
+/// part the parser refuses cannot be read, and an element whose prefix
+/// nothing binds meets part 2's refusal.
+#[cfg(feature = "images")]
+fn read_drawing_roots(bytes: &[u8], index: usize) -> Result<Vec<DrawingRoot>, Error> {
+    let unreadable = |error: Error| match error {
+        Error::Xml(_) => DRAWING_UNREADABLE,
+        other => other,
+    };
+    let mut stream = Stream::new(Cursor::new(bytes), index).map_err(unreadable)?;
+    let mut scope = Scope::new(index);
+    let mut at: usize = if stream.bom() {
+        BYTE_ORDER_MARK.len()
+    } else {
+        0
+    };
+    let mut depth = 0usize;
+    let mut roots: Vec<DrawingRoot> = Vec::new();
+    while let Some(token) = stream.next().map_err(unreadable)? {
+        let from = at;
+        at = at.checked_add(token.raw.len()).ok_or(DRAWING_UNREADABLE)?;
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                if depth == 2 {
+                    roots.push(DrawingRoot {
+                        start: from,
+                        end: at,
+                        anchor: false,
+                        refs: Vec::new(),
+                        media: Vec::new(),
+                    });
+                }
+                if depth >= 2
+                    && let Some(root) = roots.last_mut()
+                {
+                    let drawing =
+                        namespace.is_some_and(|namespace| SPREADSHEET_DRAWING.contains(&namespace));
+                    root.anchor |= drawing
+                        && matches!(
+                            local,
+                            b"oneCellAnchor" | b"twoCellAnchor" | b"absoluteAnchor"
+                        );
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                        if attribute.key.as_namespace_binding().is_some() {
+                            continue;
+                        }
+                        let (namespace, name) = scope.resolve_attribute(attribute.key)?;
+                        if is_relationships_attribute(namespace) {
+                            let value = attribute.value.as_bytes().to_vec();
+                            if name == b"embed" || name == b"link" {
+                                root.media.push(value.clone());
+                            }
+                            root.refs.push(value);
+                        }
+                    }
+                }
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if depth == 2
+                    && let Some(root) = roots.last_mut()
+                {
+                    root.end = at;
+                }
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(roots)
 }
 
 /// The namespaces [`read_images`] tells apart.
@@ -18741,6 +19320,7 @@ impl Step {
 /// picture's first `blip` carried (`Some(None)` for none).
 #[cfg(feature = "images")]
 struct AnchorRead {
+    root: usize,
     kind: Anchor,
     depth: usize,
     from: Option<usize>,
@@ -18773,6 +19353,8 @@ fn read_images(input: impl Read, index: usize) -> Result<Vec<DrawingPicture>, Er
     let mut anchor: Option<AnchorRead> = None;
     // Whether the open root `Choice` has given its anchor.
     let mut choice_taken = false;
+    // The root children met so far.
+    let mut roots = 0usize;
     while let Some(token) = stream.next().map_err(unreadable)? {
         let ended = match token.event {
             Event::Start(ref start) | Event::Empty(ref start) => {
@@ -18798,6 +19380,9 @@ fn read_images(input: impl Read, index: usize) -> Result<Vec<DrawingPicture>, Er
                     step.first = parent.choices == 1;
                 }
                 let depth = path.len();
+                if depth == 1 {
+                    roots += 1;
+                }
                 let kind = match (space, local) {
                     (Space::Drawing, b"oneCellAnchor") => Some(Anchor::OneCell),
                     (Space::Drawing, b"twoCellAnchor") => Some(Anchor::TwoCell),
@@ -18857,6 +19442,7 @@ fn read_images(input: impl Read, index: usize) -> Result<Vec<DrawingPicture>, Er
                     if depth == 1 || in_root_choice {
                         choice_taken |= in_root_choice;
                         anchor = Some(AnchorRead {
+                            root: roots - 1,
                             kind,
                             depth,
                             from: None,
@@ -18921,6 +19507,7 @@ fn read_images(input: impl Read, index: usize) -> Result<Vec<DrawingPicture>, Er
                     anchor: read.kind,
                     from,
                     embed,
+                    root: read.root,
                 });
             }
             anchor = None;
