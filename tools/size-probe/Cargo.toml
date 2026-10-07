@@ -73,6 +73,11 @@ sheetprops = ["emend", "xml", "emend/sheetprops"]
 # (specs/0027-read-back.md, "Size", under decision 1 A), built with its own
 # feature set as the sheetprops probe is.
 read = ["emend", "xml", "emend/read"]
+# Enables emend's own `copy` feature, for probe-emend-copy-write-xml alone,
+# and with `comments` for probe-emend-copycomments-write-xml
+# (specs/0028-images-and-comments-second-half.md, "Size", under decision 1
+# A), each built with its own feature set as the richtext probes are.
+copy = ["emend", "xml", "emend/copy"]
 
 [[bin]]
 name = "probe-zip"
@@ -202,3 +207,13 @@ required-features = ["metadata", "sheetprops"]
 name = "probe-emend-read-write-xml"
 path = "src/bin/probe-emend-read-write-xml.rs"
 required-features = ["read"]
+
+[[bin]]
+name = "probe-emend-copy-write-xml"
+path = "src/bin/probe-emend-copy-write-xml.rs"
+required-features = ["copy"]
+
+[[bin]]
+name = "probe-emend-copycomments-write-xml"
+path = "src/bin/probe-emend-copycomments-write-xml.rs"
+required-features = ["copy", "comments"]

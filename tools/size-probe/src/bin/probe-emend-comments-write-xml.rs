@@ -6,9 +6,13 @@
 //! `probe-emend-format-write-xml`'s work, unchanged, then on the same
 //! package before its write `add_comment` at a fixed cell past the format
 //! probe's edits ([`COMMENT_CELL`]), with an author and a text from the
-//! command line. After the write one more line read back through the
-//! feature's read side: `comments`, the output sheet's comment count, so
-//! both sides are linked and nothing is dead.
+//! command line, and `set_comment_box` of a fixed box ([`BOX`]) on that
+//! addition (`specs/0028-images-and-comments-second-half.md`, "Size"). After
+//! the write more lines read back through the feature's read side:
+//! `comments`, the output sheet's comment count, and `box_width`,
+//! `box_height` and `box_visible`, the box the added comment's `shape` reads
+//! back (`none` when it reads none), so both sides are linked and nothing is
+//! dead.
 //!
 //! Every other name, part, reference, code, formula text, font name, index
 //! and area comes from the command line, so the compiler cannot prove an
@@ -20,7 +24,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
-use emend::package::{CALC_CHAIN, Comment, Package, THEME};
+use emend::package::{CALC_CHAIN, Comment, CommentBox, Package, THEME};
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
     Protection, Side, Style, Vertical,
@@ -38,6 +42,13 @@ const USAGE: &str = "usage: probe-emend-comments-write-xml <archive> <output> \
 /// The comment's cell, past every cell, column, row and area the format
 /// probe's work takes from its arguments in the size log.
 const COMMENT_CELL: &str = "AB10";
+
+/// The comment's box: the commentbox sample's, 200 by 100 pixels, shown.
+const BOX: CommentBox = CommentBox {
+    width: 200,
+    height: 100,
+    visible: true,
+};
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -157,7 +168,8 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}\nmerges {}\ncomments {}",
+                 full_border {}\nmerges {}\ncomments {}\nbox_width {}\nbox_height {}\n\
+                 box_visible {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -187,6 +199,9 @@ fn main() -> ExitCode {
                 style(written.full_ids.2),
                 written.merges,
                 written.comments,
+                style(written.shape.map(|shape| shape.width)),
+                style(written.shape.map(|shape| shape.height)),
+                style(written.shape.map(|shape| u32::from(shape.visible))),
             );
             ExitCode::SUCCESS
         }
@@ -250,6 +265,7 @@ struct Written {
     full_ids: (Option<u32>, Option<u32>, Option<u32>),
     merges: u64,
     comments: u64,
+    shape: Option<CommentBox>,
 }
 
 /// A cell's `style` as printed: the index, or `none`.
@@ -337,11 +353,17 @@ fn edit(
     package
         .merge_cells(sheet, edits.merge_area)
         .map_err(|e| e.to_string())?;
-    // The feature `comments`' edit (specs/0022 "Size").
+    // The feature `comments`' edit (specs/0022 "Size"), and its box
+    // (specs/0028 "Size").
+    let comment_cell =
+        CellRef::parse(COMMENT_CELL.as_bytes()).ok_or("the comment cell does not parse")?;
+    package
+        .set_comment_box(sheet, comment_cell, BOX)
+        .map_err(|e| e.to_string())?;
     package
         .add_comment(
             sheet,
-            CellRef::parse(COMMENT_CELL.as_bytes()).ok_or("the comment cell does not parse")?,
+            comment_cell,
             Comment {
                 author: &edits.comment[0],
                 text: &edits.comment[1],
@@ -398,7 +420,12 @@ fn edit(
         .part(sheet)
         .ok_or("the output has no such sheet part")?;
     let merges = count_named(&mut written, index, b"mergeCell")?;
-    let comments = written.comments(sheet).map_err(|e| e.to_string())?.len() as u64;
+    let entries = written.comments(sheet).map_err(|e| e.to_string())?;
+    let comments = entries.len() as u64;
+    let shape = entries
+        .iter()
+        .find(|entry| entry.cell == comment_cell)
+        .and_then(|entry| entry.shape);
     Ok(Written {
         cells: count,
         xfs_before,
@@ -419,6 +446,7 @@ fn edit(
         full_ids,
         merges,
         comments,
+        shape,
     })
 }
 

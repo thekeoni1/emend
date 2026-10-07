@@ -1340,14 +1340,15 @@
 //!   retagged as for a table) or dropped with the last comment.
 //! - The shape written, openpyxl's: a comment's text as one run with no
 //!   properties, its author appended to `<authors>` unless a kept author's
-//!   text equals it; one hidden note shape per comment in the fixed box
-//!   the design gives, numbered `1024 * D + K`. `K` is one above the larger
-//!   of the part's kept `v:shape` root children and the largest
-//!   `_x0000_s<n>` number in `D`'s range a kept shape carries on `id` or
-//!   `o:spid` (P1 ruling 1). `D` is the part's own `idmap`, or the smallest
-//!   positive integer no VML entry the write keeps uses as its `idmap` (an
-//!   entry this write removes not counted); the uniqueness of shape ids
-//!   across a workbook rests on distinct `idmap` numbers per part.
+//!   text equals it; one note shape per comment, in the box below (hidden
+//!   at the default size unless one is set), numbered `1024 * D + K`. `K`
+//!   is one above the larger of the part's kept `v:shape` root children
+//!   and the largest `_x0000_s<n>` number in `D`'s range a kept shape
+//!   carries on `id` or `o:spid` (P1 ruling 1). `D` is the part's own
+//!   `idmap`, or the smallest positive integer no VML entry the write keeps
+//!   uses as its `idmap` (an entry this write removes not counted); the
+//!   uniqueness of shape ids across a workbook rests on distinct `idmap`
+//!   numbers per part.
 //! - Removal: a comment's element and its note shape go; a `commentList`
 //!   left empty drops the comments part, its relationship, its `Override`
 //!   and the entry, and the VML part goes with it, its `<legacyDrawing>`
@@ -1359,9 +1360,28 @@
 //!   is missing or doubled, or a kept `comment` without a `ref` that parses;
 //!   a VML part whose root is not an unprefixed `xml` or does not bind a
 //!   prefix to each of the three VML namespaces.
+//! - A comment's box (`specs/0028-images-and-comments-second-half.md`, "A
+//!   comment's box"): `Package::set_comment_box` sets the box of a comment
+//!   this write adds, in pixels, written as three quarters of them in `pt`
+//!   (an integer when exact, else at most two decimals) with
+//!   `visibility:visible` and an empty `x:Visible` before `x:Row`, or
+//!   `visibility:hidden` and no child; an unset box writes 144 by 79
+//!   hidden, the bytes written before the box existed. A kept comment's box
+//!   is never changed.
+//! - A box read back: `CommentEntry`'s `shape` is read from the VML part
+//!   that is the sheet's sole internal `vmlDrawing` relationship's target,
+//!   or with two or more the one its `<legacyDrawing>` names, `None` when
+//!   that names none (P1 ruling 2); from the `Note` shape at the comment's
+//!   row and column whose `style` carries both `width:` and `height:` as a
+//!   decimal number of `pt`, times four thirds, or of `px`, each rounded
+//!   half up to whole pixels, so `108pt` reads 144 and `59.25pt` 79 (P1
+//!   ruling 5); a size whose rounding falls outside 1 to 65535 reads
+//!   `None` as no size does (P1 ruling 3); `visible` when the style says
+//!   `visibility:visible` or the shape holds an `x:Visible` child, whatever
+//!   its content (P1 ruling 4).
 //! - What is never written: formatting runs (but through
 //!   `Package::add_rich_comment`, the Cargo feature `richtext`'s, below), a
-//!   comment's size or position beyond the fixed box, a threaded comment. A
+//!   comment's position beyond the box's size, a threaded comment. A
 //!   sheet with a threaded comments relationship refuses every comment edit
 //!   (decision 3 A); `Package::comments` reads such a sheet's legacy fallback,
 //!   the comments part Excel writes beside the threaded one.
@@ -1387,9 +1407,35 @@
 //!   be read", beside the spec's list: a `pic` with no `blip`, an empty
 //!   `wsDr` root on an append, a `cNvPr` `id` that is not a decimal number
 //!   within `u32`, and an external drawing or `r:embed` relationship.
-//! - What is never written: a two-cell or absolute anchor, an SVG, EMF,
-//!   GIF, BMP or TIFF image, an image's `descr`, an image removal; images
-//!   are never checked for overlap.
+//! - Anchors (`specs/0028-images-and-comments-second-half.md`, "Anchors"):
+//!   `Package::add_image_at` writes a one-cell anchor with its offsets, a
+//!   two-cell anchor with `editAs` always written and `from` and `to`, or
+//!   an absolute anchor with `pos`, offsets and positions in pixels at 9525
+//!   EMU each; it checks, in this order, a cell of the anchor off the grid
+//!   (the index message), the anchor's range, a size on a two-cell anchor,
+//!   then what `Package::add_image` checks of the image (P2 ruling 7); a
+//!   two-cell anchor's box is its cells and offsets, so no image size is
+//!   checked or written there.
+//! - Removal (`specs/0028-images-and-comments-second-half.md`, "Image
+//!   removal"): `Package::remove_image` skips whole the root child of the
+//!   drawing holding the picture, the anchor or the root `AlternateContent`
+//!   whose first `Choice` holds it, its `Fallback` and the relationships
+//!   only the `Fallback` names going with it (P2 ruling 4); a picture in a
+//!   group takes the group's anchor, the group's other shapes with it (P2
+//!   ruling 5). Only the `r:embed` and `r:link` attributes inside the
+//!   skipped child are followed, so a relationship it names through
+//!   another attribute, `hlinkClick`'s `r:id` among them, stays in the
+//!   drawing's rels part with nothing naming it (P2 verification ruling
+//!   1). A media entry goes when no relationship the package keeps reaches
+//!   it, computed once per write over every removal (P2 ruling 6), so one
+//!   that a second drawing shares stays. A drawing left with no anchor is
+//!   dropped with its rels part, `Override`, relationship and `<drawing>`,
+//!   an input drawing that was already empty among them once an addition
+//!   and a removal have passed through it (P2 ruling 3). A rels part a
+//!   write leaves with no relationship is kept, an empty `Relationships`
+//!   root, never dropped (P2 ruling 2).
+//! - What is never written: an SVG, EMF, GIF, BMP or TIFF image, an
+//!   image's `descr`; images are never checked for overlap.
 //! - What is read back: `Package::images` gives each picture's anchor kind,
 //!   `from` and media entry with its size, from a root anchor or the first
 //!   anchor in a root `AlternateContent`'s first `Choice` (P3 ruling 1); a
@@ -1397,6 +1443,65 @@
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice; what Excel shows for a note or a picture
 //!   is Excel's.
+//!
+//! A sheet copy adds these, all the Cargo feature `copy`'s, its comment
+//! carry with `comments` too (`specs/0028-images-and-comments-second-half.md`,
+//! "The copy", decisions 5 to 7, the P3 rulings), the caller's picture:
+//!
+//! - The surface: `Package::copy_sheet`, and two constants public under
+//!   `copy` as well as under their own features, `COMMENTS` (under
+//!   `comments` or `copy`) and `HYPERLINK` (under `metadata` or `copy`);
+//!   the markup-compatibility namespace constant the pass also needs is
+//!   private, compiled under `images` or `copy` (P3 ruling 7, P4 ruling
+//!   2).
+//! - What it touches: a new worksheet entry at the end of the sheet list,
+//!   recorded as `Package::add_sheet` records one (the entry, its
+//!   `Override`, the workbook relationship and the `<sheet>`, `state` not
+//!   copied, so the copy is visible); a rels part for the copy exactly when
+//!   the source has a hyperlink or a comments relationship (P3 ruling 1);
+//!   with `comments`, a comments part and a VML part. The source part is
+//!   read, never written.
+//! - What the copy drops, element by element: the `codeName` attribute of
+//!   `sheetPr`; the `tabSelected` attribute of every `sheetView`; the
+//!   relationship attributes of `pageSetup` (printer settings are not
+//!   copied; P3 verification ruling 2); the root children `drawing`,
+//!   `legacyDrawing`, `legacyDrawingHF`, `picture`, `oleObjects`,
+//!   `controls`, `webPublishItems`, `tableParts` and `extLst`, each whole,
+//!   so images, charts, tables, controls and the extension list's
+//!   conditional formats, validations, sparklines and slicer references
+//!   are not copied; and a root `mc:AlternateContent` whose branches hold
+//!   only those elements, whole. A root `AlternateContent` holding any
+//!   other element is kept, its relationship attributes refused and its
+//!   formulas counted, and one with no branch element is kept (P3 ruling
+//!   2). Every other byte of the source is kept, the comments' legacy
+//!   drawing recreated when they are carried.
+//! - What it carries: the source's hyperlink relationships, with their
+//!   ids, targets and target modes, and nothing else; a `hyperlink` whose
+//!   `r:id` names no relationship or one of another kind, and any other kept
+//!   element that names a relationship, is refused (P3 ruling 5). With
+//!   `comments`, the comments part byte for byte and a VML part of one
+//!   `Note` shape per comment in document order, each with the source
+//!   shape's box as `Package::comments` reads it (the default box when it
+//!   reads none), the VML `idmap` block counted with every other block this
+//!   write allocates (P3 ruling 4). Without `comments`, a source with a
+//!   comments relationship is refused.
+//! - What is not copied: defined names scoped to the source, print titles,
+//!   print area and the filter database among them, as openpyxl's copy
+//!   does not copy them; the printer settings; and whatever the dropped
+//!   elements name.
+//! - The calculation chain: a source holding an `f` element makes the
+//!   write a formula change (`specs/0013-formulas.md`), the chain dropped
+//!   and a full calculation on load recorded, since the copy's formulas
+//!   are not in the chain.
+//! - Refused: a source this write edits, a replacement through
+//!   `Package::replace_part` among the edits, refused at the write; a
+//!   source this write adds, and any edit on the copy in the same write,
+//!   with "no such part"; a source `Package::remove_sheet` removes in the
+//!   same write is allowed, the copy staying (P3 ruling 3). The caller
+//!   writes, reopens and edits.
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice; what Excel shows for the copied sheet is
+//!   Excel's.
 //!
 //! Rich text adds these, all the Cargo feature `richtext`'s, a comment's
 //! runs with `comments` too (`specs/0024-rich-text.md`, "Design", decisions
@@ -1731,9 +1836,18 @@
 //!   (`records/m3p5-scale-d-items-2026-10-05-6ec0055.md`); a consumer that
 //!   resolves cells at random holds the table or builds its own index.
 //! - The workbook, content types, relationships and styles parts, each
-//!   parsed into its model once; and an existing comments VML part or
-//!   drawing part, read whole when a comment or an image is added beside
-//!   it. Each is small next to a worksheet.
+//!   parsed into its model once. Each is small next to a worksheet.
+//! - A sheet's VML part and drawing part, held whole when a comment, a
+//!   comment's box or an image is added, an image removed, a sheet's
+//!   comments read with their boxes, or a copy's comments carried
+//!   (`specs/0028-images-and-comments-second-half.md`, "32-bit and
+//!   streaming", decision 8, the scale record's carry): the scale tiers
+//!   hold neither, and each is bounded by its anchors or shapes, not by
+//!   the sheet's cells. The corpus's figures: 37 worksheet drawings (root
+//!   `wsDr`; 38 parts by name, one a chart's user shapes), the largest
+//!   holding 9 anchors (`records/logs/m3p6-p2/run.log`, P2 ruling 10); 11
+//!   VML parts, the largest 10 shapes. A sheet copy streams its source
+//!   part once, as the worksheet pass does.
 //! - The recorded edits, as the cell edits above say, and a root child the
 //!   write counts or reorders, bounded by that element and never by the
 //!   sheet's rows.

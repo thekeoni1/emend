@@ -6,21 +6,26 @@
 //! `probe-emend-format-write-xml`'s work, unchanged, then on the same
 //! package before its write `add_image` of [`PNG`], the tool's constant (the
 //! same 82 bytes, P3 ruling 2), at its own size at a fixed cell past the
-//! format probe's edits ([`IMAGE_CELL`]). After the write one more line read
-//! back through the feature's read side: `images`, the output sheet's image
-//! count, so both sides are linked and nothing is dead.
+//! format probe's edits ([`IMAGE_CELL`]), and `add_image_at` of the same
+//! bytes on a two-cell anchor over [`TWO_CELL_FROM`] to [`TWO_CELL_TO`]
+//! (`specs/0028-images-and-comments-second-half.md`, "Size"). After the
+//! write one more line read back through the feature's read side: `images`,
+//! the output sheet's image count. Then a second package opened on that
+//! output, `remove_image` of its first image, written into memory and
+//! reopened: `images_removed`, the sheet's image count after the removal. So
+//! both sides are linked and nothing is dead.
 //!
 //! Every other name, part, reference, code, formula text, font name, index
 //! and area comes from the command line, so the compiler cannot prove an
 //! edit or a read path dead and drop it.
 
 use std::fs::File;
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader, BufWriter, Cursor, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
-use emend::package::{CALC_CHAIN, Image, Package, THEME};
+use emend::package::{CALC_CHAIN, EditAs, Image, ImageAnchor, Package, THEME};
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
     Protection, Side, Style, Vertical,
@@ -38,6 +43,11 @@ const USAGE: &str = "usage: probe-emend-images-write-xml <archive> <output> \
 /// The image's cell, past every cell, column, row and area the format
 /// probe's work takes from its arguments in the size log.
 const IMAGE_CELL: &str = "AB10";
+
+/// The two-cell anchor's cells, past the image's cell and every edit the
+/// format probe's work takes from its arguments in the size log.
+const TWO_CELL_FROM: &str = "AB12";
+const TWO_CELL_TO: &str = "AD14";
 
 /// The image: `emend-copy`'s constant for `--image-sample`, the same 82
 /// bytes (2 by 2 RGB pixels, one stored deflate block), whose producer the
@@ -162,7 +172,7 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}\nmerges {}\nimages {}",
+                 full_border {}\nmerges {}\nimages {}\nimages_removed {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -192,6 +202,7 @@ fn main() -> ExitCode {
                 style(written.full_ids.2),
                 written.merges,
                 written.images,
+                written.images_removed,
             );
             ExitCode::SUCCESS
         }
@@ -254,6 +265,7 @@ struct Written {
     full_ids: (Option<u32>, Option<u32>, Option<u32>),
     merges: u64,
     images: u64,
+    images_removed: u64,
 }
 
 /// A cell's `style` as printed: the index, or `none`.
@@ -352,6 +364,24 @@ fn edit(
             },
         )
         .map_err(|e| e.to_string())?;
+    // The anchors' edit (specs/0028 "Size"): a two-cell anchor.
+    let cell = |at: &str| CellRef::parse(at.as_bytes()).ok_or("an anchor cell does not parse");
+    package
+        .add_image_at(
+            sheet,
+            ImageAnchor::TwoCell {
+                from: cell(TWO_CELL_FROM)?,
+                to: cell(TWO_CELL_TO)?,
+                from_offset: (0, 0),
+                to_offset: (0, 0),
+                edit_as: EditAs::OneCell,
+            },
+            Image {
+                bytes: &PNG,
+                size: None,
+            },
+        )
+        .map_err(|e| e.to_string())?;
 
     let out = File::create(second).map_err(|e| e.kind().to_string())?;
     let mut writer = BufWriter::new(out);
@@ -403,6 +433,7 @@ fn edit(
         .ok_or("the output has no such sheet part")?;
     let merges = count_named(&mut written, index, b"mergeCell")?;
     let images = written.images(sheet).map_err(|e| e.to_string())?.len() as u64;
+    let images_removed = remove_first_image(second, sheet)?;
     Ok(Written {
         cells: count,
         xfs_before,
@@ -423,7 +454,22 @@ fn edit(
         full_ids,
         merges,
         images,
+        images_removed,
     })
+}
+
+/// The removal's edit (specs/0028 "Size"): a second package opened on
+/// `second`, `remove_image` of the sheet's first image, written into memory
+/// and reopened; the sheet's image count after the removal.
+fn remove_first_image(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<u64, String> {
+    let file = File::open(second).map_err(|e| e.kind().to_string())?;
+    let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
+    package.remove_image(sheet, 0).map_err(|e| e.to_string())?;
+    let mut out = Cursor::new(Vec::new());
+    package.write_to(&mut out).map_err(|e| e.to_string())?;
+    out.set_position(0);
+    let mut removed = Package::open(out).map_err(|e| e.to_string())?;
+    Ok(removed.images(sheet).map_err(|e| e.to_string())?.len() as u64)
 }
 
 /// The elements named `name` (local name) in one part, through the crate's
