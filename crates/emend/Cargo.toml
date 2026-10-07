@@ -65,3 +65,8 @@ images = []
 # iterator. Off by default, with no dependency of its own, measured beside
 # the core as `sheetprops` is.
 read = []
+# The worksheet copy of specs/0028-images-and-comments-second-half.md
+# (decision 1 A): a sheet copied within its workbook, its comments carried
+# with `comments` too. Off by default, with no dependency of its own,
+# measured beside the core as `read` is.
+copy = []

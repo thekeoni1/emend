@@ -593,6 +593,29 @@
 //! - "no image at that position"
 //!   (`images::removal::an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write`).
 //!
+//! A sheet copy adds these, the Cargo feature `copy`'s
+//! (`specs/0028-images-and-comments-second-half.md`, "Errors"; without the
+//! feature no call records a copy and none of them is raised); the first is
+//! raised by `Package::copy_sheet`, which also meets "no sheet of that name"
+//! and the name rules of [`Package::add_sheet`], the rest by
+//! [`Package::write_to`] after it, which also meets "no such part" for a
+//! source this write adds and for an edit on the copy, and, with the Cargo
+//! feature `comments`, "a worksheet has threaded comments" and the comments
+//! read's messages
+//! (`copy::an_edit_on_the_source_or_the_copy_or_a_source_added_is_refused_at_the_write`,
+//! `copy::a_copy_of_a_sheet_with_threaded_comments_or_a_comment_edit_is_refused`). The
+//! last is raised only without the Cargo feature `comments`:
+//!
+//! - "a sheet copy needs a worksheet"
+//!   (`copy::the_call_refuses_an_absent_source_a_chartsheet_and_the_name_rules`).
+//! - "a sheet copy of a part this write edits"
+//!   (`copy::an_edit_on_the_source_or_the_copy_or_a_source_added_is_refused_at_the_write`).
+//! - "a sheet copy meets a relationship it cannot carry"
+//!   (`copy::a_kept_relationship_outside_a_hyperlink_is_refused`,
+//!   `copy::a_root_alternate_content_holding_only_dropped_elements_goes_whole`).
+//! - "a sheet copy needs the comments feature"
+//!   (`copy::a_source_with_comments_needs_the_comments_feature`).
+//!
 //! Rich text adds these, the Cargo feature `richtext`'s messages
 //! (`specs/0024-rich-text.md`, "Errors"; without the feature no value
 //! carries runs and neither is raised); both are raised in `cells`, the
@@ -1848,8 +1871,8 @@ const TABLE_CONTENT_TYPE: &[u8] =
 
 /// The `comments` relationship type, transitional then strict (the Cargo
 /// feature `comments`; `specs/0022-comments-and-images.md`, "Comments: the
-/// parts").
-#[cfg(feature = "comments")]
+/// parts"), which the Cargo feature `copy` looks for on a copy's source.
+#[cfg(any(feature = "comments", feature = "copy"))]
 pub const COMMENTS: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/comments",
@@ -1925,8 +1948,9 @@ const DRAWINGML: [&[u8]; 2] = [
 ];
 
 /// The markup-compatibility namespace, whose `AlternateContent` a drawing
-/// may wrap an anchor or a picture in (the Cargo feature `images`).
-#[cfg(feature = "images")]
+/// may wrap an anchor or a picture in (the Cargo feature `images`), and a
+/// worksheet a root child (the Cargo feature `copy`).
+#[cfg(any(feature = "images", feature = "copy"))]
 const MARKUP_COMPATIBILITY: &[u8] = b"http://schemas.openxmlformats.org/markup-compatibility/2006";
 
 /// EMU per pixel at Excel's 96 dpi (the Cargo feature `images`).
@@ -1936,8 +1960,9 @@ const EMU_PER_PIXEL: u64 = 9525;
 /// The `hyperlink` relationship type, transitional then strict, the type a
 /// link to a target outside the package is written with (the Cargo feature
 /// `metadata`; `specs/0019-names-links-properties-protection.md`,
-/// "Hyperlinks").
-#[cfg(feature = "metadata")]
+/// "Hyperlinks"), and the one a sheet copy carries (the Cargo feature
+/// `copy`).
+#[cfg(any(feature = "metadata", feature = "copy"))]
 pub const HYPERLINK: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/hyperlink",
@@ -2670,6 +2695,18 @@ struct Recorded {
     /// it validates.
     #[cfg(feature = "images")]
     image_works: Vec<(Vec<u8>, DrawingWork)>,
+    /// Each sheet copy, `(source, copy)`: the worksheet part
+    /// [`Package::copy_sheet`] copies and the entry it returned
+    /// (`specs/0028-images-and-comments-second-half.md`, "The copy").
+    #[cfg(feature = "copy")]
+    sheet_copies: Vec<(Vec<u8>, Vec<u8>)>,
+    /// What the worksheet pass of each copy does, recorded at the write.
+    #[cfg(feature = "copy")]
+    copy_works: Vec<CopyWork>,
+    /// The `idmap` numbers this write's copies give their VML parts, which
+    /// the comment additions of the same write do not take again.
+    #[cfg(all(feature = "copy", feature = "comments"))]
+    copy_idmaps: Vec<u64>,
     /// `(part, colour)`: a tab colour set, or dropped when `None`, the last
     /// for a part winning (`specs/0025-sheet-and-print-settings.md`, "The
     /// calls").
@@ -3832,6 +3869,22 @@ struct LegacyWork {
     strict: bool,
 }
 
+/// What the worksheet pass of a sheet copy needs
+/// (`specs/0028-images-and-comments-second-half.md`, "The copy"): the
+/// source part it reads, the copy's entry, the hyperlink relationship ids the
+/// copy carries, and with the Cargo feature `comments` the VML relationship
+/// a created `<legacyDrawing>` names with the copy's form, strict or not.
+/// The Cargo feature `copy`.
+#[cfg(feature = "copy")]
+#[derive(Clone)]
+struct CopyWork {
+    source: Vec<u8>,
+    part: Vec<u8>,
+    links: Vec<Vec<u8>>,
+    #[cfg(feature = "comments")]
+    legacy: Option<(Vec<u8>, bool)>,
+}
+
 /// A comment to add, as [`Package::add_comment`] or, with the Cargo feature
 /// `richtext`, [`Package::add_rich_comment`] checked it: `text` the
 /// flattened text, and `runs` the runs written in its place when the comment
@@ -4631,6 +4684,29 @@ impl Recorded {
                 parts.push(part.clone());
             }
         }
+        parts
+    }
+
+    /// Every worksheet part an edit names: [`Recorded::cell_parts`], and the
+    /// parts of the comment and image edits, which reach the worksheet pass
+    /// only once the write has recorded their parts. A sheet copy's source
+    /// and its copy are checked against it
+    /// (`specs/0028-images-and-comments-second-half.md`, "The copy").
+    #[cfg(feature = "copy")]
+    fn edited_parts(&self) -> Vec<Vec<u8>> {
+        let parts = self.cell_parts();
+        #[cfg(feature = "comments")]
+        let parts: Vec<Vec<u8>> = parts
+            .into_iter()
+            .chain(self.comment_edits.iter().map(|(part, _, _)| part.clone()))
+            .chain(self.comment_boxes.iter().map(|(part, _, _)| part.clone()))
+            .collect();
+        #[cfg(feature = "images")]
+        let parts: Vec<Vec<u8>> = parts
+            .into_iter()
+            .chain(self.image_edits.iter().map(|(part, _, _)| part.clone()))
+            .chain(self.image_removals.iter().map(|(part, _)| part.clone()))
+            .collect();
         parts
     }
 
@@ -7031,6 +7107,56 @@ impl<R: Read + Seek> Package<R> {
         self.parts().remove_sheet(name)
     }
 
+    /// Records a new worksheet named `to` at the end of the list, a copy of
+    /// the worksheet named `name` in the projected list, and returns its
+    /// entry name (`specs/0028-images-and-comments-second-half.md`, "The
+    /// copy", decisions 5 to 7). The Cargo feature `copy`.
+    ///
+    /// Recorded as [`Package::add_sheet`] records its sheet: the entry, its
+    /// `Override`, the workbook relationship and the `<sheet>`, `state` not
+    /// copied. At the write the entry's bytes come from one streaming pass
+    /// over the source part, every byte kept but these: the `codeName` of
+    /// `sheetPr`, the `tabSelected` of every `sheetView` and the `r:id` of
+    /// `pageSetup`; the root children `drawing`, `legacyDrawing`,
+    /// `legacyDrawingHF`, `picture`, `oleObjects`, `controls`,
+    /// `webPublishItems`, `tableParts` and `extLst` whole, and a root
+    /// `AlternateContent` whose every branch holds only those. The source's
+    /// hyperlink relationships go into the copy's relationships part with
+    /// their ids, targets and target modes, nothing else; any other kept
+    /// element that names a relationship is refused. With the Cargo feature
+    /// `comments`, a source's comments are carried: its comments part copied
+    /// byte for byte to a new part, a new VML part with one note shape per
+    /// comment in document order, each with the source shape's box as
+    /// `Package::comments` reads it (the default box when it reads none),
+    /// and a `<legacyDrawing>` created in schema position. Defined names
+    /// scoped to the source are not copied. A source holding a formula makes
+    /// the write a formula change (`specs/0013-formulas.md`): the chain
+    /// dropped and a full calculation on load recorded.
+    ///
+    /// Edits recorded on the returned name in the same write are refused
+    /// with "no such part": the caller writes, reopens and edits the copy.
+    ///
+    /// # Errors
+    ///
+    /// At the call: "no sheet of that name" when the projected list has no
+    /// sheet named exactly `name`; "a sheet copy needs a worksheet" when it
+    /// names another kind of sheet; the name rules' messages for `to` as
+    /// [`Package::add_sheet`] gives them; whatever reading the workbook, its
+    /// relationships and the content types refuses. Nothing is recorded when
+    /// this fails. At the write, through [`Package::write_to`]: "no such
+    /// part" for a source this write adds, or an edit on the copy; "a sheet
+    /// copy of a part this write edits" for a source with a cell, style,
+    /// shift, setting, comment, image or other worksheet edit, or one this
+    /// write replaces; "a sheet copy meets a relationship it cannot carry";
+    /// without the Cargo feature `comments`, "a sheet copy needs the comments
+    /// feature" for a source with a comments relationship; with it, "a
+    /// worksheet has threaded comments" and the comments read's messages;
+    /// and whatever the worksheet part's read refuses.
+    #[cfg(feature = "copy")]
+    pub fn copy_sheet(&mut self, name: &str, to: &str) -> Result<Vec<u8>, Error> {
+        self.parts().copy_sheet(name, to)
+    }
+
     /// Writes the package back with every recorded edit applied.
     ///
     /// Every edit is validated first, so a refused set writes nothing. Then
@@ -9061,6 +9187,9 @@ impl<'a> Parts<'a> {
                 used.push(block);
             }
         }
+        // The VML parts this write's sheet copies create.
+        #[cfg(feature = "copy")]
+        used.extend(self.edits.copy_idmaps.iter().copied());
         Ok(used)
     }
 
@@ -9810,6 +9939,139 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// The body of [`Package::copy_sheet`]: the call's checks, then the
+    /// sheet recorded as [`Package::add_sheet`] records one, and the copy.
+    #[cfg(feature = "copy")]
+    fn copy_sheet(&mut self, name: &str, to: &str) -> Result<Vec<u8>, Error> {
+        let list = self.projected()?;
+        let at = position_of(&list, name).ok_or(NO_SUCH_SHEET)?;
+        if list[at].sheet.kind != SheetKind::Worksheet {
+            return Err(COPY_NEEDS_WORKSHEET);
+        }
+        let source = list[at].sheet.part.clone();
+        let part = self.add_sheet(to)?;
+        self.edits.sheet_copies.push((source, part.clone()));
+        Ok(part)
+    }
+
+    /// Records what each sheet copy needs at the write
+    /// (`specs/0028-images-and-comments-second-half.md`, "The copy"): the
+    /// refusals of a source this write adds or edits and of an edit on the
+    /// copy, then the source's hyperlink relationships on the copy with
+    /// their ids, and with the Cargo feature `comments` the carried comments
+    /// part, VML part, overrides and relationships. The worksheet pass runs
+    /// later, in [`Package::write_to`]'s loop.
+    #[cfg(feature = "copy")]
+    fn record_copies(&mut self) -> Result<(), Error> {
+        if self.edits.sheet_copies.is_empty() {
+            return Ok(());
+        }
+        let edited = self.edits.edited_parts();
+        let mut works: Vec<CopyWork> = Vec::new();
+        for (source, part) in self.edits.sheet_copies.clone() {
+            // A sheet this write adds has no bytes to copy yet.
+            self.archive.index_of(&source).ok_or(NO_SUCH_PART)?;
+            if edited.contains(&source)
+                || self
+                    .edits
+                    .part_replacements
+                    .iter()
+                    .any(|(name, _)| *name == source)
+            {
+                return Err(COPY_OF_EDITED);
+            }
+            // An edit on the copy itself (decision 7 A).
+            if edited.contains(&part) {
+                return Err(NO_SUCH_PART);
+            }
+            let rels = self.relationships(&source)?;
+            let links: Vec<Relationship> = rels
+                .all()
+                .iter()
+                .filter(|rel| HYPERLINK.contains(&rel.kind.as_slice()))
+                .cloned()
+                .collect();
+            let has_comments = rels
+                .all()
+                .iter()
+                .any(|rel| !rel.external && COMMENTS.contains(&rel.kind.as_slice()));
+            #[cfg(not(feature = "comments"))]
+            if has_comments {
+                return Err(COPY_NEEDS_COMMENTS);
+            }
+            #[cfg(feature = "comments")]
+            if rels
+                .all()
+                .iter()
+                .any(|rel| THREADED_COMMENTS.contains(&rel.kind.as_slice()))
+            {
+                return Err(THREADED_COMMENTS_HELD);
+            }
+            let ids: Vec<Vec<u8>> = links.iter().map(|rel| rel.id.clone()).collect();
+            for rel in links {
+                self.edits.rel_additions.push((part.clone(), rel));
+            }
+            #[cfg(feature = "comments")]
+            let legacy = if has_comments {
+                Some(self.carry_comments(&source, &part)?)
+            } else {
+                None
+            };
+            works.push(CopyWork {
+                source,
+                part,
+                links: ids,
+                #[cfg(feature = "comments")]
+                legacy,
+            });
+        }
+        self.edits.copy_works = works;
+        Ok(())
+    }
+
+    /// The comments of a sheet copy's source, carried to the copy `part`:
+    /// the comments part byte for byte to a new part, allocated, overridden
+    /// and related as an addition's is, and a new VML part with one note
+    /// shape per comment in document order, each with the box the read
+    /// gives the source's shape or the default box. Returns the copy's VML
+    /// relationship id and whether its relationships take the strict form.
+    #[cfg(all(feature = "copy", feature = "comments"))]
+    fn carry_comments(&mut self, source: &[u8], part: &[u8]) -> Result<(Vec<u8>, bool), Error> {
+        let target = self.comments_target(source)?.ok_or(COMMENTS_UNREADABLE)?;
+        let at = self.archive.index_of(&target).ok_or(COMMENTS_UNREADABLE)?;
+        let mut bytes = Vec::new();
+        self.archive.read(at)?.read_to_end(&mut bytes)?;
+        let cells: Vec<(CellRef, CommentBox)> = self
+            .comments(source)?
+            .iter()
+            .map(|entry| (entry.cell, entry.shape.unwrap_or(DEFAULT_BOX)))
+            .collect();
+        let mut used = self.vml_idmaps()?;
+        let block = smallest_unused(&mut used);
+        let strict = self.sheet_is_strict(part)?;
+        // Every read comes before the first record.
+        let mut entries = self.taken_entries();
+        let comments = free_entry(&entries, |n| format!("xl/comments{n}.xml"));
+        entries.push(comments.to_ascii_lowercase());
+        let vml = free_entry(&entries, |n| format!("xl/drawings/vmlDrawing{n}.vml"));
+        self.edits.copy_idmaps.push(block);
+        self.add_part(
+            comments.as_bytes(),
+            replacement_from_reader(Cursor::new(bytes)),
+        );
+        self.add_override(format!("/{comments}").as_bytes(), COMMENTS_CONTENT_TYPE);
+        let target = relative_target(part, comments.as_bytes());
+        self.add_relationship(part, COMMENTS[usize::from(strict)], &target, false)?;
+        self.add_part(
+            vml.as_bytes(),
+            replacement_from_reader(Cursor::new(vml_part_bytes(block, &cells))),
+        );
+        self.add_override(format!("/{vml}").as_bytes(), VML_CONTENT_TYPE);
+        let target = relative_target(part, vml.as_bytes());
+        let id = self.add_relationship(part, VML_DRAWING[usize::from(strict)], &target, false)?;
+        Ok((id, strict))
+    }
+
     /// Every entry reachable from `root`, an entry or the package itself as
     /// the empty name, through internal relationships, transitively, in the
     /// order first reached; `root` itself first when it is an entry. A
@@ -9919,10 +10181,17 @@ impl<'a> Parts<'a> {
         self.edits.image_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
         self.edits.image_removals.retain(|(at, _)| at != part);
+        #[cfg(feature = "copy")]
+        self.edits.sheet_copies.retain(|(_, copy)| copy != part);
     }
 
     /// The body of [`Package::write_to`], over the writer as a trait object.
     fn write_to(mut self, out: &mut dyn Write) -> Result<(), Error> {
+        // A sheet copy's relationships and carried parts are recorded first,
+        // so the parts the comments and tables below create take other names
+        // (`specs/0028-images-and-comments-second-half.md`, "The copy").
+        #[cfg(feature = "copy")]
+        self.record_copies()?;
         // An external link's relationship is recorded before validation, so
         // the rels part it goes into is checked as any other edit's is.
         #[cfg(feature = "metadata")]
@@ -10004,6 +10273,24 @@ impl<'a> Parts<'a> {
                 }
                 None => return Err(NO_SUCH_PART),
             }
+        }
+        // Each sheet copy's bytes, one pass over its source; a source holding
+        // a formula makes the write a formula change
+        // (`specs/0028-images-and-comments-second-half.md`, "The copy").
+        #[cfg(feature = "copy")]
+        for work in self.edits.copy_works.clone() {
+            let index = self.archive.index_of(&work.source).ok_or(NO_SUCH_PART)?;
+            let slot = self
+                .edits
+                .part_additions
+                .iter()
+                .position(|(added, _)| *added == work.part)
+                .ok_or(NO_SUCH_PART)?;
+            let (temp, replacement, formula) =
+                copy_worksheet(self.archive.read(index)?, index, &work)?;
+            changed_formula |= formula;
+            temporaries.push(temp);
+            self.edits.part_additions[slot].1 = replacement;
         }
         // A defined name added or removed is a formula change too
         // (`specs/0019-names-links-properties-protection.md`, decision 2 A).
@@ -10297,6 +10584,18 @@ impl<'a> Parts<'a> {
         // created for a part that does not exist (P3 ruling 13a).
         for source in self.edits.rel_sources() {
             if source.is_empty() {
+                continue;
+            }
+            // A sheet copy's relationships go into the rels part its write
+            // creates (`specs/0028-images-and-comments-second-half.md`, "The
+            // copy").
+            #[cfg(feature = "copy")]
+            if self
+                .edits
+                .sheet_copies
+                .iter()
+                .any(|(_, copy)| *copy == source)
+            {
                 continue;
             }
             if self.archive.index_of(&source).is_none() {
@@ -11281,6 +11580,22 @@ const IMAGE_SIZE_TWO_CELL: Error =
 const NO_IMAGE_AT: Error = Error::Package("no image at that position");
 #[cfg(feature = "images")]
 const TWO_DRAWINGS: Error = Error::Package("a worksheet has two drawing elements");
+
+/// What a sheet copy refuses (`specs/0028-images-and-comments-second-
+/// half.md`, "The copy" and "Errors"): a source that is not a worksheet, at
+/// the call; at the write, a source this write edits, an element the copy
+/// keeps that names a relationship the copy does not carry, and a source
+/// with comments when the Cargo feature `comments` is off. The Cargo
+/// feature `copy`.
+#[cfg(feature = "copy")]
+const COPY_NEEDS_WORKSHEET: Error = Error::Package("a sheet copy needs a worksheet");
+#[cfg(feature = "copy")]
+const COPY_OF_EDITED: Error = Error::Package("a sheet copy of a part this write edits");
+#[cfg(feature = "copy")]
+const COPY_RELATIONSHIP: Error =
+    Error::Package("a sheet copy meets a relationship it cannot carry");
+#[cfg(all(feature = "copy", not(feature = "comments")))]
+const COPY_NEEDS_COMMENTS: Error = Error::Package("a sheet copy needs the comments feature");
 
 /// A sheet setting a call cannot record: a zoom or a scale outside
 /// `10..=400`, a paper size, a first page number or copies of zero, a
@@ -14765,6 +15080,339 @@ fn rewrite_worksheet_from(
     let (temp, replacement) =
         written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
     Ok((temp, replacement, removed_formula))
+}
+
+/// The root children a sheet copy leaves out whole
+/// (`specs/0028-images-and-comments-second-half.md`, "The copy").
+#[cfg(feature = "copy")]
+const COPY_DROPPED: [&[u8]; 9] = [
+    b"drawing",
+    b"legacyDrawing",
+    b"legacyDrawingHF",
+    b"picture",
+    b"oleObjects",
+    b"controls",
+    b"webPublishItems",
+    b"tableParts",
+    b"extLst",
+];
+
+/// A sheet copy's bytes (`specs/0028-images-and-comments-second-half.md`,
+/// "The copy"): one pass over the source worksheet, every token's bytes
+/// copied but the `codeName` of `sheetPr`, the `tabSelected` of each
+/// `sheetView` in `sheetViews`, every relationships attribute of
+/// `pageSetup`, the root children of [`COPY_DROPPED`], and a root
+/// `AlternateContent` whose branches hold only those; with the Cargo feature
+/// `comments` a `<legacyDrawing>` created in schema position when `work`
+/// names one. A relationships attribute on any other kept element is
+/// refused, but for a `hyperlink`'s naming one of the relationships the copy
+/// carries. Returns whether the source holds a formula, an `f` of the main
+/// namespace, which makes the write a formula change. `index` is the
+/// source's entry, for an error.
+#[cfg(feature = "copy")]
+fn copy_worksheet(
+    input: impl Read,
+    index: usize,
+    work: &CopyWork,
+) -> Result<(TempFile, Replacement, bool), Error> {
+    let (temp, file) = temp_for_part()?;
+    let mut out = BufWriter::new(file);
+    let mut stream = Stream::new(input, index)?;
+    if stream.bom() {
+        out.write_all(&BYTE_ORDER_MARK)?;
+    }
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root = false;
+    // The root's prefix, which a created `<legacyDrawing>` takes.
+    #[cfg(feature = "comments")]
+    let mut root_prefix: Vec<u8> = Vec::new();
+    let mut formula = false;
+    // The open `<sheetViews>`'s and `<hyperlinks>`'s depths.
+    let mut views: Option<usize> = None;
+    let mut links: Option<usize> = None;
+    // A root `AlternateContent`, held to its end tag.
+    let mut held: Option<HeldAlternate> = None;
+    #[cfg(feature = "comments")]
+    let mut legacy = ElementPass::new(
+        LEGACY_DRAWING,
+        work.legacy.as_ref().map(|(id, _)| id.as_slice()),
+    );
+
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if let Some(alternate) = held.as_mut() {
+                    alternate.start(token.raw, start, &scope, (local, ours, depth), index)?;
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
+                if !root {
+                    if !ours || local != b"worksheet" {
+                        return Err(Error::Package("the worksheet part's root is not worksheet"));
+                    }
+                    root = true;
+                    #[cfg(feature = "comments")]
+                    {
+                        root_prefix = prefix_of(start);
+                    }
+                    check_copy_relationships(start, &scope, None, index)?;
+                    #[cfg(feature = "comments")]
+                    let raw = match &work.legacy {
+                        Some((_, strict)) => legacy.root_tag(token.raw, *strict, index)?,
+                        None => token.raw.to_vec(),
+                    };
+                    #[cfg(not(feature = "comments"))]
+                    let raw = token.raw.to_vec();
+                    #[cfg(feature = "comments")]
+                    let created = if empty {
+                        legacy.create_at_end(&root_prefix)
+                    } else {
+                        None
+                    };
+                    #[cfg(not(feature = "comments"))]
+                    let created: Option<Vec<u8>> = None;
+                    match created {
+                        Some(bytes) => {
+                            out.write_all(&opened_up(&raw, index)?)?;
+                            out.write_all(&bytes)?;
+                            out.write_all(b"</")?;
+                            out.write_all(start.name().into_inner().as_bytes())?;
+                            out.write_all(b">")?;
+                        }
+                        None => out.write_all(&raw)?,
+                    }
+                    if empty {
+                        scope.end();
+                        depth -= 1;
+                    }
+                    continue;
+                }
+                if depth == 2 {
+                    if ours && let Some(position) = schema_position(local) {
+                        #[cfg(feature = "comments")]
+                        if let Some(bytes) = legacy.create_before(position, &root_prefix) {
+                            out.write_all(&bytes)?;
+                        }
+                        #[cfg(not(feature = "comments"))]
+                        let _ = position;
+                        if COPY_DROPPED.contains(&local) {
+                            if !empty {
+                                skip_element(&mut stream, &mut scope)?;
+                            }
+                            scope.end();
+                            depth -= 1;
+                            continue;
+                        }
+                    }
+                    if namespace == Some(MARKUP_COMPATIBILITY)
+                        && local == b"AlternateContent"
+                        && !empty
+                    {
+                        let mut alternate = HeldAlternate::new(depth);
+                        alternate.start(token.raw, start, &scope, (local, ours, depth), index)?;
+                        held = Some(alternate);
+                        continue;
+                    }
+                }
+                let raw = if depth == 2 && ours && local == b"sheetPr" {
+                    without_attribute(token.raw, b"codeName", index)?
+                } else if views.is_some_and(|at| depth == at + 1) && ours && local == b"sheetView" {
+                    without_attribute(token.raw, b"tabSelected", index)?
+                } else if depth == 2 && ours && local == b"pageSetup" {
+                    // Printer settings are not copied: the relationship goes.
+                    let mut raw = token.raw.to_vec();
+                    for name in relationship_attributes(start, &scope, index)? {
+                        raw = without_attribute(&raw, &name, index)?;
+                    }
+                    raw
+                } else {
+                    let link =
+                        links.is_some_and(|at| depth == at + 1) && ours && local == b"hyperlink";
+                    check_copy_relationships(start, &scope, link.then_some(&work.links), index)?;
+                    token.raw.to_vec()
+                };
+                if ours && local == b"f" {
+                    formula = true;
+                }
+                if depth == 2 && ours && !empty {
+                    if local == b"sheetViews" {
+                        views = Some(depth);
+                    } else if local == b"hyperlinks" {
+                        links = Some(depth);
+                    }
+                }
+                out.write_all(&raw)?;
+                if empty {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                if let Some(alternate) = held.as_mut() {
+                    alternate.bytes.extend_from_slice(token.raw);
+                    if depth == alternate.depth {
+                        let alternate = held.take().ok_or(Error::Xml(index))?;
+                        if !alternate.dropped() {
+                            if alternate.relationships {
+                                return Err(COPY_RELATIONSHIP);
+                            }
+                            formula |= alternate.formula;
+                            out.write_all(&alternate.bytes)?;
+                        }
+                    }
+                    scope.end();
+                    depth -= 1;
+                    continue;
+                }
+                if depth == 1 {
+                    #[cfg(feature = "comments")]
+                    if let Some(bytes) = legacy.create_at_end(&root_prefix) {
+                        out.write_all(&bytes)?;
+                    }
+                }
+                if views == Some(depth) {
+                    views = None;
+                }
+                if links == Some(depth) {
+                    links = None;
+                }
+                out.write_all(token.raw)?;
+                scope.end();
+                depth -= 1;
+            }
+            _ => match held.as_mut() {
+                Some(alternate) => alternate.bytes.extend_from_slice(token.raw),
+                None => out.write_all(token.raw)?,
+            },
+        }
+    }
+    let (temp, replacement) =
+        written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)?;
+    Ok((temp, replacement, formula))
+}
+
+/// A root `AlternateContent` of a sheet copy's source, held to its end tag
+/// (`specs/0028-images-and-comments-second-half.md`, "The copy"): its bytes;
+/// whether each element in a branch is one the copy drops, so the whole is
+/// dropped as that element would be; and whether it names a relationship or
+/// holds a formula, for when it is kept. The Cargo feature `copy`.
+#[cfg(feature = "copy")]
+struct HeldAlternate {
+    depth: usize,
+    bytes: Vec<u8>,
+    /// The elements found in a branch, and how many of them the copy drops.
+    children: usize,
+    droppable: usize,
+    relationships: bool,
+    formula: bool,
+}
+
+#[cfg(feature = "copy")]
+impl HeldAlternate {
+    fn new(depth: usize) -> Self {
+        HeldAlternate {
+            depth,
+            bytes: Vec::new(),
+            children: 0,
+            droppable: 0,
+            relationships: false,
+            formula: false,
+        }
+    }
+
+    /// A start tag inside it, its own included.
+    fn start(
+        &mut self,
+        raw: &[u8],
+        start: &BytesStart<'_>,
+        scope: &Scope,
+        (local, ours, depth): (&[u8], bool, usize),
+        index: usize,
+    ) -> Result<(), Error> {
+        self.bytes.extend_from_slice(raw);
+        if depth == self.depth + 2 {
+            self.children += 1;
+            if ours && COPY_DROPPED.contains(&local) {
+                self.droppable += 1;
+            }
+        }
+        if !relationship_attributes(start, scope, index)?.is_empty() {
+            self.relationships = true;
+        }
+        if ours && local == b"f" {
+            self.formula = true;
+        }
+        Ok(())
+    }
+
+    /// Whether every element of its branches is one the copy drops, and it
+    /// has one.
+    fn dropped(&self) -> bool {
+        self.children > 0 && self.droppable == self.children
+    }
+}
+
+/// The qualified names of a start tag's attributes in either form of the
+/// relationships namespace, as written. The Cargo feature `copy`.
+#[cfg(feature = "copy")]
+fn relationship_attributes(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<Vec<Vec<u8>>, Error> {
+    let mut found = Vec::new();
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, _) = scope.resolve_attribute(attribute.key)?;
+        if is_relationships_attribute(namespace) {
+            found.push(attribute.key.into_inner().as_bytes().to_vec());
+        }
+    }
+    Ok(found)
+}
+
+/// Refuses a start tag a sheet copy keeps that names a relationship the copy
+/// does not carry: any relationships attribute, but, for a `hyperlink`
+/// (`links` given), an `id` naming one of `links`. The Cargo feature `copy`.
+#[cfg(feature = "copy")]
+fn check_copy_relationships(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    links: Option<&Vec<Vec<u8>>>,
+    index: usize,
+) -> Result<(), Error> {
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if !is_relationships_attribute(namespace) {
+            continue;
+        }
+        let carried = links.is_some_and(|links| {
+            local == b"id"
+                && links
+                    .iter()
+                    .any(|id| id.as_slice() == attribute.value.as_bytes())
+        });
+        if !carried {
+            return Err(COPY_RELATIONSHIP);
+        }
+    }
+    Ok(())
 }
 
 /// A `<cols>` with the column formats applied: its start tag (opened up
