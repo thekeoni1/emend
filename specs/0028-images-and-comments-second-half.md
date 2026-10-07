@@ -724,6 +724,216 @@ scan 6aba171..9cec1de, 4 commits, 1330 blobs, 0 findings;
    state (above), and the record pair's date is the run's UTC date
    as the naming rule says, whatever the commits' date.
 
+## Planning rulings during P2 (2026-10-06)
+
+Asked by the implementing session after the doc commit c46adcc
+(this file at 5c3d3d1a, `ROADMAP.md` at 838de96f, verified by
+planning on the blobs) and the crate commit 7976d9e, before the
+tool commit and the scripts, on the unlogged development run of
+`--remove-image-sample` over the 27 workbooks, every tool
+assertion holding, and on six implementing choices.
+
+1. F1, the recompressed entries. The sample writes twice, and
+   the second write's input is the first write's output, so the
+   entries the first write touched (W, W's rels part, the
+   content types part, and W's drawing and its rels part where W
+   had one) reach the output through emend's deflate of them,
+   not the input's: `xlsx-diff` reports them `recompressed`
+   (decompressed content equal) where "Harness runs" expects
+   `identical`. The expectation was planning's error: the sample
+   as written cannot return the input's compressed bytes for an
+   entry the first write touched. Ruling: the proposal is taken.
+   When `kept_removed` is 0, every entry is `identical` or
+   `recompressed`, the `recompressed` ones a subset of those
+   five names (the run log derives W and its drawing from the
+   input and checks the set), with the drawing's rels part
+   allowed `changed` with the same relationships as before;
+   nothing `dropped` or `added` beyond rulings 2 and 3. Recorded
+   as a finding about the rule, not the code; "Harness runs"
+   reads as corrected by this ruling.
+2. F2, the empty rels part left behind (7 rows: 6 where W had no
+   rels part in the input, 1 where its drawing had none). The
+   addition created the part for its one relationship and the
+   removal leaves a `Relationships` root with no child. Ruling:
+   option (a) for this part. The run log allows, per row, at
+   most one `added` entry, W's rels part or W's drawing's, whose
+   root has no child, where the input holds no part of that
+   name. Option (b), dropping an edited rels part a write leaves
+   with no relationship, is a change to the shared relationship
+   path and goes to part 7's scoping as a candidate for the
+   maintainer; the catalogue states in P4 that an emptied rels
+   part is kept.
+3. F3, the input's empty drawing (2 rows: W's drawing holds no
+   root child and has no rels part). The addition gives it an
+   anchor, the removal takes it, and "Image removal" drops a
+   drawing left with no anchor at all, with its `Override`, W's
+   relationship and `drawing` element, so the output differs
+   from an input the sample cannot return to. Ruling: option (a),
+   the rule's consequence. The run log allows it on exactly the
+   rows whose input drawing has no root child (W, W's rels part
+   and the content types part `changed` or `recompressed`, the
+   drawing `dropped`), checking that the input's drawing was
+   empty. Option (b) would not change these rows and is not
+   taken. Stated in P4's catalogue in one sentence.
+4. Choice 1, a picture in a root `AlternateContent`'s first
+   `Choice`: the whole `AlternateContent` is skipped, its
+   `Fallback` the same object, and the relationships the
+   `Fallback` alone names go with it. Ruling: accepted; the root
+   child holding the picture is the anchor element "Image
+   removal" skips whole.
+5. Choice 2, a picture in a group (`grpSp`): the whole anchor is
+   skipped, the group's other shapes with it. Ruling: accepted
+   as the rule reads; P4's catalogue states it as a limit (a
+   picture removed from a group takes the group's anchor).
+6. Choices 3 and 4, K computed once per write over every part's
+   removed relationships, so two removals sharing a media entry
+   release it, and a dropped drawing's rels part gone with the
+   sheet's relationship to it left out of K. Ruling: accepted;
+   both are what the walk from the package relationships with
+   the removed relationships in `skipped` means.
+7. Choices 5 and 6, `add_image_at`'s check order (the off-grid
+   cell with the index message, the anchor range, a size on a
+   two-cell anchor, then the image's own checks) and no check of
+   the image's own size on a two-cell anchor since no extent is
+   written. Ruling: accepted; the order is the catalogue's to
+   state in P4.
+8. Build pruning (the maintainer, 2026-10-06, after the host disk
+   holding the WSL image ran out of space with 288 GB of finished
+   phases' build targets under the implementing session's cache
+   and 38 GB under planning's). Standing rule from this phase on,
+   the one exception to the rule that a script removes only a
+   directory it made in that run: each session's build scripts
+   share one cargo target directory across a phase's dry and
+   logged runs, and at a new phase's start remove the previous
+   phase's build targets (the cargo target directories, the
+   run outputs and the keep copies), listed with their sizes in
+   the log before removal, by `rm -r` without `-f` or `cargo
+   clean`. Never removed: `superseded/`, the logs, `gen/`,
+   `scripts/`, `FACTS.md`, `logged.sh`, `logged.out` and the
+   message files, that is, anything a committed log cites by
+   hash. Planning's own script keeps one worktree and one target
+   directory under its cache and removes the previous phase's at
+   its start the same way. Goes into `specs/0001`'s workflow at
+   part 7.
+9. The run log's rerun (asked 2026-10-07 after attempt 2 passed
+   and check 1 read its header). Attempt 1 was stopped by the
+   host disk filling; attempt 2's rerun note gives the start time
+   and the reason but not the last check attempt 1 completed, and
+   its time is typed from the file's modification time, which no
+   command in the log prints. `specs/0001` asks for all three.
+   Ruling: option (A). Attempt 3 reruns the run log with the
+   rerun note alone corrected: attempt 1's start time and the
+   last check it completed quoted from the superseded log by
+   command, attempt 2 named as superseded for the header gap with
+   this ruling as the reason, both earlier logs in the rerun
+   files. A fresh check 2 reads attempt 3's log (the second and
+   last check), then the final scan. The gate, test and negative
+   logs are not rerun. Attempt 2 is kept under `superseded/`.
+10. The drawing count (check 1's R2). This file says 38 drawing
+   parts; the run log prints 37 with root `wsDr`. Planning
+   recounted (names and counts only): 38 parts named
+   `xl/drawings/drawing<n>.xml`, of which 37 have the root `wsDr`
+   and one the root `userShapes`, a chart's user shapes part that
+   holds no anchor. Ruling: both figures stand, each by its own
+   rule; "Facts" and "32-bit and streaming" read as "38 drawing
+   parts by name, 37 worksheet drawings"; P4's catalogue states
+   the limit with the 37.
+11. The working hash across P2's logs (R3): the gate, test and
+   negative logs print daef841a and the run and scan logs the
+   later working copy, since rulings 8 and following were added
+   between them. Ruling: expected; the pin is the committed
+   5c3d3d1a in every log; no action.
+12. The comment placement in 7976d9e (R4): the drawing drop block
+   sits between the `legacyDrawing` comment and the code that
+   comment describes. Ruling: no change in P2; P3's first code
+   commit moves the comment to its code, a comment-only change,
+   as the carry.
+
+## Planning verification and rulings on P2 (2026-10-07)
+
+Verified by planning from primaries: the doc commit c46adcc holds
+this file at 5c3d3d1a and `ROADMAP.md` at 838de96f, the hashes
+planning sent (2 files, no other change); the crate commit
+7976d9e (`ImageAnchor`, `EditAs`, `add_image_at` with `add_image`
+on it, `remove_image` and `image_removals`, `record_image_removals`
+with `read_drawing_roots`, the relationship and media drops
+through `reachable`, `drop_drawing` and the worksheet pass's
+`drawing_drop`, `anchor_bytes` for the three forms, the three
+messages catalogued in the same commit, 6 anchor tests and 11
+removal tests) and the phase commit d3c4a9c (`--anchor-sample`
+and `--remove-image-sample` with their read-backs, tool tests)
+read in full by planning; the record commit d69e39c adds the five
+logs, two check answers and three record pairs; 4 of 4 messages
+ASCII, ending with the Co-Authored-By line only; the logs at the
+reported hashes, each ending all as expected, the scan RESULT:
+PASS, every log pinning 5c3d3d1a; the run log's attempt 3 header
+quoting attempt 1's start and last completed check and hashing
+both superseded attempts (ruling 9), its checks for rulings 1 to 3
+each with a planted control, the survey's 37 `wsDr` drawings
+(ruling 10); both check answers read in full; the two URLs in the
+code diff the schema namespaces, no email shape; no live `rm -rf`
+in the phase's scripts; planning's own build at d3c4a9c in one
+shared worktree and target directory (ruling 8, the P1 output
+directory pruned at start, 35M): 513 crate tests with the
+features off, 549 with `images`, 594 with `images,comments`, 588
+with `comments,richtext` and 902 with every feature, on both
+targets, 1094 workspace tests on both, clippy and doc 0 lines; the
+i686 release `emend-copy` at the run log's hash ea9b8968 (the
+host's differs by build path); planning's own runs of
+`--anchor-sample`, `--remove-image-sample` and
+`--commentbox-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 162 outputs and 162 tool lines
+byte-identical to the run directories' (`2026-10-07-d3c4a9c-b-*`);
+planning's own privacy scan 9cec1de..d69e39c, 4 commits, 1344
+blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. Check 2's Q1 (b), the other `r:` references of a removed
+   anchor: only `r:embed` and `r:link` are collected, as "Image
+   removal" says, so a relationship a removed anchor names through
+   another attribute, `hlinkClick`'s `r:id` for one, stays in the
+   drawing's rels part with nothing naming it. Planning counted
+   (names and counts only) 36 `hlinkClick` in 10 drawing parts of
+   2 corpus workbooks, the check's figure sourced. Ruling: the
+   behaviour stands for this part (an unreferenced relationship is
+   harmless to a reader; a hyperlink's target is not a part);
+   P4's catalogue states it in one sentence as a limit.
+2. Check 2's Q1 (c), the tool's `dropped_media` taking the first
+   root child holding a `pic` where the layer takes the root of
+   `images()[0]`; the two differ only where `images` skips a
+   picture `pic` matching finds (a grouped one). Ruling: accepted;
+   the run log shows the tool and the comparison agreeing on all
+   27 on both labels; the tool is a sample, not the rule.
+3. Check 2's Q2 (a), what "by command" in ruling 9 means: the
+   rerun note's start time and last check are built by the
+   launcher's named commands and reach the log as its input, and
+   the log hashes the superseded log they are read from, so a
+   reader reproduces them. Ruling: ruling 9 is met; a typed value
+   is one no command produced, and these were produced by the
+   commands the note names.
+4. Check 2's Q2 (b), the staged record copies named in the note
+   but not hashed by the rerun files. Ruling: accepted; the
+   installed copies are the ones the record commit carries and the
+   log hashes them; the staged ones are the script's own.
+5. Check 2's Q2 (c) and check 1's Q2 (d), ruling 8 leaving no
+   trace in P2. Ruling: as read; the rule starts with P3's
+   scripts, which planning verifies at P3 (the previous phase's
+   build targets listed and removed, one target directory per
+   phase).
+6. Check 2's Q3, two figures of the report in no log (the
+   pre-check scan's own hash, and the printed scripts' identity
+   across attempts, which the check reproduced). Ruling: accepted;
+   both are reproducible from the kept files.
+7. The implementing session's disclosure: two directory names
+   typed from memory while moving attempt 2 aside were wrong and
+   the move stopped halfway; it was finished with the real names
+   and checked by hash before attempt 3, whose rerun lines hash
+   every moved file. Ruling: noted, nothing lost; the pattern (a
+   path typed from memory) is in its gotchas.
+8. The remaining choice of P2's logs: the gate, test and negative
+   logs print daef841a as planning's working copy, the run and
+   scan logs 1fca1264, as rulings 11 and 9 to 12 explain. The
+   committed pin is 5c3d3d1a in all five. P2 is DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 8 as recommended (A in
