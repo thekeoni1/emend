@@ -14030,9 +14030,6 @@ fn rewrite_worksheet_from(
                         met[which] = true;
                     }
                 }
-                // A `<legacyDrawing>` the write drops with its VML part, the
-                // last comment gone (`specs/0022-comments-and-images.md`,
-                // `remove_comment`).
                 // A `<drawing>` the write drops with its drawing part, the
                 // last anchor gone (`specs/0028-images-and-comments-second-
                 // half.md`, "Image removal").
@@ -14045,6 +14042,9 @@ fn rewrite_worksheet_from(
                     depth -= 1;
                     continue;
                 }
+                // A `<legacyDrawing>` the write drops with its VML part, the
+                // last comment gone (`specs/0022-comments-and-images.md`,
+                // `remove_comment`).
                 #[cfg(feature = "comments")]
                 if root && depth == 2 && ours && local == LEGACY_DRAWING && work.legacy_drop {
                     if !empty {
