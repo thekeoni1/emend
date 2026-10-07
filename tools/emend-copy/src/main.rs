@@ -672,6 +672,24 @@
 //!   drawing; a failure is exit 2 with the message and no output, and so is
 //!   a refusal by the layer (M + 1 past the grid, a drawing or a media entry
 //!   it cannot read).
+//! - `--copy-sample`: the sheet copy sample of
+//!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": S, the
+//!   first worksheet in `<sheets>` order with a `comments` relationship, or
+//!   W when none has one, copied as `emend copy`. The output is reopened.
+//!   One line: the word `copy` then `sheets_before` and `sheets_after` (the
+//!   workbook's sheets), `cells_source` and `cells_copy` (the cells
+//!   `Package::cells` reads from S in the input and from the copy in the
+//!   output), `comments_source` and `comments_copy` (the entries
+//!   `Package::comments` reads), `merges_source`, `merges_copy`,
+//!   `links_source` and `links_copy` (the merges and hyperlinks
+//!   `Package::sheet_settings` reads), `formulas` (1 when a cell of S has a
+//!   formula), `chain_before` and `chain_after` (1 when the workbook has a
+//!   calculation chain). COUNTS ONLY: the copy's name is this tool's
+//!   constant and no name or reference is printed. Asserted: `sheets_after`
+//!   one more than before, each copy count equal to its source's, and
+//!   `chain_after` 0 when `formulas` is 1; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer (the name in
+//!   use, a source the copy cannot carry).
 //!
 //! The entry's bytes go to a temporary file and are handed to the layer as a
 //! reader, through the `io::copy` wrapper, rather than being collected into
@@ -718,7 +736,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
-| --commentbox-sample | --anchor-sample | --remove-image-sample]";
+| --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -821,6 +839,8 @@ enum Operation {
     RoundtripSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
+    /// The first worksheet with comments, or W, copied, and the counts.
+    CopySample,
     /// An image on a two-cell and one on an absolute anchor, and the counts.
     AnchorSample,
     /// An image added and removed again, the first kept one removed, and
@@ -874,6 +894,7 @@ enum Error {
     RoundtripSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
+    CopySample(&'static str),
     AnchorSample(&'static str),
     RemoveImageSample(&'static str),
 }
@@ -989,6 +1010,9 @@ impl fmt::Display for Error {
             }
             Error::CommentboxSample(what) => {
                 write!(f, "the output's {what} is not what the comment box implies")
+            }
+            Error::CopySample(what) => {
+                write!(f, "the output's {what} is not what the sheet copy implies")
             }
             Error::NewReadBack { expected, found } => write!(
                 f,
@@ -1156,6 +1180,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::CommentboxSample,
         ),
+        [input, output, flag] if flag == "--copy-sample" => {
+            run(Path::new(input), Path::new(output), Operation::CopySample)
+        }
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1313,6 +1340,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
+    if matches!(operation, Operation::CopySample) {
+        return copy_sample(input, output);
+    }
     if matches!(operation, Operation::AnchorSample) {
         return anchor_sample(input, output);
     }
@@ -1380,6 +1410,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
         Operation::RoundtripSample => unreachable!("the round-trip sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
+        Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
         Operation::RemoveImageSample => unreachable!("the image removal sample has its own path"),
         Operation::None
@@ -4376,6 +4407,139 @@ fn commentbox_read_back(
         return Err(Error::CommentboxSample("written comment's visibility"));
     }
     Ok((comments_after, shapes_after, box_equal, visible_after))
+}
+
+/// The name the sheet copy sample gives its copy.
+const COPY_NAME: &str = "emend copy";
+
+/// What the sheet copy sample counts on a sheet: its cells, comments, merges
+/// and hyperlinks, and whether a cell has a formula.
+struct CopyCounts {
+    cells: u64,
+    comments: u64,
+    merges: u64,
+    links: u64,
+    formulas: bool,
+}
+
+/// The sheet copy sample's counts for the worksheet `part`.
+fn copy_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<CopyCounts, Error> {
+    let mut cells = 0u64;
+    let mut formulas = false;
+    for cell in package.cells(part)? {
+        let cell = cell?;
+        cells += 1;
+        formulas |= cell.formula.is_some();
+    }
+    let comments = package.comments(part)?.len() as u64;
+    let settings = package.sheet_settings(part)?;
+    Ok(CopyCounts {
+        cells,
+        comments,
+        merges: settings.merges.len() as u64,
+        links: settings.hyperlinks.len() as u64,
+        formulas,
+    })
+}
+
+/// The sheet copy sample (`specs/0028-images-and-comments-second-half.md`,
+/// "Harness runs", `--copy-sample`): S, the first worksheet with a comments
+/// relationship or W, copied under the tool's name, the output written and
+/// read back. A failure after the output is in place removes it; a refusal by
+/// the layer is exit 2 with no output.
+fn copy_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let sheets: Vec<_> = workbook
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Worksheet)
+        .cloned()
+        .collect();
+    let sheets_before = workbook.sheets.len() as u64;
+    let chain_before = workbook.calc_chain.is_some();
+    let mut source = None;
+    for sheet in &sheets {
+        if related(&mut package, &sheet.part, COMMENTS)?.is_some() {
+            source = Some(sheet.clone());
+            break;
+        }
+    }
+    let source = match source {
+        Some(sheet) => sheet,
+        None => sheets.first().cloned().ok_or(Error::NoWorksheet)?,
+    };
+    let before = copy_counts(&mut package, &source.part)?;
+    package.copy_sheet(&source.name, COPY_NAME)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = copy_read_back(output, &before, sheets_before);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (sheets_after, after, chain_after) = checked?;
+    edit_line_named(
+        "copy",
+        &[
+            ("sheets_before", sheets_before),
+            ("sheets_after", sheets_after),
+            ("cells_source", before.cells),
+            ("cells_copy", after.cells),
+            ("comments_source", before.comments),
+            ("comments_copy", after.comments),
+            ("merges_source", before.merges),
+            ("merges_copy", after.merges),
+            ("links_source", before.links),
+            ("links_copy", after.links),
+            ("formulas", u64::from(before.formulas)),
+            ("chain_before", u64::from(chain_before)),
+            ("chain_after", u64::from(chain_after)),
+        ],
+    )
+}
+
+/// Reopens the sheet copy sample's output and asserts one more sheet, the
+/// copy's counts equal to the source's and no chain left when the source
+/// has a formula; gives the sheets, the copy's counts and whether a chain is
+/// left.
+fn copy_read_back(
+    output: &Path,
+    before: &CopyCounts,
+    sheets_before: u64,
+) -> Result<(u64, CopyCounts, bool), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let workbook = package.workbook()?;
+    let sheets_after = workbook.sheets.len() as u64;
+    let chain_after = workbook.calc_chain.is_some();
+    let part = workbook
+        .sheet(COPY_NAME)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::CopySample("copied sheet"))?;
+    if sheets_after != sheets_before + 1 {
+        return Err(Error::CopySample("sheet count"));
+    }
+    let after = copy_counts(&mut package, &part)?;
+    if after.cells != before.cells {
+        return Err(Error::CopySample("cell count"));
+    }
+    if after.comments != before.comments {
+        return Err(Error::CopySample("comment count"));
+    }
+    if after.merges != before.merges {
+        return Err(Error::CopySample("merge count"));
+    }
+    if after.links != before.links {
+        return Err(Error::CopySample("hyperlink count"));
+    }
+    if before.formulas && chain_after {
+        return Err(Error::CopySample("calculation chain"));
+    }
+    Ok((sheets_after, after, chain_after))
 }
 
 /// The image sample's PNG, the tool's constant (`specs/0022-comments-and-

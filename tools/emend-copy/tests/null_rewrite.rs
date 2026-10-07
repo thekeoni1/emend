@@ -5436,3 +5436,91 @@ fn the_remove_image_sample_refuses_a_missing_media_entry_and_leaves_nothing() {
         "--remove-image-sample",
     );
 }
+
+// ------------------------------------------------------------ --copy-sample
+
+#[test]
+fn the_copy_sample_copies_the_first_sheet_with_comments_or_w() {
+    // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
+    // comments the copy carries them, its comments part, VML part and rels
+    // part added; without, the sheet alone; a formula in S drops no chain
+    // the workbook does not have.
+    let formula = "<sheetData><row r=\"1\"><c r=\"A1\"><f>1+1</f><v>2</v></c></row></sheetData>";
+    for (label, specs, added, line) in [
+        (
+            "copy-sample-comments",
+            comment_specs(A_CELL, "<legacyDrawing r:id=\"rId2\"/>", Some("kept")),
+            vec![
+                b"xl/worksheets/_rels/sheet2.xml.rels".as_slice(),
+                b"xl/worksheets/sheet2.xml",
+                b"xl/comments2.xml",
+                b"xl/drawings/vmlDrawing2.vml",
+            ],
+            "copy\tsheets_before=1\tsheets_after=2\tcells_source=1\tcells_copy=1\
+             \tcomments_source=1\tcomments_copy=1\tmerges_source=0\tmerges_copy=0\
+             \tlinks_source=0\tlinks_copy=0\tformulas=0\tchain_before=0\tchain_after=0\n",
+        ),
+        (
+            "copy-sample-plain",
+            edit_specs(A_CELL),
+            vec![b"xl/worksheets/sheet2.xml".as_slice()],
+            "copy\tsheets_before=1\tsheets_after=2\tcells_source=1\tcells_copy=1\
+             \tcomments_source=0\tcomments_copy=0\tmerges_source=0\tmerges_copy=0\
+             \tlinks_source=0\tlinks_copy=0\tformulas=0\tchain_before=0\tchain_after=0\n",
+        ),
+        (
+            "copy-sample-formula",
+            edit_specs(formula),
+            vec![b"xl/worksheets/sheet2.xml".as_slice()],
+            "copy\tsheets_before=1\tsheets_after=2\tcells_source=1\tcells_copy=1\
+             \tcomments_source=0\tcomments_copy=0\tmerges_source=0\tmerges_copy=0\
+             \tlinks_source=0\tlinks_copy=0\tformulas=1\tchain_before=0\tchain_after=0\n",
+        ),
+    ] {
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--copy-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        let names: Vec<&[u8]> = entries.iter().map(|entry| entry.name.as_slice()).collect();
+        let mut want: Vec<&[u8]> = specs.iter().map(|spec| spec.name.as_slice()).collect();
+        want.extend(added);
+        assert_eq!(names, want, "the entry names");
+        untouched_but(
+            &entries,
+            &specs,
+            &[
+                b"[Content_Types].xml",
+                b"xl/workbook.xml",
+                b"xl/_rels/workbook.xml.rels",
+            ],
+        );
+    }
+}
+
+#[test]
+fn the_copy_sample_refuses_a_workbook_whose_only_sheet_is_a_chartsheet_and_leaves_nothing() {
+    // The negative log's fixture through the binary as well
+    // (`specs/0028-images-and-comments-second-half.md`, "P3"): with no
+    // worksheet there is no S, so the tool refuses before any copy is
+    // recorded; its control is `copy-sample-plain` above, the same package
+    // with the relationship a worksheet's.
+    let mut specs = edit_specs(A_CELL);
+    for spec in &mut specs {
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let rels = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("/worksheet\"", "/chartsheet\"");
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        }
+    }
+    styled_run_refused(
+        "copy-sample-chartsheet",
+        &specs,
+        "the workbook has no sheet of kind Worksheet",
+        "--copy-sample",
+    );
+}
