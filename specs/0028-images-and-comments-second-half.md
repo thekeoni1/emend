@@ -934,6 +934,214 @@ blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
    scan logs 1fca1264, as rulings 11 and 9 to 12 explain. The
    committed pin is 5c3d3d1a in all five. P2 is DONE.
 
+## Planning rulings during P3 (2026-10-07)
+
+Asked by the implementing session after the doc commit 2814a10
+(this file at 38ab45c5, `ROADMAP.md` at a78ae477, verified by
+planning on the blobs), the carry commit b68e584 (comment lines
+alone, verified), the crate commit 4a8482c and the tool commit
+6a90674, before the log scripts, on the unlogged development
+run of `--copy-sample` matching this file's expected entries, and
+on six implementing choices and one wording point.
+
+1. W1, the copy's rels part. "Harness runs" expects it `added`
+   "when carried" (comments); "The copy" creates it also when the
+   source holds a hyperlink relationship (2 corpus rows with
+   hyperlinks and no comments). Ruling: the proposal is taken; the
+   run log expects the copy's rels part `added` exactly when the
+   source has a hyperlink or a comments relationship; "Harness
+   runs" reads as corrected.
+2. C1, a root `mc:AlternateContent`: dropped whole when every
+   element in its branches is one of the dropped root children (2
+   corpus worksheets, each wrapping `controls` in a `Choice`);
+   kept otherwise, its relationship attributes refused and its
+   `f` counted; one with no branch element kept. Ruling: accepted,
+   as P2 ruling 4 treats the wrapper as the element it wraps; P4's
+   catalogue states it.
+3. C2, a source this write replaces through `replace_part` is
+   refused with "a sheet copy of a part this write edits"; a
+   source `remove_sheet` removes in the same write is allowed, the
+   copy staying. Ruling: accepted; a replacement is an edit of the
+   part's bytes, and the removal case is this file's test.
+4. C3, the copy's VML `idmap` block counted with this write's
+   other allocations (`copy_idmaps`), so a comment added on another
+   sheet in the same write takes a different block. Ruling:
+   accepted; the allocation rule of `specs/0022` means every block
+   a write takes.
+5. C4, a `hyperlink` whose `r:id` names no relationship or one
+   that is not a hyperlink is refused with "a sheet copy meets a
+   relationship it cannot carry". Ruling: accepted; the pass
+   carries hyperlink relationships and nothing else.
+6. C5, the negative log fixture. S is chosen among worksheets, so
+   the layer's "a sheet copy needs a worksheet" is unreachable
+   through the tool. Ruling: the proposal is taken. The fixture's
+   only sheet is a chartsheet; the tool refuses with its own
+   message, exit 2, no output, with a control holding a worksheet;
+   the four layer messages the tool cannot reach are stated
+   unreachable with their covering crate tests, the comments one
+   under a build without `comments`. "P3" reads as corrected.
+7. C6, `COMMENTS`, `HYPERLINK` and the markup-compatibility
+   constant compiled under `copy` alone, two more public constants
+   under that feature. Ruling: accepted; P4's catalogue lists them
+   with the feature's surface.
+8. The crate commit's message amended before anything referenced
+   it (the first wording cited a corpus count; the tree is
+   unchanged). Ruling: noted; a count is not content, and the
+   amend preceded every log and record, so nothing cites the old
+   hash.
+9. The development results reported (513, 523, 570 and 915 crate
+   tests, 1109 workspace, 27 of 27 through the runner) are session
+   runs; the logs decide. Proceed to the scripts: ruling 8's
+   pruning first (P2's build targets listed with sizes and
+   removed, the kept names untouched), one shared target directory
+   across the dry and logged runs.
+10. Ruling 8 under test (asked before any logged run). A shared
+   cargo target poisons across source trees: the planted-defect
+   builds compile from an archive copy with fresh mtimes, cargo's
+   dep-info paths are relative to the package root, so the main
+   tree's older sources then count as fresh against the mutant's
+   artifacts and the main tree ran a mutant (one copy test failed
+   5 of 5 by hand and in the gate's dry run; `cargo clean -p` of
+   the three crates by hand repaired it, 570 and 1109 passing).
+   Concurrent builds from two trees also overwrote each other.
+   Ruling: ruling 8 means one target ROOT per phase, pruned at the
+   next phase's start; under it each source tree builds into its
+   own subdirectory (`CARGO_TARGET_DIR=<target>/main` for `<repo>`,
+   `<target>/plant` for the planted copies, one more per further
+   tree), the same profiles as before. Not the proposed per-tree
+   cargo profile: a plant must be built as the main tree is, so a
+   mutant's behaviour is compared like with like, and a profile is
+   a build configuration, not a location. The test log checks the
+   plant artifacts sit under their subdirectory and the main
+   tree's tests pass after the plants; no two scripts build at
+   once in a phase's dry or logged runs. The poisoned dry attempts
+   stay as superseded attempts, and the report names the hand
+   `cargo clean`. `specs/0001` carries this at part 7: one target
+   root per phase, one subdirectory per source tree.
+11. T1 to T3 (asked while the scripts regenerate under ruling
+   10). T1: three plants (`codeName`, `tabSelected`, `pageSetup`'s
+   `r:id`) fail at one line, the full copy test's single literal,
+   the only test holding those three; the carried rule is a line
+   of its own per plant. Ruling: option (a); the test log checks
+   that exactly those three share one line and every other plant
+   has its own, which is what the rule proves (each plant
+   detected, no plant detected only by another's line). T2: the
+   test log's crate feature sets are none, `comments`, `copy`,
+   `copy,comments` and every feature, on both targets. Accepted.
+   T3: the P3 report's "13 tests in `copy.rs` (10 without
+   `comments`)" is corrected to 14 tests (9 plain, 4 under
+   `comments`, 1 under not `comments`): 13 run with
+   `copy,comments`, 10 with `copy` alone; the counts of ruling 9
+   stand. Noted; the record says 14.
+
+## Planning verification and rulings on P3 (2026-10-07)
+
+Verified by planning from primaries: the doc commit 2814a10 holds
+this file at 38ab45c5 and `ROADMAP.md` at a78ae477, the hashes
+planning sent (2 files, no other change); the carry b68e584
+changes three comment lines of `package.rs` and nothing else (P2
+ruling 12); the crate commit 4a8482c (the feature `copy` with no
+dependency, `copy_sheet`, `record_copies`, `carry_comments`,
+`copy_idmaps`, the pass `copy_worksheet` with `COPY_DROPPED` and
+`check_copy_relationships`, the four messages catalogued in the
+same commit, `copy.rs` with 14 tests) and the phase commit
+6a90674 (`--copy-sample` with its read-back, 2 tool tests) read
+by planning; the record commit f73a91b adds the five logs, one
+check answer and two record pairs; 4 of 4 messages ASCII, ending
+with the Co-Authored-By line only; the logs at the reported hashes
+(gate 757c51d7, test 20c59007, negative 5901a2cb, run cc788bb8,
+scan 90257a58), each ending all as expected, the scan RESULT:
+PASS, every log pinning 38ab45c5 and printing the working copy
+5d4e611b; every header RERUN_NOTE unset (first attempts, no
+rerun); the gate's prune under ruling 8 (P2's 12 build names
+listed with their bytes, 25428651432 in all, removed with `rm -r`
+and no `-f`, the kept names checked present, two controls) and
+the P2 cache left with its logs, scripts, gen, FACTS.md, check
+directories, message files, logged.sh and superseded; ruling 10
+in the test log (the plants into `<target>/plant`, the main tree
+into `<target>/main`, the two apart, 13 of 13 copy tests and 2
+sample tests passing after the plants) and the negative log (its
+one build into `<target>/negative`); ruling 11 T1 to T3 in the
+test log (11 plants, 9 distinct lines, L1 to L3 sharing one;
+513/523/557/570 by feature set and 915 with every feature, on
+both targets; 1109 workspace tests on both); the negative log's
+chartsheet-only refusal with its control; the run log's copy
+sample (27 of 27 ok on both labels; identical 784, recompressed
+0, changed 81, dropped 5, added 47, flagged 51) and the three
+reruns byte-identical to P2's `2026-10-07-d3c4a9c-b-*` by sha256
+on both labels, the keep 1092 pairs with P2's 1074 unchanged,
+the open totals 1092 pairs, `lo_in` 1080 ok 12 fail, `lo` 1081
+ok 11 fail; the check answer read in full; the one email shape
+in the logs beside the Co-Authored-By address the privacy
+self-test's `example.invalid` fixture, present since P1; no live
+`rm -rf` in the phase's scripts; planning's own build at 6a90674
+in the shared worktree and target (the P2 output directory
+pruned at start, 105M): 513 crate tests with the features off,
+523 with `copy`, 570 with `copy,comments`, 588 with
+`comments,richtext` and 915 with every feature, on both targets,
+1109 workspace tests on both, clippy and doc 0 lines; the i686
+release `emend-copy` at the run log's hash eb566f3f (the host's
+differs by build path); planning's own runs of `--copy-sample`,
+`--anchor-sample`, `--remove-image-sample` and
+`--commentbox-sample` with its own binaries over all 27 corpus
+workbooks on both labels, 216 outputs and 216 tool lines
+byte-identical to the run directories' (`2026-10-07-6a90674-*`);
+planning's own privacy scan d69e39c..f73a91b, 5 commits, 1357
+blobs, 0 findings; `origin/main` still 9d62635 with 14 local
+commits above it (nothing pushed); `ANTHROPIC_API_KEY` unset.
+
+1. Check 1's Q1 (a), the start tags of `sheetPr` and `sheetView`
+   taking the attribute-stripping branch and never reaching
+   `check_copy_relationships`. Planning read the code: so they do.
+   The schema gives neither element a relationships attribute, so
+   a schema-valid source cannot reach the gap. Ruling: stands for
+   this part; "the pass checks every start tag kept" reads as
+   every kept start tag that the schema lets carry one. Part 7's
+   backlog: route the two stripped tags through the check as well
+   (a tidy, no behaviour change on valid input), with one test on
+   a byte-built part.
+2. Check 1's Q1 (b), `pageSetup` losing every relationships
+   attribute where "The copy" names `r:id`. The schema gives
+   `pageSetup` `r:id` alone, so the two agree on valid input.
+   Ruling: accepted as the code says it; P4's catalogue writes
+   "the relationship attributes of `pageSetup`", and part 7 amends
+   the sentence in "The copy".
+3. Check 1's Q1 (c), the tool's `formulas` from `Package::cells`
+   where the layer scans for an `f` element; the run log shows
+   them agreeing on all 27. Ruling: accepted; the tool is a
+   sample, not the rule (as P2 verification ruling 2).
+4. Check 1's Q2 (a) and (b): the final scan log was not among its
+   inputs because the scan is run last (`specs/0001`), and
+   `specs/0027` was not given. Ruling: as designed; planning read
+   the final scan (RESULT: PASS) and the gate's carried-rule lines
+   itself. Q2 (c) is the report's error the record's header
+   admits; the report to planning named the right files.
+5. Check 1's Q3 items 1 to 4 (the amended hash, the failing test's
+   name, the hand `cargo clean`'s crates and profiles, the four
+   dry gate attempts under `<phase>/dry-gate`): the session's own
+   history, disclosed as such and in no log. Ruling: accepted as
+   disclosure, not as logged facts; the superseded dry attempts
+   stay where the report says until P4's prune. Item 6, "nothing
+   pushed", planning verified itself (above). Item 7 is met by
+   every header's RERUN_NOTE unset.
+6. The phase's target root holds, beside the subdirectories
+   `main`, `plant`, `negative` and `consumer`, root-level `debug`,
+   `release`, `i686-unknown-linux-musl`, `doc`, `tmp` and
+   `CACHEDIR.TAG` whose times precede the logged runs: the
+   pre-ruling-10 dry attempts' artifacts, which the hand clean
+   emptied of the three crates. Ruling: harmless to the logged
+   runs (each built in its own subdirectory, the SERIALIZED lines
+   say so); P4's gate lists and removes the whole P3 root with the
+   rest of P3's build targets under ruling 8, naming them.
+7. The copy sample's entry totals read as the design predicts:
+   changed 81 is the content types, workbook rels and workbook of
+   27 workbooks; added 47 is 27 worksheets, 8 rels parts (the
+   sources with a hyperlink or comments relationship, ruling 1),
+   6 comments parts and 6 VML parts; dropped 5 is the calcChain
+   of the 5 formula-bearing sources among the 9 workbooks holding
+   one; flagged 51 is the known data-descriptor pattern on 17
+   workbooks. P3 is DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 8 as recommended (A in
