@@ -248,6 +248,18 @@ fn a_copy_of_a_sheet_with_no_relationships_has_no_rels_part() {
 }
 
 #[test]
+fn a_copy_keeps_an_attribute_in_the_xml_namespace() {
+    // The `xml` prefix is bound without a declaration (Namespaces in XML
+    // 1.0, section 3); an inline string's `xml:space`, which this layer's
+    // own text cells write, is kept, not refused as an unbound prefix.
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is>\
+        <t xml:space=\"preserve\"> a </t></is></c></row></sheetData>";
+    let parts = with_sheet(sheet_r(body), None);
+    let out = edited_output(parts.clone(), copy);
+    assert_eq!(entry_text(&out, COPY), sheet_r(body));
+}
+
+#[test]
 fn a_root_alternate_content_holding_only_dropped_elements_goes_whole() {
     // As two corpus worksheets wrap their `controls`; a choice holding
     // anything else is kept, and here refused for the relationship it names.

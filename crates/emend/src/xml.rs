@@ -298,6 +298,10 @@ fn parse_error(err: quick_xml::Error, index: usize) -> Error {
     }
 }
 
+/// The namespace the prefix `xml` is bound to without a declaration
+/// (Namespaces in XML 1.0, section 3).
+const XML_NAMESPACE: &[u8] = b"http://www.w3.org/XML/1998/namespace";
+
 /// The prefix stack a package parser resolves names through.
 ///
 /// `specs/0009-package-layer.md`, "Module `xml`": every `xmlns` and
@@ -315,7 +319,8 @@ fn parse_error(err: quick_xml::Error, index: usize) -> Error {
 /// # Errors
 ///
 /// - [`Error::Package`] "an element or attribute uses a prefix its document
-///   does not bind", from either resolver.
+///   does not bind", from either resolver, for any prefix but `xml`, which
+///   is bound without a declaration.
 /// - [`Error::Xml`], carrying the entry index given to [`Scope::new`], when a
 ///   namespace declaration's value holds a reference the parser cannot
 ///   resolve. A namespace URI is a value this layer interprets, so it is
@@ -415,13 +420,20 @@ impl Scope {
     ///
     /// A declaration of the empty string undoes a binding, as XML says, so it
     /// reads as nothing bound rather than as a namespace whose name is empty.
+    /// The prefix `xml` is bound to [`XML_NAMESPACE`] by definition
+    /// (Namespaces in XML 1.0, section 3), so it answers that when no
+    /// declaration binds it; a declaration of it is recorded as any other
+    /// (`specs/0028-images-and-comments-second-half.md`, P4 ruling 4).
     fn lookup(&self, prefix: Option<&[u8]>) -> Option<&[u8]> {
-        self.bindings
+        match self
+            .bindings
             .iter()
             .rev()
             .find(|(_, bound, _)| bound.as_deref() == prefix)
-            .map(|(_, _, namespace)| namespace.as_slice())
-            .filter(|namespace| !namespace.is_empty())
+        {
+            Some((_, _, namespace)) => Some(namespace.as_slice()).filter(|n| !n.is_empty()),
+            None => (prefix == Some(b"xml".as_slice())).then_some(XML_NAMESPACE),
+        }
     }
 
     /// [`Scope::lookup`], refusing a prefix no ancestor binds.

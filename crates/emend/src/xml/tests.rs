@@ -501,3 +501,30 @@ fn a_character_xml_forbids_is_accepted_when_it_is_valid_utf8() {
     // byte that is not valid UTF-8 IS refused.
     assert!(matches!(refusal(b"<a>ok\xffok</a>"), Error::Xml(INDEX)));
 }
+
+#[test]
+fn the_xml_prefix_resolves_without_a_declaration() {
+    // Namespaces in XML 1.0, section 3: `xml` is bound by definition
+    // (specs/0028-images-and-comments-second-half.md, P4 ruling 4); any other
+    // prefix nothing binds is still refused.
+    use quick_xml::events::BytesStart;
+
+    use super::{Scope, XML_NAMESPACE};
+
+    let start = BytesStart::from_content("t xml:space=\"preserve\" p:a=\"1\"", 1);
+    let mut scope = Scope::new(INDEX);
+    scope.start(&start).expect("no declaration to record");
+    let mut attributes = start.attributes();
+    let space = attributes.next().expect("xml:space").expect("parses");
+    assert_eq!(
+        scope.resolve_attribute(space.key).expect("xml is bound"),
+        (Some(XML_NAMESPACE), b"space".as_slice())
+    );
+    let other = attributes.next().expect("p:a").expect("parses");
+    assert!(matches!(
+        scope.resolve_attribute(other.key),
+        Err(Error::Package(
+            "an element or attribute uses a prefix its document does not bind"
+        ))
+    ));
+}

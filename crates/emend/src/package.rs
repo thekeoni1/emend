@@ -57,7 +57,9 @@
 //! - "a sheetId that is not a number" (`sheet_id_not_a_number`).
 //! - "a sheet's relationship is missing" (`sheet_relationship_missing`).
 //! - "an element or attribute uses a prefix its document does not bind",
-//!   raised by [`Scope`] and reached from here through an `r:id` whose prefix
+//!   raised by [`Scope`] for any prefix but `xml`, which is bound without a
+//!   declaration (`specs/0028-images-and-comments-second-half.md`, P4
+//!   ruling 4), and reached from here through an `r:id` whose prefix
 //!   nothing binds (`rel_id_prefix_unbound`), from the styles reader
 //!   through a cell format's child whose prefix nothing binds
 //!   (`styles::tests::an_xf_child_with_an_unbound_prefix_is_refused`), and,
