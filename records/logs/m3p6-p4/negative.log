@@ -1,0 +1,2302 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m3p6-p4-negative.sh 9cfd92e922a5d802001118fc7a1b47f5de0f540b <home>/.cache/emend-build/m3p6-p4/logs/gate.log <gatebuild>
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: NEGATIVE_BUILD: unset (the build root, <build>)
+input: the gate log: <home>/.cache/emend-build/m3p6-p4/logs/gate.log
+input: the gate build directory: <gatebuild>
+input: python3: Python 3.14.4
+about: M3 part 6 P4 phase commit 9cfd92e922a5d802001118fc7a1b47f5de0f540b; HEAD at run: 9cfd92e922a5d802001118fc7a1b47f5de0f540b
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  M3 part 6 P3's record commit (the base): f73a91b1578844660cdd9e7781d92482b0a8591d
+  the doc commit: f54041f54748a32989f09fb1c8718a6bcf8631e4
+  code commit 1 (the xml prefix, P4 ruling 4): 42b5de8b2569ddddc75ec2afe205302aac6d7c9e
+  code commit 2 (the catalogue and the probes, the phase commit): 9cfd92e922a5d802001118fc7a1b47f5de0f540b
+command: git rev-parse <phase commit>~0 to <phase commit>~3
+    9cfd92e922a5d802001118fc7a1b47f5de0f540b
+    42b5de8b2569ddddc75ec2afe205302aac6d7c9e
+    f54041f54748a32989f09fb1c8718a6bcf8631e4
+    f73a91b1578844660cdd9e7781d92482b0a8591d
+  code commits 2 and 1, the doc commit and the base, each the next one's parent, code commit 2 the phase commit (no carry commit in P4; change UA): yes
+  control: roles_in_order refuses code commit 1 named as code commit 2: yes
+
+phase: Milestone 3 part 6 P4 (specs/0028-images-and-comments-second-half.md) negative.log; run at 2026-10-08T15:29:32Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds once, the covering test of change UD, in the worktree into <target>/negative (ruling 10), never <target>/main
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log (<home>/.cache/emend-build/m3p6-p4/logs/gate.log) is read for the binary's hash, the template files, the seven modules crates/emend/src/package.rs, cells.rs, styles.rs, styles/elements.rs, styles/read.rs, package/sheet_read.rs and xml.rs (at the phase commit and at the base), crates/emend/src/package/tests/comments/boxes.rs, images/anchors.rs, images/removal.rs and copy.rs, tools/emend-copy/src/main.rs and specs/0028-images-and-comments-second-half.md are read from it by git show, and specs/0028-images-and-comments-second-half.md's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there, and the one covering test of change UD runs in <tree>
+root: <home> stands for the home directory of the account that ran this script
+root: <scripts> stands for <home>/.cache/emend-build/m3p6-p4/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p6-p4/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit by git worktree remove
+root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m3p6-p4/gate unless the third argument names another, from whose <gatebuild>/bin/host the gate's copy of its host debug binary is copied (the P3 gate's change J35, carried); read only
+root: <target> stands for <home>/.cache/emend-build/m3p6-p4/target, the phase's one target root (ruling 8); this log builds only into <target>/negative, the worktree's subdirectory (ruling 10), kept for the next phase's prune
+root: <superseded> stands for <home>/.cache/emend-build/m3p6-p4/superseded, where a rerun's superseded files are kept; read only
+root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message readers, the source copies, the generator, its fixtures and the cases' outputs), kept on the disk after the run (change LD)
+  the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other): yes
+  control: apart refuses <tree> against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them this phase's logs or records or planning's spec 1; the lines:
+     M specs/0028-images-and-comments-second-half.md
+  the phase commit given to this script: 9cfd92e922a5d802001118fc7a1b47f5de0f540b
+  git rev-parse HEAD at this run:        9cfd92e922a5d802001118fc7a1b47f5de0f540b
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit 9cfd92e922a5d802001118fc7a1b47f5de0f5400 (the given one, its last hex digit changed); the short sha 9cfd92e
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+  control: the phase's status pattern refuses a modified source file: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0028: yes
+  control: the phase's status pattern takes this phase's three record stems and log, and no other phase's record or log: yes
+command: git show <phase commit>:specs/0028-images-and-comments-second-half.md | sha256sum: 81069c652aee1f5b5cd14b495670e1f3864e342550e474a668b793381bba80e7; sha256sum specs/0028-images-and-comments-second-half.md (the working file, printed and not asserted: planning holds its rulings during P4 uncommitted; change UA): 62762f0ab78cb1694344cf0b07b65df16471f2dcd6f1d0347055ed0652168211
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+every fixture is built by this log from the phase commit's template files; no corpus file is copied or read
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 3 part 6 P4 negative.log
+    # (specs/0028-images-and-comments-second-half.md, "P4": "the negative log
+    # through the binary for every message of the part reachable there, the
+    # unreachable ones stated with the test that covers each", as "Planning
+    # rulings during P4", ruling 5, reads it). The part's three families, the
+    # gate's host debug binary copied into a detached worktree of the phase
+    # commit and checked against gate.log's hash, on fictional packages this log
+    # builds from the phase commit's template files:
+    #
+    #   --commentbox-sample (P1's family): B0CB the bare template, NUC a sheet
+    #      with a comments part and its VML part (the control), NU the same with
+    #      the VML part's root end tag left out: "a comments part or its drawing
+    #      cannot be read".
+    #   --remove-image-sample (P2's family): B0RI the bare template, NMC a sheet
+    #      with a drawing of one picture and its media entry (the control), NM
+    #      the same without the media entry: "a drawing part or its relationship
+    #      cannot be read".
+    #   --copy-sample (P3's family): B0CP the bare template, whose one sheet is
+    #      a worksheet (the control), NC the same with the workbook's
+    #      relationship to that sheet of the chartsheet type: the tool's own
+    #      "the workbook has no sheet of kind Worksheet".
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Each control: exit 0, its line,
+    # an output. Then the messages reached, compared as SETS with the three
+    # shared refusals; the part's nine messages read by constant name, each
+    # stated unreachable through the tool with the crate test that covers it,
+    # counted once at the phase commit; the phase adding no message constant and
+    # removing none; the comments-feature message's covering test run by name
+    # without the Cargo feature comments; and usage shapes.
+    #
+    # CARRIED TO M3 part 6 P4 from M3 part 6 P3's negative script (printed in
+    # records/logs/m3p6-p3/negative.log, byte-identical to its copy on the disk
+    # at <home>/.cache/emend-build/m3p6-p3/scripts/m3p6-p3-negative.sh, the
+    # print's indent and trailing blank line aside; its change lists, P3's TA to
+    # TE and the earlier ones, follow below). Every check, control and helper of
+    # the frame is that text's but where this list says. The families are P1's,
+    # P2's and P3's fixtures, lines and checks (records/logs/m3p6-p1, m3p6-p2
+    # and m3p6-p3/negative.log), one generator for all three. What differs, and
+    # why:
+    #  UA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 6 P4's. The base is P3's record commit ("M3 part 6 P3
+    #      record:"); the doc commit and the two code commits (code commit 1 the
+    #      xml prefix, P4 ruling 4; code commit 2 the catalogue and the probes,
+    #      the phase commit) by their full subjects; no carry commit, so the role
+    #      chain is one shorter than P3's. The spec is specs/0028, pinned at its
+    #      blob at the doc commit, 81069c65; the working file, planning's rulings
+    #      during P4, is printed and not asserted, as P3's was. The status
+    #      pattern allows this phase's logs and its records/m3p6-p4-,
+    #      records/m3p6-open- and records/size-m3p6- stems (the size record is
+    #      this phase's), and specs/0028. The gate's binary is read from
+    #      <gatebuild>/bin/host/emend-copy, as P3's was, and its hash from
+    #      gate.log's line for that copy.
+    #  UB. Three families from one generator, gen-p6p4.py, each fixture's
+    #      counts on one line of one form: B0 (the bare template, run three
+    #      times under the three case names B0CB, B0RI and B0CP, one per
+    #      sample), NUC and NU (P1's), NMC and NM (P2's), NC (P3's). The
+    #      controls' lines are the tool's doc applied to the fixtures, as each
+    #      earlier phase built them; line_is is P1's box_is, P2's gone_is and
+    #      P3's copy_is, one helper (an output but no byte comparison).
+    #  UC. The messages are read by constant name from SEVEN modules at the
+    #      phase commit and at the base, P3's six and crates/emend/src/xml.rs,
+    #      which code commit 1 changes (it raises its one message inline, so it
+    #      holds no constant). The phase adds no constant and removes none
+    #      (ruling 5 (3)), with a control that plants one. The part's nine
+    #      messages are read by name, quoted by the committed spec and its
+    #      working file, and each stated unreachable through the tool with its
+    #      covering test counted once at the phase commit (ruling 5 (2)). The
+    #      shared refusals reached are COMMENTS_UNREADABLE, DRAWING_UNREADABLE
+    #      (read by constant name) and the tool's NoWorksheet (read from its
+    #      Display arm); the reached set is compared with those three.
+    #  UD. P3's change TD carried: COPY_NEEDS_COMMENTS's covering test, which
+    #      runs only without the Cargo feature comments, is run by name in the
+    #      worktree with --features copy into <target>/negative, P4's one target
+    #      root's subdirectory for this tree (ruling 10).
+    #  UE. Nothing else of the carried rules is dropped. This script removes no
+    #      directory, as P3's did not.
+    #
+    # P3's text:
+    # Milestone 3 part 6 P3 negative.log
+    # (specs/0028-images-and-comments-second-half.md, "P3: the copy": "The
+    # negative log through the binary: `--copy-sample` on a fixture whose first
+    # sheet is a chartsheet (refused, with a control)", as "Planning rulings
+    # during P3", ruling 6, reads it). One family, the gate's host debug binary
+    # copied into a detached worktree of the phase commit and checked against
+    # gate.log's hash, on fictional packages this log builds from the phase
+    # commit's template files:
+    #
+    #   --copy-sample: B0 the bare template, whose one sheet is a worksheet
+    #      (the control); NC the same package with the workbook's relationship
+    #      to that sheet of the chartsheet type, so the workbook has no sheet of
+    #      kind Worksheet: the tool's own "the workbook has no sheet of kind
+    #      Worksheet", raised before any copy is recorded.
+    # The refusal: exit 2, the error line exactly the message the committed
+    # tool source holds, no stdout, no output file. The control: exit 0, its
+    # line, an output. Then the messages reached, compared as SETS with the
+    # tool's message; the part's four layer messages stated unreachable through
+    # the tool with the test that covers each, the comments one run by name
+    # without the Cargo feature comments; and usage shapes.
+    #
+    # CARRIED TO M3 part 6 P3 from M3 part 6 P2's negative script (printed in
+    # records/logs/m3p6-p2/negative.log, byte-identical to its copy on the disk
+    # at <home>/.cache/emend-build/m3p6-p2/scripts/m3p6-p2-negative.sh, the
+    # print's indent and trailing blank line aside; its change lists, P2's SA to
+    # SD and the earlier ones, follow below). Every check, control and helper of
+    # the frame is that text's but where this list says. What differs, and why:
+    #  TA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 6 P3's. The base is P2's record commit ("M3 part 6 P2
+    #      record:"); the doc commit, the carry commit and the two code commits
+    #      (the crate, the tool) by their full subjects, the tool commit the
+    #      phase commit, the role chain one longer than P2's. The spec is
+    #      specs/0028, pinned at its blob at the doc commit, 38ab45c5; the
+    #      working file, planning's rulings during P3, is printed and not
+    #      asserted, as P2's was. The status pattern allows this phase's logs and
+    #      its records/m3p6-p3- and records/m3p6-open- stems, and specs/0028.
+    #      The gate's binary is read from <gatebuild>/bin/host/emend-copy, the
+    #      copy the P3 gate makes under ruling 8 (its change J35), and its hash
+    #      from gate.log's line for that copy.
+    #  TB. One family from one generator, gen-p6p3.py: the two fixtures, the
+    #      control's line the tool's doc applied to B0, copy_is (an output but no
+    #      byte comparison, since the sample adds the copy's parts), as P2's
+    #      gone_is was. The refusal reached is the tool's own NoWorksheet
+    #      message, read from tools/emend-copy/src/main.rs at the phase commit by
+    #      its Display arm (toolmsg.py), with a control.
+    #  TC. The messages are read by constant name from the six modules at the
+    #      phase commit and at the base, as P2's were; this phase adds exactly
+    #      COPY_NEEDS_WORKSHEET, COPY_OF_EDITED, COPY_RELATIONSHIP and
+    #      COPY_NEEDS_COMMENTS and removes none, which a check says, with a
+    #      control that plants one. None is reachable through the tool (ruling
+    #      6): each is stated unreachable with its covering test in
+    #      package/tests/copy.rs, counted at the phase commit; the reached set is
+    #      compared with the tool's message alone.
+    #  TD. COPY_NEEDS_COMMENTS's covering test runs only without the Cargo
+    #      feature comments, which the workspace and the tool turn on, so it is
+    #      run here by name, alone, in the worktree with --features copy, and
+    #      shown passing (ruling 6). This log therefore builds once: into
+    #      <target>/negative, the worktree's own subdirectory of the phase's one
+    #      target root (ruling 10), never <target>/main; the SERIALIZED line says
+    #      so. The binary under test is still the gate's copy, never this build.
+    #  TE. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, the build stays in
+    #      <target>/negative for ruling 8's prune at the next phase, and no rm
+    #      of any form is run.
+    #
+    # P2's text:
+    # Milestone 3 part 6 P2 negative.log
+    # (specs/0028-images-and-comments-second-half.md, "P2: the anchors and the
+    # removal": "The negative log through the binary: `--remove-image-sample`
+    # on a fixture whose drawing's rels part names a missing media entry
+    # (refused, with a control)"). One family, the gate's host debug binary
+    # copied into a detached worktree of the phase commit and checked against
+    # gate.log's hash, on fictional packages this log builds from the phase
+    # commit's template files:
+    #
+    #   --remove-image-sample: B0 the bare template; NMC the template with a
+    #      worksheet rels part naming a drawing part of one picture anchor, the
+    #      drawing's rels part naming its media entry, and the entry, the
+    #      worksheet given drawing; NM NMC with the media entry left out: "a
+    #      drawing part or its relationship cannot be read", which the
+    #      removal's read of the drawing (as Package::images reads it) raises.
+    # The refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Each control: exit 0, its line,
+    # an output. Then the messages reached, compared as SETS with the shared
+    # message, the part's three messages stated unreachable through the tool
+    # with the test that covers each; and usage shapes.
+    #
+    # CARRIED TO M3 part 6 P2 from M3 part 6 P1's negative script (printed in
+    # records/logs/m3p6-p1/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p6-p2/gen/negative-template-m3p6-p1.sh,
+    # the print's indent and trailing blank line aside; its change lists, P1's
+    # RA to RD and the earlier ones, follow below). Every check, control and
+    # helper of the frame is that text's but where this list says. What
+    # differs, and why:
+    #  SA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 6 P2's. The base is P1's record commit ("M3 part 6 P1
+    #      record:"); the doc commit and the two code commits (the crate, the
+    #      tool) by their full subjects, the tool commit the phase commit, the
+    #      role chain as P1's. The spec is specs/0028, pinned at its blob at
+    #      the doc commit, 5c3d3d1a; the working file, planning's rulings
+    #      during P2, is printed and not asserted, as P1's was. The status
+    #      pattern allows this phase's logs and its records/m3p6-p2- and
+    #      records/m3p6-open- stems, and specs/0028.
+    #  SB. One family from one generator, gen-p6p2.py: the three fixtures, the
+    #      control lines the tool's doc applied to the fixtures, gone_is (an
+    #      output but no byte comparison, since the sample rewrites the
+    #      drawing's parts), as P1's box_is was.
+    #  SC. The messages are read by constant name from the six modules at the
+    #      phase commit and at the base, as P1's were; this phase adds exactly
+    #      IMAGE_ANCHOR_OUT_OF_RANGE, IMAGE_SIZE_TWO_CELL and NO_IMAGE_AT and
+    #      removes none, which a check says, with a control that plants one.
+    #      None is reachable through the tool (its anchors are in range, its
+    #      two-cell image carries no size, its indexes are the ones images
+    #      lists): each is stated unreachable with its covering test, counted at
+    #      the phase commit. The shared message DRAWING_UNREADABLE is reached
+    #      (NM), and the reached set is compared with it alone.
+    #  SD. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P1's text:
+    # Milestone 3 part 6 P1 negative.log
+    # (specs/0028-images-and-comments-second-half.md, "P1: a comment's box":
+    # "The negative log through the binary: `--commentbox-sample` on a fixture
+    # whose VML part has no root end tag (refused, with a control)"). One
+    # family, the gate's host debug binary copied into a detached worktree of
+    # the phase commit and checked against gate.log's hash, on fictional
+    # packages this log builds from the phase commit's template files:
+    #
+    #   --commentbox-sample: B0 the bare template; NUC the template with a
+    #      worksheet rels part, a comments part of one comment on B2 and a VML
+    #      part of its sized note shape, the worksheet given legacyDrawing; NU
+    #      NUC with the VML part's root end tag left out: "a comments part or
+    #      its drawing cannot be read", which Package::comments now raises for
+    #      a VML part it cannot read.
+    # The refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Each control: exit 0, its line,
+    # an output. Then the messages reached, compared as SETS with the shared
+    # message, the part's two messages stated unreachable through the tool with
+    # the test that covers each; and usage shapes.
+    #
+    # CARRIED TO M3 part 6 P1 from M3 part 5 P3's negative script (printed in
+    # records/logs/m3p5-p3/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p6-p1/gen/negative-template-m3p5-p3.sh,
+    # the print's indent and trailing blank lines aside; P3's script is P2's
+    # with the newest rules, and its change lists, P3's QA to QD and the
+    # earlier ones, follow below). Every check, control and helper of the frame
+    # is that text's but where this list says. What differs, and why:
+    #  RA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 6 P1's. The base is part 5's close-out record commit ("M3
+    #      part 5 close-out record:"); the doc commit and the two code commits
+    #      (the crate, the tool) by their full subjects, the tool commit the
+    #      phase commit, so the role chain is one shorter than P3's. The spec
+    #      is specs/0028, pinned at its blob at the doc commit, 8adfe67c. The
+    #      working file is printed and not asserted, as P3's was. The status
+    #      pattern allows this phase's logs and its records/m3p6-p1- and
+    #      records/m3p6-open- stems, and specs/0028 should planning rule.
+    #  RB. One family from one generator, gen-p6.py: the three fixtures, the
+    #      control lines the tool's doc applied to the fixtures, box_is (an
+    #      output but no byte comparison, since the sample writes the comment
+    #      parts), as P1's round_is was.
+    #  RC. The messages are read by constant name from the six modules at the
+    #      phase commit and at the base, as P3's were; this phase adds exactly
+    #      COMMENT_BOX_OUT_OF_RANGE and NO_COMMENT_ADDITION and removes none,
+    #      which a check says, with a control that plants one. Neither is
+    #      reachable through the tool (its box is in range, its box goes on the
+    #      cell it adds a comment on): each is stated unreachable with its
+    #      covering test, counted at the phase commit. The shared message
+    #      COMMENTS_UNREADABLE is reached (NU), and the reached set is compared
+    #      with it alone.
+    #  RD. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P3's text:
+    # Milestone 3 part 5 P3 negative.log (specs/0027-read-back.md, "P3": "the
+    # negative log through the binary for every message of the part reachable
+    # there, the unreachable ones stated with the test that covers each"). Two
+    # families, the gate's host debug binary copied into a detached worktree of
+    # the phase commit and checked against gate.log's hash, on fictional
+    # packages this log builds from the phase commit's template files:
+    #
+    #   --roundtrip-sample (P1's cases): RR the bare template; NF a cell format
+    #      naming a font past <fonts>, NFC one in range; NI a fill past <fills>,
+    #      NIC one in range; NC a font colour with no form, NCC one with a
+    #      theme: "a style cannot be read" three ways;
+    #   --read-sample (P2's cases): R0 the bare template; NV two <sheetViews>
+    #      (the writers' cols, sheetViews or mergeCells message), NVC one; NZ a
+    #      zoomScale of 9 and NR an r:id naming no relationship ("a sheet
+    #      setting cannot be read"), NZC zoomScale 10 and NRC a location link;
+    #      NH two <hyperlinks> (the writers' hyperlinks or sheetProtection
+    #      message), NHC one; NP two <pageSetup> (the writers' settings
+    #      message), NPC one.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Each control: exit 0, its line,
+    # an output (for --read-sample byte-identical to its input). Then the
+    # messages reached, compared as SETS with the part's two messages and the
+    # three writers' messages its reads raise; and usage shapes.
+    #
+    # CARRIED TO M3 part 5 P3 from M3 part 5 P2's negative script (printed in
+    # records/logs/m3p5-p2/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p5-p3/gen/negative-template-m3p5-p2.sh,
+    # the print's indent and trailing blank lines aside; its change lists, P2's
+    # PA to PD and the earlier ones, follow below). Every check, control and
+    # helper of the frame is that text's but where this list says. What
+    # differs, and why:
+    #  QA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 5 P3's. The base is P2's record commit ("M3 part 5 P2
+    #      record:"); the doc commit and the three code commits (the carry of
+    #      P2's verification ruling 3, the catalogue, the probe) by their full
+    #      subjects, the probe commit the phase commit, so the role chain is
+    #      P2's length. The spec pin is specs/0027's blob at P3's doc commit,
+    #      32e73e1f. The working file is printed and not asserted, as P2's was.
+    #      The status pattern allows this phase's logs and its
+    #      records/size-m3p5-, records/m3p5-p3- and records/m3p5-open- stems.
+    #  QB. Both families from one generator, gen-p3.py: P1's cases through
+    #      --roundtrip-sample, their control line P1's (the tool's doc applied
+    #      to the template, round_is, an output but no byte comparison, since
+    #      that sample writes a styles part), and P2's through --read-sample,
+    #      their control line P2's (line_is, the output byte-identical). P1's
+    #      R0 is RR here, P2's keeps R0. Eighteen fixtures; ten accepted runs.
+    #  QC. The messages are read by constant name from the six modules at the
+    #      phase commit and at the base, as P2's were; this phase adds no
+    #      constant and removes none, which a check says, with a control that
+    #      plants one. The part's two messages, STYLE_UNREADABLE (styles/read.rs)
+    #      and SETTING_UNREADABLE (package/sheet_read.rs), and the three
+    #      writers' messages the reads raise are each reached: the first three
+    #      ways (NF, NI, NC), the second two (NZ, NR), the writers' once each
+    #      (NV, NH, NP). NOT_WORKSHEET's raise in sheet_read.rs is stated
+    #      unreachable through the tool with its covering test, as P2 stated it.
+    #  QD. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P2's text:
+    # Milestone 3 part 5 P2 negative.log (specs/0027-read-back.md, "P2": "The
+    # negative log through the binary: the sample on a fixture with two
+    # <sheetViews> (refused, with a control)"). One family, --read-sample, the
+    # gate's host debug binary copied into a detached worktree of the phase
+    # commit and checked against gate.log's hash, on fictional packages this
+    # log builds from the phase commit's template files (the template's
+    # worksheet holds an empty sheetData alone, and the template has no shared
+    # strings part):
+    #
+    #   R0 the bare template, exit 0, its line, the output the input's bytes;
+    #   NV two <sheetViews>: the writers' message for two cols, sheetViews or
+    #      mergeCells; NVC one;
+    #   NZ W's sheetView with zoomScale="9", below the writer's 10: "a sheet
+    #      setting cannot be read"; NZC zoomScale="10";
+    #   NR a hyperlink whose r:id names no relationship (the worksheet has no
+    #      rels part): the same message; NRC the hyperlink with a location;
+    #   NH two <hyperlinks>: the writers' message for two hyperlinks or
+    #      sheetProtection; NHC one;
+    #   NP two <pageSetup>: the writers' settings message; NPC one.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Each control: exit 0, its line,
+    # an output byte-identical to its input (the sample writes the input back
+    # unedited). Then the messages reached, compared as SETS with the phase's
+    # message and the three writers' messages its reads now raise; and usage
+    # shapes.
+    #
+    # CARRIED TO M3 part 5 P2 from M3 part 5 P1's negative script (printed in
+    # records/logs/m3p5-p1/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p5-p2/gen/negative-template-m3p5-p1.sh,
+    # the print's indent and trailing blank lines aside; its change lists, P1's
+    # OA to OD and the earlier ones, follow below). Every check, control and
+    # helper of the frame is that text's but where this list says. What
+    # differs, and why:
+    #  PA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 5 P2's. The base is P1's record commit ("M3 part 5 P1
+    #      record:"); the doc commit and the three code commits (the carry of
+    #      P1's verification rulings 1 to 3, the crate, the tool) by their full
+    #      subjects, the tool commit the phase commit, so the role chain is one
+    #      commit shorter than P1's. The spec pin is specs/0027's blob at P2's
+    #      doc commit, 5acfcd85. The working file is printed and not asserted:
+    #      planning holds "Planning rulings during P2" uncommitted. The status
+    #      pattern allows this phase's logs and its records/m3p5-p2-,
+    #      records/m3p5-open- and records/m3p5-scale-d-items- stems.
+    #  PB. One family, --read-sample, from one generator gen-p2.py written for
+    #      this phase, its cases built on the template's worksheet. Every
+    #      control's line is the tool's doc ("Planning rulings during P2",
+    #      ruling 3) applied to the template: no cell, no shared strings part,
+    #      so every count 0 but links, 1 for NRC and NHC.
+    #  PC. The messages are read by constant name from six modules, P1's five
+    #      and package/sheet_read.rs, which the crate commit adds, at the phase
+    #      commit and at the base, a module the base lacks read as empty. The
+    #      new constants are exactly NOT_WORKSHEET and SETTING_UNREADABLE; the
+    #      phase's one new MESSAGE is SETTING_UNREADABLE's, since NOT_WORKSHEET
+    #      names the root message cells.rs raises inline at the base, which the
+    #      log checks. SETTING_UNREADABLE is reached two ways (NZ, NR); the
+    #      three writers' messages the reads now raise (TWO_ELEMENTS,
+    #      TWO_SHEET_ELEMENTS, TWO_SETTINGS) are read by name from package.rs
+    #      and reached once each (NV, NH, NP). NOT_WORKSHEET's raise in
+    #      sheet_read.rs is stated unreachable through the tool, which reads
+    #      every worksheet's cells first, so a part whose root is not worksheet
+    #      is refused by the cell read with the same message; its test is
+    #      package::tests::sheetread::a_part_that_is_not_a_worksheet_is_refused_by_each_read,
+    #      whose presence at the phase commit the log checks.
+    #  PD. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P1's text:
+    # Milestone 3 part 5 P1 negative.log (specs/0027-read-back.md, "P1": "The
+    # negative log through the binary: the sample on a fixture whose styles part
+    # names a font past <fonts> (refused, with a control)"). One family,
+    # --roundtrip-sample, the gate's host debug binary copied into a detached
+    # worktree of the phase commit and checked against gate.log's hash, on
+    # fictional packages this log builds from the phase commit's template files
+    # (the template's worksheet holds an empty sheetData alone, its styles part
+    # one font, two fills, one border and one cell format):
+    #
+    #   R0 the bare template, no cell, exit 0, its line;
+    #   NF W's cell names cell format 1, whose fontId is 1 with one font in
+    #      <fonts>: "a style cannot be read" at cell_style; NFC fontId 0;
+    #   NI cell format 1's fillId is 2 with two fills in <fills>: the same
+    #      message at cell_style; NIC fillId 1;
+    #   NC the template's font given a <color/> with no form: the same message
+    #      at the styles part's typed read; NCC the font given <color
+    #      theme="1"/>.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the phase's messages,
+    # compared as SETS with those reached here (P1 adds one; none is stated
+    # unreachable); and usage shapes.
+    #
+    # CARRIED TO M3 part 5 P1 from M3 part 4 P3's negative script (printed in
+    # records/logs/m3p4-p3/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p5-p1/gen/negative-template-m3p4-p3.sh,
+    # the print's indent and trailing blank line aside; its change lists, P3's NA
+    # to ND and the earlier ones, follow below). Every check, control and helper
+    # of the frame is that text's but where this list says. What differs, and
+    # why:
+    #  OA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 5 P1's. The base is M3 part 4's close-out record commit
+    #      ("M3 part 4 close-out record:"); the doc commit and the four code
+    #      commits (the carry of specs/0026's close-out ruling 3, the crate, the
+    #      tool, the catalogue) by their full subjects, the catalogue commit the
+    #      phase commit. The spec pin is specs/0027's blob at P1's doc commit,
+    #      a655b5fd. The working file is printed and not asserted: planning
+    #      holds "Planning rulings during P1" uncommitted, and the status
+    #      pattern allows it modified. The pattern allows this phase's logs and
+    #      its records/m3p5-p1- and records/m3p5-open- stems.
+    #  OB. One family, --roundtrip-sample, from one generator gen-p1.py written
+    #      for this phase, its cases built on the template's styles part. Every
+    #      control's line is the tool's doc applied to the template: one
+    #      distinct s on W, so one cell format, one font, one fill and one
+    #      border added, and the one addition read back equal.
+    #  OC. The phase's messages are read by constant name from the five modules
+    #      that raise Error::Package (package.rs, cells.rs, styles.rs,
+    #      styles/elements.rs and styles/read.rs, the catalogue test's six less
+    #      xml.rs, which this phase does not touch), at the phase commit and at
+    #      the base, a module the base lacks read as empty: the new constants are
+    #      exactly STYLE_UNREADABLE, with a planted control. It is reached three
+    #      ways (NF, NI, NC); none is stated unreachable, so P3's covering-test
+    #      machinery is not carried. The spec's second message, "a sheet setting
+    #      cannot be read", is P2's: the log checks no module holds it yet.
+    #  OD. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P3's text:
+    # Milestone 3 part 4 P3 negative.log (specs/0026-grouping-and-line-styles.md,
+    # "P3": "the negative log through the binary for every message of the part
+    # reachable there, the unreachable ones stated with the test that covers
+    # each"). Two families, --group-sample and --linestyle-sample, the gate's
+    # host debug binary copied into a detached worktree of the phase commit and
+    # checked against gate.log's hash, on fictional packages this log builds
+    # from the phase commit's template files (the template's worksheet holds an
+    # empty sheetData alone, its styles part one cell format):
+    #
+    # (G) --group-sample, P1's family:
+    #       G0 the bare template, exit 0, its line;
+    #       GN1 a row 1048574 with a cell, so M + 3 is past the grid: part 3's
+    #          index message from set_row_collapsed; GN1C a row 1048573;
+    #       GN2 two <sheetFormatPr>, GN3 a <sheetFormatPr> after <cols>, GN4 two
+    #          <sheetPr>: part 3's settings message (P1 ruling 1); GN2C, GN3C
+    #          and GN4C one of each in its place.
+    # (L) --linestyle-sample, P2's family:
+    #       L0 the bare template, exit 0, its line;
+    #       LN1 a row 1048576 with a cell, so M + 1 is past the grid: the index
+    #          message from set_row_style; LN1C a row 1048575;
+    #       LN2 two <cols>: part 3's two-elements message; LN2C one <cols>, its
+    #          <col> over columns 8 to 10 split in three.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's five messages
+    # (P3 adds no constant), compared as SETS with those reached here and those
+    # the log states unreachable, each unreachable one with its reason and the
+    # test that covers it; and usage shapes.
+    #
+    # CARRIED TO M3 part 4 P3 from M3 part 4 P2's negative script (printed in
+    # records/logs/m3p4-p2/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p4-p3/gen/negative-template-m3p4-p2.sh,
+    # the print's indent and trailing blank line aside; its change lists, P2's MA
+    # to MD and the earlier ones, follow below), with P1's group family (printed
+    # in records/logs/m3p4-p1/negative.log) carried in. Every check, control and
+    # helper of the frame is that text's but where this list says. What
+    # differs, and why:
+    #  NA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 4 P3's. The base is M3 part 4 P2's record commit ("M3 part
+    #      4 P2 record:"); the doc commit and the three code commits (the carry
+    #      of P2's verification ruling 2, the catalogue, the probe) by their
+    #      full subjects. The spec pin is specs/0026's blob at P3's doc commit,
+    #      250ee898. The working file is printed and not asserted: planning's
+    #      P2 rulings are committed, so it equals the blob unless planning adds
+    #      rulings mid-phase, and the status pattern still allows it modified.
+    #      The pattern allows this phase's logs and its records/m3p4-p3-,
+    #      records/m3p4-open- and records/size-m3p4- stems.
+    #  NB. Two families, one generator gen-p3.py written for this phase from
+    #      P1's gen-p1.py and P2's gen-p2.py, their cases kept and renamed so
+    #      the two families' names stay apart (P1's N1 to N4C are GN1 to GN4C,
+    #      P2's N1 to N2C are LN1 to LN2C). The expected lines are P1's and
+    #      P2's, the tools' docs applied to the template.
+    #  NC. The part's messages are its five, read by name: P1's one constant,
+    #      LEVEL_OUT_OF_RANGE, and the shared ones its calls meet,
+    #      INDEX_OUT_OF_RANGE, TWO_SETTINGS, TWO_ELEMENTS and specs/0012's
+    #      STYLE_OUT_OF_RANGE. P3 adds no constant: the phase commit's against
+    #      the base's, with P2's planted control. The format calls record
+    #      through line_format, whose returns are the index and size messages
+    #      alone, and the two group calls through group, whose returns are the
+    #      index and the level messages alone. Reached: the index message (GN1,
+    #      LN1), the settings message (GN2 to GN4) and the two-elements message
+    #      (LN2). Stated unreachable, each with its reason and covering test,
+    #      the test's body asserted to hold the message: the level message (the
+    #      group sample's level is the tool's constant 1) and the style index
+    #      message (the line style sample's index is add_style's own). The
+    #      index, style index and level messages are the ones the committed spec
+    #      and its working file quote; the spec names the settings and the
+    #      two-elements messages without their text. P2's control "no row style
+    #      call in the base" is replaced: the base now holds the calls, so the
+    #      control counts the call in a copy with it taken out.
+    #  ND. Nothing else of the carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P2's text:
+    # Milestone 3 part 4 P2 negative.log (specs/0026-grouping-and-line-styles.md,
+    # "P2": "The negative log through the binary: the sample on a fixture whose
+    # first sheet's last row is 1048576 (refused, with a control)"). One family,
+    # --linestyle-sample, the gate's host debug binary copied into a detached
+    # worktree of the phase commit and checked against gate.log's hash, on
+    # fictional packages this log builds from the phase commit's template files
+    # (the template's worksheet holds an empty sheetData alone, its styles part
+    # one cell format):
+    #
+    # (L) --linestyle-sample:
+    #       L0 the bare template, exit 0, its line;
+    #       N1 a row 1048576 with a cell, so M + 1 is past the grid: part 3's
+    #          index message, "a row or column index or count is out of range",
+    #          from set_row_style; N1C a row 1048575 with a cell, M + 1 the
+    #          grid's last row;
+    #       N2 two <cols>: part 3's two-elements message, "a worksheet has two
+    #          cols, sheetViews or mergeCells elements, or a sheetViews without a
+    #          sheetView", from the column style's <cols> rewrite; N2C one
+    #          <cols>, its <col> over columns 8 to 10 split in three.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the messages the part's two
+    # calls meet (P2 adds no constant: specs/0026 "Errors"), compared as SETS
+    # with those reached here and those the log states unreachable, each
+    # unreachable one with its reason and the test that covers it; and usage
+    # shapes.
+    #
+    # CARRIED TO M3 part 4 P2 from M3 part 4 P1's negative script (printed in
+    # records/logs/m3p4-p1/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p4-p2/gen/negative-template-m3p4-p1.sh,
+    # the print's indent and trailing blank line aside; its change lists, P1's LA
+    # to LD and the earlier ones, follow below). Every check, control and helper
+    # of the frame is that text's but where this list says. What differs, and
+    # why:
+    #  MA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 4 P2's. The base is M3 part 4 P1's record commit ("M3 part
+    #      4 P1 record:"); the doc commit and the three code commits (the carry
+    #      of P1's verification rulings 2 and 4, the crate, the tool) by their
+    #      full subjects. The spec pin is specs/0026's blob at P2's doc commit,
+    #      5f0a8192. The working file is printed and not asserted: planning
+    #      holds "Planning rulings during P2" uncommitted, and the status
+    #      pattern allows it modified. The pattern allows this phase's logs and
+    #      its records/m3p4-p2- and records/m3p4-open- stems.
+    #  MB. One family, L0 to N2C, one generator gen-p2.py written for this phase
+    #      from P1's gen-p1.py: the template's sheetData given a row with a
+    #      cell, or one or two <cols> before it. The expected lines are the
+    #      tool's doc (main.rs `--linestyle-sample`) applied to the template: M
+    #      = 0 (or the one row's number), row M + 1 absent so created
+    #      (rows_present 0), the template's one cell format so the format added
+    #      is 1 (xfs_before 1, xfs_after 2), column 9 uncovered so one <col>
+    #      created (col_split 1, kept_cols 0) or N2C's <col> over 8 to 10 split
+    #      in three with its width kept, the root binding no relationships
+    #      prefix.
+    #  MC. P2 adds no message constant. The constants of the phase commit's
+    #      package.rs that the base's lacks are checked to be none, with a
+    #      control that finds one against a base with a constant taken out. The
+    #      part's messages are the shared ones its two calls meet, read by name:
+    #      the index message (at the call, reached by N1), the two-elements
+    #      message (at the write, reached by N2) and specs/0012's style index
+    #      message (at the write, stated unreachable through the tool, whose
+    #      index is the one add_style returns, with the crate test that covers
+    #      it and the test's body asserted to hold the message). The two calls
+    #      are checked to record through line_format, whose returns are the
+    #      shared index and size messages alone. The index and style index
+    #      messages are the ones the committed spec and its working file quote;
+    #      the spec names the two-elements message without its text. P1's
+    #      gated.py and its read-apart pair are dropped with the new constant
+    #      they served.
+    #  MD. Nothing else of P1's carried rules is dropped. This script removes
+    #      no directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P1's text:
+    # Milestone 3 part 4 P1 negative.log (specs/0026-grouping-and-line-styles.md,
+    # "P1": "The negative log through the binary: the sample on a fixture whose
+    # first sheet's last row is 1048574 (M + 3 past the grid, refused with the
+    # index message, with a control)"). One family, --group-sample, the gate's
+    # host debug binary copied into a detached worktree of the phase commit and
+    # checked against gate.log's hash, on fictional packages this log builds from
+    # the phase commit's template files (the template's worksheet holds an empty
+    # sheetData alone):
+    #
+    # (G) --group-sample:
+    #       G0 the bare template, exit 0, its line;
+    #       N1 a row 1048574 with a cell, so M + 3 is past the grid: part 3's
+    #          index message, "a row or column index or count is out of range",
+    #          from set_row_collapsed; N1C a row 1048573 with a cell, M + 3 the
+    #          grid's last row;
+    #       N2 two <sheetFormatPr>: the settings message, "a worksheet has two
+    #          sheetPr, autoFilter, printOptions, ...", from the settings pass
+    #          (specs/0026 "Planning rulings during P1", ruling 1); N2C one;
+    #       N3 a <cols> and then a <sheetFormatPr>, the sheetFormatPr out of
+    #          schema order: the same message; N3C the sheetFormatPr first;
+    #       N4 two <sheetPr/>: the same message, from the outline summary's
+    #          <outlinePr>; N4C one.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's messages (the
+    # constants the phase commit's package.rs holds and the base's does not,
+    # each under the Cargo feature rowcol), compared as SETS with those reached
+    # here and those the log states unreachable, each unreachable one with its
+    # reason and the test that covers it; the two shared messages reached here
+    # apart; and usage shapes.
+    #
+    # CARRIED TO M3 part 4 P1 from M3 part 3 P4's negative script (printed in
+    # records/logs/m3p3-p4/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p4-p1/gen/negative-template-m3p3-p4.sh,
+    # the print's indent and trailing blank line aside; its change lists, P4's KA
+    # to KD and the earlier ones, follow below). Every check, control and helper
+    # of the frame is that text's. What differs, and why:
+    #  LA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 4 P1's. The base is M3 part 3's close-out record commit
+    #      ("M3 part 3 close-out record:"); the doc commit and the three code
+    #      commits (the crate, the tool, the rows_present change of P1 ruling 6)
+    #      by their full subjects. The spec pin is specs/0026's blob at P1's doc
+    #      commit, 36fa82a5. The working file is printed and not asserted:
+    #      planning holds "Planning rulings during P1" uncommitted, and the
+    #      status pattern allows it modified. The pattern allows this phase's
+    #      logs and its records/m3p4-p1- and records/m3p4-open- stems.
+    #  LB. One family, G0 to N4C, one generator gen-p1.py written for this phase
+    #      from P4's gen-p4.py: the template's sheetData given rows with a cell,
+    #      or root children before it. The expected lines are the tool's doc
+    #      (main.rs `--group-sample`) applied to the template: M = 0 (or the one
+    #      row's number), the rows of M + 1 to M + 3 absent so all three created
+    #      (rows_present 0), the group's columns 2 and 3 uncovered so one <col>
+    #      created (level_cols 1, kept_cols 0), the root binding no relationships
+    #      prefix. The part's write messages are shared ones: the settings
+    #      message three ways and the index message once.
+    #  LC. The part's messages are found as the constants of the phase commit's
+    #      package.rs that the base's lacks, by name (one: "an outline level is
+    #      out of range", LEVEL_OUT_OF_RANGE), each checked to sit under
+    #      #[cfg(feature = "rowcol")] and to be returned by group (the body of
+    #      group_rows and group_columns), whose other returns are the shared
+    #      index message. TWO_SETTINGS and INDEX_OUT_OF_RANGE are read apart.
+    #      LEVEL_OUT_OF_RANGE is stated unreachable through the tool (the sample's
+    #      level is its constant 1), with the crate test that covers it and the
+    #      test's body asserted to hold the message.
+    #  LD. Nothing of P4's carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P4's text:
+    # Milestone 3 part 3 P4 negative.log (specs/0025-sheet-and-print-settings.md,
+    # "P4": "the negative log through the binary for every message of the part
+    # reachable there, the unreachable ones stated with the test that covers
+    # each"). Three families, one per sample, the gate's host debug binary copied
+    # into a detached worktree of the phase commit and checked against gate.log's
+    # hash, on fictional packages this log builds from the phase commit's
+    # template files (the template's worksheet holds an empty sheetData alone):
+    #
+    # (S) --sheetview-sample, M3 part 3 P1's cases:
+    #       S0 the bare template, exit 0, its line;
+    #       S1 two <sheetPr/>: the part's message, "a worksheet has two sheetPr,
+    #          autoFilter, printOptions, ...", from the settings pass; S1C one;
+    #       S2 a <dimension> and then a <sheetPr/>, the sheetPr out of schema
+    #          order: the same message; S2C the sheetPr first;
+    #       S3 two <sheetViews>: part 3's two-elements message, "a worksheet has
+    #          two cols, sheetViews or mergeCells elements, or a sheetViews
+    #          without a sheetView"; S3C one.
+    # (P) --pagesetup-sample, M3 part 3 P2's cases:
+    #       P0 the bare template, exit 0, its line;
+    #       P1 two <pageSetup/>: the part's message; P1C one;
+    #       P2 a <pageSetup/> and then a <pageMargins/>: the same; P2C in order;
+    #       P3 two <headerFooter/>: the same; P3C one.
+    # (Q) --printarea-sample, M3 part 3 P3's cases:
+    #       Q0 the bare template, exit 0, its line;
+    #       T1 a table part on W whose ref is A1:H2, over the area: specs/0021's
+    #          overlap message, "a table overlaps a table, a pivot table, a merge
+    #          or the autofilter"; T1C the table at A3:H9, clear of it;
+    #       A2 two <autoFilter>: the part's message; A2C one;
+    #       F3 a row 1048576 with a cell, so M + 1 is past the grid: part 3's
+    #          index message; F3C a row 2 with a cell.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's messages, read from
+    # the source by constant name, compared as SETS with those reached here and
+    # those the log states unreachable, each unreachable one with its reason and
+    # the tests that cover it; the three shared messages reached here apart; and
+    # usage shapes.
+    #
+    # CARRIED TO M3 part 3 P4 from M3 part 3 P3's negative script (printed in
+    # records/logs/m3p3-p3/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p3-p4/gen/negative-template-m3p3-p3.sh,
+    # the print's trailing blank line aside; its change lists, P3's JA to JD and
+    # the earlier ones, follow below). Every check, control and helper of the
+    # frame is that text's. What differs, and why:
+    #  KA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 3 P4's. The base is M3 part 3 P3's record commit ("M3 part
+    #      3 P3 record:"); the doc commit and the three code commits (the carry,
+    #      the catalogue, the probes) by their full P4 subjects. The spec pin is
+    #      specs/0025's blob at P4's doc commit, efdacd5c. The working file is
+    #      printed (equal to the pin while planning holds nothing uncommitted),
+    #      and the status pattern still allows it modified, should planning add
+    #      rulings mid-phase. The pattern allows this phase's logs and its
+    #      records/m3p3-p4- and records/m3p3-open- stems.
+    #  KB. Three families, P1's S0 to S3C, P2's P0 to P3C and P3's Q0 to F3C, one
+    #      generator gen-p4.py written for this phase from P1's gen-p1.py, P2's
+    #      gen-p2.py and P3's gen-p3.py: the template's sheetData given root
+    #      children before it (S), after it (P), or rows, children, a
+    #      relationships prefix, a worksheet relationships part and a table part
+    #      (Q). The expected lines are the three earlier logs' (S_NONE, S_PR,
+    #      S_VIEWS; P_NONE, P_SETUP, P_BOTH, P_HF; Q_PLAIN, Q_BOUND, Q_FILTER).
+    #      The part's write message is reached six ways; the overlap, the index
+    #      and part 3's two-elements messages, shared with earlier parts, apart.
+    #  KC. The part's messages and the seven bodies are P3's; no source change
+    #      of this phase touches them (the carry is test code, the catalogue //!
+    #      lines, the probes the size-probe crate). TWO_ELEMENTS joins
+    #      TABLE_OVERLAP and INDEX_OUT_OF_RANGE among the messages read apart.
+    #      "a sheet setting is out of range", "a header or footer text is not
+    #      valid" and "a print area or title is not valid" are stated unreachable
+    #      through the tool (each sample's settings, texts and title pair are its
+    #      constants), each with the crate tests that cover it and each test's
+    #      body asserted to hold the message. The overlap message is looked for in
+    #      the working spec, which now equals the committed one: "Planning rulings
+    #      during P3" ruling 1 quotes it there.
+    #  KD. Nothing of P3's carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run.
+    #
+    # P3's text:
+    # Milestone 3 part 3 P3 negative.log (specs/0025-sheet-and-print-settings.md,
+    # "P3": "The negative log through the binary: the sample on a fixture whose
+    # first sheet's table covers A1:H2 (refused with the overlap message, with a
+    # control)"). One family, --printarea-sample, the gate's host debug binary
+    # copied into a detached worktree of the phase commit and checked against
+    # gate.log's hash, on fictional packages this log builds from the phase
+    # commit's template files. The template's worksheet holds an empty sheetData
+    # alone, so M is 0 and the sample's area is A1:H1 unless a case adds rows:
+    #
+    # (Q) --printarea-sample:
+    #       Q0 the bare template: the three names and the <autoFilter> created,
+    #          exit 0, its line;
+    #       T1 a table part on W whose ref is A1:H2, over the area: specs/0021's
+    #          overlap message, "a table overlaps a table, a pivot table, a merge
+    #          or the autofilter", from the write's check of W's tables;
+    #       T1C the same table at A3:H9, clear of the area, the control for T1;
+    #       A2 two <autoFilter> after the sheetData: the part's message, "a
+    #          worksheet has two sheetPr, autoFilter, printOptions, ...", from the
+    #          settings pass;
+    #       A2C one <autoFilter>, the control for A2;
+    #       F3 a row 1048576 with a cell, so M + 1 is past the grid: part 3's
+    #          index message, from the print area call;
+    #       F3C a row 2 with a cell, the control for F3.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's messages, read from
+    # the source by constant name, compared as SETS with those reached here and
+    # those the log states unreachable, each unreachable one with its reason and
+    # the tests that cover it; the two shared messages reached here apart; and
+    # usage shapes.
+    #
+    # CARRIED TO M3 part 3 P3 from M3 part 3 P2's negative script (printed in
+    # records/logs/m3p3-p2/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p3-p3/gen/negative-template-m3p3-p2.sh;
+    # its change lists, P2's IA to ID and the earlier ones, follow below). Every
+    # check, control and helper of the frame is that text's. What differs, and
+    # why:
+    #  JA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 3 P3's. The base is M3 part 3 P2's record commit ("M3 part
+    #      3 P2 record:"); the doc commit and the three code commits (the carry,
+    #      the crate, the tool) by their full P3 subjects. The spec pin is
+    #      specs/0025's blob at P3's doc commit, 338f0e8b. The working file is
+    #      printed, and the status pattern allows it modified: planning holds
+    #      "Planning rulings during P3" uncommitted. The pattern allows this
+    #      phase's logs and its records/m3p3-p3- and records/m3p3-open- stems.
+    #  JB. One family, Q0 to F3C, the generator gen-p3.py written for this phase:
+    #      the template's sheetData given rows, root children after it, a
+    #      relationships prefix on the root, a worksheet relationships part and a
+    #      table part, as each case needs. The part's write message reached by
+    #      two autoFilter; the overlap and index messages, shared with earlier
+    #      parts, reached apart, each with its control.
+    #  JC. The part's messages are the constants package.rs defines under the
+    #      Cargo feature sheetprops and under sheetprops and metadata together
+    #      (gated.py now takes the cfg's text), compared as a SET with the
+    #      constants seven bodies return: P2's six and Parts::set_print_titles;
+    #      set_print_area and set_auto_filter return the shared index message
+    #      alone and are not among them. "a sheet setting is out of range", "a
+    #      header or footer text is not valid" and "a print area or title is not
+    #      valid" are stated unreachable through the tool (the sample makes no
+    #      settings or header call, and its title pair is its constant), each
+    #      with the crate tests that cover it and each test's body asserted to
+    #      hold the message. TABLE_OVERLAP and INDEX_OUT_OF_RANGE are read by
+    #      name apart, each once and not empty; the overlap message is looked for
+    #      in the working spec, where "Planning rulings during P3" ruling 1 quotes
+    #      it, the committed spec misquoting it (printed, not asserted).
+    #  JD. Nothing of P2's carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run (specs/0024 P2 ruling 1 needs none here).
+    #
+    # P2's text:
+    # Milestone 3 part 3 P2 negative.log (specs/0025-sheet-and-print-settings.md,
+    # "P2": "The negative log through the binary: the sample on a fixture with two
+    # <pageSetup> (refused, with a control)"). One family, --pagesetup-sample, the
+    # gate's host debug binary copied into a detached worktree of the phase commit
+    # and checked against gate.log's hash, on fictional packages this log builds
+    # from the phase commit's template files. The template's worksheet holds an
+    # empty sheetData alone (none of the four elements the sample sets, no
+    # sheetPr), its root binds no relationships prefix:
+    #
+    # (P) --pagesetup-sample:
+    #       P0 the bare template: <sheetPr>, <printOptions>, <pageMargins>,
+    #          <pageSetup> and <headerFooter> all created, exit 0, its line;
+    #       P1 two <pageSetup/> after the sheetData: the part's message, "a
+    #          worksheet has two sheetPr, autoFilter, printOptions, ...", from the
+    #          settings pass;
+    #       P1C one <pageSetup/>, the control for P1;
+    #       P2 a <pageSetup/> and then a <pageMargins/>, the pageMargins out of
+    #          schema order: the same message;
+    #       P2C the <pageMargins/> before the <pageSetup/>, the control for P2;
+    #       P3 two <headerFooter/>: the same message;
+    #       P3C one <headerFooter/>, the control for P3.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's messages, read from
+    # the source by constant name, compared as SETS with those reached here and
+    # those the log states unreachable, each unreachable one with its reason and
+    # the tests that cover it; and usage shapes.
+    #
+    # CARRIED TO M3 part 3 P2 from M3 part 3 P1's negative script (printed in
+    # records/logs/m3p3-p1/negative.log, byte-identical to its copy kept on the
+    # disk as <home>/.cache/emend-build/m3p3-p2/gen/negative-template-m3p3-p1.sh;
+    # its change lists, P1's HA to HD and the earlier ones, follow below). Every
+    # check, control and helper of the frame is that text's. What differs, and
+    # why:
+    #  IA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 3 P2's. The base is M3 part 3 P1's record commit ("M3 part
+    #      3 P1 record:"); the doc commit and the three code commits (the carry,
+    #      the crate, the tool) by their full P2 subjects. The spec pin is
+    #      specs/0025's blob at P2's doc commit, 6c6e87e3. The working file is
+    #      printed, and the status pattern allows it modified: planning holds
+    #      "Planning rulings during P2" uncommitted. The pattern allows this
+    #      phase's logs and its records/m3p3-p2- and records/m3p3-open- stems.
+    #  IB. One family, P0 to P3C, the generator gen-p2.py written for this phase:
+    #      the template's sheetData given a tail of root children after it. The
+    #      part's write message reached three ways (two pageSetup, one out of
+    #      order, two headerFooter), each with its control. P1's apart record of
+    #      part 3's two-elements message is dropped: no case here reaches it.
+    #  IC. The part's messages are the constants package.rs defines under the
+    #      Cargo feature sheetprops, compared as a SET with the constants the six
+    #      bodies return: Parts::set_tab_color, set_sheet_view,
+    #      set_page_margins, set_page_setup and set_header_footer (the private
+    #      fns) and SettingsPass::observe; set_print_options records with no
+    #      check and has no private body. "a sheet setting is out of range" and
+    #      "a header or footer text is not valid" are stated unreachable through
+    #      the tool (the sample's settings and texts are its constants), each
+    #      with the crate tests that cover it and each test's body asserted to
+    #      hold the message.
+    #  ID. Nothing of P1's carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run (specs/0024 P2 ruling 1 needs none here).
+    #
+    # P1's text:
+    # Milestone 3 part 3 P1 negative.log (specs/0025-sheet-and-print-settings.md,
+    # "P1": "The negative log through the binary: the sample on a fixture with two
+    # <sheetPr> (refused, with a control)"). One family, --sheetview-sample, the
+    # gate's host debug binary copied into a detached worktree of the phase commit
+    # and checked against gate.log's hash, on fictional packages this log builds
+    # from the phase commit's template files. The template's worksheet holds an
+    # empty sheetData alone (no sheetPr, no dimension, no sheetViews), its root
+    # binds no relationships prefix:
+    #
+    # (S) --sheetview-sample:
+    #       S0 the bare template: <sheetPr> and <sheetViews> both created, exit 0,
+    #          its line;
+    #       S1 two <sheetPr/> before the sheetData: the part's new message, "a
+    #          worksheet has two sheetPr, ...", from the settings pass;
+    #       S1C one <sheetPr/>, the control for S1;
+    #       S2 a <dimension> and then a <sheetPr/>, the sheetPr out of schema
+    #          order: the same message;
+    #       S2C the <sheetPr/> before the <dimension>, the control for S2;
+    #       S3 two <sheetViews>, each holding one <sheetView>: part 3's message
+    #          for two cols, sheetViews or mergeCells elements;
+    #       S3C one <sheetViews>, the control for S3.
+    # Each refusal: exit 2, the error line exactly the message the committed
+    # source holds, no stdout, no output file. Then the part's messages, read from
+    # the source by constant name, compared as SETS with those reached here and
+    # those the log states unreachable, the unreachable one with its reason and
+    # the test that covers it; and usage shapes.
+    #
+    # CARRIED TO M3 part 3 P1 from M3 part 2 P3's negative script (printed in
+    # records/logs/m3p2-p3/negative.log, byte-identical to its copy kept on the
+    # disk under <home>/.cache/emend-build/m3p2-p3/scripts, which this phase keeps
+    # as <home>/.cache/emend-build/m3p3-p1/gen/negative-template-m3p2-p3.sh; its
+    # change lists GA to GD stand in that log). Every check, control and helper
+    # of the frame is that text's (the entry and exit checks, the shape greps,
+    # the role checks, the roots, the gate binary's copy and hash, the message
+    # reader messages.py and the body reader returns.py with their controls, the
+    # spec lookup, run_bin and its predicates, the set comparison, the usage
+    # shapes, the byte count, the status and stderr checks). What differs, and
+    # why:
+    #  HA. The phase, the log directory, the subjects and the build directories
+    #      are M3 part 3 P1's. The base is M3 part 2's close-out record commit
+    #      ("M3 part 2 close-out record:"); the doc commit and the three code
+    #      commits (the carry, the crate, the tool) by their full P1 subjects.
+    #      The spec pin is specs/0025's blob at P1's doc commit, c15d68d2. The
+    #      working file is printed, and the status pattern allows it modified:
+    #      planning holds "Planning rulings during P1" uncommitted. The pattern
+    #      allows this phase's logs and its records/m3p3-p1- and records/m3p3-open-
+    #      stems.
+    #  HB. One family, S0 to S3C, the generator gen-p1.py written for this phase:
+    #      the template's sheetData given a head of root children before it. The
+    #      new write message reached two ways (two sheetPr, one out of order),
+    #      part 3's message once (two sheetViews), each with its control.
+    #  HC. The part's messages are the constants package.rs defines under the
+    #      Cargo feature sheetprops (a reader printed below takes each const
+    #      whose line follows #[cfg(feature = "sheetprops")]), compared as a SET
+    #      with the constants the three bodies return: Parts::set_tab_color,
+    #      Parts::set_sheet_view (the private fns) and SettingsPass::observe.
+    #      Part 3's two-elements message is recorded apart (as P3 recorded the
+    #      index message), since it is not the part's. "a sheet setting is out of
+    #      range" is stated unreachable through the tool (the sample's colour and
+    #      zoom are its constants), with the crate test that covers it and the
+    #      test's body asserted to hold the message. "Errors"' other shared
+    #      messages are every edit's, not the sample's constants, and earlier
+    #      parts' negative logs reach them; they are printed, not accounted.
+    #  HD. Nothing of P3's carried rules is dropped. This script removes no
+    #      directory: the worktree goes by git worktree remove, the scratch
+    #      directory is kept on the disk under <build>, and no rm of any form is
+    #      run (specs/0024 P2 ruling 1 needs none here).
+    #
+    # Usage: m3p6-p4-negative.sh <phase commit> [<gate log> [<gate build dir>]]
+    # > <file outside the tree>; the caller moves the output to
+    # records/logs/m3p6-p4/negative.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/negative.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    . scripts/counting.sh
+    
+    C=${1:?phase commit required}
+    GATE_LOG=${2:-records/logs/m3p6-p4/gate.log}
+    GATE_BUILD=${3:-$HOME/.cache/emend-build/m3p6-p4/gate}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    BUILD_ROOT=${NEGATIVE_BUILD:-$HOME/.cache/emend-build/m3p6-p4/negative}
+    SUPERSEDED_DIR=$HOME/.cache/emend-build/m3p6-p4/superseded
+    GATE_BIN=$GATE_BUILD/bin/host/emend-copy
+    # Change TD: the phase's one target root (ruling 8) and this log's
+    # subdirectory of it, the worktree's own (ruling 10).
+    TARGET_ROOT=$HOME/.cache/emend-build/m3p6-p4/target
+    NEG_TARGET=$TARGET_ROOT/negative
+    SPEC=specs/0028-images-and-comments-second-half.md
+    SPEC_WANT=81069c652aee1f5b5cd14b495670e1f3864e342550e474a668b793381bba80e7
+    mkdir -p "$BUILD_ROOT" || exit 2
+    TREE=$BUILD_ROOT/tree
+    if [ -e "$TREE" ]; then echo "$TREE is already there" >&2; exit 2; fi
+    # Change LD (P4 change KD): made on the disk under <build> and kept after the run.
+    B=$(mktemp -d -p "$BUILD_ROOT") || exit 2
+    cleanup() {
+      git worktree remove --force "$TREE" >/dev/null 2>&1
+    }
+    trap cleanup EXIT INT TERM HUP
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    # Change LD (P4 change KD): the real commit with its last hex digit changed, and its short form.
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT_SHA=${C:0:7}
+    # This phase's logs and records (the size record's stem among them), and
+    # planning's uncommitted spec (change UA).
+    OURS='^((\?\?| ?[MARCD]) records/logs/m3p6-p4|(\?\?| ?[MARCD]) records/(m3p6-p4-|m3p6-open-|size-m3p6-)| M specs/0028-images-and-comments-second-half[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs, records and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$TREE#<tree>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$GATE_BUILD#<gatebuild>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$TARGET_ROOT#<target>#g" \
+        -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: NEGATIVE_BUILD: ${NEGATIVE_BUILD:-unset} (the build root, <build>)"
+    echo "input: the gate log: $GATE_LOG"
+    echo "input: the gate build directory: $GATE_BUILD"
+    echo "input: python3: $(python3 --version 2>&1)"
+    echo "about: M3 part 6 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M3 part 6 P3 record: logs, the run and open-check records, the independent check')
+    DOC1=$(by_subject 'M3 part 6 P4: commit planning docs (the P3 rulings and verification, ROADMAP)')
+    CODE1=$(by_subject 'M3 part 6 P4: the xml prefix')
+    CODE2=$(by_subject 'M3 part 6 P4: the catalogue and limits, the probes')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  M3 part 6 P3's record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  code commit 1 (the xml prefix, P4 ruling 4): ${CODE1:-none}"
+    echo "  code commit 2 (the catalogue and the probes, the phase commit): ${CODE2:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~3"
+    for k in 0 1 2 3; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CODE2" "$CODE1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "code commits 2 and 1, the doc commit and the base, each the next one's parent, code commit 2 the phase commit (no carry commit in P4; change UA)" "$(yn roles_in_order)"
+    roles_ctl() { local CODE2=$CODE1; roles_in_order; }
+    check "control: roles_in_order refuses code commit 1 named as code commit 2" "$(ynnot roles_ctl)"
+    echo
+    echo "phase: Milestone 3 part 6 P4 ($SPEC) negative.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds once, the covering test of change UD, in the worktree into <target>/negative (ruling 10), never <target>/main"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh is sourced from it by this log, the gate log ($GATE_LOG) is read for the binary's hash, the template files, the seven modules crates/emend/src/package.rs, cells.rs, styles.rs, styles/elements.rs, styles/read.rs, package/sheet_read.rs and xml.rs (at the phase commit and at the base), crates/emend/src/package/tests/comments/boxes.rs, images/anchors.rs, images/removal.rs and copy.rs, tools/emend-copy/src/main.rs and $SPEC are read from it by git show, and $SPEC's working file is hashed and read in it; nothing in it is run: the binary under test is the gate's, copied into <tree>/bin and run from there, and the one covering test of change UD runs in <tree>"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <scripts> stands for <home>/.cache/emend-build/m3p6-p4/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <build> stands for the build root on the disk, <home>/.cache/emend-build/m3p6-p4/negative unless NEGATIVE_BUILD names another; <tree> stands for <build>/tree, the detached worktree of the phase commit, which holds the copied binary in <tree>/bin, removed at exit by git worktree remove"
+    echo "root: <gatebuild> stands for the gate's build directory, <home>/.cache/emend-build/m3p6-p4/gate unless the third argument names another, from whose <gatebuild>/bin/host the gate's copy of its host debug binary is copied (the P3 gate's change J35, carried); read only"
+    echo "root: <target> stands for <home>/.cache/emend-build/m3p6-p4/target, the phase's one target root (ruling 8); this log builds only into <target>/negative, the worktree's subdirectory (ruling 10), kept for the next phase's prune"
+    echo "root: <superseded> stands for <home>/.cache/emend-build/m3p6-p4/superseded, where a rerun's superseded files are kept; read only"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory under <build> (the message readers, the source copies, the generator, its fixtures and the cases' outputs), kept on the disk after the run (change LD)"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$TREE" "$B" && apart "$GATE_BUILD" "$BUILD_ROOT" && apart "$GATE_BUILD" "$SELF_DIR" && apart "$GATE_BUILD" "$MAIN" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN" && apart "$SUPERSEDED_DIR" "$GATE_BUILD" && apart "$TARGET_ROOT" "$BUILD_ROOT" && apart "$TARGET_ROOT" "$GATE_BUILD" && apart "$TARGET_ROOT" "$MAIN" && apart "$TARGET_ROOT" "$SELF_DIR"; }
+    check "the roots other than <home> are distinct, none inside another (<tree> and <scratch>/w both inside <build>, apart from each other)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$TREE" "$BUILD_ROOT"; }
+    check "control: apart refuses <tree> against <build>, which holds it" "$(ynnot roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or records or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT_SHA")"
+    short_names_head() { [ "$(git rev-parse "$SHORT_SHA")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    ours_ctl() { printf ' M crates/emend/src/package.rs\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified source file" "$(ynnot ours_ctl)"
+    ours_spec_ctl() { printf ' M specs/0027-read-back.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0028" "$(ynnot ours_spec_ctl)"
+    ours_rec_ctl() { printf '?? records/m3p6-p4-copy-2026-01-01-abcdef0.md\n?? records/m3p6-open-2026-01-01-abcdef0.md\n?? records/size-m3p6-2026-01-01-abcdef0.md\n?? records/m3p6-p3-2026-10-07-x.md\n?? records/size-m3p5-2026-10-05-x.md\n?? records/logs/m3p6-p4/gate.log\n?? records/logs/m3p6-p3/gate.log\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's three record stems and log, and no other phase's record or log" "$(yn [ "$(ours_rec_ctl)" = 4 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, printed and not asserted: planning holds its rulings during P4 uncommitted; change UA): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo "every fixture is built by this log from the phase commit's template files; no corpus file is copied or read"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' scripts/counting.sh
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    echo
+    echo "## the three families through the gate's binary, copied into a worktree"
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    echo "command: git worktree add --detach <tree> <phase commit>"
+    git worktree add --detach "$TREE" "$C" >/dev/null 2>&1
+    check "the worktree is at the phase commit" "$(yn [ "$(git -C "$TREE" rev-parse HEAD)" = "$C" ])"
+    HASH_FORM='^  <build>/bin/host/emend-copy: sha256 [0-9a-f]{64}, bytes [0-9]+$'
+    nhash=$(count_matches -E "$HASH_FORM" "$GATE_LOG")
+    GATED=$(sed -n -E 's#^  <build>/bin/host/emend-copy: sha256 ([0-9a-f]{64}), bytes [0-9]+$#\1#p' "$GATE_LOG" | head -n 1)
+    echo "command: count_matches -E and sed for the hash line of the gate's host emend-copy copy in $GATE_LOG (sha256 $(sha_of "$GATE_LOG")): lines $nhash; hash $GATED"
+    check "gate.log holds exactly one hash line for its copy <build>/bin/host/emend-copy (P3's change TA, carried)" "$(yn [ "$nhash" = 1 ])"
+    printf '  <build>/bin/host/emend-copy: sha256 %s, bytes 1\n  <build>/bin/i686/emend-copy: sha256 %s, bytes 1\n' \
+      "$(printf 'a' | sha256sum | cut -d' ' -f1)" "$(printf 'b' | sha256sum | cut -d' ' -f1)" >"$B/c-gate.log"
+    check "control: the same form counts one line in a fixture holding a host and an i686 line" "$(yn [ "$(count_matches -E "$HASH_FORM" "$B/c-gate.log")" = 1 ])"
+    echo "command: mkdir <tree>/bin; cp <gatebuild>/bin/host/emend-copy <tree>/bin/emend-copy"
+    mkdir "$TREE/bin" && cp "$GATE_BIN" "$TREE/bin/emend-copy"
+    BIN=$TREE/bin/emend-copy
+    echo "  <tree>/bin/emend-copy: sha256 $(sha_of "$BIN")"
+    check "the copied binary is the one gate.log hashed, not a rebuild" "$(yn [ "$(sha_of "$BIN")" = "$GATED" ])"
+    check "control: the reader found a hash in gate.log" "$(yn [ -n "$GATED" ])"
+    echo
+    echo "### the messages, read from the phase commit's source by constant name (change UC)"
+    cat >"$B/messages.py" <<'PY'
+    """The Error::Package messages of a Rust source file, by constant name, one
+    per line as NAME<TAB>message in source order; a constant with or without
+    pub(crate). With --name N, only N.
+    Usage: messages.py <file.rs> [--name N]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^(?:pub\(crate\) )?const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);',
+                       text, re.M)
+    args = sys.argv[2:]
+    if args[:1] == ["--name"]:
+        found = [(n, m) for n, m in found if n == args[1]]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+    PY
+    sed 's/^/    /' "$B/messages.py"
+    MODULES="crates/emend/src/package.rs crates/emend/src/cells.rs crates/emend/src/styles.rs crates/emend/src/styles/elements.rs crates/emend/src/styles/read.rs crates/emend/src/package/sheet_read.rs crates/emend/src/xml.rs"
+    : >"$B/all-now.tsv"
+    : >"$B/all-base.tsv"
+    # in_base <path>: the base's tree holds the file (git ls-tree prints its
+    # name, and nothing for a file it lacks).
+    in_base() { [ "$(git ls-tree --name-only "$REC" -- "$1")" = "$1" ]; }
+    echo "command: for each of the seven modules, git show <commit>:<module> at the phase commit and at the base (a module the base's tree lacks, by git ls-tree, read as empty), and python3 <scratch>/w/messages.py over each copy; the phase's new constants are the phase commit's that the base lacks, its gone ones the base's that the phase commit lacks (change UC)"
+    for f in $MODULES; do
+      stem=$(basename "$f" .rs)
+      git show "$C:$f" >"$B/now-$stem.rs"
+      if in_base "$f"; then git show "$REC:$f" >"$B/base-$stem.rs"; else : >"$B/base-$stem.rs"; fi
+      python3 "$B/messages.py" "$B/now-$stem.rs" >"$B/now-$stem.tsv"
+      python3 "$B/messages.py" "$B/base-$stem.rs" >"$B/base-$stem.tsv"
+      cat "$B/now-$stem.tsv" >>"$B/all-now.tsv"
+      cat "$B/base-$stem.tsv" >>"$B/all-base.tsv"
+      echo "  $f: in the base's tree $(yn in_base "$f"); constants at the phase commit $(count_lines "$B/now-$stem.tsv"), at the base $(count_lines "$B/base-$stem.tsv")"
+    done
+    all_in_base() { local f; for f in $MODULES; do in_base "$f" || return 1; done; }
+    check "the base holds each of the seven modules" "$(yn all_in_base)"
+    check "control: in_base says no for a module path no tree holds" "$(ynnot in_base crates/emend/src/planted.rs)"
+    cut -f1 "$B/all-now.tsv" | LC_ALL=C sort -u >"$B/all-now.set"
+    cut -f1 "$B/all-base.tsv" | LC_ALL=C sort -u >"$B/all-base.set"
+    LC_ALL=C comm -23 "$B/all-now.set" "$B/all-base.set" >"$B/new.set"
+    LC_ALL=C comm -13 "$B/all-now.set" "$B/all-base.set" >"$B/gone.set"
+    echo "  constant names: at the phase commit $(count_lines "$B/all-now.set"); at the base $(count_lines "$B/all-base.set"); new $(count_lines "$B/new.set"); gone $(count_lines "$B/gone.set")"
+    none_new() { [ "$(count_lines "$B/all-base.set")" -ge 1 ] && [ "$(count_lines "$B/new.set")" = 0 ] && [ "$(count_lines "$B/gone.set")" = 0 ]; }
+    check "the phase adds no message constant and removes none (P4 ruling 5 (3); ruling 4 adds no message; change UC)" "$(yn none_new)"
+    printf 'PLANTED\n' | LC_ALL=C sort -u - "$B/all-now.set" >"$B/c-now-plus.set"
+    plant_ctl() { [ "$(LC_ALL=C comm -23 "$B/c-now-plus.set" "$B/all-base.set" | wc -l)" = 0 ]; }
+    check "control: the same comparison finds a planted constant the base lacks" "$(ynnot plant_ctl)"
+    LC_ALL=C comm -23 "$B/all-now.set" <(printf 'COPY_OF_EDITED\n') >"$B/c-now-minus.set"
+    minus_ctl() { [ "$(LC_ALL=C comm -13 "$B/c-now-minus.set" "$B/all-base.set" | wc -l)" = 0 ]; }
+    check "control: the same comparison finds a constant the base holds and a planted phase commit lacks" "$(ynnot minus_ctl)"
+    printf 'A\nB\n' >"$B/c-now.set"; printf 'A\n' >"$B/c-base.set"
+    check "control: the new-constant comparison takes B alone from a base holding A" "$(yn [ "$(LC_ALL=C comm -23 "$B/c-now.set" "$B/c-base.set")" = B ])"
+    printf 'const A: Error = Error::Package("x");\npub(crate) const B: Error =\n    Error::Package("two");\nconst C: Error = Error::Package(\n    "three",\n);\n' >"$B/c-msgs.rs"
+    python3 "$B/messages.py" "$B/c-msgs.rs" --name B >"$B/c-name.tsv"
+    python3 "$B/messages.py" "$B/c-msgs.rs" --name C >>"$B/c-name.tsv"
+    check "control: --name takes the one constant named, pub(crate) and wrapped or multi-line" "$(yn [ "$(cut -f2 "$B/c-name.tsv" | tr '\n' ' ')" = "two three " ])"
+    # The part's nine messages, read by name (change UC; specs/0028 "Errors").
+    PART_NAMES="IMAGE_ANCHOR_OUT_OF_RANGE IMAGE_SIZE_TWO_CELL NO_IMAGE_AT COMMENT_BOX_OUT_OF_RANGE NO_COMMENT_ADDITION COPY_NEEDS_WORKSHEET COPY_OF_EDITED COPY_RELATIONSHIP COPY_NEEDS_COMMENTS"
+    for name in $PART_NAMES; do
+      python3 "$B/messages.py" "$B/now-package.rs" --name "$name"
+    done >"$B/part.tsv"
+    for name in COMMENTS_UNREADABLE DRAWING_UNREADABLE; do
+      python3 "$B/messages.py" "$B/now-package.rs" --name "$name"
+    done >"$B/shared.tsv"
+    echo "command: python3 <scratch>/w/messages.py <scratch>/w/now-package.rs --name each of the part's nine messages (images: IMAGE_ANCHOR_OUT_OF_RANGE, IMAGE_SIZE_TWO_CELL, NO_IMAGE_AT; comments: COMMENT_BOX_OUT_OF_RANGE, NO_COMMENT_ADDITION; copy: COPY_NEEDS_WORKSHEET, COPY_OF_EDITED, COPY_RELATIONSHIP, COPY_NEEDS_COMMENTS), and --name COMMENTS_UNREADABLE and DRAWING_UNREADABLE, the shared messages P1's and P2's families reach"
+    echo "  the part's messages:"
+    sed 's/^/    /' "$B/part.tsv"
+    # The message the tool raises for a workbook with no worksheet, read from
+    # the tool's source at the phase commit by its variant's Display arm (P3's
+    # change TB, carried).
+    git show "$C:tools/emend-copy/src/main.rs" >"$B/now-main.rs"
+    cat >"$B/toolmsg.py" <<'PY'
+    """The message a Display arm of the form `Error::<Variant> => f.write_str("...")`
+    gives, one line as VARIANT<TAB>message, for the variant named.
+    Usage: toolmsg.py <main.rs> <Variant>."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'Error::' + re.escape(sys.argv[2]) + r'\s*=>\s*f\.write_str\(\s*"([^"]*)"\s*\)', text)
+    for m in found:
+        print("%s\t%s" % (sys.argv[2], m))
+    PY
+    sed 's/^/    /' "$B/toolmsg.py"
+    python3 "$B/toolmsg.py" "$B/now-main.rs" NoWorksheet >>"$B/shared.tsv"
+    echo "command: python3 <scratch>/w/toolmsg.py <scratch>/w/now-main.rs NoWorksheet (tools/emend-copy/src/main.rs at the phase commit)"
+    echo "  the shared messages the families reach:"
+    sed 's/^/    /' "$B/shared.tsv"
+    printf 'x Error::Planted => f.write_str("p"),\n Error::NoWorksheet => f.write_str("w"),\n' >"$B/c-main.rs"
+    check "control: toolmsg.py takes the one variant named" "$(yn [ "$(python3 "$B/toolmsg.py" "$B/c-main.rs" NoWorksheet | cut -f2)" = w ])"
+    cat "$B/part.tsv" "$B/shared.tsv" >"$B/known.tsv"
+    npart=$(count_lines "$B/part.tsv")
+    nshared=$(count_lines "$B/shared.tsv")
+    nempty=$(awk -F"$TAB" '$2 == "" { n++ } END { print n + 0 }' "$B/known.tsv")
+    echo "  messages accounted for: the part's $npart, the shared $nshared; with an empty message: $nempty"
+    block_ok() { [ "$npart" = 9 ] && [ "$nshared" = 3 ] && [ "$nempty" = 0 ]; }
+    check "the part's nine messages and the three shared messages are each read once, and none is empty" "$(yn block_ok)"
+    # msg <NAME>: the message the source holds for the constant or variant, as the tool prints it.
+    msg() { awk -F"$TAB" -v n="$1" '$1 == n { print "error: " $2 }' "$B/known.tsv"; }
+    # The part's messages looked for in the committed spec and in its working
+    # file, whitespace folded, since the spec wraps its lines.
+    git show "$C:$SPEC" >"$B/spec-committed.md"
+    python3 - "$B/part.tsv" "$B/spec-committed.md" "$SPEC" >"$B/in-spec.tsv" <<'PY'
+    import re
+    import sys
+    committed = re.sub(r"\s+", " ", open(sys.argv[2]).read())
+    working = re.sub(r"\s+", " ", open(sys.argv[3]).read())
+    for line in open(sys.argv[1]):
+        name, message = line.rstrip("\n").split("\t", 1)
+        print("%s\tcommitted=%s\tworking=%s" % (name, "yes" if message in committed else "no",
+                                                "yes" if message in working else "no"))
+    PY
+    echo "command: the part's nine messages looked for in the committed $SPEC (git show <phase commit>) and in its working file, whitespace folded"
+    sed 's/^/    /' "$B/in-spec.tsv"
+    QUOTED="^[A-Z_]+${TAB}committed=yes${TAB}working=yes\$"
+    quoted_ok() { [ "$(count_matches -E "$QUOTED" "$B/in-spec.tsv")" = 9 ]; }
+    check "each of the nine is a message the committed spec and its working file quote" "$(yn quoted_ok)"
+    printf 'COPY_OF_EDITED\tcommitted=yes\tworking=no\n' >"$B/c-in-spec.tsv"
+    check "control: the same count finds no line that says working=no" "$(yn [ "$(count_matches -E "$QUOTED" "$B/c-in-spec.tsv")" = 0 ])"
+    # The part's nine messages, stated unreachable through the tool, and their
+    # covering tests, each counted once at the phase commit (ruling 5 (2)).
+    git show "$C:crates/emend/src/package/tests/comments/boxes.rs" >"$B/boxes-tests.rs"
+    git show "$C:crates/emend/src/package/tests/images/anchors.rs" >"$B/anchors-tests.rs"
+    git show "$C:crates/emend/src/package/tests/images/removal.rs" >"$B/removal-tests.rs"
+    git show "$C:crates/emend/src/package/tests/copy.rs" >"$B/copy-tests.rs"
+    # cover <file stem> <test name>: the test's fn line, counted in that file.
+    cover() { count_matches -F "fn $2()" "$B/$1-tests.rs"; }
+    COVER_BOX=the_call_refuses_a_box_out_of_range_and_records_nothing
+    COVER_ADD=a_box_on_a_cell_this_write_adds_no_comment_on_is_refused_at_the_write
+    COVER_ANCHOR=the_call_refuses_each_anchor_rule_and_records_nothing
+    COVER_AT=an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write
+    COVER1=the_call_refuses_an_absent_source_a_chartsheet_and_the_name_rules
+    COVER2=an_edit_on_the_source_or_the_copy_or_a_source_added_is_refused_at_the_write
+    COVER3=a_kept_relationship_outside_a_hyperlink_is_refused
+    COVER4=a_source_with_comments_needs_the_comments_feature
+    echo "  stated unreachable through the tool: IMAGE_ANCHOR_OUT_OF_RANGE, since the tool's anchors are its constants, in range; covered by package::tests::images::anchors::$COVER_ANCHOR (count at the phase commit: $(cover anchors "$COVER_ANCHOR"))"
+    echo "  stated unreachable through the tool: IMAGE_SIZE_TWO_CELL, since the tool's two-cell image carries no size; covered by the same test (count at the phase commit: $(cover anchors "$COVER_ANCHOR"))"
+    echo "  stated unreachable through the tool: NO_IMAGE_AT, since the tool removes only indexes images lists, each once, in a write that adds nothing; covered by package::tests::images::removal::$COVER_AT (count at the phase commit: $(cover removal "$COVER_AT"))"
+    echo "  stated unreachable through the tool: COMMENT_BOX_OUT_OF_RANGE, since the tool's box is its constant, 200 by 100, in range; covered by package::tests::comments::boxes::$COVER_BOX (count at the phase commit: $(cover boxes "$COVER_BOX"))"
+    echo "  stated unreachable through the tool: NO_COMMENT_ADDITION, since the tool sets its box on the cell it adds its comment on; covered by package::tests::comments::boxes::$COVER_ADD (count at the phase commit: $(cover boxes "$COVER_ADD"))"
+    echo "  stated unreachable through the tool: COPY_NEEDS_WORKSHEET, since the tool chooses S among the worksheets only; covered by package::tests::copy::$COVER1 (count at the phase commit: $(cover copy "$COVER1"))"
+    echo "  stated unreachable through the tool: COPY_OF_EDITED, since the sample records no edit beside the copy; covered by package::tests::copy::$COVER2 (count at the phase commit: $(cover copy "$COVER2"))"
+    echo "  stated unreachable through the tool: COPY_RELATIONSHIP, since the tool's input is a file and no fixture here keeps a relationship other than a hyperlink's (the corpus run reaches none); covered by package::tests::copy::$COVER3 (count at the phase commit: $(cover copy "$COVER3"))"
+    echo "  stated unreachable through the tool: COPY_NEEDS_COMMENTS, since the tool turns the Cargo feature comments on; covered by package::tests::copy::$COVER4, which runs only without comments, shown passing below (count at the phase commit: $(cover copy "$COVER4"))"
+    ncover="$(cover anchors "$COVER_ANCHOR"):$(cover removal "$COVER_AT"):$(cover boxes "$COVER_BOX"):$(cover boxes "$COVER_ADD"):$(cover copy "$COVER1"):$(cover copy "$COVER2"):$(cover copy "$COVER3"):$(cover copy "$COVER4"):"
+    echo "  the eight covering tests' fn lines at the phase commit, counted in the order above (one test covers the two anchor messages): $ncover"
+    check "each covering test is at the phase commit, once" "$(yn [ "$ncover" = 1:1:1:1:1:1:1:1: ])"
+    check "control: the same count finds no test of a planted name" "$(yn [ "$(cover copy a_planted_test_name)" = 0 ])"
+    echo "  \"Errors\"' shared messages, printed and not accounted: \"no sheet of that name\", the name rules, \"no such part\", part 3's index message, \"a worksheet has threaded comments\", the comments read's and the drawing read's other messages; the part's tests reach them"
+    echo
+    echo "### the comments-feature message's covering test, run without comments in the worktree (change UD; P3's change TD, ruling 10)"
+    echo "command: (cd <tree> && CARGO_TARGET_DIR=<target>/negative cargo test -p emend --features copy --lib package::tests::copy::$COVER4 -- --exact)"
+    (cd "$TREE" && CARGO_TARGET_DIR="$NEG_TARGET" cargo test -p emend --features copy --lib "package::tests::copy::$COVER4" -- --exact) >"$B/cover4.out" 2>&1 </dev/null
+    rc4=$?
+    echo "  exit: $rc4"
+    LC_ALL=C "$G" -E '^test |^test result:' "$B/cover4.out" | sed 's/^/    /'
+    cover4_ran() { [ "$rc4" = 0 ] && [ "$(count_matches -Fx "test package::tests::copy::$COVER4 ... ok" "$B/cover4.out")" = 1 ] && [ "$(count_matches -E '^test result: ok\. 1 passed; 0 failed' "$B/cover4.out")" = 1 ]; }
+    check "the covering test ran alone without comments and passed, by name" "$(yn cover4_ran)"
+    printf 'test result: ok. 0 passed; 0 failed; 0 ignored\n' >"$B/c-cover4.out"
+    cover4_ctl() { [ "$(count_matches -E '^test result: ok\. 1 passed; 0 failed' "$B/c-cover4.out")" = 1 ]; }
+    check "control: the same form refuses a run that ran no test (a filtered run, gotchas 2026-09-26)" "$(ynnot cover4_ctl)"
+    neg_target_used() { [ -d "$NEG_TARGET/debug" ] && apart "$NEG_TARGET" "$TARGET_ROOT/main"; }
+    check "the worktree's build went into <target>/negative, apart from <target>/main (ruling 10)" "$(yn neg_target_used)"
+    echo
+    echo "### this log's generator, from the phase commit's template files"
+    mkdir "$B/template" "$B/fx"
+    for f in '[Content_Types].xml' _rels/.rels xl/workbook.xml xl/_rels/workbook.xml.rels xl/worksheets/sheet1.xml xl/styles.xml; do
+      mkdir -p "$B/template/$(dirname "$f")"
+      git show "$C:crates/emend/template/$f" >"$B/template/$f"
+    done
+    cat >"$B/gen-p6p4.py" <<'PY'
+    """Fictional packages for M3 part 6 P4's negative log: the phase commit's
+    template files, zipped in the template's order, the three families of the
+    part's earlier phases on one generator (change UB). B0 is the bare
+    template, whose one sheet is a worksheet. P1's: NUC the sheet given a
+    comments part holding one comment on B2 and a VML part holding its note
+    shape, sized, with their rels part and overrides; NU the same with the VML
+    part's root end tag left out. P2's: NMC the sheet given a drawing part of
+    one picture anchor, the drawing's rels part naming its media entry, and the
+    entry; NM the same without the entry. P3's: NC B0 with the workbook's
+    relationship to its sheet of the chartsheet type.
+    Usage: gen-p6p4.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    wbrels = parts["xl/_rels/workbook.xml.rels"]
+    MAIN = b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    R = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    EMPTY = b"<sheetData/>"
+    WS = b'Type="' + R + b'/worksheet"'
+    CS = b'Type="' + R + b'/chartsheet"'
+    assert sheet.count(MAIN) == 1 and sheet.count(EMPTY) == 1 and sheet.count(b"<c ") == 0
+    assert types.count(b"</Types>") == 1
+    assert wbrels.count(WS) == 1 and wbrels.count(CS) == 0
+    print("the template: one worksheet relationship, its worksheet an empty sheetData alone, its root binding no prefix")
+    ROOT_R = MAIN[:-1] + b' xmlns:r="' + R + b'">'
+    
+    # P1's family (records/logs/m3p6-p1/negative.log), unchanged.
+    COMMENTS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                b'<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<authors><author>emend</author></authors><commentList>"
+                b'<comment ref="B2" authorId="0"><text><t>kept</t></text></comment>'
+                b"</commentList></comments>")
+    VML = (b'<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" '
+           b'xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit">'
+           b'<o:idmap v:ext="edit" data="1"/></o:shapelayout><v:shape id="_x0000_s1025" '
+           b'type="#_x0000_t202" style="position:absolute;width:108pt;height:59.25pt;visibility:hidden">'
+           b'<x:ClientData ObjectType="Note"><x:Row>1</x:Row><x:Column>1</x:Column></x:ClientData>'
+           b"</v:shape></xml>")
+    assert VML.count(b"</xml>") == 1
+    COMMENT_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                    b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    b'<Relationship Id="rId1" Type="' + R + b'/comments" Target="../comments1.xml"/>'
+                    b'<Relationship Id="rId2" Type="' + R + b'/vmlDrawing" Target="../drawings/vmlDrawing1.vml"/>'
+                    b"</Relationships>")
+    COMMENT_OVERRIDES = (b'<Override PartName="/xl/comments1.xml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>'
+                         b'<Override PartName="/xl/drawings/vmlDrawing1.vml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/></Types>')
+    
+    # P2's family (records/logs/m3p6-p2/negative.log), unchanged.
+    DRAWING = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+               b'<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" '
+               b'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor>'
+               b"<xdr:from><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>3</xdr:row>"
+               b"<xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:colOff>0"
+               b"</xdr:colOff><xdr:row>5</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic>"
+               b'<xdr:nvPicPr><xdr:cNvPr id="2" name="Picture 2"/><xdr:cNvPicPr/></xdr:nvPicPr>'
+               b'<xdr:blipFill><a:blip xmlns:r="' + R + b'" r:embed="rId1"/></xdr:blipFill><xdr:spPr/>'
+               b"</xdr:pic><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>")
+    DRAWING_SHEET_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                          b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                          b'<Relationship Id="rId1" Type="' + R + b'/drawing" Target="../drawings/drawing1.xml"/>'
+                          b"</Relationships>")
+    DRAWING_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                    b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    b'<Relationship Id="rId1" Type="' + R + b'/image" Target="../media/image1.png"/>'
+                    b"</Relationships>")
+    MEDIA = b"fictional media bytes"
+    DRAWING_OVERRIDES = (b'<Override PartName="/xl/drawings/drawing1.xml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+                         b'<Override PartName="/xl/media/image1.png" ContentType="image/png"/></Types>')
+    
+    
+    def comment_case(vml):
+        p, order = dict(parts), list(ORDER)
+        p["xl/worksheets/sheet1.xml"] = sheet.replace(MAIN, ROOT_R).replace(EMPTY, EMPTY + b'<legacyDrawing r:id="rId2"/>')
+        p["[Content_Types].xml"] = types.replace(b"</Types>", COMMENT_OVERRIDES)
+        p["xl/worksheets/_rels/sheet1.xml.rels"] = COMMENT_RELS
+        p["xl/comments1.xml"] = COMMENTS
+        p["xl/drawings/vmlDrawing1.vml"] = vml
+        order += ["xl/worksheets/_rels/sheet1.xml.rels", "xl/comments1.xml", "xl/drawings/vmlDrawing1.vml"]
+        return p, order
+    
+    
+    def drawing_case(media):
+        p, order = dict(parts), list(ORDER)
+        p["xl/worksheets/sheet1.xml"] = sheet.replace(MAIN, ROOT_R).replace(EMPTY, EMPTY + b'<drawing r:id="rId1"/>')
+        p["[Content_Types].xml"] = types.replace(b"</Types>", DRAWING_OVERRIDES)
+        p["xl/worksheets/_rels/sheet1.xml.rels"] = DRAWING_SHEET_RELS
+        p["xl/drawings/drawing1.xml"] = DRAWING
+        p["xl/drawings/_rels/drawing1.xml.rels"] = DRAWING_RELS
+        order += ["xl/worksheets/_rels/sheet1.xml.rels", "xl/drawings/drawing1.xml",
+                  "xl/drawings/_rels/drawing1.xml.rels"]
+        if media:
+            p["xl/media/image1.png"] = MEDIA
+            order.append("xl/media/image1.png")
+        return p, order
+    
+    
+    def chart_case():
+        p, order = dict(parts), list(ORDER)
+        p["xl/_rels/workbook.xml.rels"] = wbrels.replace(WS, CS)
+        return p, order
+    
+    
+    CASES = {
+        "b0": (dict(parts), list(ORDER)),
+        "nuc": comment_case(VML),
+        "nu": comment_case(VML.replace(b"</xml>", b"")),
+        "nmc": drawing_case(True),
+        "nm": drawing_case(False),
+        "nc": chart_case(),
+    }
+    for name, (p, order) in CASES.items():
+        path = os.path.join(out, name + ".xlsx")
+        with zipfile.ZipFile(path, "w") as z:
+            for n in order:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        w = p["xl/worksheets/sheet1.xml"]
+        v = p.get("xl/drawings/vmlDrawing1.vml", b"")
+        d = p.get("xl/drawings/drawing1.xml", b"")
+        r = p["xl/_rels/workbook.xml.rels"]
+        print("%s %d entries:%d legacyDrawing:%d comments:%d shapes:%d sized:%d root_end:%d "
+              "drawing:%d anchors:%d pics:%d embeds:%d media:%d worksheet_rels:%d chartsheet_rels:%d" % (
+                  name + ".xlsx", os.path.getsize(path), len(order),
+                  w.count(b"<legacyDrawing"), p.get("xl/comments1.xml", b"").count(b"<comment "),
+                  v.count(b"<v:shape "), v.count(b"width:108pt;height:59.25pt"), v.count(b"</xml>"),
+                  w.count(b"<drawing "), d.count(b"<xdr:twoCellAnchor>"), d.count(b"<xdr:pic>"),
+                  d.count(b'r:embed="rId1"'), int("xl/media/image1.png" in p), r.count(WS), r.count(CS)))
+    PY
+    sed 's/^/    /' "$B/gen-p6p4.py"
+    echo "command: python3 <scratch>/w/gen-p6p4.py <scratch>/w/template <scratch>/w/fx"
+    python3 "$B/gen-p6p4.py" "$B/template" "$B/fx" >"$B/gen-p6p4.out" 2>&1
+    echo "  exit: $?"
+    sed 's/^/    /' "$B/gen-p6p4.out"
+    check "the six fixtures were written, and nothing else" "$(yn [ "$(find "$B/fx" -type f | wc -l)" = 6 ])"
+    template_shape() { [ "$(count_matches -Fx "the template: one worksheet relationship, its worksheet an empty sheetData alone, its root binding no prefix" "$B/gen-p6p4.out")" = 1 ]; }
+    check "the template holds one worksheet relationship and an empty sheetData alone, the shape the controls' lines are built on (change UB)" "$(yn template_shape)"
+    fixture_is() { [ "$(count_matches -E "^$1[.]xlsx [0-9]+ $2\$" "$B/gen-p6p4.out")" = 1 ]; }
+    F_B0='entries:6 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0'
+    F_NUC='entries:9 legacyDrawing:1 comments:1 shapes:1 sized:1 root_end:1 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0'
+    F_NU='entries:9 legacyDrawing:1 comments:1 shapes:1 sized:1 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0'
+    F_NMC='entries:10 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:1 anchors:1 pics:1 embeds:1 media:1 worksheet_rels:1 chartsheet_rels:0'
+    F_NM='entries:9 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:1 anchors:1 pics:1 embeds:1 media:0 worksheet_rels:1 chartsheet_rels:0'
+    F_NC='entries:6 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:0 chartsheet_rels:1'
+    check "B0 is the bare template: six entries, its sheet's relationship a worksheet's" "$(yn fixture_is b0 "$F_B0")"
+    check "NUC holds the comment parts: nine entries, one legacyDrawing, one comment, one shape, sized, the root's end tag (P1's)" "$(yn fixture_is nuc "$F_NUC")"
+    check "NU is NUC with the VML part's root end tag left out, and nothing else counted differs (P1's)" "$(yn fixture_is nu "$F_NU")"
+    check "NMC holds the drawing parts: ten entries, one drawing element, one anchor, one picture naming rId1, the media entry (P2's)" "$(yn fixture_is nmc "$F_NMC")"
+    check "NM is NMC with the media entry left out, and nothing else counted differs (P2's)" "$(yn fixture_is nm "$F_NM")"
+    check "NC is B0 with that relationship's type chartsheet, and nothing else counted differs (P3's)" "$(yn fixture_is nc "$F_NC")"
+    check "control: the same form refuses NU's line against NUC's counts" "$(ynnot fixture_is nu "$F_NUC")"
+    check "control: the same form refuses NM's line against NMC's counts" "$(ynnot fixture_is nm "$F_NMC")"
+    check "control: the same form refuses NC's line against B0's counts" "$(ynnot fixture_is nc "$F_B0")"
+    # run_bin <case> <args...>: the copied binary, the command printed with the
+    # paths it names, stdout, stderr and exit kept.
+    run_bin() {
+      local case=$1
+      shift
+      "$BIN" "$@" >"$B/$case.stdout" 2>"$B/$case.stderr" </dev/null
+      echo $? >"$B/$case.status"
+      echo "command: <tree>/bin/emend-copy $*"
+      echo "  exit: $(cat "$B/$case.status")"
+      echo "  stdout:"; sed 's/^/    /' "$B/$case.stdout"
+      echo "  stderr:"; sed 's/^/    /' "$B/$case.stderr"
+    }
+    status_is() { [ "$(cat "$B/$1.status")" = "$2" ]; }
+    refused_with() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ -n "$2" ] && [ "$(cat "$B/$1.stderr")" = "$2" ]; }
+    no_output() { [ ! -e "$B/out/$1.xlsx" ]; }
+    has_output() { [ -s "$B/out/$1.xlsx" ]; }
+    usage_refused() { status_is "$1" 2 && [ ! -s "$B/$1.stdout" ] && [ "$(count_matches -F 'error: usage: emend-copy' "$B/$1.stderr")" = 1 ]; }
+    # line_is <case> <line>: exit 0, no stderr, the line, and an output (each
+    # sample writes parts, so no byte comparison; P1's box_is, P2's gone_is and
+    # P3's copy_is as one helper, change UB).
+    line_is() { status_is "$1" 0 && [ ! -s "$B/$1.stderr" ] && [ "$(cat "$B/$1.stdout")" = "$2" ] && has_output "$1"; }
+    mkdir "$B/out"
+    # The cases: case name, fixture, sample.
+    CASE_LIST="b0cb:b0:--commentbox-sample nuc:nuc:--commentbox-sample nu:nu:--commentbox-sample b0ri:b0:--remove-image-sample nmc:nmc:--remove-image-sample nm:nm:--remove-image-sample b0cp:b0:--copy-sample nc:nc:--copy-sample"
+    for spec in $CASE_LIST; do
+      IFS=: read -r case fx sample <<<"$spec"
+      echo
+      echo "### ${case^^} ($sample)"
+      run_bin "$case" "$B/fx/$fx.xlsx" "$B/out/$case.xlsx" "$sample"
+    done
+    echo
+    echo "### the checks"
+    # The lines are the tool's doc applied to the fixtures, each family's as its
+    # phase built it (change UB). P1's: no cell, so M is 0 and the comment goes
+    # on A1; B0 has no comment part, so one comment and one shape are created;
+    # NUC keeps its comment on B2, whose shape is sized, and gains one of each.
+    box_line() { printf 'commentbox\tcomments_before=%s\tcomments_after=%s\tshapes_before=%s\tshapes_after=%s\tsized_before=%s\tbox_equal=1\tvisible_after=1' "$@"; }
+    L_CB_NONE=$(box_line 0 1 0 1 0)
+    L_CB_KEPT=$(box_line 1 2 1 2 1)
+    # P2's: the image goes on A1; B0 has no drawing, so the addition and its
+    # removal leave none; NMC's one picture is removed with the addition, its
+    # media entry dropped and the drawing with it.
+    gone_line() { printf 'removeimage\timages_before=%s\timages_after=0\tkept_removed=%s\tmedia_before=%s\tmedia_after=0\tmedia_dropped=%s\tdrawing_dropped=%s\tanchors_before=%s\tanchors_after=0' "$@"; }
+    L_RI_NONE=$(gone_line 0 0 0 0 1 0)
+    L_RI_KEPT=$(gone_line 1 1 1 1 0 1)
+    # P3's: S is the one worksheet, no comments relationship, so W; its empty
+    # sheetData holds no cell, merge, hyperlink, comment or formula, and the
+    # template has no calculation chain; the copy is one more sheet.
+    L_COPY=$(printf 'copy\tsheets_before=1\tsheets_after=2\tcells_source=0\tcells_copy=0\tcomments_source=0\tcomments_copy=0\tmerges_source=0\tmerges_copy=0\tlinks_source=0\tlinks_copy=0\tformulas=0\tchain_before=0\tchain_after=0')
+    check "B0CB: exit 0, its line, an output (the bare template, --commentbox-sample)" "$(yn line_is b0cb "$L_CB_NONE")"
+    check "B0RI: exit 0, its line, an output (the bare template, --remove-image-sample)" "$(yn line_is b0ri "$L_RI_NONE")"
+    # The refusals: case, the message's name, the control's case, its line and
+    # what the control is. A refusal that holds records its name as reached.
+    : >"$B/reached"
+    refusal() {
+      local case=$1 name=$2 ctl=$3 want=$4 what=$5 expect
+      expect=$(msg "$name")
+      check "${ctl^^}: exit 0, its line, an output (the control for ${case^^}, $what)" "$(yn line_is "$ctl" "$want")"
+      check "${case^^}: exit 2, no stdout, the error line exactly $name's message" "$(yn refused_with "$case" "$expect")"
+      check "${case^^}: no output file" "$(yn no_output "$case")"
+      if refused_with "$case" "$expect"; then
+        printf '%s %s\n' "$name" "$case" >>"$B/reached"
+      fi
+    }
+    refusal nu COMMENTS_UNREADABLE nuc "$L_CB_KEPT" "the same package with the VML part's root end tag"
+    refusal nm DRAWING_UNREADABLE nmc "$L_RI_KEPT" "the same package with the media entry"
+    refusal nc NoWorksheet b0cp "$L_COPY" "the same package with the worksheet relationship"
+    echo "  reached, by case:"
+    sed 's/^/    /' "$B/reached"
+    check "the three refusals were reached: a VML part with no root end tag (NU), a drawing's rels part naming a missing media entry (NM), a workbook whose only sheet is a chartsheet (NC)" "$(yn [ "$(count_lines "$B/reached")" = 3 ])"
+    b0_refused() { refused_with b0cb "$(msg COMMENTS_UNREADABLE)" || refused_with b0ri "$(msg DRAWING_UNREADABLE)" || refused_with b0cp "$(msg NoWorksheet)"; }
+    check "control: refused_with says no on each B0 run against its family's message" "$(ynnot b0_refused)"
+    nu_other() { refused_with nu "$(msg NO_COMMENT_ADDITION)"; }
+    check "control: refused_with says no on NU's run against the part's NO_COMMENT_ADDITION" "$(ynnot nu_other)"
+    nm_other() { refused_with nm "$(msg NO_IMAGE_AT)"; }
+    check "control: refused_with says no on NM's run against the part's NO_IMAGE_AT" "$(ynnot nm_other)"
+    nc_other() { refused_with nc "$(msg COPY_NEEDS_WORKSHEET)"; }
+    check "control: refused_with says no on NC's run against the layer's own chartsheet message" "$(ynnot nc_other)"
+    empty_message() { refused_with nc ""; }
+    check "control: refused_with says no against an empty message" "$(ynnot empty_message)"
+    cb_ctl() { line_is nuc "$L_CB_NONE"; }
+    check "control: line_is says no on NUC's run against B0CB's line" "$(ynnot cb_ctl)"
+    ri_ctl() { line_is nmc "$L_RI_NONE"; }
+    check "control: line_is says no on NMC's run against B0RI's line" "$(ynnot ri_ctl)"
+    copy_line_ctl() { line_is b0cp "$(printf '%s' "$L_COPY" | sed 's/sheets_after=2/sheets_after=1/')"; }
+    check "control: line_is says no on B0CP's run against a line with one sheet fewer" "$(ynnot copy_line_ctl)"
+    out_ctl() { line_is nu "" || line_is nm "" || line_is nc ""; }
+    check "control: line_is says no on each refused run, which left no output" "$(ynnot out_ctl)"
+    nout=$(find "$B/out" -type f | wc -l)
+    echo "  output files: $nout, the five runs' that were accepted (B0CB, NUC, B0RI, NMC, B0CP)"
+    check "no output but the accepted runs', and no temporary beside them" "$(yn [ "$nout" = 5 ])"
+    echo
+    echo "### the messages reached, as sets (change UC)"
+    echo "  reached here, from the checks above that held (each name once):"
+    cut -d' ' -f1 "$B/reached" | LC_ALL=C sort -u >"$B/reached-all.set"
+    sed 's/^/    /' "$B/reached-all.set"
+    cut -f1 "$B/shared.tsv" | LC_ALL=C sort -u >"$B/shared.set"
+    echo "  stated unreachable: the part's nine messages, with their covering tests above"
+    echo "  the messages accounted for $(count_lines "$B/known.tsv"); reached $(count_lines "$B/reached-all.set"); stated unreachable $(count_lines "$B/part.tsv")"
+    reached_is_shared() { cmp -s "$B/reached-all.set" "$B/shared.set"; }
+    check "the messages reached are exactly the three shared messages, the part's nine being stated unreachable" "$(yn reached_is_shared)"
+    union_ctl() { printf 'COMMENTS_UNREADABLE\nDRAWING_UNREADABLE\nNoWorksheet\nPLANTED\n' | LC_ALL=C sort | cmp -s - "$B/reached-all.set"; }
+    check "control: the comparison refuses the reached set with a planted message" "$(ynnot union_ctl)"
+    echo
+    echo "### two usage shapes (change LD, P4 change KD)"
+    run_bin u1 "$B/fx/b0.xlsx" "$B/out/u1.xlsx" --copy-sample extra
+    check "U1: exit 2, the usage line" "$(yn usage_refused u1)"
+    run_bin u2 "$B/fx/b0.xlsx" "$B/out/u2.xlsx" --copy-sample --items
+    check "U2: exit 2, the usage line" "$(yn usage_refused u2)"
+    usage_ctl() { usage_refused b0cp; }
+    check "control: usage_refused says no on B0CP's run" "$(ynnot usage_ctl)"
+    check "U1 and U2 left no output (change UB: the five accepted runs' are the outputs)" "$(yn [ "$(find "$B/out" -type f | wc -l)" = 5 ])"
+    git worktree remove --force "$TREE" >/dev/null 2>&1
+    check "the worktree is gone from git's list" "$(yn [ "$(git worktree list --porcelain | count_matches -F "$TREE" /dev/stdin)" = 0 ])"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.stdout "$B"/*.stderr "$B"/gen-p6p4.out; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or records or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or records or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/negative.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "negative log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "$d"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the three families through the gate's binary, copied into a worktree
+command: git worktree add --detach <tree> <phase commit>
+  the worktree is at the phase commit: yes
+command: count_matches -E and sed for the hash line of the gate's host emend-copy copy in <home>/.cache/emend-build/m3p6-p4/logs/gate.log (sha256 934c7a6d4d9224b697b56a8ab3acfe2f55e5fef64961e8d3bf970bdc132c3f21): lines 1; hash 1e4122bdaeca17a04fbf062facfabdcb5b7601fc2a2a7b3da22eb2c9da734393
+  gate.log holds exactly one hash line for its copy <build>/bin/host/emend-copy (P3's change TA, carried): yes
+  control: the same form counts one line in a fixture holding a host and an i686 line: yes
+command: mkdir <tree>/bin; cp <gatebuild>/bin/host/emend-copy <tree>/bin/emend-copy
+  <tree>/bin/emend-copy: sha256 1e4122bdaeca17a04fbf062facfabdcb5b7601fc2a2a7b3da22eb2c9da734393
+  the copied binary is the one gate.log hashed, not a rebuild: yes
+  control: the reader found a hash in gate.log: yes
+
+### the messages, read from the phase commit's source by constant name (change UC)
+    """The Error::Package messages of a Rust source file, by constant name, one
+    per line as NAME<TAB>message in source order; a constant with or without
+    pub(crate). With --name N, only N.
+    Usage: messages.py <file.rs> [--name N]."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'^(?:pub\(crate\) )?const ([A-Z_0-9]+): Error =\s*Error::Package\(\s*"([^"]*)",?\s*\);',
+                       text, re.M)
+    args = sys.argv[2:]
+    if args[:1] == ["--name"]:
+        found = [(n, m) for n, m in found if n == args[1]]
+    for n, m in found:
+        print("%s\t%s" % (n, m))
+command: for each of the seven modules, git show <commit>:<module> at the phase commit and at the base (a module the base's tree lacks, by git ls-tree, read as empty), and python3 <scratch>/w/messages.py over each copy; the phase's new constants are the phase commit's that the base lacks, its gone ones the base's that the phase commit lacks (change UC)
+  crates/emend/src/package.rs: in the base's tree yes; constants at the phase commit 112, at the base 112
+  crates/emend/src/cells.rs: in the base's tree yes; constants at the phase commit 2, at the base 2
+  crates/emend/src/styles.rs: in the base's tree yes; constants at the phase commit 4, at the base 4
+  crates/emend/src/styles/elements.rs: in the base's tree yes; constants at the phase commit 2, at the base 2
+  crates/emend/src/styles/read.rs: in the base's tree yes; constants at the phase commit 1, at the base 1
+  crates/emend/src/package/sheet_read.rs: in the base's tree yes; constants at the phase commit 2, at the base 2
+  crates/emend/src/xml.rs: in the base's tree yes; constants at the phase commit 0, at the base 0
+  the base holds each of the seven modules: yes
+  control: in_base says no for a module path no tree holds: yes
+  constant names: at the phase commit 123; at the base 123; new 0; gone 0
+  the phase adds no message constant and removes none (P4 ruling 5 (3); ruling 4 adds no message; change UC): yes
+  control: the same comparison finds a planted constant the base lacks: yes
+  control: the same comparison finds a constant the base holds and a planted phase commit lacks: yes
+  control: the new-constant comparison takes B alone from a base holding A: yes
+  control: --name takes the one constant named, pub(crate) and wrapped or multi-line: yes
+command: python3 <scratch>/w/messages.py <scratch>/w/now-package.rs --name each of the part's nine messages (images: IMAGE_ANCHOR_OUT_OF_RANGE, IMAGE_SIZE_TWO_CELL, NO_IMAGE_AT; comments: COMMENT_BOX_OUT_OF_RANGE, NO_COMMENT_ADDITION; copy: COPY_NEEDS_WORKSHEET, COPY_OF_EDITED, COPY_RELATIONSHIP, COPY_NEEDS_COMMENTS), and --name COMMENTS_UNREADABLE and DRAWING_UNREADABLE, the shared messages P1's and P2's families reach
+  the part's messages:
+    IMAGE_ANCHOR_OUT_OF_RANGE	an image anchor is out of range
+    IMAGE_SIZE_TWO_CELL	an image size does not apply to a two-cell anchor
+    NO_IMAGE_AT	no image at that position
+    COMMENT_BOX_OUT_OF_RANGE	a comment box is out of range
+    NO_COMMENT_ADDITION	no comment addition on that cell
+    COPY_NEEDS_WORKSHEET	a sheet copy needs a worksheet
+    COPY_OF_EDITED	a sheet copy of a part this write edits
+    COPY_RELATIONSHIP	a sheet copy meets a relationship it cannot carry
+    COPY_NEEDS_COMMENTS	a sheet copy needs the comments feature
+    """The message a Display arm of the form `Error::<Variant> => f.write_str("...")`
+    gives, one line as VARIANT<TAB>message, for the variant named.
+    Usage: toolmsg.py <main.rs> <Variant>."""
+    import re
+    import sys
+    
+    text = open(sys.argv[1]).read()
+    found = re.findall(r'Error::' + re.escape(sys.argv[2]) + r'\s*=>\s*f\.write_str\(\s*"([^"]*)"\s*\)', text)
+    for m in found:
+        print("%s\t%s" % (sys.argv[2], m))
+command: python3 <scratch>/w/toolmsg.py <scratch>/w/now-main.rs NoWorksheet (tools/emend-copy/src/main.rs at the phase commit)
+  the shared messages the families reach:
+    COMMENTS_UNREADABLE	a comments part or its drawing cannot be read
+    DRAWING_UNREADABLE	a drawing part or its relationship cannot be read
+    NoWorksheet	the workbook has no sheet of kind Worksheet
+  control: toolmsg.py takes the one variant named: yes
+  messages accounted for: the part's 9, the shared 3; with an empty message: 0
+  the part's nine messages and the three shared messages are each read once, and none is empty: yes
+command: the part's nine messages looked for in the committed specs/0028-images-and-comments-second-half.md (git show <phase commit>) and in its working file, whitespace folded
+    IMAGE_ANCHOR_OUT_OF_RANGE	committed=yes	working=yes
+    IMAGE_SIZE_TWO_CELL	committed=yes	working=yes
+    NO_IMAGE_AT	committed=yes	working=yes
+    COMMENT_BOX_OUT_OF_RANGE	committed=yes	working=yes
+    NO_COMMENT_ADDITION	committed=yes	working=yes
+    COPY_NEEDS_WORKSHEET	committed=yes	working=yes
+    COPY_OF_EDITED	committed=yes	working=yes
+    COPY_RELATIONSHIP	committed=yes	working=yes
+    COPY_NEEDS_COMMENTS	committed=yes	working=yes
+  each of the nine is a message the committed spec and its working file quote: yes
+  control: the same count finds no line that says working=no: yes
+  stated unreachable through the tool: IMAGE_ANCHOR_OUT_OF_RANGE, since the tool's anchors are its constants, in range; covered by package::tests::images::anchors::the_call_refuses_each_anchor_rule_and_records_nothing (count at the phase commit: 1)
+  stated unreachable through the tool: IMAGE_SIZE_TWO_CELL, since the tool's two-cell image carries no size; covered by the same test (count at the phase commit: 1)
+  stated unreachable through the tool: NO_IMAGE_AT, since the tool removes only indexes images lists, each once, in a write that adds nothing; covered by package::tests::images::removal::an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write (count at the phase commit: 1)
+  stated unreachable through the tool: COMMENT_BOX_OUT_OF_RANGE, since the tool's box is its constant, 200 by 100, in range; covered by package::tests::comments::boxes::the_call_refuses_a_box_out_of_range_and_records_nothing (count at the phase commit: 1)
+  stated unreachable through the tool: NO_COMMENT_ADDITION, since the tool sets its box on the cell it adds its comment on; covered by package::tests::comments::boxes::a_box_on_a_cell_this_write_adds_no_comment_on_is_refused_at_the_write (count at the phase commit: 1)
+  stated unreachable through the tool: COPY_NEEDS_WORKSHEET, since the tool chooses S among the worksheets only; covered by package::tests::copy::the_call_refuses_an_absent_source_a_chartsheet_and_the_name_rules (count at the phase commit: 1)
+  stated unreachable through the tool: COPY_OF_EDITED, since the sample records no edit beside the copy; covered by package::tests::copy::an_edit_on_the_source_or_the_copy_or_a_source_added_is_refused_at_the_write (count at the phase commit: 1)
+  stated unreachable through the tool: COPY_RELATIONSHIP, since the tool's input is a file and no fixture here keeps a relationship other than a hyperlink's (the corpus run reaches none); covered by package::tests::copy::a_kept_relationship_outside_a_hyperlink_is_refused (count at the phase commit: 1)
+  stated unreachable through the tool: COPY_NEEDS_COMMENTS, since the tool turns the Cargo feature comments on; covered by package::tests::copy::a_source_with_comments_needs_the_comments_feature, which runs only without comments, shown passing below (count at the phase commit: 1)
+  the eight covering tests' fn lines at the phase commit, counted in the order above (one test covers the two anchor messages): 1:1:1:1:1:1:1:1:
+  each covering test is at the phase commit, once: yes
+  control: the same count finds no test of a planted name: yes
+  "Errors"' shared messages, printed and not accounted: "no sheet of that name", the name rules, "no such part", part 3's index message, "a worksheet has threaded comments", the comments read's and the drawing read's other messages; the part's tests reach them
+
+### the comments-feature message's covering test, run without comments in the worktree (change UD; P3's change TD, ruling 10)
+command: (cd <tree> && CARGO_TARGET_DIR=<target>/negative cargo test -p emend --features copy --lib package::tests::copy::a_source_with_comments_needs_the_comments_feature -- --exact)
+  exit: 0
+    test package::tests::copy::a_source_with_comments_needs_the_comments_feature ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 525 filtered out; finished in 0.00s
+  the covering test ran alone without comments and passed, by name: yes
+  control: the same form refuses a run that ran no test (a filtered run, gotchas 2026-09-26): yes
+  the worktree's build went into <target>/negative, apart from <target>/main (ruling 10): yes
+
+### this log's generator, from the phase commit's template files
+    """Fictional packages for M3 part 6 P4's negative log: the phase commit's
+    template files, zipped in the template's order, the three families of the
+    part's earlier phases on one generator (change UB). B0 is the bare
+    template, whose one sheet is a worksheet. P1's: NUC the sheet given a
+    comments part holding one comment on B2 and a VML part holding its note
+    shape, sized, with their rels part and overrides; NU the same with the VML
+    part's root end tag left out. P2's: NMC the sheet given a drawing part of
+    one picture anchor, the drawing's rels part naming its media entry, and the
+    entry; NM the same without the entry. P3's: NC B0 with the workbook's
+    relationship to its sheet of the chartsheet type.
+    Usage: gen-p6p4.py <template dir> <out dir>."""
+    import os
+    import sys
+    import zipfile
+    
+    ORDER = ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+             "xl/worksheets/sheet1.xml", "xl/styles.xml"]
+    src, out = sys.argv[1], sys.argv[2]
+    parts = {name: open(os.path.join(src, name), "rb").read() for name in ORDER}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    types = parts["[Content_Types].xml"]
+    wbrels = parts["xl/_rels/workbook.xml.rels"]
+    MAIN = b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    R = b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    EMPTY = b"<sheetData/>"
+    WS = b'Type="' + R + b'/worksheet"'
+    CS = b'Type="' + R + b'/chartsheet"'
+    assert sheet.count(MAIN) == 1 and sheet.count(EMPTY) == 1 and sheet.count(b"<c ") == 0
+    assert types.count(b"</Types>") == 1
+    assert wbrels.count(WS) == 1 and wbrels.count(CS) == 0
+    print("the template: one worksheet relationship, its worksheet an empty sheetData alone, its root binding no prefix")
+    ROOT_R = MAIN[:-1] + b' xmlns:r="' + R + b'">'
+    
+    # P1's family (records/logs/m3p6-p1/negative.log), unchanged.
+    COMMENTS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                b'<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<authors><author>emend</author></authors><commentList>"
+                b'<comment ref="B2" authorId="0"><text><t>kept</t></text></comment>'
+                b"</commentList></comments>")
+    VML = (b'<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" '
+           b'xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit">'
+           b'<o:idmap v:ext="edit" data="1"/></o:shapelayout><v:shape id="_x0000_s1025" '
+           b'type="#_x0000_t202" style="position:absolute;width:108pt;height:59.25pt;visibility:hidden">'
+           b'<x:ClientData ObjectType="Note"><x:Row>1</x:Row><x:Column>1</x:Column></x:ClientData>'
+           b"</v:shape></xml>")
+    assert VML.count(b"</xml>") == 1
+    COMMENT_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                    b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    b'<Relationship Id="rId1" Type="' + R + b'/comments" Target="../comments1.xml"/>'
+                    b'<Relationship Id="rId2" Type="' + R + b'/vmlDrawing" Target="../drawings/vmlDrawing1.vml"/>'
+                    b"</Relationships>")
+    COMMENT_OVERRIDES = (b'<Override PartName="/xl/comments1.xml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>'
+                         b'<Override PartName="/xl/drawings/vmlDrawing1.vml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/></Types>')
+    
+    # P2's family (records/logs/m3p6-p2/negative.log), unchanged.
+    DRAWING = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+               b'<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" '
+               b'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor>'
+               b"<xdr:from><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>3</xdr:row>"
+               b"<xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:colOff>0"
+               b"</xdr:colOff><xdr:row>5</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic>"
+               b'<xdr:nvPicPr><xdr:cNvPr id="2" name="Picture 2"/><xdr:cNvPicPr/></xdr:nvPicPr>'
+               b'<xdr:blipFill><a:blip xmlns:r="' + R + b'" r:embed="rId1"/></xdr:blipFill><xdr:spPr/>'
+               b"</xdr:pic><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>")
+    DRAWING_SHEET_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                          b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                          b'<Relationship Id="rId1" Type="' + R + b'/drawing" Target="../drawings/drawing1.xml"/>'
+                          b"</Relationships>")
+    DRAWING_RELS = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                    b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    b'<Relationship Id="rId1" Type="' + R + b'/image" Target="../media/image1.png"/>'
+                    b"</Relationships>")
+    MEDIA = b"fictional media bytes"
+    DRAWING_OVERRIDES = (b'<Override PartName="/xl/drawings/drawing1.xml" '
+                         b'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+                         b'<Override PartName="/xl/media/image1.png" ContentType="image/png"/></Types>')
+    
+    
+    def comment_case(vml):
+        p, order = dict(parts), list(ORDER)
+        p["xl/worksheets/sheet1.xml"] = sheet.replace(MAIN, ROOT_R).replace(EMPTY, EMPTY + b'<legacyDrawing r:id="rId2"/>')
+        p["[Content_Types].xml"] = types.replace(b"</Types>", COMMENT_OVERRIDES)
+        p["xl/worksheets/_rels/sheet1.xml.rels"] = COMMENT_RELS
+        p["xl/comments1.xml"] = COMMENTS
+        p["xl/drawings/vmlDrawing1.vml"] = vml
+        order += ["xl/worksheets/_rels/sheet1.xml.rels", "xl/comments1.xml", "xl/drawings/vmlDrawing1.vml"]
+        return p, order
+    
+    
+    def drawing_case(media):
+        p, order = dict(parts), list(ORDER)
+        p["xl/worksheets/sheet1.xml"] = sheet.replace(MAIN, ROOT_R).replace(EMPTY, EMPTY + b'<drawing r:id="rId1"/>')
+        p["[Content_Types].xml"] = types.replace(b"</Types>", DRAWING_OVERRIDES)
+        p["xl/worksheets/_rels/sheet1.xml.rels"] = DRAWING_SHEET_RELS
+        p["xl/drawings/drawing1.xml"] = DRAWING
+        p["xl/drawings/_rels/drawing1.xml.rels"] = DRAWING_RELS
+        order += ["xl/worksheets/_rels/sheet1.xml.rels", "xl/drawings/drawing1.xml",
+                  "xl/drawings/_rels/drawing1.xml.rels"]
+        if media:
+            p["xl/media/image1.png"] = MEDIA
+            order.append("xl/media/image1.png")
+        return p, order
+    
+    
+    def chart_case():
+        p, order = dict(parts), list(ORDER)
+        p["xl/_rels/workbook.xml.rels"] = wbrels.replace(WS, CS)
+        return p, order
+    
+    
+    CASES = {
+        "b0": (dict(parts), list(ORDER)),
+        "nuc": comment_case(VML),
+        "nu": comment_case(VML.replace(b"</xml>", b"")),
+        "nmc": drawing_case(True),
+        "nm": drawing_case(False),
+        "nc": chart_case(),
+    }
+    for name, (p, order) in CASES.items():
+        path = os.path.join(out, name + ".xlsx")
+        with zipfile.ZipFile(path, "w") as z:
+            for n in order:
+                z.writestr(zipfile.ZipInfo(n, (1980, 1, 1, 0, 0, 0)), p[n], zipfile.ZIP_DEFLATED)
+        w = p["xl/worksheets/sheet1.xml"]
+        v = p.get("xl/drawings/vmlDrawing1.vml", b"")
+        d = p.get("xl/drawings/drawing1.xml", b"")
+        r = p["xl/_rels/workbook.xml.rels"]
+        print("%s %d entries:%d legacyDrawing:%d comments:%d shapes:%d sized:%d root_end:%d "
+              "drawing:%d anchors:%d pics:%d embeds:%d media:%d worksheet_rels:%d chartsheet_rels:%d" % (
+                  name + ".xlsx", os.path.getsize(path), len(order),
+                  w.count(b"<legacyDrawing"), p.get("xl/comments1.xml", b"").count(b"<comment "),
+                  v.count(b"<v:shape "), v.count(b"width:108pt;height:59.25pt"), v.count(b"</xml>"),
+                  w.count(b"<drawing "), d.count(b"<xdr:twoCellAnchor>"), d.count(b"<xdr:pic>"),
+                  d.count(b'r:embed="rId1"'), int("xl/media/image1.png" in p), r.count(WS), r.count(CS)))
+command: python3 <scratch>/w/gen-p6p4.py <scratch>/w/template <scratch>/w/fx
+  exit: 0
+    the template: one worksheet relationship, its worksheet an empty sheetData alone, its root binding no prefix
+    b0.xlsx 2011 entries:6 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0
+    nuc.xlsx 3104 entries:9 legacyDrawing:1 comments:1 shapes:1 sized:1 root_end:1 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0
+    nu.xlsx 3103 entries:9 legacyDrawing:1 comments:1 shapes:1 sized:1 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:1 chartsheet_rels:0
+    nmc.xlsx 3315 entries:10 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:1 anchors:1 pics:1 embeds:1 media:1 worksheet_rels:1 chartsheet_rels:0
+    nm.xlsx 3178 entries:9 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:1 anchors:1 pics:1 embeds:1 media:0 worksheet_rels:1 chartsheet_rels:0
+    nc.xlsx 2015 entries:6 legacyDrawing:0 comments:0 shapes:0 sized:0 root_end:0 drawing:0 anchors:0 pics:0 embeds:0 media:0 worksheet_rels:0 chartsheet_rels:1
+  the six fixtures were written, and nothing else: yes
+  the template holds one worksheet relationship and an empty sheetData alone, the shape the controls' lines are built on (change UB): yes
+  B0 is the bare template: six entries, its sheet's relationship a worksheet's: yes
+  NUC holds the comment parts: nine entries, one legacyDrawing, one comment, one shape, sized, the root's end tag (P1's): yes
+  NU is NUC with the VML part's root end tag left out, and nothing else counted differs (P1's): yes
+  NMC holds the drawing parts: ten entries, one drawing element, one anchor, one picture naming rId1, the media entry (P2's): yes
+  NM is NMC with the media entry left out, and nothing else counted differs (P2's): yes
+  NC is B0 with that relationship's type chartsheet, and nothing else counted differs (P3's): yes
+  control: the same form refuses NU's line against NUC's counts: yes
+  control: the same form refuses NM's line against NMC's counts: yes
+  control: the same form refuses NC's line against B0's counts: yes
+
+### B0CB (--commentbox-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/b0.xlsx <scratch>/w/out/b0cb.xlsx --commentbox-sample
+  exit: 0
+  stdout:
+    commentbox	comments_before=0	comments_after=1	shapes_before=0	shapes_after=1	sized_before=0	box_equal=1	visible_after=1
+  stderr:
+
+### NUC (--commentbox-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/nuc.xlsx <scratch>/w/out/nuc.xlsx --commentbox-sample
+  exit: 0
+  stdout:
+    commentbox	comments_before=1	comments_after=2	shapes_before=1	shapes_after=2	sized_before=1	box_equal=1	visible_after=1
+  stderr:
+
+### NU (--commentbox-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/nu.xlsx <scratch>/w/out/nu.xlsx --commentbox-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a comments part or its drawing cannot be read
+
+### B0RI (--remove-image-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/b0.xlsx <scratch>/w/out/b0ri.xlsx --remove-image-sample
+  exit: 0
+  stdout:
+    removeimage	images_before=0	images_after=0	kept_removed=0	media_before=0	media_after=0	media_dropped=0	drawing_dropped=1	anchors_before=0	anchors_after=0
+  stderr:
+
+### NMC (--remove-image-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/nmc.xlsx <scratch>/w/out/nmc.xlsx --remove-image-sample
+  exit: 0
+  stdout:
+    removeimage	images_before=1	images_after=0	kept_removed=1	media_before=1	media_after=0	media_dropped=1	drawing_dropped=0	anchors_before=1	anchors_after=0
+  stderr:
+
+### NM (--remove-image-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/nm.xlsx <scratch>/w/out/nm.xlsx --remove-image-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: a drawing part or its relationship cannot be read
+
+### B0CP (--copy-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/b0.xlsx <scratch>/w/out/b0cp.xlsx --copy-sample
+  exit: 0
+  stdout:
+    copy	sheets_before=1	sheets_after=2	cells_source=0	cells_copy=0	comments_source=0	comments_copy=0	merges_source=0	merges_copy=0	links_source=0	links_copy=0	formulas=0	chain_before=0	chain_after=0
+  stderr:
+
+### NC (--copy-sample)
+command: <tree>/bin/emend-copy <scratch>/w/fx/nc.xlsx <scratch>/w/out/nc.xlsx --copy-sample
+  exit: 2
+  stdout:
+  stderr:
+    error: the workbook has no sheet of kind Worksheet
+
+### the checks
+  B0CB: exit 0, its line, an output (the bare template, --commentbox-sample): yes
+  B0RI: exit 0, its line, an output (the bare template, --remove-image-sample): yes
+  NUC: exit 0, its line, an output (the control for NU, the same package with the VML part's root end tag): yes
+  NU: exit 2, no stdout, the error line exactly COMMENTS_UNREADABLE's message: yes
+  NU: no output file: yes
+  NMC: exit 0, its line, an output (the control for NM, the same package with the media entry): yes
+  NM: exit 2, no stdout, the error line exactly DRAWING_UNREADABLE's message: yes
+  NM: no output file: yes
+  B0CP: exit 0, its line, an output (the control for NC, the same package with the worksheet relationship): yes
+  NC: exit 2, no stdout, the error line exactly NoWorksheet's message: yes
+  NC: no output file: yes
+  reached, by case:
+    COMMENTS_UNREADABLE nu
+    DRAWING_UNREADABLE nm
+    NoWorksheet nc
+  the three refusals were reached: a VML part with no root end tag (NU), a drawing's rels part naming a missing media entry (NM), a workbook whose only sheet is a chartsheet (NC): yes
+  control: refused_with says no on each B0 run against its family's message: yes
+  control: refused_with says no on NU's run against the part's NO_COMMENT_ADDITION: yes
+  control: refused_with says no on NM's run against the part's NO_IMAGE_AT: yes
+  control: refused_with says no on NC's run against the layer's own chartsheet message: yes
+  control: refused_with says no against an empty message: yes
+  control: line_is says no on NUC's run against B0CB's line: yes
+  control: line_is says no on NMC's run against B0RI's line: yes
+  control: line_is says no on B0CP's run against a line with one sheet fewer: yes
+  control: line_is says no on each refused run, which left no output: yes
+  output files: 5, the five runs' that were accepted (B0CB, NUC, B0RI, NMC, B0CP)
+  no output but the accepted runs', and no temporary beside them: yes
+
+### the messages reached, as sets (change UC)
+  reached here, from the checks above that held (each name once):
+    COMMENTS_UNREADABLE
+    DRAWING_UNREADABLE
+    NoWorksheet
+  stated unreachable: the part's nine messages, with their covering tests above
+  the messages accounted for 12; reached 3; stated unreachable 9
+  the messages reached are exactly the three shared messages, the part's nine being stated unreachable: yes
+  control: the comparison refuses the reached set with a planted message: yes
+
+### two usage shapes (change LD, P4 change KD)
+command: <tree>/bin/emend-copy <scratch>/w/fx/b0.xlsx <scratch>/w/out/u1.xlsx --copy-sample extra
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample | --image-sample | --richtext-sample | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items | --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]
+  U1: exit 2, the usage line: yes
+command: <tree>/bin/emend-copy <scratch>/w/fx/b0.xlsx <scratch>/w/out/u2.xlsx --copy-sample --items
+  exit: 2
+  stdout:
+  stderr:
+    error: usage: emend-copy <input.xlsx> <output.xlsx> [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample | --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample | --table-sample | --comment-sample | --image-sample | --richtext-sample | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items | --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]
+  U2: exit 2, the usage line: yes
+  control: usage_refused says no on B0CP's run: yes
+  U1 and U2 left no output (change UB: the five accepted runs' are the outputs): yes
+  the worktree is gone from git's list: yes
+
+## the log itself
+  captured outputs: 21; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0028-images-and-comments-second-half.md
+status lines: 1; of them this phase's logs or records or planning's spec: 1
+  every change in the working tree is this phase's logs or records or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/negative.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-08T15:29:37Z
+negative log checks all as expected: yes
