@@ -297,6 +297,16 @@ from this needs planning's word before the run (T2 P7 ruling).
   the log, never by the session's memory. The keepalive and the
   propagation are the environment line's business (the first bullet
   of these four).
+- The toolchain pin's policy (`specs/0029`, "MSRV (decision 1)", A,
+  2026-10-08): four places name one version and agree: the channel
+  of `rust-toolchain.toml`, the CI workflow's pin, the workspace's
+  `rust-version` (inherited by every member), and the toolchain
+  bullet of these rules. The gate's hygiene step reads the first
+  three from the index and refuses a disagreement, with a positive
+  control that plants one. A move of the pin is a recorded decision
+  in the spec of the part that moves it, never a side effect of a
+  toolchain install; the crate builds on no compiler older than the
+  pin, which is what `rust-version` says.
 
 ## Planning rulings on P1 (2026-09-14)
 
