@@ -155,7 +155,7 @@ counting_controls() {
   r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
 
   chmod 644 "$d/locked"
-  rm -rf "$d"
+  rm -rf "${d:?}"
   counting_controls_ok=$ok
   echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
 }
