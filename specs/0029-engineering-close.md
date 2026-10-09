@@ -341,6 +341,132 @@ CI run and the scan". `ROADMAP.md`'s Milestone 3 heading reads
 DONE and PUSHED with the Excel record named, and the close-out's
 verification says what the next milestone carries.
 
+## Planning rulings during P1 (2026-10-08)
+
+Asked by the implementing session after the doc commit 6387e9b,
+before any P1 code. Planning read the files at 6387e9b.
+
+1. The `rm -rf` forms (Q1). The grep at 6387e9b finds unguarded
+   forms in `check.sh` line 79, `passthrough-run.sh` lines 121 and
+   205, `privacy.sh` lines 89 and 513, `lo-check.sh` line 47 and
+   `gate-self-test.sh` lines 86, 191, 715, 808 and 844, beside
+   `counting.sh` line 158; item 3's "the one committed form" was
+   planning's error. Ruling: option (a). P1 changes `counting.sh`
+   line 158 alone, and in `passthrough-run.sh` only what item 5
+   asks; the `specs/0001` bullet item 3 writes names the other
+   forms as standing until a part touches them (`specs/0024` P2
+   ruling 1's words), listed by file and line as above, and says
+   of `passthrough-run.sh` line 205 that its targets, an earlier
+   run's conversion directories under the run directory, existed
+   before the run: a behaviour the rule's absolute case forbids,
+   carried to the next milestone as a question of what a rerun
+   into a run directory may remove, not changed here. The report
+   lists the same forms. Item 3 reads as amended.
+2. The `leftover` mechanism (Q2). Ruling: the proposal is taken.
+   Before each child the runner makes a per-child directory with
+   `mktemp -d` under `$WORK` (so on the filesystem of the caller's
+   `TMPDIR`, which the run scripts export on the disk: `specs/
+   0023` ruling 4 still holds) and exports it as `TMPDIR` to the
+   child alone; after the child ends, any entry in it is the
+   child's leftover, counted, then the directory removed as
+   `rm -rf "${ctmp:?}"`, allowed since the script made it in the
+   run. Not a before-and-after diff of the shared `TMPDIR`. The
+   runner's comment states the filesystem reasoning; the test log
+   shows the child's `TMPDIR` under `$WORK` through a stand-in
+   tool that prints it, and the planted file is written by the
+   stand-in during the child, since a file present before the run
+   is not this child's. Item 5 reads as amended.
+3. The column's form (Q3). Ruling: `leftover` stays `yes` or `no`
+   (`passthrough-record.py` line 265 refuses any other value and
+   line 377 sums the yeses; old run directories hold yes/no):
+   `yes` when the run directory's glob or the child's `TMPDIR`
+   held anything, `no` otherwise, the runner's comment saying so.
+   The brief's "0 with nothing planted" was planning's slip; the
+   test shows `yes` with the planted file and `no` without. No
+   new column, no record-script change beyond item 5's header.
+4. Two form points (Q4). (i) The environment line is the first
+   section after the header and input lines, `specs/0001`'s rule
+   on a log's first lines standing; "before anything else" in
+   item 1 reads so. (ii) The record header's binary line per
+   label, "Binaries (label): passthrough sha256 <x>; xlsx-diff
+   sha256 <y>", accepted; where a label's run rows disagree every
+   distinct value is listed and the line says they disagree,
+   rather than refused. The prune set, derived as part 6 P3's set
+   was (`dry-gate`, `dry-negative`, `dry-run`, `dry-scan`,
+   `dry-size`, `dry-test`, `gate`, `keep-host`, `negative`,
+   `target` under part 6 P4's cache directory; `out`, empty,
+   stays; `scan`, `check1`, `superseded`, `logs`, `gen`,
+   `scripts`, `FACTS.md`, `logged.*`, `report-*` and
+   `privacy.out` kept), accepted.
+
+## Planning verification and rulings on P1 (2026-10-08)
+
+Verified by planning from primaries: the five commits over
+bafd780 (the doc commit 6387e9b; 271fd30 adding four bullets to
+`specs/0001` and removing nothing; 34eea64 changing `counting.sh`
+line 158 alone; the phase commit bcef9c3 changing the runner and
+the record script as rulings 2 to 4 say; the record commit
+bdaa890 with exactly the six logs), each diff read in full; the
+six logs at the reported hashes, each ending all as expected, the
+scan RESULT: PASS at the final stage with every changed file
+hashed; the environment section first after the gate's header and
+input lines (propagation shared, keepalive 1, each with controls);
+the ten pruned names with sizes and `rm -r` exit 0 each, the
+seventeen kept names present; the self-test at bcef9c3 with 50
+cases and RESULT: PASS, asserted by the gate; T1 to T3 and N1 as
+the spec asks; five messages ASCII with the Co-Authored-By line
+only; no U+2014 in the changed files or the logs; the one
+`/home/` string in scan.log the split control fixture; planning's
+own privacy scan bafd780..bdaa890, 5 commits, 1384 blobs, 0
+findings; `ANTHROPIC_API_KEY` unset; the keepalive and the shared
+root still so at verification. Planning's own run of the record
+script at bdaa890 over part 6 P4's real copy run directory
+(`2026-10-08-9cfd92e-copy`) into scratch: the `.txt` identical
+to the committed record's, the `.md` differing in the written
+time, the stem and the two added Binaries lines alone, the i686
+passthrough hash equal to part 6 P4's run log's `emend-copy`
+hash; so an existing run directory carries the columns and the
+header gains only what item 5 asks.
+
+1. Check 1's Q1 reservation 1, the citation: `specs/0023`'s
+   ruling 4 sits under "Planning verification and rulings on P1
+   (2026-10-01)" (line 351), so the runner's comment "P1
+   verification ruling 4" is the precise form of ruling 2's
+   "`specs/0023` ruling 4". No change.
+2. Q1 reservation 2, the line numbers: the `specs/0001` bullet
+   says "at 6387e9b" and is accurate as worded; at bdaa890 the
+   runner's two standing forms are at lines 122 and 206. Not
+   restated in `specs/0001` now: the part that next touches the
+   runner restates them, and this ruling records them meanwhile.
+3. Q1 reservation 3 and 4, old run directories and `$WORK`:
+   answered by planning's own run above and by the runner's
+   unchanged lines 120 to 122 (`$WORK` from `mktemp -d`, so under
+   the caller's `TMPDIR`). No change.
+4. Q2's gaps (the kept names checked by presence alone, `out` not
+   checked empty; `$WORK` not printed by name; the detached
+   runner's stderr in no log): accepted as recorded. The rule
+   asks that the kept names are never removed, which presence
+   shows; `logged.stderr` is the session's file, 0 bytes, as the
+   earlier phases'.
+5. Q3's items: the committed logs' hashes are planning's reading
+   of the committed files (above); the superseded script and
+   generator exist under the phase's cache at the report's
+   hashes (a6dedb13, 6f550d3c, 29dd819e; the first dry attempts'
+   list f95d002a), read by planning; the timing of the
+   regeneration against the logged run is disclosure, and the
+   logged negative run's printed script is the one that ran. The
+   dry-scan finding (two undeclared placeholders in the carried
+   change history) and its fix in the generator are accepted;
+   the checker's side observation on the superseded dry scan's
+   absolute paths concerns a file that is never committed.
+6. N2, the scan's removal classifier on a planted line 158, goes
+   beyond the spec and is accepted.
+7. P1 is DONE. P1's build targets are pruned at P2's gate under
+   the standing rule. Nothing is carried into P2's code beyond
+   item 6; item 7's two amendments are written into the working
+   `specs/0028` by planning and go in P2's doc commit with these
+   rulings.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-08: 1 to 4 as recommended (A in

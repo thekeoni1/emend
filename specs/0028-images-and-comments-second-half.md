@@ -298,6 +298,12 @@ one streaming pass over the source part instead of the template:
   in the corpus; the pass checks every start tag kept) is refused
   ("a sheet copy meets a relationship it cannot carry"), nothing
   written.
+
+Amendment (2026-10-08, `specs/0029` item 7, from P3 verification
+ruling 2): in the dropped list above, "the `r:id` attribute of
+`pageSetup`" reads "the relationship attributes of `pageSetup`
+(the schema gives it `r:id` alone)"; the original line stands
+above as written.
 - Comments (decision 6): when the source has a `comments`
   relationship, the copy carries them when `comments` is on, else
   the copy is refused ("a sheet copy needs the comments feature").
@@ -396,6 +402,14 @@ minus the comments probe at the same commit), the core's growth
 (the format probe at the commit minus the same probe rebuilt at
 6b6125b; expected near 0), the budget against 458752, and a cause
 per probe; the cause control and the manifest cause listing stay.
+
+Amendment (2026-10-08, `specs/0029` item 7, from P4 ruling 3): the
+images probe's removal is made in a second package opened on the
+first's output, written into memory and reopened, `images_removed`
+printed; the comments probe's box is `set_comment_box` on AB10
+(200 by 100, visible) in the addition's write, read back as
+`box_width`, `box_height` and `box_visible`. The paragraph above
+stands as written; this is how the probes read at 9cfd92e.
 
 ### Harness runs
 
