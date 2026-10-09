@@ -392,7 +392,7 @@ LibreOffice's.
 | P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
 | Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit f6c2dba and record commit 065f3e4 local, verified by planning, go with the next push) |
 
-## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred an eleventh time on 2026-10-05 at Milestone 3 part 6's scoping, `specs/0028` decision 9; due before Milestone 3 part 7's close-out push at the latest)
+## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred a thirteenth time on 2026-10-09 at Milestone 3 part 7's close-out by the maintainer's decision, `specs/0029` "Planning rulings before the close-out"; a hard requirement of Milestone 4 part 1's close-out push)
 
 Outline approved as a proposal by the maintainer on 2026-09-23,
 after planning's comparison with openpyxl. Every part is DONE and
@@ -648,7 +648,7 @@ Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values
 and no fixture output is refused on an accepted input.
 
-## Milestone 3: the rest of openpyxl's surface, and proof at scale (APPROVED 2026-10-01)
+## Milestone 3: the rest of openpyxl's surface, and proof at scale (APPROVED 2026-10-01; parts 1 to 7 DONE and PUSHED 2026-10-09; the Milestone 2 Excel check deferred a thirteenth time, a hard requirement of the next milestone's first part)
 
 Outline drafted by planning on 2026-10-01 and approved by the
 maintainer the same day ("agree with recs, lets get started"), with
@@ -884,8 +884,8 @@ added; the core is expected not to move.
 | P2 | `sheetPr` and `sheetView` through `check_copy_relationships` with a test; the two `specs/0028` amendments | DONE (phase 8d54741, record d3faae6, 2026-10-09) |
 | P3 | `rust-version` and the hygiene agreement check (self-test); the size log with the per-probe cause attribution and the size record; the API review record; part 6's four samples rerun byte-identical; one independent check | DONE (phase 09d2e0f, record ed0a9ef, 2026-10-09; `records/size-m3p7-2026-10-09-09d2e0f.md`, `records/api-review-m3p7-2026-10-09-09d2e0f.md`) |
 | P4 | `README.md` with the citation check; the push script's Excel-record check; the close-out scripts generated; the gate's doc-directory rule | DONE (phase ad7cfec, record a199fe4, 2026-10-09; two README sentences corrected in P5) |
-| P5 | the Excel list: the formula sample and every gone sample rerun on the host at the closing commit with records, the host keep reopened into an open record, the list staged (`specs/0029` P4 ruling 2) | PENDING |
-| Close | the maintainer's Excel check recorded (`records/excel-check-m2-<date>.md`, in the doc commit); close-out push after P4, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, one independent check | PENDING |
+| P5 | the Excel list: the formula sample and every gone sample rerun on the host at the closing commit with records, the host keep reopened into an open record, the list staged (`specs/0029` P4 ruling 2) | DONE (phase f39bc7b, record daab8c7, 2026-10-09; 23 reruns recorded as `records/m3p7-p5-*`, `records/m3p7-open-2026-10-09-f39bc7b.md`; the list 3134 rows staged, printarea out) |
+| Close | close-out push after P5, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, the tip checked by its subject (change 21), one independent check; the Milestone 2 Excel check skipped by the maintainer's decision of 2026-10-09 (deferred a thirteenth time, the push script's Excel-record check removed; `specs/0029` "Planning rulings before the close-out"), the stage kept on disk for the next milestone's first part | IN PROGRESS (2026-10-09) |
 
 ## Unscoped
 

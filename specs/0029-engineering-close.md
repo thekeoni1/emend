@@ -154,7 +154,9 @@ Each item names its source; nothing here is new.
    the method is what this part delivers.
 10. The Milestone 2 Excel check (`specs/0028` decision 9, deferred
     the twelfth time 2026-10-08): a hard requirement of this part's
-    close-out push, "The Excel check" below.
+    close-out push, "The Excel check" below. Deferred a thirteenth
+    time 2026-10-09 by the maintainer ("Planning rulings before the
+    close-out"): carried to the next milestone's first part.
 
 ## MSRV (decision 1)
 
@@ -358,8 +360,12 @@ the maintainer's Excel check; then the close-out.
 ## Close-out push (after P4)
 
 Amended 2026-10-09 (P4 ruling 2): after P5. The close-out doc
-commit's subject is "M3 part 7 close-out: commit planning docs
-(the P5 verification and rulings, the Excel check record)".
+commit's subject was "M3 part 7 close-out: commit planning docs
+(the P5 verification and rulings, the Excel check record)";
+amended by the rulings before the close-out (2026-10-09) to "M3
+part 7 close-out: commit planning docs (the P5 verification and
+rulings, decision 9 deferred a thirteenth time)", the Excel record
+out of the doc commit and change 20 out of the push script.
 
 As part 6's (`specs/0028` "Close-out push (after P4)" and its
 close-out rulings), with these differences: the doc commit holds
@@ -813,6 +819,157 @@ findings).
 7. P4 is DONE. P5 follows as the Phases section, as amended,
    and P4 ruling 2 say, with ruling 2 above as its first code
    commit.
+
+## Planning rulings during P5 (2026-10-09)
+
+Asked after P5's doc commit 515c3e2 (this spec at dad50b9c,
+`ROADMAP.md` at 15e8ba04) and the phase commit f39bc7b (the
+README's two lines), before any P5 script.
+
+1. The rerun set reaches back to `specs/0011` and `specs/0012`:
+   option A. P4 ruling 2 and the P5 phase text name `specs/0013`
+   to `specs/0022` because those were the gone directories the
+   implementing session listed; "The Excel check" names every
+   part's samples, and the edit layer's `edit` and
+   `edit-formula` (`specs/0011`) and the styles part's `style` and
+   `date` (`specs/0012`) are corpus samples whose directories are
+   gone too. All four are rerun on the host as the others are,
+   recorded as `records/m3p7-p5-<name>-<utc-date>-<shortsha>`,
+   and the list's `--run-plain` order is spec order from
+   `specs/0011` to `specs/0028`. `new` stays out, as `specs/0016`
+   says the runner does not run it over the corpus; `comment` and
+   `image` are found in `specs/0023`'s rerun directories.
+
+## Planning verification and rulings on P5 (2026-10-09)
+
+Verified from the primaries: the three commits over a199fe4 (the
+doc commit 515c3e2 at the hashes sent; the phase commit f39bc7b
+changing the README's two lines in ruling 2's words and nothing
+else; the record commit daab8c7, 53 files: five logs, the open
+record pair, 23 rerun record pairs), the logs at the hashes the
+report states, the check's answer read in full. The run log's
+sample table: 37 samples in spec order from `specs/0011` to
+`specs/0028`, 23 rerun on the host at f39bc7b, 14 found in their
+newest directories (the flag read from each directory's
+`run.host.tsv`); 22 reruns 27 of 27 ok with LibreOffice opening
+all 27 outputs and all 27 inputs (planning read every record's
+host row); the printarea rerun 21 ok and 6 error, as its three
+earlier directories were, left out of the list with the finding
+printed. The keep: 1093 pairs, the open record
+`records/m3p7-open-2026-10-09-f39bc7b` with lo_in ok 1081 and lo
+ok 1082, part 6 P4's figures. The stage
+`<corpus>/work/excel-check-m2-2026-10-09/` read by planning by
+counts only: the list 3134 rows (corpus 972, which is 36
+directories of 27; fixture 1081; input 1081) under its header,
+sha256 aabf420a, mode 600; `files/corpus`, `files/fixture` (1081)
+and `files/input` (1081) beside it with the opener script; the
+zip 604025974 bytes, sha256 38037fc8, neither committed. The
+README check repeated with P4's program: 36, 18, 18, 0, 0. The
+scan's final stage passed with `PLANNING_SPEC` at 6ba07ae5;
+`privacy.sh` over a199fe4..daab8c7: 3 commits, 1463 blobs, 0
+findings; no API key in the environment.
+
+1. `--drop-calc-chain` (`specs/0011` "Harness runs"; check 1,
+   Q1): not a sample and never on an Excel list; it stays out,
+   and this ruling says so. The Excel check is of the samples.
+2. The order inside `specs/0028` (anchor, commentbox, copy,
+   remove-image against the section's commentbox, anchor,
+   remove-image, copy): P5 ruling 1 fixed the order between
+   specs, not within one; accepted as it stands.
+3. The rerun records carry the closing commit on their `Commit:`
+   line, written by the committed record script; that line is
+   what "say so" means, since no record script change was in
+   scope. The Excel record's header names the reruns as
+   measurements at f39bc7b and names the printarea sample's six
+   error rows as the reason it is absent from the list.
+4. The printarea sample's six error rows at f39bc7b are the same
+   count its three directories of `specs/0025` show; a finding
+   carried to the next milestone's first part with the list
+   script's handling of error rows (P4 ruling 2).
+5. P5 is DONE. What follows is the maintainer's Excel check on
+   the stage, its record `records/excel-check-m2-2026-10-09.md`
+   (or the date the check is run) assembled by planning from the
+   opener's results file and verified row by row against the
+   stage by hash, then the close-out doc commit and the push as
+   the Close-out section says, with change 21 (P4 verification
+   ruling 3).
+
+## Planning rulings before the close-out (2026-10-09)
+
+Decided by the maintainer 2026-10-09, typed in the planning
+session, asked after P5 was verified: the Milestone 2 Excel
+check is skipped for this part and carried to the next
+milestone's first part, its thirteenth deferral ("Skip, carry to
+M4 part 1", the recommended option of three; the others were to
+hold the close-out until the check ran, and to drop the check).
+The stage `<corpus>/work/excel-check-m2-2026-10-09/` and its zip
+stay on disk, the list pinned to f39bc7b, so the check runs later
+against the same files. Nothing in the README claims Excel.
+
+1. "The Excel check" and item 10 of the scope are amended: the
+   check is a hard requirement of the next milestone's first
+   part's close-out push, not of this one. The push script's
+   change 20 (`excel_record_ok`, `excel_record_refused`,
+   `excel_record_show`, its pre-mode block and the control clone)
+   is removed from the generated script by `gen.py`: `EXCEL_FUNCS`
+   and `EXCEL_PRE` dropped from the replacements. In their place
+   the pre mode prints, after the part 6 record check, one line
+   "files at HEAD matching records/excel-check-m2-*.md: 0" from
+   `git ls-tree -r --name-only HEAD`, and checks the count is 0
+   (a stray record is a finding); its control: the same count
+   over a `git ls-tree` of a clone of the tree with an empty file
+   added at `records/excel-check-m2-control.md` and committed
+   there is 1, so the form counts. The committed negative log
+   `records/logs/m3p7-p4/negative.log` and its cases N3 to N7 of
+   the removed check stand as the record of a check that was
+   written, tested and not used; the close-out log says so.
+2. The close-out doc commit's subject is "M3 part 7 close-out:
+   commit planning docs (the P5 verification and rulings,
+   decision 9 deferred a thirteenth time)"; `TIP_NEW` in
+   `gen.py` and the scan script's `TIP_PATTERN` hold it. The doc
+   commit holds this spec and `ROADMAP.md` only; `ROADMAP.md`'s
+   Milestone 3 heading reads DONE and PUSHED with the Excel check
+   deferred a thirteenth time and named under the next
+   milestone's first part; part 7's Close row says the same.
+3. Change 21 (P4 verification ruling 3) is added by `gen.py` as
+   `TIP_CHECK`: pre mode, after the HEAD-is-main check, reads
+   `git log -1 --format=%s HEAD`, checks it equals the subject of
+   ruling 2 exactly (`[ "$subj" = "$TIP_SUBJECT" ]`, the subject
+   a single-quoted constant beside `BASE_PATTERN`), and its
+   control: the same comparison refuses the subject with one
+   character appended. The close-out log prints the generated
+   scripts' hashes, `gen.py`'s hash, and a numbered list of the
+   changes 19 to 21 as the P4 run log printed 19 and 20, the
+   removal of 20 named.
+4. The implementing session's context was cleared 2026-10-09
+   after P5; the close-out runs in the same session, emend-6e,
+   from a fresh brief. Its first step is to read this spec's
+   Close-out section and this ruling, regenerate the three scripts
+   with `gen.py` into `<home>/.cache/emend-build/m3p7-close/`,
+   report their hashes, and wait for planning's word before the
+   doc commit; no corpus run, no cargo beyond the pre mode's gate.
+5. The previous P5 verification ruling 5 is amended: the Excel
+   check and its record are out of this part; what follows P5 is
+   the close-out doc commit and the push as the Close-out section
+   says, with rulings 1 to 3 here.
+
+6. The regenerated scripts, read by planning from the files (gen.py
+   cfa5c819, push ba036b85, ci c3feb170 unchanged, scan 719894ba;
+   `bash -n` clean; no non-ASCII byte): rulings 1 to 3 are met.
+   The implementing session's four choices are accepted: (a) the
+   change 21 control compares the subject with one character
+   appended through the same form, independent of HEAD; (b) a
+   "git ls-tree exit is 0" check precedes the count, so a failed
+   listing cannot read as 0; (c) the hashes block reads `gen.py`
+   at its home path and the three scripts beside the running one,
+   so all three are copied to `<scratch>/close`; (d) the control
+   clone commits as "control". The superseded scripts stay in
+   `superseded-2026-10-09-gen-a2a26258/` since the P4 logs cite
+   their hashes.
+7. The doc commit holds this spec and `ROADMAP.md` at the hashes
+   its body names by command substitution; the record commit's
+   files are the three close-out logs and the independent check,
+   as part 6's.
 
 ## Decisions for the maintainer
 
