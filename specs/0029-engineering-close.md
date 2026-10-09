@@ -532,6 +532,123 @@ byte-identical to part 6 P4's run directory
    are pruned at P3's gate (ruling 1). Nothing is carried into
    P3's code; the amendment of ruling 3 goes in P3's doc commit.
 
+## Planning rulings during P3 (2026-10-09)
+
+1. The implementing session changed mid-phase. The session that
+   ran P3 (the one that took the P1, P2 and P3 briefs) ended at
+   about 15:02Z on 2026-10-09 when its terminal multiplexer
+   session was killed by accident, after the logged runs had
+   finished (`logged.exit` 0, 14:58:46Z), the records were
+   installed, the scan pre-check had passed and the independent
+   check's inputs had been assembled under `<phase>/check1/inputs`
+   with `inputs.sha256`; the check's subagent was in flight and
+   died with it. A fresh session continues the phase from that
+   point. Ruling: what the dead session wrote stands as it lies on
+   the disk and in the tree (the logs under `<phase>/logs` and
+   their copies under `records/logs/m3p7-p3/`, the nine untracked
+   records, the review's listing and formatter, the report draft);
+   the new session verifies `inputs.sha256` over the inputs before
+   it launches check 1, launches it afresh (no answer from the
+   dead one is used), records it in the ruling-10 form, runs the
+   final scan with `PLANNING_SPEC` set to this working file's
+   hash, makes the one record commit, reports and stops. The
+   report's departures name the session change with the times
+   above; no log is rerun for it. A terminal multiplexer session
+   is never killed while a logged run or a check is in flight;
+   the planning session's note of 2026-10-09 to the maintainer
+   explains the two grouped sessions.
+
+## Planning verification and rulings on P3 (2026-10-09)
+
+Verified from the primaries: the four commits over d3faae6 (the
+doc commit db70ecd at the hashes sent; f065758 one bullet in
+`specs/0001` and nothing else; the phase commit 09d2e0f the
+workspace field, five inherited lines and the hygiene step's
+`pins` with its two controls, no `.rs` and no `Cargo.lock`
+change; the record commit ed0a9ef, eighteen files, nothing
+else), the seven logs and the check record at the hashes the
+report states, the nine records, the check's answer read in full.
+The planning session's own build at 09d2e0f (its log beside the
+earlier ones, not in the repository): the three pins read 1.98.1
+and every member inherits; the lifted `pins` refuses a moved CI
+pin; the crate's tests 514, 526, 573, 589 and 918 on both targets
+and the workspace's 1112, as P2's; clippy and doc clean; the
+release `emend-copy` the same binaries as P2's on both targets;
+the four samples over the corpus on both targets 216 of 216
+outputs and lines identical to the run directories the run log
+names, which it shows equal to part 6 P4's. Commit messages ASCII
+with the Co-Authored-By line last; `privacy.sh` over
+d3faae6..ed0a9ef 4 commits, 1411 blobs, 0 findings; no API key in
+the environment.
+
+1. The session change (ruling 1 above) went as ruled: the inputs
+   verified against their list, the check launched afresh, the
+   final scan with `PLANNING_SPEC` set, one record commit. The
+   check's inputs hold the spec as the doc commit committed it,
+   without ruling 1; accepted, since ruling 1 governs the handover
+   and changes nothing the diff or the logs are judged against,
+   and the check's header says so.
+2. The doc build (check 1, Q2): the test log's T2 printed a build
+   finished in 0.05 seconds, so no rustdoc ran in the logged test
+   run; the gate's five doc builds earlier in the same logged run
+   and the same target carry the same question. A fresh unit under
+   `-D warnings` can only follow a build that passed under the same
+   flags and sources, so the logged result is sound but not shown.
+   The planning session ran `cargo clean --doc` and the same build
+   in its own target: rustdoc ran ("Documenting emend"), exit 0,
+   no warning line, 120 item links in `all.html` with the five
+   section anchors excluded, the listing's 120 module-level items.
+   Accepted on that measurement. From P4 on, a log that claims a
+   doc build removes the target's `doc` directory first and asserts
+   the "Documenting" line, with a control; P4's gate does so.
+3. The index count: the test log's "documented items in the index:
+   125" counts five section anchors; the record states both 125
+   and 120. Accepted as disclosed; the P4 gate's form counts item
+   links only.
+4. The API review record: 545 items, every `pub` item once (check
+   1, Q4, by a second parser), the verdicts in the four forms, the
+   counts 539, 5, 1, 0 equal to the table. Three wording defects,
+   each true against the sources: the change list's item 5 names
+   the private path `emend::package::sheet_read::Target`, whose
+   public path is `emend::package::Target` (the row's own text has
+   it right); row 63's reason says `SheetKind` sits at the crate
+   root, and `lib.rs` re-exports no `SheetKind`; rows 12 and 15
+   attribute two multi-line re-export blocks to a791e2c and
+   `specs/0019`, the commit that opened each block, where the
+   names in them came under `specs/0020` and `specs/0025` (the
+   listing's commit search matches the block's first line). None
+   moves a verdict or a count. Ruling: the record is not rewritten;
+   P4's doc commit appends to it a dated section "Corrections
+   (2026-10-09)" stating the three items in those words, the table
+   untouched, and the P4 run log's README check reads the record
+   as it then stands. The assembly of the table by a formatter
+   with the six non-keep verdicts typed, disclosed at the record's
+   line 9, is what "written by hand" means here: the judgment is
+   the hand's, the typing is not. The hide verdict's premise holds:
+   outside the archive's own tests nothing in the workspace calls
+   `Archive::prefix_len` (planning's grep over `crates` and
+   `tools`). The six changes go to the next milestone's first part
+   as its carried items, the order of the record's list.
+5. Item 9's attribution is per file, as the item specifies, so a
+   commit touching `package.rs` is named by every probe that
+   compiles it; the log and the record say so. Accepted; a method
+   that attributes by the items a probe reaches is a question for
+   the next milestone, noted under `ROADMAP.md` "Unscoped".
+6. The two session facts without a committed log (the self-test's
+   files moved into their directory after the launch line named
+   the phase directory; `logged.sh`'s run arguments corrected
+   before any logged run, the first form kept superseded) and the
+   test log's API-key input line without a control are accepted as
+   disclosures; `specs/0001` requires none of the three.
+7. Size: the copy probes grew 64 and 128 section bytes (expected 0
+   to 200, cause 8d54741), the core 0 (expected 0), the budget
+   figure 436992 unchanged, 21760 under the ceiling. The record
+   `records/size-m3p7-2026-10-09-09d2e0f.md` stands as Milestone
+   3's closing size record.
+8. P3 is DONE. P4 follows: the README (decision 4, A), the push
+   script's Excel-record check, the Excel list written, the gate
+   with the doc-directory rule of ruling 2.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-08: 1 to 4 as recommended (A in

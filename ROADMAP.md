@@ -880,9 +880,9 @@ added; the core is expected not to move.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | the four `specs/0001` rules; `counting.sh`'s `rm -rf` form (self-test); the record script's header hashes and the runner's `leftover` column; part 6 P4's targets pruned; the environment line first in the gate log | PENDING |
-| P2 | `sheetPr` and `sheetView` through `check_copy_relationships` with a test; the two `specs/0028` amendments | PENDING |
-| P3 | `rust-version` and the hygiene agreement check (self-test); the size log with the per-probe cause attribution and the size record; the API review record; part 6's four samples rerun byte-identical; one independent check | PENDING |
+| P1 | the four `specs/0001` rules; `counting.sh`'s `rm -rf` form (self-test); the record script's header hashes and the runner's `leftover` column; part 6 P4's targets pruned; the environment line first in the gate log | DONE (phase bcef9c3, record bdaa890, 2026-10-08) |
+| P2 | `sheetPr` and `sheetView` through `check_copy_relationships` with a test; the two `specs/0028` amendments | DONE (phase 8d54741, record d3faae6, 2026-10-09) |
+| P3 | `rust-version` and the hygiene agreement check (self-test); the size log with the per-probe cause attribution and the size record; the API review record; part 6's four samples rerun byte-identical; one independent check | DONE (phase 09d2e0f, record ed0a9ef, 2026-10-09; `records/size-m3p7-2026-10-09-09d2e0f.md`, `records/api-review-m3p7-2026-10-09-09d2e0f.md`) |
 | P4 | `README.md` with the citation check; the push script's Excel-record check; the Excel list written | PENDING |
 | Close | the maintainer's Excel check recorded (`records/excel-check-m2-<date>.md`, in the doc commit); close-out push after P4, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, one independent check | PENDING |
 
