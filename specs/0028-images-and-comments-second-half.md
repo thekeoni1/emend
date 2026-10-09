@@ -1114,6 +1114,9 @@ commits above it (nothing pushed); `ANTHROPIC_API_KEY` unset.
    backlog: route the two stripped tags through the check as well
    (a tidy, no behaviour change on valid input), with one test on
    a byte-built part.
+   Amendment (2026-10-08, `specs/0029` P2 verification ruling 3):
+   done at 8d54741; "the pass checks every start tag kept" reads
+   as written again, `sheetPr` and `sheetView` included.
 2. Check 1's Q1 (b), `pageSetup` losing every relationships
    attribute where "The copy" names `r:id`. The schema gives
    `pageSetup` `r:id` alone, so the two agree on valid input.

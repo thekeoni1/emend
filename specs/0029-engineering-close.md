@@ -467,6 +467,71 @@ header gains only what item 5 asks.
    `specs/0028` by planning and go in P2's doc commit with these
    rulings.
 
+## Planning verification and rulings on P2 (2026-10-08)
+
+Verified by planning from primaries: the three commits over
+bdaa890 (the doc commit 1d3c22b holding this file and `specs/0028`
+at the hashes planning sent; the phase commit 8d54741 adding two
+lines to `package.rs`, each `check_copy_relationships(start,
+&scope, None, index)?;` at the head of `copy_worksheet`'s
+`sheetPr` and `sheetView` branches before the strip, and one test
+in `copy.rs` with two bodies, a `sheetView` and a `sheetPr` each
+carrying `r:id`; the record commit d3faae6 with exactly the five
+logs), the diffs read in full with context; the five logs at the
+reported hashes, each ending all as expected, the scan RESULT:
+PASS at the final stage; the environment section first; P1's four
+build names pruned with sizes and `rm -r` exit 0 each, the
+nineteen kept names present; ten gate files checked against the
+diff, none changed, no self-test; the full copy test's two
+literals hashed equal at the base and the phase commit with a
+control; the two plants each failing the new test at its refusal
+line; the negative log's RV and RP refused through the gate's
+host binary with the existing message and no output, RC accepted;
+three messages ASCII with the Co-Authored-By line only; planning's
+own privacy scan bdaa890..d3faae6, 3 commits, 1387 blobs, 0
+findings; `ANTHROPIC_API_KEY` unset. Planning's own build at
+8d54741 in its worktree (the part 6 P4 output directory pruned at
+start, 170M): 514/526/573/589/918 on both targets (P4's
+514/525/572/589/917, the one new test in each `copy` set), 1112
+workspace tests on both, clippy and doc 0 lines; planning's own
+`--copy-sample` with its own release binaries over all 27 corpus
+workbooks on both labels, 54 outputs and 54 tool lines
+byte-identical to part 6 P4's run directory
+(`2026-10-08-9cfd92e-copy`): no behaviour change on the corpus.
+
+1. The implementing session's (a), P1's `dry-negative` and
+   `dry-scan` kept at P2's prune because P1's report cites a file
+   in each by hash: the rule's exemption is for what a committed
+   log cites by hash, and a report is not one; the two are dry
+   outputs. Ruling: pruned at P3's gate, listed with sizes and
+   removed with `rm -r` beside P2's build targets, named. Check
+   1's Q2 reservation 1 and Q3 item 5 read as answered so.
+2. (b), the first dry scan with `PLANNING_SPEC` set on a clean
+   tree, failing the two working-copy checks and the dry-only
+   check (three, as the superseded log counts; the report's "two"
+   reads as corrected to three, two of them the working-copy
+   checks), rerun unset: accepted as disclosure; no script
+   changed; the logged scans ran unset on a clean tree, which is
+   the scan's own branch for that state. Q3 items 2 to 4 are
+   session facts, disclosed; the superseded attempt's hash
+   1d909136 is the session's reading, kept on the disk.
+3. (c) and check 1's observation: a malformed `sheetPr` or
+   `sheetView` (an unbound attribute prefix, say) is now refused
+   where it was copied before, with the refusal every other kept
+   start tag gets; valid input is unaffected, and planning's own
+   copy run over the corpus moved no byte. Accepted; the
+   catalogue's "the pass checks every start tag kept" is now true
+   without the P3 ruling 11 reading, and P3's doc commit says so
+   in `specs/0028` as an amendment under P3 ruling 11, T2.
+4. Q2 reservations 2 and 3 (the typed prune and keep sets with
+   no search for a committed log citing a pruned path; the
+   detached runner's stderr in no log): accepted as part 6's and
+   P1's practice (P1 verification ruling 4). Q3 item 1, the
+   pre-check's hash, is the session's reading, as always.
+5. P2 is DONE. P2's build targets and P1's two dry directories
+   are pruned at P3's gate (ruling 1). Nothing is carried into
+   P3's code; the amendment of ruling 3 goes in P3's doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-08: 1 to 4 as recommended (A in
