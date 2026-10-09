@@ -250,6 +250,53 @@ from this needs planning's word before the run (T2 P7 ruling).
   - any entry of the private denylist.
 
   Use repo-relative paths, and write scratch locations as `<scratch>`.
+- The gate's environment line (`specs/0029-engineering-close.md`,
+  item 1, 2026-10-08; from `specs/0028` P4 verification ruling 1):
+  the gate log's first section after its header and input lines
+  prints the root's mount propagation (`findmnt -no PROPAGATION /`,
+  expected `shared`, since podman's first call otherwise warns on
+  the script's standard error) and the keepalive's presence (the
+  `sleep 2147483647` process the host's scheduled task starts,
+  counted by `pgrep -fc`, expected 1), each as a check with a
+  control (`specs/0029` P1 ruling 4 (i)).
+- One target root per phase (`specs/0029`, item 2, 2026-10-08; from
+  `specs/0028` P2 ruling 8, P3 ruling 10, P3 verification ruling 6
+  and P4 verification ruling 6): a phase's cargo builds go under
+  `<home>/.cache/emend-build/<phase>/target`, one subdirectory per
+  source tree (`main`, `plant`, `negative`, `consumer`, one more per
+  further tree), with the same profiles for every tree; no two
+  scripts build at once in a phase's dry or logged runs. The
+  previous phase's build targets are listed with `du -sb` and
+  removed with `rm -r` (never `-f`) at the next phase's first gate
+  that builds, each named in the gate log; never `superseded/`, the
+  logs, `gen/`, `scripts/`, `FACTS.md`, `logged.sh`, `logged.out` or
+  the message files (anything a committed log cites by hash).
+  Planning's own script keeps one worktree and one target under its
+  cache and removes the previous phase's at its start the same way.
+- The `rm -rf` form (`specs/0029`, item 3 as amended by its P1
+  ruling 1, 2026-10-08; from `specs/0024` P2 ruling 1, the
+  maintainer's decision of 2026-10-02): a script runs `rm -rf` only
+  on a directory it created itself in the same run, written
+  `"${var:?}"` or `"${var:?}/<name>"`, so an unset variable stops the
+  command rather than widening it; never on anything that existed
+  before the run. The committed forms not yet written so stand until
+  a part touches them: `scripts/check.sh` line 79,
+  `scripts/passthrough-run.sh` lines 121 and 205, `scripts/privacy.sh`
+  lines 89 and 513, `scripts/lo-check.sh` line 47 and
+  `scripts/gate-self-test.sh` lines 86, 191, 715, 808 and 844 (line
+  numbers at 6387e9b). Of these, `scripts/passthrough-run.sh` line
+  205's targets, an earlier run's conversion directories under the
+  run directory, existed before the run: a behaviour the rule's
+  absolute case forbids, carried to the next milestone as a question
+  of what a rerun into a run directory may remove.
+- The sessions' environment (`specs/0029`, item 4, 2026-10-08; from
+  `specs/0028` P4 verification ruling 1 and the three ssh-drop
+  deaths of 2026-10-07): a session launched over ssh dies with its
+  connection, so a logged run is started detached (`setsid nohup`),
+  writes its exit code to a file, and is checked by that file and
+  the log, never by the session's memory. The keepalive and the
+  propagation are the environment line's business (the first bullet
+  of these four).
 
 ## Planning rulings on P1 (2026-09-14)
 
