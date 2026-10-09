@@ -253,6 +253,10 @@ the removal sample's rows read as item 8 says and the other three
 are byte-identical; recorded as `records/m3p7-p3-<sample>-<utc-
 date>-<shortsha>.md` and `.txt`. P4's run log holds the README
 check and the Excel list's writing. No other corpus run.
+Amended 2026-10-09 (P4 ruling 2): the list is P5's, not P4's,
+and P5 reruns on the host every sample whose run directory the
+disk no longer holds, as the ruling says; "no other corpus run"
+reads with that exception.
 
 ## Phases
 
@@ -324,8 +328,38 @@ U+2014, ASCII or UTF-8 with no control bytes), the negative log
 (the README check on a planted uncited sentence, refused), the
 scan log. Then planning's verification; then the maintainer's
 Excel check; then the close-out.
+Amended 2026-10-09 (P4 ruling 2): P4 keeps the README, the push
+script's Excel-record check and the gate's doc-directory rule (P3
+verification ruling 2); the Excel list moves to P5 below.
+
+### P5: the Excel list (added 2026-10-09, P4 ruling 2)
+
+The doc commit (the P4 verification rulings); no code commit
+unless the ruling names one. The run log: the formula sample on
+the host over the corpus with the phase's release binary (the
+list's `--run`), the host keep regenerated and opened by
+`scripts/edit-open-check.sh` into a new open record
+`records/m3p7-open-<utc-date>-<shortsha>` (the list's `--keep`
+and `--record`), every sample of `specs/0013` to `specs/0022`
+whose run directory is gone rerun on the host into
+`<corpus>/runs/<utc-date>-<shortsha>-<name>` and recorded as
+`records/m3p7-p5-<name>-<utc-date>-<shortsha>.md` and `.txt`,
+each Milestone 3 sample's newest directory on the disk taken as it
+stands, and the list written from them all into a stage under
+`<corpus>/work` in `specs/0016` P1 ruling 4's layout, the log
+printing the directories, the stage's path and the row count,
+never a row. The gate, the negative log (the list script refusing
+a run directory whose summary is missing, and a `--run-plain`
+directory under another corpus root), the scan log; one
+independent check on the run log's directory list against the
+specs' "Harness runs" sections. Then planning's verification; then
+the maintainer's Excel check; then the close-out.
 
 ## Close-out push (after P4)
+
+Amended 2026-10-09 (P4 ruling 2): after P5. The close-out doc
+commit's subject is "M3 part 7 close-out: commit planning docs
+(the P5 verification and rulings, the Excel check record)".
 
 As part 6's (`specs/0028` "Close-out push (after P4)" and its
 close-out rulings), with these differences: the doc commit holds
@@ -648,6 +682,137 @@ the environment.
 8. P3 is DONE. P4 follows: the README (decision 4, A), the push
    script's Excel-record check, the Excel list written, the gate
    with the doc-directory rule of ruling 2.
+
+## Planning rulings during P4 (2026-10-09)
+
+Asked by the implementing session after P4's doc commit 2f05914
+(this spec at 2ddd2b06, `ROADMAP.md` at 105a0827, the review
+record's corrections), before any P4 code.
+
+1. The README's fidelity sentence (decision 4, A) reads its
+   figures from part 6 P4's records, not from the two pure
+   passthrough records of 2026-09: from each of the four sample
+   records' "Files by outcome" host row (files 27, ok 27, lo ok
+   27, lo_in ok 27), from the copy record's host family table's
+   total row (entries 917, identical 784: the entries the copy
+   did not touch came back byte for byte), and from the open
+   record's totals (pairs 1093, lo ok 1082, the eleven failures
+   the record's own sections explain). The sentence names what
+   the figures are, and the run log reads each from the record it
+   cites by a command it prints.
+2. The Excel list cannot be written from the disk: the formula
+   sample's run directories and every sample run of `specs/0013`
+   to `specs/0022` are gone (the corpus `runs/` holds 2026-10-01
+   onward), part 6 P4's host keep was pruned at P1's gate, and
+   the list script stops without a `--run` directory, a keep and
+   its record. Ruling, option B with the list moved to its own
+   phase: P5 (the Phases section, as amended) reruns on the host,
+   with the phase's release binary, the formula sample and every
+   sample whose directory is gone, one run per sample flag, into
+   fresh directories, each recorded as the samples are; the host
+   keep is regenerated and opened into a new open record; each
+   Milestone 3 sample's newest directory is taken as it stands.
+   The reruns are the harness's measurements at the closing
+   commit, not repeats of the old ones, and their records say so.
+   The printarea sample's directories hold six error rows of 27,
+   which the list script refuses by `specs/0016` P1 ruling 1; the
+   printarea sample is rerun with the others, and if error rows
+   remain it is left out of the list, the count printed as a
+   finding in the run log and named in the Excel record's header,
+   the script's handling of error rows a carried item for the
+   next milestone. P4 is the README, the push script's check and
+   the gate's doc rule; nothing of the list is in P4.
+3. The push script's Excel-record check, pre mode: at the tip
+   exactly one file matches `records/excel-check-m2-*.md`; it
+   holds a "## Results" heading and at least one table row whose
+   result cell reads pass, repair or fail; the tip commit's
+   message names the file's path exactly once; the control is a
+   clone's tip without the record, refused. Acceptance of what the
+   record shows is planning's verification, not the script's.
+4. The close-out generator: all three scripts (push, CI, scan)
+   are generated now from part 6's, under
+   `<home>/.cache/emend-build/m3p7-close/`, with the subject the
+   Close-out section names as amended; their diffs against part
+   6's scripts are printed in P4's test log; a change at the
+   close-out, if any, is printed then as every close-out prints
+   its changes.
+5. The negative log's two cases: the check lives in a named
+   function of the generated push script; the negative log
+   extracts it by a printed line range, prints the extract's
+   sha256 and shows it equal to the script's lines, then runs it
+   against the current tip (refused) and against a scratch clone
+   whose tip holds a planted record in the template's form and a
+   message naming it (accepted). Accepted.
+
+## Planning verification and rulings on P4 (2026-10-09)
+
+Verified from the primaries: the three commits over ed0a9ef (the
+doc commit 2f05914 at the hashes sent, the review record's eight
+added lines; the phase commit ad7cfec adding `README.md` and
+nothing else; the record commit a199fe4, six files), the six logs
+at the hashes the report states, the check's answer read in full,
+the three generated close-out scripts and their diffs against
+part 6's read in full. The planning session's own reading of the
+README: every file it names exists at the phase commit
+(`LICENSE-MIT`, `LICENSE-APACHE`, `records/toolchain-2026-09-15.
+md`, the records); every feature is `[]` in the manifest, as "no
+dependency of its own" says; the eleven feature costs, the budget
+figure and the ceiling equal the size record's; the sample, copy
+and open figures equal ruling 1's sources; the scale figures equal
+the record's table; the README check program run by planning
+over the README and the phase commit's tree: 36 sentences, 18
+holding a digit, 18 cited, 0 uncited, 0 missing. The scan's final
+stage passed with `PLANNING_SPEC` at 3d6390e7. `privacy.sh` over
+ed0a9ef..a199fe4 (the report's figure, 3 commits, 1410 blobs, 0
+findings).
+
+1. The phase commit was amended once before any logged run (its
+   first form 20999b4, the same tree, its message's diff-alone
+   sentence carrying an appended clause the gate refused in the
+   dry run; only the message changed). Accepted as a disclosure;
+   the first form was never reported to planning or cited by a
+   log.
+2. The README's measured sentences (check 1, Q1): (a) is a
+   defect: of the 1093 kept pairs, 100 are the copy tool's tests'
+   and one is `cells`', so "the crate's own tests" is wrong; (d)
+   is a defect: the scale record says tier c's throughput includes
+   the raw-copy samples and its rewriting samples ran at 1.8 to
+   3.7 MB/s, and the README's 4.8 leaves that out; (b) is no
+   defect: "opened 1082" is the record's `lo ok`, and the sentence
+   claims nothing about why the eleven did not open; (c) is as
+   ruling 1 worded it. Ruling: P5's first code commit, "M3 part 7
+   P5: the README's two sentences", changes line 61 and line 65
+   and nothing else: line 61 reads "Of the 1093 output files the
+   crate's and the copy tool's tests keep, LibreOffice opened
+   1082; the record's own sections explain the eleven it did not"
+   with the same citation; line 65 gains, after "on the static
+   target", the clause ", the largest tier's figures including the
+   raw-copy samples, whose rewriting samples ran at 1.8 to 3.7
+   MB/s" before the citation. P5's run log repeats the README
+   check with the same program (its hash printed equal to P4's)
+   and P5's gate the README hygiene; P4's logs stand as they are.
+3. The push script's check reads whatever the tip is (check 1,
+   (g)). Ruling: the close-out's push script gains change 21, pre
+   mode checking that the tip's subject is the close-out doc
+   commit's subject as the Close-out section names it, with a
+   control refusing another subject, printed in the close-out log
+   as the close-out's changes are; the scan script's `TIP_PATTERN`
+   already holds the subject.
+4. The pre-mode control refuses only the no-record branch (check
+   1, (f)); the negative log's cases N3 to N7 exercise the
+   heading, the row and the message branches. Accepted; the
+   control stays as it is.
+5. The gate's own `check.sh` doc step prints no "Documenting"
+   line, so the gate asserts that `all.html` was written again
+   after the removal, with a control; the five crate builds assert
+   the line. Accepted as the form of P3 verification ruling 2 for
+   that step.
+6. The report's session facts without a primary (the dry runs'
+   two superseded attempts, the amend) are accepted as
+   disclosures.
+7. P4 is DONE. P5 follows as the Phases section, as amended,
+   and P4 ruling 2 say, with ruling 2 above as its first code
+   commit.
 
 ## Decisions for the maintainer
 
