@@ -1,0 +1,2545 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m3p7-p4-test.sh ad7cfecced2d06f18c57cbf5da6908860dad19bd
+about: M3 part 7 P4 phase commit ad7cfecced2d06f18c57cbf5da6908860dad19bd; HEAD at run: ad7cfecced2d06f18c57cbf5da6908860dad19bd
+input (environment) RERUN_NOTE: unset
+input (environment) RERUN_FILES: unset
+input (environment) EMEND_KEEP_DIR, when this script started: no (unset for the whole log)
+input (environment) HOME: set; the scrub writes it <home>
+input (environment) ANTHROPIC_API_KEY: unset
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+CHAIN: this script holds none: yes
+control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+BANG: this script holds none: yes
+control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+ASSIGN: this script holds none: yes
+control: ASSIGN: the same form finds the fixture's one line: yes
+
+## the spec, pinned by the hash of its committed blob (change HB; specs/0018 close-out ruling 4)
+command: git show <phase commit>:specs/0029-engineering-close.md | sha256sum; sha256sum specs/0029-engineering-close.md (the working tree's copy, printed only)
+  the phase commit's blob: sha256 2ddd2b06105267673097508662375f7053e4b63016e1b340b6d4589385c8256a
+  the hash planning's message gave: 2ddd2b06105267673097508662375f7053e4b63016e1b340b6d4589385c8256a
+  the working tree's copy, planning's uncommitted rulings if any (change HB), not the pin: sha256 3d6390e760e5568aec5590e1a8b7e469f28e46b7316b4a474dad78d1d1884617
+the spec at the phase commit is the blob planning's message hashed: yes
+control: the same comparison refuses another spec's blob (specs/0028 at the phase commit): yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject> <phase commit>, for each role
+  P3's record commit (the base): ed0a9ef58cb63503379ac084a560e9d572d5d3ca
+  the doc commit: 2f059144a636e9b649d3a2c82beeec265286b6ab
+  the code commit (README.md, the phase commit): ad7cfecced2d06f18c57cbf5da6908860dad19bd
+command: git rev-parse <phase commit>~0 to <phase commit>~2
+    ad7cfecced2d06f18c57cbf5da6908860dad19bd
+    2f059144a636e9b649d3a2c82beeec265286b6ab
+    ed0a9ef58cb63503379ac084a560e9d572d5d3ca
+the code commit, the doc commit and P3's record commit, each the next one's parent, the code commit the phase commit (change HA): yes
+control: roles_in_order refuses the code commit named as the doc commit: yes
+command: git log --format=%s <P3's record commit>..<phase commit>
+    M3 part 7 P4: the README (decision 4 A)
+    M3 part 7 P4: commit planning docs (the P3 verification and rulings, ROADMAP, the API review record's corrections)
+  subjects in the range: 2; beginning "M3 part 7 P4: ": 2
+every commit in the range carries the phase's subject prefix: yes
+control: the same count finds one prefixed subject of three: yes
+control: a subject no commit has resolves to nothing: yes
+phase: Milestone 3 part 7 P4 (specs/0029-engineering-close.md) test.log; run at 2026-10-09T16:04:17Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log runs no cargo (change HA)
+root: <repo> stands for the repository's top level, the directory this script cds to (it lies inside <home>, so it is scrubbed first); every repository file this log reads is read at the phase commit by git show, except planning's working specs/0029 (change HH)
+root: <home> stands for the home directory of the account that ran this script; <home>/.cache/emend-build/m3p7-close holds the close-out generator, its carried copies of part 6's scripts and the three scripts it wrote (read only here)
+root: <phase> stands for <home>/.cache/emend-build/m3p7-p4, this phase's directory on the disk; <phase>/superseded keeps a superseded attempt's files, <phase>/out holds this script's own standard error (specs/0017 P1 verification ruling 7)
+root: <scripts> stands for <phase>/scripts, the directory holding this script
+root: <scratch>/w stands for this run's mktemp -d working directory, removed at exit: scripts/counting.sh is read at the phase commit into <scratch>/w/counting.sh and sourced from there; <scratch>/w/printed the scripts extracted from part 6's logs; <scratch>/w/regen the scripts gen.py writes here; <scratch>/w/fx the fixtures of the controls
+root: <target> stands for <phase>/target, the phase's one target root (specs/0001): nothing in this log builds into it
+the directory roots other than <home> and <phase>'s own children are distinct, none inside another: yes
+control: apart refuses <target>/main against <target>, which holds it: yes
+no cargo or rustc process was running at entry: yes
+RUSTUP_AUTO_INSTALL=0; CARGO_TERM_COLOR=never; CARGO_BUILD_JOBS=4; rustc 1.98.1 (48a229cea 2026-09-01)
+EMEND_KEEP_DIR set when this script started: no; unset for the whole log: yes
+EMEND_KEEP_DIR: no command of this log sets it (change HA: this log runs no crate test and no cargo)
+at entry: status lines 2; of them this phase's logs or planning's uncommitted spec 2; the lines:
+     M ROADMAP.md
+     M specs/0029-engineering-close.md
+the phase commit given to this script is a full sha: yes
+the phase commit given to this script is HEAD: yes
+control: the same comparison against the null commit says no: yes
+control: the same comparison against a short sha of the real commit says no: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 3 part 7 P4 test.log (specs/0029-engineering-close.md, "P4:
+    # the README and the list" as amended 2026-10-09, "The Excel check",
+    # "Close-out push (after P4)" as amended, and "Planning rulings during P4
+    # (2026-10-09)" rulings 3 and 4): the spec pinned by the hash of its
+    # committed blob, planning's working copy printed; the phase's three
+    # commits by role; T1 part 6's close-out push, ci-run and scan scripts,
+    # copied to <home>/.cache/emend-build/m3p7-close/carried, each equal to the
+    # text part 6's committed logs printed; T2 the counting library the
+    # close-out sources, equal to the phase commit's scripts/counting.sh, and
+    # its one line of difference from part 6's copy, which part 6's push.log
+    # printed; T3 gen.py printed and run into a scratch directory, the three
+    # scripts it writes equal to the ones on the disk; T4 each generated
+    # script's diff against part 6's, printed in full; T5 bash -n, the three
+    # shape greps with fixtures, and no non-ASCII byte, U+2014 or home path in
+    # each generated script; T6 the Excel-record check's three functions and
+    # its pre-mode section present once each, the base, record and tip
+    # patterns resolved or read; this log runs no cargo; this script's own
+    # stderr counted.
+    #
+    # Usage: m3p7-p4-test.sh <phase commit> > <file outside the tree>; the caller
+    # moves the output to records/logs/m3p7-p4/test.log. Every environment input
+    # the script reads is printed on a labelled line after its invocation line.
+    #
+    # CARRIED TO M2 part 4c P1 from part 4b P4's test script (at the phase
+    # commit 5854e34, printed in records/logs/m2p4b-p4/test.log; its change list
+    # EA to EI is there), generated by <phase>/gen/test.py, which asserts each
+    # replacement once, and grepped for P4's names, subjects, typed lists, hashes
+    # and the tokens m2p4b-p4, P4, 2b4afb62, the probe and the P4 plants in every
+    # form. What differs, and why:
+    #  FA. The phase is part 4c P1: records/logs/m2p4c-p1; the script on the disk
+    #      in <scripts>, its stderr in <phase>/out, its builds in <build>
+    #      (<phase>/test). The base is part 4b's close-out record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M2 part 4c P1: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m2p4b-p4/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m2p4c-p1/superseded.
+    #  FB. The spec is specs/0021, pinned by its COMMITTED blob (b96f97ac..., the
+    #      hash planning's message gave for the doc commit), at the phase commit.
+    #      The working tree's copy holds planning's uncommitted rulings during P1
+    #      and is printed, not pinned; the entry guard and the status block allow
+    #      that one line beside this phase's log directory and its record stems
+    #      (records/m2p4c-p1- and records/m2p4c-open-).
+    #  FC. The workspace run is shown to hold the tables module's tests, so the
+    #      feature tables was on, beside the rules and metadata modules.
+    #  FD. The crate's own tests with the feature tables off and on, on both
+    #      targets, the on run adding exactly the tables module's names.
+    #  FE. One test file is new, package/tests/tables.rs; the tests the source
+    #      adds are its fifteen, the carry's compose test in conditional.rs and
+    #      the tool's two in null_rewrite.rs, named; the source gates off no test
+    #      under tables or rules.
+    #  FF. The carry's compose test (P1 ruling 1), run alone with rules on,
+    #      beside its absence from the crate's run with the features off.
+    #  FG. The printed outputs of part 4b's creation tests are kept, and the
+    #      tables template test's two printed parts (P1: "the log prints the
+    #      output") are checked against the bytes the design gives.
+    #  FH. The calcPr block's control: a test the base lacks, the carry's compose
+    #      test.
+    #  FI. The plants: part 4b P4's three are dropped (their code is unchanged);
+    #      seven on this phase's code, each against its named test: T1 the part
+    #      writes totalsRowShown="1"; T2 the id allocation takes an id in use; T3
+    #      the write-time overlap check is skipped; T4 the header formula check is
+    #      skipped; T5 the name rule's reference test loses its grid bound (P1
+    #      ruling 5); T6 the relationship type ignores the strict form (P1 ruling
+    #      3); T7 the tool asserts two more tables instead of one.
+    #
+    # CARRIED TO M2 part 4c P2 from part 4c P1's test script (at the phase
+    # commit 40ae039, printed in records/logs/m2p4c-p1/test.log; its change list
+    # FA to FI is above), generated by <home>/.cache/emend-build/m2p4c-p2/gen/
+    # test.py, which asserts each replacement once, and grepped for P1's names,
+    # subjects, typed lists, hashes and the tokens m2p4c-p1, 4c P1, b96f97ac and
+    # the P1 plants in every form. What differs, and why:
+    #  GA. The phase is part 4c P2: records/logs/m2p4c-p2; the script on the
+    #      disk in <scripts>, its stderr in <phase>/out, its builds in <build>
+    #      (<phase>/test). The base is part 4c P1's record commit; the doc commit
+    #      and the three code commits by their full subjects, beginning "M2 part
+    #      4c P2: ". The previous phase's figures and names are read from
+    #      records/logs/m2p4c-p1/test.log. A rerun line names the superseded
+    #      directory as <home>/.cache/emend-build/m2p4c-p2/superseded.
+    #  GB. The spec is specs/0021, pinned by its COMMITTED blob (3bea86d5..., the
+    #      hash planning's message gave for the doc commit); the entry guard and
+    #      the status block allow planning's uncommitted spec should a ruling
+    #      stand there, beside this phase's log directory and its record stems
+    #      (records/m2p4c-p2- and records/m2p4c-open-).
+    #  GC. No test file is new; the tests the source adds are the removal's
+    #      five in package/tests/tables.rs, named, and no tool test (the tool
+    #      test's edits are the gate's to list).
+    #  GD. The carry's two edited tests (P1 verification ruling 5), the table
+    #      call-time test with tables on and the defined-name rule's with
+    #      metadata on, each run alone.
+    #  GE. The calcPr block's control: a test the base lacks, a removal test.
+    #  GF. The plants: part 4c P1's seven are dropped (their code is unchanged
+    #      but for the carry's helper, which R5 and R6 plant); seven on this
+    #      phase's code: R1 the removal's name match loses its case folding; R2
+    #      a tableParts left empty is kept; R3 the removed table's tablePart is
+    #      kept; R4 the table part's Override is not removed; R5 the shared
+    #      helper loses the R1C1 form; R6 it loses its grid bound, which the
+    #      defined-name test's Table1 meets; R7 the tool's removal assertion
+    #      asks for one table more.
+    #
+    # CARRIED TO M2 part 4c P3 from part 4c P2's test script (at the phase
+    # commit 6cfd504, printed in records/logs/m2p4c-p2/test.log; its change list
+    # GA to GF is above), generated by <home>/.cache/emend-build/m2p4c-p3/gen/
+    # test.py, which asserts each replacement once, and grepped for P2's names,
+    # subjects, typed lists, hashes and the tokens m2p4c-p2, 4c P2, 3bea86d5 and
+    # the P2 plants in every form. What differs, and why:
+    #  HA. The phase is part 4c P3: records/logs/m2p4c-p3; the script on the
+    #      disk in <scripts>, its stderr in <phase>/out, its builds in <build>
+    #      (<phase>/test). The base is part 4c P2's record commit; the doc commit
+    #      and the three code commits by their full subjects, beginning "M2 part
+    #      4c P3: ". The previous phase's figures and names are read from
+    #      records/logs/m2p4c-p2/test.log. A rerun line names the superseded
+    #      directory as <home>/.cache/emend-build/m2p4c-p3/superseded.
+    #  HB. The spec is specs/0021, pinned by its COMMITTED blob (61c125d0..., the
+    #      hash planning's message gave for the doc commit); the entry guard and
+    #      the status block allow planning's uncommitted spec should a ruling
+    #      stand there, beside this phase's log directory and its record stems
+    #      (records/m2p4c-p3-, records/m2p4c-open- and the size record's
+    #      records/size-m2p4c-).
+    #  HC. No test file is new; the test the source adds is the carry's removal
+    #      on a removed or replaced part in package/tests/tables.rs, named.
+    #  HD. The carry's edited removal test and its new test (P2 verification
+    #      ruling 5), each run alone with tables on.
+    #  HE. The calcPr block's control: a test the base lacks, the carry's new
+    #      test.
+    #  HF. The plants: part 4c P2's seven are dropped (their code is unchanged;
+    #      the catalogue commit changes only //! lines and the probe is not the
+    #      crate); two on the code the carry's tests check, each against the
+    #      carry's test: S1 a table removal is not among the parts a write
+    #      edits, so the removed or replaced part is not refused; S2 a removal's
+    #      rewrite drops the sheet's rows, which the removal test's cell, new in
+    #      the carry, meets. The probe needs no plant: size.log runs it and
+    #      checks its output.
+    #
+    # CARRIED TO M2 part 4d P1 from part 4c P3's test script (at the phase
+    # commit 3c5f0b7, printed in records/logs/m2p4c-p3/test.log; its change list
+    # HA to HF is above), generated by <phase>/gen/test.py, which asserts each
+    # replacement once, and grepped for P3's names, subjects, typed lists, hashes
+    # and the tokens m2p4c-p3, 4c P3, 61c125d0, the size record and the P3 plants
+    # in every form; the module, crate-run, added-test and carry checks follow
+    # part 4c P1's test script (printed in records/logs/m2p4c-p1/test.log, its
+    # changes FC to FF), the feature being new here as tables was there. What
+    # differs, and why:
+    #  IA. The phase is part 4d P1: records/logs/m2p4d-p1; the script on the disk
+    #      in <scripts>, its stderr in <phase>/out, its builds in <build>
+    #      (<phase>/test). The base is part 4c's close-out record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M2 part 4d P1: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m2p4c-p3/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m2p4d-p1/superseded.
+    #  IB. The spec is specs/0022, pinned by its COMMITTED blob (a207e175..., the
+    #      hash planning's message gave for the doc commit), at the phase commit.
+    #      The working tree's copy holds planning's uncommitted rulings during P1
+    #      and is printed, not pinned; the entry guard and the status block allow
+    #      that one line beside this phase's log directory and its record stems
+    #      (records/m2p4d-p1- and records/m2p4d-open-); no size record.
+    #  IC. The workspace run is shown to hold the comments module's tests, so the
+    #      feature comments was on, beside the rules, metadata and tables
+    #      modules.
+    #  ID. The crate's own tests with the feature comments off and on, on both
+    #      targets, the on run adding exactly the comments module's names.
+    #  IE. One test file is new, package/tests/comments.rs; the tests the source
+    #      adds are its nineteen, the carry's added-sheet removal test in
+    #      tables.rs and the tool's two in null_rewrite.rs, named; the source
+    #      gates off no test under comments, tables or rules.
+    #  IF. The carry's new test (specs/0021 P3 verification ruling 2), run alone
+    #      with tables on, beside its absence from the crate's run with the
+    #      features off; the workspace's emend binary set gains comments.
+    #  IG. The comments template test's two printed parts (P1: "the log prints
+    #      the output") are checked against the bytes the design gives, beside
+    #      the tables template test's.
+    #  IH. The calcPr block's control: a test the base lacks, the carry's new
+    #      test.
+    #  II. The plants: part 4c P3's two are dropped (their code is unchanged);
+    #      eight on this phase's code, each against its named test: U1 a text
+    #      with leading whitespace gets no xml:space; U2 K is the kept count
+    #      alone, the largest kept number ignored (P1 ruling 1); U3 o:spid is not
+    #      read (P1 ruling 2); U4 a replaced cell's kept comment is not skipped;
+    #      U5 a threaded-comments relationship is not refused; U6 the idmap
+    #      allocation reads no other VML part; U7 a legacyDrawing out of schema
+    #      order is not refused; U8 the tool asserts two more comments instead of
+    #      one.
+    #
+    # CARRIED TO M2 part 4d P3 from part 4d P1's test script (at the phase
+    # commit f7d6a7d, printed in records/logs/m2p4d-p1/test.log; its change list
+    # IA to II is above), generated by <home>/.cache/emend-build/m2p4d-p3/gen/
+    # test.py, which asserts each replacement once, and grepped for P1's names,
+    # subjects, typed lists, hashes and the tokens m2p4d-p1, 4d P1, a207e175 and
+    # the P1 plants in every form. Part 4d P2's test script
+    # (records/logs/m2p4d-p2/test.log, changes JA to JF) is not carried: a phase
+    # with no new test module and four code commits is not this phase's shape;
+    # its previous-log reading is, and this log reads part 4d P2's test.log.
+    # What differs, and why:
+    #  KA. The phase is part 4d P3: records/logs/m2p4d-p3; the script on the
+    #      disk in <scripts>, its stderr in <phase>/out, its builds in <build>
+    #      (<phase>/test). The base is part 4d P2's record commit; the doc commit
+    #      and the three code commits by their full subjects, beginning "M2 part
+    #      4d P3: ", the roles read back to <phase commit>~4. The previous
+    #      phase's figures and names are read from records/logs/m2p4d-p2/
+    #      test.log, the last test.log committed. A rerun line names the
+    #      superseded directory as <home>/.cache/emend-build/m2p4d-p3/superseded.
+    #  KB. The spec is specs/0022, pinned by its COMMITTED blob (1e5248c6..., the
+    #      hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P3 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m2p4d-p3- and records/m2p4d-open-).
+    #  KC. The workspace run is shown to hold the images module's tests, so the
+    #      feature images was on, beside the comments, tables, rules and
+    #      metadata modules.
+    #  KD. The crate's own tests with the feature images off and on, on both
+    #      targets, the on run adding exactly the images module's names.
+    #  KE. One test file is new, package/tests/images.rs; the tests the source
+    #      adds are its nineteen, the carry's shape test in comments.rs (P2
+    #      verification ruling 1 (3)) and the tool's two in null_rewrite.rs,
+    #      named; the source gates off no test under images, comments, tables or
+    #      rules.
+    #  KF. The carry's new test run alone with comments on, beside its absence
+    #      from the crate's run with the features off; the workspace's emend
+    #      binary set gains images.
+    #  KG. The images template test's three printed parts (P3: the template
+    #      "the drawing created, both rels parts created, the root retagged")
+    #      are checked against the bytes the design gives, beside the comments
+    #      template test's.
+    #  KH. The calcPr block's control: a test the base lacks, the carry's new
+    #      test.
+    #  KI. The plants: part 4d P1's eight are dropped (their code is unchanged);
+    #      eight on this phase's code, each against its named test: W1 a PNG
+    #      whose first chunk is not IHDR is read; W2 the EMU bound lets one
+    #      pixel more through; W3 the largest cNvPr id is not taken; W4 a root's
+    #      DrawingML prefix is not read; W5 the media name skips the PNG name
+    #      alone; W6 the drawing element is written before the first root child
+    #      whatever its place; W7 a root Choice's anchor is not read (P3 ruling
+    #      1); W8 the tool asserts two more images instead of one.
+    #
+    # CARRIED TO M3 part 2 P1 from part 4d P3's test script (at the phase
+    # commit b5244d6, printed in records/logs/m2p4d-p3/test.log; its change list
+    # KA to KI is above, and part 4d P1's IA to II before it), generated by
+    # <phase>/gen/test.py, which asserts each replacement once, and grepped for
+    # P3's names, subjects, typed lists, hashes and the tokens m2p4d-p3, 4d P3,
+    # 1e5248c6 and the P3 plants in every form. Part 4d P4's and Milestone 3
+    # part 1's test scripts (changes LA to OC) are not carried whole: no new
+    # test module and no new feature is their shape; their previous-log reading
+    # is, and this log reads M3 part 1 P3's test.log, the last committed. M3
+    # part 1 P1's scrub at a name boundary (NA) is carried. What differs, and
+    # why:
+    #  PA. The phase is Milestone 3 part 2 P1: records/logs/m3p2-p1; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is Milestone 3 part 1's close-out
+    #      record commit; the doc commit and the three code commits by their
+    #      full subjects, beginning "M3 part 2 P1: ", the roles read back to
+    #      <phase commit>~4. The previous phase's figures and names are read
+    #      from records/logs/m3p1-p3/test.log, the last test.log committed. A
+    #      rerun line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p2-p1/superseded.
+    #  PB. The spec is specs/0024, pinned by its COMMITTED blob (ae37a294...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P1 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p2-p1- and records/m3p2-open-).
+    #  PC. The workspace run is shown to hold the richtext module's tests, so
+    #      the feature richtext was on, beside the images, comments, tables,
+    #      rules and metadata modules.
+    #  PD. The crate's own tests with the feature richtext off and on, on both
+    #      targets, the on run adding exactly the richtext module's names.
+    #  PE. One test file is new, package/tests/richtext.rs; the tests the source
+    #      adds are its eighteen and the tool's two in null_rewrite.rs, named;
+    #      the carry adds none; the source gates off no test under richtext,
+    #      images, comments, tables or rules.
+    #  PF. The carry is //! lines alone, so it has no test to run alone; in its
+    #      place the round-trip test of the richtext module is run alone with
+    #      richtext on, beside its absence from the crate's run with the
+    #      features off; the workspace's emend binary set gains richtext.
+    #  PG. The template tests' printed parts are kept as they are: this phase
+    #      prints no new part (specs/0024 "P1" asks for literal bytes in the
+    #      tests themselves).
+    #  PH. The calcPr block's control: a test the base lacks, a richtext test.
+    #  PI. The plants: part 4d P3's eight are dropped (their code is unchanged);
+    #      ten on this phase's code, each against its named test: V1 the run's
+    #      properties written as <font>; V2 the typeface child written as name,
+    #      not rFont; V3 a val of 0 or false read as true; V4 the sparse list
+    #      looked up one item on; V5 a font's size compared as a float, not by
+    #      its bits (P1 ruling 1); V6 a run with no text not refused; V7 the
+    #      plain text before the runs not kept as a first run; V8 a font the
+    #      write would refuse kept at the read (P1 ruling 2); V9 the write's grid
+    #      check skipped for a cell edit, which the rich value off the grid
+    #      meets; V10 the tool writes the rich cell on row M + 2, which its own
+    #      read-back accepts and the tool test's sheet bytes refuse.
+    #
+    # CARRIED TO M3 part 2 P2 from P1's test script (at the phase commit
+    # 7d2f40d, printed in records/logs/m3p2-p1/test.log; its change list PA to
+    # PI is above), generated by <phase>/gen/test.py, which asserts each
+    # replacement once, and grepped for P1's names, subjects, typed lists,
+    # hashes and the tokens m3p2-p1, P1, ae37a294, b0b73334, 7d2f40d, 3cbd6fd and
+    # the P1 plants in every form. What differs, and why:
+    #  QA. The phase is Milestone 3 part 2 P2: records/logs/m3p2-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P1's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 2 P2: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p2-p1/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p2-p2/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?} (specs/0024,
+    #      "Planning rulings during P2", ruling 1).
+    #  QB. The spec is specs/0024, pinned by its COMMITTED blob (23c6111c...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P2 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p2-p2- and records/m3p2-open-).
+    #  QC. As PC: the workspace run holds the richtext and comments modules'
+    #      tests, the rich comment tests among the comments module's.
+    #  QD. The crate's own tests with four feature sets, on both targets: off,
+    #      richtext, comments, and comments with richtext. Richtext's names are
+    #      the off run's plus exactly the richtext module's; comments' are the
+    #      off run's plus exactly the comments module's, none of them the rich
+    #      module's; the pair's are comments' plus exactly the richtext module's
+    #      and the comments::rich module's.
+    #  QE. The tests the source adds are derived from the diff, not typed: one
+    #      new test file, package/tests/comments/rich.rs, every #[test] of
+    #      which is new; one test added to package/tests/richtext.rs (P1
+    #      verification ruling 4); and the tool's tests added to
+    #      null_rewrite.rs, each named for the rich comment sample. No test file
+    #      outside those three gains a test. The base tests the phase edits
+    #      (two comments tests whose entries gain their runs) are gate.log's.
+    #  QF. In place of PF's single test: ruling 4's test run alone with
+    #      richtext on, and a rich comment test run alone with comments and
+    #      richtext on, each absent from the crate's run without its features.
+    #  QG. As PG: this phase prints no new part (its tests check literal
+    #      bytes).
+    #  QH. As PH, the control's test a rich comment test, which the base lacks.
+    #  QI. The plants: P1's ten are dropped (their code is unchanged); nine on
+    #      this phase's code, each against its named test: W1 an empty run
+    #      kept as it closes; W2 a container whose every run is empty read as
+    #      Some of no runs; W3 an empty plain text after the runs kept as a
+    #      run; W4 a rich comment's run written with no rPr; W5 a phonetic
+    #      run's text given to a comment's runs; W6 a comment run's rPr not
+    #      read (looked for one level too deep); W7 a rich comment with an
+    #      empty run accepted at the call; W8 a rich comment's length limit
+    #      moved to 32768; W9 the tool writes the rich comment on row M + 2,
+    #      which its own read-back accepts and the tool test's bytes refuse.
+    #      The archive copy is extracted with tar -m: git archive stamps each
+    #      file with the commit's time, so a plant target an earlier run left
+    #      looked current to cargo and the first control ran that run's last
+    #      planted build (this phase's dry run found it; P1's run was the
+    #      first on its target and could not meet it).
+    #  QJ. The two tests run alone are run by alone_run, which prints the
+    #      command, its exit and its test lines and keeps the exit, and judged
+    #      by alone_ok, which prints nothing: attempt 1 of this log handed the
+    #      printing function to yn, so the printed lines joined the verdict and
+    #      both checks read as not yes (gotchas, 2026-09-17: a helper used as a
+    #      check condition prints nothing).
+    #
+    # CARRIED TO M3 part 2 P3 from P2's test script (at the phase commit
+    # dc33002, printed in records/logs/m3p2-p2/test.log; its change list QA to
+    # QJ is above), generated by <phase>/gen/test.py, which asserts each
+    # replacement once, and grepped for P2's names, subjects, typed lists,
+    # hashes and the tokens m3p2-p2, P2, 23c6111c, d6137d52, dc33002 and the P2
+    # plants in every form. What differs, and why:
+    #  RA. The phase is Milestone 3 part 2 P3: records/logs/m3p2-p3; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P2's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 2 P3: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p2-p2/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p2-p3/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?} (specs/0024,
+    #      "Planning rulings during P2", ruling 1): the trap's mktemp directory,
+    #      which holds the keep directory of change RD, and the shape fixture's.
+    #  RB. The spec is specs/0024, pinned by its COMMITTED blob (ca2e40a7...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy is printed, not pinned (it equals the
+    #      pin while planning has no ruling uncommitted); the entry guard and
+    #      the status block allow planning's spec beside this phase's log
+    #      directory and its record stems (records/m3p2-p3-, records/m3p2-open-
+    #      and the size record's records/size-m3p2-).
+    #  RC. Every cargo test run of this log prints the names of the tests it
+    #      failed, from its FAILED lines, or "none" (P2 verification ruling 6):
+    #      P2's run log at the rebuilt commit's predecessor printed "1 failed"
+    #      and no name. failed_names prints and is never a check's condition.
+    #  RD. The crate's tests with every feature on, on the host, are run once
+    #      without EMEND_KEEP_DIR and once with it set to a directory this run
+    #      makes inside <scratch>/w, given to that one command through env and
+    #      never exported: the same names pass, and the keep holds files, so a
+    #      keep-only failure is caught here before the run log (P2 verification
+    #      ruling 6; P2's keep-only failure reached the run log). The line "EMEND_KEEP_DIR
+    #      set when this script started: no; unset for the whole log: yes",
+    #      which the run log reads, stays: the variable is never set in this
+    #      script's own environment.
+    #  RE. The source adds and removes no test in this phase; no test file is
+    #      new; the test the phase edits (the comment call's refusal test, its
+    #      tint case, P2 verification ruling 5) is in the rich comment tests at
+    #      the base and at the phase commit. Gate.log shows its edit.
+    #  RF. The comments module's tests in the workspace run (every feature on
+    #      through the tool) against the crate's run with comments and richtext:
+    #      P2's test.log printed 43 for the first and 42 for the second. The
+    #      difference is printed by name, with the attribute lines above each
+    #      named test's fn line, and checked: the crate's names are all in the
+    #      workspace's, and each extra test carries a cfg naming a feature other
+    #      than comments and richtext, which the crate's pair run leaves off.
+    #  RG. In place of QF's two tests: the edited test run alone with comments
+    #      and richtext on, beside its absence from the run with comments alone.
+    #  RH. The calcPr block's control: the edited test, whose body differs from
+    #      the base's (no test is new in this phase, so QH's form has no
+    #      subject).
+    #  RI. The plants: P2's nine are dropped: their code is unchanged in this
+    #      phase, which changes no non-test code (gate.log's //!-line checks), and
+    #      their results are P2's test.log's. The one plant bites this phase's
+    #      test case: X1 widens the colour check's tint bound to -2.0..=2.0, so
+    #      the comment call's tint 1.5 is taken while every other case of the
+    #      refusal test is still refused (the colour check is the only one the
+    #      tint reaches), and the test fails at its loop's expect_err line; the
+    #      log checks that line against the source and that each plant fails at
+    #      a line of its own. The catalogue and the probes are not tests: the
+    #      catalogue's two sentences are gate.log's, the probes' lines size.log's.
+    #  RJ. The status patterns name this phase's log directory, its record
+    #      stems records/m3p2-p3- and records/m3p2-open-, the size record's
+    #      records/size-m3p2-, and planning's specs/0024, each with a control.
+    #
+    # CARRIED TO M3 part 3 P1 from M3 part 2 P3's test script (at the phase
+    # commit 0c3e4fa, printed in records/logs/m3p2-p3/test.log; its change list
+    # RA to RJ is above), generated by <phase>/gen/test.py, which asserts each
+    # replacement once, and grepped for P3's names, subjects, typed lists,
+    # hashes and the tokens m3p2-p3, M3 part 2 P3, ca2e40a7, 0c3e4fa, b018e52's
+    # subject and the X1 plant in every form. The feature's-first-phase checks
+    # P3 dropped come back in this phase's form, as P1 (PD, PE) and P2 (QE, QF)
+    # had them. What differs, and why:
+    #  SA. The phase is Milestone 3 part 3 P1: records/logs/m3p3-p1; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is M3 part 2's close-out record
+    #      commit; the doc commit and the three code commits by their full
+    #      subjects, beginning "M3 part 3 P1: ", the roles read back to <phase
+    #      commit>~4. The previous phase's figures and names are read from
+    #      records/logs/m3p2-p3/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p3-p1/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?} (specs/0024,
+    #      "Planning rulings during P2", ruling 1): the trap's mktemp directory,
+    #      which holds the keep directory of change RD, and the shape fixture's.
+    #  SB. The spec is specs/0025, pinned by its COMMITTED blob (c15d68d2...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P1 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p3-p1- and records/m3p3-open-).
+    #  SC. As PC: the workspace run holds the sheetprops module's tests, so the
+    #      feature sheetprops was on, beside the richtext, images, comments,
+    #      tables, rules and metadata modules.
+    #  SD. The crate's own tests with the feature sheetprops off and on, on both
+    #      targets (in place of P3's four sets of richtext and comments): the on
+    #      run's names are the off run's plus exactly the sheetprops module's,
+    #      and the off run holds none of them.
+    #  SE. The tests the source adds are derived from the diff, not typed (QE's
+    #      form in place of RE): one new test file, package/tests/sheetprops.rs,
+    #      every #[test] of which is new; one test added to
+    #      package/tests/richtext.rs and one to package/tests/comments/rich.rs
+    #      (the carry, specs/0024 close-out ruling 3), each named for the
+    #      unbound prefix; and the tool's tests added to null_rewrite.rs, each
+    #      named for the sheetview sample. No test file outside those four gains
+    #      a test. The source gates off no test under sheetprops.
+    #  SF. RF's comparison, for this phase's module: the sheetprops module's
+    #      tests in the workspace run (every feature on through the tool)
+    #      against the crate's run with sheetprops alone, the difference named
+    #      with each named test's attribute lines, and checked: the crate's
+    #      names are all in the workspace's, and each extra test carries a cfg
+    #      naming a feature other than sheetprops, which the crate's run leaves
+    #      off (the shift test needs rowcol).
+    #  SG. In place of RG's test: the carry's two tests, each run alone with its
+    #      features (richtext; comments and richtext), and the added-sheet test of
+    #      "Planning rulings during P1" ruling 1 run alone with sheetprops, each
+    #      absent from the crate's run with the features off.
+    #  SH. The calcPr block's control: a test the base lacks, the added-sheet
+    #      test of the sheetprops module (QH's form).
+    #  SI. The plants: P3's X1 is dropped (its code is unchanged). Six on this
+    #      phase's code, each against its named test, each failing at its own
+    #      assertion line: Y1 the set attributes written in reverse schema order;
+    #      Y2 a tab colour placed after <sheetPr>'s other children; Y3 a
+    #      <sheetPr> left empty kept; Y4 the zoom bound widened to 9..=401; Y5 a
+    #      <sheetPr> after a later root child taken when no tab colour is
+    #      created; Y6 the tool's kept_attrs read before the write, which its own
+    #      read-back accepts and the tool test's line refuses. The planted files
+    #      are each restored to the phase commit's bytes.
+    #  SJ. The workspace's emend binary beside the crate's runs: the crate runs
+    #      add sheetprops, which the tool now turns on.
+    #  SK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p3-p1- and records/m3p3-open-, and planning's specs/0025,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 3 P2 from P1's test script (at the phase commit
+    # 9db5f4f, printed in records/logs/m3p3-p1/test.log; its change list SA to
+    # SK is above), generated by <home>/.cache/emend-build/m3p3-p2/gen/test.py,
+    # which asserts each replacement once, and grepped for P1's names, subjects,
+    # typed lists, hashes and the tokens m3p3-p1, M3 part 3 P1, c15d68d2, the
+    # carry's unbound-prefix tests and the Y plants in every form. What
+    # differs, and why:
+    #  TA. The phase is Milestone 3 part 3 P2: records/logs/m3p3-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P1's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 3 P2: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p3-p1/test.log, the last test.log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p3-p2/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?}.
+    #  TB. The spec is specs/0025, pinned by its COMMITTED blob (6c6e87e3...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P2 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p3-p2- and records/m3p3-open-).
+    #  TE. The tests the source adds, derived from the diff: no new test file;
+    #      package/tests/sheetprops.rs gains tests and keeps every test the base
+    #      had, the carry's test (P1 verification ruling 2, the view on a part
+    #      with two sheetPr) among them; the tool's added tests in
+    #      null_rewrite.rs are each named for the pagesetup sample; no other file
+    #      gains a test.
+    #  TG. In place of SG's: the carry's test and P2's added-sheet test, each
+    #      run alone with sheetprops, each absent from the crate's run with the
+    #      features off.
+    #  TH. The calcPr block's control: a test the base lacks, P2's section test.
+    #  TI. The plants: P1's Y plants are dropped (their code is P1's). Six on
+    #      P2's code, each against its named test, each failing at its own
+    #      assertion line: Z1 a page setup field merged first call wins; Z2 the
+    #      settings elements created without the bound below the elements the
+    #      rewrite creates, so they land before a created <mergeCells>; Z3 a
+    #      header text appended after the other children rather than in schema
+    #      order; Z4 fitToPage not set on an existing <pageSetUpPr>; Z5 a created
+    #      <pageMargins>'s top default 0.7 for 0.75; Z6 copies of zero accepted.
+    #      assert_line takes the assertion's text as one line or, joined by
+    #      " >> ", as that line and the lines after it, so an assertion whose
+    #      first line a test repeats is found by the lines that follow it; a
+    #      control for each form. The planted files are each restored to the
+    #      phase commit's bytes.
+    #  TK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p3-p2- and records/m3p3-open-, and planning's specs/0025,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 3 P3 from P2's test script (at the phase commit
+    # a6cf46f, printed in records/logs/m3p3-p2/test.log; its change list TA to
+    # TK is above), generated by <home>/.cache/emend-build/m3p3-p3/gen/test.py,
+    # which asserts each replacement once, and grepped for P2's names, subjects,
+    # typed lists, hashes and the tokens m3p3-p2, M3 part 3 P2, 6c6e87e3, the
+    # carry's view test and the Z plants in every form. What differs, and why:
+    #  UA. The phase is Milestone 3 part 3 P3: records/logs/m3p3-p3; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P2's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 3 P3: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p3-p2/test.log. A rerun line names the superseded
+    #      directory as <home>/.cache/emend-build/m3p3-p3/superseded. Every rm
+    #      -rf is on a directory this run made, written with ${var:?}.
+    #  UB. The spec is specs/0025, pinned by its COMMITTED blob (338f0e8b...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P3 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p3-p3- and records/m3p3-open-).
+    #  UD. The crate's own runs gain a third feature set, sheetprops with
+    #      metadata, on both targets: none of the print module's tests runs with
+    #      the features off or with sheetprops alone, every one of them (as many
+    #      as the file holds at the phase commit) runs with the two, which lose
+    #      none of the sheetprops run's names but the test the feature metadata
+    #      gates off, which is checked only in the two sets that leave metadata
+    #      off.
+    #  UE. The tests the source adds, derived from the diff: one new test file,
+    #      package/tests/names/print.rs, every test of it added; images.rs gains
+    #      exactly the carry's test (P2 verification ruling 2); the tool's added
+    #      tests in null_rewrite.rs are each named for the printarea sample; no
+    #      other file gains a test.
+    #  UG. In place of TG's: the carry's test run alone with images, sheetprops
+    #      and metadata, and P3's sheet-removal test run alone with sheetprops
+    #      and metadata, each absent from the crate's run with the features off.
+    #  UH. The calcPr block's control: a test the base lacks, P3's
+    #      calculation-chain test.
+    #  UI. The plants: P2's Z plants are dropped (their code is P2's). Six on
+    #      P3's code, each against its named test, each failing at its own
+    #      assertion line: W1 a sheet's name quoted without its apostrophe
+    #      doubled; W2 the parts of a built-in name's text joined in reverse, so
+    #      the rows come before the columns; W3 the filter database not hidden;
+    #      W4 the three built-in names under the formula-change rule at the
+    #      write (the chain dropped, so the test fails at its untouched-parts
+    #      assertion); W5 a replaced autoFilter's children kept; W6 the
+    #      overlap check reading every table's ref as a far cell. assert_line
+    #      reads its text from the environment, not through awk -v, so a
+    #      backslash in the source's line is compared as written; a control.
+    #  UK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p3-p3- and records/m3p3-open-, and planning's specs/0025,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 4 P1 from M3 part 3 P3's test script (at the phase
+    # commit 5c1a6b3, printed in records/logs/m3p3-p3/test.log; its change list
+    # UA to UK is above; part 3 P4's was a catalogue-and-probes phase),
+    # generated by <home>/.cache/emend-build/m3p4-p1/gen/test.py, which asserts
+    # each replacement's count, and grepped for P3's names, subjects, typed
+    # lists, hashes and the tokens m3p3-p3, M3 part 3 P3:, 338f0e8b, the carry's
+    # images test, the print module and the W plants in every form. What
+    # differs, and why:
+    #  WA. The phase is Milestone 3 part 4 P1: records/logs/m3p4-p1; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is part 3's close-out record commit;
+    #      the doc commit and the three code commits by their full subjects,
+    #      beginning "M3 part 4 P1: ", the roles read back to <phase
+    #      commit>~4. The previous phase's figures and names are read from
+    #      records/logs/m3p3-p4/test.log (the close-out ran no test log). A
+    #      rerun line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p4-p1/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?}.
+    #  WB. The spec is specs/0026, pinned by its COMMITTED blob (36fa82a5...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P1 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p4-p1- and records/m3p4-open-).
+    #  WC. The workspace run's module list gains the grouping module, whose
+    #      tests compile only with rowcol.
+    #  WD. The crate's own runs are the features off, rowcol alone and rowcol
+    #      with sheetprops, on both targets: no grouping test runs with the
+    #      features off, every one of them (as many as the file holds at the
+    #      phase commit) runs in the two runs with rowcol; the rowcol run passes
+    #      every name of the off run and the pair every name of the rowcol run,
+    #      each with more; the test the feature metadata gates off runs in all
+    #      three, metadata being off in each.
+    #  WE. The tests the source adds, derived from the diff: one new test file,
+    #      package/tests/grouping.rs, every test of it added; the tool's added
+    #      tests in null_rewrite.rs are each named for the group sample; no
+    #      other file gains a test. No test is gated off under rowcol.
+    #  WF. The workspace run's grouping tests beside the crate's run with
+    #      rowcol, in place of the sheetprops module beside sheetprops.
+    #  WG. In place of UG's: two grouping tests run alone with rowcol alone,
+    #      the summary test (outlinePr through the settings pass with
+    #      sheetprops off) and the write-refusals test, each absent from the
+    #      crate's run with the features off.
+    #  WH. The calcPr block's control: a test the base lacks, P1's
+    #      write-refusals test.
+    #  WI. The plants: P3's W plants are dropped (their tests are P3's). Seven
+    #      on P1's code, each against its named test, each failing at its own
+    #      assertion line, on created and kept cases: X1 a level no longer
+    #      creates an absent row (created); X2 a file maximum equal to the
+    #      write's level rewritten (kept); X3 created columns never coalesced
+    #      (created); X4 an element the write did not touch merged (kept); X5
+    #      the summary merged into pageSetUpPr instead of a created outlinePr
+    #      (created); X6 hidden false recorded as no edit, so a hidden row keeps
+    #      it (kept); X7 the tool's rows_present window one row wide, so the
+    #      sample's own row count fails on present rows (kept, the tool test).
+    #  WK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p4-p1- and records/m3p4-open-, and planning's specs/0026,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 4 P2 from M3 part 4 P1's test script (at the phase
+    # commit 93a92d5, printed in records/logs/m3p4-p1/test.log; its change list
+    # WA to WK is above), generated by
+    # <home>/.cache/emend-build/m3p4-p2/gen/test.py, which asserts each
+    # replacement's count, and grepped for P1's names, subjects, typed lists,
+    # hashes and the tokens m3p4-p1, M3 part 4 P1:, 36fa82a5, the grouping
+    # module's tests and the X plants over the header's paragraph and usage
+    # lines and the whole body. What differs, and why:
+    #  YA. The phase is Milestone 3 part 4 P2: records/logs/m3p4-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P1's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 4 P2: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p4-p1/test.log. A rerun line names the superseded
+    #      directory as <home>/.cache/emend-build/m3p4-p2/superseded. Every
+    #      rm -rf is on a directory this run made, written with ${var:?}. The
+    #      usage line names this phase's log directory (P1's named part 3 P3's).
+    #  YB. The spec is specs/0026, pinned by its COMMITTED blob (5f0a8192...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P2 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p4-p2- and records/m3p4-open-).
+    #  YC. The workspace run's module list gains the linestyle module, whose
+    #      tests compile only with rowcol.
+    #  YD. The crate's own runs as P1's, the module counted the linestyle
+    #      module: none of its tests runs with the features off, every one of
+    #      them runs in the two runs with rowcol.
+    #  YE. The tests the source adds, derived from the diff: one new test file,
+    #      package/tests/linestyle.rs, every test of it added; the carry adds
+    #      exactly two tests to package/tests/grouping.rs (the whitespace merge
+    #      and the hidden-alone bytes, P1 verification rulings 2 and 4); the
+    #      tool's added tests in null_rewrite.rs are each named for the line
+    #      style sample; no other file gains a test. No test is gated off under
+    #      rowcol.
+    #  YF. The workspace run's linestyle tests beside the crate's run with
+    #      rowcol, in place of the grouping module's.
+    #  YG. Two linestyle tests run alone with rowcol alone: the call refusals
+    #      and the index past cellXfs refused at the write, each absent from the
+    #      crate's run with the features off.
+    #  YH. The calcPr block's control: a test the base lacks, P2's index test.
+    #  YI. The plants: P1's X plants are dropped (their tests are P1's). Six on
+    #      P2's code, each against its named test, each failing at its own
+    #      assertion line, on created and kept cases: Y1 a row style no longer
+    #      creates an absent row (created); Y2 customFormat written 0 on a
+    #      present row (kept); Y3 the style call left out of the coalescing, so
+    #      created columns stay apart (created); Y4 the write's index check
+    #      blind to a line style (the index); Y5 a column style written as s on
+    #      the split piece (kept); Y6 the line style sample's row count blind to
+    #      a present row M + 1 (kept, the tool test).
+    #  YK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p4-p2- and records/m3p4-open-, and planning's specs/0026,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 5 P1 from M3 part 4 P2's test script (at the phase
+    # commit 8416a1e, printed in records/logs/m3p4-p2/test.log; its change list
+    # YA to YK is above), generated by
+    # <home>/.cache/emend-build/m3p5-p1/gen/test.py, which asserts each
+    # replacement's count, and grepped for P2's names, subjects, typed lists,
+    # hashes and the tokens m3p4-p2, M3 part 4 P2:, 5f0a8192, the linestyle
+    # module's tests and the Y plants over the header's paragraph and usage
+    # lines and the whole body. What differs, and why:
+    #  ZA. The phase is Milestone 3 part 5 P1: records/logs/m3p5-p1; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is part 4's close-out record commit;
+    #      the doc commit and the four code commits by their full subjects,
+    #      beginning "M3 part 5 P1: ", the roles read back to <phase
+    #      commit>~5. The previous phase's figures and names are read from
+    #      records/logs/m3p4-p3/test.log, the last test log committed. A rerun
+    #      line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p5-p1/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?}.
+    #  ZB. The spec is specs/0027, pinned by its COMMITTED blob (a655b5fd...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted ruling
+    #      during P1 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p5-p1- and records/m3p5-open-).
+    #  ZC. The workspace run's module list gains the readback module, whose
+    #      tests compile only with read, which the tool turns on.
+    #  ZD. The crate's own runs over the features off, read alone, richtext
+    #      alone (the font reader both share) and read with richtext, on both
+    #      targets: no readback test runs without read and every one with it;
+    #      the core count test the feature read gates off runs without read and
+    #      not with it; each run passes every name of the run before it but
+    #      that test, and more.
+    #  ZE. The tests the source adds, derived from the diff: two new files hold
+    #      tests, package/tests/readback.rs (every test of it added) and the new
+    #      module styles/read.rs (none, it holds no test); the tool's added
+    #      tests in null_rewrite.rs are each named for the round-trip sample;
+    #      no other file gains a test. The feature read gates off exactly one
+    #      test, the core count test in styles/tests.rs, which the base ran
+    #      everywhere; the workspace run, built with read, loses it, and the
+    #      names it lost are the source's removed tests and the tests newly
+    #      gated off under metadata or read.
+    #  ZF. The workspace run's readback tests beside the crate's run with read,
+    #      in place of the linestyle module's.
+    #  ZG. Two readback tests run alone with read alone: the refusal of a child
+    #      outside the namespace or unknown to the type, and the round trip of
+    #      each value, each absent from the crate's run with the features off.
+    #  ZH. The calcPr block's control: a test the base lacks, P1's round trip.
+    #  ZI. The plants: P2's Y plants are dropped (their tests are part 4's). Six
+    #      on P1's code, each against its named test, each failing at its own
+    #      assertion line, on values read and values written back: Z1 a
+    #      patternFill without patternType reads as solid (read); Z2 a flag
+    #      spelt true reads false (read); Z3 a border side's colour dropped, so
+    #      the appended element is not the one read (written); Z4 a theme
+    #      colour's tint dropped (read); Z5 an xf's alignment not resolved
+    #      (read); Z6 the round-trip sample's read-back equality inverted
+    #      (written, the tool test).
+    #  ZJ. The workspace's emend unit-test binary: the tool turns read on, so
+    #      both crate runs beside it carry read with the nine features before.
+    #  ZK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p5-p1- and records/m3p5-open-, and planning's specs/0027,
+    #      each with a control; no size record in this phase.
+    #
+    # CARRIED TO M3 part 5 P2 from M3 part 5 P1's test script (at the phase
+    # commit e727b25, printed in records/logs/m3p5-p1/test.log; its change list
+    # ZA to ZK is above), generated by
+    # <home>/.cache/emend-build/m3p5-p2/gen/test.py, which asserts each
+    # replacement's count, and grepped for P1's names, subjects, typed lists,
+    # hashes and the tokens m3p5-p1, M3 part 5 P1:, a655b5fd, the Z plants and
+    # the two readback tests P1 ran alone over the header's paragraph and usage
+    # lines and the whole body. What differs, and why:
+    #  VA. The phase is Milestone 3 part 5 P2: records/logs/m3p5-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P1's record commit; the doc
+    #      commit and the three code commits by their full subjects, beginning
+    #      "M3 part 5 P2: ", the roles read back to <phase commit>~4. The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p5-p1/test.log. A rerun line names the superseded
+    #      directory as <home>/.cache/emend-build/m3p5-p2/superseded. Every
+    #      rm -rf is on a directory this run made, written with ${var:?}.
+    #  VB. The spec is specs/0027, pinned by its COMMITTED blob (5acfcd85...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy holds planning's uncommitted rulings
+    #      during P2 and is printed, not pinned; the entry guard and the status
+    #      block allow that one line beside this phase's log directory and its
+    #      record stems (records/m3p5-p2-, records/m3p5-open- and
+    #      records/m3p5-scale-d-items-).
+    #  VC. The workspace run's module list gains the sheetread module, whose
+    #      tests compile only with read, which the tool turns on.
+    #  VD. The crate's own runs over the features off, read alone, richtext
+    #      alone and read with richtext, on both targets, as P1's, with the
+    #      sheetread module beside the readback module: no sheetread test runs
+    #      without read; with read, every sheetread test runs but those whose
+    #      attribute lines carry a cfg besides (read from the source: one, the
+    #      writers' forms test, under sheetprops, metadata and rowcol), which the
+    #      run with every feature on holds, on the host and on i686.
+    #  VE. The tests the source adds, derived from the diff: one new file holds
+    #      tests, package/tests/sheetread.rs (every test of it added); the
+    #      readback module gains exactly the tests code commit 1 adds to it; the
+    #      tool's added tests in null_rewrite.rs are each named for the
+    #      round-trip or the read sample; no other file gains a test. The
+    #      feature read gates off the core count test at the base and at the
+    #      phase commit alike, so the workspace run loses no name.
+    #  VF. The workspace run's readback and sheetread tests beside the crate's
+    #      run with read, each test in the first and not the second carrying a
+    #      cfg naming a feature the read run leaves off.
+    #  VG. Two sheetread tests run alone with read alone: the refusal of a value
+    #      that does not parse or lies outside the writer's range, and the table
+    #      walked item by item, each absent from the crate's run with the
+    #      features off.
+    #  VH. The calcPr block's control: a test the base lacks, P2's row reader.
+    #  VI. The plants: P1's Z plants are dropped (their tests are P1's). Six on
+    #      P2's code, each against its named test, each failing at its own
+    #      assertion line, on values read (created by the read) and values the
+    #      writers wrote read back (kept through a write): V1 a row without r
+    #      numbered as the row before (read); V2 an absent protection attribute
+    #      read as false, not the struct's default (read); V3 a hyperlink's URL
+    #      kept escaped (read); V4 a table item's text trimmed (read); V5 a
+    #      frozen pane read as split, so the writers' frozen pane reads back as
+    #      none (written); V6 the read sample's item-text comparison inverted
+    #      (the tool test).
+    #  VJ. The workspace's emend unit-test binary: as P1's, the ten features.
+    #  VK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p5-p2-, records/m3p5-open- and records/m3p5-scale-d-items-,
+    #      and planning's specs/0027, each with a control.
+    #
+    # CARRIED TO M3 part 6 P1 from M3 part 5 P2's test script (at the phase
+    # commit 6ec0055, printed in records/logs/m3p5-p2/test.log; its change list
+    # VA to VK is above), generated by
+    # <home>/.cache/emend-build/m3p6-p1/gen/test.py, which asserts each
+    # replacement's count, and grepped for P2's names, subjects, typed lists,
+    # hashes and the tokens m3p5-p2, M3 part 5 P2:, 5acfcd85, the V plants and
+    # the two sheetread tests P2 ran alone over the header's paragraph and usage
+    # lines and the whole body. M3 part 5 P3's test script (LA to LK) adds no
+    # rule that binds here beyond its phase's names. What differs, and why:
+    #  NA. The phase is Milestone 3 part 6 P1: records/logs/m3p6-p1; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is part 5's close-out record commit;
+    #      the doc commit and the two code commits by their full subjects,
+    #      beginning "M3 part 6 P1: ", the roles read back to <phase commit>~3.
+    #      The previous phase's figures and names are read from
+    #      records/logs/m3p5-p3/test.log, the last test log before the base. A
+    #      rerun line names the superseded directory as
+    #      <home>/.cache/emend-build/m3p6-p1/superseded. Every rm -rf is on a
+    #      directory this run made, written with ${var:?}.
+    #  NB. The spec is specs/0028, pinned by its COMMITTED blob (8adfe67c...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy is printed, not pinned; the entry
+    #      guard and the status block allow ` M specs/0028-...` (planning's,
+    #      should it rule mid-phase) beside this phase's log directory and its
+    #      record stems (records/m3p6-p1- and records/m3p6-open-).
+    #  ND. The crate's own runs over the features off, comments alone, richtext
+    #      alone and comments with richtext, on both targets, in place of P2's
+    #      read sets: no boxes test runs without comments; with comments alone
+    #      every boxes test runs but those whose attribute lines carry a cfg
+    #      besides (read from the source: one, the rich comment's box, under
+    #      richtext); with both, every boxes test; the run with every feature on
+    #      holds every one, on the host and on i686. The core count test the
+    #      feature read gates off runs in all four sets, none of which turns read
+    #      on, so no run loses a name of the run before it.
+    #  NE. The tests the source adds, derived from the diff: one new file holds
+    #      tests, package/tests/comments/boxes.rs (every test of it added); the
+    #      tool's added tests in null_rewrite.rs are each named for the comment
+    #      box sample; no other file gains a test (comments.rs and rich.rs edit
+    #      three tests and add a helper, the gate pins the edits). The feature
+    #      read gates off the core count test at the base and at the phase commit
+    #      alike, so the workspace run loses no name.
+    #  NF. The workspace run's boxes tests beside the crate's run with comments,
+    #      each test in the first and not the second carrying a cfg naming a
+    #      feature the comments run leaves off.
+    #  NG. Two boxes tests run alone with comments alone: the shown box's points
+    #      and visible child, and the read of points, pixels, the visible child
+    #      and no size, each absent from the crate's run with the features off.
+    #  NH. The calcPr block's control: a test the base lacks, this phase's
+    #      default-box test.
+    #  NI. The plants: P2's V plants are dropped (their tests are P2's). Six on
+    #      this phase's code, each against its named test, each failing at its
+    #      own assertion line, on shapes the writer creates and shapes the read
+    #      takes from a kept part: N1 three quarters of 1 pixel printed .2
+    #      (created); N2 the x:Visible child not written (created); N3 the
+    #      default box 145 pixels wide, so an unset box no longer writes the
+    #      bytes it wrote before (created); N4 points read at three quarters
+    #      rather than four thirds, so the 65535 limit does not read back
+    #      (created, then read); N5 an x:Visible child read as hidden (kept);
+    #      N6 the box sample's equality inverted (the tool test).
+    #  NK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p6-p1- and records/m3p6-open-, and planning's specs/0028,
+    #      each with a control; no size or scale record in this phase.
+    #
+    # CARRIED TO M3 part 6 P2 from M3 part 6 P1's test script (at the phase
+    # commit 2adf953, printed in records/logs/m3p6-p1/test.log; its change list
+    # NA to NK is above), generated by
+    # <home>/.cache/emend-build/m3p6-p2/gen/test.py, which asserts each
+    # replacement's count, and grepped for P1's names, subjects, typed lists,
+    # hashes and the tokens m3p6-p1, M3 part 6 P1:, 8adfe67c, the N plants and
+    # the two boxes tests P1 ran alone over the header's paragraph and usage
+    # lines and the whole body. What differs, and why:
+    #  MA. The phase is Milestone 3 part 6 P2: records/logs/m3p6-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out, its builds in
+    #      <build> (<phase>/test). The base is P1's record commit; the doc commit
+    #      and the two code commits by their full subjects, beginning "M3 part 6
+    #      P2: ", the roles read back to <phase commit>~3. The previous phase's
+    #      figures and names are read from records/logs/m3p6-p1/test.log, the
+    #      last test log before the base. Every rm -rf is on a directory this
+    #      run made, written with ${var:?}.
+    #  MB. The spec is specs/0028, pinned by its COMMITTED blob (5c3d3d1a...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy is planning's uncommitted "Planning
+    #      rulings during P2" (daef841a...), printed, not pinned; the entry
+    #      guard and the status block allow ` M specs/0028-...` beside this
+    #      phase's log directory and its record stems (records/m3p6-p2- and
+    #      records/m3p6-open-).
+    #  MD. The crate's own runs over the features off, images alone, rowcol
+    #      alone and images with rowcol, on both targets, in place of P1's
+    #      comments sets: no anchors or removal test runs without images; with
+    #      images alone every one runs (no test of the two modules carries a cfg
+    #      besides the module's, read from the source); with both, every one;
+    #      the run with every feature on holds every one, on the host and on
+    #      i686. The core count test the feature read gates off runs in all four
+    #      sets, none of which turns read on.
+    #  ME. The tests the source adds, derived from the diff: two new files hold
+    #      tests, package/tests/images/anchors.rs and package/tests/images/
+    #      removal.rs (every test of each added); the tool's added tests in
+    #      null_rewrite.rs are each named for the anchor or the image removal
+    #      sample; no other file gains a test (images.rs gains two mod lines).
+    #  MF. The workspace run's anchors and removal tests beside the crate's run
+    #      with images, each test in the first and not the second carrying a cfg
+    #      naming a feature the images run leaves off (none expected).
+    #  MG. Two of the new tests run alone with images alone: the two-cell
+    #      anchor's editAs, from and to for each value, and the removal of the
+    #      middle of three anchors, each absent from the crate's run with the
+    #      features off.
+    #  MH. The calcPr block's control: a test the base lacks, this phase's
+    #      one-cell offsets test.
+    #  MI. The plants: P1's N plants are dropped (their tests are P1's). Six on
+    #      this phase's code, each against its named test, each failing at its
+    #      own assertion line, on anchors the writer creates and drawings the
+    #      removal takes from a kept part: M1 an offset's EMU one more (created);
+    #      M2 editAs oneCell written as twoCell (created); M3 a relationship only
+    #      the removed anchor named kept (kept); M4 a media entry another
+    #      drawing reaches dropped, the reach not consulted (kept); M5 a drawing
+    #      left with no anchor kept (kept); M6 the removal sample's own media
+    #      count inverted (the tool test).
+    #  MK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p6-p2- and records/m3p6-open-, and planning's specs/0028,
+    #      each with a control.
+    #
+    # CARRIED TO M3 part 6 P3 from M3 part 6 P2's test script (at the phase
+    # commit d3c4a9c, printed in records/logs/m3p6-p2/test.log; its change list
+    # MA to MK is above), generated by
+    # <home>/.cache/emend-build/m3p6-p3/gen/test.py, which asserts each
+    # replacement's count, and grepped for P2's names, subjects, typed lists,
+    # hashes and the tokens m3p6-p2-, M3 part 6 P2:, 5c3d3d1a, the M plants and
+    # the two anchors and removal tests P2 ran alone over the header's paragraph
+    # and usage lines and the whole body. What differs, and why:
+    #  LA. The phase is Milestone 3 part 6 P3: records/logs/m3p6-p3; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out. The base is P2's
+    #      record commit; the doc commit, the carry commit and the two code
+    #      commits by their full subjects, beginning "M3 part 6 P3: ", the roles
+    #      read back to <phase commit>~4. The previous phase's figures and names
+    #      are read from records/logs/m3p6-p2/test.log, the last test log before
+    #      the base. Every rm -rf is on a directory this run made, written with
+    #      ${var:?}.
+    #  LB. The spec is specs/0028, pinned by its COMMITTED blob (38ab45c5...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy is planning's uncommitted "Planning
+    #      rulings during P3", printed, not pinned; the entry guard and the
+    #      status block allow ` M specs/0028-...` beside this phase's log
+    #      directory and its record stems (records/m3p6-p3- and
+    #      records/m3p6-open-).
+    #  LC. The workspace run is shown to hold the copy module's tests, so the
+    #      new feature copy was on through the tool's dependency.
+    #  LD. The crate's own runs over the features off, copy alone, comments
+    #      alone and copy with comments, on both targets, in place of P2's
+    #      images sets: no copy test runs without copy; with copy alone every
+    #      copy test but those gated on comments runs, the one gated off under
+    #      comments among them; with copy and comments every one but the one
+    #      gated off under comments; the run with every feature on, on the host
+    #      and on i686, likewise. The core count test the feature read gates off
+    #      runs in all four sets, none of which turns read on. The run with copy
+    #      and comments passes every name of the copy run but the one gated off
+    #      under comments, read from the source.
+    #  LE. The tests the source adds, derived from the diff: one new file holds
+    #      tests, package/tests/copy.rs (every test of it added); the tool's
+    #      added tests in null_rewrite.rs are each named for the copy sample; no
+    #      other file gains a test (tests.rs gains a mod line). The phase gates
+    #      off under the feature comments exactly one test, the copy test of a
+    #      source with comments under a build without them, which the base did
+    #      not; the workspace run, with comments on through the tool, does not
+    #      run it, so the names it adds are the source's less that one, and that
+    #      test is shown passing in the crate's run with copy alone on both
+    #      targets.
+    #  LF. The workspace run's copy tests beside the crate's run with copy and
+    #      comments, each test in the first and not the second carrying a cfg
+    #      naming a feature that run leaves off (none expected).
+    #  LG. Three of the new tests run alone: the full copy's literal with copy
+    #      alone, the comment carry with copy and comments, and the comments
+    #      refusal with copy alone, each absent from the crate's run with the
+    #      features off.
+    #  LH. The calcPr block's control: a test the base lacks, this phase's
+    #      formula copy test.
+    #  LI. The plants: P2's M plants are dropped (their tests are P2's). Eleven
+    #      on this phase's code, each against its named test, each failing at
+    #      an assertion line of its test: L1 codeName kept, L2 tabSelected kept,
+    #      L3 pageSetup's r:id kept, L4 tableParts not dropped, L5 a root
+    #      AlternateContent of dropped elements kept, L6 every relationship of
+    #      the source carried, not the hyperlinks alone, L7 the comments part's
+    #      first byte lost, L8 the source's boxes not carried, L9 the formula
+    #      rule not applied, L10 an edited source not refused, L11 the copy
+    #      sample's cell count check inverted (the tool test). L1 to L3 share
+    #      the full copy test's one literal, the only test that holds codeName,
+    #      tabSelected or pageSetup's r:id, so the distinct-line check counts
+    #      them as one line and checks the three agree on it; every other plant
+    #      fails at a line of its own.
+    #  LK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p6-p3- and records/m3p6-open-, and planning's specs/0028,
+    #      each with a control.
+    #  LL. Ruling 8 (specs/0028, "Planning rulings during P2", item 8): one
+    #      target ROOT for the phase, <phase>/target, written <target>, in place
+    #      of P2's <phase>/test with its target, crate-target and plant-target;
+    #      nothing here cleans it.
+    #  LM. Ruling 10 (specs/0028, "Planning rulings during P3", item 10): under
+    #      the root, one subdirectory per source tree, the same profiles as
+    #      before: CARGO_TARGET_DIR=<target>/main for every build of <repo>
+    #      (the workspace runs, the crate's own runs, the runs after the
+    #      plants) and <target>/plant for the plants' archive copy. Why: cargo
+    #      writes dep-info paths relative to the package root, so a build from
+    #      the plants' copy, its files extracted with fresh times, into the
+    #      directory the main tree used left mutant artifacts the main tree's
+    #      older sources then counted as fresh (the gate's dry attempts ran a
+    #      mutant until the shared target was cleaned by hand). The log checks
+    #      the plant artifacts sit under <target>/plant and the main tree's
+    #      under <target>/main, and, after the plants, runs the main tree's copy
+    #      tests and the tool's copy sample tests again as a control that
+    #      nothing leaked: the same names pass as before the plants.
+    #
+    # CARRIED TO M3 part 6 P4 from M3 part 6 P3's test script (at the phase
+    # commit 6a90674, printed in records/logs/m3p6-p3/test.log; its change list
+    # LA to LM is above), generated by
+    # <home>/.cache/emend-build/m3p6-p4/gen/test.py, which asserts each
+    # replacement's count, and grepped for P3's subjects, hashes, carry, tool
+    # tests and plants and the tokens m3p6-p3-, 38ab45c5 and rulings during P3
+    # over the header's paragraph and usage lines and the whole body. What
+    # differs, and why:
+    #  DA. The phase is Milestone 3 part 6 P4: records/logs/m3p6-p4; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out. The base is P3's
+    #      record commit; the doc commit and the two code commits by their full
+    #      subjects, beginning "M3 part 6 P4: ", the roles read back to <phase
+    #      commit>~3 (P4 has no carry; ruling 4 of P4 makes the xml prefix a code
+    #      commit of its own, before the catalogue and probes commit). The
+    #      previous phase's figures and names are read from
+    #      records/logs/m3p6-p3/test.log, the last test log before the base.
+    #      Every rm -rf is on a directory this run made, written with ${var:?}.
+    #  DB. The spec is specs/0028, pinned by its COMMITTED blob (81069c65...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit. The working tree's copy is planning's uncommitted "Planning
+    #      rulings during P4", printed, not pinned; the entry guard and the
+    #      status block allow ` M specs/0028-...` beside this phase's log
+    #      directory and its record stems (records/m3p6-p4-, records/m3p6-open-
+    #      and records/size-m3p6-, the size record this phase's size log writes).
+    #  DD. The crate's own runs as P3's: the features off, copy alone, comments
+    #      alone and copy with comments, on both targets, and every feature on
+    #      the host and on i686 (P3 ruling 11 T2, kept); the Scope test code
+    #      commit 1 adds, in a core module, is shown passing in all four sets on
+    #      both targets.
+    #  DE. The tests the source adds, derived from the diff: no test file is
+    #      new; code commit 1 adds one test to xml/tests.rs and one to
+    #      package/tests/copy.rs, code commit 2 adds none (the probes are run by
+    #      the size log, the catalogue is doc comments), and no other file gains
+    #      a test. The copy test gated off under comments is the base's as well
+    #      (P3 added it), so the phase gates off nothing new under comments.
+    #  DG. In place of P3's three: the two new tests run alone, the Scope test
+    #      with the features off and the copy test with copy alone; the copy
+    #      test is absent from the crate's run with the features off.
+    #  DH. The calcPr block's control: a test the base lacks, code commit 1's
+    #      copy test.
+    #  DI. The plants: P3's L plants are dropped (their code is P3's and
+    #      unchanged). Four rows on code commit 1's Scope fallback in
+    #      crates/emend/src/xml.rs: D1, the fallback taken from xml (it answers
+    #      a prefix no document uses), against the Scope test, failing at the
+    #      resolve's expect; D1c, the same plant against the copy test, failing
+    #      at the write; D2, the fallback answering another namespace, against
+    #      the Scope test, failing at its namespace assertion; D2c, the same
+    #      plant against the copy test, which still passes (the copy refuses a
+    #      relationships attribute, not an attribute of another namespace),
+    #      shown as a row whose test must pass planted. The three failing rows
+    #      fail at three distinct lines.
+    #  DJ. After the plants, the main tree's xml tests (features off) and copy
+    #      tests (copy with comments) run again, the same names as before them
+    #      (ruling 10's control, as P3's change LM; the tool's copy sample
+    #      tests are no longer named, since P4 adds no tool test).
+    #  DK. The status patterns name this phase's log directory, its record stems
+    #      records/m3p6-p4-, records/m3p6-open- and records/size-m3p6-, and
+    #      planning's specs/0028, each with a control.
+    #  DL. Ruling 10 carried: the phase's target root <phase>/target, written
+    #      <target>, now P4's; <target>/main for <repo>, <target>/plant for the
+    #      plants.
+    #
+    # CARRIED TO M3 part 7 P2 from M3 part 6 P4's test script (at the phase
+    # commit 9cfd92e, printed in records/logs/m3p6-p4/test.log; its change list
+    # DA to DL is above), generated by
+    # <home>/.cache/emend-build/m3p7-p2/gen/test.py, which asserts each
+    # replacement's count, and grepped for P4's subjects, hashes, roles, tests
+    # and plants over the body. M3 part 7 P1's test log ran no crate test (P1
+    # changed scripts only), so P4's is the frame. What differs, and why:
+    #  FA. The phase is Milestone 3 part 7 P2: records/logs/m3p7-p2; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out. The base is P1's
+    #      record commit ("M3 part 7 P1 record:"); the doc commit and the one
+    #      code commit, the phase commit, by their full subjects, beginning "M3
+    #      part 7 P2: ", the roles read back to <phase commit>~2. The previous
+    #      phase's names and total are read from records/logs/m3p6-p4/test.log,
+    #      the last test log with crate runs before the base (P1's ran none and
+    #      changed no test). Every rm -rf is on a directory this run made,
+    #      written with ${var:?}.
+    #  FB. The spec is specs/0029, pinned by its COMMITTED blob (639b630c...,
+    #      the hash planning's brief gave for the doc commit), at the phase
+    #      commit; the control refuses specs/0028's blob at the phase commit.
+    #      The working tree's copy is printed, not pinned; the entry guard and
+    #      the status block allow this phase's log directory and ` M
+    #      specs/0029-...` alone (the phase writes no record).
+    #  FC. The crate's own runs as P4's: the features off, copy alone, comments
+    #      alone and copy with comments, on both targets, and every feature on
+    #      the host and on i686.
+    #  FD. The tests the source adds, derived from the diff: no test file is
+    #      new; the code commit adds one test to package/tests/copy.rs, the one
+    #      its message names, and no other file gains a test.
+    #  FE. In place of P4's Scope test: the new test runs and passes in the two
+    #      sets with copy on both targets and in neither without, and in both
+    #      runs with every feature.
+    #  FF. In place of P4's two alone runs: the new test run alone with copy
+    #      alone; it is absent from the run with the features off.
+    #  FG. specs/0029 item 6, "the full copy test's bytes do not move": the full
+    #      copy test a_copy_keeps_the_sheet_and_leaves_out_what_it_does_not_carry
+    #      run alone with copy alone, the base holding it by name, and its two
+    #      literals, FULL_BODY (the source) and FULL_COPIED (what the copy
+    #      writes), each read from copy.rs by git show at the base and at the
+    #      phase commit (from its `const` line through the first line ending
+    #      `";`) and hashed: equal at both commits, with a control that the two
+    #      literals differ from each other and that a name the file lacks reads
+    #      nothing.
+    #  FH. The calcPr block's control: a test the base lacks, the code commit's
+    #      new test (P4's control named P4's copy test, which the base now holds).
+    #  FI. The plants: P4's D plants are dropped (their code is P4's and
+    #      unchanged). Two rows on the code commit's two calls in
+    #      crates/emend/src/package.rs, each removing one call: L1 the
+    #      sheetView branch's, L2 the sheetPr branch's, each against the new
+    #      test with copy alone. Both fail at the test's one refusal line (its
+    #      refused_with call, inside the loop over the two bodies; refused_with
+    #      and refused carry #[track_caller]), so the lines are not distinct;
+    #      the two panic messages, which name the bytes the unrefused write
+    #      wrote, are printed and checked to differ. After the plants the main
+    #      tree's copy tests (copy with comments) pass, the same names as before
+    #      them, the new test among them.
+    #  FJ. The status patterns name this phase's log directory and planning's
+    #      specs/0029, each with a control.
+    #
+    # CARRIED TO M3 part 7 P3 from M3 part 7 P2's test script (at the phase
+    # commit 8d54741, printed in records/logs/m3p7-p2/test.log; its change list
+    # FA to FJ is above), generated by
+    # <home>/.cache/emend-build/m3p7-p3/gen/test.py, which asserts each
+    # replacement's count, and grepped for P2's subjects, hashes, tests, plants
+    # and crate runs over the body. P3 changes no Rust source: the crate's tests
+    # run in the gate log, so this log runs none. What differs, and why:
+    #  GA. The phase is Milestone 3 part 7 P3: records/logs/m3p7-p3; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out. The base is P2's
+    #      record commit ("M3 part 7 P2 record:"); the doc commit, the rules
+    #      commit (specs/0001's toolchain-pin bullet, a doc-only commit by the
+    #      implementing session) and the code commit, the phase commit, by
+    #      their full subjects, beginning "M3 part 7 P3: ", the roles read back
+    #      to <phase commit>~3. The one build is the doc build, into
+    #      <target>/main. Every rm -rf is on a directory this run made, written
+    #      with ${var:?}.
+    #  GB. The spec is specs/0029, pinned by its COMMITTED blob (7005aa50...,
+    #      the hash planning's brief gave for the doc commit), at the phase
+    #      commit; the control refuses specs/0028's blob at the phase commit.
+    #  GC. T1, the pub listing (specs/0029 "The API review (decision 3)", A):
+    #      the program <home>/.cache/emend-build/m3p7-p3/gen/api-listing.py,
+    #      inserted whole into this script, written to <scratch>/w/py and run
+    #      with python3 -I over a git archive of the phase commit's
+    #      crates/emend/src in <scratch>/w/src; its rows (module, file, line,
+    #      kind, name, container, cfg, reachable, at_line_start, added,
+    #      added_subject) go to <phase>/api/listing.tsv and are printed, one
+    #      line per walked file to <phase>/api/files.tsv. Its control: a
+    #      fixture crate this log writes (a pub module, a private module with a
+    #      re-export and a renamed one, a cfg(test) module, a pub(crate) item, a
+    #      doc comment and a string holding pub fn, a method on a type the
+    #      crate does not export), its rows equal to the expected rows.
+    #  GD. The per-file agreement: each walked file's lines matching
+    #      ^[[:space:]]*pub (grep, through count_matches) equal the listing's
+    #      rows whose pub token starts its line; a row whose pub follows other
+    #      text on its line (none expected) is printed as such. Every .rs file
+    #      under the archive is walked or lies under a cfg(test) module, with a
+    #      control; every added commit is an ancestor of the phase commit.
+    #  GE. T2, the doc build: RUSTDOCFLAGS=-D warnings, every feature, the
+    #      crate alone, no dependencies; no warning or error line, with a
+    #      control; the documented items counted from <target>/main's
+    #      doc/emend/all.html as its item links (href's last path segment's
+    #      kind printed beside the total), with a control on a fixture page.
+    #  GF. T3, the hygiene step (specs/0029 "MSRV (decision 1)", A): two clones
+    #      of <repo> at the phase commit in <scratch>/w, the git environment
+    #      unset for every git and the clone's own scripts/check.sh run from
+    #      the clone (the gate runs against its own repository). The first
+    #      prints PASS hygiene alone, the three pins read beside it by other
+    #      forms (the channel line, the workflow's install and --toolchain
+    #      words, the workspace's rust-version line), each 1.98.1. The second
+    #      has the workspace's rust-version moved to 1.98.0 and staged: exit 1,
+    #      the line "FAIL hygiene: " + the step's message (read from the phase
+    #      commit's check.sh) + ": 1.98.1 1.98.1 1.98.0", nothing on stderr.
+    #  GG. The status patterns name this phase's log directory and planning's
+    #      specs/0029, each with a control.
+    #
+    # CARRIED TO M3 part 7 P4 from M3 part 7 P3's test script (at the phase
+    # commit 09d2e0f, printed in records/logs/m3p7-p3/test.log; its change list
+    # GA to GG is above), generated by
+    # <home>/.cache/emend-build/m3p7-p4/gen/test.py, which asserts each
+    # replacement's count, and grepped for P3's subjects, hashes, listing,
+    # doc build and clones over the body. P4 changes no Rust source and no
+    # script of the repository: its one code-side file is README.md, which the
+    # run log checks. What differs, and why:
+    #  HA. The phase is Milestone 3 part 7 P4: records/logs/m3p7-p4; the script
+    #      on the disk in <scripts>, its stderr in <phase>/out. The base is P3's
+    #      record commit ("M3 part 7 P3 record:"); the doc commit and the code
+    #      commit, the phase commit, by their full subjects, beginning "M3 part
+    #      7 P4: ", the roles read back to <phase commit>~2. This log runs no
+    #      cargo; the target root's export stays from the frame and nothing
+    #      builds into it. Every rm -rf is on a directory this run made,
+    #      written with ${var:?}.
+    #  HB. The spec is specs/0029, pinned by its COMMITTED blob (2ddd2b06...,
+    #      the hash planning's message gave for the doc commit), at the phase
+    #      commit; the control refuses specs/0028's blob at the phase commit.
+    #  HC. T1 (P4 ruling 4): part 6's three close-out scripts, copied to
+    #      <home>/.cache/emend-build/m3p7-close/carried, each equal to the text
+    #      printed in records/logs/m3p6-close/push.log, ci-run.log and scan.log
+    #      as the phase commit holds them: the block after the line "## script
+    #      that wrote this log" (push, ci-run) or "## script" (scan), each line's
+    #      four-space indent removed, the block ending at the first line neither
+    #      indented nor empty, and its last line, which must be blank, dropped.
+    #      A fixture log is the extraction's control.
+    #  HD. T2: carried/counting.sh, the library the close-out sources, equal to
+    #      the phase commit's scripts/counting.sh; part 6's copy
+    #      (carried/counting-m3p6close.sh) equal to the library part 6's
+    #      push.log printed, and the two differing on one line, line 158, the
+    #      guarded removal of specs/0029 item 3.
+    #  HE. T3 (P4 ruling 4): gen.py printed with its sha256 and run with
+    #      python3 -I into <scratch>/w/regen: exit 0, three "wrote" lines,
+    #      nothing on stderr; each script it writes equal to the one in
+    #      <home>/.cache/emend-build/m3p7-close, with a control.
+    #  HF. T4 (P4 ruling 4): each generated script's diff against part 6's,
+    #      printed in full with its counts of removed and added lines.
+    #  HG. T5: bash -n over each generated script; the three shape greps of
+    #      specs/0001 over each, the fixture of the frame's section as their
+    #      control; no non-ASCII byte, no U+2014 bytes and no home path in each,
+    #      each form with a control on a fixture.
+    #  HH. T6 (P4 ruling 3): in the generated push script the functions
+    #      excel_record_ok, excel_record_refused and excel_record_show are
+    #      defined once each, the pre-mode section is there once and calls the
+    #      check once and its control once; neither the ci-run nor the scan
+    #      script names the check. The push and scan scripts' base pattern
+    #      resolves to one commit of the phase commit's history, part 6's
+    #      close-out doc commit by subject, and the push script's record
+    #      pattern to one, part 6's close-out record; the scan's tip pattern,
+    #      read as text, is the close-out doc commit's subject as the working
+    #      specs/0029 states it (planning's rulings during P4, uncommitted at
+    #      this run, printed by hash).
+    #  HI. The status patterns name this phase's log directory and planning's
+    #      two uncommitted files, specs/0029 and ROADMAP.md, each with a
+    #      control.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    PHASE_DIR=$(dirname "$SELF_DIR")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$PHASE_DIR/out" || exit 2
+    ERR=$PHASE_DIR/out/test.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    C=${1:?phase commit required}
+    T=$(mktemp -d)
+    trap 'rm -rf "${T:?}"' EXIT INT TERM HUP
+    git show "$C:scripts/counting.sh" >"$T/counting.sh" || exit 2
+    . "$T/counting.sh"
+    
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never CARGO_BUILD_JOBS=4
+    KEEP_WAS_SET=$([ -n "${EMEND_KEEP_DIR+x}" ] && echo yes || echo no)
+    unset EMEND_KEEP_DIR
+    # Changes LL and LM (rulings 8 and 10): the phase's one target root, a
+    # subdirectory per source tree; <repo> builds into main.
+    BUILD_ROOT=$PHASE_DIR/target
+    # Change HC: the close-out generator's directory, read only.
+    CLOSE=$HOME/.cache/emend-build/m3p7-close
+    mkdir -p "$BUILD_ROOT/main" || exit 2
+    export CARGO_TARGET_DIR=$BUILD_ROOT/main
+    fail=0
+    check() { echo "$1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    passed_matches() { [ "$passed" -gt 0 ] && [ "$passed" -eq "$nok" ]; }
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    not_head() { if head_is "$1"; then return 1; else return 0; fi; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    if full_sha "$C"; then :; else echo "the phase commit must be a full 40-hex sha, not $C" >&2; exit 2; fi
+    if head_is "$C"; then :; else echo "HEAD is not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    
+    # The entry guard: every change must be this phase's log directory or
+    # planning's uncommitted spec or ROADMAP.md (change AG; change HI).
+    OURS_RE='^((\?\?| ?[MARCD]) records/logs/m3p7-p4/| M specs/0029-engineering-close[.]md$| M ROADMAP[.]md$)'
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS_RE" git status --porcelain)
+    entry_clean() {
+      [ "$entry_all" != error ] && [ "$entry_ours" != error ] &&
+        [ "$entry_all" = "$entry_ours" ]
+    }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs and planning's uncommitted files" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -E -e "s#$MAIN([^-A-Za-z0-9_.]|\$)#<repo>\\1#g" -e "s#$T#<scratch>/w#g" -e "s#$BUILD_ROOT#<target>#g" \
+        -e "s#$SELF_DIR#<scripts>#g" -e "s#$PHASE_DIR#<phase>#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    echo "about: M3 part 7 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    # Change AH: every environment input this script reads, on a labelled line.
+    echo "input (environment) RERUN_NOTE: $([ -n "${RERUN_NOTE:-}" ] && echo "set; its text is the rerun line below" || echo unset)"
+    echo "input (environment) RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input (environment) EMEND_KEEP_DIR, when this script started: $KEEP_WAS_SET (unset for the whole log)"
+    echo "input (environment) HOME: $([ -n "${HOME:-}" ] && echo "set; the scrub writes it <home>" || echo unset)"
+    echo "input (environment) ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    SHAPE_DIR=$(mktemp -d)
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$SHAPE_DIR/fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$SHAPE_DIR/fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      SHAPE_RESULT_SELF=$n_self
+      SHAPE_RESULT_FIX=$n_fix
+      check "$shape: this script holds none" "$(yn [ "$SHAPE_RESULT_SELF" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$SHAPE_RESULT_FIX" = 1 ])"
+    done
+    rm -rf "${SHAPE_DIR:?}"
+    
+    echo
+    echo "## the spec, pinned by the hash of its committed blob (change HB; specs/0018 close-out ruling 4)"
+    SPEC=specs/0029-engineering-close.md
+    # The hash planning's message gave for the doc commit's blob, typed (change HB).
+    SPEC_GAVE=2ddd2b06105267673097508662375f7053e4b63016e1b340b6d4589385c8256a
+    SPEC_SHA=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_HEAD=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum; sha256sum $SPEC (the working tree's copy, printed only)"
+    echo "  the phase commit's blob: sha256 $SPEC_HEAD"
+    echo "  the hash planning's message gave: $SPEC_GAVE"
+    echo "  the working tree's copy, planning's uncommitted rulings if any (change HB), not the pin: sha256 $SPEC_SHA"
+    check "the spec at the phase commit is the blob planning's message hashed" "$(yn [ "$SPEC_HEAD" = "$SPEC_GAVE" ])"
+    spec_ctl() { if [ "$(git show "$C:specs/0028-images-and-comments-second-half.md" | sha256sum | cut -d' ' -f1)" = "$SPEC_GAVE" ]; then return 1; else return 0; fi; }
+    check "control: the same comparison refuses another spec's blob (specs/0028 at the phase commit)" "$(yn spec_ctl)"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    check_fn() { local label=$1; shift; check "$label" "$(yn "$@")"; }
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1" "$C"; }
+    REC=$(by_subject 'M3 part 7 P3 record: logs, the size record, the sample records, the API review record, the independent check')
+    DOC1=$(by_subject "M3 part 7 P4: commit planning docs (the P3 verification and rulings, ROADMAP, the API review record's corrections)")
+    CODE1=$(by_subject "M3 part 7 P4: the README (decision 4 A)")
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject> <phase commit>, for each role"
+    echo "  P3's record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  the code commit (README.md, the phase commit): ${CODE1:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~2"
+    for k in 0 1 2; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r
+      for r in "$REC" "$DOC1" "$CODE1"; do
+        [ -n "$r" ] || return 1
+      done
+      [ "$CODE1" = "$C" ] || return 1
+      [ "$(git rev-parse "$C~1")" = "$DOC1" ] || return 1
+      [ "$(git rev-parse "$C~2")" = "$REC" ]
+    }
+    check_fn "the code commit, the doc commit and P3's record commit, each the next one's parent, the code commit the phase commit (change HA)" roles_in_order
+    roles_ctl1() { local DOC1=$CODE1; if roles_in_order; then return 1; else return 0; fi; }
+    check_fn "control: roles_in_order refuses the code commit named as the doc commit" roles_ctl1
+    git log --format='%s' "$REC..$C" >"$T/subjects"
+    PREFIX_RE='^M3 part 7 P4: '
+    nsub=$(count_lines "$T/subjects")
+    nprefix=$(count_matches -E "$PREFIX_RE" "$T/subjects")
+    echo "command: git log --format=%s <P3's record commit>..<phase commit>"
+    sed 's/^/    /' "$T/subjects"
+    echo "  subjects in the range: $nsub; beginning \"M3 part 7 P4: \": $nprefix"
+    prefix_all() { [ "$nsub" -ge 1 ] && [ "$nsub" = "$nprefix" ]; }
+    check_fn "every commit in the range carries the phase's subject prefix" prefix_all
+    printf 'M3 part 7 P4: x\nM3 part 7 P5: y\nM3 part 7: z\n' >"$T/c-subjects"
+    check "control: the same count finds one prefixed subject of three" "$(yn [ "$(count_matches -E "$PREFIX_RE" "$T/c-subjects")" = 1 ])"
+    no_such_subject() { [ -z "$(by_subject 'M3 part 7 P4: no such subject anywhere')" ]; }
+    check_fn "control: a subject no commit has resolves to nothing" no_such_subject
+    echo "phase: Milestone 3 part 7 P4 (specs/0029-engineering-close.md) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "  the superseded files are kept in <home>/${PHASE_DIR#"$HOME"/}/superseded (change FA)"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" \
+            "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' \
+            "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then
+        echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"
+      fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log runs no cargo (change HA)"
+    echo "root: <repo> stands for the repository's top level, the directory this script cds to (it lies inside <home>, so it is scrubbed first); every repository file this log reads is read at the phase commit by git show, except planning's working specs/0029 (change HH)"
+    echo "root: <home> stands for the home directory of the account that ran this script; <home>/.cache/emend-build/m3p7-close holds the close-out generator, its carried copies of part 6's scripts and the three scripts it wrote (read only here)"
+    echo "root: <phase> stands for <home>/${PHASE_DIR#"$HOME"/}, this phase's directory on the disk; <phase>/superseded keeps a superseded attempt's files, <phase>/out holds this script's own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <scripts> stands for <phase>/$(basename "$SELF_DIR"), the directory holding this script"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory, removed at exit: scripts/counting.sh is read at the phase commit into <scratch>/w/counting.sh and sourced from there; <scratch>/w/printed the scripts extracted from part 6's logs; <scratch>/w/regen the scripts gen.py writes here; <scratch>/w/fx the fixtures of the controls"
+    echo "root: <target> stands for <phase>/$(basename "$BUILD_ROOT"), the phase's one target root (specs/0001): nothing in this log builds into it"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() {
+      apart "$T" "$PHASE_DIR" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$T" "$BUILD_ROOT" &&
+        apart "$MAIN" "$PHASE_DIR" && apart "$MAIN" "$T" && apart "$CLOSE" "$PHASE_DIR" && apart "$CLOSE" "$MAIN"
+    }
+    check "the directory roots other than <home> and <phase>'s own children are distinct, none inside another" "$(yn roots_distinct)"
+    roots_ctl() { if apart "$CARGO_TARGET_DIR" "$BUILD_ROOT"; then return 1; else return 0; fi; }
+    check "control: apart refuses <target>/main against <target>, which holds it" "$(yn roots_ctl)"
+    check "no cargo or rustc process was running at entry" "$(yn [ "$((n_cargo + n_rustc))" = 0 ])"
+    echo "RUSTUP_AUTO_INSTALL=$RUSTUP_AUTO_INSTALL; CARGO_TERM_COLOR=$CARGO_TERM_COLOR; CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS; $(rustc --version)"
+    echo "EMEND_KEEP_DIR set when this script started: $KEEP_WAS_SET; unset for the whole log: $([ -n "${EMEND_KEEP_DIR+x}" ] && echo no || echo yes)"
+    echo "EMEND_KEEP_DIR: no command of this log sets it (change HA: this log runs no crate test and no cargo)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or planning's uncommitted spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison against the null commit says no" "$(yn not_head "$NULL_SHA")"
+    check "control: the same comparison against a short sha of the real commit says no" \
+      "$(yn not_head "$(printf '%s' "$C" | cut -c1-7)")"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$T/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    # ynnot: for a condition that must NOT hold (specs/0001: a leading bang
+    # inside yn runs a command named by the bang).
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    TAB=$(printf '\t')
+    mkdir -p "$T/printed" "$T/regen" "$T/fx" || fail=1
+    NAMES="push ci scan"
+    # log_of <name>: the part 6 close-out log that printed that script.
+    log_of() { case "$1" in push) echo push ;; ci) echo ci-run ;; scan) echo scan ;; esac; }
+    # heading_of <name>: the heading the script follows in that log.
+    heading_of() { case "$1" in scan) echo "## script" ;; *) echo "## script that wrote this log" ;; esac; }
+    # extract_printed <log file> <heading> <out>: the block after the heading,
+    # each line's four-space indent removed, ending at the first line neither
+    # indented nor empty. Prints nothing.
+    extract_printed() {
+      awk -v h="$2" '$0 == h && !d { p = 1; d = 1; next } p { if ($0 ~ /^    / || $0 == "") { sub(/^    /, ""); print } else exit }' "$1" >"$3"
+    }
+    # last_blank <file>: whether the file's last line is empty.
+    last_blank() { [ -s "$1" ] && [ -z "$(tail -n 1 "$1")" ]; }
+    # drop_last <file>: the file without its last line, in place.
+    drop_last() { sed -i '$d' "$1"; }
+    
+    echo
+    echo "## T1: part 6's close-out scripts, carried unchanged (specs/0029 P4 ruling 4; change HC)"
+    echo "command: printf a fixture log (a heading, two indented lines, a blank line, an unindented line) to <scratch>/w/fx/log; extract_printed over it"
+    printf '%s\n' 'x' '## script' '    a' '      b' '' 'after' >"$T/fx/log"
+    extract_printed "$T/fx/log" "## script" "$T/fx/ext"
+    printf '%s\n' 'a' '  b' '' >"$T/fx/ext-want"
+    check "control: the extraction keeps the two lines without their indent and the blank line, and stops at the unindented line" "$(yn cmp -s "$T/fx/ext" "$T/fx/ext-want")"
+    check "control: last_blank finds the fixture's blank last line" "$(yn last_blank "$T/fx/ext")"
+    check "control: last_blank refuses the fixture's first line alone" "$(ynnot last_blank "$T/fx/log")"
+    for n in $NAMES; do
+      l=$(log_of "$n")
+      h=$(heading_of "$n")
+      echo "command: git show <phase commit>:records/logs/m3p6-close/$l.log > <scratch>/w/printed/$l.log; extract_printed <scratch>/w/printed/$l.log \"$h\" <scratch>/w/printed/m3p6close-$n.sh; its last line, blank, dropped"
+      git show "$C:records/logs/m3p6-close/$l.log" >"$T/printed/$l.log"
+      extract_printed "$T/printed/$l.log" "$h" "$T/printed/m3p6close-$n.sh"
+      check "the block printed under \"$h\" in $l.log ends in a blank line" "$(yn last_blank "$T/printed/m3p6close-$n.sh")"
+      drop_last "$T/printed/m3p6close-$n.sh"
+      echo "  extracted: $(count_lines "$T/printed/m3p6close-$n.sh") lines, sha256 $(sha256sum <"$T/printed/m3p6close-$n.sh" | cut -d' ' -f1)"
+      echo "  <home>/.cache/emend-build/m3p7-close/carried/m3p6close-$n.sh: $(count_lines "$CLOSE/carried/m3p6close-$n.sh") lines, sha256 $(sha256sum <"$CLOSE/carried/m3p6close-$n.sh" | cut -d' ' -f1)"
+      check "carried/m3p6close-$n.sh is the script part 6's $l.log printed, byte for byte" "$(yn cmp -s "$T/printed/m3p6close-$n.sh" "$CLOSE/carried/m3p6close-$n.sh")"
+    done
+    cp "$T/printed/m3p6close-push.sh" "$T/fx/c-push"; printf 'x\n' >>"$T/fx/c-push"
+    check "control: the same comparison refuses the extract with one line appended" "$(ynnot cmp -s "$T/fx/c-push" "$CLOSE/carried/m3p6close-push.sh")"
+    
+    echo
+    echo "## T2: the counting library the close-out sources (change HD)"
+    echo "command: git show <phase commit>:scripts/counting.sh | cmp - <home>/.cache/emend-build/m3p7-close/carried/counting.sh"
+    echo "  the phase commit's scripts/counting.sh: sha256 $(sha256sum <"$T/counting.sh" | cut -d' ' -f1)"
+    echo "  carried/counting.sh: sha256 $(sha256sum <"$CLOSE/carried/counting.sh" | cut -d' ' -f1)"
+    check "carried/counting.sh is the phase commit's scripts/counting.sh" "$(yn cmp -s "$T/counting.sh" "$CLOSE/carried/counting.sh")"
+    LIB_H="## the shared counting library this log sources"
+    echo "command: extract_printed <scratch>/w/printed/push.log \"$LIB_H\" <scratch>/w/printed/counting-m3p6close.sh; its last line, blank, dropped"
+    extract_printed "$T/printed/push.log" "$LIB_H" "$T/printed/counting-m3p6close.sh"
+    check "the block printed under \"$LIB_H\" in part 6's push.log ends in a blank line" "$(yn last_blank "$T/printed/counting-m3p6close.sh")"
+    drop_last "$T/printed/counting-m3p6close.sh"
+    echo "  extracted: sha256 $(sha256sum <"$T/printed/counting-m3p6close.sh" | cut -d' ' -f1); carried/counting-m3p6close.sh: sha256 $(sha256sum <"$CLOSE/carried/counting-m3p6close.sh" | cut -d' ' -f1)"
+    check "carried/counting-m3p6close.sh is the library part 6's push.log printed, byte for byte" "$(yn cmp -s "$T/printed/counting-m3p6close.sh" "$CLOSE/carried/counting-m3p6close.sh")"
+    echo "command: diff carried/counting-m3p6close.sh carried/counting.sh"
+    diff "$CLOSE/carried/counting-m3p6close.sh" "$CLOSE/carried/counting.sh" >"$T/lib.diff"
+    lib_rc=$?
+    echo "  exit: $lib_rc; the diff, its removal command word printed as rm -r[f] so that the scan's removal form does not read this print as a command:"
+    sed -e 's/rm -rf/rm -r[f]/' -e 's/^/    /' "$T/lib.diff"
+    # lib_one_line <diff>: the diff is one changed line, line 158, whose old text
+    # holds the bare "$d" target and whose new text the guarded "${d:?}" one.
+    lib_one_line() {
+      [ "$(count_lines "$1")" = 4 ] && [ "$(sed -n 1p "$1")" = 158c158 ] &&
+        [ "$(sed -n 2p "$1" | count_matches -F '"$d"' /dev/stdin)" = 1 ] &&
+        [ "$(sed -n 4p "$1" | count_matches -F '"${d:?}"' /dev/stdin)" = 1 ]
+    }
+    check "the two libraries differ on line 158 alone, the guarded removal (specs/0029 item 3)" "$(yn lib_one_line "$T/lib.diff")"
+    printf '158c158\n< a\n---\n> b\n' >"$T/fx/lib.diff"
+    check "control: the same check refuses a one-line diff at line 158 whose lines hold neither target" "$(ynnot lib_one_line "$T/fx/lib.diff")"
+    
+    echo
+    echo "## T3: gen.py, printed and run into a scratch directory (P4 ruling 4; change HE)"
+    echo "command: sha256sum <home>/.cache/emend-build/m3p7-close/gen.py; its text:"
+    echo "    $(sha256sum <"$CLOSE/gen.py" | cut -d' ' -f1)"
+    sed 's/^/      /' "$CLOSE/gen.py"
+    echo "command: python3 -I <home>/.cache/emend-build/m3p7-close/gen.py <scratch>/w/regen"
+    python3 -I "$CLOSE/gen.py" "$T/regen" >"$T/gen.out" 2>"$T/gen.err"
+    gen_rc=$?
+    echo "  exit: $gen_rc; standard error $(wc -c <"$T/gen.err") bytes; standard output:"
+    sed 's/^/    /' "$T/gen.out"
+    printf 'wrote m3p7close-push.sh\nwrote m3p7close-ci.sh\nwrote m3p7close-scan.sh\n' >"$T/gen.out-want"
+    gen_ran() { [ "$gen_rc" = 0 ] && [ ! -s "$T/gen.err" ] && cmp -s "$T/gen.out" "$T/gen.out-want"; }
+    check "gen.py exits 0, nothing on stderr, its three wrote lines" "$(yn gen_ran)"
+    for n in $NAMES; do
+      echo "  m3p7close-$n.sh: regenerated sha256 $(sha256sum <"$T/regen/m3p7close-$n.sh" | cut -d' ' -f1); on the disk $(sha256sum <"$CLOSE/m3p7close-$n.sh" | cut -d' ' -f1)"
+      check "the regenerated m3p7close-$n.sh is the one on the disk, byte for byte" "$(yn cmp -s "$T/regen/m3p7close-$n.sh" "$CLOSE/m3p7close-$n.sh")"
+    done
+    check "control: the same comparison refuses the regenerated push script against the ci-run script" "$(ynnot cmp -s "$T/regen/m3p7close-push.sh" "$CLOSE/m3p7close-ci.sh")"
+    
+    echo
+    echo "## T4: each generated script's diff against part 6's, in full (P4 ruling 4; change HF)"
+    for n in $NAMES; do
+      echo "command: diff <home>/.cache/emend-build/m3p7-close/carried/m3p6close-$n.sh <home>/.cache/emend-build/m3p7-close/m3p7close-$n.sh"
+      diff "$CLOSE/carried/m3p6close-$n.sh" "$CLOSE/m3p7close-$n.sh" >"$T/$n.diff"
+      d_rc=$?
+      n_rm=$(count_matches -E '^< ' "$T/$n.diff")
+      n_add=$(count_matches -E '^> ' "$T/$n.diff")
+      echo "  exit: $d_rc; diff lines $(count_lines "$T/$n.diff"); removed (<) $n_rm; added (>) $n_add; the diff:"
+      sed 's/^/    /' "$T/$n.diff"
+      check "diff exits 1 for m3p7close-$n.sh: the scripts differ and diff read both" "$(yn [ "$d_rc" = 1 ])"
+    done
+    printf '1c1\n< a\n---\n> b\n' >"$T/fx/c.diff"
+    check "control: the counting form finds one added line in a fixture diff" "$(yn [ "$(count_matches -E '^> ' "$T/fx/c.diff")" = 1 ])"
+    
+    echo
+    echo "## T5: bash -n, the shape greps, and the bytes of each generated script (change HG)"
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$T/fx/shapes"
+    EMD=$(printf '\342\200\224')
+    printf 'a\n\303\251\n' >"$T/fx/nonascii"
+    printf 'a %s b\n' "$EMD" >"$T/fx/emdash"
+    printf 'a %s/x\n' "$HOME" >"$T/fx/home"
+    for n in $NAMES; do
+      f=$CLOSE/m3p7close-$n.sh
+      echo "### m3p7close-$n.sh"
+      echo "command: bash -n <home>/.cache/emend-build/m3p7-close/m3p7close-$n.sh"
+      bash -n "$f" >"$T/bn.out" 2>&1
+      bn_rc=$?
+      echo "  exit: $bn_rc; output $(wc -c <"$T/bn.out") bytes"
+      bn_ok() { [ "$bn_rc" = 0 ] && [ ! -s "$T/bn.out" ]; }
+      check "bash -n reads m3p7close-$n.sh with no error" "$(yn bn_ok)"
+      for shape in CHAIN BANG ASSIGN; do
+        var=SHAPE_$shape
+        n_self=$(count_matches -E "${!var}" "$f")
+        echo "  shape $shape: $n_self lines"
+        check "$shape: m3p7close-$n.sh holds none" "$(yn [ "$n_self" = 0 ])"
+      done
+      n_na=$(count_matches -P '[^\x00-\x7F]' "$f")
+      n_em=$(count_matches -F "$EMD" "$f")
+      n_hm=$(count_matches -F "$HOME/" "$f")
+      echo "  lines with a non-ASCII byte: $n_na; lines with the U+2014 bytes: $n_em; lines naming the home directory: $n_hm"
+      check "m3p7close-$n.sh holds no non-ASCII byte" "$(yn [ "$n_na" = 0 ])"
+      check "m3p7close-$n.sh holds no U+2014 bytes" "$(yn [ "$n_em" = 0 ])"
+      check "m3p7close-$n.sh names no home path" "$(yn [ "$n_hm" = 0 ])"
+    done
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$(count_matches -E "${!var}" "$T/fx/shapes")" = 1 ])"
+    done
+    check "control: the non-ASCII form finds the fixture's one line" "$(yn [ "$(count_matches -P '[^\x00-\x7F]' "$T/fx/nonascii")" = 1 ])"
+    check "control: the U+2014 form finds the fixture's one line" "$(yn [ "$(count_matches -F "$EMD" "$T/fx/emdash")" = 1 ])"
+    check "control: the home form finds the fixture's one line" "$(yn [ "$(count_matches -F "$HOME/" "$T/fx/home")" = 1 ])"
+    printf 'if then\n' >"$T/fx/bad.sh"
+    # The fixture's parse error goes to a file of its own, not to this script's
+    # standard error.
+    bn_bad() { bash -n "$T/fx/bad.sh" 2>"$T/fx/bad.err"; }
+    check "control: bash -n refuses a fixture that does not parse" "$(ynnot bn_bad)"
+    echo "  the fixture's parse error, bytes: $(wc -c <"$T/fx/bad.err")"
+    
+    echo
+    echo "## T6: the Excel-record check and the patterns (P4 ruling 3; change HH)"
+    PUSH=$CLOSE/m3p7close-push.sh
+    SCAN=$CLOSE/m3p7close-scan.sh
+    CI=$CLOSE/m3p7close-ci.sh
+    n_ok=$(count_matches -E '^excel_record_ok\(\) \{$' "$PUSH")
+    n_rf=$(count_matches -E '^excel_record_refused\(\) ' "$PUSH")
+    n_sh=$(count_matches -E '^excel_record_show\(\) \{$' "$PUSH")
+    n_sec=$(count_matches -F 'echo "## the Excel check record at the tip (change 20)"' "$PUSH")
+    n_call=$(count_matches -F '"$(yn excel_record_ok "$T/xr")"' "$PUSH")
+    n_ctl=$(count_matches -F 'yn excel_record_refused "$T/xr-c")"' "$PUSH")
+    echo "command: count_matches over m3p7close-push.sh: the three definitions; the section's heading line; the check's call; its control's call"
+    echo "  excel_record_ok defined: $n_ok; excel_record_refused: $n_rf; excel_record_show: $n_sh; the section: $n_sec; the check's call: $n_call; the control's call: $n_ctl"
+    excel_once() { [ "$n_ok" = 1 ] && [ "$n_rf" = 1 ] && [ "$n_sh" = 1 ] && [ "$n_sec" = 1 ] && [ "$n_call" = 1 ] && [ "$n_ctl" = 1 ]; }
+    check "the push script defines the three functions once each and its pre mode holds the section, the check and its control once each" "$(yn excel_once)"
+    excel_ctl() { local n_call=2; excel_once; }
+    check "control: the same check refuses a second call" "$(ynnot excel_ctl)"
+    n_other=$(count_matches -F 'excel_record' "$CI" "$SCAN")
+    echo "  lines naming excel_record in the ci-run and scan scripts: $n_other"
+    check "neither the ci-run nor the scan script names the check" "$(yn [ "$n_other" = 0 ])"
+    # pattern_of <file> <NAME>: the single-quoted value of NAME='...' in the file.
+    pattern_of() { sed -n "s/^$2='\\(.*\\)'\$/\\1/p" "$1"; }
+    BASE_P=$(pattern_of "$PUSH" BASE_PATTERN)
+    BASE_S=$(pattern_of "$SCAN" BASE_PATTERN)
+    PREV_P=$(pattern_of "$PUSH" PREV_RECORD_PATTERN)
+    TIP_S=$(pattern_of "$SCAN" TIP_PATTERN)
+    echo "  the push script's BASE_PATTERN: $BASE_P"
+    echo "  the scan script's BASE_PATTERN: $BASE_S"
+    echo "  the push script's PREV_RECORD_PATTERN: $PREV_P"
+    echo "  the scan script's TIP_PATTERN: $TIP_S"
+    same_base() { [ -n "$BASE_P" ] && [ "$BASE_P" = "$BASE_S" ]; }
+    check "the push and scan scripts carry the same base pattern" "$(yn same_base)"
+    echo "command: git log --format='%H %s' --grep=<the pattern> <phase commit>, for the base and the record patterns"
+    git log --format='%H %s' --grep="$BASE_P" "$C" >"$T/base-hits"
+    git log --format='%H %s' --grep="$PREV_P" "$C" >"$T/prev-hits"
+    sed 's/^/    base: /' "$T/base-hits"
+    sed 's/^/    record: /' "$T/prev-hits"
+    n_bh=$(count_lines "$T/base-hits")
+    n_ph=$(count_lines "$T/prev-hits")
+    check "the base pattern resolves to one commit of the phase commit's history" "$(yn [ "$n_bh" = 1 ])"
+    check "the record pattern resolves to one commit of the phase commit's history" "$(yn [ "$n_ph" = 1 ])"
+    n_b6=$(count_matches -F ' M3 part 6 close-out: commit planning docs ' "$T/base-hits")
+    n_p6=$(count_matches -F ' M3 part 6 close-out record' "$T/prev-hits")
+    check "that base commit is part 6's close-out doc commit, by its subject" "$(yn [ "$n_b6" = 1 ])"
+    check "that record commit is part 6's close-out record commit, by its subject" "$(yn [ "$n_p6" = 1 ])"
+    git log --format='%H' --grep="$TIP_S" "$C" >"$T/tip-hits"
+    echo "  commits of the phase commit's history the tip pattern matches: $(count_lines "$T/tip-hits") (the close-out doc commit is made after P5)"
+    check "the tip pattern matches no commit yet" "$(yn [ "$(count_lines "$T/tip-hits")" = 0 ])"
+    # as_text <pattern>: the pattern's anchors and bracketed parentheses read as text.
+    as_text() { printf '%s' "$1" | sed -e 's/^\^//' -e 's/\$$//' -e 's/\[(\]/(/g' -e 's/\[)\]/)/g'; }
+    TIP_TEXT=$(as_text "$TIP_S")
+    echo "  the tip pattern read as text: $TIP_TEXT"
+    echo "command: sha256sum specs/0029-engineering-close.md (planning's working copy, the rulings during P4 uncommitted at this run); tr '\\n' ' ' over it; grep -o -F the text above"
+    echo "  the working copy: sha256 $SPEC_SHA"
+    tr '\n' ' ' <"$SPEC" | LC_ALL=C "$G" -o -F -e "$TIP_TEXT" >"$T/tip-in-spec"
+    n_ts=$(count_lines "$T/tip-in-spec")
+    echo "  times the working specs/0029 states it, its lines joined: $n_ts"
+    check "the scan's tip pattern is the close-out doc commit's subject the working specs/0029 states" "$(yn [ "$n_ts" -ge 1 ])"
+    printf 'see "M3 part 7\nclose-out: x (y)" here\n' >"$T/fx/wrapped"
+    check "control: the joined form finds a subject wrapped over two lines" "$(yn [ "$(tr '\n' ' ' <"$T/fx/wrapped" | LC_ALL=C "$G" -o -F -e 'M3 part 7 close-out: x (y)' | count_lines /dev/stdin)" = 1 ])"
+    check "control: as_text reads a bracketed pattern as its text" "$(yn [ "$(as_text '^a [(]b[)]$')" = 'a (b)' ])"
+    echo
+    echo "## status after the runs"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS_RE" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or planning's uncommitted files: $st_ours"
+    status_accounted() {
+      [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]
+    }
+    check "every change in the working tree is one of this phase's logs or planning's uncommitted files" "$(yn status_accounted)"
+    printf '?? records/logs/m3p7-p4/test.log\n M scripts/check.sh\n?? records/logs/m3p7-p3/test.log\n M ROADMAP.md\n M specs/0028-images-and-comments-second-half.md\n M specs/0029-engineering-close.md\n' >"$T/c-status"
+    check "control: the same pattern finds three of six status lines, this phase's log and planning's two files (change HI)" "$(yn [ "$(count_matches -E "$OURS_RE" "$T/c-status")" = 3 ])"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$T/c-err"; printf 'x' >>"$T/c-err"
+    nerr_ctl=$(wc -c <"$T/c-err")
+    echo "  command: wc -c <phase>/out/test.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+control: ynnot reports no on a passing command: yes
+
+## T1: part 6's close-out scripts, carried unchanged (specs/0029 P4 ruling 4; change HC)
+command: printf a fixture log (a heading, two indented lines, a blank line, an unindented line) to <scratch>/w/fx/log; extract_printed over it
+control: the extraction keeps the two lines without their indent and the blank line, and stops at the unindented line: yes
+control: last_blank finds the fixture's blank last line: yes
+control: last_blank refuses the fixture's first line alone: yes
+command: git show <phase commit>:records/logs/m3p6-close/push.log > <scratch>/w/printed/push.log; extract_printed <scratch>/w/printed/push.log "## script that wrote this log" <scratch>/w/printed/m3p6close-push.sh; its last line, blank, dropped
+the block printed under "## script that wrote this log" in push.log ends in a blank line: yes
+  extracted: 624 lines, sha256 400f6015411985adfc54e062e7f00ad057d80fa42565c76c1370f61f3f66ee33
+  <home>/.cache/emend-build/m3p7-close/carried/m3p6close-push.sh: 624 lines, sha256 400f6015411985adfc54e062e7f00ad057d80fa42565c76c1370f61f3f66ee33
+carried/m3p6close-push.sh is the script part 6's push.log printed, byte for byte: yes
+command: git show <phase commit>:records/logs/m3p6-close/ci-run.log > <scratch>/w/printed/ci-run.log; extract_printed <scratch>/w/printed/ci-run.log "## script that wrote this log" <scratch>/w/printed/m3p6close-ci.sh; its last line, blank, dropped
+the block printed under "## script that wrote this log" in ci-run.log ends in a blank line: yes
+  extracted: 357 lines, sha256 9652a473a0d2eb99a1b4197770bd23ce61c9f9b73a0b572f34747f08feb33231
+  <home>/.cache/emend-build/m3p7-close/carried/m3p6close-ci.sh: 357 lines, sha256 9652a473a0d2eb99a1b4197770bd23ce61c9f9b73a0b572f34747f08feb33231
+carried/m3p6close-ci.sh is the script part 6's ci-run.log printed, byte for byte: yes
+command: git show <phase commit>:records/logs/m3p6-close/scan.log > <scratch>/w/printed/scan.log; extract_printed <scratch>/w/printed/scan.log "## script" <scratch>/w/printed/m3p6close-scan.sh; its last line, blank, dropped
+the block printed under "## script" in scan.log ends in a blank line: yes
+  extracted: 698 lines, sha256 3091e26b6c1f404c33eb0f7eb005a74a6d556c7d002b22d238d02c2e9fc7cb42
+  <home>/.cache/emend-build/m3p7-close/carried/m3p6close-scan.sh: 698 lines, sha256 3091e26b6c1f404c33eb0f7eb005a74a6d556c7d002b22d238d02c2e9fc7cb42
+carried/m3p6close-scan.sh is the script part 6's scan.log printed, byte for byte: yes
+control: the same comparison refuses the extract with one line appended: yes
+
+## T2: the counting library the close-out sources (change HD)
+command: git show <phase commit>:scripts/counting.sh | cmp - <home>/.cache/emend-build/m3p7-close/carried/counting.sh
+  the phase commit's scripts/counting.sh: sha256 5c1880bc84a0cc05e080272e4168e03521836eb23de3ec4058872e7dbd0c4812
+  carried/counting.sh: sha256 5c1880bc84a0cc05e080272e4168e03521836eb23de3ec4058872e7dbd0c4812
+carried/counting.sh is the phase commit's scripts/counting.sh: yes
+command: extract_printed <scratch>/w/printed/push.log "## the shared counting library this log sources" <scratch>/w/printed/counting-m3p6close.sh; its last line, blank, dropped
+the block printed under "## the shared counting library this log sources" in part 6's push.log ends in a blank line: yes
+  extracted: sha256 60a379312a5681cba0c1acfb128402c95fa1ec753158d1b29962bce2320e742c; carried/counting-m3p6close.sh: sha256 60a379312a5681cba0c1acfb128402c95fa1ec753158d1b29962bce2320e742c
+carried/counting-m3p6close.sh is the library part 6's push.log printed, byte for byte: yes
+command: diff carried/counting-m3p6close.sh carried/counting.sh
+  exit: 1; the diff, its removal command word printed as rm -r[f] so that the scan's removal form does not read this print as a command:
+    158c158
+    <   rm -r[f] "$d"
+    ---
+    >   rm -r[f] "${d:?}"
+the two libraries differ on line 158 alone, the guarded removal (specs/0029 item 3): yes
+control: the same check refuses a one-line diff at line 158 whose lines hold neither target: yes
+
+## T3: gen.py, printed and run into a scratch directory (P4 ruling 4; change HE)
+command: sha256sum <home>/.cache/emend-build/m3p7-close/gen.py; its text:
+    a2a262584cc0b3a645d7f7ad963a50301f910c34601fd79d3b59a19463d6c558
+      #!/usr/bin/env python3
+      """Generates Milestone 3 part 7's close-out push, ci-run and scan scripts from
+      part 6's (copied unchanged to carried/ here, each equal to the text printed in
+      records/logs/m3p6-close/*.log). Every replacement is asserted to occur the
+      stated number of times, applied in the order listed (specs/0029
+      "Planning rulings during P4 (2026-10-09)" rulings 3 and 4)."""
+      import os, sys
+      HOME = os.path.expanduser("~")
+      SRC = HOME + "/.cache/emend-build/m3p7-close/carried/"
+      # The output directory: this one, or the one argument given (the test log
+      # regenerates into a scratch directory and compares).
+      DST = (sys.argv[1].rstrip("/") + "/") if len(sys.argv) > 1 else HOME + "/.cache/emend-build/m3p7-close/"
+      BASE_OLD = "BASE_PATTERN='^M3 part 5 close-out: commit planning docs [(]the P3 verification and rulings, decision 7 deferred again[)]$'"
+      BASE_NEW = "BASE_PATTERN='^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$'"
+      TIP_OLD = "TIP_PATTERN='^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$'"
+      TIP_NEW = "TIP_PATTERN='^M3 part 7 close-out: commit planning docs [(]the P5 verification and rulings, the Excel check record[)]$'"
+      PHASE_OLD = 'Milestone 3 part 6 close-out (specs/0028-images-and-comments-second-half.md, \\"Close-out push (after P4)\\"'
+      PHASE_NEW = 'Milestone 3 part 7 close-out (specs/0029-engineering-close.md, \\"Close-out push (after P4)\\"'
+      
+      
+      def gen(name_old, name_new, header, reps):
+          s = open(SRC + name_old).read()
+          for old, new, n in reps:
+              c = s.count(old)
+              if c != n:
+                  sys.exit("%s: expected %d, found %d: %r" % (name_old, n, c, old[:80]))
+              s = s.replace(old, new)
+          assert s.startswith("#!/usr/bin/env bash\n")
+          s = "#!/usr/bin/env bash\n" + header + s[len("#!/usr/bin/env bash\n"):]
+          open(DST + name_new, "w").write(s)
+          os.chmod(DST + name_new, 0o755)
+          print("wrote", name_new)
+      
+      
+      PUSH_HEADER = """# Milestone 3 part 7 close-out push.log
+      # (specs/0029-engineering-close.md, "Close-out push (after P4)", as amended
+      # 2026-10-09, "The Excel check", and "Planning rulings during P4
+      # (2026-10-09)" rulings 3 and 4).
+      #
+      # CARRIED TO M3 part 7 from part 6's close-out push script (printed in
+      # records/logs/m3p6-close/push.log, whose own change list follows). Every
+      # check, control and helper is that text's, unchanged, except:
+      # 19. The names are M3 part 7's, the spec cited is specs/0029, the base is
+      #     part 6's close-out doc commit (046cfb8 when this was written),
+      #     resolved from git by its subject, and the record commit made after
+      #     part 6's push (bafd780, subject "M3 part 6 close-out record";
+      #     specs/0029 "Close-out push (after P4)") is checked to be in the
+      #     range exactly once. The usage names m3p7close-push.sh. The script,
+      #     its library copy and each attempt's output are kept under
+      #     <home>/.cache/emend-build/m3p7-close/. The library is
+      #     scripts/counting.sh as the repository holds it since part 7 P1
+      #     (its removal written with the guarded form); part 6's copy differed
+      #     from it on that one line. Change 8 and change 14 (the guarded exit
+      #     trap) stand unchanged.
+      # 20. The Excel-record check (specs/0029 "The Excel check"; P4 ruling 3):
+      #     pre mode checks, at the tip, that exactly one file matches
+      #     records/excel-check-m2-*.md, that it holds a "## Results" heading
+      #     and at least one table row whose result cell reads pass, repair or
+      #     fail, and that the tip commit's message names the file's path exactly
+      #     once, by the named function excel_record_ok; its control is a clone
+      #     of the repository whose tip has the record removed, refused. The
+      #     check says only that the record is there and in that form;
+      #     acceptance of what it shows is planning's verification.
+      #
+      # Part 6's text:
+      """
+      EXCEL_FUNCS = r'''# Change 20 (specs/0029 "The Excel check"; "Planning rulings during P4
+      # (2026-10-09)" ruling 3): the Excel-record check of pre mode, run in the git
+      # repository of the current directory at HEAD. Exactly one file matches
+      # records/excel-check-m2-*.md; it holds a line "## Results" and, after it,
+      # at least one table row whose cell under the "result" column reads pass,
+      # repair or fail (a by-hand row's "(by hand)" mark allowed after the word);
+      # HEAD's message names the file's path exactly once. A table's header row is
+      # the row with a cell reading "result", and each table under "## Results"
+      # takes its own (the template's corpus and fixture tables). It prints nothing (it
+      # is called inside yn) and returns 0 when all three hold, 1 otherwise. Its
+      # argument is a directory it writes its three scratch files into.
+      excel_record_ok() {
+        local d=${1:?a scratch directory} f n
+        git ls-tree -r --name-only HEAD -- records/ >"$d/xr-tree" || return 1
+        LC_ALL=C /usr/bin/grep -E '^records/excel-check-m2-[^/]*[.]md$' "$d/xr-tree" >"$d/xr-files"
+        [ "$(wc -l <"$d/xr-files")" -eq 1 ] || return 1
+        f=$(cat "$d/xr-files")
+        git show "HEAD:$f" >"$d/xr-blob" || return 1
+        n=$(awk -F'|' '
+          $0 == "## Results" { r = 1; next }
+          r && /^## / { r = 0 }
+          r && /^[|]/ {
+            h = 0
+            for (i = 2; i < NF; i++) { c = $i; gsub(/^ +| +$/, "", c); if (c == "result") { col = i; h = 1 } }
+            if (h || !col) next
+            c = $col; gsub(/^ +| +$/, "", c)
+            if (c ~ /^(pass|repair|fail)( [(]by hand[)])?$/) k++
+          }
+          END { print k + 0 }' "$d/xr-blob")
+        [ "$n" -ge 1 ] || return 1
+        git log -1 --format=%B HEAD >"$d/xr-msg" || return 1
+        [ "$(LC_ALL=C /usr/bin/grep -o -F -e "$f" "$d/xr-msg" | wc -l)" -eq 1 ]
+      }
+      # The same check's negation, for its control.
+      excel_record_refused() { if excel_record_ok "$1"; then return 1; else return 0; fi; }
+      # What the check reads, printed beside it: the matching paths, the result rows
+      # and the times HEAD's message names the path.
+      excel_record_show() {
+        local d=${1:?a scratch directory} f
+        git ls-tree -r --name-only HEAD -- records/ >"$d/xs-tree"
+        LC_ALL=C /usr/bin/grep -E '^records/excel-check-m2-[^/]*[.]md$' "$d/xs-tree" >"$d/xs-files"
+        echo "  files at HEAD matching records/excel-check-m2-*.md: $(wc -l <"$d/xs-files")"
+        sed 's/^/    /' "$d/xs-files"
+        if [ "$(wc -l <"$d/xs-files")" -eq 1 ]; then
+          f=$(cat "$d/xs-files")
+          git show "HEAD:$f" >"$d/xs-blob"
+          echo "  its lines reading exactly \"## Results\": $(LC_ALL=C /usr/bin/grep -c -x -F -e '## Results' "$d/xs-blob")"
+          git log -1 --format=%B HEAD >"$d/xs-msg"
+          echo "  times HEAD's message names its path: $(LC_ALL=C /usr/bin/grep -o -F -e "$f" "$d/xs-msg" | wc -l)"
+        fi
+      }
+      
+      case "$MODE" in
+      '''
+      EXCEL_PRE = r'''
+          echo
+          echo "## the Excel check record at the tip (change 20)"
+          mkdir "$T/xr" "$T/xs"
+          excel_record_show "$T/xs"
+          check "the tip holds exactly one records/excel-check-m2-*.md with a \"## Results\" heading and a result row, and its message names that path once" "$(yn excel_record_ok "$T/xr")"
+          echo "command: git clone -q . <scratch dir>/xr-clone; in it, git rm -q --ignore-unmatch 'records/excel-check-m2-*.md' and an --allow-empty commit"
+          git clone -q . "$T/xr-clone" >"$T/xr-clone.out" 2>&1 </dev/null
+          ( cd "$T/xr-clone" && git rm -q --ignore-unmatch 'records/excel-check-m2-*.md' && git -c user.name=control -c user.email=control commit -q --allow-empty -m "control: the Excel check record removed" ) >>"$T/xr-clone.out" 2>&1 </dev/null
+          echo "  the clone's output bytes: $(count_bytes '\000-\377' "$T/xr-clone.out")"
+          mkdir "$T/xr-c"
+          check "control: the same check refuses the clone's tip, which holds no such record" "$(cd "$T/xr-clone" && yn excel_record_refused "$T/xr-c")"
+      '''
+      PREV_CHECK_OLD = '''    check "part 5's close-out record commit, made after part 5's push, is in the range exactly once" "$(yn one_line "$(count_lines "$T/p7rec")")"
+      '''
+      PREV_CHECK_NEW = '''    check "part 6's close-out record commit, made after part 6's push, is in the range exactly once" "$(yn one_line "$(count_lines "$T/p7rec")")"
+      ''' + EXCEL_PRE
+      PUSH_REPS = [
+          (BASE_OLD, BASE_NEW, 1),
+          ("PREV_RECORD_PATTERN='^M3 part 5 close-out record'", "PREV_RECORD_PATTERN='^M3 part 6 close-out record'", 1),
+          ("# Usage: M1CLOSE_LIB=<lib> m3p6close-push.sh pre", "# Usage: M1CLOSE_LIB=<lib> m3p7close-push.sh pre", 1),
+          ("#        M1CLOSE_LIB=<lib> m3p6close-push.sh identity", "#        M1CLOSE_LIB=<lib> m3p7close-push.sh identity", 1),
+          ("#        M1CLOSE_LIB=<lib> m3p6close-push.sh push", "#        M1CLOSE_LIB=<lib> m3p7close-push.sh push", 1),
+          ('echo "about: M3 part 6 close-out push of main', 'echo "about: M3 part 7 close-out push of main', 1),
+          ('echo "phase: ' + PHASE_OLD + ', planning\'s close-out instruction)',
+           'echo "phase: ' + PHASE_NEW + ', planning\'s close-out instruction)', 1),
+          ('echo "  part 5\'s close-out doc commit, the last one pushed, resolves to: $EXPECT"',
+           'echo "  part 6\'s close-out doc commit, the last one pushed, resolves to: $EXPECT"', 1),
+          ('check "origin/main is part 5\'s close-out doc commit, resolved from git by its subject"',
+           'check "origin/main is part 6\'s close-out doc commit, resolved from git by its subject"', 1),
+          (PREV_CHECK_OLD, PREV_CHECK_NEW, 1),
+          ('case "$MODE" in\n', EXCEL_FUNCS, 1),
+      ]
+      
+      CI_HEADER = """# Milestone 3 part 7 close-out ci-run.log
+      # (specs/0029-engineering-close.md, "Close-out push (after P4)").
+      # CARRIED TO M3 part 7 from part 6's close-out ci-run script (printed in
+      # records/logs/m3p6-close/ci-run.log, whose text follows), unchanged but
+      # for the names, M3 part 7's, and the spec cited, specs/0029; the usage
+      # names m3p7close-ci.sh and records/logs/m3p7-close/ci-run.log.
+      #
+      # Part 6's text:
+      """
+      CI_REPS = [
+          ("# Usage: M1CLOSE_LIB=<lib> m3p6close-ci.sh", "# Usage: M1CLOSE_LIB=<lib> m3p7close-ci.sh", 1),
+          ("# The caller moves the output to records/logs/m3p6-close/ci-run.log.", "# The caller moves the output to records/logs/m3p7-close/ci-run.log.", 1),
+          ('echo "about: M3 part 6 close-out CI run', 'echo "about: M3 part 7 close-out CI run', 1),
+          ('echo "phase: ' + PHASE_OLD + ') ci-run.log;', 'echo "phase: ' + PHASE_NEW + ') ci-run.log;', 1),
+      ]
+      
+      SCAN_HEADER = """# Milestone 3 part 7 close-out scan.log
+      # (specs/0029-engineering-close.md, "Close-out push (after P4)").
+      # CARRIED TO M3 part 7 from part 6's close-out scan script (printed in
+      # records/logs/m3p6-close/scan.log, whose change list follows), unchanged
+      # except:
+      # 18. The names are M3 part 7's, the spec cited is specs/0029, the base is
+      #     part 6's close-out doc commit (046cfb8 when this was written), the
+      #     last commit part 6 pushed, and the tip is part 7's close-out doc
+      #     commit, whose subject specs/0029 "Close-out push (after P4)" names
+      #     as amended 2026-10-09, each resolved from git by its subject. The
+      #     line on earlier close-out findings names part 6's scan. The usage
+      #     names m3p7close-scan.sh.
+      #
+      # Part 6's text:
+      """
+      SCAN_REPS = [
+          (TIP_OLD, TIP_NEW, 1),
+          (BASE_OLD, BASE_NEW, 1),
+          ("# Usage: M1CLOSE_LIB=<lib> m3p6close-scan.sh", "# Usage: M1CLOSE_LIB=<lib> m3p7close-scan.sh", 1),
+          ('echo "the base given is not part 5\'s close-out doc commit git resolves" >&2',
+           'echo "the base given is not part 6\'s close-out doc commit git resolves" >&2', 1),
+          ('echo "about: M3 part 6 close-out scan', 'echo "about: M3 part 7 close-out scan', 1),
+          ('echo "phase: ' + PHASE_OLD + ') scan.log,', 'echo "phase: ' + PHASE_NEW + ') scan.log,', 1),
+          ('echo "no earlier close-out finding is run again here (header change 2): part"\necho "5\'s close-out scan ended RESULT: PASS (records/logs/m3p5-close/scan.log)."',
+           'echo "no earlier close-out finding is run again here (header change 2): part"\necho "6\'s close-out scan ended RESULT: PASS (records/logs/m3p6-close/scan.log)."', 1),
+      ]
+      
+      gen("m3p6close-push.sh", "m3p7close-push.sh", PUSH_HEADER, PUSH_REPS)
+      gen("m3p6close-ci.sh", "m3p7close-ci.sh", CI_HEADER, CI_REPS)
+      gen("m3p6close-scan.sh", "m3p7close-scan.sh", SCAN_HEADER, SCAN_REPS)
+command: python3 -I <home>/.cache/emend-build/m3p7-close/gen.py <scratch>/w/regen
+  exit: 0; standard error 0 bytes; standard output:
+    wrote m3p7close-push.sh
+    wrote m3p7close-ci.sh
+    wrote m3p7close-scan.sh
+gen.py exits 0, nothing on stderr, its three wrote lines: yes
+  m3p7close-push.sh: regenerated sha256 1d0807d5c0ceb9cec52d0b2918eb3a52689f3a27dddf0f1baf4fc6ad1667e98a; on the disk 1d0807d5c0ceb9cec52d0b2918eb3a52689f3a27dddf0f1baf4fc6ad1667e98a
+the regenerated m3p7close-push.sh is the one on the disk, byte for byte: yes
+  m3p7close-ci.sh: regenerated sha256 c3feb170ae49a2900b24f3620fb20bdd3e7a0b20fea4665b3e3647ab3408f66f; on the disk c3feb170ae49a2900b24f3620fb20bdd3e7a0b20fea4665b3e3647ab3408f66f
+the regenerated m3p7close-ci.sh is the one on the disk, byte for byte: yes
+  m3p7close-scan.sh: regenerated sha256 08cb5afa54cfee2d3597128288f70795a0a1617122dea70c3ffeab186afb35a1; on the disk 08cb5afa54cfee2d3597128288f70795a0a1617122dea70c3ffeab186afb35a1
+the regenerated m3p7close-scan.sh is the one on the disk, byte for byte: yes
+control: the same comparison refuses the regenerated push script against the ci-run script: yes
+
+## T4: each generated script's diff against part 6's, in full (P4 ruling 4; change HF)
+command: diff <home>/.cache/emend-build/m3p7-close/carried/m3p6close-push.sh <home>/.cache/emend-build/m3p7-close/m3p7close-push.sh
+  exit: 1; diff lines 133; removed (<) 10; added (>) 105; the diff:
+    1a2,32
+    > # Milestone 3 part 7 close-out push.log
+    > # (specs/0029-engineering-close.md, "Close-out push (after P4)", as amended
+    > # 2026-10-09, "The Excel check", and "Planning rulings during P4
+    > # (2026-10-09)" rulings 3 and 4).
+    > #
+    > # CARRIED TO M3 part 7 from part 6's close-out push script (printed in
+    > # records/logs/m3p6-close/push.log, whose own change list follows). Every
+    > # check, control and helper is that text's, unchanged, except:
+    > # 19. The names are M3 part 7's, the spec cited is specs/0029, the base is
+    > #     part 6's close-out doc commit (046cfb8 when this was written),
+    > #     resolved from git by its subject, and the record commit made after
+    > #     part 6's push (bafd780, subject "M3 part 6 close-out record";
+    > #     specs/0029 "Close-out push (after P4)") is checked to be in the
+    > #     range exactly once. The usage names m3p7close-push.sh. The script,
+    > #     its library copy and each attempt's output are kept under
+    > #     <home>/.cache/emend-build/m3p7-close/. The library is
+    > #     scripts/counting.sh as the repository holds it since part 7 P1
+    > #     (its removal written with the guarded form); part 6's copy differed
+    > #     from it on that one line. Change 8 and change 14 (the guarded exit
+    > #     trap) stand unchanged.
+    > # 20. The Excel-record check (specs/0029 "The Excel check"; P4 ruling 3):
+    > #     pre mode checks, at the tip, that exactly one file matches
+    > #     records/excel-check-m2-*.md, that it holds a "## Results" heading
+    > #     and at least one table row whose result cell reads pass, repair or
+    > #     fail, and that the tip commit's message names the file's path exactly
+    > #     once, by the named function excel_record_ok; its control is a clone
+    > #     of the repository whose tip has the record removed, refused. The
+    > #     check says only that the record is there and in that form;
+    > #     acceptance of what it shows is planning's verification.
+    > #
+    > # Part 6's text:
+    212c243
+    < # Usage: M1CLOSE_LIB=<lib> m3p6close-push.sh pre <phase commit> > <scratch file>
+    ---
+    > # Usage: M1CLOSE_LIB=<lib> m3p7close-push.sh pre <phase commit> > <scratch file>
+    217c248
+    < #        M1CLOSE_LIB=<lib> m3p6close-push.sh identity <base> <tip>
+    ---
+    > #        M1CLOSE_LIB=<lib> m3p7close-push.sh identity <base> <tip>
+    219c250
+    < #        M1CLOSE_LIB=<lib> m3p6close-push.sh push <base> >> <scratch file>
+    ---
+    > #        M1CLOSE_LIB=<lib> m3p7close-push.sh push <base> >> <scratch file>
+    257,258c288,289
+    < BASE_PATTERN='^M3 part 5 close-out: commit planning docs [(]the P3 verification and rulings, decision 7 deferred again[)]$'
+    < PREV_RECORD_PATTERN='^M3 part 5 close-out record'
+    ---
+    > BASE_PATTERN='^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$'
+    > PREV_RECORD_PATTERN='^M3 part 6 close-out record'
+    380a412,463
+    > # Change 20 (specs/0029 "The Excel check"; "Planning rulings during P4
+    > # (2026-10-09)" ruling 3): the Excel-record check of pre mode, run in the git
+    > # repository of the current directory at HEAD. Exactly one file matches
+    > # records/excel-check-m2-*.md; it holds a line "## Results" and, after it,
+    > # at least one table row whose cell under the "result" column reads pass,
+    > # repair or fail (a by-hand row's "(by hand)" mark allowed after the word);
+    > # HEAD's message names the file's path exactly once. A table's header row is
+    > # the row with a cell reading "result", and each table under "## Results"
+    > # takes its own (the template's corpus and fixture tables). It prints nothing (it
+    > # is called inside yn) and returns 0 when all three hold, 1 otherwise. Its
+    > # argument is a directory it writes its three scratch files into.
+    > excel_record_ok() {
+    >   local d=${1:?a scratch directory} f n
+    >   git ls-tree -r --name-only HEAD -- records/ >"$d/xr-tree" || return 1
+    >   LC_ALL=C /usr/bin/grep -E '^records/excel-check-m2-[^/]*[.]md$' "$d/xr-tree" >"$d/xr-files"
+    >   [ "$(wc -l <"$d/xr-files")" -eq 1 ] || return 1
+    >   f=$(cat "$d/xr-files")
+    >   git show "HEAD:$f" >"$d/xr-blob" || return 1
+    >   n=$(awk -F'|' '
+    >     $0 == "## Results" { r = 1; next }
+    >     r && /^## / { r = 0 }
+    >     r && /^[|]/ {
+    >       h = 0
+    >       for (i = 2; i < NF; i++) { c = $i; gsub(/^ +| +$/, "", c); if (c == "result") { col = i; h = 1 } }
+    >       if (h || !col) next
+    >       c = $col; gsub(/^ +| +$/, "", c)
+    >       if (c ~ /^(pass|repair|fail)( [(]by hand[)])?$/) k++
+    >     }
+    >     END { print k + 0 }' "$d/xr-blob")
+    >   [ "$n" -ge 1 ] || return 1
+    >   git log -1 --format=%B HEAD >"$d/xr-msg" || return 1
+    >   [ "$(LC_ALL=C /usr/bin/grep -o -F -e "$f" "$d/xr-msg" | wc -l)" -eq 1 ]
+    > }
+    > # The same check's negation, for its control.
+    > excel_record_refused() { if excel_record_ok "$1"; then return 1; else return 0; fi; }
+    > # What the check reads, printed beside it: the matching paths, the result rows
+    > # and the times HEAD's message names the path.
+    > excel_record_show() {
+    >   local d=${1:?a scratch directory} f
+    >   git ls-tree -r --name-only HEAD -- records/ >"$d/xs-tree"
+    >   LC_ALL=C /usr/bin/grep -E '^records/excel-check-m2-[^/]*[.]md$' "$d/xs-tree" >"$d/xs-files"
+    >   echo "  files at HEAD matching records/excel-check-m2-*.md: $(wc -l <"$d/xs-files")"
+    >   sed 's/^/    /' "$d/xs-files"
+    >   if [ "$(wc -l <"$d/xs-files")" -eq 1 ]; then
+    >     f=$(cat "$d/xs-files")
+    >     git show "HEAD:$f" >"$d/xs-blob"
+    >     echo "  its lines reading exactly \"## Results\": $(LC_ALL=C /usr/bin/grep -c -x -F -e '## Results' "$d/xs-blob")"
+    >     git log -1 --format=%B HEAD >"$d/xs-msg"
+    >     echo "  times HEAD's message names its path: $(LC_ALL=C /usr/bin/grep -o -F -e "$f" "$d/xs-msg" | wc -l)"
+    >   fi
+    > }
+    > 
+    386c469
+    <     echo "about: M3 part 6 close-out push of main at $(git rev-parse main); HEAD at run: $HEAD_SHA"
+    ---
+    >     echo "about: M3 part 7 close-out push of main at $(git rev-parse main); HEAD at run: $HEAD_SHA"
+    392c475
+    <     echo "phase: Milestone 3 part 6 close-out (specs/0028-images-and-comments-second-half.md, \"Close-out push (after P4)\", planning's close-out instruction) push.log, step 2; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    ---
+    >     echo "phase: Milestone 3 part 7 close-out (specs/0029-engineering-close.md, \"Close-out push (after P4)\", planning's close-out instruction) push.log, step 2; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    438,439c521,522
+    <     echo "  part 5's close-out doc commit, the last one pushed, resolves to: $EXPECT"
+    <     check "origin/main is part 5's close-out doc commit, resolved from git by its subject" "$(yn same_nonempty "$BASE" "$EXPECT")"
+    ---
+    >     echo "  part 6's close-out doc commit, the last one pushed, resolves to: $EXPECT"
+    >     check "origin/main is part 6's close-out doc commit, resolved from git by its subject" "$(yn same_nonempty "$BASE" "$EXPECT")"
+    460c543,555
+    <     check "part 5's close-out record commit, made after part 5's push, is in the range exactly once" "$(yn one_line "$(count_lines "$T/p7rec")")"
+    ---
+    >     check "part 6's close-out record commit, made after part 6's push, is in the range exactly once" "$(yn one_line "$(count_lines "$T/p7rec")")"
+    > 
+    >     echo
+    >     echo "## the Excel check record at the tip (change 20)"
+    >     mkdir "$T/xr" "$T/xs"
+    >     excel_record_show "$T/xs"
+    >     check "the tip holds exactly one records/excel-check-m2-*.md with a \"## Results\" heading and a result row, and its message names that path once" "$(yn excel_record_ok "$T/xr")"
+    >     echo "command: git clone -q . <scratch dir>/xr-clone; in it, git rm -q --ignore-unmatch 'records/excel-check-m2-*.md' and an --allow-empty commit"
+    >     git clone -q . "$T/xr-clone" >"$T/xr-clone.out" 2>&1 </dev/null
+    >     ( cd "$T/xr-clone" && git rm -q --ignore-unmatch 'records/excel-check-m2-*.md' && git -c user.name=control -c user.email=control commit -q --allow-empty -m "control: the Excel check record removed" ) >>"$T/xr-clone.out" 2>&1 </dev/null
+    >     echo "  the clone's output bytes: $(count_bytes '\000-\377' "$T/xr-clone.out")"
+    >     mkdir "$T/xr-c"
+    >     check "control: the same check refuses the clone's tip, which holds no such record" "$(cd "$T/xr-clone" && yn excel_record_refused "$T/xr-c")"
+diff exits 1 for m3p7close-push.sh: the scripts differ and diff read both: yes
+command: diff <home>/.cache/emend-build/m3p7-close/carried/m3p6close-ci.sh <home>/.cache/emend-build/m3p7-close/m3p7close-ci.sh
+  exit: 1; diff lines 23; removed (<) 4; added (>) 12; the diff:
+    1a2,9
+    > # Milestone 3 part 7 close-out ci-run.log
+    > # (specs/0029-engineering-close.md, "Close-out push (after P4)").
+    > # CARRIED TO M3 part 7 from part 6's close-out ci-run script (printed in
+    > # records/logs/m3p6-close/ci-run.log, whose text follows), unchanged but
+    > # for the names, M3 part 7's, and the spec cited, specs/0029; the usage
+    > # names m3p7close-ci.sh and records/logs/m3p7-close/ci-run.log.
+    > #
+    > # Part 6's text:
+    115,116c123,124
+    < # Usage: M1CLOSE_LIB=<lib> m3p6close-ci.sh <pushed sha> > <scratch file>
+    < # The caller moves the output to records/logs/m3p6-close/ci-run.log.
+    ---
+    > # Usage: M1CLOSE_LIB=<lib> m3p7close-ci.sh <pushed sha> > <scratch file>
+    > # The caller moves the output to records/logs/m3p7-close/ci-run.log.
+    186c194
+    < echo "about: M3 part 6 close-out CI run for pushed commit $SHA; HEAD at run: $HEAD_SHA"
+    ---
+    > echo "about: M3 part 7 close-out CI run for pushed commit $SHA; HEAD at run: $HEAD_SHA"
+    192c200
+    < echo "phase: Milestone 3 part 6 close-out (specs/0028-images-and-comments-second-half.md, \"Close-out push (after P4)\") ci-run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    ---
+    > echo "phase: Milestone 3 part 7 close-out (specs/0029-engineering-close.md, \"Close-out push (after P4)\") ci-run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+diff exits 1 for m3p7close-ci.sh: the scripts differ and diff read both: yes
+command: diff <home>/.cache/emend-build/m3p7-close/carried/m3p6close-scan.sh <home>/.cache/emend-build/m3p7-close/m3p7close-scan.sh
+  exit: 1; diff lines 43; removed (<) 7; added (>) 21; the diff:
+    1a2,15
+    > # Milestone 3 part 7 close-out scan.log
+    > # (specs/0029-engineering-close.md, "Close-out push (after P4)").
+    > # CARRIED TO M3 part 7 from part 6's close-out scan script (printed in
+    > # records/logs/m3p6-close/scan.log, whose change list follows), unchanged
+    > # except:
+    > # 18. The names are M3 part 7's, the spec cited is specs/0029, the base is
+    > #     part 6's close-out doc commit (046cfb8 when this was written), the
+    > #     last commit part 6 pushed, and the tip is part 7's close-out doc
+    > #     commit, whose subject specs/0029 "Close-out push (after P4)" names
+    > #     as amended 2026-10-09, each resolved from git by its subject. The
+    > #     line on earlier close-out findings names part 6's scan. The usage
+    > #     names m3p7close-scan.sh.
+    > #
+    > # Part 6's text:
+    169c183
+    < # Usage: M1CLOSE_LIB=<lib> m3p6close-scan.sh <base> <phase commit> <pre|post> <file>=<label>...
+    ---
+    > # Usage: M1CLOSE_LIB=<lib> m3p7close-scan.sh <base> <phase commit> <pre|post> <file>=<label>...
+    203c217
+    < BASE_PATTERN='^M3 part 5 close-out: commit planning docs [(]the P3 verification and rulings, decision 7 deferred again[)]$'
+    ---
+    > BASE_PATTERN='^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$'
+    208c222
+    <   echo "the base given is not part 5's close-out doc commit git resolves" >&2
+    ---
+    >   echo "the base given is not part 6's close-out doc commit git resolves" >&2
+    213c227
+    < TIP_PATTERN='^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$'
+    ---
+    > TIP_PATTERN='^M3 part 7 close-out: commit planning docs [(]the P5 verification and rulings, the Excel check record[)]$'
+    308c322
+    < echo "about: M3 part 6 close-out scan ($STAGE the push) over the range $BASE..$C; HEAD at run: $HEAD_SHA"
+    ---
+    > echo "about: M3 part 7 close-out scan ($STAGE the push) over the range $BASE..$C; HEAD at run: $HEAD_SHA"
+    329c343
+    < echo "phase: Milestone 3 part 6 close-out (specs/0028-images-and-comments-second-half.md, \"Close-out push (after P4)\") scan.log, stage $STAGE; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    ---
+    > echo "phase: Milestone 3 part 7 close-out (specs/0029-engineering-close.md, \"Close-out push (after P4)\") scan.log, stage $STAGE; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    353c367
+    < echo "5's close-out scan ended RESULT: PASS (records/logs/m3p5-close/scan.log)."
+    ---
+    > echo "6's close-out scan ended RESULT: PASS (records/logs/m3p6-close/scan.log)."
+diff exits 1 for m3p7close-scan.sh: the scripts differ and diff read both: yes
+control: the counting form finds one added line in a fixture diff: yes
+
+## T5: bash -n, the shape greps, and the bytes of each generated script (change HG)
+### m3p7close-push.sh
+command: bash -n <home>/.cache/emend-build/m3p7-close/m3p7close-push.sh
+  exit: 0; output 0 bytes
+bash -n reads m3p7close-push.sh with no error: yes
+  shape CHAIN: 0 lines
+CHAIN: m3p7close-push.sh holds none: yes
+  shape BANG: 0 lines
+BANG: m3p7close-push.sh holds none: yes
+  shape ASSIGN: 0 lines
+ASSIGN: m3p7close-push.sh holds none: yes
+  lines with a non-ASCII byte: 0; lines with the U+2014 bytes: 0; lines naming the home directory: 0
+m3p7close-push.sh holds no non-ASCII byte: yes
+m3p7close-push.sh holds no U+2014 bytes: yes
+m3p7close-push.sh names no home path: yes
+### m3p7close-ci.sh
+command: bash -n <home>/.cache/emend-build/m3p7-close/m3p7close-ci.sh
+  exit: 0; output 0 bytes
+bash -n reads m3p7close-ci.sh with no error: yes
+  shape CHAIN: 0 lines
+CHAIN: m3p7close-ci.sh holds none: yes
+  shape BANG: 0 lines
+BANG: m3p7close-ci.sh holds none: yes
+  shape ASSIGN: 0 lines
+ASSIGN: m3p7close-ci.sh holds none: yes
+  lines with a non-ASCII byte: 0; lines with the U+2014 bytes: 0; lines naming the home directory: 0
+m3p7close-ci.sh holds no non-ASCII byte: yes
+m3p7close-ci.sh holds no U+2014 bytes: yes
+m3p7close-ci.sh names no home path: yes
+### m3p7close-scan.sh
+command: bash -n <home>/.cache/emend-build/m3p7-close/m3p7close-scan.sh
+  exit: 0; output 0 bytes
+bash -n reads m3p7close-scan.sh with no error: yes
+  shape CHAIN: 0 lines
+CHAIN: m3p7close-scan.sh holds none: yes
+  shape BANG: 0 lines
+BANG: m3p7close-scan.sh holds none: yes
+  shape ASSIGN: 0 lines
+ASSIGN: m3p7close-scan.sh holds none: yes
+  lines with a non-ASCII byte: 0; lines with the U+2014 bytes: 0; lines naming the home directory: 0
+m3p7close-scan.sh holds no non-ASCII byte: yes
+m3p7close-scan.sh holds no U+2014 bytes: yes
+m3p7close-scan.sh names no home path: yes
+control: CHAIN: the same form finds the fixture's one line: yes
+control: BANG: the same form finds the fixture's one line: yes
+control: ASSIGN: the same form finds the fixture's one line: yes
+control: the non-ASCII form finds the fixture's one line: yes
+control: the U+2014 form finds the fixture's one line: yes
+control: the home form finds the fixture's one line: yes
+control: bash -n refuses a fixture that does not parse: yes
+  the fixture's parse error, bytes: 130
+
+## T6: the Excel-record check and the patterns (P4 ruling 3; change HH)
+command: count_matches over m3p7close-push.sh: the three definitions; the section's heading line; the check's call; its control's call
+  excel_record_ok defined: 1; excel_record_refused: 1; excel_record_show: 1; the section: 1; the check's call: 1; the control's call: 1
+the push script defines the three functions once each and its pre mode holds the section, the check and its control once each: yes
+control: the same check refuses a second call: yes
+  lines naming excel_record in the ci-run and scan scripts: 0
+neither the ci-run nor the scan script names the check: yes
+  the push script's BASE_PATTERN: ^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$
+  the scan script's BASE_PATTERN: ^M3 part 6 close-out: commit planning docs [(]the P4 verification and rulings, decision 9 deferred again[)]$
+  the push script's PREV_RECORD_PATTERN: ^M3 part 6 close-out record
+  the scan script's TIP_PATTERN: ^M3 part 7 close-out: commit planning docs [(]the P5 verification and rulings, the Excel check record[)]$
+the push and scan scripts carry the same base pattern: yes
+command: git log --format='%H %s' --grep=<the pattern> <phase commit>, for the base and the record patterns
+    base: 046cfb89a68338919670adfe1772689293e7aa9d M3 part 6 close-out: commit planning docs (the P4 verification and rulings, decision 9 deferred again)
+    record: bafd78088b897adab6e0733609414db4485845f8 M3 part 6 close-out record: the push, the CI run and the scan
+the base pattern resolves to one commit of the phase commit's history: yes
+the record pattern resolves to one commit of the phase commit's history: yes
+that base commit is part 6's close-out doc commit, by its subject: yes
+that record commit is part 6's close-out record commit, by its subject: yes
+  commits of the phase commit's history the tip pattern matches: 0 (the close-out doc commit is made after P5)
+the tip pattern matches no commit yet: yes
+  the tip pattern read as text: M3 part 7 close-out: commit planning docs (the P5 verification and rulings, the Excel check record)
+command: sha256sum specs/0029-engineering-close.md (planning's working copy, the rulings during P4 uncommitted at this run); tr '\n' ' ' over it; grep -o -F the text above
+  the working copy: sha256 3d6390e760e5568aec5590e1a8b7e469f28e46b7316b4a474dad78d1d1884617
+  times the working specs/0029 states it, its lines joined: 1
+the scan's tip pattern is the close-out doc commit's subject the working specs/0029 states: yes
+control: the joined form finds a subject wrapped over two lines: yes
+control: as_text reads a bracketed pattern as its text: yes
+
+## status after the runs
+command: git status --porcelain
+     M ROADMAP.md
+     M specs/0029-engineering-close.md
+status lines: 2; of them this phase's logs or planning's uncommitted files: 2
+every change in the working tree is one of this phase's logs or planning's uncommitted files: yes
+control: the same pattern finds three of six status lines, this phase's log and planning's two files (change HI): yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <phase>/out/test.stderr: 0 bytes; a copy with one byte appended: 1
+this script wrote nothing to its standard error: yes
+control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-09T16:04:18Z
+test log checks all as expected: yes
