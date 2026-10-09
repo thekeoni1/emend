@@ -11,6 +11,10 @@ members = [
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
+# The toolchain pin, equal to rust-toolchain.toml's channel and the CI
+# workflow's (specs/0029-engineering-close.md, "MSRV (decision 1)"); the
+# hygiene step checks the three agree.
+rust-version = "1.98.1"
 
 # The size baseline (specs/0006-passthrough.md, "Size baseline"): stripped,
 # size-optimised release builds of tools/size-probe for i686 musl.

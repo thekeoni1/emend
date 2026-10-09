@@ -3,6 +3,7 @@ name = "emend"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 publish = false
 
 # The core's two dependencies and nothing else (CLAUDE.md, "Dependencies and

@@ -450,6 +450,45 @@ index_dash . "$OUT/dash.z"
 if [ "$rc" -eq 0 ]; then
   fail hygiene "U+2014 in tracked file(s): $(quoted "$OUT/dash.z")"
 fi
+
+# The toolchain pin, read three times (specs/0029-engineering-close.md,
+# "MSRV (decision 1)", and specs/0001 "Rules for every phase"): the channel
+# of rust-toolchain.toml, every version the CI workflow installs or names
+# with --toolchain, and the workspace's rust-version. Each is read from the
+# index, as the checks above read it, and the three must be one value; a
+# move is a recorded decision, never a side effect of a toolchain install.
+# pins <toolchain file> <workflow file> <manifest file>: prints the three
+# readings, tab-separated (a reading that is missing or not single prints
+# "-"); returns 0 when they are one value, 1 when not.
+pins() {
+  local channel ci manifest
+  channel=$(awk '/^channel = "[^"]*"$/ { n++; v = $3 } END { gsub(/"/, "", v); print (n == 1 ? v : "-") }' "$1")
+  ci=$(awk '{ for (i = 1; i < NF; i++) if (($i == "install" && $(i - 1) == "toolchain") || $i == "--toolchain") seen[$(i + 1)] = 1 }
+    END { n = 0; for (v in seen) { n++; w = v } print (n == 1 ? w : "-") }' "$2")
+  manifest=$(awk '/^\[/ { inpkg = ($0 == "[workspace.package]") }
+    inpkg && /^rust-version = "[^"]*"$/ { n++; v = $3 }
+    END { gsub(/"/, "", v); print (n == 1 ? v : "-") }' "$3")
+  printf '%s\t%s\t%s\n' "$channel" "$ci" "$manifest"
+  [ "$channel" != - ] && [ "$channel" = "$ci" ] && [ "$channel" = "$manifest" ]
+}
+# Positive controls: three files that agree, then the same with the CI pin
+# moved, which must be refused.
+printf '[toolchain]\nchannel = "9.9.9"\n' >"$CTL/pin-toolchain"
+printf '      run: |\n          rustup toolchain install 9.9.9 --profile minimal\n          rustup target list --installed --toolchain 9.9.9\n' >"$CTL/pin-ci"
+printf '[workspace]\nmembers = []\n\n[workspace.package]\nedition = "2024"\nrust-version = "9.9.9"\n\n[profile.size]\n' >"$CTL/pin-manifest"
+pins "$CTL/pin-toolchain" "$CTL/pin-ci" "$CTL/pin-manifest" >"$CTL/o-pins" ||
+  fail hygiene "positive control failed: three agreeing toolchain pins read as disagreeing ($(cat "$CTL/o-pins"))"
+sed 's/install 9\.9\.9/install 9.9.8/' "$CTL/pin-ci" >"$CTL/pin-ci-moved"
+if pins "$CTL/pin-toolchain" "$CTL/pin-ci-moved" "$CTL/pin-manifest" >"$CTL/o-pins-moved"; then
+  fail hygiene "positive control failed: a CI pin moved from the toolchain file read as agreeing"
+fi
+for f in rust-toolchain.toml .github/workflows/ci.yml Cargo.toml; do
+  git show ":$f" >"$OUT/pin-$(basename "$f")" 2>>"$OUT/hygiene-err" ||
+    fail hygiene "cannot read $f from the index" "$OUT/hygiene-err"
+done
+if ! pins "$OUT/pin-rust-toolchain.toml" "$OUT/pin-ci.yml" "$OUT/pin-Cargo.toml" >"$OUT/pins"; then
+  fail hygiene "the toolchain pins disagree (rust-toolchain.toml channel, CI workflow, workspace rust-version): $(tr '\t' ' ' <"$OUT/pins")"
+fi
 echo "PASS hygiene"
 fi
 
