@@ -832,7 +832,7 @@ part's close-out push (decision 7).
 | P3 | the catalogue and limits; the probe and the size record; both samples rerun byte-identical | DONE 2026-10-05 (doc 71d338e, carry afc6a91, catalogue 6b531f6, probe 6b6125b, record bec28eb; `read` costs 51972 section bytes, the core grew 0, budget 436928, 21824 under; both samples byte-identical to P1's and P2's runs; planning's own probes and reruns reproduce every figure) |
 | Close | close-out push after P3, carrying d64b4e8 and this part's commits, the previous-record pattern naming d64b4e8, one independent check; the Milestone 2 Excel check run or deferred again before it | DONE 2026-10-05 (doc 9d62635 pushed, origin/main 6e03f98..9d62635, 18 commits, CI 37385478857 success, record 6aba171 local; the Excel check deferred a tenth time, decision 7; `specs/0027` "Planning verification and rulings on the close-out") |
 
-### Part 6: images and comments, the second half (`specs/0028-images-and-comments-second-half.md`, IN PROGRESS from 2026-10-05)
+### Part 6: images and comments, the second half (`specs/0028-images-and-comments-second-half.md`, DONE and PUSHED 2026-10-08)
 
 Approved by the maintainer 2026-10-05 ("A on all"): an image
 removed by its index in `images` with its anchor skipped, its
@@ -858,7 +858,33 @@ due before part 7's close-out push at the latest.
 | P2 | `ImageAnchor`, `EditAs`, `add_image_at`, `remove_image` with the relationship and media drops through the walk, `--anchor-sample` and `--remove-image-sample` on the corpus | DONE 2026-10-07 (d3c4a9c, records d69e39c, local; twelve mid-phase rulings: the removal sample's recompressed entries, the empty rels part and the input's empty drawing accepted as the rule's consequences, the run log rerun twice with the host disk full named and its header corrected, the drawing count 38 by name and 37 `wsDr`, the build-pruning rule from P3; verified by planning from primaries, its own build, tests on both targets, privacy scan and its own runs of all three samples agreeing on all 27 on both labels; `specs/0028` "Planning verification and rulings on P2") |
 | P3 | the feature `copy`, `copy_sheet` with the pass, the hyperlink relationships, the comment carry and the formula-change rule, `--copy-sample` on the corpus | DONE 2026-10-07 (6a90674, records f73a91b, local; eleven mid-phase rulings: the copy rels part added where the source has a hyperlink or comments relationship, the AlternateContent drop, the replace_part refusal, the idmap count, the bad hyperlink id refusal, the chartsheet-only negative fixture, the constants under copy, one target root with a subdirectory per source tree; verification rulings 1 to 7: the sheetPr and sheetView check gap and the pageSetup wording to part 7, the pre-ruling-10 root-level artifacts pruned at P4; 1109 tests on both targets; 216 of 216 outputs byte-identical to planning's own runs) |
 | P4 | the catalogue and limits; the two grown and two new probes and the size record; the four samples rerun byte-identical | DONE 2026-10-08 (doc f54041f, the xml prefix 42b5de8, phase 9cfd92e, record c616900, local; ten mid-phase rulings: the `grpSp` brief withdrawn, the constants, the probes copying in a second package, the `xml` prefix finding fixed in the core (+64, cause not isolated among six commits), the negative shape, the logged order, the podman warning traced to the root mount and fixed by the maintainer, two generator placeholders, the check answer's one path; `images` +27016 above 25000 stated with the log's cause, `comments` +6196, `copy` 13756, the pair 18864, budget 436992, 21760 under; four samples byte-identical to P3's on both labels, the keep 1093 with the one new pair; verified by planning from primaries, its own build, tests on both targets, privacy scan and its own runs of all four samples agreeing on all 27 on both labels; `specs/0028` "Planning verification and rulings on P4") |
-| Close | close-out push after P4, carrying 6aba171 and this part's commits, the previous-record pattern naming 6aba171, one independent check; the Milestone 2 Excel check asked again before it | PENDING |
+| Close | close-out push after P4, carrying 6aba171 and this part's commits, the previous-record pattern naming 6aba171, one independent check; the Milestone 2 Excel check asked again before it | DONE 2026-10-08 (doc 046cfb8 pushed, origin/main 9d62635..046cfb8, 19 commits, CI 37853950682 success, record bafd780 local; the Excel check deferred a twelfth time, decision 9, a hard requirement of part 7's close-out push; `specs/0028` "Planning verification and rulings on the close-out") |
+
+### Part 7: the engineering close (`specs/0029-engineering-close.md`, IN PROGRESS from 2026-10-08)
+
+Scope chosen by the maintainer 2026-10-08 ("Core close only"):
+the items carried from parts 1 to 6 (the `specs/0001` rules for
+the gate's environment line, one target root per phase, the
+`rm -rf` form and the sessions' environment; the harness scripts'
+header hashes and `leftover` column; the copy's `sheetPr` and
+`sheetView` route; two sentences of `specs/0028` amended; the size
+log's cause attribution per probe's own sources), the MSRV policy,
+the API review record, the README, and the Milestone 2 Excel check
+as a hard requirement of the close-out push. Decisions 1 to 4
+taken as A: `rust-version` equal to the pin and checked by the
+gate; the emptied relationships part kept; the review a record
+only, its changes carried to the next milestone; a short README
+whose measured sentences cite records. The xlsx-diff, passthrough
+and privacy-gate backlogs stay under "Unscoped". No feature is
+added; the core is expected not to move.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the four `specs/0001` rules; `counting.sh`'s `rm -rf` form (self-test); the record script's header hashes and the runner's `leftover` column; part 6 P4's targets pruned; the environment line first in the gate log | PENDING |
+| P2 | `sheetPr` and `sheetView` through `check_copy_relationships` with a test; the two `specs/0028` amendments | PENDING |
+| P3 | `rust-version` and the hygiene agreement check (self-test); the size log with the per-probe cause attribution and the size record; the API review record; part 6's four samples rerun byte-identical; one independent check | PENDING |
+| P4 | `README.md` with the citation check; the push script's Excel-record check; the Excel list written | PENDING |
+| Close | the maintainer's Excel check recorded (`records/excel-check-m2-<date>.md`, in the doc commit); close-out push after P4, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, one independent check | PENDING |
 
 ## Unscoped
 

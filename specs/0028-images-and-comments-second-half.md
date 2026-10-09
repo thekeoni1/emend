@@ -1415,6 +1415,81 @@ Rulings:
    authorisation typed in the implementing session; decision 9
    asked again before it).
 
+## Planning verification and rulings on the close-out (2026-10-08)
+
+Verified by planning from primaries: `origin/main` at the
+close-out doc commit 046cfb8, 19 commits over 9d62635 (6aba171,
+this part's seventeen and the doc commit), the doc commit holding
+this file at 377049e9 and `ROADMAP.md` at 1f82e47b, the hashes
+planning sent; the CI run 37853950682 completed with success on
+046cfb8, read by planning through `gh`; the record commit
+bafd780, parent 046cfb8, exactly the three logs, the one local
+commit ahead, its message naming decision 9's twelfth deferral
+and the superseded first pre attempt; the logs at the reported
+hashes (push.log bca1c175, ci-run.log 05d1ebe2, scan.log
+a23b72c5), each equal to the implementing session's cache copy,
+each ending all as expected, the scan RESULT: PASS with the
+`ANTHROPIC_API_KEY` check and the two siblings scanned at the
+committed hashes; push.log's first 969 lines equal to the pre
+rerun's log (1d66f012, ruling 1), its push mode showing the
+authorisation typed by the maintainer in the implementing
+session ("push", 10/8/26) and git's own `9d62635..046cfb8`; 20
+of 20 messages (the pushed 19 and the record) ASCII, ending with
+the Co-Authored-By line only; no U+2014 in the three logs; the
+repository PRIVATE; planning's own privacy scan 9d62635..bafd780,
+20 commits, 1409 blobs, 0 findings; `ANTHROPIC_API_KEY` unset.
+
+1. The pre run's location (check 1's Q1 reservation, the
+   implementing session's item 4): the push script and its
+   library copy ran from `<home>/.cache/emend-build/m3p6-close/`
+   while the carried text (part 5's change 6) says the scratch
+   copy is the one that runs, and the log's root line and line
+   965 name `<scratch>/close`. Ruling: option (b). Pre mode is run
+   again from a copy under the session's scratch directory,
+   `<scratch>/close`, holding the script and the library copy, so
+   that the root line is true and the stderr counted is the one
+   the line names; push mode runs from the same copy, appended to
+   the same log. The first pre attempt's log and stderr are kept
+   under `<home>/.cache/emend-build/m3p6-close/superseded/
+   pre-attempt-1/` with a NOTE.txt naming this ruling and both
+   hashes; the report discloses it. The script text does not
+   change (its hash stays 400f6015); FACTS.md records the scratch
+   copy's hash equal to it. The independent check is not rerun:
+   the deviation it found is the one corrected, and the rerun's
+   log is read by planning. (Written during the close-out in
+   planning's cache file, the tree having to stay clean for the
+   push script; copied here after the record commit, as part 5's
+   close-out practice.)
+2. The independent check's other reservations (the doc commit's
+   own files and `ROADMAP.md`'s hash not isolable from the
+   cumulative diff; the ci-run and scan scripts' hashes, diff
+   line counts and patterns not among its inputs; the carried
+   library's equality to `scripts/counting.sh`): working-state
+   facts planning verified itself from the repository; accepted,
+   no change, as the earlier close-outs. The authorisation was
+   typed in the implementing session, where the maintainer
+   answers that script.
+3. Milestone 3 part 6 is DONE and PUSHED. The record commit
+   bafd780 goes with the next push; part 7's push script names
+   it by `^M3 part 6 close-out record`, its base this close-out's
+   doc commit 046cfb8 by its subject ("M3 part 6 close-out:
+   commit planning docs (the P4 verification and rulings,
+   decision 9 deferred again)").
+4. Carried into part 7 (`specs/0029`), before anything else its
+   `specs/0001` gate environment line (P4 verification ruling 1);
+   then the backlog named under P3's and P4's verifications (the
+   per-commit cause attribution for the core and `images`, the
+   `sheetPr` and `sheetView` route through the copy's
+   relationship check with a test, "The copy" pageSetup sentence
+   and the "Size" probe wording, the committed scripts' `rm -rf`
+   forms, the prune-rule text and the keepalive and mount notes
+   in `specs/0001`, F2 option (b)). P4's build targets are pruned
+   at part 7 P1's gate (P4 verification ruling 6). The Milestone
+   2 Excel check, with this part's four samples on its list, is a
+   hard requirement of part 7's close-out push (decision 9).
+5. These rulings are written into the working spec after the
+   record commit; they go in part 7's first doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-05: 1 to 8 as recommended (A in
