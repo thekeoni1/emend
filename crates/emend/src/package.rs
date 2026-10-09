@@ -15340,8 +15340,10 @@ fn copy_worksheet(
                     }
                 }
                 let raw = if depth == 2 && ours && local == b"sheetPr" {
+                    check_copy_relationships(start, &scope, None, index)?;
                     without_attribute(token.raw, b"codeName", index)?
                 } else if views.is_some_and(|at| depth == at + 1) && ours && local == b"sheetView" {
+                    check_copy_relationships(start, &scope, None, index)?;
                     without_attribute(token.raw, b"tabSelected", index)?
                 } else if depth == 2 && ours && local == b"pageSetup" {
                     // Printer settings are not copied: the relationship goes.

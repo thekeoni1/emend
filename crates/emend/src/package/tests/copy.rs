@@ -331,6 +331,24 @@ fn a_kept_relationship_outside_a_hyperlink_is_refused() {
 }
 
 #[test]
+fn a_relationship_on_a_sheet_view_or_the_sheet_properties_is_refused() {
+    // `specs/0029-engineering-close.md` item 6: the two start tags the copy
+    // edits before writing are checked as every other kept tag is (none the
+    // schema allows, none in the corpus), the stripped attribute beside it.
+    let rels_body = link_rel("rId1", "https://example.com/a");
+    for body in [
+        "<sheetViews><sheetView tabSelected=\"1\" workbookViewId=\"0\" r:id=\"rId1\"/>\
+         </sheetViews><sheetData/>",
+        "<sheetPr codeName=\"Sheet1\" r:id=\"rId1\"/><sheetData/>",
+    ] {
+        assert_package(
+            refused_with(with_sheet(sheet_r(body), Some(&rels_body)), copy),
+            "a sheet copy meets a relationship it cannot carry",
+        );
+    }
+}
+
+#[test]
 fn a_copy_of_a_sheet_with_a_formula_drops_the_chain() {
     let (parts, mut package) = opened(with_chain(2));
     package.copy_sheet("S2", "Copy").expect("copy_sheet");
