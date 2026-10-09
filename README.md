@@ -58,11 +58,11 @@ Fidelity: each of the four editing samples (copy a sheet, move an image's anchor
 
 In the copy sample, 784 of the 917 zip entries on the host came back byte for byte: the entries the copy did not touch (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`).
 
-Of the 1093 files the crate's own tests write, LibreOffice opened 1082; the record's own sections explain the rest (`records/m3p6-open-2026-10-08-9cfd92e.md`).
+Of the 1093 output files the crate's and the copy tool's tests keep, LibreOffice opened 1082; the record's own sections explain the eleven it did not (`records/m3p6-open-2026-10-08-9cfd92e.md`).
 
 Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 436992 section bytes, 21760 under the ceiling of 458752 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
 
-Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target (`records/scale-m3p1-2026-10-02-6578925.md`).
+Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`).
 
 ## Out of scope by design
 
