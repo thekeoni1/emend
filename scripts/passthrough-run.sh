@@ -6,8 +6,9 @@
 # output with xlsx-diff, and append to summary.<label>.tsv and
 # entries.<label>.tsv in the run directory. Each invocation also appends one
 # row to run.<label>.tsv (commit, times, tool versions, settings). A temporary
-# file the tool left behind is removed after the child ends and noted in the
-# summary's leftover column.
+# file the tool left behind, in the run directory or in the child's own
+# TMPDIR, is removed after the child ends and noted in the summary's leftover
+# column.
 # It prints one line per file (id, label, outcome, diff exit, wall seconds,
 # peak RSS in kB) and a final count line. It never prints an original name, a
 # path under the corpus directory or a byte of content: the child's own output
@@ -224,21 +225,40 @@ while IFS=$'\t' read -r id ext producer tags; do
   done
   in_bytes=$(stat -c %s -- "$input" 2>/dev/null) || in_bytes=""
 
+  # The child's own TMPDIR (specs/0029-engineering-close.md, item 5 and "Planning
+  # rulings during P1", rulings 2 and 3): a directory made for this child
+  # alone under $WORK and exported to the child only, so anything in it after
+  # the child ends is the child's leftover, never another process's, as a
+  # before-and-after look at a shared TMPDIR could not tell. $WORK is made by
+  # mktemp -d under the caller's TMPDIR, so the child's temporaries stay on
+  # the filesystem the caller chose (specs/0023-scale.md P1 verification
+  # ruling 4: the run scripts export TMPDIR as a directory on the disk).
+  ctmp=$(mktemp -d "$WORK/tmp.XXXXXX") || die "cannot create the child's temporary directory"
+
   (
     ulimit -v $((MEMORY * 1024)) || exit 125
+    export TMPDIR="$ctmp"
     exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output" ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}
   ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt" 3>&-
   rc=$?
 
   # A tool stopped by a signal (the timeout's kill included) cannot remove
   # its temporary file, so the runner does, and notes it. Any copy tool's
-  # temporary, on the same ruling as the clearing step above.
+  # temporary, on the same ruling as the clearing step above. leftover is
+  # yes when the run directory's glob or the child's TMPDIR held anything,
+  # no otherwise; the child's TMPDIR is then removed whole, a directory this
+  # run made (specs/0029, "Planning rulings during P1", rulings 2 and 3).
   leftover=no
   for temporary in "$dir/.out.$LABEL.$ext."*.tmp; do
     [ -e "$temporary" ] || continue
     rm -f -- "$temporary" || die "cannot remove a leftover temporary file"
     leftover=yes
   done
+  held=$(find "$ctmp" -mindepth 1 -print -quit) || die "cannot read the child's temporary directory"
+  if [ -n "$held" ]; then
+    leftover=yes
+  fi
+  rm -rf "${ctmp:?}" || die "cannot remove the child's temporary directory"
 
   # GNU time runs timeout, which runs the tool as its direct child, so the
   # timeout's SIGKILL reaches the tool itself; with time inside timeout the

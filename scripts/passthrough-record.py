@@ -313,6 +313,20 @@ def distinct(values):
     return out
 
 
+def binaries_line(label, runs):
+    """The header line naming the two binaries a label's runs used, read from
+    run.<label>.tsv (specs/0029-engineering-close.md, item 5 and "Planning
+    rulings during P1", ruling 4 (ii)). Where the label's run rows disagree,
+    every distinct value is listed and the line says so."""
+    pt = distinct(r["passthrough_sha256"] for r in runs)
+    xd = distinct(r["xlsx_diff_sha256"] for r in runs)
+    line = "- Binaries (%s): passthrough sha256 %s; xlsx-diff sha256 %s" % (
+        label, ", ".join(pt) or "-", ", ".join(xd) or "-")
+    if len(pt) > 1 or len(xd) > 1:
+        line += " (the run rows disagree)"
+    return line
+
+
 def md_row(cells):
     return "| " + " | ".join(str(c) for c in cells) + " |"
 
@@ -364,6 +378,9 @@ def write_md(path, run_name, stem, labels, data):
             ", ".join(distinct(r["lo_timeout_s"] for r in runs)),
             ", ".join(distinct(r["memory_mib"] for r in runs))),
         "- Tool arguments: %s" % arguments,
+    ]
+    out += [binaries_line(label, data[label][2]) for label in labels]
+    out += [
         "",
         "## Files by outcome",
         "",
