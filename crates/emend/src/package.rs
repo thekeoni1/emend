@@ -1762,12 +1762,12 @@
 //!   part, "a style cannot be read" refuses what `Package::add_style`
 //!   refuses, as a run's font read does (`specs/0024-rich-text.md`, P1
 //!   ruling 2).
-//! - Hyperlinks: one with an `r:id` reads as `Target::Url`, the target of
-//!   the part's relationship of that id unescaped from its `Target`
-//!   attribute, its `location` dropped; one without reads as
-//!   `Target::Location`; an `r:id` naming no relationship, no target and
-//!   an empty location are refused; a `ref` that is a range gives its
-//!   top-left cell. The part's relationships are read once and cached.
+//! - Hyperlinks: one with an `r:id` reads as `HyperlinkTarget::Url`, the
+//!   target of the part's relationship of that id unescaped from its
+//!   `Target` attribute, its `location` dropped; one without reads as
+//!   `HyperlinkTarget::Location`; an `r:id` naming no relationship, no
+//!   target and an empty location are refused; a `ref` that is a range gives
+//!   its top-left cell. The part's relationships are read once and cached.
 //! - Protection: each of the sixteen flags from its attribute, the schema's
 //!   default when absent, the value the writer omits (`sheet` false among
 //!   them), so the writer's own form reads back as written ("Planning
@@ -1862,7 +1862,9 @@
 #[cfg(feature = "read")]
 mod sheet_read;
 #[cfg(feature = "read")]
-pub use sheet_read::{ColumnFormat, HyperlinkEntry, RowFormat, Rows, SheetSettings, Target};
+pub use sheet_read::{
+    ColumnFormat, HyperlinkEntry, HyperlinkTarget, RowFormat, Rows, SheetSettings,
+};
 #[cfg(test)]
 mod tests;
 

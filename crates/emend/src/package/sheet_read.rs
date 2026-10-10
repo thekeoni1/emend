@@ -95,8 +95,9 @@ pub struct RowFormat {
 }
 
 /// A hyperlink's target as the part gives it. The Cargo feature `read`.
+/// This type was formerly `Target`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Target {
+pub enum HyperlinkTarget {
     /// The relationship's target, for a hyperlink with an `r:id`.
     Url(String),
     /// The `location` attribute, for a hyperlink without an `r:id`.
@@ -109,7 +110,7 @@ pub struct HyperlinkEntry {
     /// The cell, the top-left one of a `ref` that is a range.
     pub cell: CellRef,
     /// Where it goes.
-    pub target: Target,
+    pub target: HyperlinkTarget,
     /// `display`.
     pub display: Option<String>,
     /// `tooltip`.
@@ -405,9 +406,11 @@ impl<R: Read + Seek> Package<R> {
                         .map_err(|_| SETTING_UNREADABLE)?;
                     let url =
                         quick_xml::escape::unescape(written).map_err(|_| SETTING_UNREADABLE)?;
-                    Target::Url(url.into_owned())
+                    HyperlinkTarget::Url(url.into_owned())
                 }
-                (None, Some(location)) if !location.is_empty() => Target::Location(location),
+                (None, Some(location)) if !location.is_empty() => {
+                    HyperlinkTarget::Location(location)
+                }
                 _ => return Err(SETTING_UNREADABLE),
             };
             settings.hyperlinks.push(HyperlinkEntry {

@@ -247,13 +247,13 @@ fn every_setting_is_read_from_a_part_holding_each_element() {
             hyperlinks: vec![
                 HyperlinkEntry {
                     cell: at("A2"),
-                    target: Target::Url("https://example.com/a?b=1&c=2".into()),
+                    target: HyperlinkTarget::Url("https://example.com/a?b=1&c=2".into()),
                     display: Some("Site".into()),
                     tooltip: Some("Go".into()),
                 },
                 HyperlinkEntry {
                     cell: at("C5"),
-                    target: Target::Location("'Sheet 1'!A1".into()),
+                    target: HyperlinkTarget::Location("'Sheet 1'!A1".into()),
                     display: None,
                     tooltip: None,
                 },
@@ -685,7 +685,7 @@ fn the_writers_forms_read_back_as_written() {
         read.hyperlinks,
         vec![HyperlinkEntry {
             cell: at("A1"),
-            target: Target::Url("https://example.com/".into()),
+            target: HyperlinkTarget::Url("https://example.com/".into()),
             display: None,
             tooltip: Some("tip".into()),
         }]
@@ -769,7 +769,7 @@ fn a_url_hyperlink_with_a_range_ref_reads_its_top_left_cell() {
         read.hyperlinks,
         vec![HyperlinkEntry {
             cell: at("B3"),
-            target: Target::Url("https://example.com/range".into()),
+            target: HyperlinkTarget::Url("https://example.com/range".into()),
             display: None,
             tooltip: None,
         }]
