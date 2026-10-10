@@ -583,7 +583,13 @@ impl<R: Read + Seek> Archive<R> {
     ///
     /// This is a measured position, not `central_start - central_offset`:
     /// the two differ whenever a producer records file-absolute offsets.
-    pub fn prefix_len(&self) -> u64 {
+    ///
+    /// The method exists for the crate's own tests, which read the
+    /// measurement; nothing else calls it, so it is compiled for them alone
+    /// (`specs/0030-carries-and-api-changes.md`, "The API changes", item 6,
+    /// and "Planning rulings during P2", ruling 3).
+    #[cfg(test)]
+    pub(crate) fn prefix_len(&self) -> u64 {
         self.core.prefix_len()
     }
 
@@ -766,7 +772,9 @@ impl Core {
         &self.comment
     }
 
-    /// The body of [`Archive::prefix_len`].
+    /// The body of [`Archive::prefix_len`], compiled for the crate's own
+    /// tests alone, as that method is.
+    #[cfg(test)]
     pub(crate) fn prefix_len(&self) -> u64 {
         self.prefix_len
     }
