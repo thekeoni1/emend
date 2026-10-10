@@ -1,0 +1,1971 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m4p1-p1-test.sh 37ab66bf068074d223c1441966a7d3bcb0aa124d
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: TEST_BUILD: unset (the build root, <build>)
+input: GATE_LOG: <phase>/logs/gate.log (the gate log whose DEBUG binaries' hashes this log checks its copies against)
+about: M4 part 1 P1 phase commit 37ab66bf068074d223c1441966a7d3bcb0aa124d; HEAD at run: 37ab66bf068074d223c1441966a7d3bcb0aa124d
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role
+  M3 part 7's close-out record commit (the base): 582dd2c5c836e8493f6486ab4a7e29cb986cfc35
+  the doc commit: a1f5479d899ec9f59765709d4a6d38b3bb92fdeb
+  the rules commit (specs/0001's sentence): 6d5df988adb25e68fb9f214addcc88dc9bd84b9d
+  the runner commit (scripts/passthrough-run.sh): 267e68959fe3039ca6dcc873c678e9ccbdca3acf
+  the list commit (scripts/excel-check-list.py, the phase commit): 37ab66bf068074d223c1441966a7d3bcb0aa124d
+command: git rev-parse <phase commit>~0 to <phase commit>~4
+    37ab66bf068074d223c1441966a7d3bcb0aa124d
+    267e68959fe3039ca6dcc873c678e9ccbdca3acf
+    6d5df988adb25e68fb9f214addcc88dc9bd84b9d
+    a1f5479d899ec9f59765709d4a6d38b3bb92fdeb
+    582dd2c5c836e8493f6486ab4a7e29cb986cfc35
+  the list commit, the runner commit, the rules commit, the doc commit and the base, each the next one's parent, the list commit the phase commit (change KA): yes
+  control: roles_in_order refuses the runner commit named as the list commit: yes
+  control: roles_in_order refuses the doc commit named as the rules commit: yes
+
+phase: Milestone 4 part 1 P1 (specs/0030-carries-and-api-changes.md) test.log; run at 2026-10-10T02:00:02Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds nothing: it runs the phase commit's scripts over fictional fixtures, with the gate's DEBUG binaries copied (changes KB and KC)
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh, scripts/excel-check-list.py and specs/0030-carries-and-api-changes.md are read from it by git show at the phase commit, the working spec is hashed in it, and it is cloned (read only) into <scratch>/w/clone; nothing in it is run or built
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m4p1-p1, the phase's directory on the disk; <phase>/logs/gate.log is the gate log read for the DEBUG binaries' hashes
+root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <target> stands for <phase>/target, the phase's one target root (specs/0001); <target>/main/debug holds the gate's DEBUG binaries, read only (copied, never run in place)
+root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another
+root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only
+root: <scratch>/w stands for this run's mktemp -d working directory under <build>, kept on the disk after the run (change KC): <scratch>/w/counting.sh the phase commit's library, sourced; <scratch>/w/excel-check-list.py the phase commit's list script, run; <scratch>/w/clone a clone of <repo> checked out at the phase commit, whose scripts/passthrough-run.sh (with scripts/lo-check.sh beside it, which it sources) is run; <scratch>/w/bin the copied binaries; <scratch>/w/fx the fictional fixtures and the program that builds them; the cases' outputs beside them
+  the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>): yes
+  control: apart refuses <scratch>/w against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them this phase's logs or planning's spec 1; the lines:
+     M specs/0030-carries-and-api-changes.md
+  the phase commit given to this script: 37ab66bf068074d223c1441966a7d3bcb0aa124d
+  git rev-parse HEAD at this run:        37ab66bf068074d223c1441966a7d3bcb0aa124d
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit 37ab66bf068074d223c1441966a7d3bcb0aa1240 (the given one, its last hex digit changed); the short sha 37ab66b
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+  control: the phase's status pattern refuses a modified gate file: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0030: yes
+  control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase): yes
+  control: the phase's status pattern takes this phase's log and planning's modified spec alone, no other phase's log, no record, no sibling directory and no untracked spec (change KA): yes
+command: git show <phase commit>:specs/0030-carries-and-api-changes.md | sha256sum: 7bc47caecab30ad1de299cea49f967aea018f10c3d0599b8fbd4d77a191332f3; sha256sum specs/0030-carries-and-api-changes.md (the working file, printed and not asserted: planning holds its rulings during P1 uncommitted; change KA): ff147a83f00ab2a908fdc6ec27da4efc80a547c656873d11b7f326818564e456
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 4 part 1 P1 test.log
+    # (specs/0030-carries-and-api-changes.md, "### P1": "The test log: the
+    # script on a fixture run directory with and without a planted error row,
+    # the counts shown"; item 1; decision 1 A and "Planning rulings during P1"
+    # rulings 2 and 6). The phase commit's scripts/excel-check-list.py and
+    # scripts/passthrough-run.sh, over FICTIONAL fixtures this script builds in
+    # <scratch>/w/fx (no corpus file is read; nothing runs in <repo>):
+    #
+    #   T1 the list, --run root1/runs/run-formula --run-plain
+    #      root1/runs/run-plain, no error row: exit 0, the counts line, stderr
+    #      EMPTY (ruling 6: no note for a directory with none), the list with
+    #      mode 600, its rows counted by source.
+    #   T2 the same with run-plain copied to run-plain-planted and one error row
+    #      planted there (fx-b: outcome error, out_bytes empty, its output
+    #      removed, as the runner leaves it): exit 0, stderr exactly one line,
+    #      the note for 1 row of run-plain-planted (built from the source's
+    #      own form), one corpus row fewer than T1, fx-b absent under that
+    #      label.
+    #   T2b the planted row in the --run directory instead (run-formula copied
+    #      to run-formula-planted): the note names "host".
+    #   T3 the runner, the clone's scripts/passthrough-run.sh at the phase
+    #      commit, over the fixture corpus root rroot with the gate's DEBUG
+    #      emend-copy and xlsx-diff copied, no --libreoffice, --ids selecting
+    #      fa0000000001:
+    #      T3a a fresh run directory: exit 0, one ok row;
+    #      T3b a fresh run directory with fa0000000001/lo.host planted: exit 2,
+    #          the earlier-run message from the source, no row, no output, the
+    #          planted directory still there;
+    #      T3c the same with lo-in.host;
+    #      T3d only fa0000000001/lo.i686 planted, --label host: not refused,
+    #          one ok row, lo.i686 left in place;
+    #      T3e lo.host planted under fa0000000002, which --ids does not select:
+    #          refused (every subdirectory counts, ruling 2).
+    #   Every message and the note's form are read from the sources by grep,
+    #   never typed; each pass check has a control that refuses another case's
+    #   output.
+    #
+    # CARRIED TO M4 part 1 P1 from M3 part 7 P4's test script (printed in
+    # records/logs/m3p7-p4/test.log), generated by
+    # <home>/.cache/emend-build/m4p1-p1/gen/test.py with gen/p1_common.py.
+    # P4's cases (the carried close-out scripts and their generator) are P4's
+    # and are not rerun. P4's comment text follows below as the carried history;
+    # the code is this phase's. What differs, and why:
+    #  KA. The phase, the log directory and the subjects are M4 part 1 P1's: the
+    #      base M3 part 7's close-out record commit, then the doc commit, the
+    #      rules commit (specs/0001), the runner commit and the list commit,
+    #      the phase commit, each by its full subject. The spec is specs/0030,
+    #      pinned at its blob at the doc commit, 7bc47cae (FACTS.md); the
+    #      working file, planning's rulings during P1, is printed and not
+    #      asserted. The status pattern allows this phase's logs and
+    #      planning's uncommitted specs/0030 alone.
+    #  KB. No build. scripts/counting.sh and scripts/excel-check-list.py are
+    #      read at the phase commit by git show into <scratch>/w; the runner is
+    #      run from a clone of <repo> at the phase commit in <scratch>/w/clone
+    #      (the runner finds its repository as its own directory's parent and
+    #      reads its commit, Cargo.lock and rustc there, and sources
+    #      scripts/lo-check.sh beside it); the gate's DEBUG emend-copy and
+    #      xlsx-diff are copied from <target>/main/debug into <scratch>/w/bin
+    #      and each copy's sha256 checked against the one line gate.log
+    #      printed for it.
+    #  KC. The fixtures, built under <scratch>/w/fx by a python3 -I program this
+    #      script writes beside them (printed), all fictional. <scratch>/w, with
+    #      the fixtures, the clone and the cases' outputs, is kept on the disk
+    #      under <build>; this script removes no directory.
+    #  KD. Root lines for the placeholders the carried history prints before a
+    #      slash and this log never uses, each saying so.
+    #
+    # P4's text:
+    # Milestone 3 part 7 P4 test.log (specs/0029-engineering-close.md, "P4:
+    # the README and the list" as amended 2026-10-09, "The Excel check",
+    # "Close-out push (after P4)" as amended, and "Planning rulings during P4
+    # (2026-10-09)" rulings 3 and 4): the spec pinned by the hash of its
+    # committed blob, planning's working copy printed; the phase's three
+    # commits by role; T1 part 6's close-out push, ci-run and scan scripts,
+    # copied to <home>/.cache/emend-build/m3p7-close/carried, each equal to the
+    # text part 6's committed logs printed; T2 the counting library the
+    # close-out sources, equal to the phase commit's scripts/counting.sh, and
+    # its one line of difference from part 6's copy, which part 6's push.log
+    # printed; T3 gen.py printed and run into a scratch directory, the three
+    # scripts it writes equal to the ones on the disk; T4 each generated
+    # script's diff against part 6's, printed in full; T5 bash -n, the three
+    # shape greps with fixtures, and no non-ASCII byte, U+2014 or home path in
+    # each generated script; T6 the Excel-record check's three functions and
+    # its pre-mode section present once each, the base, record and tip
+    # patterns resolved or read; this log runs no cargo; this script's own
+    # stderr counted.
+    #
+    # Usage: m4p1-p1-test.sh <phase commit> > <file outside the tree>; the
+    # caller moves the output to records/logs/m4p1-p1/test.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/test.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    PHASE_DIR=$HOME/.cache/emend-build/m4p1-p1
+    BUILD_ROOT=${TEST_BUILD:-$PHASE_DIR/test}
+    SUPERSEDED_DIR=$PHASE_DIR/superseded
+    TARGET_DIR=$PHASE_DIR/target
+    GATE_LOG=${GATE_LOG:-$PHASE_DIR/logs/gate.log}
+    SPEC=specs/0030-carries-and-api-changes.md
+    SPEC_WANT=7bc47caecab30ad1de299cea49f967aea018f10c3d0599b8fbd4d77a191332f3
+    mkdir -p "$BUILD_ROOT" || exit 2
+    # Change KC: made on the disk under <build> and kept after the run.
+    B=$(mktemp -d -p "$BUILD_ROOT") || exit 2
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    LIST=$B/excel-check-list.py
+    git show "$C:scripts/excel-check-list.py" >"$LIST" || exit 2
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT_SHA=${C:0:7}
+    # This phase's logs and planning's uncommitted spec (change KA).
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m4p1-p1/| M specs/0030-carries-and-api-changes[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$TARGET_DIR#<target>#g" -e "s#$PHASE_DIR#<phase>#g" \
+        -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: TEST_BUILD: ${TEST_BUILD:-unset} (the build root, <build>)"
+    echo "input: GATE_LOG: ${GATE_LOG} (the gate log whose DEBUG binaries' hashes this log checks its copies against)"
+    echo "about: M4 part 1 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M3 part 7 close-out record: the push, the CI run and the scan')
+    DOC1=$(by_subject "M4 part 1 P1: commit planning docs (M3 part 7's close-out rulings, the Milestone 4 outline, specs/0030)")
+    RULES1=$(by_subject "M4 part 1 P1: specs/0001 sentence on the runner's reused run directory")
+    RUNNER1=$(by_subject "M4 part 1 P1: the runner refuses a run directory holding an earlier run")
+    LIST1=$(by_subject "M4 part 1 P1: the Excel list leaves out a run directory's error rows")
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role"
+    echo "  M3 part 7's close-out record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC1:-none}"
+    echo "  the rules commit (specs/0001's sentence): ${RULES1:-none}"
+    echo "  the runner commit (scripts/passthrough-run.sh): ${RUNNER1:-none}"
+    echo "  the list commit (scripts/excel-check-list.py, the phase commit): ${LIST1:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~4"
+    for k in 0 1 2 3 4; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$LIST1" "$RUNNER1" "$RULES1" "$DOC1" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "the list commit, the runner commit, the rules commit, the doc commit and the base, each the next one's parent, the list commit the phase commit (change KA)" "$(yn roles_in_order)"
+    roles_ctl() { local LIST1=$RUNNER1; roles_in_order; }
+    check "control: roles_in_order refuses the runner commit named as the list commit" "$(ynnot roles_ctl)"
+    roles_ctl2() { local RULES1=$DOC1; roles_in_order; }
+    check "control: roles_in_order refuses the doc commit named as the rules commit" "$(ynnot roles_ctl2)"
+    echo
+    echo "phase: Milestone 4 part 1 P1 ($SPEC) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds nothing: it runs the phase commit's scripts over fictional fixtures, with the gate's DEBUG binaries copied (changes KB and KC)"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh, scripts/excel-check-list.py and $SPEC are read from it by git show at the phase commit, the working spec is hashed in it, and it is cloned (read only) into <scratch>/w/clone; nothing in it is run or built"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m4p1-p1, the phase's directory on the disk; <phase>/logs/gate.log is the gate log read for the DEBUG binaries' hashes"
+    echo "root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <target> stands for <phase>/target, the phase's one target root (specs/0001); <target>/main/debug holds the gate's DEBUG binaries, read only (copied, never run in place)"
+    echo "root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another"
+    echo "root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory under <build>, kept on the disk after the run (change KC): <scratch>/w/counting.sh the phase commit's library, sourced; <scratch>/w/excel-check-list.py the phase commit's list script, run; <scratch>/w/clone a clone of <repo> checked out at the phase commit, whose scripts/passthrough-run.sh (with scripts/lo-check.sh beside it, which it sources) is run; <scratch>/w/bin the copied binaries; <scratch>/w/fx the fictional fixtures and the program that builds them; the cases' outputs beside them"
+    
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN" && apart "$TARGET_DIR" "$BUILD_ROOT" && apart "$TARGET_DIR" "$MAIN"; }
+    check "the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$B" "$BUILD_ROOT"; }
+    check "control: apart refuses <scratch>/w against <build>, which holds it" "$(ynnot roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT_SHA")"
+    short_names_head() { [ "$(git rev-parse "$SHORT_SHA")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    ours_ctl() { printf ' M scripts/check.sh\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified gate file" "$(ynnot ours_ctl)"
+    ours_spec_ctl() { printf ' M specs/0029-engineering-close.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0030" "$(ynnot ours_spec_ctl)"
+    ours_roadmap_ctl() { printf ' M ROADMAP.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase)" "$(ynnot ours_roadmap_ctl)"
+    ours_rec_ctl() { printf '?? records/logs/m4p1-p1/gate.log\n?? records/logs/m3p7-p5/gate.log\n?? records/m4p1-p1-printarea-2026-01-01-%s.md\n?? records/logs/m4p1-p1x/gate.log\n M ROADMAP.md\n M specs/0030-carries-and-api-changes.md\n?? specs/0030-carries-and-api-changes.md\n' "$SHORT_SHA" | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's log and planning's modified spec alone, no other phase's log, no record, no sibling directory and no untracked spec (change KA)" "$(yn [ "$(ours_rec_ctl)" = 2 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, printed and not asserted: planning holds its rulings during P1 uncommitted; change KA): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the scripts under test, at the phase commit (change KB)"
+    echo "command: git show <phase commit>:scripts/excel-check-list.py > <scratch>/w/excel-check-list.py; sha256sum: $(sha256sum <"$LIST" | cut -d' ' -f1)"
+    sed 's/^/    /' "$LIST"
+    echo "command: git clone -q <repo> <scratch>/w/clone; git -C <scratch>/w/clone checkout -q --detach <phase commit> (a scratch copy: nothing in <repo> is written)"
+    git clone -q "$MAIN" "$B/clone" >"$B/clone.out" 2>"$B/clone.err" </dev/null
+    rc_clone=$?
+    git -C "$B/clone" checkout -q --detach "$C" >>"$B/clone.out" 2>>"$B/clone.err" </dev/null
+    rc_co=$?
+    CLONE_HEAD=$(git -C "$B/clone" rev-parse HEAD 2>/dev/null)
+    echo "  clone exit $rc_clone; checkout exit $rc_co; the clone's HEAD: ${CLONE_HEAD:-none}; output bytes $(wc -c <"$B/clone.out"), standard error bytes $(wc -c <"$B/clone.err")"
+    clone_ok() { [ "$rc_clone" = 0 ] && [ "$rc_co" = 0 ] && [ "$CLONE_HEAD" = "$C" ]; }
+    check "the clone is at the phase commit" "$(yn clone_ok)"
+    clone_ctl() { local CLONE_HEAD=$RUNNER1; clone_ok; }
+    check "control: the same check refuses a clone at the runner commit" "$(ynnot clone_ctl)"
+    clone_clean() { [ -z "$(git -C "$B/clone" status --porcelain 2>/dev/null)" ]; }
+    check "the clone's working tree is clean" "$(yn clone_clean)"
+    RUNNER=$B/clone/scripts/passthrough-run.sh
+    runner_same() { [ "$(sha256sum <"$RUNNER" | cut -d' ' -f1)" = "$(git show "$C:scripts/passthrough-run.sh" | sha256sum | cut -d' ' -f1)" ]; }
+    check "the clone's scripts/passthrough-run.sh is the phase commit's blob" "$(yn runner_same)"
+    echo "command: sha256sum <scratch>/w/clone/scripts/passthrough-run.sh: $(sha256sum <"$RUNNER" | cut -d' ' -f1)"
+    sed 's/^/    /' "$RUNNER"
+    echo "command: sha256sum <scratch>/w/clone/scripts/lo-check.sh (sourced by the runner; no case gives --libreoffice, so its check never runs): $(sha256sum <"$B/clone/scripts/lo-check.sh" | cut -d' ' -f1)"
+    
+    echo
+    echo "## the gate's DEBUG binaries, copied and checked against the gate log (change KB)"
+    BIN=$B/bin
+    mkdir -p "$BIN" || exit 2
+    bins_ok=yes
+    gate_there() { [ -f "$GATE_LOG" ]; }
+    check "the gate log is there" "$(yn gate_there)"
+    # gate_sha <name>: the hash gate.log printed for <target>/main/debug/<name>,
+    # from its one line of the form "<target>/main/debug/<name>: sha256 <hash>,
+    # bytes N"; empty unless there is exactly one.
+    gate_sha() {
+      local n
+      n=$(count_matches -F "<target>/main/debug/$1: sha256 " "$GATE_LOG")
+      [ "$n" = 1 ] || return 0
+      LC_ALL=C "$G" -F "<target>/main/debug/$1: sha256 " "$GATE_LOG" | sed -e 's/^.*: sha256 //' -e 's/,.*$//'
+    }
+    for b in emend-copy xlsx-diff; do
+      want=$(gate_sha "$b")
+      cp "$TARGET_DIR/main/debug/$b" "$BIN/$b" 2>/dev/null || bins_ok=no
+      have=$(sha256sum <"$BIN/$b" 2>/dev/null | cut -d' ' -f1)
+      echo "command: grep -F '<target>/main/debug/$b: sha256 ' <phase>/logs/gate.log: ${want:-not exactly one line}; cp <target>/main/debug/$b <scratch>/w/bin/$b; sha256sum: ${have:-none}"
+      bin_ok() { [ -n "$want" ] && [ "$have" = "$want" ] && [ -x "$BIN/$b" ]; }
+      if bin_ok; then :; else bins_ok=no; fi
+    done
+    check "each copy is executable and hashes as gate.log printed for the binary it copies" "$(yn [ "$bins_ok" = yes ])"
+    gate_sha_ctl() { [ -n "$(gate_sha no-such-binary)" ]; }
+    check "control: the same reading finds no hash for a binary gate.log does not name" "$(ynnot gate_sha_ctl)"
+    
+    echo
+    echo "## the fictional fixtures (change KC)"
+    FX=$B/fx
+    mkdir -p "$FX" || exit 2
+    cat >"$FX/mkfix.py" <<'MKFIX'
+    """Builds the test log's fictional fixtures under the directory given:
+    for the list script, two corpus roots (root1, root2), a keep and its
+    open-check record; for the runner, a third corpus root (rroot) whose manifest
+    has the runner's exact header and two workbooks with 12-hex ids. Nothing here
+    is read from a corpus; every name and value is made up. An error row has no
+    output file, as the runner leaves none for a refused input."""
+    import hashlib
+    import os
+    import sys
+    import zipfile
+    
+    top = sys.argv[1]
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '</Types>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+          'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+          '<sheets><sheet name="Fixture" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    WB_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+               '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+               '</Relationships>')
+    
+    
+    def sheet(with_formula):
+        cells = '<c r="A1"><v>3</v></c>'
+        if with_formula:
+            cells += '<c r="B1"><f>A1*2</f><v>6</v></c>'
+        return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                '<sheetData><row r="1">' + cells + '</row></sheetData></worksheet>')
+    
+    
+    def workbook(path, with_formula):
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("[Content_Types].xml", CT)
+            z.writestr("_rels/.rels", RELS)
+            z.writestr("xl/workbook.xml", WB)
+            z.writestr("xl/_rels/workbook.xml.rels", WB_RELS)
+            z.writestr("xl/worksheets/sheet1.xml", sheet(with_formula))
+    
+    
+    def sha(path):
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    
+    
+    SUMMARY_HEAD = ("id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s", "peak_rss_kb",
+                    "in_bytes", "out_bytes")
+    MANIFEST_HEAD = ("id", "sha256", "bytes", "ext", "producer", "producer_version", "app", "source", "tags",
+                     "added", "original_name", "note")
+    
+    
+    def corpus_root(root, ids, runs):
+        os.makedirs(os.path.join(root, "corpus"))
+        rows = ["\t".join(MANIFEST_HEAD)]
+        for wid, formula in ids:
+            path = os.path.join(root, "corpus", wid + ".xlsx")
+            workbook(path, formula)
+            rows.append("\t".join((wid, sha(path), str(os.path.getsize(path)), "xlsx", "fixture", "-", "-",
+                                   "fictional", "fictional", "2026-01-01", "-", "-")))
+        with open(os.path.join(root, "manifest.tsv"), "w") as h:
+            h.write("\n".join(rows) + "\n")
+        for name, outcomes, summary in runs:
+            run = os.path.join(root, "runs", name)
+            lines = ["\t".join(SUMMARY_HEAD)]
+            for (wid, formula), outcome in zip(ids, outcomes):
+                os.makedirs(os.path.join(run, wid))
+                src = os.path.join(root, "corpus", wid + ".xlsx")
+                out_bytes = ""
+                if outcome == "ok":
+                    out = os.path.join(run, wid, "out.host.xlsx")
+                    workbook(out, formula)
+                    out_bytes = str(os.path.getsize(out))
+                code = {"ok": "0", "error": "2", "timeout": "124"}[outcome]
+                lines.append("\t".join((wid, "host", "fixture", "-", outcome, code, "-", "0.01", "1",
+                                        str(os.path.getsize(src)), out_bytes)))
+            if summary:
+                with open(os.path.join(run, "summary.host.tsv"), "w") as h:
+                    h.write("\n".join(lines) + "\n")
+    
+    
+    LIST_IDS = (("fx-a", True), ("fx-b", False))
+    corpus_root(os.path.join(top, "root1"), LIST_IDS,
+                (("run-formula", ("ok", "ok"), True),
+                 ("run-plain", ("ok", "ok"), True),
+                 ("run-nosummary", ("ok", "ok"), False),
+                 ("run-allerror", ("error", "error"), True),
+                 ("run-timeout", ("ok", "timeout"), True)))
+    corpus_root(os.path.join(top, "root2"), LIST_IDS, (("run-other", ("ok", "ok"), True),))
+    corpus_root(os.path.join(top, "rroot"), (("fa0000000001", True), ("fa0000000002", False)), ())
+    keep = os.path.join(top, "keep")
+    os.makedirs(keep)
+    rec = ["\t".join(("test", "in_bytes", "in_sha256", "out_bytes", "out_sha256", "lo_in", "lo", "reason_in",
+                      "reason_out"))]
+    for test, formula in (("t1", True), ("t2", False)):
+        fin = os.path.join(keep, test + ".in.xlsx")
+        fout = os.path.join(keep, test + ".out.xlsx")
+        workbook(fin, formula)
+        workbook(fout, not formula)
+        rec.append("\t".join((test, str(os.path.getsize(fin)), sha(fin), str(os.path.getsize(fout)), sha(fout),
+                              "ok", "ok", "none", "none")))
+    with open(os.path.join(top, "open.txt"), "w") as h:
+        h.write("\n".join(rec) + "\n")
+    MKFIX
+    echo "command: python3 -I <scratch>/w/fx/mkfix.py <scratch>/w/fx (the program, printed below, sha256 $(sha256sum <"$FX/mkfix.py" | cut -d' ' -f1))"
+    sed 's/^/    /' "$FX/mkfix.py"
+    python3 -I "$FX/mkfix.py" "$FX" >"$B/mkfix.out" 2>"$B/mkfix.err" </dev/null
+    rc=$?
+    echo "  exit: $rc; output bytes $(wc -c <"$B/mkfix.out"); standard error bytes $(wc -c <"$B/mkfix.err")"
+    mkfix_ok() { [ "$rc" = 0 ] && [ ! -s "$B/mkfix.out" ] && [ ! -s "$B/mkfix.err" ]; }
+    check "the fixtures were built: exit 0, nothing printed" "$(yn mkfix_ok)"
+    echo "command: find <scratch>/w/fx -type f, the paths below it, sorted"
+    (cd "$FX" && find . -type f | LC_ALL=C sort) | sed 's/^/    /'
+    fx_there() {
+      local f
+      for f in root1/manifest.tsv root1/corpus/fx-a.xlsx root1/corpus/fx-b.xlsx \
+        root1/runs/run-formula/summary.host.tsv root1/runs/run-plain/summary.host.tsv \
+        root1/runs/run-allerror/summary.host.tsv root1/runs/run-timeout/summary.host.tsv \
+        root1/runs/run-nosummary/fx-a/out.host.xlsx root2/manifest.tsv root2/runs/run-other/summary.host.tsv \
+        rroot/manifest.tsv rroot/corpus/fa0000000001.xlsx rroot/corpus/fa0000000002.xlsx \
+        keep/t1.in.xlsx keep/t2.out.xlsx open.txt; do
+        [ -f "$FX/$f" ] || return 1
+      done
+    }
+    check "every fixture file the cases read is there" "$(yn fx_there)"
+    # outcome_count <summary> <outcome>: rows of that outcome, the column found by its header name.
+    outcome_count() { awk -F'\t' -v w="$2" 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "outcome") o = i; next } $o == w { n++ } END { print n + 0 }' "$1"; }
+    echo "  rows by outcome (the outcome column found by name): run-formula ok $(outcome_count "$FX/root1/runs/run-formula/summary.host.tsv" ok); run-plain ok $(outcome_count "$FX/root1/runs/run-plain/summary.host.tsv" ok); run-allerror error $(outcome_count "$FX/root1/runs/run-allerror/summary.host.tsv" error); run-timeout ok $(outcome_count "$FX/root1/runs/run-timeout/summary.host.tsv" ok) timeout $(outcome_count "$FX/root1/runs/run-timeout/summary.host.tsv" timeout)"
+    fx_outcomes() { [ "$(outcome_count "$FX/root1/runs/run-formula/summary.host.tsv" ok)" = 2 ] && [ "$(outcome_count "$FX/root1/runs/run-plain/summary.host.tsv" ok)" = 2 ] && [ "$(outcome_count "$FX/root1/runs/run-allerror/summary.host.tsv" error)" = 2 ] && [ "$(outcome_count "$FX/root1/runs/run-timeout/summary.host.tsv" timeout)" = 1 ]; }
+    check "the fixture summaries hold the outcomes the cases need" "$(yn fx_outcomes)"
+    fx_outcomes_ctl() { [ "$(outcome_count "$FX/root1/runs/run-plain/summary.host.tsv" error)" = 1 ]; }
+    check "control: the same count reads no error row in run-plain" "$(ynnot fx_outcomes_ctl)"
+    MANIFEST_HEAD_WANT=$(git show "$C:scripts/passthrough-run.sh" | sed -n "s/^readonly MANIFEST_HEADER=\\$'\\(.*\\)'\$/\\1/p" | sed 's/\\t/|/g')
+    MANIFEST_HEAD_HAVE=$(head -n 1 "$FX/rroot/manifest.tsv" | tr '\t' '|')
+    echo "  the runner's manifest header (from its source, tabs as |): $MANIFEST_HEAD_WANT"
+    echo "  the runner fixture's manifest header (tabs as |):          $MANIFEST_HEAD_HAVE"
+    mh_ok() { [ -n "$MANIFEST_HEAD_WANT" ] && [ "$MANIFEST_HEAD_WANT" = "$MANIFEST_HEAD_HAVE" ]; }
+    check "the runner fixture's manifest header is the one the runner checks" "$(yn mh_ok)"
+    mh_ctl() { local MANIFEST_HEAD_HAVE=id; mh_ok; }
+    check "control: the same comparison refuses another header" "$(ynnot mh_ctl)"
+    
+    echo
+    echo "## the messages and the note's form, read from the sources at the phase commit (never typed)"
+    echo "command: grep -o -E 'Refused\\(\"<the message's start>[^\"]*\"\\)' <scratch>/w/excel-check-list.py; grep -o -E '\"note: %d [^\"]*\"' the same (the format string the script prints, not its docstring's description); grep -o -E 'die \"the run directory holds an earlier run[^\"]*\"' <scratch>/w/clone/scripts/passthrough-run.sh; the text between the quotes"
+    msg_of() { LC_ALL=C "$G" -o -E "Refused\\(\"$1[^\"]*\"\\)" "$LIST" | sed -e 's/^Refused("//' -e 's/")$//'; }
+    MSG_NOOK=$(msg_of 'a run directory holds no ')
+    MSG_OUTCOME=$(msg_of 'a workbook of the run has an outcome ')
+    MSG_NOSUMMARY=$(msg_of 'the run directory has no ')
+    MSG_OTHERROOT=$(msg_of 'a --run-plain directory is under ')
+    NOTE_FMT=$(LC_ALL=C "$G" -o -E '"note: %d [^"]*"' "$LIST" | sed -e 's/^"//' -e 's/"$//')
+    MSG_EARLIER=$(LC_ALL=C "$G" -o -E 'die "the run directory holds an earlier run[^"]*"' "$RUNNER" | sed -e 's/^die "//' -e 's/"$//')
+    echo "  the list's no-ok-row message: $MSG_NOOK"
+    echo "  the list's outcome message: $MSG_OUTCOME"
+    echo "  the list's no-summary message: $MSG_NOSUMMARY"
+    echo "  the list's other-root message: $MSG_OTHERROOT"
+    echo "  the list's note form: $NOTE_FMT"
+    echo "  the runner's earlier-run message: $MSG_EARLIER"
+    one_line_msg() { [ -n "$1" ] && [ "$(printf '%s\n' "$1" | wc -l)" = 1 ]; }
+    msgs_ok() { one_line_msg "$MSG_NOOK" && one_line_msg "$MSG_OUTCOME" && one_line_msg "$MSG_NOSUMMARY" && one_line_msg "$MSG_OTHERROOT" && one_line_msg "$NOTE_FMT" && one_line_msg "$MSG_EARLIER"; }
+    check "each message and the note's form is found once in its source and is not empty" "$(yn msgs_ok)"
+    msg_ctl() { one_line_msg "$(msg_of 'no such message ')"; }
+    check "control: the same reading finds no message for a start the source does not hold" "$(ynnot msg_ctl)"
+    # note_line <n> <label>: the note the list script prints, built from its own form.
+    note_line() { printf "$NOTE_FMT" "$1" "$2"; }
+    echo "  the note for 1 row of run-x, built from the form: $(note_line 1 run-x)"
+    
+    # list_case <name> <--run> <--run-plain or -> [<root>]: the list script run in
+    # the fixture root's directory with the keep and the record, into
+    # <scratch>/w/out-<name>.txt; exit, stdout and stderr kept as <name>.rc/.out/.err.
+    list_case() {
+      local name=$1 run=$2 plain=$3 out=$B/out-$1.txt rc
+      echo "### $name"
+      check "$name: the list file is not there before the case" "$(ynnot test -e "$out")"
+      if [ "$plain" = - ]; then
+        echo "command: (cd <scratch>/w/fx && python3 -I <scratch>/w/excel-check-list.py --run $run --keep keep --record open.txt --out <scratch>/w/out-$name.txt)"
+        (cd "$FX" && python3 -I "$LIST" --run "$run" --keep keep --record open.txt --out "$out") >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      else
+        echo "command: (cd <scratch>/w/fx && python3 -I <scratch>/w/excel-check-list.py --run $run --run-plain $plain --keep keep --record open.txt --out <scratch>/w/out-$name.txt)"
+        (cd "$FX" && python3 -I "$LIST" --run "$run" --run-plain "$plain" --keep keep --record open.txt --out "$out") >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      fi
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  exit: $rc; standard output:"
+      sed 's/^/    /' "$B/$name.out"
+      echo "  standard error:"
+      sed 's/^/    /' "$B/$name.err"
+    }
+    rc_of() { cat "$B/$1.rc"; }
+    # list_by <name> <column> <value>: rows of the case's list whose column holds the value.
+    list_by() { awk -F'\t' -v c="$2" -v v="$3" 'NR > 1 && $c == v { n++ } END { print n + 0 }' "$B/out-$1.txt"; }
+    # list_pair <name> <id> <label>: rows of the case's list with that id and that label.
+    list_pair() { awk -F'\t' -v i="$2" -v l="$3" 'NR > 1 && $2 == i && $3 == l { n++ } END { print n + 0 }' "$B/out-$1.txt"; }
+    # refused_as <name> <message>: exit 2, the one error line, nothing on stdout, no list.
+    refused_as() { [ "$(rc_of "$1")" = 2 ] && [ "$(count_lines "$B/$1.err")" = 1 ] && [ "$(count_matches -xF "error: $2" "$B/$1.err")" = 1 ] && [ ! -s "$B/$1.out" ] && [ ! -e "$B/out-$1.txt" ]; }
+    # listed_with <name> <stderr lines>: exit 0, one counts line on stdout, the list with mode 600, stderr of that many lines.
+    listed_with() { [ "$(rc_of "$1")" = 0 ] && [ "$(count_lines "$B/$1.out")" = 1 ] && [ "$(count_matches -E '^corpus rows [0-9]+ ' "$B/$1.out")" = 1 ] && [ "$(stat -c %a "$B/out-$1.txt" 2>/dev/null)" = 600 ] && [ "$(count_lines "$B/$1.err")" = "$2" ]; }
+    # plant_error <summary> <id>: the row of that id gets outcome error and an empty out_bytes, and its output goes, as the runner leaves it.
+    plant_error() {
+      awk -F'\t' -v OFS='\t' -v id="$2" 'NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "outcome") o = i; if ($i == "out_bytes") b = i } print; next } $1 == id { $o = "error"; $b = "" } { print }' "$1" >"$1.planted" && mv "$1.planted" "$1" && rm "$(dirname "$1")/$2/out.host.xlsx"
+    }
+    
+    # runner_case <name> <out dir> <ids file or -> [<label>]: the clone's runner over
+    # <scratch>/w/fx/rroot with the copied binaries, no --libreoffice, TMPDIR in
+    # <scratch>/w/tmp; exit, stdout and stderr kept as <name>.rc/.out/.err.
+    mkdir -p "$B/tmp" || exit 2
+    runner_case() {
+      local name=$1 out=$2 ids=$3 label=${4:-host} rc
+      echo "### $name"
+      if [ "$ids" = - ]; then
+        echo "command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label $label --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out ${out/#$FX/<scratch>/w/fx}"
+        TMPDIR=$B/tmp bash "$RUNNER" --label "$label" --passthrough "$BIN/emend-copy" --xlsx-diff "$BIN/xlsx-diff" --corpus "$FX/rroot" --out "$out" >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      else
+        echo "command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label $label --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out ${out/#$FX/<scratch>/w/fx} --ids ${ids/#$B/<scratch>/w}"
+        TMPDIR=$B/tmp bash "$RUNNER" --label "$label" --passthrough "$BIN/emend-copy" --xlsx-diff "$BIN/xlsx-diff" --corpus "$FX/rroot" --out "$out" --ids "$ids" >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      fi
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  exit: $rc; standard output:"
+      sed 's/^/    /' "$B/$name.out"
+      echo "  standard error:"
+      sed 's/^/    /' "$B/$name.err"
+    }
+    printf 'fa0000000001\n' >"$B/ids-one"
+    echo "command: printf 'fa0000000001\\n' > <scratch>/w/ids-one (the --ids file selecting the first runner fixture alone)"
+    # runner_refused <name> <out dir>: exit 2, the one error line from the source, nothing on stdout,
+    # the summary holding its header alone and no output in any subdirectory.
+    runner_refused() { [ "$(rc_of "$1")" = 2 ] && [ "$(count_lines "$B/$1.err")" = 1 ] && [ "$(count_matches -xF "error: $MSG_EARLIER" "$B/$1.err")" = 1 ] && [ ! -s "$B/$1.out" ] && [ "$(count_lines "$2/summary.host.tsv")" = 1 ] && [ -z "$(find "$2" -name 'out.host.*' -print -quit)" ]; }
+    # runner_ran <name> <out dir> <rows>: exit 0, nothing on stderr, the summary with that many rows, every one ok.
+    runner_ran() { [ "$(rc_of "$1")" = 0 ] && [ ! -s "$B/$1.err" ] && [ "$(count_lines "$2/summary.host.tsv")" = "$(($3 + 1))" ] && [ "$(outcome_count "$2/summary.host.tsv" ok)" = "$3" ]; }
+    
+    echo
+    echo "## T1 and T2: the list on a fixture run directory, without and with a planted error row"
+    list_case T1 root1/runs/run-formula root1/runs/run-plain
+    echo "  the list: rows by source:"
+    awk -F'\t' 'NR > 1 { n[$1]++ } END { for (s in n) print "    " s " " n[s] }' "$B/out-T1.txt" | LC_ALL=C sort
+    T1_CORPUS=$(list_by T1 1 corpus)
+    echo "  T1: corpus rows $T1_CORPUS; under run-plain $(list_by T1 3 run-plain); under host $(list_by T1 3 host); fixture $(list_by T1 1 fixture); input $(list_by T1 1 input)"
+    t1_ok() { listed_with T1 0 && [ "$T1_CORPUS" = 4 ] && [ "$(list_by T1 3 run-plain)" = 2 ] && [ "$(list_by T1 1 fixture)" = 2 ] && [ "$(list_by T1 1 input)" = 2 ]; }
+    check "T1: exit 0, the counts line, mode 600, stderr empty (ruling 6), four corpus rows (two under run-plain), two fixture and two input rows" "$(yn t1_ok)"
+    
+    echo "command: cp -a <scratch>/w/fx/root1/runs/run-plain <scratch>/w/fx/root1/runs/run-plain-planted; the fx-b row planted as error (out_bytes emptied, its out.host.xlsx removed)"
+    cp -a "$FX/root1/runs/run-plain" "$FX/root1/runs/run-plain-planted" || exit 2
+    plant_error "$FX/root1/runs/run-plain-planted/summary.host.tsv" fx-b || exit 2
+    echo "  run-plain-planted: error rows $(outcome_count "$FX/root1/runs/run-plain-planted/summary.host.tsv" error); ok rows $(outcome_count "$FX/root1/runs/run-plain-planted/summary.host.tsv" ok); fx-b's output there: $([ -e "$FX/root1/runs/run-plain-planted/fx-b/out.host.xlsx" ] && echo yes || echo no)"
+    planted_ok() { [ "$(outcome_count "$1" error)" = 1 ] && [ "$(outcome_count "$1" ok)" = 1 ] && [ ! -e "$(dirname "$1")/fx-b/out.host.xlsx" ]; }
+    check "the plant: one error row, one ok row, no output for the error row" "$(yn planted_ok "$FX/root1/runs/run-plain-planted/summary.host.tsv")"
+    check "control: the same check refuses the unplanted run-plain" "$(ynnot planted_ok "$FX/root1/runs/run-plain/summary.host.tsv")"
+    list_case T2 root1/runs/run-formula root1/runs/run-plain-planted
+    NOTE_T2=$(note_line 1 run-plain-planted)
+    echo "  the note expected on stderr: $NOTE_T2"
+    echo "  T2: corpus rows $(list_by T2 1 corpus) (T1 $T1_CORPUS); fx-b under run-plain-planted $(list_pair T2 fx-b run-plain-planted); fx-a under run-plain-planted $(list_pair T2 fx-a run-plain-planted)"
+    t2_ok() { listed_with T2 1 && [ "$(count_matches -xF "$NOTE_T2" "$B/T2.err")" = 1 ] && [ "$(list_by T2 1 corpus)" = "$((T1_CORPUS - 1))" ] && [ "$(list_pair T2 fx-b run-plain-planted)" = 0 ] && [ "$(list_pair T2 fx-a run-plain-planted)" = 1 ]; }
+    check "T2: exit 0, the note alone on stderr, one corpus row fewer than T1, the planted row left out and its sibling kept" "$(yn t2_ok)"
+    check "control: the T1 check refuses T2's output (stderr not empty)" "$(ynnot listed_with T2 0)"
+    check "control: the T2 check's stderr form refuses T1's output (no note)" "$(ynnot listed_with T1 1)"
+    
+    echo "command: cp -a <scratch>/w/fx/root1/runs/run-formula <scratch>/w/fx/root1/runs/run-formula-planted; the fx-b row planted as error"
+    cp -a "$FX/root1/runs/run-formula" "$FX/root1/runs/run-formula-planted" || exit 2
+    plant_error "$FX/root1/runs/run-formula-planted/summary.host.tsv" fx-b || exit 2
+    check "the plant in run-formula-planted: one error row, one ok row, no output for the error row" "$(yn planted_ok "$FX/root1/runs/run-formula-planted/summary.host.tsv")"
+    list_case T2b root1/runs/run-formula-planted root1/runs/run-plain
+    NOTE_T2B=$(note_line 1 host)
+    echo "  the note expected on stderr: $NOTE_T2B"
+    echo "  T2b: corpus rows $(list_by T2b 1 corpus); fx-b under host $(list_pair T2b fx-b host); fx-a under host $(list_pair T2b fx-a host)"
+    t2b_ok() { listed_with T2b 1 && [ "$(count_matches -xF "$NOTE_T2B" "$B/T2b.err")" = 1 ] && [ "$(list_by T2b 1 corpus)" = "$((T1_CORPUS - 1))" ] && [ "$(list_pair T2b fx-b host)" = 0 ] && [ "$(list_pair T2b fx-a host)" = 1 ]; }
+    check "T2b: exit 0, the note for host alone on stderr, the planted --run row left out" "$(yn t2b_ok)"
+    t2b_ctl() { [ "$(count_matches -xF "$NOTE_T2B" "$B/T2.err")" = 1 ]; }
+    check "control: the T2b note is not T2's (the label is read, not assumed)" "$(ynnot t2b_ctl)"
+    
+    echo
+    echo "## T3: the runner's refusal of a run directory holding an earlier run (decision 1 A, ruling 2)"
+    R=$FX/rroot/runs
+    mkdir -p "$R" || exit 2
+    runner_case T3a "$R/t3a" "$B/ids-one"
+    check "T3a: a fresh run directory runs: exit 0, nothing on stderr, one ok row" "$(yn runner_ran T3a "$R/t3a" 1)"
+    mkdir -p "$R/t3b/fa0000000001/lo.host" "$R/t3c/fa0000000001/lo-in.host" "$R/t3d/fa0000000001/lo.i686" "$R/t3e/fa0000000002/lo.host" || exit 2
+    echo "command: mkdir -p <scratch>/w/fx/rroot/runs/t3b/fa0000000001/lo.host <scratch>/w/fx/rroot/runs/t3c/fa0000000001/lo-in.host <scratch>/w/fx/rroot/runs/t3d/fa0000000001/lo.i686 <scratch>/w/fx/rroot/runs/t3e/fa0000000002/lo.host (the plants)"
+    runner_case T3b "$R/t3b" "$B/ids-one"
+    check "T3b: lo.host planted: refused, exit 2, the earlier-run message alone, no row, no output" "$(yn runner_refused T3b "$R/t3b")"
+    check "T3b: the planted directory is still there" "$(yn test -d "$R/t3b/fa0000000001/lo.host")"
+    runner_case T3c "$R/t3c" "$B/ids-one"
+    check "T3c: lo-in.host planted: refused the same way" "$(yn runner_refused T3c "$R/t3c")"
+    runner_case T3d "$R/t3d" "$B/ids-one"
+    check "T3d: only lo.i686 planted, --label host: not refused, one ok row" "$(yn runner_ran T3d "$R/t3d" 1)"
+    check "T3d: the other label's directory is left in place" "$(yn test -d "$R/t3d/fa0000000001/lo.i686")"
+    runner_case T3e "$R/t3e" "$B/ids-one"
+    check "T3e: lo.host planted under a subdirectory --ids does not select: refused" "$(yn runner_refused T3e "$R/t3e")"
+    check "control: the refusal check refuses T3a's output" "$(ynnot runner_refused T3a "$R/t3a")"
+    check "control: the run check refuses T3b's output" "$(ynnot runner_ran T3b "$R/t3b" 1)"
+    
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.out "$B"/*.err; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/test.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the scripts under test, at the phase commit (change KB)
+command: git show <phase commit>:scripts/excel-check-list.py > <scratch>/w/excel-check-list.py; sha256sum: bb88df06f9b2844066eaca0ea9e2ad16b112a902735b2ff1509f81c5751ecae2
+    #!/usr/bin/env python3
+    """emend Excel check list (specs/0015-open-checks.md, "The Excel check", with
+    the planning rulings during P2, 5 to 10, and on the Excel check, 2 and 6;
+    specs/0016-new-workbook-and-sheets.md, "The carried items", with the planning
+    rulings during P1, 1 to 4 and 7).
+    
+    Usage: scripts/excel-check-list.py --run <run dir> [--run-plain <run dir>]...
+           --keep <dir> --record <.txt> --out <file>
+    
+    Writes the list the maintainer carries to a machine with Excel: one
+    tab-separated row per file, under a header of thirteen columns (source,
+    id_or_test, label, file, bytes, sha256, result, ref1, expect1, ref2, expect2,
+    ref3, expect3). The list is written as .txt and is never committed (P2 ruling
+    7): its rows name cell positions in corpus workbooks.
+    
+    Corpus rows come first, in manifest order: every workbook of the run
+    directory's summary.host.tsv, source "corpus", its id, label "host", and its
+    output, out.host.<ext> with the manifest's extension, named relative to the
+    corpus root (the run directory's grandparent, which must hold manifest.tsv).
+    The output's size must be the summary's out_bytes (0016 P1 ruling 1). Each
+    --run output is a --formula-sample output, so the row carries the three
+    references the sample wrote, derived here from the workbook's input by part
+    6's definition (specs/0013, "Harness runs"): the first sheet whose workbook
+    relationship is of kind worksheet, in <sheets> order; in it, in document
+    order, A (the first cell whose t is absent or "n", with a <v> or an <is> and
+    no <f>), F (the first cell with an <f> whose t is absent or "normal") and M
+    (the largest row number among its cells, 0 for none). ref1 is (M + 1, 1),
+    expected 42 (A times 2, A set to 21); ref2 is (M + 1, 2), expected 2 (1 + 1);
+    ref3 is F, expected 5 (2 + 3), empty when there is no F. With no A the sample
+    edits nothing and all six are empty.
+    
+    Each --run-plain directory, repeatable, in the order given, adds the same
+    corpus rows from another run directory of the same corpus root (for example a
+    --style-sample run; specs/0015 Excel ruling 6): label the directory's
+    basename, and the six reference and value columns empty. A --run-plain
+    directory under another corpus root than --run's is refused (0016 P1 ruling
+    4).
+    
+    A summary row whose outcome is error (the tool refused the input, exit 2, so
+    the run directory holds no output for it) is left out of the list, in --run and
+    --run-plain alike, and the count is printed to stderr once the list is
+    written, as "note: <n> error row(s) left out of <label>", for a run directory
+    with one or more such rows only; a run directory whose every row is an error
+    is refused (specs/0030-carries-and-api-changes.md, item 1, and "Planning
+    rulings during P1", ruling 6). Any other outcome but ok is refused as before.
+    
+    Fixture rows follow, in name order: source "fixture", the test name, label
+    "-", and the kept output named relative to the keep directory, for every pair
+    whose input LibreOffice accepted (lo_in ok in --record, the edit open check's
+    record of that keep; P2 ruling 5). Each is followed by its input row (specs/0015
+    Excel ruling 2): source "input", the same test name, label "-", file
+    <test>.in.xlsx, and the record's in_bytes and in_sha256. The record must name
+    exactly the keep's pairs, by name, bytes and both sha256s, or the script stops
+    (P2 ruling 8). Fixture and input rows carry no references.
+    
+    The result column is empty: scripts/excel-check-open.ps1 or the maintainer
+    fills it. The list is written with umask 077 (mode 600). The script prints
+    counts only, never a reference, a value or a path. Standard library only
+    (zipfile and expat). Errors, a short manifest or summary row among them, print
+    one "error: " line without a path and exit 2; nothing is written then.
+    """
+    
+    import argparse
+    import hashlib
+    import os
+    import re
+    import sys
+    import zipfile
+    from xml.parsers import expat
+    
+    HEADER = ("source", "id_or_test", "label", "file", "bytes", "sha256", "result",
+              "ref1", "expect1", "ref2", "expect2", "ref3", "expect3")
+    RECORD_HEADER = ("test", "in_bytes", "in_sha256", "out_bytes", "out_sha256",
+                     "lo_in", "lo", "reason_in", "reason_out")
+    MANIFEST_ID = 0
+    PAIR = re.compile(r"^([A-Za-z0-9_.-]+)\.(in|out)\.xlsx$")
+    REF = re.compile(r"^([A-Z]+)([0-9]+)$")
+    OFFICE_DOCUMENT = "/officeDocument"
+    WORKSHEET = "/worksheet"
+    # The sample's constants: A is set to 21 and (M + 1, 1) to A times 2;
+    # (M + 1, 2) to 1 + 1; F to 2 + 3.
+    EXPECT_1, EXPECT_2, EXPECT_3 = "42", "2", "5"
+    
+    
+    class Refused(Exception):
+        pass
+    
+    
+    def local(name):
+        return name.rsplit(":", 1)[-1]
+    
+    
+    def sha256_of(path):
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(block)
+        return digest.hexdigest()
+    
+    
+    def parse(data, start, end=None, chars=None):
+        parser = expat.ParserCreate()
+        parser.StartElementHandler = start
+        if end is not None:
+            parser.EndElementHandler = end
+        if chars is not None:
+            parser.CharacterDataHandler = chars
+        parser.Parse(data, True)
+    
+    
+    def rels_part(part):
+        folder, name = part.rsplit("/", 1) if "/" in part else ("", part)
+        return (folder + "/" if folder else "") + "_rels/" + name + ".rels"
+    
+    
+    def resolve(part, target):
+        if target.startswith("/"):
+            return target[1:]
+        folder = part.rsplit("/", 1)[0].split("/") if "/" in part else []
+        for piece in target.split("/"):
+            if piece == "..":
+                if folder:
+                    folder.pop()
+            elif piece not in ("", "."):
+                folder.append(piece)
+        return "/".join(folder)
+    
+    
+    def relationships(archive, part):
+        """{id: (type, resolved target)} of one part's relationships part."""
+        try:
+            data = archive.read(rels_part(part) if part else "_rels/.rels")
+        except KeyError:
+            return {}
+        found = {}
+    
+        def start(tag, attrs):
+            if local(tag) == "Relationship" and attrs.get("TargetMode") != "External":
+                found[attrs.get("Id")] = (attrs.get("Type", ""), resolve(part, attrs.get("Target", "")))
+    
+        parse(data, start)
+        return found
+    
+    
+    def col_number(letters):
+        n = 0
+        for ch in letters:
+            n = n * 26 + ord(ch) - ord("A") + 1
+        return n
+    
+    
+    def a1(row, col):
+        letters = ""
+        while col:
+            col, rest = divmod(col - 1, 26)
+            letters = chr(ord("A") + rest) + letters
+        return "%s%d" % (letters, row)
+    
+    
+    def sample_refs(path):
+        """(ref1, ref2, ref3) for one --formula-sample input, each "" when absent."""
+        with zipfile.ZipFile(path) as archive:
+            workbook = None
+            for kind, target in relationships(archive, "").values():
+                if kind.endswith(OFFICE_DOCUMENT):
+                    workbook = target
+                    break
+            if workbook is None:
+                raise Refused("a corpus input has no workbook part")
+            rels = relationships(archive, workbook)
+            sheet_ids = []
+    
+            def on_sheet(tag, attrs):
+                if local(tag) == "sheet":
+                    rid = next((v for k, v in attrs.items() if local(k) == "id" and k != "id"), None)
+                    sheet_ids.append(rid)
+    
+            parse(archive.read(workbook), on_sheet)
+            sheet = None
+            for rid in sheet_ids:
+                if rid in rels and rels[rid][0].endswith(WORKSHEET):
+                    sheet = rels[rid][1]
+                    break
+            if sheet is None:
+                return ("", "", "")
+            data = archive.read(sheet)
+    
+        state = {"row": 0, "col": 0, "cell": None, "in_sheet_data": False}
+        cells = []
+    
+        def start(tag, attrs):
+            name = local(tag)
+            if name == "sheetData":
+                state["in_sheet_data"] = True
+            elif not state["in_sheet_data"]:
+                return
+            elif name == "row":
+                r = attrs.get("r")
+                state["row"] = int(r) if r and r.isdigit() else state["row"] + 1
+                state["col"] = 0
+            elif name == "c":
+                r = attrs.get("r")
+                m = REF.match(r) if r else None
+                if m:
+                    state["col"] = col_number(m.group(1))
+                    row = int(m.group(2))
+                else:
+                    state["col"] += 1
+                    row = state["row"]
+                state["cell"] = {"ref": a1(row, state["col"]), "row": row, "t": attrs.get("t"),
+                                 "f": False, "ft": None, "value": False}
+            elif state["cell"] is not None:
+                if name == "f":
+                    state["cell"]["f"] = True
+                    state["cell"]["ft"] = attrs.get("t")
+                elif name in ("v", "is"):
+                    state["cell"]["value"] = True
+    
+        def end(tag):
+            name = local(tag)
+            if name == "c" and state["cell"] is not None:
+                cells.append(state["cell"])
+                state["cell"] = None
+            elif name == "sheetData":
+                state["in_sheet_data"] = False
+    
+        parse(data, start, end)
+        a = next((c for c in cells if c["t"] in (None, "n") and c["value"] and not c["f"]), None)
+        f = next((c for c in cells if c["f"] and c["ft"] in (None, "normal")), None)
+        top = max((c["row"] for c in cells), default=0)
+        if a is None:
+            return ("", "", "")
+        return (a1(top + 1, 1), a1(top + 1, 2), f["ref"] if f else "")
+    
+    
+    def read_tsv(path):
+        with open(path, newline="") as handle:
+            lines = handle.read().split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        return [line.split("\t") for line in lines]
+    
+    
+    def corpus_rows(run, label, with_refs):
+        """(corpus root, rows, error rows left out) for one run directory."""
+        run = os.path.abspath(run)
+        root = os.path.dirname(os.path.dirname(run))
+        manifest = os.path.join(root, "manifest.tsv")
+        if not os.path.isfile(manifest):
+            raise Refused("the run directory's grandparent holds no manifest.tsv")
+        summary_path = os.path.join(run, "summary.host.tsv")
+        if not os.path.isfile(summary_path):
+            raise Refused("the run directory has no summary.host.tsv")
+        summary = read_tsv(summary_path)
+        head = summary[0]
+        if "id" not in head or "outcome" not in head or "out_bytes" not in head:
+            raise Refused("summary.host.tsv has another header")
+        ids, sizes = {}, {}
+        for row in summary[1:]:
+            cells = dict(zip(head, row))
+            if cells["id"] in ids:
+                raise Refused("summary.host.tsv names a workbook twice")
+            ids[cells["id"]] = cells["outcome"]
+            sizes[cells["id"]] = cells["out_bytes"]
+        if not ids:
+            raise Refused("summary.host.tsv names no workbook")
+        errors = sum(1 for outcome in ids.values() if outcome == "error")
+        if errors == len(ids):
+            raise Refused("a run directory holds no ok row")
+        manifest_rows = read_tsv(manifest)
+        inputs, exts = {}, {}
+        for row in manifest_rows[1:]:
+            inputs[row[MANIFEST_ID]] = os.path.join(root, "corpus", "%s.%s" % (row[0], row[3]))
+            exts[row[MANIFEST_ID]] = row[3]
+        rows = []
+        for wid in [r[MANIFEST_ID] for r in manifest_rows[1:] if r[MANIFEST_ID] in ids]:
+            if ids[wid] == "error":
+                continue
+            if ids[wid] != "ok":
+                raise Refused("a workbook of the run has an outcome other than ok")
+            out = os.path.join(run, wid, "out.host." + exts[wid])
+            if not os.path.isfile(out):
+                raise Refused("a workbook of the run has no host output")
+            if str(os.path.getsize(out)) != sizes[wid]:
+                raise Refused("a corpus output's size differs from the summary")
+            if not os.path.isfile(inputs[wid]):
+                raise Refused("a workbook of the run has no input in the corpus")
+            refs = sample_refs(inputs[wid]) if with_refs else ("", "", "")
+            expects = (EXPECT_1 if refs[0] else "", EXPECT_2 if refs[1] else "", EXPECT_3 if refs[2] else "")
+            rows.append(("corpus", wid, label, os.path.relpath(out, root), str(os.path.getsize(out)),
+                         sha256_of(out), "", refs[0], expects[0], refs[1], expects[1], refs[2], expects[2]))
+        if len(rows) + errors != len(ids):
+            raise Refused("summary.host.tsv names a workbook the manifest does not")
+        return root, rows, errors
+    
+    
+    def fixture_rows(keep, record):
+        seen = {}
+        for name in sorted(os.listdir(keep)):
+            path = os.path.join(keep, name)
+            m = PAIR.match(name)
+            if not os.path.isfile(path) or m is None:
+                raise Refused("the keep directory holds a file that is not half of a pair")
+            seen.setdefault(m.group(1), set()).add(m.group(2))
+        if not seen:
+            raise Refused("the keep directory holds no pairs")
+        if any(sides != {"in", "out"} for sides in seen.values()):
+            raise Refused("the keep directory holds half a pair")
+        rows = read_tsv(record)
+        if not rows or tuple(rows[0]) != RECORD_HEADER:
+            raise Refused("the record has another header")
+        named = {}
+        for row in rows[1:]:
+            if len(row) != len(RECORD_HEADER) or row[0] in named:
+                raise Refused("the record has a malformed or repeated row")
+            named[row[0]] = row
+        if set(named) != set(seen):
+            raise Refused("the record does not name exactly the keep's pairs")
+        out = []
+        for test in sorted(seen):
+            row = named[test]
+            fin = os.path.join(keep, test + ".in.xlsx")
+            fout = os.path.join(keep, test + ".out.xlsx")
+            if (row[1], row[2], row[3], row[4]) != (str(os.path.getsize(fin)), sha256_of(fin),
+                                                     str(os.path.getsize(fout)), sha256_of(fout)):
+                raise Refused("the record's bytes or hashes do not match a kept file")
+            if row[5] == "ok":
+                out.append(("fixture", test, "-", test + ".out.xlsx", row[3], row[4], "",
+                            "", "", "", "", "", ""))
+                out.append(("input", test, "-", test + ".in.xlsx", row[1], row[2], "",
+                            "", "", "", "", "", ""))
+        return out, len(seen)
+    
+    
+    def main():
+        parser = argparse.ArgumentParser(add_help=True)
+        parser.add_argument("--run", required=True)
+        parser.add_argument("--run-plain", action="append", default=[])
+        parser.add_argument("--keep", required=True)
+        parser.add_argument("--record", required=True)
+        parser.add_argument("--out", required=True)
+        args = parser.parse_args()
+        os.umask(0o077)
+        try:
+            if not os.path.isdir(args.run):
+                raise Refused("--run is not a directory")
+            if not all(os.path.isdir(plain) for plain in args.run_plain):
+                raise Refused("a --run-plain is not a directory")
+            if not os.path.isdir(args.keep):
+                raise Refused("--keep is not a directory")
+            if not os.path.isfile(args.record):
+                raise Refused("--record is not a file")
+            if os.path.exists(args.out):
+                raise Refused("--out is already there")
+            root, corpus, errors = corpus_rows(args.run, "host", True)
+            notes = [("host", errors)]
+            plain = 0
+            for run in args.run_plain:
+                label = os.path.basename(os.path.abspath(run))
+                plain_root, rows, errors = corpus_rows(run, label, False)
+                if plain_root != root:
+                    raise Refused("a --run-plain directory is under another corpus root")
+                corpus += rows
+                plain += len(rows)
+                notes.append((label, errors))
+            fixtures, pairs = fixture_rows(args.keep, args.record)
+            with open(args.out, "x") as handle:
+                handle.write("\t".join(HEADER) + "\n")
+                for row in corpus + fixtures:
+                    handle.write("\t".join(row) + "\n")
+        except Refused as err:
+            print("error: %s" % err, file=sys.stderr)
+            return 2
+        except (OSError, zipfile.BadZipFile, expat.ExpatError, KeyError, ValueError, IndexError) as err:
+            print("error: cannot read the run, the keep or the record (%s)" % type(err).__name__, file=sys.stderr)
+            return 2
+        for label, errors in notes:
+            if errors:
+                print("note: %d error row(s) left out of %s" % (errors, label), file=sys.stderr)
+        accepted = sum(1 for r in fixtures if r[0] == "fixture")
+        print("corpus rows %d (with A %d, with F %d; %d from --run-plain); fixture rows %d and input rows %d"
+              " of %d kept pairs (%d left out: input not accepted)"
+              % (len(corpus), sum(1 for r in corpus if r[7]), sum(1 for r in corpus if r[11]), plain,
+                 accepted, len(fixtures) - accepted, pairs, pairs - accepted))
+        return 0
+    
+    
+    if __name__ == "__main__":
+        sys.exit(main())
+command: git clone -q <repo> <scratch>/w/clone; git -C <scratch>/w/clone checkout -q --detach <phase commit> (a scratch copy: nothing in <repo> is written)
+  clone exit 0; checkout exit 0; the clone's HEAD: 37ab66bf068074d223c1441966a7d3bcb0aa124d; output bytes 0, standard error bytes 0
+  the clone is at the phase commit: yes
+  control: the same check refuses a clone at the runner commit: yes
+  the clone's working tree is clean: yes
+  the clone's scripts/passthrough-run.sh is the phase commit's blob: yes
+command: sha256sum <scratch>/w/clone/scripts/passthrough-run.sh: 82d2c2d4a025b2ee89f68d13d8356f642163efe219cdf64eb56f1b4f26508df4
+    #!/usr/bin/env bash
+    # emend T3 passthrough runner (specs/0006-passthrough.md, "The runner").
+    # For every manifest row, or every id listed with --ids, in manifest order:
+    # copy the workbook with the passthrough tool in a child process under a
+    # timeout and an address space limit, classify the outcome, compare input and
+    # output with xlsx-diff, and append to summary.<label>.tsv and
+    # entries.<label>.tsv in the run directory. Each invocation also appends one
+    # row to run.<label>.tsv (commit, times, tool versions, settings). A temporary
+    # file the tool left behind, in the run directory or in the child's own
+    # TMPDIR, is removed after the child ends and noted in the summary's leftover
+    # column.
+    # It prints one line per file (id, label, outcome, diff exit, wall seconds,
+    # peak RSS in kB) and a final count line. It never prints an original name, a
+    # path under the corpus directory or a byte of content: the child's own output
+    # stays in the run directory. Errors print one "error: " line without a path
+    # and exit 2: once the arguments are checked, the script's own stderr goes to
+    # /dev/null, so a failing tool or redirection cannot print a corpus path, and
+    # the error line goes to the saved descriptor.
+    set -uo pipefail
+    umask 077
+    
+    readonly USAGE="usage: scripts/passthrough-run.sh --label <host|i686> --passthrough <path> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>] [--tool-arg <arg>]..."
+    readonly G=/usr/bin/grep
+    readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
+    readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in'
+    readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
+    readonly RUN_HEADER=$'commit\tstarted\tended\trustc\tzip\ttimeout_s\tlo_timeout_s\tmemory_mib\tpassthrough_sha256\txlsx_diff_sha256\tfiles\ttool_args'
+    DIE_FD=2
+    die() {
+      echo "error: $1" >&"$DIE_FD"
+      exit 2
+    }
+    
+    # The open check and its constant live in scripts/lo-check.sh
+    # (specs/0015-open-checks.md, "The open-check library"), shared with
+    # scripts/edit-open-check.sh.
+    . "$(dirname -- "${BASH_SOURCE[0]}")/lo-check.sh" || die "cannot source scripts/lo-check.sh"
+    
+    LABEL="" PT="" XD="" CORPUS="" OUT="" TIMEOUT=300 MEMORY=2048 IDS="" LO_IMAGE="" LO_TIMEOUT=600
+    # Arguments passed to the tool after the output path, in the order given
+    # (specs/0006-passthrough.md, "Planning ruling for Milestone 1 part 1 P2:
+    # tool-arg"). The word after --tool-arg is ALWAYS the value, so
+    # "--tool-arg --replace" passes --replace rather than reading it as an option.
+    TOOL_ARGS=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --label | --passthrough | --xlsx-diff | --corpus | --out | --timeout | --memory | --ids | --libreoffice | --lo-timeout | --tool-arg)
+          [ "$#" -ge 2 ] || die "$1 needs a value; $USAGE"
+          case "$1" in
+            --label) LABEL=$2 ;;
+            --passthrough) PT=$2 ;;
+            --xlsx-diff) XD=$2 ;;
+            --corpus) CORPUS=$2 ;;
+            --out) OUT=$2 ;;
+            --timeout) TIMEOUT=$2 ;;
+            --memory) MEMORY=$2 ;;
+            --ids) IDS=$2 ;;
+            --libreoffice) LO_IMAGE=$2 ;;
+            --lo-timeout) LO_TIMEOUT=$2 ;;
+            --tool-arg) TOOL_ARGS+=("$2") ;;
+          esac
+          shift 2
+          ;;
+        *) die "unknown argument; $USAGE" ;;
+      esac
+    done
+    
+    # A tool argument goes into a run row, which is tab separated with one row per
+    # line, so a tab or a newline in a value is refused rather than written.
+    if [ "${#TOOL_ARGS[@]}" -gt 0 ]; then
+      for arg in "${TOOL_ARGS[@]}"; do
+        case "$arg" in
+          *$'\t'* | *$'\n'*) die "a --tool-arg value must hold no tab or newline; $USAGE" ;;
+        esac
+      done
+    fi
+    # The values joined by single spaces for the run row, empty when there are
+    # none. IFS is still its default here, so [*] joins with one space.
+    TOOL_ARGS_JOINED=""
+    if [ "${#TOOL_ARGS[@]}" -gt 0 ]; then
+      TOOL_ARGS_JOINED="${TOOL_ARGS[*]}"
+    fi
+    readonly TOOL_ARGS_JOINED
+    
+    case "$LABEL" in
+      host | i686) ;;
+      *) die "--label must be host or i686; $USAGE" ;;
+    esac
+    [ -n "$PT" ] && [ -f "$PT" ] && [ -x "$PT" ] || die "--passthrough must name an executable file"
+    [ -n "$XD" ] && [ -f "$XD" ] && [ -x "$XD" ] || die "--xlsx-diff must name an executable file"
+    [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive whole number of seconds"
+    [[ "$MEMORY" =~ ^[1-9][0-9]*$ ]] || die "--memory must be a positive whole number of MiB"
+    # Each conversion gets its own budget, independent of --timeout, which keeps
+    # bounding the copy child only (planning's ruling 2 of 2026-09-16).
+    [[ "$LO_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--lo-timeout must be a positive whole number of seconds"
+    if [ -n "$LO_IMAGE" ]; then
+      [[ "$LO_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@-]*$ ]] || die "--libreoffice must name an image"
+      command -v podman >/dev/null 2>&1 || die "--libreoffice needs podman"
+      command -v python3 >/dev/null 2>&1 || die "--libreoffice needs python3 to count sheets and tables"
+    fi
+    
+    exec 3>&2 2>/dev/null
+    DIE_FD=3
+    
+    ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || die "cannot find the repository"
+    if [ -z "$CORPUS" ]; then
+      CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    fi
+    [ -d "$CORPUS" ] || die "the corpus directory does not exist"
+    readonly MANIFEST=$CORPUS/manifest.tsv
+    [ -f "$MANIFEST" ] || die "the corpus has no manifest.tsv"
+    [ "$(head -n 1 "$MANIFEST")" = "$MANIFEST_HEADER" ] || die "the manifest header is not the one specs/0005-corpus.md defines"
+    
+    COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null) || die "cannot read the repository commit"
+    SHORT=$(git -C "$ROOT" rev-parse --short HEAD)
+    if [ -z "$OUT" ]; then
+      OUT=$CORPUS/runs/$(date -u +%Y-%m-%d)-$SHORT
+    fi
+    mkdir -p "$OUT" || die "cannot create the run directory"
+    
+    WORK=$(mktemp -d) || die "cannot create a temporary directory"
+    trap 'rm -rf "${WORK:?}"' EXIT
+    
+    # The manifest's id, ext, producer and tags columns, in manifest order. The
+    # private columns are never read into the script.
+    if ! awk -F'\t' -v OFS='\t' '
+      NR == 1 { next }
+      NF != 12 { print "bad", NR; exit 3 }
+      $1 !~ /^[0-9a-f]{12}$/ || $4 !~ /^(xlsx|xlsm|xltx|xltm)$/ || $5 !~ /^[a-z-]+$/ || $9 !~ /^[a-z0-9,]+$/ { print "bad", NR; exit 3 }
+      seen[$1]++ { print "duplicate", $1; exit 3 }
+      { print $1, $4, $5, $9 }
+    ' "$MANIFEST" >"$WORK/rows"; then
+      die "manifest row $(awk '{ print $2 }' "$WORK/rows" | tail -n 1) is not valid (id, ext, producer, tags or column count)"
+    fi
+    
+    if [ -n "$IDS" ]; then
+      [ -f "$IDS" ] || die "--ids must name a file"
+      : >"$WORK/wanted" || die "cannot write a scratch file"
+      while IFS= read -r line || [ -n "$line" ]; do
+        id=${line//[[:space:]]/}
+        [ -z "$id" ] && continue
+        [[ "$id" =~ ^[0-9a-f]{12}$ ]] || die "an entry in the --ids file is not a 12-digit id"
+        awk -F'\t' -v id="$id" '$1 == id { found = 1 } END { exit !found }' "$WORK/rows" ||
+          die "id $id is not in the manifest"
+        printf '%s\n' "$id" >>"$WORK/wanted" || die "cannot write a scratch file"
+      done <"$IDS" || die "cannot read the --ids file"
+      awk -F'\t' 'NR == FNR { want[$1] = 1; next } want[$1]' "$WORK/wanted" "$WORK/rows" >"$WORK/selected" ||
+        die "cannot write a scratch file"
+    else
+      cp "$WORK/rows" "$WORK/selected" || die "cannot write a scratch file"
+    fi
+    
+    # header_ok <file> <header> <name>: the file is absent (the header is written)
+    # or starts with that header; anything else is an error.
+    header_ok() {
+      if [ -e "$1" ]; then
+        [ "$(head -n 1 "$1")" = "$2" ] || die "$3 in the run directory has another header"
+      else
+        printf '%s\n' "$2" >"$1" || die "cannot write the header of $3"
+      fi
+    }
+    SUMMARY=$OUT/summary.$LABEL.tsv
+    ENTRIES=$OUT/entries.$LABEL.tsv
+    RUNS=$OUT/run.$LABEL.tsv
+    header_ok "$SUMMARY" "$SUMMARY_HEADER" "summary.$LABEL.tsv"
+    header_ok "$ENTRIES" "$ENTRIES_HEADER" "entries.$LABEL.tsv"
+    header_ok "$RUNS" "$RUN_HEADER" "run.$LABEL.tsv"
+    
+    # An id already in this label's summary would give it a second row, which the
+    # record script refuses; a new run needs a new run directory.
+    dup=$(awk -F'\t' 'FILENAME == ARGV[1] { if (FNR > 1) have[$1] = 1; next } ($1 in have) { print $1; exit }' \
+      "$SUMMARY" "$WORK/selected") || die "cannot read summary.$LABEL.tsv"
+    [ -z "$dup" ] || die "id $dup already has a row in summary.$LABEL.tsv; use a new run directory"
+    
+    # An earlier run of this label into the run directory, stopped before its
+    # summary rows were written, leaves its conversion directories behind; the
+    # removal in the loop below must never reach them, since they existed before
+    # this run (specs/0030-carries-and-api-changes.md, decision 1 A and "Planning
+    # rulings during P1", ruling 2). Every subdirectory counts, selected or not;
+    # the other label's conversion directories belong to its own pass.
+    earlier=$(find "$OUT" -mindepth 2 -maxdepth 2 \( -name "lo.$LABEL" -o -name "lo-in.$LABEL" \) -print -quit) ||
+      die "cannot read the run directory"
+    [ -z "$earlier" ] || die "the run directory holds an earlier run; name a fresh one"
+    
+    STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    RUSTC=$(cd "$ROOT" && RUSTUP_AUTO_INSTALL=0 rustc --version 2>/dev/null) || RUSTC=unknown
+    ZIP_VERSION=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' "$ROOT/Cargo.lock")
+    PT_SHA=$(sha256sum <"$PT" | cut -d' ' -f1) || die "cannot hash the passthrough binary"
+    XD_SHA=$(sha256sum <"$XD" | cut -d' ' -f1) || die "cannot hash the xlsx-diff binary"
+    
+    # time_value <time file> <label>: the value after "<label>: " in GNU time's
+    # verbose report, or nothing.
+    time_value() {
+      LC_ALL=C "$G" -a -m 1 -F "$2: " "$1" 2>/dev/null | sed 's/^.*: //'
+    }
+    
+    # seconds <h:mm:ss or m:ss>: the wall time in seconds, two decimals.
+    seconds() {
+      awk -v t="$1" 'BEGIN {
+        n = split(t, p, ":")
+        s = (n == 3) ? p[1] * 3600 + p[2] * 60 + p[3] : p[1] * 60 + p[2]
+        printf "%.2f", s
+      }'
+    }
+    
+    n_files=0 n_ok=0 n_error=0 n_timeout=0 n_panic=0 n_crash=0
+    while IFS=$'\t' read -r id ext producer tags; do
+      n_files=$((n_files + 1))
+      dir=$OUT/$id
+      mkdir -p "$dir" || die "cannot create a run subdirectory"
+      input=$CORPUS/corpus/$id.$ext
+      output=$dir/out.$LABEL.$ext
+      timefile=$dir/time.$LABEL.txt
+      rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
+        die "cannot remove an earlier output"
+      rm -rf "${dir:?}/lo.$LABEL" "${dir:?}/lo-in.$LABEL" || die "cannot remove an earlier conversion directory"
+      # A reason from an earlier run must not outlive it (independent check 1).
+      rm -f "$dir/lo-reason.$LABEL.txt" "$dir/lo-in-reason.$LABEL.txt" ||
+        die "cannot remove an earlier reason file"
+      # A temporary file from an earlier, stopped run into this directory is
+      # removed first, so leftover below counts only this child's.
+      # The glob matches ANY copy tool's temporary, not only the passthrough
+      # tool's (planning ruling, Milestone 1 part 1 P1, 2026-09-16, recorded in
+      # specs/0006-passthrough.md). It read ".out.$LABEL.$ext.passthrough-"*.tmp
+      # until then, while tools/emend-copy writes .<name>.emend-copy-<pid>.tmp,
+      # so for any tool but one the leftover column read no whatever happened.
+      # Here <name> is the output's own name, out.$LABEL.$ext, so that tool's
+      # temporary is .out.$LABEL.$ext.emend-copy-<pid>.tmp and the glob's
+      # .out. prefix does match it.
+      # The leading dot and the .tmp suffix keep it off every other file in the
+      # run directory, the output itself included.
+      for temporary in "$dir/.out.$LABEL.$ext."*.tmp; do
+        [ -e "$temporary" ] || continue
+        rm -f -- "$temporary" || die "cannot remove an earlier temporary file"
+      done
+      in_bytes=$(stat -c %s -- "$input" 2>/dev/null) || in_bytes=""
+    
+      # The child's own TMPDIR (specs/0029-engineering-close.md, item 5 and "Planning
+      # rulings during P1", rulings 2 and 3): a directory made for this child
+      # alone under $WORK and exported to the child only, so anything in it after
+      # the child ends is the child's leftover, never another process's, as a
+      # before-and-after look at a shared TMPDIR could not tell. $WORK is made by
+      # mktemp -d under the caller's TMPDIR, so the child's temporaries stay on
+      # the filesystem the caller chose (specs/0023-scale.md P1 verification
+      # ruling 4: the run scripts export TMPDIR as a directory on the disk).
+      ctmp=$(mktemp -d "$WORK/tmp.XXXXXX") || die "cannot create the child's temporary directory"
+    
+      (
+        ulimit -v $((MEMORY * 1024)) || exit 125
+        export TMPDIR="$ctmp"
+        exec /usr/bin/time -v -o "$timefile" timeout --signal=KILL "$TIMEOUT" "$PT" "$input" "$output" ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}
+      ) </dev/null >"$dir/stdout.$LABEL.txt" 2>"$dir/stderr.$LABEL.txt" 3>&-
+      rc=$?
+    
+      # A tool stopped by a signal (the timeout's kill included) cannot remove
+      # its temporary file, so the runner does, and notes it. Any copy tool's
+      # temporary, on the same ruling as the clearing step above. leftover is
+      # yes when the run directory's glob or the child's TMPDIR held anything,
+      # no otherwise; the child's TMPDIR is then removed whole, a directory this
+      # run made (specs/0029, "Planning rulings during P1", rulings 2 and 3).
+      leftover=no
+      for temporary in "$dir/.out.$LABEL.$ext."*.tmp; do
+        [ -e "$temporary" ] || continue
+        rm -f -- "$temporary" || die "cannot remove a leftover temporary file"
+        leftover=yes
+      done
+      held=$(find "$ctmp" -mindepth 1 -print -quit) || die "cannot read the child's temporary directory"
+      if [ -n "$held" ]; then
+        leftover=yes
+      fi
+      rm -rf "${ctmp:?}" || die "cannot remove the child's temporary directory"
+    
+      # GNU time runs timeout, which runs the tool as its direct child, so the
+      # timeout's SIGKILL reaches the tool itself; with time inside timeout the
+      # kill would stop time and leave the tool running. time reports the tool's
+      # signal as "Command terminated by signal N" (timeout re-raises it) and
+      # otherwise the exit status, 124 when timeout stopped the tool. The peak RSS
+      # covers timeout and the tool.
+      signal_line=$(LC_ALL=C "$G" -a -m 1 -E '^Command terminated by signal [0-9]+$' "$timefile" 2>/dev/null)
+      status_value=$(time_value "$timefile" "Exit status")
+      exit_status="" signal=""
+      if [ -n "$signal_line" ]; then
+        outcome=crash signal=${signal_line##* }
+      elif [ -n "$status_value" ]; then
+        exit_status=$status_value
+        case "$status_value" in
+          0) outcome=ok ;;
+          2) outcome=error ;;
+          101) outcome=panic ;;
+          124) outcome=timeout signal=9 ;;
+          *) outcome=crash ;;
+        esac
+      else
+        outcome=crash exit_status=$rc
+      fi
+    
+      elapsed=$(time_value "$timefile" "Elapsed (wall clock) time (h:mm:ss or m:ss)")
+      wall=""
+      [ -n "$elapsed" ] && wall=$(seconds "$elapsed")
+      rss=$(time_value "$timefile" "Maximum resident set size (kbytes)")
+    
+      out_bytes="" diff_exit="" values=$'\t\t\t\t\t\t\t\t'
+      if [ "$outcome" = ok ]; then
+        out_bytes=$(stat -c %s -- "$output" 2>/dev/null) || out_bytes=""
+        "$XD" "$input" "$output" </dev/null >"$dir/diff.$LABEL.tsv" 2>"$dir/diff-stderr.$LABEL.txt" 3>&-
+        diff_exit=$?
+        # Rows are trusted only for exit 0 or 1 (specs/0004-xlsx-diff.md).
+        if [ "$diff_exit" -eq 0 ] || [ "$diff_exit" -eq 1 ]; then
+          values=$(awk -F'\t' -v OFS='\t' '
+            $1 == "archive" { v[$2] = $3 }
+            END { print v["identical"], v["recompressed"], v["changed"], v["dropped"], v["added"], v["flagged"], v["order_preserved"], v["comment_equal"], v["files_identical"] }
+          ' "$dir/diff.$LABEL.tsv") || die "cannot read the diff rows"
+          awk -F'\t' -v OFS='\t' -v id="$id" -v label="$LABEL" '$1 == "entry" { print id, label, $0 }' \
+            "$dir/diff.$LABEL.tsv" >>"$ENTRIES" || die "cannot append to entries.$LABEL.tsv"
+        fi
+      fi
+    
+      # The open check, when an image was given: once on the input, and on the copy
+      # when there is one. The reasons stay in the run subdirectory.
+      lo=- lo_in=-
+      if [ -n "$LO_IMAGE" ]; then
+        lo_check "$input" "$dir/lo-in.$LABEL" "$dir/lo-in-reason.$LABEL.txt" "$input"
+        case $? in
+          0) lo_in=ok ;;
+          1) lo_in=fail ;;
+          *) lo_in=error ;;
+        esac
+        if [ "$outcome" = ok ]; then
+          # The copy is counted against its own sheets, as the input is against
+          # its own: an edit may change the sheet list (specs/0016, "Planning
+          # rulings during P3", ruling 9).
+          lo_check "$output" "$dir/lo.$LABEL" "$dir/lo-reason.$LABEL.txt" "$output"
+          case $? in
+            0) lo=ok ;;
+            1) lo=fail ;;
+            *) lo=error ;;
+          esac
+        fi
+      fi
+    
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$LABEL" "$producer" "$tags" \
+        "$outcome" "$exit_status" "$signal" "$wall" "$rss" "$in_bytes" "$out_bytes" "$diff_exit" "$values" "$leftover" \
+        "$lo" "$lo_in" >>"$SUMMARY" ||
+        die "cannot append to summary.$LABEL.tsv"
+      printf '%s %s %s %s %s %s\n' "$id" "$LABEL" "$outcome" "${diff_exit:--}" "${wall:--}" "${rss:--}"
+      case "$outcome" in
+        ok) n_ok=$((n_ok + 1)) ;;
+        error) n_error=$((n_error + 1)) ;;
+        timeout) n_timeout=$((n_timeout + 1)) ;;
+        panic) n_panic=$((n_panic + 1)) ;;
+        crash) n_crash=$((n_crash + 1)) ;;
+      esac
+    done <"$WORK/selected"
+    
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      "$RUSTC" "$ZIP_VERSION" "$TIMEOUT" "$LO_TIMEOUT" "$MEMORY" "$PT_SHA" "$XD_SHA" "$n_files" \
+      "$TOOL_ARGS_JOINED" >>"$RUNS" ||
+      die "cannot append to run.$LABEL.tsv"
+    echo "files $n_files ok $n_ok error $n_error timeout $n_timeout panic $n_panic crash $n_crash"
+command: sha256sum <scratch>/w/clone/scripts/lo-check.sh (sourced by the runner; no case gives --libreoffice, so its check never runs): 56c73d6b60ff369a26b153868324a61ffb5bbb1ab0e97c44ffcc6bab6d26225c
+
+## the gate's DEBUG binaries, copied and checked against the gate log (change KB)
+  the gate log is there: yes
+command: grep -F '<target>/main/debug/emend-copy: sha256 ' <phase>/logs/gate.log: 8a96474f7336293f0ea738b976ece79be798b375121c81cfb7b65ab1f468618a; cp <target>/main/debug/emend-copy <scratch>/w/bin/emend-copy; sha256sum: 8a96474f7336293f0ea738b976ece79be798b375121c81cfb7b65ab1f468618a
+command: grep -F '<target>/main/debug/xlsx-diff: sha256 ' <phase>/logs/gate.log: f916b223e800fb5f9f04315e308079199161c36b3e42b9301b9f8234482fcedb; cp <target>/main/debug/xlsx-diff <scratch>/w/bin/xlsx-diff; sha256sum: f916b223e800fb5f9f04315e308079199161c36b3e42b9301b9f8234482fcedb
+  each copy is executable and hashes as gate.log printed for the binary it copies: yes
+  control: the same reading finds no hash for a binary gate.log does not name: yes
+
+## the fictional fixtures (change KC)
+command: python3 -I <scratch>/w/fx/mkfix.py <scratch>/w/fx (the program, printed below, sha256 cc47908f66920a286be4f6f099453e9e402a442ea80d11ee157c27402ed40223)
+    """Builds the test log's fictional fixtures under the directory given:
+    for the list script, two corpus roots (root1, root2), a keep and its
+    open-check record; for the runner, a third corpus root (rroot) whose manifest
+    has the runner's exact header and two workbooks with 12-hex ids. Nothing here
+    is read from a corpus; every name and value is made up. An error row has no
+    output file, as the runner leaves none for a refused input."""
+    import hashlib
+    import os
+    import sys
+    import zipfile
+    
+    top = sys.argv[1]
+    CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '</Types>')
+    RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+    WB = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+          'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+          '<sheets><sheet name="Fixture" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    WB_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+               '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+               '</Relationships>')
+    
+    
+    def sheet(with_formula):
+        cells = '<c r="A1"><v>3</v></c>'
+        if with_formula:
+            cells += '<c r="B1"><f>A1*2</f><v>6</v></c>'
+        return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                '<sheetData><row r="1">' + cells + '</row></sheetData></worksheet>')
+    
+    
+    def workbook(path, with_formula):
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("[Content_Types].xml", CT)
+            z.writestr("_rels/.rels", RELS)
+            z.writestr("xl/workbook.xml", WB)
+            z.writestr("xl/_rels/workbook.xml.rels", WB_RELS)
+            z.writestr("xl/worksheets/sheet1.xml", sheet(with_formula))
+    
+    
+    def sha(path):
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    
+    
+    SUMMARY_HEAD = ("id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s", "peak_rss_kb",
+                    "in_bytes", "out_bytes")
+    MANIFEST_HEAD = ("id", "sha256", "bytes", "ext", "producer", "producer_version", "app", "source", "tags",
+                     "added", "original_name", "note")
+    
+    
+    def corpus_root(root, ids, runs):
+        os.makedirs(os.path.join(root, "corpus"))
+        rows = ["\t".join(MANIFEST_HEAD)]
+        for wid, formula in ids:
+            path = os.path.join(root, "corpus", wid + ".xlsx")
+            workbook(path, formula)
+            rows.append("\t".join((wid, sha(path), str(os.path.getsize(path)), "xlsx", "fixture", "-", "-",
+                                   "fictional", "fictional", "2026-01-01", "-", "-")))
+        with open(os.path.join(root, "manifest.tsv"), "w") as h:
+            h.write("\n".join(rows) + "\n")
+        for name, outcomes, summary in runs:
+            run = os.path.join(root, "runs", name)
+            lines = ["\t".join(SUMMARY_HEAD)]
+            for (wid, formula), outcome in zip(ids, outcomes):
+                os.makedirs(os.path.join(run, wid))
+                src = os.path.join(root, "corpus", wid + ".xlsx")
+                out_bytes = ""
+                if outcome == "ok":
+                    out = os.path.join(run, wid, "out.host.xlsx")
+                    workbook(out, formula)
+                    out_bytes = str(os.path.getsize(out))
+                code = {"ok": "0", "error": "2", "timeout": "124"}[outcome]
+                lines.append("\t".join((wid, "host", "fixture", "-", outcome, code, "-", "0.01", "1",
+                                        str(os.path.getsize(src)), out_bytes)))
+            if summary:
+                with open(os.path.join(run, "summary.host.tsv"), "w") as h:
+                    h.write("\n".join(lines) + "\n")
+    
+    
+    LIST_IDS = (("fx-a", True), ("fx-b", False))
+    corpus_root(os.path.join(top, "root1"), LIST_IDS,
+                (("run-formula", ("ok", "ok"), True),
+                 ("run-plain", ("ok", "ok"), True),
+                 ("run-nosummary", ("ok", "ok"), False),
+                 ("run-allerror", ("error", "error"), True),
+                 ("run-timeout", ("ok", "timeout"), True)))
+    corpus_root(os.path.join(top, "root2"), LIST_IDS, (("run-other", ("ok", "ok"), True),))
+    corpus_root(os.path.join(top, "rroot"), (("fa0000000001", True), ("fa0000000002", False)), ())
+    keep = os.path.join(top, "keep")
+    os.makedirs(keep)
+    rec = ["\t".join(("test", "in_bytes", "in_sha256", "out_bytes", "out_sha256", "lo_in", "lo", "reason_in",
+                      "reason_out"))]
+    for test, formula in (("t1", True), ("t2", False)):
+        fin = os.path.join(keep, test + ".in.xlsx")
+        fout = os.path.join(keep, test + ".out.xlsx")
+        workbook(fin, formula)
+        workbook(fout, not formula)
+        rec.append("\t".join((test, str(os.path.getsize(fin)), sha(fin), str(os.path.getsize(fout)), sha(fout),
+                              "ok", "ok", "none", "none")))
+    with open(os.path.join(top, "open.txt"), "w") as h:
+        h.write("\n".join(rec) + "\n")
+  exit: 0; output bytes 0; standard error bytes 0
+  the fixtures were built: exit 0, nothing printed: yes
+command: find <scratch>/w/fx -type f, the paths below it, sorted
+    ./keep/t1.in.xlsx
+    ./keep/t1.out.xlsx
+    ./keep/t2.in.xlsx
+    ./keep/t2.out.xlsx
+    ./mkfix.py
+    ./open.txt
+    ./root1/corpus/fx-a.xlsx
+    ./root1/corpus/fx-b.xlsx
+    ./root1/manifest.tsv
+    ./root1/runs/run-allerror/summary.host.tsv
+    ./root1/runs/run-formula/fx-a/out.host.xlsx
+    ./root1/runs/run-formula/fx-b/out.host.xlsx
+    ./root1/runs/run-formula/summary.host.tsv
+    ./root1/runs/run-nosummary/fx-a/out.host.xlsx
+    ./root1/runs/run-nosummary/fx-b/out.host.xlsx
+    ./root1/runs/run-plain/fx-a/out.host.xlsx
+    ./root1/runs/run-plain/fx-b/out.host.xlsx
+    ./root1/runs/run-plain/summary.host.tsv
+    ./root1/runs/run-timeout/fx-a/out.host.xlsx
+    ./root1/runs/run-timeout/summary.host.tsv
+    ./root2/corpus/fx-a.xlsx
+    ./root2/corpus/fx-b.xlsx
+    ./root2/manifest.tsv
+    ./root2/runs/run-other/fx-a/out.host.xlsx
+    ./root2/runs/run-other/fx-b/out.host.xlsx
+    ./root2/runs/run-other/summary.host.tsv
+    ./rroot/corpus/fa0000000001.xlsx
+    ./rroot/corpus/fa0000000002.xlsx
+    ./rroot/manifest.tsv
+  every fixture file the cases read is there: yes
+  rows by outcome (the outcome column found by name): run-formula ok 2; run-plain ok 2; run-allerror error 2; run-timeout ok 1 timeout 1
+  the fixture summaries hold the outcomes the cases need: yes
+  control: the same count reads no error row in run-plain: yes
+  the runner's manifest header (from its source, tabs as |): id|sha256|bytes|ext|producer|producer_version|app|source|tags|added|original_name|note
+  the runner fixture's manifest header (tabs as |):          id|sha256|bytes|ext|producer|producer_version|app|source|tags|added|original_name|note
+  the runner fixture's manifest header is the one the runner checks: yes
+  control: the same comparison refuses another header: yes
+
+## the messages and the note's form, read from the sources at the phase commit (never typed)
+command: grep -o -E 'Refused\("<the message's start>[^"]*"\)' <scratch>/w/excel-check-list.py; grep -o -E '"note: %d [^"]*"' the same (the format string the script prints, not its docstring's description); grep -o -E 'die "the run directory holds an earlier run[^"]*"' <scratch>/w/clone/scripts/passthrough-run.sh; the text between the quotes
+  the list's no-ok-row message: a run directory holds no ok row
+  the list's outcome message: a workbook of the run has an outcome other than ok
+  the list's no-summary message: the run directory has no summary.host.tsv
+  the list's other-root message: a --run-plain directory is under another corpus root
+  the list's note form: note: %d error row(s) left out of %s
+  the runner's earlier-run message: the run directory holds an earlier run; name a fresh one
+  each message and the note's form is found once in its source and is not empty: yes
+  control: the same reading finds no message for a start the source does not hold: yes
+  the note for 1 row of run-x, built from the form: note: 1 error row(s) left out of run-x
+command: printf 'fa0000000001\n' > <scratch>/w/ids-one (the --ids file selecting the first runner fixture alone)
+
+## T1 and T2: the list on a fixture run directory, without and with a planted error row
+### T1
+  T1: the list file is not there before the case: yes
+command: (cd <scratch>/w/fx && python3 -I <scratch>/w/excel-check-list.py --run root1/runs/run-formula --run-plain root1/runs/run-plain --keep keep --record open.txt --out <scratch>/w/out-T1.txt)
+  exit: 0; standard output:
+    corpus rows 4 (with A 2, with F 1; 2 from --run-plain); fixture rows 2 and input rows 2 of 2 kept pairs (0 left out: input not accepted)
+  standard error:
+  the list: rows by source:
+    corpus 4
+    fixture 2
+    input 2
+  T1: corpus rows 4; under run-plain 2; under host 2; fixture 2; input 2
+  T1: exit 0, the counts line, mode 600, stderr empty (ruling 6), four corpus rows (two under run-plain), two fixture and two input rows: yes
+command: cp -a <scratch>/w/fx/root1/runs/run-plain <scratch>/w/fx/root1/runs/run-plain-planted; the fx-b row planted as error (out_bytes emptied, its out.host.xlsx removed)
+  run-plain-planted: error rows 1; ok rows 1; fx-b's output there: no
+  the plant: one error row, one ok row, no output for the error row: yes
+  control: the same check refuses the unplanted run-plain: yes
+### T2
+  T2: the list file is not there before the case: yes
+command: (cd <scratch>/w/fx && python3 -I <scratch>/w/excel-check-list.py --run root1/runs/run-formula --run-plain root1/runs/run-plain-planted --keep keep --record open.txt --out <scratch>/w/out-T2.txt)
+  exit: 0; standard output:
+    corpus rows 3 (with A 2, with F 1; 1 from --run-plain); fixture rows 2 and input rows 2 of 2 kept pairs (0 left out: input not accepted)
+  standard error:
+    note: 1 error row(s) left out of run-plain-planted
+  the note expected on stderr: note: 1 error row(s) left out of run-plain-planted
+  T2: corpus rows 3 (T1 4); fx-b under run-plain-planted 0; fx-a under run-plain-planted 1
+  T2: exit 0, the note alone on stderr, one corpus row fewer than T1, the planted row left out and its sibling kept: yes
+  control: the T1 check refuses T2's output (stderr not empty): yes
+  control: the T2 check's stderr form refuses T1's output (no note): yes
+command: cp -a <scratch>/w/fx/root1/runs/run-formula <scratch>/w/fx/root1/runs/run-formula-planted; the fx-b row planted as error
+  the plant in run-formula-planted: one error row, one ok row, no output for the error row: yes
+### T2b
+  T2b: the list file is not there before the case: yes
+command: (cd <scratch>/w/fx && python3 -I <scratch>/w/excel-check-list.py --run root1/runs/run-formula-planted --run-plain root1/runs/run-plain --keep keep --record open.txt --out <scratch>/w/out-T2b.txt)
+  exit: 0; standard output:
+    corpus rows 3 (with A 1, with F 1; 2 from --run-plain); fixture rows 2 and input rows 2 of 2 kept pairs (0 left out: input not accepted)
+  standard error:
+    note: 1 error row(s) left out of host
+  the note expected on stderr: note: 1 error row(s) left out of host
+  T2b: corpus rows 3; fx-b under host 0; fx-a under host 1
+  T2b: exit 0, the note for host alone on stderr, the planted --run row left out: yes
+  control: the T2b note is not T2's (the label is read, not assumed): yes
+
+## T3: the runner's refusal of a run directory holding an earlier run (decision 1 A, ruling 2)
+### T3a
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out <scratch>/w/fx/rroot/runs/t3a --ids <scratch>/w/ids-one
+  exit: 0; standard output:
+    fa0000000001 host ok 0 0.10 7872
+    files 1 ok 1 error 0 timeout 0 panic 0 crash 0
+  standard error:
+  T3a: a fresh run directory runs: exit 0, nothing on stderr, one ok row: yes
+command: mkdir -p <scratch>/w/fx/rroot/runs/t3b/fa0000000001/lo.host <scratch>/w/fx/rroot/runs/t3c/fa0000000001/lo-in.host <scratch>/w/fx/rroot/runs/t3d/fa0000000001/lo.i686 <scratch>/w/fx/rroot/runs/t3e/fa0000000002/lo.host (the plants)
+### T3b
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out <scratch>/w/fx/rroot/runs/t3b --ids <scratch>/w/ids-one
+  exit: 2; standard output:
+  standard error:
+    error: the run directory holds an earlier run; name a fresh one
+  T3b: lo.host planted: refused, exit 2, the earlier-run message alone, no row, no output: yes
+  T3b: the planted directory is still there: yes
+### T3c
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out <scratch>/w/fx/rroot/runs/t3c --ids <scratch>/w/ids-one
+  exit: 2; standard output:
+  standard error:
+    error: the run directory holds an earlier run; name a fresh one
+  T3c: lo-in.host planted: refused the same way: yes
+### T3d
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out <scratch>/w/fx/rroot/runs/t3d --ids <scratch>/w/ids-one
+  exit: 0; standard output:
+    fa0000000001 host ok 0 0.10 7688
+    files 1 ok 1 error 0 timeout 0 panic 0 crash 0
+  standard error:
+  T3d: only lo.i686 planted, --label host: not refused, one ok row: yes
+  T3d: the other label's directory is left in place: yes
+### T3e
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/rroot --out <scratch>/w/fx/rroot/runs/t3e --ids <scratch>/w/ids-one
+  exit: 2; standard output:
+  standard error:
+    error: the run directory holds an earlier run; name a fresh one
+  T3e: lo.host planted under a subdirectory --ids does not select: refused: yes
+  control: the refusal check refuses T3a's output: yes
+  control: the run check refuses T3b's output: yes
+
+## the log itself
+  captured outputs: 20; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0030-carries-and-api-changes.md
+status lines: 1; of them this phase's logs or planning's spec: 1
+  every change in the working tree is this phase's logs or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/test.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-10T02:00:06Z
+test log checks all as expected: yes
