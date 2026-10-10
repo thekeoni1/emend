@@ -369,7 +369,8 @@ out of the doc commit and change 20 out of the push script.
 
 As part 6's (`specs/0028` "Close-out push (after P4)" and its
 close-out rulings), with these differences: the doc commit holds
-this spec, `ROADMAP.md` and the Excel check record; the base is
+this spec and `ROADMAP.md` (the Excel check record out, by the
+rulings before the close-out); the base is
 part 6's close-out doc commit 046cfb8, named by its subject ("M3
 part 6 close-out: commit planning docs (the P4 verification and
 rulings, decision 9 deferred again)"); `PREV_RECORD_PATTERN` is
@@ -378,8 +379,9 @@ once; the pre mode's Excel-record check is in force; the scripts
 run from `<scratch>/close` (part 6's close-out ruling 1); the
 record commit's subject "M3 part 7 close-out record: the push, the
 CI run and the scan". `ROADMAP.md`'s Milestone 3 heading reads
-DONE and PUSHED with the Excel record named, and the close-out's
-verification says what the next milestone carries.
+DONE and PUSHED with the Excel check's thirteenth deferral named,
+and the close-out's verification says what the next milestone
+carries.
 
 ## Planning rulings during P1 (2026-10-08)
 
@@ -970,6 +972,79 @@ against the same files. Nothing in the README claims Excel.
    its body names by command substitution; the record commit's
    files are the three close-out logs and the independent check,
    as part 6's.
+
+## Planning verification and rulings on the close-out (2026-10-09)
+
+Written during the close-out in planning's cache file
+(`<home>/.cache/emend-planning/m3p7-close-rulings.md`), the tree
+having to stay clean for the push script; copied here after the
+record commit, as parts 5 and 6. Verified by planning from git,
+`gh`, the committed logs and its own scan: the doc commit ebec51d
+(two files at the hashes its body names, the subject equal to the
+push script's `TIP_SUBJECT`); the pre run's log e3d3b742 (1076
+lines, no line ending ": no"; the generator and the three scripts'
+hashes printed; change 21 with its control; the base 046cfb8 by
+subject and by `ls-remote`; bafd780 in the range once; no file at
+HEAD matching the Excel record's pattern, the control clone's 1;
+identity 20 of 20; privacy 20 commits, 1490 blobs, 0 findings; the
+gate's nine PASS lines); the maintainer's authorisation typed in
+the implementing session ("push", 10/9/26, push.log lines 1095 to
+1099); the push 046cfb8..ebec51d, 20 commits, origin/main at
+ebec51d by `git ls-remote`; the CI run 38002814655 on ebec51d,
+main, push, success (`gh run view`); the post scan 108 of 108
+files read, total hits 0, RESULT: PASS; the record commit 582dd2c
+holding `records/logs/m3p7-close/push.log` (ff0b0b2d, 1147
+lines), `ci-run.log` (d375aea8, 660) and `scan.log` (4755d7c3,
+2539), each ASCII with no line ending ": no"; planning's own
+`privacy.sh` over 046cfb8..582dd2c: 21 commits, 1493 blobs, 0
+findings; the repository PRIVATE; no API key in the environment.
+
+1. Ruling 7 of "Planning rulings before the close-out" is corrected:
+   it says the record commit holds the three logs "and the
+   independent check, as part 6's", but part 6's record commit
+   bafd780 (and part 5's) holds exactly three files, the push,
+   ci-run and scan logs; the close-out's independent check lives in
+   the phase cache and is read by planning. The record commit holds
+   the three logs only, as the earlier close-outs; the check file
+   (5cbf700a) stays in the cache, so the ruling-10 form question
+   (`specs/0028` P1) does not arise.
+2. Check 1's Q1 reservations on the planning docs: (a) the Milestone
+   2 heading had to stop saying the check was due before this push,
+   and the P5 row's DONE is the P5 verification's edit; (b) there is
+   no Milestone 4 section because the next milestone is not scoped
+   (the maintainer approves outlines); the carry is named in both
+   milestone headings and in the part 7 Close row; (c) DONE and
+   PUSHED in the doc commit that precedes the push is the standing
+   form of every close-out since Milestone 1; (d) the two stale
+   sentences of the Close-out section body are rewritten above with
+   these rulings. All accepted, no change before the push.
+3. Check 1's Q2 limitation (ruling 1's "the close-out log says so"
+   is in the printed script header, log lines 67 to 70, not in the
+   four-line list): the printed script is part of the log; accepted.
+4. Check 1's Q3 items without a primary among its inputs (the
+   pre-add hash check, the command substitution, the clean tree
+   after the commit, the detached launch and times, the exit code,
+   the library copy's equality to `scripts/counting.sh`, the part 6
+   comparison, "rulings 6 and 7" corrected to ruling 6): session and
+   working-state facts planning verified itself from git and the
+   files; accepted, as `specs/0028` close-out ruling 2.
+5. Milestone 3 part 7 is DONE and PUSHED, and Milestone 3 with it.
+   The record commit 582dd2c goes with the next push; the next
+   part's push script names it by `^M3 part 7 close-out record`,
+   its base this close-out's doc commit ebec51d by its subject ("M3
+   part 7 close-out: commit planning docs (the P5 verification and
+   rulings, decision 9 deferred a thirteenth time)").
+6. Carried into the next milestone's first part: the Milestone 2
+   Excel check as a hard requirement of its close-out push (the
+   stage `<corpus>/work/excel-check-m2-2026-10-09/` and its zip
+   kept, the list pinned to f39bc7b, with the push script's
+   Excel-record check restored from `records/logs/m3p7-p4/
+   negative.log`'s tested form); the printarea sample's six error
+   rows with the list script's error-row handling (P5 verification
+   ruling 4); the API review's six changes (decision 3); the size
+   log's finer item-9 attribution ("Unscoped"); the `rm -rf`
+   line-205 behaviour question (P1); and the Milestone 4 outline
+   itself, which the maintainer approves before any spec.
 
 ## Decisions for the maintainer
 

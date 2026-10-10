@@ -860,7 +860,7 @@ due before part 7's close-out push at the latest.
 | P4 | the catalogue and limits; the two grown and two new probes and the size record; the four samples rerun byte-identical | DONE 2026-10-08 (doc f54041f, the xml prefix 42b5de8, phase 9cfd92e, record c616900, local; ten mid-phase rulings: the `grpSp` brief withdrawn, the constants, the probes copying in a second package, the `xml` prefix finding fixed in the core (+64, cause not isolated among six commits), the negative shape, the logged order, the podman warning traced to the root mount and fixed by the maintainer, two generator placeholders, the check answer's one path; `images` +27016 above 25000 stated with the log's cause, `comments` +6196, `copy` 13756, the pair 18864, budget 436992, 21760 under; four samples byte-identical to P3's on both labels, the keep 1093 with the one new pair; verified by planning from primaries, its own build, tests on both targets, privacy scan and its own runs of all four samples agreeing on all 27 on both labels; `specs/0028` "Planning verification and rulings on P4") |
 | Close | close-out push after P4, carrying 6aba171 and this part's commits, the previous-record pattern naming 6aba171, one independent check; the Milestone 2 Excel check asked again before it | DONE 2026-10-08 (doc 046cfb8 pushed, origin/main 9d62635..046cfb8, 19 commits, CI 37853950682 success, record bafd780 local; the Excel check deferred a twelfth time, decision 9, a hard requirement of part 7's close-out push; `specs/0028` "Planning verification and rulings on the close-out") |
 
-### Part 7: the engineering close (`specs/0029-engineering-close.md`, IN PROGRESS from 2026-10-08)
+### Part 7: the engineering close (`specs/0029-engineering-close.md`, DONE and PUSHED 2026-10-09)
 
 Scope chosen by the maintainer 2026-10-08 ("Core close only"):
 the items carried from parts 1 to 6 (the `specs/0001` rules for
@@ -885,7 +885,54 @@ added; the core is expected not to move.
 | P3 | `rust-version` and the hygiene agreement check (self-test); the size log with the per-probe cause attribution and the size record; the API review record; part 6's four samples rerun byte-identical; one independent check | DONE (phase 09d2e0f, record ed0a9ef, 2026-10-09; `records/size-m3p7-2026-10-09-09d2e0f.md`, `records/api-review-m3p7-2026-10-09-09d2e0f.md`) |
 | P4 | `README.md` with the citation check; the push script's Excel-record check; the close-out scripts generated; the gate's doc-directory rule | DONE (phase ad7cfec, record a199fe4, 2026-10-09; two README sentences corrected in P5) |
 | P5 | the Excel list: the formula sample and every gone sample rerun on the host at the closing commit with records, the host keep reopened into an open record, the list staged (`specs/0029` P4 ruling 2) | DONE (phase f39bc7b, record daab8c7, 2026-10-09; 23 reruns recorded as `records/m3p7-p5-*`, `records/m3p7-open-2026-10-09-f39bc7b.md`; the list 3134 rows staged, printarea out) |
-| Close | close-out push after P5, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, the tip checked by its subject (change 21), one independent check; the Milestone 2 Excel check skipped by the maintainer's decision of 2026-10-09 (deferred a thirteenth time, the push script's Excel-record check removed; `specs/0029` "Planning rulings before the close-out"), the stage kept on disk for the next milestone's first part | IN PROGRESS (2026-10-09) |
+| Close | close-out push after P5, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, the tip checked by its subject (change 21), one independent check; the Milestone 2 Excel check skipped by the maintainer's decision of 2026-10-09 (deferred a thirteenth time, the push script's Excel-record check removed; `specs/0029` "Planning rulings before the close-out"), the stage kept on disk for the next milestone's first part | DONE 2026-10-09 (doc ebec51d pushed, origin/main 046cfb8..ebec51d, 20 commits, CI 38002814655 success, scan PASS, record 582dd2c local; the Excel check deferred a thirteenth time by the maintainer; `specs/0029` "Planning verification and rulings on the close-out") |
+
+## Milestone 4: release readiness (APPROVED 2026-10-09; part 1 IN PROGRESS from 2026-10-09)
+
+Theme chosen by the maintainer 2026-10-09 ("Release readiness",
+the recommended option of four: charts as a second crate, the
+backlogs, and embedding into a real consumer were the others).
+Two parts, each scoped into phases with its own spec before it
+starts, the Milestone 2 ceiling kept for the core, no feature
+added. Nothing is published to any registry in this milestone
+without a separate maintainer decision at part 2's close-out.
+The Milestone 2 Excel check was skipped again by the maintainer
+2026-10-09 (the fourteenth deferral): it gates no push in this
+milestone, stands as the pending acceptance item of Milestones 2
+and 3, and its stage stays on disk; the push script's
+Excel-record check (`records/logs/m3p7-p4/negative.log`) is
+restored by the part whose push the maintainer makes it gate.
+
+### Part 1: the carries and the API changes (`specs/0030-carries-and-api-changes.md`, APPROVED 2026-10-09, decisions 1 and 2 A)
+
+- The Excel list script accepts a run directory with error rows,
+  leaves them out and counts them; the printarea sample's six are
+  `specs/0025`'s recorded overlap refusals, not a finding.
+- The `rm -rf` line-205 question (decision 1 A: the runner refuses
+  a reused run directory) and the size log's attribution note
+  (decision 2 A: per-file attribution kept, the finer method under
+  "Unscoped").
+- The API review's six changes applied (five renames, one hide),
+  no alias kept, the listing rerun, every sample rerun
+  byte-identical, the size record with 0 growth.
+- The record commit 582dd2c carried, the push script naming it by
+  `^M3 part 7 close-out record`, base ebec51d by its subject.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the list script's error rows; decision 1's sentence in `specs/0001`; "Unscoped" per decision 2 | PLANNED |
+| P2 | the six API changes, the workspace following, the negative log's old-name build | PLANNED |
+| P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | PLANNED |
+| Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | PLANNED |
+
+### Part 2: the release metadata (`specs/0031`, to be written)
+
+- `CHANGELOG.md` from the records; the crate's package metadata
+  (description, repository, keywords, categories, docs.rs
+  features) with `publish = false` kept until the maintainer's
+  decision; a `cargo publish --dry-run` recorded; the README's
+  citation check rerun over README and CHANGELOG.
+- Close-out decision for the maintainer: publish 0.1.0 or hold.
 
 ## Unscoped
 
