@@ -36,6 +36,14 @@ basename, and the six reference and value columns empty. A --run-plain
 directory under another corpus root than --run's is refused (0016 P1 ruling
 4).
 
+A summary row whose outcome is error (the tool refused the input, exit 2, so
+the run directory holds no output for it) is left out of the list, in --run and
+--run-plain alike, and the count is printed to stderr once the list is
+written, as "note: <n> error row(s) left out of <label>", for a run directory
+with one or more such rows only; a run directory whose every row is an error
+is refused (specs/0030-carries-and-api-changes.md, item 1, and "Planning
+rulings during P1", ruling 6). Any other outcome but ok is refused as before.
+
 Fixture rows follow, in name order: source "fixture", the test name, label
 "-", and the kept output named relative to the keep directory, for every pair
 whose input LibreOffice accepted (lo_in ok in --record, the edit open check's
@@ -234,6 +242,7 @@ def read_tsv(path):
 
 
 def corpus_rows(run, label, with_refs):
+    """(corpus root, rows, error rows left out) for one run directory."""
     run = os.path.abspath(run)
     root = os.path.dirname(os.path.dirname(run))
     manifest = os.path.join(root, "manifest.tsv")
@@ -255,6 +264,9 @@ def corpus_rows(run, label, with_refs):
         sizes[cells["id"]] = cells["out_bytes"]
     if not ids:
         raise Refused("summary.host.tsv names no workbook")
+    errors = sum(1 for outcome in ids.values() if outcome == "error")
+    if errors == len(ids):
+        raise Refused("a run directory holds no ok row")
     manifest_rows = read_tsv(manifest)
     inputs, exts = {}, {}
     for row in manifest_rows[1:]:
@@ -262,6 +274,8 @@ def corpus_rows(run, label, with_refs):
         exts[row[MANIFEST_ID]] = row[3]
     rows = []
     for wid in [r[MANIFEST_ID] for r in manifest_rows[1:] if r[MANIFEST_ID] in ids]:
+        if ids[wid] == "error":
+            continue
         if ids[wid] != "ok":
             raise Refused("a workbook of the run has an outcome other than ok")
         out = os.path.join(run, wid, "out.host." + exts[wid])
@@ -275,9 +289,9 @@ def corpus_rows(run, label, with_refs):
         expects = (EXPECT_1 if refs[0] else "", EXPECT_2 if refs[1] else "", EXPECT_3 if refs[2] else "")
         rows.append(("corpus", wid, label, os.path.relpath(out, root), str(os.path.getsize(out)),
                      sha256_of(out), "", refs[0], expects[0], refs[1], expects[1], refs[2], expects[2]))
-    if len(rows) != len(ids):
+    if len(rows) + errors != len(ids):
         raise Refused("summary.host.tsv names a workbook the manifest does not")
-    return root, rows
+    return root, rows, errors
 
 
 def fixture_rows(keep, record):
@@ -338,14 +352,17 @@ def main():
             raise Refused("--record is not a file")
         if os.path.exists(args.out):
             raise Refused("--out is already there")
-        root, corpus = corpus_rows(args.run, "host", True)
+        root, corpus, errors = corpus_rows(args.run, "host", True)
+        notes = [("host", errors)]
         plain = 0
         for run in args.run_plain:
-            plain_root, rows = corpus_rows(run, os.path.basename(os.path.abspath(run)), False)
+            label = os.path.basename(os.path.abspath(run))
+            plain_root, rows, errors = corpus_rows(run, label, False)
             if plain_root != root:
                 raise Refused("a --run-plain directory is under another corpus root")
             corpus += rows
             plain += len(rows)
+            notes.append((label, errors))
         fixtures, pairs = fixture_rows(args.keep, args.record)
         with open(args.out, "x") as handle:
             handle.write("\t".join(HEADER) + "\n")
@@ -357,6 +374,9 @@ def main():
     except (OSError, zipfile.BadZipFile, expat.ExpatError, KeyError, ValueError, IndexError) as err:
         print("error: cannot read the run, the keep or the record (%s)" % type(err).__name__, file=sys.stderr)
         return 2
+    for label, errors in notes:
+        if errors:
+            print("note: %d error row(s) left out of %s" % (errors, label), file=sys.stderr)
     accepted = sum(1 for r in fixtures if r[0] == "fixture")
     print("corpus rows %d (with A %d, with F %d; %d from --run-plain); fixture rows %d and input rows %d"
           " of %d kept pairs (%d left out: input not accepted)"
