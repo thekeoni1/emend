@@ -181,6 +181,102 @@ commit "M4 part 1 close-out record: the push, the CI run and the
 scan" holding the three logs only. `ROADMAP.md`'s part 1 rows
 read DONE and PUSHED.
 
+## Planning rulings during P1 (2026-10-09)
+
+Asked by the implementing session after the doc commit a1f5479
+(three files at the hashes the body names, read back from the
+commit's blobs by planning).
+
+1. Item 2's "changes the script only if decision 1 takes B" and
+   P1's "only under B" were planning's error: under A the runner
+   gains the refusal (a script change) and B would have kept the
+   removal with no script change. Both sentences read from now:
+   "under A the runner refuses a reused run directory; under B
+   the script does not change". Decision 1 is A.
+2. The refusal's scope: per label. Before the loop, beside the
+   existing per-label guard (line 173, an id already in
+   `summary.<label>.tsv`), the runner checks every subdirectory
+   of the run directory, selected or not, for `lo.<label>` or
+   `lo-in.<label>` of THIS `--label`, and dies with exactly
+   "error: the run directory holds an earlier run; name a fresh
+   one" if any exists. The other label's conversion directories
+   never trigger it, since a run directory holds both labels'
+   passes by design.
+3. Line 206 (the old 205): kept, rewritten in the ruled form
+   `"${dir:?}/lo.$LABEL" "${dir:?}/lo-in.$LABEL"`; with ruling 2
+   it removes nothing that existed before the run, and
+   `specs/0001`'s bullet gains the dated sentence saying so. Line
+   122's trap is rewritten `"${WORK:?}"` in the same commit, the
+   part touching the script; the bullet's list of standing forms
+   drops both lines. The negative log plants the old form on a
+   scratch copy with the variable unset and shows the `:?` stop.
+4. The run log's list invocation: `--run` the formula sample's
+   directory `<corpus>/runs/2026-10-09-f39bc7b-formula`,
+   `--run-plain` the printarea directory, `--keep <home>/.cache/
+   emend-build/m3p7-p5/keep-host`, `--record` the committed
+   `records/m3p7-open-2026-10-09-f39bc7b.txt`, `--out` a scratch
+   file. The log prints the total row count, the printarea
+   directory's share (21), the formula directory's share (27),
+   the fixture and input shares, the stderr note "note: 6 error
+   row(s) left out of 2026-10-09-f39bc7b-printarea", never a row,
+   and the file's removal. The script writes no log of its own;
+   "in the run log" means the run log prints what the script
+   wrote to stderr.
+5. The prune: of the six Milestone 3 part 7 roots only `m3p7-p5`
+   holds a build target; its prune set is part 7 P5's (`dry-gate
+   dry-negative dry-run dry-scan gate negative run target`),
+   listed with `du -sb` and removed with `rm -r`, every other
+   name kept (`keep-host` among them, ruling 4 reads it); for
+   `m3p7-p1` to `p4` and `m3p7-close` the gate log lists each
+   directory and asserts no prune-set name is in it. Planning's
+   own `m3p7-p3-out-09d2e0f` is planning's to prune.
+6. The note is printed only for a run directory with one or more
+   error rows; a directory with none prints nothing, so the run
+   log's one stderr line is the printarea note and the test log's
+   fixture without a planted row shows an empty stderr.
+
+## Planning verification and rulings on P1 (2026-10-09)
+
+Verified by planning from git and the logs: five commits over
+582dd2c (a1f5479 doc, 6d5df98 rules, 267e689 runner, 37ab66b
+list script, 828b7dc record with six files at the reported
+hashes); the runner's diff is the refusal before the loop by
+`find -mindepth 2 -maxdepth 2` on `lo.$LABEL` and `lo-in.$LABEL`
+with the ruled message, the trap and the loop line in the ruled
+form, nothing else; `specs/0001`'s bullet drops the two lines and
+carries the dated sentence; the list script's diff is item 1 and
+ruling 6; every log ends all as expected or RESULT: PASS, each
+line ending ": no" an expected form (the API key unset, the
+diff-alone sentence, a planted control); the gate prunes
+`m3p7-p5`'s eight names (4270182350 bytes) and finds none in the
+other five roots; planning's own run of the committed list script
+with ruling 4's arguments: exit 0, 2210 rows, the one note of 6;
+planning's `privacy.sh` over 582dd2c..828b7dc: 5 commits, 1475
+blobs, 0 findings; no API key in the environment.
+
+1. The dry runs (check 1, Q3): the first test, negative and run
+   dry runs ended "no" on defects of the log scripts (the error
+   ids counted over every list row, where the formula directory's
+   rows legitimately name those workbooks; the note form grepped
+   in the docstring as well as the format string), corrected
+   before any logged run; the logged runs are first attempts of
+   the corrected scripts, kept under `dry-logs/attempt-1` in the
+   phase cache. Accepted as a disclosure; `specs/0001` requires
+   no log of a dry run.
+2. N5's reading of ruling 3 (check 1, Q1): the old forms planted
+   as `printf` of the extracted line, never run as `rm`, never
+   printed verbatim, named by line and hash, the new forms run
+   and stopped by `:?`. Accepted: it shows what the ruling asked
+   (the widening and the stop) without a live `rm -rf` of the
+   unruled form in any script.
+3. The note's label for a `--run` directory is "host", the list's
+   label for those rows (check 1's note): as item 1 says.
+4. The doc commit's hashes (check 1, item 4): planning read the
+   three blobs from the commit, equal to the hashes the body
+   names.
+5. P1 is DONE. P2 follows the spec: its doc commit carries this
+   spec at its working hash, then the six API changes.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-09: 1 and 2 as recommended (A in
