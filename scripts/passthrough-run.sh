@@ -119,7 +119,7 @@ fi
 mkdir -p "$OUT" || die "cannot create the run directory"
 
 WORK=$(mktemp -d) || die "cannot create a temporary directory"
-trap 'rm -rf "$WORK"' EXIT
+trap 'rm -rf "${WORK:?}"' EXIT
 
 # The manifest's id, ext, producer and tags columns, in manifest order. The
 # private columns are never read into the script.
@@ -172,6 +172,16 @@ dup=$(awk -F'\t' 'FILENAME == ARGV[1] { if (FNR > 1) have[$1] = 1; next } ($1 in
   "$SUMMARY" "$WORK/selected") || die "cannot read summary.$LABEL.tsv"
 [ -z "$dup" ] || die "id $dup already has a row in summary.$LABEL.tsv; use a new run directory"
 
+# An earlier run of this label into the run directory, stopped before its
+# summary rows were written, leaves its conversion directories behind; the
+# removal in the loop below must never reach them, since they existed before
+# this run (specs/0030-carries-and-api-changes.md, decision 1 A and "Planning
+# rulings during P1", ruling 2). Every subdirectory counts, selected or not;
+# the other label's conversion directories belong to its own pass.
+earlier=$(find "$OUT" -mindepth 2 -maxdepth 2 \( -name "lo.$LABEL" -o -name "lo-in.$LABEL" \) -print -quit) ||
+  die "cannot read the run directory"
+[ -z "$earlier" ] || die "the run directory holds an earlier run; name a fresh one"
+
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 RUSTC=$(cd "$ROOT" && RUSTUP_AUTO_INSTALL=0 rustc --version 2>/dev/null) || RUSTC=unknown
 ZIP_VERSION=$(awk '$0 == "name = \"zip\"" { getline; gsub(/^version = "|"$/, ""); print; exit }' "$ROOT/Cargo.lock")
@@ -203,7 +213,7 @@ while IFS=$'\t' read -r id ext producer tags; do
   timefile=$dir/time.$LABEL.txt
   rm -f "$output" "$timefile" "$dir/diff.$LABEL.tsv" "$dir/diff-stderr.$LABEL.txt" ||
     die "cannot remove an earlier output"
-  rm -rf "$dir/lo.$LABEL" "$dir/lo-in.$LABEL" || die "cannot remove an earlier conversion directory"
+  rm -rf "${dir:?}/lo.$LABEL" "${dir:?}/lo-in.$LABEL" || die "cannot remove an earlier conversion directory"
   # A reason from an earlier run must not outlive it (independent check 1).
   rm -f "$dir/lo-reason.$LABEL.txt" "$dir/lo-in-reason.$LABEL.txt" ||
     die "cannot remove an earlier reason file"
