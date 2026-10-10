@@ -5,7 +5,14 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+description = "Read-modify-write of Office Open XML spreadsheets: open an existing .xlsx, change what you were asked to change, and hand the file back with everything else intact."
 readme = "../../README.md"
+repository = "https://github.com/thekeoni1/emend"
+keywords = ["xlsx", "spreadsheet", "excel", "ooxml", "openpyxl"]
+categories = ["parser-implementations", "encoding"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 # The core's two dependencies and nothing else (CLAUDE.md, "Dependencies and
 # licences"; specs/0008-zip-layer.md and specs/0009-package-layer.md, "Crate"),
