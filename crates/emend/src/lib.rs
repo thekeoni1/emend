@@ -1,24 +1,32 @@
 //! emend: read-modify-write of Office Open XML spreadsheets.
 //!
-//! Milestone 1 part 1 is the zip layer alone (`specs/0008-zip-layer.md`):
-//! open an archive, index every entry with `u64` offsets, and write the
-//! archive back with every untouched entry byte for byte in its original
-//! place.
+//! emend is a pure-Rust library for read-modify-write of Office Open XML
+//! spreadsheets: open an existing .xlsx, change what you were asked to
+//! change, hand the file back with everything else intact. It parses only
+//! what an edit touches and passes every other zip entry through byte for
+//! byte.
 //!
-//! Part 2 P1 adds the second layer's first module (`specs/0009-package-
-//! layer.md`): [`xml`] streams a part's tokens, each with the exact input
-//! bytes it covers, so a rewrite copies what it does not change. Still
-//! nothing there reads a cell.
+//! The comparison point is openpyxl, and the definition is exact: like
+//! openpyxl, emend does not evaluate formulas (it stores formula strings and
+//! reads cached values), does not render, does not autofit, and does not fix
+//! up references on row or column insertion. Those limits are by design and
+//! are not gaps.
 //!
-//! Part 3 adds [`cells`] (`specs/0010-reading-cells.md`): the shared strings
-//! table, and a streaming read of one worksheet's cells. The crate reads a
-//! cell from here on; it still does not evaluate a formula, render, or
-//! convert a date.
+//! The core (open, read, edit, write back) depends on `zip` and `quick-xml`
+//! and nothing else. Everything heavier is a Cargo feature, off by default,
+//! with no dependency of its own:
 //!
-//! Part 5 adds [`styles`] (`specs/0012-styles.md`): the styles part's number
-//! formats and cell formats, read. Its Cargo feature `dates`, off by default,
-//! adds the module `dates`: a civil date and time to and from the serial
-//! number a cell holds, in the workbook's own epoch.
+//! - `dates`: a civil date and time to and from a cell's serial number.
+//! - `rowcol`: row and column insertions, deletions, grouping and styles.
+//! - `metadata`: defined names, hyperlinks, document properties, protection.
+//! - `rules`: data validations and conditional formats.
+//! - `tables`: tables added, listed and removed.
+//! - `comments`: cell comments, their box size and their visibility.
+//! - `images`: images, their anchors and their removal.
+//! - `richtext`: rich text runs in a cell and, with `comments`, in a comment.
+//! - `sheetprops`: the tab colour, the sheet view and the print settings.
+//! - `read`: a cell's format and a sheet's formats and settings, read back.
+//! - `copy`: a worksheet copied within its workbook.
 //!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the
