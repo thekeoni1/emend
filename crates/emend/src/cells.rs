@@ -1759,7 +1759,8 @@ pub struct SharedStringItem {
 /// forwards once, holds one item at a time, never seeks and borrows the
 /// package as [`Cells`] does, so a walk over the table never holds it
 /// whole; after an error it is spent. A workbook with no shared strings
-/// part yields nothing. The Cargo feature `read`.
+/// part yields nothing. The Cargo feature `read`. This type was formerly
+/// `Items`.
 ///
 /// # Errors
 ///
@@ -1768,14 +1769,14 @@ pub struct SharedStringItem {
 /// this layer cannot expand", with `richtext` "a run's properties cannot be
 /// read", or [`Error::Xml`], as [`SharedStrings`]'s read refuses them.
 #[cfg(feature = "read")]
-pub struct Items<'p, R: Read + Seek> {
+pub struct SharedStringItems<'p, R: Read + Seek> {
     /// The walk, `None` for a workbook without the part.
     walk: Option<ItemWalk<'p>>,
     package: PhantomData<&'p mut Package<R>>,
 }
 
 #[cfg(feature = "read")]
-impl<'p, R: Read + Seek> Items<'p, R> {
+impl<'p, R: Read + Seek> SharedStringItems<'p, R> {
     /// The items of the part read from `reader`, entry `index`, or none.
     pub(crate) fn new(reader: Option<(Box<dyn Read + 'p>, usize)>) -> Result<Self, Error> {
         let walk = match reader {
@@ -1796,7 +1797,7 @@ impl<'p, R: Read + Seek> Items<'p, R> {
 }
 
 #[cfg(feature = "read")]
-impl<R: Read + Seek> Iterator for Items<'_, R> {
+impl<R: Read + Seek> Iterator for SharedStringItems<'_, R> {
     type Item = Result<SharedStringItem, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1818,7 +1819,7 @@ impl<R: Read + Seek> Iterator for Items<'_, R> {
     }
 }
 
-/// The state of an [`Items`], naming no reader type. The Cargo feature
+/// The state of a [`SharedStringItems`], naming no reader type. The Cargo feature
 /// `read`.
 #[cfg(feature = "read")]
 struct ItemWalk<'p> {

@@ -5308,16 +5308,16 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// [`Error::Package`] "no such part" for a relationship whose target the
     /// archive does not hold, and whatever [`Package::workbook`] refuses;
-    /// each item may be refused as [`crate::cells::Items`] says.
+    /// each item may be refused as [`crate::cells::SharedStringItems`] says.
     #[cfg(feature = "read")]
-    pub fn shared_string_items(&mut self) -> Result<crate::cells::Items<'_, R>, Error> {
+    pub fn shared_string_items(&mut self) -> Result<crate::cells::SharedStringItems<'_, R>, Error> {
         let part = self.workbook()?.shared_strings.clone();
         let Some(part) = part else {
-            return crate::cells::Items::new(None);
+            return crate::cells::SharedStringItems::new(None);
         };
         let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
         let reader: Box<dyn Read + '_> = Box::new(self.archive.read(index)?);
-        crate::cells::Items::new(Some((reader, index)))
+        crate::cells::SharedStringItems::new(Some((reader, index)))
     }
 
     /// A streaming read over the worksheet part named `part`.
