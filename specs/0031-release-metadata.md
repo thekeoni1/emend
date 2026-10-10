@@ -240,8 +240,8 @@ planning docs (the P3 verification and rulings)");
 `PREV_RECORD_PATTERN` is `^M4 part 1 close-out record` (20285f1),
 in the range exactly once; the close-out doc commit's subject is
 "M4 part 2 close-out: commit planning docs (the P2 verification and
-rulings, decision 1 <publish 0.1.0|hold>)", the bracket replaced by
-the maintainer's decision; `CARGO_TARGET_DIR` printed and checked as
+rulings, decision 1 hold)", the maintainer's decision in its
+subject; `CARGO_TARGET_DIR` printed and checked as
 `<home>/.cache/emend-build/m4p2-close/target` (part 1's change 22,
 kept); no Excel-record check, the stray-record count 0 kept; the
 record commit "M4 part 2 close-out record: the push, the CI run and
@@ -370,13 +370,173 @@ two licence texts. Planning's `scripts/privacy.sh --range
 8. P2 starts. Its doc commit holds this spec (these rulings) and
    `ROADMAP.md` (P1's row DONE, P2's IN PROGRESS).
 
+## Planning rulings during P2 (2026-10-10)
+
+Asked by the implementing session after the doc commit 66fd35f and
+the phase commit 2c31aad, before any logged run.
+
+1. F1, the packaging finding: `cargo publish --dry-run` on a
+   `git archive` copy fails its verify build (exit 101, "couldn't
+   read `src/../template/_rels/.rels`"): outside a git checkout
+   cargo's file walk skips dotfiles, and `template/_rels/.rels`,
+   which `include_bytes!` needs, is left out of the 54 files; in
+   the repository the list has 56 and the package builds. Ruling:
+   option (a). The dry run runs in a detached `git worktree` of
+   the phase commit under `<scratch>` with the `publish = false`
+   line removed and `--allow-dirty`, the copy's diff printed (that
+   one line), the worktree removed by `git worktree remove --force`
+   after the script's own directory check. The run log records the
+   failing `git archive` form as a finding with its counts (54
+   against 56, the one missing path named): a package built from
+   any tree that is not a git checkout is incomplete. Option (b),
+   an `include` list in the manifest so packaging does not depend
+   on git, is a manifest change beyond "The package metadata" and
+   is carried to the publish step's spec (decision 1), which tests
+   it by the same `git archive` dry run; `cargo publish` from this
+   checkout packages the file, so the finding does not block the
+   decision.
+2. Q1: cargo's own end-of-dry-run line "warning: aborting upload
+   due to dry run" is counted on its own (exactly once); every
+   other `^warning:` line is counted with 0 expected. "0 expected"
+   in "The packaging runs (P2)" reads as 0 besides that line.
+3. Q2: the listing rerun is compared row for row with the record's
+   544 table rows (which carry no line column), and with part 1's
+   `listing.tsv` by key on every column but `line`; the `lib.rs`
+   rows' line shift is printed and checked equal to `lib.rs`'s
+   growth since 669fa91 (P1's doc comment), every other file's
+   line values unchanged.
+4. N1: a dry run validates no keyword or category against the
+   registry; the log states the dry run's exit, that no output
+   line names a keyword or category, and that this is not the
+   registry's validation. "The package metadata (P2, decision 2)"
+   reads that way; the registry's acceptance is the publish step's
+   to record.
+5. N2: `records/size-m4p1-2026-10-10-669fa91.md` line 72 keeps a
+   heading from part 7's record ("part 6's record") where part 7's
+   is meant: a stale heading in a committed record, recorded here,
+   not rewritten (a record stands as history). P2's record names
+   part 1's record. The size log keeping the host release
+   `emend-copy` build and dropping the builds no P2 log uses is
+   accepted and printed in its change list.
+
+Asked after the logged runs and check 1, before the record commit
+(logs installed uncommitted; the size record written).
+
+6. Check 1's A: the run and negative logs' end-of-log labels
+   ("planning's two files", "planning's uncommitted spec and
+   ROADMAP.md", "planning's spec") repeat the P1 template's text
+   against P1 verification ruling 3, while the patterns admit this
+   phase's logs, the size record and `specs/0031` alone and the
+   entry blocks label them so. The checks are stricter than the
+   labels and the results stand. Ruling: the labels are corrected
+   in the generators and the two logs rerun with C and D below;
+   the first attempts are kept outside the repository as
+   superseded with their hashes (run cd3feb2f, negative bfeb6e51)
+   and disclosed; gate, test and size stand.
+7. Check 1's C: the run log's FINDING claims a verify-build
+   failure it did not measure (the log counts the list alone; the
+   failure was seen in unlogged dry runs). Ruling: the rerun adds
+   `cargo package -p emend --offline` on the `git archive` copy,
+   its exit status and its error line printed and checked as the
+   measured failure (no network: the dependencies from the cache;
+   a control is the same command in the worktree copy, exit 0),
+   and the FINDING sentence names what the log measures. Ruling 1
+   is amended: the missing names are two, `template/_rels/.rels`
+   and `.cargo_vcs_info.json`, the second git-only and expected;
+   the first is the finding.
+8. Check 1's D: the network sentence reads "no other logged
+   command of this phase reached the network"; the dry runs that
+   did are disclosed in the report.
+9. Check 1's B: `<home>/.cache/emend-build/m4p2-p1/target` was due
+   at P2's gate under the one-target-root rule, and planning's P2
+   brief said "no prune block": planning's error, recorded. P2's
+   gate does not rerun for it; the P1 target and P2's own join
+   the next gate that builds (the publish step's first gate if
+   decision 1 is "publish", otherwise the next milestone's first),
+   named in the close-out rulings, each with its `du -sb` line.
+10. Check 1's E: the description's text is the spec's quoted
+    sentence ("and hand the file back"), a sentence standing on
+    its own; "the README's first sentence" in "The package
+    metadata (P2, decision 2)" reads "after the README's first
+    sentence". No change to the manifest.
+11. Check 1's F: the negative log's `git archive` copies (change
+    LD, inherited), the HEAD-guard controls' forms (inherited) and
+    the local-offset timestamps in a printed diff (the form every
+    committed commit date carries) are recorded; no rerun for
+    them. Check 2 reads the two reruns; then the final scan, the
+    record commit and the report.
+
+## Planning verification and rulings on P2 (2026-10-10)
+
+Verified by planning from the commits, the logs and its own build:
+doc commit 66fd35f (two files at the hashes the message names);
+phase commit 2c31aad changes `crates/emend/Cargo.toml` alone (the
+six metadata lines and one blank, 0 removed; the description above
+the `readme` line, the repository URL, the five keywords, the two
+categories, the docs.rs table); record 24b927c holds the eight
+files of `records/logs/m4p2-p2/` and the size record at the
+report's hashes (gate 9e11d942, test bc8c052b, size a445c58d, run
+3af3524c, negative f37cdd61, check 1 7f5a2ec7, check 2 0f89d23c,
+scan cf3debb1; the size record ce2340fe, 28 of 28 identical,
+budget 436992, 21760 under the ceiling). Planning's own build at
+2c31aad (`<home>/.cache/emend-planning/m4p2-p2-build.txt`): the
+package list 56 entries with one dotfile; `cargo package` exit 0,
+the .crate 522253 bytes at sha256 0f1b2ffb, 56 tar entries, equal
+to the log's; a `git archive` copy lists 54 and its verify build
+exits 101 naming `_rels/.rels`, the finding reproduced; 0 non-
+comment lines in `crates/emend/src` since e4ab25b; 918 and 514
+tests on each target; clippy 0, doc 0. Planning's
+`scripts/privacy.sh --range 5640bfa..HEAD`: 3 commits, 1560 blobs,
+0 findings; no session link; no API key.
+
+1. P2 is DONE. The lines ending ": no" in the logs are the
+   API-key form, the doc commit's descriptive line and the size
+   log's own descriptive lines (overrides absent, growths not above
+   the limit), none a failed check.
+2. Check 2's D1: the negative rerun's script changed one code
+   line beyond ruling 6's labels (`for f in "$B"/*.out` gained
+   `"$B"/*.err`, so the control-byte count covers the captured
+   standard error, 8 files against 4) while its rerun note and
+   change LE say "its cases are unchanged". The change is a
+   correction attempt 1 lacked, and it is undisclosed in the log:
+   recorded here as the disclosure, with the line (negative.log
+   line 1823). No third round: the log's cases and results stand,
+   and a rerun would differ by the note alone. The rule stands:
+   every line a rerun's script changes is named in its note.
+3. Check 2's D5: ruling 7's control is the same command in the
+   worktree after the publish line's removal, with
+   `--allow-dirty`; "the same command" means in that tree's state.
+   Accepted.
+4. The reruns' disclosures (three unlogged dry runs and one trial
+   reaching the network; the superseded size and run scripts
+   before any logged run, by hash; the forks' temporary file and
+   killed command) are accepted. Attempt 1 of the run and negative
+   logs stays under `<home>/.cache/emend-build/m4p2-p2/superseded/
+   attempt-1/` with its SHA256SUMS and NOTE.txt.
+5. The packaging finding (ruling 1 as amended by ruling 7) is the
+   one item the publish step's spec must carry: an `include` list
+   in the manifest, tested by the `git archive` dry run. The
+   registry's validation of keywords and categories (ruling 4) is
+   the second. Both are written into `ROADMAP.md` under part 2.
+6. Pending prunes (ruling 9): `<home>/.cache/emend-build/
+   m4p2-p1/target` and `m4p2-p2/target`, each with a `du -sb` line
+   at the next gate that builds; the close-out's scripts have no
+   prune block.
+7. Decision 1 is asked of the maintainer now, before the close-out
+   doc commit, and recorded in `ROADMAP.md`'s part 2 row and in
+   the close-out doc commit's subject.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-10: 2, 3 and 4 as recommended (A
-in each), typed in the planning session.
+in each), typed in the planning session; 1 decided "hold" on
+2026-10-10 after P2's verification, typed in the planning session.
 
 1. At the close-out: publish 0.1.0 or hold. Not asked before P2's
-   verification.
+   verification. Decided: hold (recommended). `publish = false`
+   stays; the milestone ends with part 2's push; the publish step
+   (P2 verification ruling 5's two items) stays available under
+   "Unscoped" for a later decision.
 2. `repository` in the manifest: A (recommended), this repository's
    GitHub URL; B, none until publication.
 3. The crate-level doc comment: A (recommended), rewritten from the

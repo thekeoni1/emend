@@ -938,13 +938,18 @@ restored by the part whose push the maintainer makes it gate.
   size record with 0 growth; the API listing unchanged at 544.
 - Close-out decision 1 for the maintainer, asked by planning after
   P2's verification: publish 0.1.0 or hold. Publishing itself, if
-  decided, is a later step with its own spec.
+  decided, is a later step with its own spec, which carries two
+  items from P2: an `include` list in the manifest so a package
+  built outside a git checkout holds `template/_rels/.rels`
+  (tested by a `git archive` dry run), and the registry's own
+  validation of the keywords and categories, which a dry run does
+  not perform.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | `CHANGELOG.md`, the doc comment, the licence copies; the citation check over both files; the prune of part 1's P3 set and the close-out target | DONE (phase d41c390, record 5640bfa, 2026-10-10; README 18 of 18 and CHANGELOG 29 of 29 digit sentences cited; scan denylist form made whole-word, P1 ruling 6) |
-| P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | IN PROGRESS (2026-10-10) |
-| Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | PLANNED |
+| P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | DONE (phase 2c31aad, record 24b927c, 2026-10-10; `records/size-m4p2-2026-10-10-2c31aad.md` 0 of 28 moved; the package 56 files, 522253 bytes, verify build and publish dry run exit 0; finding: a package built outside a git checkout drops `template/_rels/.rels`, carried to the publish step, `specs/0031` P2 rulings 1 and 7) |
+| Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | IN PROGRESS (2026-10-10; decision 1: HOLD, decided by the maintainer 2026-10-10 after P2's verification; `publish = false` stays) |
 
 ## Unscoped
 
@@ -1006,6 +1011,13 @@ approval.
     print the path (T2 P0 finding 2).
   - Both fit the gate self-test script task.
 - MSRV policy (Milestone 3 part 7).
+- The publish step (Milestone 4 part 2, decision 1 held 2026-10-10):
+  an `include` list in the crate manifest so a package built outside
+  a git checkout holds `template/_rels/.rels`, tested by a `git
+  archive` dry run; `publish = false` lifted; the tag; `cargo
+  publish` typed by the maintainer in the implementing session; the
+  registry's page and its validation of the keywords and categories
+  read back (`specs/0031` P2 rulings 1, 4 and 7).
 - Charts: a DrawingML chart writer and reader, openpyxl's largest
   single writer; kept out of Milestone 3 by the maintainer's
   decision of 2026-10-01, a second crate for a later milestone if
