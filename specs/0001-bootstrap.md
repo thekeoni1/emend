@@ -281,14 +281,18 @@ from this needs planning's word before the run (T2 P7 ruling).
   command rather than widening it; never on anything that existed
   before the run. The committed forms not yet written so stand until
   a part touches them: `scripts/check.sh` line 79,
-  `scripts/passthrough-run.sh` lines 121 and 205, `scripts/privacy.sh`
-  lines 89 and 513, `scripts/lo-check.sh` line 47 and
-  `scripts/gate-self-test.sh` lines 86, 191, 715, 808 and 844 (line
-  numbers at 6387e9b). Of these, `scripts/passthrough-run.sh` line
-  205's targets, an earlier run's conversion directories under the
-  run directory, existed before the run: a behaviour the rule's
-  absolute case forbids, carried to the next milestone as a question
-  of what a rerun into a run directory may remove.
+  `scripts/privacy.sh` lines 89 and 513, `scripts/lo-check.sh` line
+  47 and `scripts/gate-self-test.sh` lines 86, 191, 715, 808 and 844
+  (line numbers at 6387e9b). `scripts/passthrough-run.sh` lines 121
+  and 205 at 6387e9b stood here until Milestone 4 part 1 P1
+  (2026-10-09, `specs/0030` decision 1 A and "Planning rulings
+  during P1", rulings 2 and 3), which wrote both in the ruled form:
+  line 205's targets, an earlier run's conversion directories under
+  the run directory, could exist before the run, so the runner now
+  refuses a run directory holding `lo.<label>` or `lo-in.<label>` of
+  its own label in any subdirectory ("error: the run directory
+  holds an earlier run; name a fresh one"), and the removal reaches
+  nothing that existed before the run. The rule has no exception.
 - The sessions' environment (`specs/0029`, item 4, 2026-10-08; from
   `specs/0028` P4 verification ruling 1 and the three ssh-drop
   deaths of 2026-10-07): a session launched over ssh dies with its
