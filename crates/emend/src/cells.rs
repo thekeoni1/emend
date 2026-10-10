@@ -103,7 +103,7 @@
 //!   checks it against the other, and a stale cached value is reported as it
 //!   was found. That is openpyxl's contract too, and `CLAUDE.md` makes it a
 //!   limit by design rather than a gap.
-//! - No DATE CONVERSION. [`Kind::Date`] carries its ISO 8601 text, and a
+//! - No DATE CONVERSION. [`CellKind::Date`] carries its ISO 8601 text, and a
 //!   number carrying a date format is a number here: the format's serial
 //!   numbers need the workbook's 1900/1904 base and a calendar, which is
 //!   part 5's work and the dependency rule's reason for keeping it behind a
@@ -320,7 +320,7 @@ impl SharedStrings {
         })
     }
 
-    /// The text a cell of kind [`Kind::SharedString`] names, or the cell's own
+    /// The text a cell of kind [`CellKind::SharedString`] names, or the cell's own
     /// value for every other kind.
     ///
     /// A shared string cell carries an index into this table as its value, so
@@ -344,7 +344,7 @@ impl SharedStrings {
     /// one or the other: the table's own item for a shared string, and the
     /// cell's own value for every other kind.
     pub fn resolve<'a>(&'a self, cell: &'a Cell) -> Result<Option<&'a str>, Error> {
-        if cell.kind != Kind::SharedString {
+        if cell.kind != CellKind::SharedString {
             return Ok(cell.value.as_deref());
         }
         let Some(value) = cell.value.as_deref() else {
@@ -523,8 +523,10 @@ impl Area {
 ///
 /// Any other `t` is refused with "a cell has a type this layer does not
 /// know": a reader that guessed would report a wrong value as a right one.
+///
+/// This type was formerly `Kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Kind {
+pub enum CellKind {
     /// `t` absent or `n`: the value is a number's text as written.
     Number,
     /// `t="s"`: the value is an index into the shared strings table.
@@ -541,17 +543,17 @@ pub enum Kind {
     Date,
 }
 
-impl Kind {
+impl CellKind {
     /// The kind a `t` attribute's bytes name.
     fn parse(value: &[u8]) -> Result<Self, Error> {
         match value {
-            b"n" => Ok(Kind::Number),
-            b"s" => Ok(Kind::SharedString),
-            b"inlineStr" => Ok(Kind::InlineString),
-            b"str" => Ok(Kind::FormulaString),
-            b"b" => Ok(Kind::Boolean),
-            b"e" => Ok(Kind::Error),
-            b"d" => Ok(Kind::Date),
+            b"n" => Ok(CellKind::Number),
+            b"s" => Ok(CellKind::SharedString),
+            b"inlineStr" => Ok(CellKind::InlineString),
+            b"str" => Ok(CellKind::FormulaString),
+            b"b" => Ok(CellKind::Boolean),
+            b"e" => Ok(CellKind::Error),
+            b"d" => Ok(CellKind::Date),
             _ => Err(Error::Package("a cell has a type this layer does not know")),
         }
     }
@@ -617,7 +619,7 @@ pub struct Cell {
     /// cell carried none. The styles themselves are not read here.
     pub style: Option<u32>,
     /// What the `t` attribute said.
-    pub kind: Kind,
+    pub kind: CellKind,
     /// The text of `<v>` unescaped, `Some("")` for `<v/>`, the text under
     /// `<is>` for an inline string, and `None` when the cell has neither.
     pub value: Option<String>,
@@ -666,7 +668,7 @@ impl Cell {
     ///   equal to `0.0` without being the same bits
     ///   (`a_numbers_text_is_read_as_an_f64`).
     pub fn number(&self) -> Option<f64> {
-        if self.kind != Kind::Number {
+        if self.kind != CellKind::Number {
             return None;
         }
         self.value.as_deref()?.parse().ok()
@@ -678,7 +680,7 @@ impl Cell {
     /// format writes; `None` for anything else, including `TRUE`, and for
     /// every other kind.
     pub fn boolean(&self) -> Option<bool> {
-        if self.kind != Kind::Boolean {
+        if self.kind != CellKind::Boolean {
             return None;
         }
         match self.value.as_deref()? {
@@ -690,7 +692,7 @@ impl Cell {
 
     /// The value, for an `Error` cell: the error's own text, such as `#REF!`.
     pub fn error(&self) -> Option<&str> {
-        if self.kind != Kind::Error {
+        if self.kind != CellKind::Error {
             return None;
         }
         self.value.as_deref()
@@ -1243,7 +1245,7 @@ impl<'p> Walk<'p> {
 struct Opening {
     reference: CellRef,
     style: Option<u32>,
-    kind: Kind,
+    kind: CellKind,
     /// Whether the tag was `<c/>`, which has no children to read.
     empty: bool,
 }
@@ -1309,7 +1311,7 @@ fn read_opening(
     let mut reference: Option<CellRef> = None;
     let mut style: Option<u32> = None;
     // `t` absent is `Number`, as the format says.
-    let mut kind = Kind::Number;
+    let mut kind = CellKind::Number;
     for attribute in start.attributes() {
         let attribute = attribute.map_err(|_| Error::Xml(index))?;
         if attribute.key.as_namespace_binding().is_some() {
@@ -1332,7 +1334,7 @@ fn read_opening(
                         .ok_or(Error::Package("a cell's style index is not a number"))?,
                 );
             }
-            b"t" => kind = Kind::parse(attribute.value.as_bytes())?,
+            b"t" => kind = CellKind::parse(attribute.value.as_bytes())?,
             _ => {}
         }
     }

@@ -45,7 +45,7 @@ mod testing;
 pub mod xml;
 
 pub use archive::{Archive, Edits, Entry, Error, Replacement, replacement_from_reader};
-pub use cells::{Area, Cell, CellRef, Cells, Formula, FormulaKind, Kind, SharedStrings, Value};
+pub use cells::{Area, Cell, CellKind, CellRef, Cells, Formula, FormulaKind, SharedStrings, Value};
 #[cfg(feature = "richtext")]
 pub use cells::{RichText, Run};
 #[cfg(feature = "dates")]

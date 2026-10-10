@@ -50,7 +50,7 @@
 //!   refuses it.
 //! - A number format is not consulted: whether a number is a date is the
 //!   caller's to decide, from the cell's format or otherwise. A `t="d"`
-//!   cell's ISO 8601 text ([`crate::cells::Kind::Date`]) is not converted.
+//!   cell's ISO 8601 text ([`crate::cells::CellKind::Date`]) is not converted.
 
 use crate::package::Workbook;
 

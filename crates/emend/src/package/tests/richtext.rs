@@ -7,7 +7,7 @@
 //! also assert every other part untouched.
 
 use super::*;
-use crate::cells::{Cell, Kind, RichText, Run};
+use crate::cells::{Cell, CellKind, RichText, Run};
 use crate::styles::{Color, Font, Scheme, Underline, VerticalAlign};
 
 /// The content type of a shared strings part.
@@ -60,7 +60,7 @@ fn round_trip(value: RichText) -> (Option<RichText>, Option<String>) {
     let cells = cells_back(written_value(Value::Rich(value)));
     assert_eq!(cells.len(), 1, "one cell written");
     let cell = cells.into_iter().next().expect("one cell");
-    assert_eq!(cell.kind, Kind::InlineString, "an inline string");
+    assert_eq!(cell.kind, CellKind::InlineString, "an inline string");
     (cell.runs, cell.value)
 }
 

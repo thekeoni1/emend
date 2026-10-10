@@ -710,7 +710,7 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
-use emend::cells::{Area, CellRef, FormulaKind, Kind, RichText, Run, Value};
+use emend::cells::{Area, CellKind, CellRef, FormulaKind, RichText, Run, Value};
 use emend::dates::{DateTime, Epoch};
 use emend::package::{
     Anchor, COMMENTS, CONTENT_TYPES_PART, CORE_PROPERTIES, Cfvo, CfvoKind, Comment, CommentBox,
@@ -1616,7 +1616,7 @@ fn sample<R: io::Read + io::Seek>(package: &mut Package<R>, part: &[u8]) -> Resu
         let cell = cell?;
         sampled.cells += 1;
         sampled.max_row = sampled.max_row.max(cell.reference.row);
-        let candidate = matches!(cell.kind, Kind::Number | Kind::SharedString)
+        let candidate = matches!(cell.kind, CellKind::Number | CellKind::SharedString)
             && cell.value.is_some()
             && cell.formula.is_none();
         if candidate && sampled.first.is_none() {
@@ -1730,7 +1730,10 @@ fn read_back(
         if Some(at) == first && cell.number() == Some(42.5) {
             read_back += 1;
         }
-        if at == text && cell.kind == Kind::InlineString && cell.value.as_deref() == Some("emend") {
+        if at == text
+            && cell.kind == CellKind::InlineString
+            && cell.value.as_deref() == Some("emend")
+        {
             read_back += 1;
         }
         if at == boolean && cell.boolean() == Some(true) {
@@ -1904,7 +1907,8 @@ fn formula_sample(input: &Path, output: &Path) -> Result<(), Error> {
         let cell = cell?;
         before.cells += 1;
         before.max_row = before.max_row.max(cell.reference.row);
-        let number = cell.kind == Kind::Number && cell.value.is_some() && cell.formula.is_none();
+        let number =
+            cell.kind == CellKind::Number && cell.value.is_some() && cell.formula.is_none();
         if number && before.number.is_none() {
             before.number = Some(cell.reference);
         }
@@ -2615,7 +2619,7 @@ fn new_read_back(output: &Path, part: &[u8]) -> Result<(u64, u64, u64, u64), Err
                 && match value {
                     Value::Number(n) => cell.number() == Some(*n),
                     Value::Text(text) => {
-                        cell.kind == Kind::InlineString && cell.value.as_deref() == Some(text)
+                        cell.kind == CellKind::InlineString && cell.value.as_deref() == Some(text)
                     }
                     Value::Boolean(b) => cell.boolean() == Some(*b),
                     _ => false,
@@ -7413,13 +7417,13 @@ fn cells_line(input: &Path) -> Result<String, Error> {
             let cell = cell?;
             counted.cells += 1;
             match cell.kind {
-                Kind::Number => counted.number += 1,
-                Kind::SharedString => counted.shared += 1,
-                Kind::InlineString => counted.inline += 1,
-                Kind::FormulaString => counted.formula_string += 1,
-                Kind::Boolean => counted.boolean += 1,
-                Kind::Error => counted.error += 1,
-                Kind::Date => counted.date += 1,
+                CellKind::Number => counted.number += 1,
+                CellKind::SharedString => counted.shared += 1,
+                CellKind::InlineString => counted.inline += 1,
+                CellKind::FormulaString => counted.formula_string += 1,
+                CellKind::Boolean => counted.boolean += 1,
+                CellKind::Error => counted.error += 1,
+                CellKind::Date => counted.date += 1,
             }
             if cell.value.is_some() {
                 counted.values += 1;
@@ -7446,7 +7450,7 @@ fn cells_line(input: &Path) -> Result<String, Error> {
             if cell.boolean().is_some() {
                 counted.booleans_parsed += 1;
             }
-            if cell.kind == Kind::SharedString {
+            if cell.kind == CellKind::SharedString {
                 match table.resolve(&cell) {
                     Ok(_) => counted.resolved += 1,
                     Err(_) => counted.unresolved += 1,

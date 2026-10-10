@@ -607,18 +607,18 @@ fn every_cell_type_reads_as_its_kind() {
          <c r=\"G1\" t=\"e\"><v>#REF!</v></c>\
          <c r=\"H1\" t=\"d\"><v>2026-09-18</v></c>",
     ));
-    let kinds: Vec<Kind> = cells.iter().map(|cell| cell.kind).collect();
+    let kinds: Vec<CellKind> = cells.iter().map(|cell| cell.kind).collect();
     assert_eq!(
         kinds,
         [
-            Kind::Number,
-            Kind::Number,
-            Kind::SharedString,
-            Kind::InlineString,
-            Kind::FormulaString,
-            Kind::Boolean,
-            Kind::Error,
-            Kind::Date,
+            CellKind::Number,
+            CellKind::Number,
+            CellKind::SharedString,
+            CellKind::InlineString,
+            CellKind::FormulaString,
+            CellKind::Boolean,
+            CellKind::Error,
+            CellKind::Date,
         ]
     );
     assert_eq!(
@@ -652,8 +652,8 @@ fn a_number_is_a_number_with_or_without_its_type() {
     let cells = read_cells(&one_row(
         "<c r=\"A1\"><v>1.10</v></c><c r=\"B1\" t=\"n\"><v>1.10</v></c>",
     ));
-    assert_eq!(cells[0].kind, Kind::Number);
-    assert_eq!(cells[1].kind, Kind::Number);
+    assert_eq!(cells[0].kind, CellKind::Number);
+    assert_eq!(cells[1].kind, CellKind::Number);
     // Nothing is normalised: the trailing zero is the producer's text and
     // stays. `number()` parses it on request, which is P3's.
     assert_eq!(cells[0].value.as_deref(), Some("1.10"));
@@ -680,7 +680,7 @@ fn an_inline_string_is_the_text_under_its_is() {
         "<c r=\"A1\" t=\"inlineStr\"><is><t>inline</t></is></c>",
     ));
     assert_eq!(cell.value.as_deref(), Some("inline"));
-    assert_eq!(cell.kind, Kind::InlineString);
+    assert_eq!(cell.kind, CellKind::InlineString);
 }
 
 #[test]
@@ -1264,7 +1264,7 @@ fn a_shared_string_cell_with_no_value_resolves_to_nothing() {
     // the corpus holds none, and this test is what pins the answer.
     let cells = read_cells(&one_row("<c r=\"A1\" t=\"s\"/>"));
     let table = table(&sst("<si><t>zero</t></si>"));
-    assert_eq!(cells[0].kind, Kind::SharedString);
+    assert_eq!(cells[0].kind, CellKind::SharedString);
     assert_eq!(
         table.resolve(&cells[0]).expect("a success, not a refusal"),
         None
@@ -1275,12 +1275,13 @@ fn a_shared_string_cell_with_no_value_resolves_to_nothing() {
 fn the_crate_root_re_exports_every_cell_type() {
     // `specs/0010-reading-cells.md`, "Crate": `lib.rs` re-exports
     // `cells::{Cell, CellRef, Cells, Formula, FormulaKind, Kind,
-    // SharedStrings}`. The clause is about paths, so the test names each type
-    // through the crate root and the compiler is the assertion: it fails to
-    // build if a re-export is missing. Both independent checks of this phase
+    // SharedStrings}` (`Kind` renamed `CellKind` by `specs/0030`). The clause
+    // is about paths, so the test names each type through the crate root and
+    // the compiler is the assertion: it fails to build if a re-export is
+    // missing. Both independent checks of this phase
     // found the six P2 types reachable only as `emend::cells::Cell`.
     use crate::{Cell as R1, CellRef as R2, Formula as R4, FormulaKind as R5};
-    use crate::{Kind as R6, SharedStrings as R7};
+    use crate::{CellKind as R6, SharedStrings as R7};
     let _: fn(&[u8]) -> Option<R2> = R2::parse;
     let _: R6 = R6::Number;
     let _: R5 = R5::Normal;
@@ -1566,7 +1567,7 @@ fn a_number_cell_whose_text_is_not_a_number_has_none() {
         assert_eq!(cells[0].number(), None, "{spelling}");
     }
     let empty = read_cells(&one_row("<c r=\"A1\"/>"));
-    assert_eq!(empty[0].kind, Kind::Number);
+    assert_eq!(empty[0].kind, CellKind::Number);
     assert_eq!(empty[0].value, None);
     assert_eq!(empty[0].number(), None);
 }
@@ -1590,7 +1591,7 @@ fn a_booleans_text_is_read_as_a_bool() {
         assert_eq!(cells[0].boolean(), None, "{spelling}");
     }
     let valueless = read_cells(&one_row("<c r=\"A1\" t=\"b\"/>"));
-    assert_eq!(valueless[0].kind, Kind::Boolean);
+    assert_eq!(valueless[0].kind, CellKind::Boolean);
     assert_eq!(valueless[0].boolean(), None);
 }
 
@@ -1605,7 +1606,7 @@ fn an_error_cells_text_is_its_error() {
     assert_eq!(cells[0].error(), Some("#REF!"));
     assert_eq!(cells[1].error(), Some("#DIV/0!"));
     assert_eq!(cells[2].error(), Some("#SOMETHING_NEW!"));
-    assert_eq!(cells[3].kind, Kind::Error);
+    assert_eq!(cells[3].kind, CellKind::Error);
     assert_eq!(cells[3].error(), None);
 }
 

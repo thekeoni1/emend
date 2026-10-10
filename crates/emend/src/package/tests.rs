@@ -3379,7 +3379,7 @@ fn the_values_written_read_back_through_the_cell_reader() {
         .expect("the cells");
     assert_eq!(cells.len(), 3);
     assert_eq!(cells[0].number(), Some(42.5));
-    assert_eq!(cells[1].kind, crate::cells::Kind::InlineString);
+    assert_eq!(cells[1].kind, crate::cells::CellKind::InlineString);
     assert_eq!(cells[1].value.as_deref(), Some("emend\r\n"));
     assert_eq!(cells[2].boolean(), Some(true));
 }
@@ -4211,7 +4211,7 @@ fn a_formula_text_is_escaped_and_reads_back_equal() {
     let cells = cells_of(output);
     let written = &cells[1];
     assert_eq!(written.reference, at("B1"));
-    assert_eq!(written.kind, crate::cells::Kind::Number);
+    assert_eq!(written.kind, crate::cells::CellKind::Number);
     assert_eq!(written.value, None, "no cached value");
     assert_eq!(
         written.formula,
@@ -4935,7 +4935,7 @@ fn new_takes_a_number_a_text_a_boolean_and_a_formula() {
     assert_eq!(cells[0].reference, at(1, 1));
     assert_eq!(cells[0].number(), Some(7.0));
     assert_eq!(cells[1].reference, at(1, 2));
-    assert_eq!(cells[1].kind, crate::cells::Kind::InlineString);
+    assert_eq!(cells[1].kind, crate::cells::CellKind::InlineString);
     assert_eq!(cells[1].value.as_deref(), Some("emend"));
     assert_eq!(cells[2].reference, at(1, 3));
     assert_eq!(cells[2].boolean(), Some(true));
