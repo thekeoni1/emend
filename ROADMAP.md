@@ -392,7 +392,7 @@ LibreOffice's.
 | P2 | first code commit: the prefix-tolerant sheet count and the record's reason classes (P1 verification ruling 3), the script rerun on P1's keep; then `scripts/excel-check-list.py`, the record template `records/excel-check-template.md`, the dry run of the list on part 6 P3's run directory with every hash checked; the negative log | DONE 2026-09-24 (da080f1, records 686ba6d, local; eleven P2 rulings, eight of them mid-phase on the script; verified by planning from primaries, its own gate, tests on both targets, clippy, its own keep comparison on all 298 files and LibreOffice verdicts agreeing on all 149 pairs, and its own derivation of the list's 27 corpus rows agreeing cell for cell without printing a reference; record `records/m1p8-open-2026-09-24-da080f1.md` and `.txt`: 149 pairs, 8 refused by LibreOffice, 3 the sheet count did not apply to, 0 findings; the list at sha256 0e7e19f4..., 165 rows, uncommitted; findings F1 to F10 ruled, F2, F6 and F7 carried; `specs/0015` "Planning verification and rulings on P2") |
 | Close | close-out push after P2, as part 7's, carrying 9232e61 | DONE 2026-09-24 (pushed 4bc741e..b06e0a7, 17 commits, 528 blobs, 0 findings; CI run 36006157721 success; verified by planning from git, `gh` and its own blob scan; the post-push scan a recorded FAIL on two compound-shape checks in the push script's printed source, the pushed content unaffected, ruled in `specs/0015` "Planning verification and rulings on the close-out": push.log committed unedited, a correction log reruns the two checks through named functions, the scan rerun ends FAIL as recorded; doc commit f6c2dba and record commit 065f3e4 local, verified by planning, go with the next push) |
 
-## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred a thirteenth time on 2026-10-09 at Milestone 3 part 7's close-out by the maintainer's decision, `specs/0029` "Planning rulings before the close-out"; a hard requirement of Milestone 4 part 1's close-out push)
+## Milestone 2: openpyxl's editing surface (parts 1 to 4 DONE and PUSHED 2026-10-01; ACCEPTANCE PENDING the Excel check, deferred a thirteenth time on 2026-10-09 at Milestone 3 part 7's close-out and a fourteenth time on 2026-10-09 at Milestone 4's approval by the maintainer's decisions, `specs/0029` "Planning rulings before the close-out" and `specs/0030` "Out of scope"; it gates no push in Milestone 4)
 
 Outline approved as a proposal by the maintainer on 2026-09-23,
 after planning's comparison with openpyxl. Every part is DONE and
@@ -648,7 +648,7 @@ Excel check 2 (after P1, the maintainer's, retained record):
 confirms Milestone 1 when every corpus row passes with its values
 and no fixture output is refused on an accepted input.
 
-## Milestone 3: the rest of openpyxl's surface, and proof at scale (APPROVED 2026-10-01; parts 1 to 7 DONE and PUSHED 2026-10-09; the Milestone 2 Excel check deferred a thirteenth time, a hard requirement of the next milestone's first part)
+## Milestone 3: the rest of openpyxl's surface, and proof at scale (APPROVED 2026-10-01; parts 1 to 7 DONE and PUSHED 2026-10-09; the Milestone 2 Excel check deferred a thirteenth time, then a fourteenth at Milestone 4's approval; it gates no push in Milestone 4)
 
 Outline drafted by planning on 2026-10-01 and approved by the
 maintainer the same day ("agree with recs, lets get started"), with
@@ -887,7 +887,7 @@ added; the core is expected not to move.
 | P5 | the Excel list: the formula sample and every gone sample rerun on the host at the closing commit with records, the host keep reopened into an open record, the list staged (`specs/0029` P4 ruling 2) | DONE (phase f39bc7b, record daab8c7, 2026-10-09; 23 reruns recorded as `records/m3p7-p5-*`, `records/m3p7-open-2026-10-09-f39bc7b.md`; the list 3134 rows staged, printarea out) |
 | Close | close-out push after P5, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, the tip checked by its subject (change 21), one independent check; the Milestone 2 Excel check skipped by the maintainer's decision of 2026-10-09 (deferred a thirteenth time, the push script's Excel-record check removed; `specs/0029` "Planning rulings before the close-out"), the stage kept on disk for the next milestone's first part | DONE 2026-10-09 (doc ebec51d pushed, origin/main 046cfb8..ebec51d, 20 commits, CI 38002814655 success, scan PASS, record 582dd2c local; the Excel check deferred a thirteenth time by the maintainer; `specs/0029` "Planning verification and rulings on the close-out") |
 
-## Milestone 4: release readiness (APPROVED 2026-10-09; part 1 IN PROGRESS from 2026-10-09)
+## Milestone 4: release readiness (APPROVED 2026-10-09; part 1 DONE and PUSHED 2026-10-10; part 2 IN PROGRESS from 2026-10-10)
 
 Theme chosen by the maintainer 2026-10-09 ("Release readiness",
 the recommended option of four: charts as a second crate, the
@@ -903,7 +903,7 @@ and 3, and its stage stays on disk; the push script's
 Excel-record check (`records/logs/m3p7-p4/negative.log`) is
 restored by the part whose push the maintainer makes it gate.
 
-### Part 1: the carries and the API changes (`specs/0030-carries-and-api-changes.md`, APPROVED 2026-10-09, decisions 1 and 2 A; P1 to P3 DONE 2026-10-10)
+### Part 1: the carries and the API changes (`specs/0030-carries-and-api-changes.md`, APPROVED 2026-10-09, decisions 1 and 2 A; DONE and PUSHED 2026-10-10)
 
 - The Excel list script accepts a run directory with error rows,
   leaves them out and counts them; the printarea sample's six are
@@ -923,16 +923,28 @@ restored by the part whose push the maintainer makes it gate.
 | P1 | the list script's error rows; decision 1's sentence in `specs/0001`; "Unscoped" per decision 2 | DONE (phase 37ab66b, record 828b7dc, 2026-10-09; the runner refuses a reused run directory, 267e689) |
 | P2 | the six API changes, the workspace following, the negative log's old-name build | DONE (phase 8902f87, record 84c40da, 2026-10-10; five renames c68f350..cce4285; `prefix_len` under `cfg(test)`, P2 ruling 3) |
 | P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | DONE (phase 669fa91, record ed4082d, 2026-10-10; `records/size-m4p1-2026-10-10-669fa91.md` 0 of 28 moved; `records/api-review-m4p1-2026-10-10-669fa91.md` 544 keep; 27 sample records byte-identical to Milestone 3's runs) |
-| Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | IN PROGRESS (2026-10-10) |
+| Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | DONE (doc e4ab25b, pushed ebec51d..e4ab25b 17 commits 2026-10-10, CI run 38048068003 success, record 20285f1 local, goes with part 2's push; `specs/0030` "Planning verification and rulings on the close-out") |
 
-### Part 2: the release metadata (`specs/0031`, to be written)
+### Part 2: the release metadata (`specs/0031-release-metadata.md`, APPROVED 2026-10-10, decisions 2 to 4 A; IN PROGRESS from 2026-10-10)
 
-- `CHANGELOG.md` from the records; the crate's package metadata
-  (description, repository, keywords, categories, docs.rs
-  features) with `publish = false` kept until the maintainer's
-  decision; a `cargo publish --dry-run` recorded; the README's
-  citation check rerun over README and CHANGELOG.
-- Close-out decision for the maintainer: publish 0.1.0 or hold.
+- `CHANGELOG.md` from the specs and the records, under the README's
+  citation check extended to `specs/` paths; the crate-level doc
+  comment rewritten from the README (decision 3 A); the README and
+  the two licence texts in the package (decision 4 A).
+- The crate's package metadata (description, readme, repository
+  (decision 2 A), keywords, categories, docs.rs all-features) with
+  `publish = false` kept; `cargo package --list`, `cargo package`
+  and a `cargo publish --dry-run` on a scratch copy recorded; the
+  size record with 0 growth; the API listing unchanged at 544.
+- Close-out decision 1 for the maintainer, asked by planning after
+  P2's verification: publish 0.1.0 or hold. Publishing itself, if
+  decided, is a later step with its own spec.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `CHANGELOG.md`, the doc comment, the licence copies; the citation check over both files; the prune of part 1's P3 set and the close-out target | IN PROGRESS (2026-10-10) |
+| P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | PLANNED |
+| Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | PLANNED |
 
 ## Unscoped
 

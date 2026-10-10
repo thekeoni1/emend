@@ -478,6 +478,128 @@ wording alone).
    close-out left P5's to this part's P1: the push script has no
    prune block and gains none.
 
+## Planning verification and rulings on the close-out (2026-10-10)
+
+Rulings 1 to 8 were written in planning's cache
+(`<home>/.cache/emend-planning/m4p1-close-rulings.md`, sha256
+1529f62a) while the tree had to stay clean for the push script,
+and are copied here unchanged in substance with the first doc
+commit after the record commit, as part 6's and part 7's were.
+Rulings 9 to 11 follow the push.
+
+Verified by planning before the push: doc commit e4ab25b (two
+files at the hashes the body names, read from the blobs; subject
+equal to `TIP_SUBJECT`); tree clean. Verified after the push,
+from git, gh and the committed logs: `git ls-remote` gives
+e4ab25b for the remote's main; CI run 38048068003 on headSha
+e4ab25b, event push, status completed, conclusion success; the
+record commit 20285f1 holds the three logs only
+(`records/logs/m4p1-close/push.log` 5da97393, 1169 lines;
+`ci-run.log` bb36c50b, 660 lines; `scan.log` dfa9f8a2, 2335
+lines; 0 lines ending ": no" in each; "pre checks all as
+expected: yes" and "push checks all as expected: yes"; the hook
+scanned 17 commits and 1566 blobs with 0 findings over
+ebec51d..e4ab25b; the repository still PRIVATE; `scan.log`
+"total hits: 0", "RESULT: PASS"); the maintainer's typed
+authorisation recorded verbatim with its date; planning's own
+`scripts/privacy.sh --range ebec51d..HEAD` over 18 commits and
+1569 blobs, 0 findings; no line of the three logs names a home,
+mount, temp or corpus path; no commit message in the range
+carries a session link; no API key in planning's environment.
+
+1. The carried push script prints no `CARGO_TARGET_DIR` (0 lines
+   name it), so the pre-close-out ruling 2's "printed in the log"
+   cannot hold with the script as generated. Ruling: option (b).
+   The first pre attempt is stopped (or, if finished, set aside)
+   and kept as a superseded attempt under
+   `<home>/.cache/emend-build/m4p1-close/superseded/pre-attempt-1/`
+   with a NOTE.txt naming this ruling and its hash; gen.py gains
+   change 22: pre and push modes print "input (environment)
+   CARGO_TARGET_DIR: <home>/.cache/emend-build/m4p1-close/target"
+   (home scrubbed) and check it is set and names that path, with a
+   control refusing an unset or other value; the scripts are
+   regenerated, their hashes reported for planning's word, and
+   pre mode runs again from fresh copies. The report discloses the
+   superseded attempt. The independent check runs on the second
+   attempt's log.
+2. Change 22 as generated (gen.py ff70e80a, push 2acfc4f2, ci and
+   scan unchanged at 9bfc4432 and 5b491376; read by planning: the
+   helper `target_dir_ok`, the print with the home scrubbed and
+   the check with two controls after the API-key check in pre and
+   push modes, the header's item 22 and the change list's line):
+   accepted. The first attempt (push.log 206b2bde, stopped during
+   the blob scan before the gate, NOTE.txt 8bb37f19) is superseded
+   and disclosed. Planning's word for the second pre run, from
+   fresh copies under `<scratch>/close`, with `CARGO_TARGET_DIR`
+   set as ruling 2 before the close-out says.
+
+   Verified by planning from the files: pre attempt 2's log
+   77a58b65 (1094 lines, 0 lines ending ": no", "pre checks all as
+   expected: yes"; `CARGO_TARGET_DIR` printed and checked with two
+   controls; the tip by its subject; the base ebec51d by subject
+   equal to origin/main and to the remote's main; 17 commits to
+   push; 582dd2c in the range once; the stray count 0 and the
+   clone's 1; identity 17 of 17; privacy 17 commits, 1566 blobs,
+   0 findings; the gate's nine PASS lines; tree clean after the
+   gate); check 1's record be2e9c35 read.
+3. Check 1's substantive point: the committed "Planning rulings
+   before the close-out (2026-10-10)" accepts the scripts at
+   gen.py a3017138 and push b28ca4a5 and says the carried text
+   does not change, while the scripts that ran are gen.py ff70e80a
+   and push 2acfc4f2 with change 22. Ruling: the committed rulings
+   stand as the state before pre attempt 1 found the gap; rulings
+   1 and 2 here amend them, as part 6's close-out ruling 1 amended
+   its carried text from the cache while the tree had to stay
+   clean. The record commit's message names the generator and
+   push script hashes that ran (ff70e80a, 2acfc4f2), change 22,
+   and the superseded attempt 1 (206b2bde) so that the committed
+   logs' own commit carries the fact (verified: 20285f1's message
+   names all four). No third pre attempt.
+4. The script header's item 22 cites "ruling 1" of the
+   pre-close-out rulings for the target root where this spec has
+   it as ruling 2 (`push.log` line 83): a wrong cross-reference in
+   the script text, carried into the log. Recorded; not reason for
+   a third attempt and a second check, since the check and the log
+   would otherwise be identical. The reader of the log is sent to
+   ruling 2 by this ruling.
+5. "changes against part 6's script" (the log's change list) and
+   this spec's "generated from part 7's by the same generator":
+   both true; the generator transforms part 6's printed scripts as
+   part 7's did, and the numbered changes 19 to 22 continue part
+   6's numbering. Accepted, no change.
+6. `ROADMAP.md`'s Close row read IN PROGRESS at the doc commit
+   where "Close-out push (after P3)" says "part 1's rows read DONE
+   and PUSHED": the phase rows read DONE; the Close row cannot
+   read DONE before the push the doc commit precedes, and every
+   earlier close-out set it DONE in the next doc commit. The
+   sentence reads that way; no change. The row reads DONE with
+   this doc commit.
+7. Attempt 2's log prints no rerun line (`RERUN_NOTE` unset): the
+   superseded attempt is disclosed by NOTE.txt, the report and the
+   record commit's message (ruling 3). Accepted.
+8. Planning's word on pre attempt 2's log was given on 2026-10-10.
+   The push ran on the maintainer's `MAINTAINER_AUTH` and
+   `MAINTAINER_AUTH_DATE` typed in the implementing session
+   ("push", 10/10/2026, `push.log` lines 1118 to 1119).
+9. Milestone 4 part 1 is DONE and PUSHED (2026-10-10): the range
+   ebec51d..e4ab25b, 17 commits, carrying part 7's record 582dd2c,
+   every part 1 commit and the close-out doc commit. The record
+   commit 20285f1 is local and goes with the next push, as 582dd2c
+   went with this one: part 2's push script names it by
+   `^M4 part 1 close-out record` (`PREV_RECORD_PATTERN`, in the
+   range exactly once) and its base is e4ab25b, named by its
+   subject "M4 part 1 close-out: commit planning docs (the P3
+   verification and rulings)".
+10. The close-out's independent check (check 1, be2e9c35) stays
+    outside the repository under
+    `<home>/.cache/emend-build/m4p1-close/check1/`, as parts 5, 6
+    and 7's did. The close-out target root
+    `<home>/.cache/emend-build/m4p1-close/target` joins P3's set
+    (pre-close-out ruling 3) in part 2's first prune list, each
+    with its `du -sb` line.
+11. The implementing session stops at this report; part 2 starts
+    from `specs/0031` once written and briefed.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-09: 1 and 2 as recommended (A in
