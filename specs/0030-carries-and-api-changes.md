@@ -277,6 +277,80 @@ blobs, 0 findings; no API key in the environment.
 5. P1 is DONE. P2 follows the spec: its doc commit carries this
    spec at its working hash, then the six API changes.
 
+## Planning rulings during P2 (2026-10-10)
+
+Asked by the implementing session after the doc commit 04b7070
+(both files at the hashes the body names, read back from the
+blobs by planning).
+
+1. P1's prune set under `<home>/.cache/emend-build/m4p1-p1`:
+   `dry-gate gate negative run test target`, listed with `du -sb`
+   and removed with `rm -r`; every other name kept (`dry-logs`
+   among them, P1 verification ruling 1 cites it), every name in
+   exactly one set, as the P1 gate's form.
+2. Said in advance and accepted: one independent check, the
+   record commit "M4 part 1 P2 record: logs, the independent
+   check"; one code commit per item, six, in the record's order;
+   `Target` renamed at its definition in `package/sheet_read.rs`
+   so the public path follows with no `as`; `rustfmt` on a
+   touched file only, and only if a rename leaves it unformatted,
+   the report naming any such file.
+3. Item 6, a finding (asked after c68f350, 5e7bb62, f7bb23e,
+   ff0a480 and cce4285): with `Archive::prefix_len` made
+   `pub(crate)` the crate's non-test build warns it and the
+   `Core::prefix_len` it delegates to are never used, since only
+   `archive/tests.rs` calls it; the gate's clippy runs with
+   warnings denied. Ruling: option A. Both methods gain
+   `#[cfg(test)]`, the `Archive` one kept `pub(crate)`; no allow
+   attribute; the rustdoc says the method exists for the crate's
+   own tests. The review record's item 6 reads with this
+   qualification ("the crate's own unit tests" is the whole set of
+   callers). The size log expects 0 growth still: the method was
+   never linked. The negative log's old-name case may use item 6
+   as well as a rename: a test outside `cfg(test)` of the archive
+   module calling `prefix_len` is refused.
+
+## Planning verification and rulings on P2 (2026-10-10)
+
+Verified by planning from git, the logs and its own check: eight
+commits over 828b7dc (04b7070 doc; c68f350, 5e7bb62, f7bb23e,
+ff0a480, cce4285 the five renames in the record's order; 8902f87
+item 6; 84c40da record, five files at the reported hashes); the
+diff 04b7070..8902f87 touches eleven files of the crate and
+`emend-copy` only; no old name declared at the phase commit, each
+renamed type's rustdoc naming its old name once; `prefix_len` on
+`Archive` and `Core` under `#[cfg(test)]`, the `Archive` one
+`pub(crate)`, the rustdoc saying why; every log ends all as
+expected or RESULT: PASS, each line ending ": no" an expected
+form; workspace tests 1112 on both targets, the crate's five
+feature sets 514/526/558/573/918 on both; clippy and doc 0 lines;
+the negative log's old-name and non-test-call plants refused
+(E0433, E0599) with their controls; the gate prunes `m4p1-p1`'s
+six names (5418344195 bytes); planning's own `cargo check
+--workspace --all-targets --all-features` at 8902f87 in a
+detached worktree clean, `cargo check -p emend` 0 warnings;
+planning's `privacy.sh` over 828b7dc..84c40da: 8 commits, 1493
+blobs, 0 findings; no API key in the environment.
+
+1. The report's quoted rustc warning and "twice" (check 1, Q3):
+   a session observation no committed log captures, labelled so
+   in the report; ruling 3 records the finding and 8902f87 its
+   fix, and the test log's clean clippy is the primary. Accepted.
+2. "Every feature set the gate runs" (check 1, Q2) means the
+   crate's five sets the gate's clippy and doc steps use; the
+   gate's clippy over `size-probe`'s feature sets is the gate's
+   own and not a test set. The test log is as the spec meant.
+3. NG2's plant, a non-test public method in `archive.rs` built
+   with `cargo build` (check 1, item 3): the call from outside
+   `cfg(test)` ruling 3 asked for; accepted.
+4. The test log's first dry run, ended "no" on a control's leaked
+   grep message, corrected before the logged run (check 1, item
+   4): accepted as a disclosure, as P1 verification ruling 1.
+5. P2 is DONE. P3 follows the spec: its doc commit carries this
+   spec and `ROADMAP.md` at their working hashes; then the size
+   log and record, the listing rerun and its record, the harness
+   runs, one independent check.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-09: 1 and 2 as recommended (A in

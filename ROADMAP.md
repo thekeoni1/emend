@@ -921,7 +921,7 @@ restored by the part whose push the maintainer makes it gate.
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the list script's error rows; decision 1's sentence in `specs/0001`; "Unscoped" per decision 2 | DONE (phase 37ab66b, record 828b7dc, 2026-10-09; the runner refuses a reused run directory, 267e689) |
-| P2 | the six API changes, the workspace following, the negative log's old-name build | PLANNED |
+| P2 | the six API changes, the workspace following, the negative log's old-name build | DONE (phase 8902f87, record 84c40da, 2026-10-10; five renames c68f350..cce4285; `prefix_len` under `cfg(test)`, P2 ruling 3) |
 | P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | PLANNED |
 | Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | PLANNED |
 
