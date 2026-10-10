@@ -2337,11 +2337,11 @@ fn password_ok(password: &str) -> bool {
 
 /// One `Default` element of `[Content_Types].xml`, bytes as written.
 ///
-/// The name shadows the prelude's `Default` trait inside this module, which
-/// is why nothing here names that trait. `specs/0009-package-layer.md` fixes
-/// the type's name.
+/// This type was formerly `Default`, the name `specs/0009-package-layer.md`
+/// gave it, which shadowed the prelude's trait of that name in this module;
+/// `specs/0030-carries-and-api-changes.md` renamed it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Default {
+pub struct ContentTypeDefault {
     /// The `Extension` attribute, without a dot.
     pub extension: Vec<u8>,
     /// The `ContentType` attribute.
@@ -2360,13 +2360,13 @@ pub struct Override {
 /// A package's content types, in document order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentTypes {
-    defaults: Vec<Default>,
+    defaults: Vec<ContentTypeDefault>,
     overrides: Vec<Override>,
 }
 
 impl ContentTypes {
     /// Every `Default`, in document order.
-    pub fn defaults(&self) -> &[Default] {
+    pub fn defaults(&self) -> &[ContentTypeDefault] {
         &self.defaults
     }
 
@@ -21763,7 +21763,7 @@ fn parse_content_types(archive: &mut Core, index: usize) -> Result<ContentTypes,
             ) else {
                 return Err(INCOMPLETE);
             };
-            defaults.push(Default {
+            defaults.push(ContentTypeDefault {
                 extension,
                 content_type,
             });
