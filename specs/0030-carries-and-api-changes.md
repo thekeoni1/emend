@@ -351,6 +351,133 @@ blobs, 0 findings; no API key in the environment.
    log and record, the listing rerun and its record, the harness
    runs, one independent check.
 
+## Planning rulings during P3 (2026-10-10)
+
+Asked by the implementing session after the doc commit 669fa91
+(both files at the hashes the body names, read back from the
+blobs by planning).
+
+1. The listing's figures (Q1): the spec's "545 items, 545 keep"
+   and "every row identical but the five names and the one
+   missing method" were planning's arithmetic from the old
+   record without the program's rules in view: the listing holds
+   `pub` items only, so the hidden method is gone (544), and a
+   rename moves the rows the renamed container owns and the
+   re-export rows that named it. The record and the log expect
+   544 items, 544 keep, 0 rename, 0 hide; rows equal to part 7's
+   by (module, kind, name, container, cfg, added) but exactly
+   eleven changed and one gone, each printed by its key: the five
+   renamed types with `added` at their P2 commits, the four
+   fields under the renamed containers, the two re-export rows,
+   and `Archive.prefix_len` gone. "The API changes" reads with
+   this ruling. The trial that found it was unlogged, in scratch,
+   and is disclosed here and in the report; the logged listing
+   is the test log's. Planning's own run of the same program
+   (59f4043c) over `git archive 669fa91` in its scratch directory
+   gave 544 rows, twelve old-only and eleven new-only by that
+   key, the rows this ruling names.
+2. The listing goes in a test log as part 7 P3's (T1 the listing
+   and its per-file pub-line counts, T2 the all-features doc
+   build with warnings denied); the phase's logs are gate, test,
+   size, run, scan.
+3. The formatter: part 7's `make_review.py` copied into the phase
+   directory, its verdict table emptied (every item keep), its
+   spec map gaining "M4 part 1" to `specs/0030` for the five
+   renamed rows, its header prose rewritten for this record (the
+   rerun after P2, the counts per verdict, the eleven and one
+   listed); run from the test log's listing, its hash printed in
+   the test log and the record's header.
+4. Said in advance and accepted: the records' shortsha 669fa91;
+   every corpus run with `--libreoffice`, compared as part 7 P3's
+   run log to the 09d2e0f and f39bc7b directories, printarea's
+   six refused the same; the size log as part 7 P3's with the base
+   rebuilt at 09d2e0f and growth 0 required on every probe;
+   `passthrough-record.py` with `--allow-single` for the 23
+   host-only samples.
+
+## Planning verification and rulings on P3 (2026-10-10)
+
+Verified by planning from git, the logs, the records and its own
+build: two commits over 84c40da (669fa91 doc, the phase commit;
+ed4082d record, 62 files at the reported hashes); every log ends
+all as expected or RESULT: PASS, each line ending ": no" an
+expected form; the size record: 0 of 28 probes grew or shrank,
+the budget 436992, 21760 under the ceiling; the listing record:
+544 items, 544 keep, the log's twelve gone and eleven new by key
+equal to planning's own run of the program at 669fa91 (P3 ruling
+1); the run log: the four samples on both targets and the 23 host
+samples each 27 outputs, lines and diff tables equal to the
+earlier run's, printarea 21 equal and the six refused the same;
+planning's own build at 669fa91 in its detached worktree: no old
+name declared, `prefix_len` twice under `cfg(test)`, the crate's
+five feature sets 514/526/558/573/918 and the workspace's 1112 on
+both targets, clippy and doc 0 lines, and its own release
+`emend-copy` run over the corpus on both labels for the four
+samples, 27 of 27 outputs and tool lines identical to the phase's
+run directories each; planning's `privacy.sh` over
+84c40da..ed4082d: 2 commits, 1539 blobs, 0 findings; no API key
+in the environment.
+
+1. The unlogged scratch trial of the listing program, before the
+   log scripts were written (check 1): disclosed by P3 ruling 1
+   and by the report's final form; the logged listing is the test
+   log's. Accepted.
+2. `probe-emend-read-write-xml`'s verdict "code" (312 differing
+   bytes, 88 in `.text`, 163 in `.data.rel.ro` as slot deltas of
+   +8, +2 and +6, every figure equal to part 7's): the six P2
+   commits touched the probe's own sources, and a rename moves
+   the type names the compiler embeds, which is what slot deltas
+   of a few bytes look like; attributed to the six commits by
+   file, as decision 2 A allows. Growth 0 holds on every probe.
+   Accepted as the record states it.
+3. Six listing rows carry `specs/0030`, the crate root's
+   re-export row among them (its `added` moved to f7bb23e): the
+   formatter maps by commit, and that row changed in P2. Accepted;
+   "the five renamed rows" in P3 ruling 3 reads as six.
+4. The record's doc-build sentence names "types, functions,
+   constants and aliases" where the test log's line names
+   statics too: the test log is the primary and the record's
+   sentence is a summary that leaves one kind out; noted, no
+   commit for it. The draft's "ruling 4 (a)" and the joined scan
+   lines were corrected in the final report.
+5. The dry runs, all passed first time, the run dry run's staged
+   pair moved aside before the logged run: session facts;
+   accepted as a disclosure, as P1 and P2.
+6. P3 is DONE, and with it part 1's phases. The close-out push
+   follows the Close-out section: the doc commit holds this spec
+   and `ROADMAP.md`; the scripts are generated from part 7's by
+   the same generator with the base ebec51d by its subject,
+   `PREV_RECORD_PATTERN` `^M3 part 7 close-out record` once, the
+   tip's subject "M4 part 1 close-out: commit planning docs (the
+   P3 verification and rulings)" by change 21's form, no
+   Excel-record check and the stray-record count 0 kept; pre
+   mode on the clean tree, one independent check, the push on
+   planning's word and the maintainer's authorisation typed in
+   the implementing session, the CI run, the post scan, the
+   record commit with the three logs only.
+
+## Planning rulings before the close-out (2026-10-10)
+
+Asked by the implementing session after the scripts were
+generated (gen.py a3017138, push b28ca4a5, ci 9bfc4432, scan
+5b491376; read by planning: `bash -n` clean, no non-ASCII byte,
+the base pattern resolving to ebec51d alone and the previous
+record pattern to 582dd2c alone, the lines differing from part
+7's scripts below their headers the names, patterns and part-7
+wording alone).
+
+1. The generated scripts are accepted as the close-out's.
+2. The pre and push modes run with `CARGO_TARGET_DIR=<home>/
+   .cache/emend-build/m4p1-close/target` in their environment,
+   printed in the log's environment lines, so the gate's builds
+   have the close-out's own target root as `specs/0001` asks; the
+   carried script text does not change.
+3. P3's prune set (`dry-gate gate test target` under
+   `<home>/.cache/emend-build/m4p1-p3`, `dry-logs` and the rest
+   kept) is left to Milestone 4 part 2's first gate, as part 7's
+   close-out left P5's to this part's P1: the push script has no
+   prune block and gains none.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-09: 1 and 2 as recommended (A in

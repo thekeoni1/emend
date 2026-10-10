@@ -903,7 +903,7 @@ and 3, and its stage stays on disk; the push script's
 Excel-record check (`records/logs/m3p7-p4/negative.log`) is
 restored by the part whose push the maintainer makes it gate.
 
-### Part 1: the carries and the API changes (`specs/0030-carries-and-api-changes.md`, APPROVED 2026-10-09, decisions 1 and 2 A)
+### Part 1: the carries and the API changes (`specs/0030-carries-and-api-changes.md`, APPROVED 2026-10-09, decisions 1 and 2 A; P1 to P3 DONE 2026-10-10)
 
 - The Excel list script accepts a run directory with error rows,
   leaves them out and counts them; the printarea sample's six are
@@ -922,8 +922,8 @@ restored by the part whose push the maintainer makes it gate.
 | --- | --- | --- |
 | P1 | the list script's error rows; decision 1's sentence in `specs/0001`; "Unscoped" per decision 2 | DONE (phase 37ab66b, record 828b7dc, 2026-10-09; the runner refuses a reused run directory, 267e689) |
 | P2 | the six API changes, the workspace following, the negative log's old-name build | DONE (phase 8902f87, record 84c40da, 2026-10-10; five renames c68f350..cce4285; `prefix_len` under `cfg(test)`, P2 ruling 3) |
-| P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | PLANNED |
-| Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | PLANNED |
+| P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | DONE (phase 669fa91, record ed4082d, 2026-10-10; `records/size-m4p1-2026-10-10-669fa91.md` 0 of 28 moved; `records/api-review-m4p1-2026-10-10-669fa91.md` 544 keep; 27 sample records byte-identical to Milestone 3's runs) |
+| Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | IN PROGRESS (2026-10-10) |
 
 ### Part 2: the release metadata (`specs/0031`, to be written)
 
