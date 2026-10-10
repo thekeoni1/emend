@@ -537,7 +537,7 @@ fn the_items_are_the_held_table_s_one_at_a_time() {
                  </si><si><t xml:space=\"preserve\"> three\r\n</t><rPh><t>x</t></rPh></si>";
     let mut package = with_items(items);
     let held = package.shared_strings().expect("the table reads");
-    let walked: Vec<crate::cells::Item> = package
+    let walked: Vec<crate::cells::SharedStringItem> = package
         .shared_string_items()
         .expect("opens")
         .collect::<Result<_, _>>()

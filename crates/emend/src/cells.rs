@@ -1742,10 +1742,10 @@ impl RichText {
 /// `<si>`'s flattened text, as [`SharedStrings::get`] gives it, and with
 /// the Cargo feature `richtext` its runs, as `SharedStrings::runs_of`
 /// gives them (`specs/0027-read-back.md`, "The shared strings table",
-/// decision 6). The Cargo feature `read`.
+/// decision 6). The Cargo feature `read`. This type was formerly `Item`.
 #[cfg(feature = "read")]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Item {
+pub struct SharedStringItem {
     /// The item's text.
     pub text: String,
     /// The item's runs, `None` for an item without them. The Cargo feature
@@ -1797,7 +1797,7 @@ impl<'p, R: Read + Seek> Items<'p, R> {
 
 #[cfg(feature = "read")]
 impl<R: Read + Seek> Iterator for Items<'_, R> {
-    type Item = Result<Item, Error>;
+    type Item = Result<SharedStringItem, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let walk = self.walk.as_mut()?;
@@ -1833,7 +1833,7 @@ struct ItemWalk<'p> {
 impl ItemWalk<'_> {
     /// Reads forwards to the next `<si>`, as [`SharedStrings`]'s read reads
     /// each, or to the end of the part.
-    fn advance(&mut self) -> Result<Option<Item>, Error> {
+    fn advance(&mut self) -> Result<Option<SharedStringItem>, Error> {
         const NOT_SST: Error = Error::Package("the shared strings part's root is not sst");
         while let Some(token) = self.stream.next()? {
             let mut open_item = false;
@@ -1864,7 +1864,7 @@ impl ItemWalk<'_> {
                 _ => {}
             }
             if empty_item {
-                return Ok(Some(Item {
+                return Ok(Some(SharedStringItem {
                     text: String::new(),
                     #[cfg(feature = "richtext")]
                     runs: None,
@@ -1872,7 +1872,7 @@ impl ItemWalk<'_> {
             }
             if open_item {
                 #[cfg(not(feature = "richtext"))]
-                return Ok(Some(Item {
+                return Ok(Some(SharedStringItem {
                     text: text_under(&mut self.stream, &mut self.scope, self.index, &mut ())?,
                 }));
                 #[cfg(feature = "richtext")]
@@ -1881,7 +1881,7 @@ impl ItemWalk<'_> {
                     let text =
                         text_under(&mut self.stream, &mut self.scope, self.index, &mut runs)?;
                     let runs = runs.rich(&text);
-                    return Ok(Some(Item { text, runs }));
+                    return Ok(Some(SharedStringItem { text, runs }));
                 }
             }
         }
