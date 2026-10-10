@@ -203,8 +203,9 @@ root (`<home>/.cache/emend-build/m4p1-close/target`), each listed
 with `du -sb` and removed with `rm -r`, as `specs/0028` P2 ruling 8
 and `specs/0030` close-out ruling 10 say. The close-out's
 `gen.py` and logs stay. The three logged scripts run in
-`<scratch>` copies with `scripts/counting.sh`; a dry run of each
-precedes its logged run.
+the phase directory with `scripts/counting.sh` copied into
+`<scratch>` by `git show`, as part 1's P3 did (P1 verification
+ruling 5); a dry run of each precedes its logged run.
 
 ### P1: the CHANGELOG, the doc comment, the licence texts
 
@@ -253,6 +254,121 @@ row with its date. "publish 0.1.0" scopes a later step with its own
 spec (`publish = false` lifted, the version, the tag, the command,
 the registry's page read back); "hold" leaves `publish = false` and
 the milestone ends with the push.
+
+## Planning rulings during P1 (2026-10-10)
+
+Asked by the implementing session after the doc commit 28729bb,
+before any code commit. Written into the working spec, cited by
+the logs by this file's hash, and committed with P2's doc commit;
+no second P1 doc commit.
+
+1. "Lines of at most 80 columns" and "byte-equal to the README's
+   sentences" cannot both hold literally: the README's five
+   measured paragraphs are single lines of 466, 166, 194, 203 and
+   412 bytes. Ruling: each "Measured" bullet is wrapped at spaces
+   within 80 columns (the section holds no double space), and the
+   run log compares the bullet with its "- " dropped and its
+   continuation lines joined by one space (the join the README
+   check's units() uses) byte for byte with the README paragraph,
+   with a control planting a one-byte change, refused. "Byte-equal"
+   in "The CHANGELOG (P1)" means this.
+2. "Measured" holds all five paragraphs of the README's "What has
+   been measured", in the README's order; the copy-sample paragraph
+   counts under fidelity. The spec's "(fidelity, the open count,
+   size, speed)" named four and reads as five.
+3. The `readme` line is added by P1's decision-4 commit, directly
+   after `publish = false`, with the two licence copies; P2 inserts
+   `description` above it, giving the order "The package metadata
+   (P2, decision 2)" lists. Confirmed.
+4. "Added": (a) each bullet cites the spec's full file path in
+   backticks (`specs/0008-zip-layer.md` and so on), since the
+   check's `specs/` extension needs a path that exists at the phase
+   commit. (b) The eighteen-bullet mapping as proposed, 0008 to
+   0028 without 0014, 0015 and 0023 (harness, open checks and
+   scale: measurements, not capabilities); the grouping and line
+   styles bullet names `rowcol`, the feature `specs/0026` grows.
+   (c) The comments-and-images bullet cites `specs/0022` and adds
+   "grown by `specs/0028-images-and-comments-second-half.md`
+   (removal, anchors, the comment box)", so both paths are cited;
+   the copy bullet cites `specs/0028` for `copy` as listed.
+5. Wording as read: "Not supported by design" quotes the README's
+   sentence (lower-case "not"); "Changed" bullet 6 reads
+   "`Archive::prefix_len` made crate-private, compiled for the
+   crate's own tests only" (`specs/0030` P2 ruling 3); bullet 3
+   names the crate root's re-export following the rename.
+
+6. The phase scan's denylist form, carried from part 1's P3
+   (`f_deny`, a case-sensitive substring `-F`), over-matches one
+   line of the Apache licence text, so the copy decision 4 A
+   requires would fail the scan while the hook's whole-word form
+   (`scripts/privacy.sh`, `-i -w -F`) gives 0 on it, as the
+   2026-09-16 count-only ruling found on the same text. Ruling:
+   option (a). The scan's `f_deny` takes the hook's form `-i -w -F`
+   for every file it reads, as a numbered change printed in the
+   scan log's change list, with two controls: a planted denylist
+   entry still hits under the whole-word form; the substring form
+   run beside it on `crates/emend/LICENSE-APACHE` counts its one
+   hit (never printed) as the reason for the change. One form for
+   the hook and the scan from here on; the copy is this
+   repository's own file, cmp-equal to the root's (the run log).
+   No exemption by path (option (b)).
+
+## Planning verification and rulings on P1 (2026-10-10)
+
+Verified by planning from the commits, the logs and its own build:
+doc commit 28729bb (three files at the hashes the message names);
+139139a adds `CHANGELOG.md` alone; 10685ce changes `//!` lines of
+`lib.rs` alone (0 non-doc lines in its diff, counted by planning);
+phase commit d41c390 adds the `readme` line after `publish = false`
+and the two licence copies, each `cmp`-equal to the root file;
+record 5640bfa holds the six files of `records/logs/m4p2-p1/` at
+the report's hashes (gate 226de5b0, test 6550e4b9, run 9ca5bf7f,
+negative 37229999, check 74e36007, scan eeb2e7fb). Planning's own
+build at d41c390 (`<home>/.cache/emend-planning/m4p2-p1-build.txt`):
+514, 526, 558, 573 and 918 crate tests on each target by feature
+set, 1112 workspace tests on each, clippy 0, doc 0 under
+`-D warnings`, `cargo package --list` naming `README.md` and the
+two licence texts. Planning's `scripts/privacy.sh --range
+20285f1..HEAD`: 5 commits, 1552 blobs, 0 findings. The CHANGELOG's
+"Added" descriptions read by planning against the Goal sections of
+`specs/0011`, `0013`, `0016`, `0021`, `0022`, `0026`, `0027` and
+`0028`: each claim is the spec's.
+
+1. P1 is DONE. The lines ending ": no" in the logs are the
+   API-key form ("ANTHROPIC_API_KEY set in this shell: no") and
+   the doc commit's descriptive line ("the diff-alone sentence:
+   no"), neither a failed check, as in part 1's logs.
+2. Check 1's point 2: "Everything heavier is a Cargo feature, off
+   by default, with no dependency of its own" is `README.md` line
+   18 word for word (read by planning); the checker had no README
+   among its inputs. No change.
+3. Check 1's point 3: the run log's labels "planning's two files"
+   and "planning's uncommitted spec and ROADMAP.md" (lines 57,
+   2395, 2396) overstate the pattern (line 1280), which admits
+   this phase's logs and `specs/0031` alone; the check is stricter
+   than its label and the result stands. Recorded, not rerun. P2's
+   scripts label the pattern by what it admits.
+4. Check 1's point 5: the size bullet cites part 7's size record
+   because ruling 1 makes the bullet the README's sentence; the
+   figure is the same and `records/size-m4p1-2026-10-10-669fa91.md`
+   confirms it with 0 of 28 moved. No change in this part.
+5. Check 1's point 7 and the report's D7: "run in `<scratch>`
+   copies with `scripts/counting.sh`" meant what part 1's P3 did
+   (the scripts run from the phase directory, `counting.sh` copied
+   into `<scratch>` by `git show`); the sentence in "Phases" reads
+   that way from here on. Accepted.
+6. The disclosures are accepted: ruling 6 asked mid-phase; the
+   three run-script defects and the placeholder token fixed before
+   any logged run, the superseded scripts kept with their hashes in
+   the report (check 1's point 1 answered there); the fork's
+   temporary file. No logged run repeated.
+7. The gate's prune removed part 1's P3 set (6053758313 bytes) and
+   the close-out target (1779553675 bytes), each listed with
+   `du -sb`, the kept names present. Planning's own build pruned
+   sixteen of its earlier output directories under its cache
+   (part 1's P3 outputs and Milestone 2 part 4's), 0.7 GB.
+8. P2 starts. Its doc commit holds this spec (these rulings) and
+   `ROADMAP.md` (P1's row DONE, P2's IN PROGRESS).
 
 ## Decisions for the maintainer
 

@@ -942,8 +942,8 @@ restored by the part whose push the maintainer makes it gate.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | `CHANGELOG.md`, the doc comment, the licence copies; the citation check over both files; the prune of part 1's P3 set and the close-out target | IN PROGRESS (2026-10-10) |
-| P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | PLANNED |
+| P1 | `CHANGELOG.md`, the doc comment, the licence copies; the citation check over both files; the prune of part 1's P3 set and the close-out target | DONE (phase d41c390, record 5640bfa, 2026-10-10; README 18 of 18 and CHANGELOG 29 of 29 digit sentences cited; scan denylist form made whole-word, P1 ruling 6) |
+| P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | IN PROGRESS (2026-10-10) |
 | Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | PLANNED |
 
 ## Unscoped
