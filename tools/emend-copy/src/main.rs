@@ -648,6 +648,28 @@
 //!   the ones written, and `dxf_equal` equal to `dxf_written`; a failure is
 //!   exit 2 with the message and no output, and so is a refusal by the
 //!   layer (a style it cannot read).
+//! - `--colors-sample`: the colours sample of
+//!   `specs/0032-read-breadth-styles.md`, "Harness runs", and "Planning
+//!   rulings during P2": the input written back unedited, and every colour
+//!   of every typed font, fill (`fgColor` and `bgColor`) and border side
+//!   (`left`, `right`, `top`, `bottom`, `diagonal`), then of every
+//!   differential style, resolved through `Package::resolve_color`. One
+//!   line: the word `colors` then `colors` (colour values met), `rgb`,
+//!   `theme`, `indexed`, `auto` (by form), `resolved` (`Some`),
+//!   `unresolved` (`None`), `tinted` (resolved with a tint), `theme_part`
+//!   (1 with a theme part), `scheme_dark_text` (font colours of theme 1
+//!   whose resolved `rgb` has every channel below 128), `scheme_light_fill`
+//!   (fill colours of theme 0 whose resolved `rgb` has every channel at or
+//!   above 128), `palette_override` (1 with an `indexedColors`), and
+//!   `digest_fonts`, `digest_fills`, `digest_borders` and `digest_dxfs`:
+//!   64-bit FNV-1a over each group's entries in that order, an entry
+//!   `rgb:tinted` as eight plus eight lower-case hex digits or `none`, each
+//!   followed by a newline (ruling 10). COUNTS, FLAGS AND DIGESTS ONLY: no
+//!   reference, name, text or colour value is printed. Asserted: the four
+//!   forms summing to `colors`, and `resolved` and `unresolved` too; a
+//!   failure is exit 2 with the message and no output, and so is a refusal
+//!   by the layer (a style or theme it cannot read, a colour it cannot
+//!   resolve).
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -763,7 +785,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
-| --namedstyles-sample | --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]";
+| --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
+| --remove-image-sample | --copy-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -867,6 +890,9 @@ enum Operation {
     /// Every named and differential style read, the differential styles
     /// written back, and the counts.
     NamedstylesSample,
+    /// Every colour of every font, fill, border and differential style
+    /// resolved, the input written back unedited, and the counts.
+    ColorsSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -923,6 +949,7 @@ enum Error {
     LinestyleSample(&'static str),
     RoundtripSample(&'static str),
     NamedstylesSample(&'static str),
+    ColorsSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1032,6 +1059,9 @@ impl fmt::Display for Error {
             }
             Error::NamedstylesSample(what) => {
                 write!(f, "the {what} is not what the named styles imply")
+            }
+            Error::ColorsSample(what) => {
+                write!(f, "the input's {what} is not what the colours imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1222,6 +1252,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::NamedstylesSample,
         ),
+        [input, output, flag] if flag == "--colors-sample" => {
+            run(Path::new(input), Path::new(output), Operation::ColorsSample)
+        }
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1379,6 +1412,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::NamedstylesSample) {
         return namedstyles_sample(input, output);
     }
+    if matches!(operation, Operation::ColorsSample) {
+        return colors_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1454,6 +1490,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::NamedstylesSample => {
             unreachable!("the named styles sample has its own path")
         }
+        Operation::ColorsSample => unreachable!("the colours sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -6906,6 +6943,168 @@ fn dxf_bytes<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<Vec<Dxf
         }
     }
     Ok(out)
+}
+
+/// Where a colour the colours sample meets sits: a font's, a fill's (either
+/// colour), or a border side's.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ColorRole {
+    Font,
+    Fill,
+    Border,
+}
+
+/// The colours of a font, a fill and a border, in the order
+/// `--colors-sample` lists them: the font's colour; the fill's `fgColor` then
+/// `bgColor`; the border's `left`, `right`, `top`, `bottom`, `diagonal`.
+/// Absent colours give nothing.
+fn colors_of(
+    font: Option<&Font>,
+    fill: Option<&Fill>,
+    border: Option<&Border>,
+) -> Vec<(ColorRole, Color)> {
+    let mut colors = Vec::new();
+    if let Some(color) = font.and_then(|font| font.color) {
+        colors.push((ColorRole::Font, color));
+    }
+    if let Some(fill) = fill {
+        for color in [fill.foreground, fill.background].into_iter().flatten() {
+            colors.push((ColorRole::Fill, color));
+        }
+    }
+    if let Some(border) = border {
+        for side in [
+            border.left,
+            border.right,
+            border.top,
+            border.bottom,
+            border.diagonal,
+        ] {
+            if let Some(color) = side.and_then(|side| side.color) {
+                colors.push((ColorRole::Border, color));
+            }
+        }
+    }
+    colors
+}
+
+/// 64-bit FNV-1a over `entries`, each entry's bytes followed by a newline
+/// (`specs/0032-read-breadth-styles.md`, "Planning rulings during P2",
+/// ruling 10), as 16 lower-case hex digits.
+fn fnv_digest(entries: &[String]) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for entry in entries {
+        for byte in entry.bytes().chain(*b"\n") {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    format!("{hash:016x}")
+}
+
+/// The colours sample (`specs/0032-read-breadth-styles.md`, "Harness runs",
+/// `--colors-sample`, and "Planning rulings during P2"). The input is
+/// written back unedited; a refusal by the layer is exit 2 with no output.
+fn colors_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    // The four groups, in the order ruling 10 gives.
+    let mut groups: [Vec<(ColorRole, Color)>; 4] = Default::default();
+    let palette_override = {
+        let styles = package.styles()?;
+        for font in styles.typed_fonts() {
+            groups[0].extend(colors_of(Some(font), None, None));
+        }
+        for fill in styles.typed_fills() {
+            groups[1].extend(colors_of(None, fill.as_ref(), None));
+        }
+        for border in styles.typed_borders() {
+            groups[2].extend(colors_of(None, None, Some(border)));
+        }
+        styles.indexed_colors.is_some()
+    };
+    for style in package.differential_styles()?.to_vec() {
+        groups[3].extend(colors_of(
+            style.font.as_ref(),
+            style.fill.as_ref(),
+            style.border.as_ref(),
+        ));
+    }
+    let theme_part = package.theme_colors()?.is_some();
+    let (mut rgb, mut theme, mut indexed, mut auto) = (0u64, 0u64, 0u64, 0u64);
+    let (mut resolved, mut unresolved, mut tinted) = (0u64, 0u64, 0u64);
+    let (mut dark_text, mut light_fill) = (0u64, 0u64);
+    let mut digests = Vec::new();
+    for group in &groups {
+        let mut entries = Vec::new();
+        for (role, color) in group {
+            match color {
+                Color::Rgb(_) => rgb += 1,
+                Color::Theme { .. } => theme += 1,
+                Color::Indexed(_) => indexed += 1,
+                Color::Auto => auto += 1,
+            }
+            let Some(found) = package.resolve_color(color)? else {
+                unresolved += 1;
+                entries.push("none".to_string());
+                continue;
+            };
+            resolved += 1;
+            if found.tint.is_some() {
+                tinted += 1;
+            }
+            entries.push(format!("{:08x}:{:08x}", found.rgb, found.tinted()));
+            let channels = [found.rgb >> 16, found.rgb >> 8, found.rgb].map(|c| c & 0xFF);
+            match (role, color) {
+                (ColorRole::Font, Color::Theme { index: 1, .. })
+                    if channels.iter().all(|c| *c < 128) =>
+                {
+                    dark_text += 1;
+                }
+                (ColorRole::Fill, Color::Theme { index: 0, .. })
+                    if channels.iter().all(|c| *c >= 128) =>
+                {
+                    light_fill += 1;
+                }
+                _ => {}
+            }
+        }
+        digests.push(fnv_digest(&entries));
+    }
+    let colors: u64 = groups.iter().map(|group| group.len() as u64).sum();
+    if rgb + theme + indexed + auto != colors {
+        return Err(Error::ColorsSample("colour count by form"));
+    }
+    if resolved + unresolved != colors {
+        return Err(Error::ColorsSample("resolved count"));
+    }
+    write_into(package, output)?;
+    let mut line = String::from("colors");
+    let values = [
+        ("colors", colors.to_string()),
+        ("rgb", rgb.to_string()),
+        ("theme", theme.to_string()),
+        ("indexed", indexed.to_string()),
+        ("auto", auto.to_string()),
+        ("resolved", resolved.to_string()),
+        ("unresolved", unresolved.to_string()),
+        ("tinted", tinted.to_string()),
+        ("theme_part", u64::from(theme_part).to_string()),
+        ("scheme_dark_text", dark_text.to_string()),
+        ("scheme_light_fill", light_fill.to_string()),
+        ("palette_override", u64::from(palette_override).to_string()),
+        ("digest_fonts", digests[0].clone()),
+        ("digest_fills", digests[1].clone()),
+        ("digest_borders", digests[2].clone()),
+        ("digest_dxfs", digests[3].clone()),
+    ];
+    for (key, value) in values {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value);
+    }
+    print_line(&line)
 }
 
 /// The attributes the line style sample's split and edit set on a `<col>`.

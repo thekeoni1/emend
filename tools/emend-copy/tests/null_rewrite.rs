@@ -5228,6 +5228,150 @@ fn the_namedstyles_sample_refuses_an_xf_id_past_cell_style_xfs_and_leaves_nothin
     );
 }
 
+/// A styles part with a font, fill, border and differential style colour
+/// of each form, and an `indexedColors` of one entry. Fictional.
+const COLORS_STYLES: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+    <styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\
+    <fonts count=\"3\"><font><color theme=\"1\"/></font><font><color rgb=\"FF112233\"/></font>\
+    <font><b/></font></fonts>\
+    <fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill>\
+    <fill><patternFill patternType=\"gray125\"/></fill>\
+    <fill><patternFill patternType=\"solid\"><fgColor theme=\"0\" tint=\"-0.5\"/>\
+    <bgColor indexed=\"64\"/></patternFill></fill></fills>\
+    <borders count=\"2\"><border/><border><left style=\"thin\"><color indexed=\"0\"/></left>\
+    <bottom style=\"thin\"><color auto=\"1\"/></bottom></border></borders>\
+    <cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellXfs>\
+    <dxfs count=\"1\"><dxf><font><color theme=\"4\"/></font><fill><patternFill>\
+    <bgColor theme=\"0\"/></patternFill></fill></dxf></dxfs>\
+    <colors><indexedColors><rgbColor rgb=\"00ABCDEF\"/></indexedColors></colors>\
+    </styleSheet>";
+
+/// A theme part whose scheme's `dk1` and `lt1` are `sysClr` with
+/// `lastClr`, the rest `srgbClr`. Fictional.
+const COLORS_THEME: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+    <a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"T\">\
+    <a:themeElements><a:clrScheme name=\"S\">\
+    <a:dk1><a:sysClr val=\"windowText\" lastClr=\"000000\"/></a:dk1>\
+    <a:lt1><a:sysClr val=\"window\" lastClr=\"FFFFFF\"/></a:lt1>\
+    <a:dk2><a:srgbClr val=\"102030\"/></a:dk2><a:lt2><a:srgbClr val=\"E0E0D0\"/></a:lt2>\
+    <a:accent1><a:srgbClr val=\"4080C0\"/></a:accent1>\
+    <a:accent2><a:srgbClr val=\"C04040\"/></a:accent2>\
+    <a:accent3><a:srgbClr val=\"80C040\"/></a:accent3>\
+    <a:accent4><a:srgbClr val=\"8060A0\"/></a:accent4>\
+    <a:accent5><a:srgbClr val=\"40B0C0\"/></a:accent5>\
+    <a:accent6><a:srgbClr val=\"F09040\"/></a:accent6>\
+    <a:hlink><a:srgbClr val=\"0000FE\"/></a:hlink>\
+    <a:folHlink><a:srgbClr val=\"800081\"/></a:folHlink>\
+    </a:clrScheme></a:themeElements></a:theme>";
+
+/// `styled_specs` with, given `theme`, a theme relationship, its override
+/// and the theme part.
+fn themed_specs(styles: &str, theme: Option<&str>) -> Vec<Spec> {
+    let mut specs = styled_specs(A_CELL, styles);
+    let Some(theme) = theme else {
+        return specs;
+    };
+    for spec in &mut specs {
+        if spec.name == b"[Content_Types].xml" {
+            let types = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace(
+                    "</Types>",
+                    "<Override PartName=\"/xl/theme/theme1.xml\" \
+                 ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>\
+                 </Types>",
+                );
+            *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+        } else if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let rels = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace(
+                    "</Relationships>",
+                    &format!(
+                        "<Relationship Id=\"rId4\" Type=\"{ATTR_NS}/theme\" \
+                     Target=\"theme/theme1.xml\"/></Relationships>"
+                    ),
+                );
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        }
+    }
+    specs.push(Spec::stored(b"xl/theme/theme1.xml", theme.as_bytes()));
+    specs
+}
+
+/// Runs `--colors-sample` on `specs`, asserts every entry came back as it
+/// went in, and returns the line.
+#[track_caller]
+fn colors_line(label: &str, specs: &[Spec]) -> String {
+    let dir = TempDir::new(label);
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--colors-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, specs, &[]);
+    ran.stdout
+}
+
+#[test]
+fn the_colors_sample_resolves_every_colour_and_writes_the_input_back_unedited() {
+    // `specs/0032-read-breadth-styles.md`, "Harness runs", `--colors-sample`,
+    // and "Planning rulings during P2", rulings 5, 9 and 10. The entries,
+    // in order: fonts dk1 and FF112233; fills lt1 tinted by -0.5 (FF808080)
+    // and indexed 64 (none); borders the override's 00ABCDEF and auto
+    // (none); the dxf's accent1 and lt1. Each digest is 64-bit FNV-1a over
+    // those entries, each followed by a newline, worked out by hand
+    // beforehand.
+    let line = colors_line(
+        "colors-sample",
+        &themed_specs(COLORS_STYLES, Some(COLORS_THEME)),
+    );
+    assert_eq!(
+        line,
+        "colors\tcolors=8\trgb=1\ttheme=4\tindexed=2\tauto=1\tresolved=6\tunresolved=2\
+         \ttinted=1\ttheme_part=1\tscheme_dark_text=1\tscheme_light_fill=2\tpalette_override=1\
+         \tdigest_fonts=b2d4a31cd1a1d745\tdigest_fills=3383724a16d5828b\
+         \tdigest_borders=2c54dd97b9773d11\tdigest_dxfs=84895f0714726f1b\n",
+        "the line"
+    );
+}
+
+#[test]
+fn the_colors_sample_with_no_theme_part_leaves_theme_colours_unresolved() {
+    // Without a theme relationship every theme colour is `None`; the empty
+    // dxf group's digest is FNV-1a's offset basis, cbf29ce484222325.
+    let styles = COLORS_STYLES.replace(
+        "<dxfs count=\"1\"><dxf><font><color theme=\"4\"/></font><fill><patternFill>\
+         <bgColor theme=\"0\"/></patternFill></fill></dxf></dxfs>",
+        "",
+    );
+    let line = colors_line("colors-sample-no-theme", &themed_specs(&styles, None));
+    assert_eq!(
+        line,
+        "colors\tcolors=6\trgb=1\ttheme=2\tindexed=2\tauto=1\tresolved=2\tunresolved=4\
+         \ttinted=0\ttheme_part=0\tscheme_dark_text=0\tscheme_light_fill=0\tpalette_override=1\
+         \tdigest_fonts=104a0f43c5793c53\tdigest_fills=0fc4f191f19b664d\
+         \tdigest_borders=2c54dd97b9773d11\tdigest_dxfs=cbf29ce484222325\n",
+        "the line"
+    );
+}
+
+#[test]
+fn the_colors_sample_refuses_a_sys_clr_with_no_last_clr_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0032-read-breadth-styles.md`, "P2: colours").
+    styled_run_refused(
+        "colors-sample-no-last-clr",
+        &themed_specs(
+            COLORS_STYLES,
+            Some(&COLORS_THEME.replace(" lastClr=\"FFFFFF\"", "")),
+        ),
+        "a theme cannot be read",
+        "--colors-sample",
+    );
+}
+
 #[test]
 fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
     // `specs/0027-read-back.md`, "Planning verification and rulings on P1",
