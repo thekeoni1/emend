@@ -413,12 +413,15 @@ fn a_built_in_and_a_coded_number_format_and_an_xf_with_no_ids() {
 fn the_counts_stand_beside_the_typed_read() {
     // `styles/tests.rs`'s count test without the nested font this read
     // refuses: the counts are still the main-namespace children at depth 3.
+    // The `dxf`'s font holds a main-namespace child, since a `dxf` is read
+    // typed too (`specs/0032-read-breadth-styles.md`, "Differential
+    // styles").
     let mut package = with_styles_part(
         "<fonts count=\"9\"><font><b/></font><o:font xmlns:o=\"urn:other\"/><font/></fonts>\
          <fills count=\"0\"><fill><patternFill patternType=\"none\"/></fill></fills>\
          <borders><border><left/></border><border/><border numFmtId=\"x\"/></borders>\
          <cellXfs><xf/></cellXfs>\
-         <dxfs><dxf><font><o:b xmlns:o=\"urn:other\"/></font><fill/><border/></dxf></dxfs>\
+         <dxfs><dxf><font><b/></font><fill/><border/></dxf></dxfs>\
          <extLst><ext uri=\"urn:x\"><fonts><font><o:b xmlns:o=\"urn:other\"/></font></fonts>\
          </ext></extLst>",
     );

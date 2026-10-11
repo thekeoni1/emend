@@ -7426,6 +7426,8 @@ mod images;
 mod linestyle;
 #[cfg(feature = "metadata")]
 mod links;
+#[cfg(feature = "read")]
+mod namedstyles;
 #[cfg(feature = "metadata")]
 mod names;
 #[cfg(feature = "metadata")]

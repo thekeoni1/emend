@@ -11,6 +11,13 @@
 //! holds no `patternFill`, a gradient among them, reads as `None`.
 //! Everything else this layer does not know is refused with "a style cannot
 //! be read".
+//!
+//! The same read gives the named styles of `<cellStyles>` with the formats of
+//! `<cellStyleXfs>` they name, and the differential styles of `<dxfs>` as the
+//! [`Style`] values `Package::add_differential_style` takes
+//! (`specs/0032-read-breadth-styles.md`, "Named styles" and "Differential
+//! styles"); a named style's format resolves through the one resolver a
+//! cell format's does.
 
 use std::io::Read;
 
@@ -23,7 +30,7 @@ use crate::cells::{
 use crate::package::MAIN;
 use crate::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
-    Protection, Side, Styles, Vertical,
+    Protection, Side, Style, Styles, Vertical, Xf,
 };
 use crate::xml::{Scope, Stream};
 
@@ -57,7 +64,31 @@ pub struct CellStyle {
     pub protection: Option<Protection>,
 }
 
-/// The fonts, fills and borders of a styles part, read typed, in part order.
+/// One `<cellStyle>` of `<cellStyles>`: a named style
+/// (`specs/0032-read-breadth-styles.md`, "Named styles"). The Cargo feature
+/// `read`.
+///
+/// Its format is `cell_style_xfs[xf_id]` of [`Styles`], which
+/// [`crate::package::Package::named_style`] resolves; a cell format names
+/// its named style by the same index, its own `xf_id`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamedStyle {
+    /// `name`.
+    pub name: String,
+    /// `xfId`: an index into the part's `<cellStyleXfs>`.
+    pub xf_id: u32,
+    /// `builtinId`, `None` when absent.
+    pub builtin_id: Option<u32>,
+    /// `customBuiltin`, absent read as `false`.
+    pub custom_builtin: bool,
+    /// `hidden`, absent read as `false`.
+    pub hidden: bool,
+    /// `iLevel`, `None` when absent.
+    pub outline_level: Option<u32>,
+}
+
+/// The fonts, fills and borders of a styles part, read typed, in part order,
+/// and the differential styles of its `<dxfs>`.
 ///
 /// Two compare equal when their elements do, each `f64` (a size, a tint) by
 /// its bits, as [`crate::cells::Run`] compares fonts, so the comparison is an
@@ -67,6 +98,8 @@ pub(crate) struct Typed {
     pub(crate) fonts: Vec<Font>,
     pub(crate) fills: Vec<Option<Fill>>,
     pub(crate) borders: Vec<Border>,
+    /// The `dxf` children of the main namespace's `<dxfs>`, in part order.
+    pub(crate) dxfs: Vec<Style>,
 }
 
 impl PartialEq for Typed {
@@ -93,7 +126,41 @@ impl PartialEq for Typed {
                 .iter()
                 .zip(&other.borders)
                 .all(|(a, b)| same_border(a, b))
+            && self.dxfs.len() == other.dxfs.len()
+            && self
+                .dxfs
+                .iter()
+                .zip(&other.dxfs)
+                .all(|(a, b)| same_style(a, b))
     }
+}
+
+/// Whether two styles are equal, each `f64` by its bits.
+fn same_style(a: &Style, b: &Style) -> bool {
+    let Style {
+        number_format,
+        font,
+        fill,
+        border,
+        alignment,
+        protection,
+    } = a;
+    let both = |a: bool, b: bool| a == b;
+    *number_format == b.number_format
+        && match (font, &b.font) {
+            (Some(a), Some(b)) => same_font(a, b),
+            (a, b) => both(a.is_none(), b.is_none()),
+        }
+        && match (fill, &b.fill) {
+            (Some(a), Some(b)) => same_fill(a, b),
+            (a, b) => both(a.is_none(), b.is_none()),
+        }
+        && match (border, &b.border) {
+            (Some(a), Some(b)) => same_border(a, b),
+            (a, b) => both(a.is_none(), b.is_none()),
+        }
+        && *alignment == b.alignment
+        && *protection == b.protection
 }
 
 impl Eq for Typed {}
@@ -145,12 +212,58 @@ impl Styles {
     /// `cellXfs`, and for a `fontId`, `fillId` or `borderId` (or the 0 its
     /// absence reads as) past its list.
     pub(crate) fn cell_style(&self, index: u32) -> Result<CellStyle, Error> {
-        let at = |id: Option<u32>| usize::try_from(id.unwrap_or(0)).ok();
-        let xf = usize::try_from(index)
+        self.resolve(Self::entry(&self.cell_xfs, index)?)
+    }
+
+    /// The format of the named style at `<cellStyleXfs>` index `index`,
+    /// resolved by the one resolver [`Styles::cell_style`] uses.
+    ///
+    /// # Errors
+    ///
+    /// As [`Styles::cell_style`], with `cellStyleXfs` for `cellXfs`.
+    pub(crate) fn named_style(&self, index: u32) -> Result<CellStyle, Error> {
+        self.resolve(Self::entry(&self.cell_style_xfs, index)?)
+    }
+
+    /// The differential styles of the main namespace's `<dxfs>`, in part
+    /// order.
+    pub(crate) fn dxfs(&self) -> &[Style] {
+        &self.typed.dxfs
+    }
+
+    /// The font the format at `<cellStyleXfs>` index 0 names, font 0 when
+    /// that format has no `fontId` or the part has no such format
+    /// (`specs/0032-read-breadth-styles.md`, "The default font").
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] "a style cannot be read" for a part with no
+    /// `<fonts>`, or a `fontId` past it.
+    pub(crate) fn default_font(&self) -> Result<Font, Error> {
+        if self.fonts().is_none() {
+            return Err(STYLE_UNREADABLE);
+        }
+        let id = self.cell_style_xfs.first().and_then(|xf| xf.font_id);
+        usize::try_from(id.unwrap_or(0))
             .ok()
-            .and_then(|at| self.cell_xfs.get(at))
-            .ok_or(STYLE_UNREADABLE)?;
-        let number_format = self.number_format(index).ok_or(STYLE_UNREADABLE)?;
+            .and_then(|at| self.typed.fonts.get(at))
+            .cloned()
+            .ok_or(STYLE_UNREADABLE)
+    }
+
+    /// The entry `index` of `list`, refused past its end.
+    fn entry(list: &[Xf], index: u32) -> Result<&Xf, Error> {
+        usize::try_from(index)
+            .ok()
+            .and_then(|at| list.get(at))
+            .ok_or(STYLE_UNREADABLE)
+    }
+
+    /// The format `xf`, of `<cellXfs>` or `<cellStyleXfs>`, resolved into
+    /// the types [`CellStyle`] holds.
+    fn resolve(&self, xf: &Xf) -> Result<CellStyle, Error> {
+        let at = |id: Option<u32>| usize::try_from(id.unwrap_or(0)).ok();
+        let number_format = self.format_of(xf);
         let font = at(xf.font_id)
             .and_then(|at| self.typed.fonts.get(at))
             .ok_or(STYLE_UNREADABLE)?;
@@ -188,11 +301,16 @@ pub(crate) fn read_font<R: Read>(
 /// A `<fill>` of `<fills>`, its start tag given to `scope`, read through its
 /// end tag: its `patternFill` as a [`Fill`], `None` for a fill holding no
 /// `patternFill` (a `gradientFill`, read past with its subtree, or no child).
+///
+/// A `patternFill` with no `patternType` reads as `untyped`: `None` in
+/// `<fills>`, `Solid` in a `dxf` (`specs/0032-read-breadth-styles.md`,
+/// decision 2).
 pub(crate) fn read_fill<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
     empty: bool,
+    untyped: Pattern,
 ) -> Result<Option<Fill>, Error> {
     let mut fill = None;
     if empty {
@@ -205,7 +323,7 @@ pub(crate) fn read_fill<R: Read>(
             return Err(STYLE_UNREADABLE);
         }
         match child.local.as_slice() {
-            b"patternFill" => fill = Some(read_pattern(stream, scope, index, &child)?),
+            b"patternFill" => fill = Some(read_pattern(stream, scope, index, &child, untyped)?),
             b"gradientFill" => {
                 if !child.empty {
                     skip_subtree(stream, scope, index)?;
@@ -217,16 +335,17 @@ pub(crate) fn read_fill<R: Read>(
     Ok(fill)
 }
 
-/// A `<patternFill>`: `patternType` (absent reads as `none`) and its
+/// A `<patternFill>`: `patternType` (absent reads as `untyped`) and its
 /// `fgColor` and `bgColor`.
 fn read_pattern<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
     element: &Child,
+    untyped: Pattern,
 ) -> Result<Fill, Error> {
     let pattern = match element.value(b"patternType") {
-        None => Pattern::None,
+        None => untyped,
         Some(text) => Pattern::parse(text).ok_or(STYLE_UNREADABLE)?,
     };
     let mut fill = Fill {
@@ -254,11 +373,16 @@ fn read_pattern<R: Read>(
 /// A `<border>` of `<borders>`, its start tag's attributes in `element`,
 /// read through its end tag: `diagonalUp`, `diagonalDown` and the five
 /// sides, each `Some` when it carries a `style` other than `none`.
+///
+/// With `inside`, a `dxf`'s border, the inside-of-range sides `vertical`
+/// and `horizontal`, which the type has no field for, are read past with
+/// their subtrees, once each; in `<borders>` they are refused.
 pub(crate) fn read_border<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
     element: &Child,
+    inside: bool,
 ) -> Result<Border, Error> {
     let mut border = Border {
         diagonal_up: element.flag(b"diagonalUp")?.unwrap_or(false),
@@ -268,8 +392,22 @@ pub(crate) fn read_border<R: Read>(
     if element.empty {
         return Ok(border);
     }
-    let mut seen = [false; 5];
+    let mut seen = [false; 7];
     while let Step::Child(child) = step(stream, scope, index)? {
+        let past = match child.local.as_slice() {
+            b"vertical" if inside && child.main => Some(5),
+            b"horizontal" if inside && child.main => Some(6),
+            _ => None,
+        };
+        if let Some(at) = past {
+            if std::mem::replace(&mut seen[at], true) {
+                return Err(STYLE_UNREADABLE);
+            }
+            if !child.empty {
+                skip_subtree(stream, scope, index)?;
+            }
+            continue;
+        }
         let (at, slot) = match child.local.as_slice() {
             b"left" if child.main => (0, &mut border.left),
             b"right" if child.main => (1, &mut border.right),
@@ -333,6 +471,162 @@ fn read_color<R: Read>(
         return Err(STYLE_UNREADABLE);
     }
     Ok(color)
+}
+
+/// A `<dxf>` of the main namespace's `<dxfs>`, its start tag given to
+/// `scope`, read through its end tag into the [`Style`] the writers take
+/// (`specs/0032-read-breadth-styles.md`, "Differential styles"): `numFmt`'s
+/// `formatCode` as [`NumberFormat::Code`], `font`, `fill` and `border`
+/// through the readers `<fonts>`, `<fills>` and `<borders>` use, a
+/// `patternFill` with no `patternType` as [`Pattern::Solid`] and a border's
+/// inside-of-range sides read past, and `alignment` and `protection` from
+/// their start tags as an `xf`'s are; each `None` without its child.
+///
+/// # Errors
+///
+/// [`Error::Package`] "a style cannot be read" for a child outside the main
+/// namespace, one the type has no field for, a second of one kind, a
+/// `numFmt` with no `formatCode`, and whatever the readers refuse.
+pub(crate) fn read_dxf<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    empty: bool,
+) -> Result<Style, Error> {
+    let mut style = Style::default();
+    if empty {
+        return Ok(style);
+    }
+    // The kinds met, in the schema's order: a second of one is refused.
+    let mut seen = [false; 6];
+    loop {
+        let Some(token) = stream.next()? else {
+            return Err(Error::Xml(index));
+        };
+        // A font, a fill or a border, read after the match, because `token`
+        // borrows the stream its reader reads.
+        let child = match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                let empty = matches!(token.event, Event::Empty(_));
+                scope.start(start)?;
+                let child = Child::of(start, scope, index, empty)?;
+                let kind = [
+                    b"font".as_slice(),
+                    b"numFmt",
+                    b"fill",
+                    b"alignment",
+                    b"protection",
+                    b"border",
+                ]
+                .iter()
+                .position(|name| *name == child.local.as_slice());
+                let Some(kind) = kind.filter(|_| child.main) else {
+                    return Err(STYLE_UNREADABLE);
+                };
+                if std::mem::replace(&mut seen[kind], true) {
+                    return Err(STYLE_UNREADABLE);
+                }
+                let read = match child.local.as_slice() {
+                    b"numFmt" => {
+                        let code = text_attribute(start, scope, index, b"formatCode")?
+                            .ok_or(STYLE_UNREADABLE)?;
+                        style.number_format = Some(NumberFormat::Code(code));
+                        true
+                    }
+                    b"alignment" => {
+                        style.alignment = Some(read_alignment(start, scope, index)?);
+                        true
+                    }
+                    b"protection" => {
+                        style.protection = Some(read_protection(start, scope, index)?);
+                        true
+                    }
+                    // A font, a fill or a border.
+                    _ => false,
+                };
+                if empty {
+                    scope.end();
+                }
+                if read {
+                    // Read from its start tag; anything inside is not
+                    // examined.
+                    if !empty {
+                        skip_subtree(stream, scope, index)?;
+                    }
+                    continue;
+                }
+                child
+            }
+            Event::End(_) => {
+                scope.end();
+                return Ok(style);
+            }
+            // Whitespace between the children.
+            _ => continue,
+        };
+        let empty = child.empty;
+        match child.local.as_slice() {
+            b"font" => style.font = Some(read_font(stream, scope, index, empty)?),
+            // A fill holding no `patternFill`, a gradient, reads as no fill.
+            b"fill" => style.fill = read_fill(stream, scope, index, empty, Pattern::Solid)?,
+            _ => style.border = Some(read_border(stream, scope, index, &child, true)?),
+        }
+    }
+}
+
+/// A `<cellStyle>` from its start tag (`specs/0032-read-breadth-styles.md`,
+/// "Named styles").
+///
+/// # Errors
+///
+/// [`Error::Package`] "a style cannot be read" for a `cellStyle` with no
+/// `name` or no `xfId`, or a value that does not parse.
+pub(crate) fn read_named_style(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+) -> Result<NamedStyle, Error> {
+    let element = Child::of(start, scope, index, true)?;
+    let number = |name: &[u8]| -> Result<Option<u32>, Error> {
+        element
+            .value(name)
+            .map(|text| decimal(text).ok_or(STYLE_UNREADABLE))
+            .transpose()
+    };
+    let name = text_attribute(start, scope, index, b"name")?.ok_or(STYLE_UNREADABLE)?;
+    Ok(NamedStyle {
+        name,
+        xf_id: number(b"xfId")?.ok_or(STYLE_UNREADABLE)?,
+        builtin_id: number(b"builtinId")?,
+        custom_builtin: element.flag(b"customBuiltin")?.unwrap_or(false),
+        hidden: element.flag(b"hidden")?.unwrap_or(false),
+        outline_level: number(b"iLevel")?,
+    })
+}
+
+/// The unprefixed attribute `name` of `start` as text, unescaped and
+/// normalised as a `formatCode` of `<numFmts>` is (the `styles` module
+/// header), `None` when absent.
+fn text_attribute(
+    start: &BytesStart<'_>,
+    scope: &Scope,
+    index: usize,
+    name: &[u8],
+) -> Result<Option<String>, Error> {
+    for attribute in start.attributes() {
+        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+        if attribute.key.as_namespace_binding().is_some() {
+            continue;
+        }
+        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+        if namespace.is_none() && local == name {
+            let text = attribute
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                .map_err(|_| Error::Xml(index))?;
+            return Ok(Some(text.into_owned()));
+        }
+    }
+    Ok(None)
 }
 
 /// An `xf`'s `<alignment>` from its start tag: each field from its

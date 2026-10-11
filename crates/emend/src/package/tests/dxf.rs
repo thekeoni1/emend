@@ -9,11 +9,14 @@ use super::*;
 use crate::styles::{BorderStyle, Color, Fill, Font, Pattern, Side};
 
 /// The collections every fixture holds, each with its `count` right, so a
-/// rewrite leaves them byte for byte.
+/// rewrite leaves them byte for byte; the `<cellStyleXfs>` a `cellStyle`
+/// names, which the typed read of the Cargo feature `read` requires
+/// (`specs/0032-read-breadth-styles.md`, "Named styles").
 const BASE: &str = "<fonts count=\"1\"><font/></fonts><fills count=\"2\"><fill>\
                     <patternFill patternType=\"none\"/></fill><fill>\
                     <patternFill patternType=\"gray125\"/></fill></fills>\
-                    <borders count=\"1\"><border/></borders><cellXfs count=\"1\"><xf/></cellXfs>";
+                    <borders count=\"1\"><border/></borders>\
+                    <cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"1\"><xf/></cellXfs>";
 
 /// A bold dark red font, openpyxl's light red fill's companion.
 fn red_font() -> Font {

@@ -678,7 +678,12 @@
 //! feature `richtext` does for comments ("Planning verification and rulings
 //! on P1", ruling 1), and at the resolution of a cell format, through
 //! `Package::cell_style`, for an index past `cellXfs` or an id past its
-//! list. The second is raised at the read of a worksheet, for a value that
+//! list. The same read refuses, with the first, a `cellStyle` with no
+//! `name` or `xfId` or an `xfId` past `<cellStyleXfs>`, a second
+//! main-namespace `<cellStyleXfs>`, `<cellStyles>` or `<dxfs>`, and a `dxf`
+//! the type cannot hold; `Package::named_style` refuses an index past
+//! `<cellStyleXfs>` and `Package::default_font` a part with no `<fonts>`
+//! (`specs/0032-read-breadth-styles.md`, "Errors", and P1 ruling 3). The second is raised at the read of a worksheet, for a value that
 //! does not parse and for one outside its writer's range ("Planning
 //! verification and rulings on P2", ruling 1, the ranges in Limits). The
 //! reads also meet the writers' messages for two of an element: "a
@@ -693,7 +698,11 @@
 //!   (`readback::a_child_outside_the_namespace_or_unknown_to_the_type_is_refused`,
 //!   `readback::a_value_that_does_not_parse_is_refused`,
 //!   `readback::a_colour_with_no_form_is_refused`,
-//!   `readback::an_id_past_its_list_is_refused`).
+//!   `readback::an_id_past_its_list_is_refused`,
+//!   `namedstyles::a_cell_style_without_name_or_xf_id_or_past_the_list_and_an_index_past_it_are_refused`,
+//!   `namedstyles::a_second_cell_style_xfs_cell_styles_or_dxfs_is_refused`,
+//!   `namedstyles::a_dxf_child_outside_the_namespace_unknown_to_the_type_or_twice_is_refused`,
+//!   `namedstyles::the_default_font_is_refused_with_no_fonts_or_a_font_id_past_them`).
 //! - "a sheet setting cannot be read", raised in `package` at the read of a
 //!   worksheet through `Package::columns`, `Package::rows` and
 //!   `Package::sheet_settings`
@@ -5428,6 +5437,70 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "read")]
     pub fn cell_style(&mut self, index: u32) -> Result<crate::styles::CellStyle, Error> {
         self.styles()?.cell_style(index)
+    }
+
+    /// The format of the named style at `<cellStyleXfs>` index `index`,
+    /// resolved into the types [`Package::add_style`] takes by the one
+    /// resolver [`Package::cell_style`] uses
+    /// (`specs/0032-read-breadth-styles.md`, "Named styles"). The Cargo
+    /// feature `read`.
+    ///
+    /// A cell format names its named style by its own
+    /// [`crate::styles::Xf::xf_id`], and the named style's name and flags
+    /// are in [`Styles::cell_styles`]; nothing is added to
+    /// [`crate::styles::CellStyle`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Package::cell_style`], with `cellStyleXfs` for `cellXfs`;
+    /// [`Error::Package`] "a style cannot be read" also for a `cellStyle`
+    /// with no `name` or `xfId` or an `xfId` past `<cellStyleXfs>`, and for
+    /// a second main-namespace `<cellStyleXfs>`, `<cellStyles>` or `<dxfs>`,
+    /// all at the read of the part.
+    #[cfg(feature = "read")]
+    pub fn named_style(&mut self, index: u32) -> Result<crate::styles::CellStyle, Error> {
+        self.styles()?.named_style(index)
+    }
+
+    /// The differential styles of the styles part's main-namespace
+    /// `<dxfs>`, in part order, as the [`Style`] values
+    /// `Package::add_differential_style` (the Cargo feature `rules`) takes; a
+    /// conditional format's
+    /// `dxf` index is a position here (`specs/0032-read-breadth-styles.md`,
+    /// "Differential styles"). The Cargo feature `read`.
+    ///
+    /// A `patternFill` with no `patternType` reads as
+    /// [`crate::styles::Pattern::Solid`], as Excel renders it; a fill holding
+    /// no `patternFill` reads as `None`; a border's `vertical` and
+    /// `horizontal` sides and its `outline` are read past, and so is what
+    /// [`Package::cell_style`] reads past. An `x14:dxfs` is not read.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses, which with the feature includes
+    /// [`Error::Package`] "a style cannot be read" for a `dxf` child outside
+    /// the main namespace or unknown to the type, a second child of one
+    /// kind, a `numFmt` with no `formatCode`, and a value that does not
+    /// parse.
+    #[cfg(feature = "read")]
+    pub fn differential_styles(&mut self) -> Result<&[Style], Error> {
+        Ok(self.styles()?.dxfs())
+    }
+
+    /// The workbook's default font: the font the named style at
+    /// `<cellStyleXfs>` index 0 names, the `Normal` style in every workbook
+    /// Excel or LibreOffice writes, or font 0 when that format has no
+    /// `fontId` or the part has no such format
+    /// (`specs/0032-read-breadth-styles.md`, "The default font"). The Cargo
+    /// feature `read`.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses, and [`Error::Package`] "a style
+    /// cannot be read" for a part with no `<fonts>` or a `fontId` past it.
+    #[cfg(feature = "read")]
+    pub fn default_font(&mut self) -> Result<crate::styles::Font, Error> {
+        self.styles()?.default_font()
     }
 
     /// Records the removal of the relationship `id` from `source`'s rels part.

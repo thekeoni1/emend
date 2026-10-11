@@ -128,7 +128,7 @@ pub use elements::{
     Side, Style, Underline, Vertical, VerticalAlign,
 };
 #[cfg(feature = "read")]
-pub use read::CellStyle;
+pub use read::{CellStyle, NamedStyle};
 
 /// What a workbook's styles part defines, as far as this layer reads it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -148,9 +148,19 @@ pub struct Styles {
     /// The number of `border` children of `<borders>`, `None` without one.
     borders: Option<u32>,
     /// The fonts, fills and borders read typed (`specs/0027-read-back.md`,
-    /// "Cell formats"). The Cargo feature `read`.
+    /// "Cell formats"), and the differential styles
+    /// (`specs/0032-read-breadth-styles.md`). The Cargo feature `read`.
     #[cfg(feature = "read")]
     typed: read::Typed,
+    /// The `xf` children of `<cellStyleXfs>`, in part order: the formats the
+    /// named styles name (`specs/0032-read-breadth-styles.md`, "Named
+    /// styles"). The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    pub cell_style_xfs: Vec<Xf>,
+    /// The `cellStyle` children of `<cellStyles>`, in part order. The Cargo
+    /// feature `read`.
+    #[cfg(feature = "read")]
+    pub cell_styles: Vec<NamedStyle>,
 }
 
 /// One `<numFmt>`: a number format the part defines.
@@ -162,7 +172,8 @@ pub struct NumFmt {
     pub code: String,
 }
 
-/// One `<xf>` of `<cellXfs>`: a cell format.
+/// One `<xf>` of `<cellXfs>`: a cell format; or, with the Cargo feature
+/// `read`, of `<cellStyleXfs>`: a named style's format.
 ///
 /// Each id is its attribute when present and `None` when absent, as the
 /// schema leaves them optional. The element's own bytes are kept privately,
@@ -449,12 +460,17 @@ impl Styles {
     /// producer spelled out included; else [`NumberFormat::BuiltIn`] with the
     /// cell format's id, or `BuiltIn(0)` (`General`) when it has none.
     pub fn number_format(&self, xf: u32) -> Option<NumberFormat> {
-        let xf = self.cell_xfs.get(usize::try_from(xf).ok()?)?;
+        Some(self.format_of(self.cell_xfs.get(usize::try_from(xf).ok()?)?))
+    }
+
+    /// The number format of the format `xf`, as [`Styles::number_format`]
+    /// says.
+    fn format_of(&self, xf: &Xf) -> NumberFormat {
         let id = xf.num_fmt_id.unwrap_or(0);
-        Some(match self.num_fmts.iter().find(|format| format.id == id) {
+        match self.num_fmts.iter().find(|format| format.id == id) {
             Some(format) => NumberFormat::Code(format.code.clone()),
             None => NumberFormat::BuiltIn(id),
-        })
+        }
     }
 
     /// Reads a styles part.
@@ -477,15 +493,26 @@ impl Styles {
         // which of them have been seen.
         let mut open: Option<Container> = None;
         let mut seen = [false; 5];
+        // The same for the containers only the typed read enters
+        // (`specs/0032-read-breadth-styles.md`, P1 ruling 3).
+        #[cfg(feature = "read")]
+        let mut open_typed: Option<TypedContainer> = None;
+        #[cfg(feature = "read")]
+        let mut seen_typed = [false; 3];
 
         while let Some(token) = stream.next()? {
             // What the token asks for, decided inside the match and acted on
             // after it, because `token` borrows the stream the actions read.
             let mut skip = false;
-            let mut xf: Option<(Xf, bool)> = None;
+            // An `xf` read, whether it was empty, and whether it is one of
+            // `<cellStyleXfs>`.
+            let mut xf: Option<(Xf, bool, bool)> = None;
             // A font, a fill or a border to read typed, with its start tag.
             #[cfg(feature = "read")]
             let mut typed: Option<(Container, read::Child)> = None;
+            // A `dxf` to read, and whether it was empty.
+            #[cfg(feature = "read")]
+            let mut dxf: Option<bool> = None;
             match token.event {
                 Event::Start(ref start) | Event::Empty(ref start) => {
                     let empty = matches!(token.event, Event::Empty(_));
@@ -511,6 +538,20 @@ impl Styles {
                         }
                         if !empty {
                             open = Some(container);
+                        }
+                    } else if cfg!(feature = "read")
+                        && depth == 2
+                        && ours
+                        && TypedContainer::named(local).is_some()
+                    {
+                        #[cfg(feature = "read")]
+                        if let Some(container) = TypedContainer::named(local) {
+                            if std::mem::replace(&mut seen_typed[container as usize], true) {
+                                return Err(read::STYLE_UNREADABLE);
+                            }
+                            if !empty {
+                                open_typed = Some(container);
+                            }
                         }
                     } else if depth == 3
                         && ours
@@ -541,7 +582,22 @@ impl Styles {
                         && local == b"xf"
                         && open == Some(Container::CellXfs)
                     {
-                        xf = Some((read_xf(start, &scope, index, token.raw)?, empty));
+                        xf = Some((read_xf(start, &scope, index, token.raw)?, empty, false));
+                    } else if cfg!(feature = "read") && depth == 3 && ours {
+                        #[cfg(feature = "read")]
+                        match (open_typed, local) {
+                            (Some(TypedContainer::CellStyleXfs), b"xf") => {
+                                xf = Some((read_xf(start, &scope, index, token.raw)?, empty, true));
+                            }
+                            (Some(TypedContainer::CellStyles), b"cellStyle") => {
+                                styles
+                                    .cell_styles
+                                    .push(read::read_named_style(start, &scope, index)?);
+                                skip = !empty;
+                            }
+                            (Some(TypedContainer::Dxfs), b"dxf") => dxf = Some(empty),
+                            _ => skip = !empty,
+                        }
                     } else if !empty {
                         skip = true;
                     }
@@ -556,6 +612,10 @@ impl Styles {
                     // closes a container.
                     if depth == 2 {
                         open = None;
+                        #[cfg(feature = "read")]
+                        {
+                            open_typed = None;
+                        }
                     }
                     scope.end();
                     depth = depth.saturating_sub(1);
@@ -572,12 +632,16 @@ impl Styles {
                     Container::Fonts => into
                         .fonts
                         .push(read::read_font(stream, &mut scope, index, empty)?),
-                    Container::Fills => into
-                        .fills
-                        .push(read::read_fill(stream, &mut scope, index, empty)?),
-                    Container::Borders => into
-                        .borders
-                        .push(read::read_border(stream, &mut scope, index, &element)?),
+                    Container::Fills => into.fills.push(read::read_fill(
+                        stream,
+                        &mut scope,
+                        index,
+                        empty,
+                        Pattern::None,
+                    )?),
+                    Container::Borders => into.borders.push(read::read_border(
+                        stream, &mut scope, index, &element, false,
+                    )?),
                     // Only the three counted containers record a child here.
                     Container::NumFmts | Container::CellXfs => {}
                 }
@@ -585,7 +649,17 @@ impl Styles {
                     depth -= 1;
                 }
             }
-            if let Some((mut xf, empty)) = xf {
+            #[cfg(feature = "read")]
+            if let Some(empty) = dxf {
+                styles
+                    .typed
+                    .dxfs
+                    .push(read::read_dxf(stream, &mut scope, index, empty)?);
+                if !empty {
+                    depth -= 1;
+                }
+            }
+            if let Some((mut xf, empty, named)) = xf {
                 if !empty {
                     let spans = consume_subtree(stream, &mut scope, index, Some(&mut xf.raw))?;
                     xf.alignment = spans.alignment;
@@ -597,6 +671,12 @@ impl Styles {
                     }
                     depth -= 1;
                 }
+                #[cfg(feature = "read")]
+                if named {
+                    styles.cell_style_xfs.push(xf);
+                    continue;
+                }
+                let _ = named;
                 styles.cell_xfs.push(xf);
             } else if skip {
                 consume_subtree(stream, &mut scope, index, None)?;
@@ -605,6 +685,13 @@ impl Styles {
         }
         if !root {
             return Err(NOT_STYLE_SHEET);
+        }
+        // A named style naming a format past `<cellStyleXfs>`.
+        #[cfg(feature = "read")]
+        if styles.cell_styles.iter().any(|named| {
+            usize::try_from(named.xf_id).map_or(true, |at| at >= styles.cell_style_xfs.len())
+        }) {
+            return Err(read::STYLE_UNREADABLE);
         }
         Ok(styles)
     }
@@ -642,6 +729,40 @@ impl Container {
             Self::Borders => Some(b"border"),
             Self::NumFmts | Self::CellXfs => None,
         }
+    }
+}
+
+/// The containers among the root's children only the typed read enters
+/// (`specs/0032-read-breadth-styles.md`). The Cargo feature `read`.
+#[cfg(feature = "read")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TypedContainer {
+    CellStyleXfs,
+    CellStyles,
+    Dxfs,
+}
+
+#[cfg(feature = "read")]
+impl TypedContainer {
+    /// The container a root child's local name is, if any.
+    fn named(local: &[u8]) -> Option<Self> {
+        Some(match local {
+            b"cellStyleXfs" => Self::CellStyleXfs,
+            b"cellStyles" => Self::CellStyles,
+            b"dxfs" => Self::Dxfs,
+            _ => return None,
+        })
+    }
+}
+
+#[cfg(not(feature = "read"))]
+struct TypedContainer;
+
+#[cfg(not(feature = "read"))]
+impl TypedContainer {
+    /// No container without the feature.
+    fn named(_: &[u8]) -> Option<Self> {
+        None
     }
 }
 
