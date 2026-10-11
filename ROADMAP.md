@@ -887,7 +887,7 @@ added; the core is expected not to move.
 | P5 | the Excel list: the formula sample and every gone sample rerun on the host at the closing commit with records, the host keep reopened into an open record, the list staged (`specs/0029` P4 ruling 2) | DONE (phase f39bc7b, record daab8c7, 2026-10-09; 23 reruns recorded as `records/m3p7-p5-*`, `records/m3p7-open-2026-10-09-f39bc7b.md`; the list 3134 rows staged, printarea out) |
 | Close | close-out push after P5, carrying bafd780 and this part's commits, the previous-record pattern naming bafd780, base 046cfb8 by its subject, the tip checked by its subject (change 21), one independent check; the Milestone 2 Excel check skipped by the maintainer's decision of 2026-10-09 (deferred a thirteenth time, the push script's Excel-record check removed; `specs/0029` "Planning rulings before the close-out"), the stage kept on disk for the next milestone's first part | DONE 2026-10-09 (doc ebec51d pushed, origin/main 046cfb8..ebec51d, 20 commits, CI 38002814655 success, scan PASS, record 582dd2c local; the Excel check deferred a thirteenth time by the maintainer; `specs/0029` "Planning verification and rulings on the close-out") |
 
-## Milestone 4: release readiness (APPROVED 2026-10-09; part 1 DONE and PUSHED 2026-10-10; part 2 IN PROGRESS from 2026-10-10)
+## Milestone 4: release readiness (APPROVED 2026-10-09; part 1 DONE and PUSHED 2026-10-10; part 2 DONE and PUSHED 2026-10-11; decision 1 HOLD, nothing published; the milestone DONE and PUSHED 2026-10-11)
 
 Theme chosen by the maintainer 2026-10-09 ("Release readiness",
 the recommended option of four: charts as a second crate, the
@@ -925,7 +925,7 @@ restored by the part whose push the maintainer makes it gate.
 | P3 | the size log and record (0 growth), the listing rerun, the samples rerun byte-identical, one independent check | DONE (phase 669fa91, record ed4082d, 2026-10-10; `records/size-m4p1-2026-10-10-669fa91.md` 0 of 28 moved; `records/api-review-m4p1-2026-10-10-669fa91.md` 544 keep; 27 sample records byte-identical to Milestone 3's runs) |
 | Close | close-out push after P3, carrying 582dd2c, base ebec51d by its subject, the tip by its subject, no Excel-record check | DONE (doc e4ab25b, pushed ebec51d..e4ab25b 17 commits 2026-10-10, CI run 38048068003 success, record 20285f1 local, goes with part 2's push; `specs/0030` "Planning verification and rulings on the close-out") |
 
-### Part 2: the release metadata (`specs/0031-release-metadata.md`, APPROVED 2026-10-10, decisions 2 to 4 A; IN PROGRESS from 2026-10-10)
+### Part 2: the release metadata (`specs/0031-release-metadata.md`, APPROVED 2026-10-10, decisions 2 to 4 A; decision 1 HOLD 2026-10-10; DONE and PUSHED 2026-10-11)
 
 - `CHANGELOG.md` from the specs and the records, under the README's
   citation check extended to `specs/` paths; the crate-level doc
@@ -949,7 +949,77 @@ restored by the part whose push the maintainer makes it gate.
 | --- | --- | --- |
 | P1 | `CHANGELOG.md`, the doc comment, the licence copies; the citation check over both files; the prune of part 1's P3 set and the close-out target | DONE (phase d41c390, record 5640bfa, 2026-10-10; README 18 of 18 and CHANGELOG 29 of 29 digit sentences cited; scan denylist form made whole-word, P1 ruling 6) |
 | P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | DONE (phase 2c31aad, record 24b927c, 2026-10-10; `records/size-m4p2-2026-10-10-2c31aad.md` 0 of 28 moved; the package 56 files, 522253 bytes, verify build and publish dry run exit 0; finding: a package built outside a git checkout drops `template/_rels/.rels`, carried to the publish step, `specs/0031` P2 rulings 1 and 7) |
-| Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | IN PROGRESS (2026-10-10; decision 1: HOLD, decided by the maintainer 2026-10-10 after P2's verification; `publish = false` stays) |
+| Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | DONE (doc ac5dc0d, pushed e4ab25b..ac5dc0d 10 commits 2026-10-11, 1568 blobs, 0 findings; CI run 38161194914 success; scan PASS with change 27's whole-word denylist form; pre attempt 1 superseded on the scan's own placeholder check, kept outside the repository; record b0f0b1f local, goes with the next push; decision 1 HOLD, `publish = false` stays; verified by planning from git, `gh`, the three logs and its own scan; `specs/0031` "Planning verification and rulings on the close-out") |
+
+## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 IN PROGRESS from 2026-10-11)
+
+Theme chosen by the maintainer 2026-10-11 after Milestone 4's
+close-out, from planning's reading of emend against openpyxl: the
+editing surface is close to parity, the reading surface and charts
+are behind. Decisions typed in the planning session 2026-10-11:
+charts are a Cargo feature `charts` of this crate, off by default,
+measured in the size record like every other feature (not a second
+crate); reading first, then charts; the openpyxl comparison
+measurement is part 6; the Milestone 2 Excel check gates no push in
+this milestone (it stays the pending acceptance item of Milestones
+2 and 3, its stage on disk). The Milestone 2 ceiling is kept for
+the core; every addition is behind a feature; each part has its own
+spec before it starts and is scoped into phases as before. The
+corpus holds 11 workbooks with charts and 4 with pivot tables
+(`records/corpus-coverage-2026-09-16.md`).
+
+### Part 1: read breadth A (`specs/0032-read-breadth-styles.md`, APPROVED 2026-10-11, decisions 1 to 3 A; IN PROGRESS from 2026-10-11)
+
+The items `specs/0027` left out of scope: named styles (`cellStyles`
+and `cellStyleXfs`), differential styles (`dxfs`) as typed values,
+theme and indexed colours resolved to RGB, the default font. The
+`read` feature grows; no writer changes; no new feature (decision
+1 A); a `dxf` fill with no `patternType` reads as solid (decision 2
+A); a colour the file defines no RGB for resolves to `None`
+(decision 3 A).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `NamedStyle`, `named_style`, `cell_style_xfs` and `cell_styles` on `Styles`, `dxfs` and `differential_styles`, `default_font`; `--namedstyles-sample` with the `dxf` round trip; the prune of Milestone 4 part 2's three target roots | PLANNED |
+| P2 | the palette and `indexed_colors`, `theme_colors`, `ResolvedColor`, `resolve_color`, `tinted`; `--colors-sample` | PLANNED |
+| P3 | the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, both samples with the release binaries | PLANNED |
+| Close | close-out push after P3, carrying b0f0b1f, base ac5dc0d by its subject, `PREV` `^M4 part 2 close-out record`, no Excel-record check | PLANNED |
+
+### Part 2: read breadth B (planned)
+
+A workbook survey call naming which part kinds the package holds,
+with counts (charts, pivot tables, macros, external links,
+sparklines, slicers, timelines, threaded comments, custom XML);
+pivot table definitions read (name, location, source range,
+fields); external link targets read.
+
+### Part 3: charts read (planned)
+
+The feature `charts`: per sheet, each chart's kind, title, series
+with their cell ranges, axes and anchor, read from the drawing and
+chart parts. Proven by reading every chart in the corpus and
+writing each workbook back byte-identical.
+
+### Part 4: charts write, the first set (planned)
+
+Bar, column, line, pie, scatter and area charts from cell ranges,
+with title, axis titles and legend, anchored like images through
+the drawing writer of `specs/0022` and `specs/0028`; LibreOffice
+opens every corpus output.
+
+### Part 5: charts write, the second set (planned)
+
+Doughnut, radar, bubble, stock and 3D variants, combined charts,
+data labels, series colours and number formats; `remove_chart`.
+
+### Part 6: measurement and close (planned)
+
+The openpyxl comparison: the same operations run through openpyxl
+in the pinned container over the corpus and the scale tiers, peak
+RSS and wall time recorded beside emend's, openpyxl's outputs run
+through the harness to record what it rewrites; the size record;
+the engineering close; the README's comparison sentence citing the
+record.
 
 ## Unscoped
 

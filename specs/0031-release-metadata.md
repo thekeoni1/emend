@@ -526,6 +526,192 @@ tests on each target; clippy 0, doc 0. Planning's
    doc commit, and recorded in `ROADMAP.md`'s part 2 row and in
    the close-out doc commit's subject.
 
+## Planning verification and rulings on the close-out (2026-10-11)
+
+Rulings 1 to 7 were written in planning's cache
+(`<home>/.cache/emend-planning/m4p2-close-rulings.md`, sha256
+12f4e10b) on 2026-10-10 while the tree had to stay clean for the
+push script, and are copied here unchanged in substance with the
+first doc commit after the record commit, as part 1's were.
+Rulings 8 to 10 follow the push.
+
+Verified by planning after the push, from git, gh and the
+committed logs: `git ls-remote` gives ac5dc0d for the remote's
+main; CI run 38161194914 on headSha ac5dc0d, event push, status
+completed, conclusion success, read live with `gh run view` and
+again from `ci-run.log` (every step success, 0 other
+conclusions); the record commit b0f0b1f holds the three logs only
+(`records/logs/m4p2-close/push.log` c552aabb, 1210 lines, its
+first 1135 lines byte-equal to pre attempt 2's log 0c692bd1;
+`ci-run.log` 0c3a449e, 669 lines; `scan.log` 7621200e, 1547
+lines; 0 lines ending ": no" in each; "pre checks all as
+expected: yes" and "push checks all as expected: yes"; the hook
+scanned 10 commits and 1568 blobs with 0 findings over
+e4ab25b..ac5dc0d; git reported e4ab25b..ac5dc0d for main; the
+repository still PRIVATE; `scan.log` "total hits: 0", "structural
+checks failed: 0", the placeholder checks 0 undeclared on both
+logs and on the script's own source, change 27's controls as
+expected, "RESULT: PASS"); the maintainer's typed authorisation
+recorded verbatim with its date (10/11/2026); the record commit's
+message names gen.py f60d8d69, push d24a0aed, ci 126f945a, scan
+b7606aaa, changes 23 to 27 and pre attempt 1 (30fa3935, 7df93c86)
+as superseded, as ruling 7 requires; planning's own
+`scripts/privacy.sh --range e4ab25b..HEAD` over 11 commits and
+1571 blobs, 0 findings; no line of the three logs names a home,
+mount, temp or corpus path; every `ANTHROPIC_API_KEY=` text in
+the range is a script's planted-value control or its print of
+"unset"; no commit message in the range carries a session link;
+no API key in planning's environment.
+
+Verified by planning: doc commit ac5dc0d (two files at the hashes the
+message names, equal to the working copies planning sent, f0c16b71
+and 41ea43dc); tree clean; the carried scripts cmp-equal to part 1's
+(push 2acfc4f2, ci 9bfc4432, scan 5b491376); the generated scripts
+read by diff against them (gen.py 01e6f2d6, push d24a0aed, ci
+126f945a, scan 60564fef): bash -n clean, 0 non-ASCII bytes; the base
+pattern resolves to e4ab25b alone, equal to origin/main and the
+remote's main; the previous record pattern to 20285f1 alone in the
+range; the range e4ab25b..ac5dc0d holds 10 commits; the lines that
+differ from part 1's scripts are the headers' changes 23 to 26, the
+names, patterns, the target root and its other-path control, the
+part-1 wording, and item 22's "ruling 2".
+
+1. The close-out scan as generated (change 23 alone) keeps part 1's
+   denylist form `f_deny` (`count_from_file -F`, a case-sensitive
+   substring), and the range e4ab25b..ac5dc0d adds
+   crates/emend/LICENSE-APACHE, on which that form counts 1 line
+   (planning's own count, never printed) while the whole-word form
+   `-i -w -F` counts 0: the scan would end FAIL at both stages on
+   the file decision 4 A requires, exactly as the P1 phase scan
+   would have before specs/0031 P1 ruling 6 (change EQ). Ruling:
+   the scan script gains change 27, the same as change EQ: `f_deny`
+   takes the hook's whole-word form `-i -w -F` for every file it
+   reads, with two controls: a planted denylist entry still hits
+   under the whole-word form; the substring form run beside it on
+   crates/emend/LICENSE-APACHE counts its one hit (never printed)
+   as the reason. The generator is amended (its diff kept as
+   gen-change27.diff beside it), the scan script regenerated, its
+   hash and the generator's reported for planning's word. The push
+   and ci scripts as generated are accepted (planning's word on
+   d24a0aed and 126f945a); pre mode waits for the scan's
+   regeneration so that one set of hashes is printed by change 21's
+   hash lines.
+2. Noted and accepted: the temp file name "$T/p7rec" (internal,
+   never a label); pre mode's printed line 22 naming part 1's root
+   as part 1's change-list text, with line 24 below it naming part
+   2's; no prune block (P2 verification ruling 6); no Excel-record
+   check.
+3. Change 27 as generated (gen.py ccb4c01c, its diff gen-change27.diff
+   fd2c08b7 equal to planning's own diff of gen.py.before-change27
+   against gen.py; scan 5b26c317; push d24a0aed and ci 126f945a
+   byte-equal to the accepted ones; read by planning: f_deny with the
+   mode -iwF, which count_from_file passes to grep as one argument;
+   f_deny_substring kept outside FORMS for one control; the planted-
+   entry control under the new form; the licence copy read from the
+   phase commit with its byte count and hash printed; its substring
+   count 1 and whole-word count 0 as two controls): accepted.
+   Planning's word on the scripts; pre mode runs from fresh copies
+   under <scratch>/close with CARGO_TARGET_DIR set as change 24 says,
+   detached, on the clean tree.
+
+Verified by planning from the files: pre attempt 1's push.log
+30fa3935 (1134 lines, 0 lines ending ": no", "pre checks all as
+expected: yes"; the hash lines naming ccb4c01c, d24a0aed, 126f945a,
+5b26c317; 10 commits; the Excel-record count 0; privacy 10 commits,
+1568 blobs, 0 findings); scan-pre.log 7df93c86 ends RESULT: FAIL on
+one structural check, line 1519: the scan script's own source prints
+<home> (its header item 27, line 14, citing planning's cache file by
+path) while its root lines declare <repo> and <scratch> alone; total
+hits 0; change 27's controls as expected (planted entry 1; the licence
+copy 11358 bytes, substring 1, whole-word 0).
+
+4. Attempt 1 is superseded by the scan's own structural check, not by
+   a finding in the range: a placeholder in header text that the
+   change-27 wording introduced (the implementing session's error in
+   the header; planning read the change-27 lines and did not run the
+   placeholder check on them, planning's miss). Ruling: the proposed
+   fix. gen.py's header item 27 cites "planning's close-out ruling 1
+   (m4p2-close-rulings.md in planning's cache)" with no <home>/ token
+   and no other change (the diff kept as gen-change27b.diff beside
+   gen.py); the scan script is regenerated (push and ci byte-equal to
+   the accepted ones, checked); because change 21's hash lines in the
+   pre log name the scan script, pre mode AND the pre-stage scan run
+   again from fresh copies as attempt 2, RERUN_NOTE naming attempt 1
+   by its hashes. No root line is added to the scan (a code change
+   for a comment's sake). Attempt 1 stays under superseded/
+   pre-attempt-1/ with SHA256SUMS and a NOTE.txt naming this ruling.
+   The hashes of gen.py and the scan script are reported before the
+   rerun for planning's word; planning runs the placeholder count on
+   the regenerated script itself this time. The independent check
+   runs on attempt 2's logs.
+5. Ruling 4 applied (gen.py f60d8d69; gen-change27b.diff 00d79c42,
+   equal to planning's own diff, the two header lines alone; scan
+   b7606aaa; push d24a0aed and ci 126f945a byte-equal; NOTE.txt
+   34fda290 in superseded/pre-attempt-1/). Planning's own placeholder
+   count on the scan script: path tokens of the form <word>/ are
+   <repo>/ and <scratch>/ alone, both declared by root lines; no
+   <home>; bash -n clean; 0 non-ASCII bytes. Accepted; planning's word
+   for pre attempt 2 and the pre-stage scan from fresh copies, with
+   RERUN_NOTE naming attempt 1 by its hashes, then one independent
+   check on both logs.
+
+Verified by planning from the check directory's copies: pre attempt
+2's push.log 0c692bd1 (1135 lines, 0 lines ending ": no", "pre checks
+all as expected: yes"; the rerun line naming attempt 1 by both
+hashes; CARGO_TARGET_DIR printed and checked; the hash lines
+f60d8d69, d24a0aed, 126f945a, b7606aaa; the base by subject equal to
+origin/main; 20285f1 in the range once; the Excel-record count 0 and
+the clone's 1; identity 10 of 10, 0 mismatches; privacy 10 commits,
+1568 blobs, 0 findings); scan-pre.log 430c897b (1535 lines, 0 ": no",
+hits 0, structural 0, both placeholder checks 0 undeclared, RESULT:
+PASS); check 1's answer 627a1b59, 0 non-ASCII bytes; origin/main
+still e4ab25b, HEAD ac5dc0d, tree clean, no API key.
+
+6. Check 1's Q3 points: (a) the carried scripts' equality with the
+   printed text is gen.py's own assert (lines 28 to 45, a primary not
+   among the check's inputs) and planning's cmp of the carried copies
+   against part 1's files; (b) ROADMAP.md's hash 41ea43dc is
+   `git show ac5dc0d:ROADMAP.md | sha256sum`; the superseded path is
+   printed in full by no log. All three recorded; the report cites
+   the primaries. No rerun.
+7. Planning's word on pre attempt 2's log 0c692bd1 is given. The push
+   needs the maintainer's MAINTAINER_AUTH and MAINTAINER_AUTH_DATE
+   typed in the implementing session; then push mode appended to the
+   same log, ci-run.log, the post scan, the one record commit "M4
+   part 2 close-out record: the push, the CI run and the scan"
+   holding the three logs only, its message naming gen.py f60d8d69,
+   push d24a0aed, ci 126f945a, scan b7606aaa, changes 23 to 27, and
+   pre attempt 1 (30fa3935, 7df93c86) as superseded.
+
+8. Part 2 and Milestone 4 are DONE and PUSHED (2026-10-11). The
+   record commit b0f0b1f is local and goes with the next push,
+   whose script's previous-record pattern is `^M4 part 2
+   close-out record` (resolving to b0f0b1f alone in its range)
+   and whose base is ac5dc0d, resolved by the subject "M4 part 2
+   close-out: commit planning docs (the P2 verification and
+   rulings, decision 1 hold)". Decision 1 stands: HOLD; nothing
+   is published; `publish = false` stays; the publish step and
+   its two carried items stay under `ROADMAP.md` "Unscoped".
+9. The close-out's independent check (627a1b59) stays in the
+   phase cache, as part 1's did. Pending prunes at the next gate
+   that builds, each with a `du -sb` line: `<home>/.cache/
+   emend-build/m4p2-p1/target`, `m4p2-p2/target` and
+   `m4p2-close/target` (P2 verification ruling 6 and ruling 9
+   there, extended by the close-out's own root).
+10. The record commit's message states that push mode, the CI
+    log and the post scan ran from a byte-identical copy of the
+    pre-mode scratch directory in the implementing session's next
+    scratch after a context clear, the scripts, library and log
+    compared with `cmp`. No committed primary holds that
+    comparison; it is recorded here as the implementing session's
+    statement. What the committed log does show is accepted as
+    sufficient: push mode's lines are appended to the very bytes
+    of pre attempt 2's log (the 1135-line prefix is byte-equal to
+    0c692bd1), push mode re-checks the environment, the key, the
+    target root, the hook and the base before pushing, and the
+    post scan's structural checks read the scripts' own source.
+    No rerun. The implementing session stops.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-10: 2, 3 and 4 as recommended (A
