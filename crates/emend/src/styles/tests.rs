@@ -448,6 +448,35 @@ fn the_counts_are_the_children_not_the_count_attribute() {
     );
 }
 
+// Without the Cargo feature `read`: with it, a second of these three is
+// refused (`specs/0032-read-breadth-styles.md`, P1 ruling 3, and "Planning
+// verification and rulings on P1", ruling 3; the read side is in
+// `package/tests/namedstyles.rs`).
+#[cfg(not(feature = "read"))]
+#[test]
+fn a_second_cell_style_xfs_cell_styles_or_dxfs_is_walked_past() {
+    let collections = "<fonts><font/></fonts><fills><fill/><fill/></fills>\
+                       <borders><border/></borders>";
+    let once = read(&format!(
+        "{collections}<cellStyleXfs><xf/></cellStyleXfs><cellXfs><xf/></cellXfs>\
+         <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles>\
+         <dxfs><dxf><font><b/></font></dxf></dxfs>"
+    ));
+    let twice = read(&format!(
+        "{collections}<cellStyleXfs><xf/></cellStyleXfs><cellStyleXfs><xf/></cellStyleXfs>\
+         <cellXfs><xf/></cellXfs>\
+         <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles><cellStyles/>\
+         <dxfs><dxf><font><b/></font></dxf></dxfs><dxfs><dxf/></dxfs>"
+    ));
+    for styles in [&once, &twice] {
+        assert_eq!(
+            (styles.fonts(), styles.fills(), styles.borders()),
+            (Some(1), Some(2), Some(1))
+        );
+        assert_eq!(styles.cell_xfs.len(), 1);
+    }
+}
+
 #[test]
 fn the_counts_are_read_under_a_prefix_and_in_the_strict_namespace() {
     let prefixed = read_part(&format!(

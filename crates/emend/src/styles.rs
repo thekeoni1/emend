@@ -114,12 +114,20 @@ use crate::cells::decimal;
 use crate::package::{MAIN, STYLE_OUT_OF_RANGE};
 use crate::xml::{Scope, Stream};
 
+#[cfg(feature = "read")]
+mod colors;
 mod elements;
 #[cfg(feature = "read")]
 mod read;
 #[cfg(test)]
 mod tests;
 
+#[cfg(all(test, feature = "read"))]
+pub(crate) use colors::PALETTE;
+#[cfg(feature = "read")]
+pub use colors::ResolvedColor;
+#[cfg(feature = "read")]
+pub(crate) use colors::{read_theme, resolve};
 pub(crate) use elements::Composed;
 #[cfg(any(feature = "rules", feature = "sheetprops"))]
 pub(crate) use elements::color_element;
@@ -161,6 +169,13 @@ pub struct Styles {
     /// feature `read`.
     #[cfg(feature = "read")]
     pub cell_styles: Vec<NamedStyle>,
+    /// The `rgb` of each `rgbColor` of `<colors>`'s `<indexedColors>`, in
+    /// order, as [`Color::Rgb`] holds one; `None` without the element
+    /// (`specs/0032-read-breadth-styles.md`, "Colours"). An index within it
+    /// resolves here, one past it through the default palette. The Cargo
+    /// feature `read`.
+    #[cfg(feature = "read")]
+    pub indexed_colors: Option<Vec<u32>>,
 }
 
 /// One `<numFmt>`: a number format the part defines.
@@ -498,7 +513,7 @@ impl Styles {
         #[cfg(feature = "read")]
         let mut open_typed: Option<TypedContainer> = None;
         #[cfg(feature = "read")]
-        let mut seen_typed = [false; 3];
+        let mut seen_typed = [false; 4];
 
         while let Some(token) = stream.next()? {
             // What the token asks for, decided inside the match and acted on
@@ -513,6 +528,9 @@ impl Styles {
             // A `dxf` to read, and whether it was empty.
             #[cfg(feature = "read")]
             let mut dxf: Option<bool> = None;
+            // An `indexedColors` to read, and whether it was empty.
+            #[cfg(feature = "read")]
+            let mut indexed_colors: Option<bool> = None;
             match token.event {
                 Event::Start(ref start) | Event::Empty(ref start) => {
                     let empty = matches!(token.event, Event::Empty(_));
@@ -596,6 +614,12 @@ impl Styles {
                                 skip = !empty;
                             }
                             (Some(TypedContainer::Dxfs), b"dxf") => dxf = Some(empty),
+                            (Some(TypedContainer::Colors), b"indexedColors") => {
+                                if styles.indexed_colors.is_some() {
+                                    return Err(read::STYLE_UNREADABLE);
+                                }
+                                indexed_colors = Some(empty);
+                            }
                             _ => skip = !empty,
                         }
                     } else if !empty {
@@ -655,6 +679,14 @@ impl Styles {
                     .typed
                     .dxfs
                     .push(read::read_dxf(stream, &mut scope, index, empty)?);
+                if !empty {
+                    depth -= 1;
+                }
+            }
+            #[cfg(feature = "read")]
+            if let Some(empty) = indexed_colors {
+                styles.indexed_colors =
+                    Some(read::read_indexed_colors(stream, &mut scope, index, empty)?);
                 if !empty {
                     depth -= 1;
                 }
@@ -740,6 +772,7 @@ enum TypedContainer {
     CellStyleXfs,
     CellStyles,
     Dxfs,
+    Colors,
 }
 
 #[cfg(feature = "read")]
@@ -750,6 +783,7 @@ impl TypedContainer {
             b"cellStyleXfs" => Self::CellStyleXfs,
             b"cellStyles" => Self::CellStyles,
             b"dxfs" => Self::Dxfs,
+            b"colors" => Self::Colors,
             _ => return None,
         })
     }

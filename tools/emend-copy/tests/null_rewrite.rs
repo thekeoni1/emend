@@ -5110,7 +5110,8 @@ fn the_roundtrip_sample_refuses_a_font_past_its_list_and_leaves_nothing() {
 }
 
 /// A styles part with two fonts, one fill, one border and two
-/// `cellStyleXfs` formats, each element in the writer's own form. `cell_styles` is the `<cellStyles>` and `dxfs` the `<dxfs>`.
+/// `cellStyleXfs` formats, each element in the writer's own form.
+/// `cell_styles` is the `<cellStyles>` and `dxfs` the `<dxfs>`.
 /// Fictional.
 fn namedstyles_styles(cell_styles: &str, dxfs: &str) -> String {
     format!(

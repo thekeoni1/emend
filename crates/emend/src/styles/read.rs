@@ -39,6 +39,18 @@ use crate::xml::{Scope, Stream};
 /// catalogued in [`crate::package`]'s module header.
 pub(crate) const STYLE_UNREADABLE: Error = Error::Package("a style cannot be read");
 
+/// What a theme part whose colour scheme this layer cannot read is refused
+/// with, at [`crate::package::Package::theme_colors`]
+/// (`specs/0032-read-breadth-styles.md`, "Errors"); catalogued in
+/// [`crate::package`]'s module header.
+pub(crate) const THEME_UNREADABLE: Error = Error::Package("a theme cannot be read");
+
+/// What a colour the theme cannot resolve is refused with, at
+/// [`crate::package::Package::resolve_color`]: a theme index past 11, a tint
+/// not finite or outside `-1.0..=1.0` (`specs/0032-read-breadth-styles.md`,
+/// "Errors"); catalogued in [`crate::package`]'s module header.
+pub(crate) const COLOR_UNRESOLVED: Error = Error::Package("a colour cannot be resolved");
+
 fn refusal() -> Error {
     STYLE_UNREADABLE
 }
@@ -229,6 +241,26 @@ impl Styles {
     /// order.
     pub(crate) fn dxfs(&self) -> &[Style] {
         &self.typed.dxfs
+    }
+
+    /// The `font` children of `<fonts>` read typed, in part order: what a
+    /// `fontId` names (`specs/0032-read-breadth-styles.md`, "Planning
+    /// rulings during P2", ruling 9). The Cargo feature `read`.
+    pub fn typed_fonts(&self) -> &[Font] {
+        &self.typed.fonts
+    }
+
+    /// The `fill` children of `<fills>` read typed, in part order, a fill
+    /// holding no `patternFill` (a gradient among them) as `None`: what a
+    /// `fillId` names (ruling 9 as above). The Cargo feature `read`.
+    pub fn typed_fills(&self) -> &[Option<Fill>] {
+        &self.typed.fills
+    }
+
+    /// The `border` children of `<borders>` read typed, in part order: what
+    /// a `borderId` names (ruling 9 as above). The Cargo feature `read`.
+    pub fn typed_borders(&self) -> &[Border] {
+        &self.typed.borders
     }
 
     /// The font the format at `<cellStyleXfs>` index 0 names, font 0 when
@@ -471,6 +503,58 @@ fn read_color<R: Read>(
         return Err(STYLE_UNREADABLE);
     }
     Ok(color)
+}
+
+/// An `<indexedColors>` of the main namespace's `<colors>`, its start tag
+/// given to `scope`, read through its end tag: each `rgbColor`'s `rgb`, in
+/// order, as [`Color::Rgb`] holds one (`specs/0032-read-breadth-styles.md`,
+/// "Colours", and "Planning rulings during P2", ruling 1). A child outside
+/// the main namespace is walked past.
+///
+/// # Errors
+///
+/// [`Error::Package`] "a style cannot be read" for a main-namespace child
+/// other than `rgbColor`, and an `rgbColor` with no `rgb` or one that is not
+/// eight hex digits.
+pub(crate) fn read_indexed_colors<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    empty: bool,
+) -> Result<Vec<u32>, Error> {
+    let mut colors = Vec::new();
+    if empty {
+        return Ok(colors);
+    }
+    while let Step::Child(child) = step(stream, scope, index)? {
+        if !child.main {
+            if !child.empty {
+                skip_subtree(stream, scope, index)?;
+            }
+            continue;
+        }
+        if child.local != b"rgbColor" {
+            return Err(STYLE_UNREADABLE);
+        }
+        let rgb = child.value(b"rgb").ok_or(STYLE_UNREADABLE)?;
+        match color_from(
+            ColorAttributes {
+                rgb: Some(rgb.to_owned()),
+                theme: None,
+                tint: None,
+                indexed: None,
+                auto: None,
+            },
+            refusal,
+        )? {
+            Color::Rgb(value) => colors.push(value),
+            _ => return Err(STYLE_UNREADABLE),
+        }
+        if !child.empty {
+            skip_subtree(stream, scope, index)?;
+        }
+    }
+    Ok(colors)
 }
 
 /// A `<dxf>` of the main namespace's `<dxfs>`, its start tag given to

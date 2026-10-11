@@ -681,9 +681,14 @@
 //! list. The same read refuses, with the first, a `cellStyle` with no
 //! `name` or `xfId` or an `xfId` past `<cellStyleXfs>`, a second
 //! main-namespace `<cellStyleXfs>`, `<cellStyles>` or `<dxfs>`, and a `dxf`
-//! the type cannot hold; `Package::named_style` refuses an index past
+//! the type cannot hold; a second main-namespace `<colors>` or a second
+//! `<indexedColors>` in it, an `rgbColor` with no `rgb` or one that is not
+//! eight hex digits, and a main-namespace child of `<indexedColors>` other
+//! than `rgbColor`; `Package::named_style` refuses an index past
 //! `<cellStyleXfs>` and `Package::default_font` a part with no `<fonts>`
-//! (`specs/0032-read-breadth-styles.md`, "Errors", and P1 ruling 3). The second is raised at the read of a worksheet, for a value that
+//! (`specs/0032-read-breadth-styles.md`, "Errors", P1 ruling 3 and P2
+//! ruling 1). The
+//! second is raised at the read of a worksheet, for a value that
 //! does not parse and for one outside its writer's range ("Planning
 //! verification and rulings on P2", ruling 1, the ranges in Limits). The
 //! reads also meet the writers' messages for two of an element: "a
@@ -702,7 +707,21 @@
 //!   `namedstyles::a_cell_style_without_name_or_xf_id_or_past_the_list_and_an_index_past_it_are_refused`,
 //!   `namedstyles::a_second_cell_style_xfs_cell_styles_or_dxfs_is_refused`,
 //!   `namedstyles::a_dxf_child_outside_the_namespace_unknown_to_the_type_or_twice_is_refused`,
-//!   `namedstyles::the_default_font_is_refused_with_no_fonts_or_a_font_id_past_them`).
+//!   `namedstyles::the_default_font_is_refused_with_no_fonts_or_a_font_id_past_them`,
+//!   `colors::a_second_colors_is_refused`,
+//!   `colors::a_second_indexed_colors_is_refused`,
+//!   `colors::an_rgb_color_with_no_rgb_is_refused`,
+//!   `colors::an_rgb_that_is_not_eight_hex_digits_is_refused`,
+//!   `colors::an_indexed_colors_child_other_than_rgb_color_is_refused`).
+//! - "a theme cannot be read", raised at `Package::theme_colors` and so at
+//!   `Package::resolve_color` for a theme colour
+//!   (`colors::a_val_of_five_digits_or_a_sys_clr_with_no_last_clr_is_refused`,
+//!   `colors::two_clr_schemes_or_none_at_the_path_are_refused`,
+//!   `colors::a_scheme_child_missing_twice_foreign_or_unknown_is_refused`,
+//!   `colors::a_scheme_child_with_no_colour_another_form_or_a_transform_is_refused`).
+//! - "a colour cannot be resolved", raised at `Package::resolve_color` for a
+//!   theme index past 11 or a tint not finite or outside `-1.0..=1.0`
+//!   (`colors::a_theme_index_past_11_or_a_tint_out_of_range_or_not_finite_is_refused`).
 //! - "a sheet setting cannot be read", raised in `package` at the read of a
 //!   worksheet through `Package::columns`, `Package::rows` and
 //!   `Package::sheet_settings`
@@ -2068,7 +2087,7 @@ const SPREADSHEET_DRAWING: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
     b"http://purl.oclc.org/ooxml/drawingml/spreadsheetDrawing",
 ];
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "read"))]
 const DRAWINGML: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/main",
     b"http://purl.oclc.org/ooxml/drawingml/main",
@@ -2652,6 +2671,11 @@ pub struct Package<R: Read + Seek> {
     /// rewrites the part refuses two (`specs/0013-formulas.md`, P1 ruling 3).
     calc_prs: usize,
     styles: Option<Styles>,
+    /// The theme's twelve scheme colours, read once by
+    /// [`Package::theme_colors`]: `None` until then, `Some(None)` for a
+    /// workbook with no theme relationship. The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    theme_colors: Option<Option<[u32; 12]>>,
     /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
     ///
     /// Nothing is removed implicitly: a removed relationship's target, a
@@ -5247,6 +5271,8 @@ impl<R: Read + Seek> Package<R> {
             workbook: None,
             calc_prs: 0,
             styles: None,
+            #[cfg(feature = "read")]
+            theme_colors: None,
             edits: Recorded::default(),
         })
     }
@@ -5501,6 +5527,68 @@ impl<R: Read + Seek> Package<R> {
     #[cfg(feature = "read")]
     pub fn default_font(&mut self) -> Result<crate::styles::Font, Error> {
         self.styles()?.default_font()
+    }
+
+    /// The theme's twelve scheme colours in element order, `dk1`, `lt1`,
+    /// `dk2`, `lt2`, `accent1` to `accent6`, `hlink`, `folHlink`, each an
+    /// `srgbClr`'s `val` or a `sysClr`'s `lastClr` as an opaque ARGB value;
+    /// `None` for a workbook with no theme relationship
+    /// (`specs/0032-read-breadth-styles.md`, "Colours"). The Cargo feature
+    /// `read`.
+    ///
+    /// The theme part is read once and streamed: only
+    /// `a:theme/a:themeElements/a:clrScheme` is read, everything else walked
+    /// past, and the twelve values are all that is kept.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::workbook`] refuses; [`Error::Package`] "no such
+    /// part" for a theme relationship naming a part the archive lacks; "a
+    /// theme cannot be read" for a root that is not a DrawingML `theme`, no
+    /// `clrScheme` under its `themeElements` or a second there, a scheme
+    /// child outside the DrawingML namespace, unknown to the scheme, met
+    /// twice or missing, with no `srgbClr` or `sysClr` or another colour
+    /// form, a colour element holding children, a `val` or `lastClr` that is
+    /// not six hex digits, and a `sysClr` with no `lastClr`; and whatever the
+    /// part's XML refuses.
+    #[cfg(feature = "read")]
+    pub fn theme_colors(&mut self) -> Result<Option<&[u32; 12]>, Error> {
+        self.parts().into_theme_colors()
+    }
+
+    /// `color` resolved to the RGB the workbook defines for it
+    /// (`specs/0032-read-breadth-styles.md`, "Colours"): an `Rgb` as it is;
+    /// an `Indexed` through the styles part's `<indexedColors>` when it has
+    /// one and the index is within it, else the default palette, and `None`
+    /// past 63 (the system colours); a `Theme` through the theme's scheme
+    /// colours, theme 0 `lt1`, 1 `dk1`, 2 `lt2`, 3 `dk2`, 4 to 9 the
+    /// accents, 10 `hlink` and 11 `folHlink`, its tint carried, and `None`
+    /// with no theme part; `Auto` as `None`. The Cargo feature `read`.
+    ///
+    /// [`crate::styles::ResolvedColor::tinted`] applies the tint.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Package::styles`] refuses for an `Indexed`, and
+    /// [`Package::theme_colors`] for a `Theme`; [`Error::Package`] "a colour
+    /// cannot be resolved" for a theme index past 11 or a tint not finite or
+    /// outside `-1.0..=1.0`.
+    #[cfg(feature = "read")]
+    pub fn resolve_color(
+        &mut self,
+        color: &crate::styles::Color,
+    ) -> Result<Option<crate::styles::ResolvedColor>, Error> {
+        match color {
+            crate::styles::Color::Indexed(_) => {
+                let indexed = self.styles()?.indexed_colors.as_deref();
+                crate::styles::resolve(color, indexed, None)
+            }
+            crate::styles::Color::Theme { .. } => {
+                let theme = self.theme_colors()?;
+                crate::styles::resolve(color, None, theme)
+            }
+            _ => crate::styles::resolve(color, None, None),
+        }
     }
 
     /// Records the removal of the relationship `id` from `source`'s rels part.
@@ -7421,6 +7509,8 @@ impl<R: Read + Seek> Package<R> {
             workbook: &mut self.workbook,
             calc_prs: &mut self.calc_prs,
             styles: &mut self.styles,
+            #[cfg(feature = "read")]
+            theme_colors: &mut self.theme_colors,
             edits: &mut self.edits,
         }
     }
@@ -7439,6 +7529,8 @@ struct Parts<'a> {
     workbook: &'a mut Option<Workbook>,
     calc_prs: &'a mut usize,
     styles: &'a mut Option<Styles>,
+    #[cfg(feature = "read")]
+    theme_colors: &'a mut Option<Option<[u32; 12]>>,
     edits: &'a mut Recorded,
 }
 
@@ -11434,6 +11526,26 @@ impl<'a> Parts<'a> {
         let slot = self.workbook;
         // Filled by the call above.
         Ok(slot.as_ref().unwrap())
+    }
+
+    /// The theme's scheme colours, read once (`specs/0032-read-breadth-
+    /// styles.md`, "Colours"). The Cargo feature `read`.
+    #[cfg(feature = "read")]
+    fn into_theme_colors(mut self) -> Result<Option<&'a [u32; 12]>, Error> {
+        if self.theme_colors.is_none() {
+            let colors = match self.workbook()?.theme.clone() {
+                None => None,
+                Some(part) => {
+                    let index = self.archive.index_of(&part).ok_or(NO_SUCH_PART)?;
+                    let mut stream = Stream::new(self.archive.read(index)?, index)?;
+                    Some(crate::styles::read_theme(&mut stream, index, DRAWINGML)?)
+                }
+            };
+            *self.theme_colors = Some(colors);
+        }
+        let slot = self.theme_colors;
+        // Filled above.
+        Ok(slot.as_ref().unwrap().as_ref())
     }
 
     /// [`Parts::styles`], consuming the view so that the result borrows
