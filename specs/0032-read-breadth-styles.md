@@ -64,10 +64,17 @@ report.
   a `builtinId`, 71 `customBuiltin`, none `hidden` or `iLevel`; every
   one of the 992 `<cellXfs>` `xf` carries an `xfId`, the largest 24.
   `<dxfs>` in the main namespace in 16 workbooks (the 4 further
-  matches are `x14:dxfs` inside `extLst`), 1391 `dxf` children (at
-  most 440 in one): 992 hold a `font`, 486 a `fill` (6 of them a
-  `gradientFill`), 289 a `border`, 495 an `alignment`, 147 a
-  `numFmt`, 14 a `protection`, none an `extLst` or nothing. Colour
+  matches are `x14:dxfs` inside `extLst`), 1360 `dxf` children in
+  the main namespace (at most 440 in one; P1 ruling 2 corrected
+  these from counts that included the 31 `x14` ones): 964 hold a
+  `font`, 459 a `fill` (every one a `patternFill`, none a
+  `gradientFill`; 179 with no `patternType`, 213 `none`, 67
+  `solid`; `bgColor` on all 459, `fgColor` on 186), 260 a `border`
+  (88 of them, in 9 workbooks, with `horizontal` or `vertical`
+  children, 86 and 78, 103 of those with a `style` and a `color`;
+  `outline` on 116), 495 an `alignment`, 147 a `numFmt`, 14 a
+  `protection`, none an `extLst` or nothing. No `<borders>` border
+  of the corpus has a `horizontal` or `vertical` child. Colour
   forms over the part: `rgb` 1513, `theme` 1783 (the largest index
   11; 218 in `<fonts>`, 64 in `<fills>`, 259 in `<borders>`, 1242
   in `<dxfs>`, none in `<cellStyleXfs>`), `indexed` 327 (the largest
@@ -508,6 +515,145 @@ holding the three logs only; pre mode on a clean tree; one
 independent check before the report. The push carries b0f0b1f and
 this part's commits, on planning's word and the maintainer's
 authorisation typed in the implementing session.
+
+## Planning rulings during P1 (2026-10-11)
+
+Raised by the implementing session after the doc commit cd30099
+(the three files at 2f6fa9be, 7758479a and 9f9c12c9, checked by
+planning), before any code commit; its survey was an unlogged
+aside, so planning recounted every figure with a namespace-aware
+parser over the 27 workbooks' styles parts (counts only) and the
+figures below are planning's.
+
+1. A `dxf`'s `<border>` may carry `horizontal` and `vertical`
+   children, the inside-of-range sides no writer of this crate
+   writes (88 borders in 9 workbooks); `read_border` refuses any
+   child but the five it models, so the typed read would refuse
+   those nine parts whole and break `cell_style` there. Ruling: in
+   a `dxf`, `horizontal` and `vertical` are read past with their
+   subtrees, as the five unmodelled font children are, and the
+   border's `outline` attribute is read past (`specs/0027` P1
+   ruling 3); the catalogue, the run log's check and the
+   round-trip comparison list the two sides as unmodelled, absent
+   on the written side. `<borders>` is unchanged: a `horizontal` or
+   `vertical` child there keeps being refused (the corpus has
+   none). Tests: a `dxf` border with both sides read past, and a
+   `<borders>` border with one still refused.
+2. The spec's `dxf` figures were planning's prefix-tolerant
+   regular-expression counts, which took the 31 `dxf` children of
+   the four `x14:dxfs` with the main namespace's: 1391, 992, 486,
+   6 gradients and 289 against the main namespace's 1360, 964, 459,
+   0 and 260 (the alignment, number format and protection counts
+   were right). The facts bullet is corrected in place. On the
+   corpus `dxf_gradients` is expected 0 and the gradient case is
+   proven by P1's byte-built test alone; a run reading above 0 is a
+   finding. The sample line gains `dxf_implied_solid` (fills read
+   as `Solid` from an absent `patternType`, decision 2; 179 over
+   the corpus) and `dxf_inside_sides` (`horizontal` and `vertical`
+   sides read past, 164 over the corpus), and the run log's check
+   counts both independently per workbook.
+3. A second main-namespace `<cellStyleXfs>`, `<cellStyles>` or
+   `<dxfs>` among the root's children, with the feature `read`:
+   refused at the read, "a style cannot be read" (the indexes
+   would be ambiguous), the catalogue saying so; without the
+   feature, walked past as today. `TWO_CONTAINERS`'s text is not
+   widened: a catalogued message does not change for a case the
+   feature adds. A test for each of the three.
+4. `Styles` derives `Eq` and `Style` is `PartialEq` alone (its
+   `f64`s), so a public `dxfs: Vec<Style>` field would drop the
+   derive, a signature change. Ruling: `dxfs` lives in the typed
+   read (`read::Typed`), private, compared as the typed fonts are,
+   and `Package::differential_styles` lends it as `&[Style]`;
+   `cell_style_xfs: Vec<Xf>` and `cell_styles: Vec<NamedStyle>` are
+   public fields of `Styles` under the feature, both `Eq`. "Styles
+   gains `dxfs`" under "Differential styles" reads so.
+5. Accepted as proposed: a `dxf` with an `extLst` child is refused
+   as a child unknown to the type (the corpus has none); a `dxf`
+   `numFmt` without `formatCode` is refused, "a style cannot be
+   read"; `default_font` with an empty `<cellStyleXfs>` reads font
+   0; a `fontId` past `<fonts>` at `default_font` is refused, "a
+   style cannot be read". Each with a test.
+
+## Planning verification and rulings on P1 (2026-10-11)
+
+Verified from primaries: the three commits cd30099 (docs), 0b3e46f
+(crate) and c8b9391 (tool, the phase commit) read in full against
+this spec and rulings 1 to 5; the record commit 06f5cba holds the
+five logs, the independent check and the four records at the
+hashes and line counts the report gives (gate 525b6d00, test
+337b1036, negative 85af306b, run 18ffd296, scan c3309174, check
+d685000e; records b2d1a74b, 5d789a23, ed5da088, 5a498705). The
+gate prunes Milestone 4 part 2's three roots (du -sb then rm -r,
+gone and kept names checked) and carries the debug binaries; the
+test log passes 514, 562, 600 and 934 on both targets (off and
+all equal M4 part 2 P2's 514 and 918 plus the 16 namedstyles
+tests), the namedstyles tests run being exactly the ones each set
+compiles, and plants P1 to P8 each fail exactly their set; the
+negative log shows N1 to N6 each exit 2 with "a style cannot be
+read" and no output, B0 accepted; the run log shows 27 of 27 ok on
+both targets, entries identical 854, changed 16 (the styles part
+where a dxf is written back), flagged 6 descriptors, nothing
+added, dropped or recompressed, the outputs and lines the same on
+both targets, the totals equal to ruling 2's 14 figures,
+dxf_written and dxf_equal 831, the keep 1097 pairs (4 new, 11
+changed by the dxf.rs fixture edit, none gone), no verdict of the
+named record moved and no new output refused on an accepted
+input; the scan PASS with 0 hits and 0 structural failures.
+Planning's own run: the phase commit built in a detached
+worktree, crate tests on both targets with the four feature sets
+514, 562, 600, 934 (1 ignored each), workspace tests 1131 on both,
+clippy and rustdoc 0 warning lines (all features, and read
+alone), release emend-copy on both targets, the i686 binary at
+the record's hash 0a13f5ce; `--namedstyles-sample` over the 27
+corpus files on both targets, every output and every line
+byte-identical to the phase's run directory, 0 refused, planning's
+own totals the 14 figures above; planning's privacy scan over
+b0f0b1f..06f5cba: 4 commits, 1582 blobs, 0 findings.
+
+Rulings on the independent check's points and the disclosures:
+
+1. Ruling 1's catalogue wording (check point a). The catalogue
+   lists the inside sides under "What cannot be written" already,
+   and the dxf read-past stands in `differential_styles`'s doc.
+   Ruling 1 is met for P1; P3's catalogue work adds, to the typed
+   read's entry, that in a `dxf` the `vertical` and `horizontal`
+   sides and the border's `outline` are read past and a `dxf`
+   `numFmt`'s `numFmtId` is not read. No P1 fix.
+2. A `dxf` `numFmt`'s `numFmtId` is not parsed (point b). Accepted:
+   `Style` holds the code alone and the writer assigns its own id;
+   "a value that does not parse" covers the values the type holds.
+   Catalogued at P3 (ruling 1).
+3. Ruling 3's "without the feature, walked past" has no test
+   (point c). P2's code commit adds one test to
+   `crates/emend/src/styles/tests.rs` (compiled with the features
+   off): a part with a second `cellStyleXfs`, `cellStyles` and
+   `dxfs` reads with the counts unchanged. The off figure grows by
+   1 in P2's test log; the test log says so.
+4. The two over-long comment lines (point e: the catalogue line
+   in `package.rs` and the fixture doc in `null_rewrite.rs`) are
+   wrapped in P2's code commit, text unchanged; `let _ = named;`
+   stands.
+5. Disclosure 2 accepted: under `read`, a `dxf` the typed read
+   refuses makes the styles part unreadable, `cell_style` included,
+   as "refused at the read" says and as a refused font already
+   does; the two fixture edits (dxf.rs's BASE gaining the
+   `cellStyleXfs` a `cellStyle` names; readback.rs's dxf font
+   child) and the 11 changed keep pairs they explain are accepted.
+6. The report text's corrections stand as corrected: the negative
+   log's one shared control B0 (each case is B0 with one
+   replacement, so one control serves); the four ": no" input
+   lines; the totals labelled as FACTS.md's figures (they are
+   ruling 2's, carried there). Accepted. A scan pre-check that is
+   rerun sets RERUN_NOTE from the next phase on, pre-check or not.
+7. The superseded local commits 8eeebc4 and e1cfb6b stay
+   unreferenced; the dry-run fixes through the generators, scan
+   attempt 1 and the fork's temporary file are disclosed and need
+   nothing. The phase's target root `m5p1-p1/target` stays; the
+   part's roots are pruned at the next part's first gate that
+   builds, as Milestone 4 part 2's were.
+8. P1 is DONE. P2's doc commit carries this spec as amended
+   (rulings 1 to 5 and this section) and ROADMAP.md with the P1
+   row DONE and the P2 row IN PROGRESS.
 
 ## Decisions for the maintainer
 
