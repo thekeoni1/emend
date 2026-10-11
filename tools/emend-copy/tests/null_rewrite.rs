@@ -5109,6 +5109,124 @@ fn the_roundtrip_sample_refuses_a_font_past_its_list_and_leaves_nothing() {
     );
 }
 
+/// A styles part with two fonts, one fill, one border and two
+/// `cellStyleXfs` formats, each element in the writer's own form. `cell_styles` is the `<cellStyles>` and `dxfs` the `<dxfs>`.
+/// Fictional.
+fn namedstyles_styles(cell_styles: &str, dxfs: &str) -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+         <styleSheet xmlns=\"{MAIN_NS}\"><fonts count=\"2\"><font><sz val=\"10.5\"/></font>\
+         <font><b/><sz val=\"9\"/></font></fonts><fills count=\"1\"><fill>\
+         <patternFill patternType=\"none\"/></fill></fills><borders count=\"1\"><border>\
+         <left/><right/><top/><bottom/><diagonal/></border></borders>\
+         <cellStyleXfs count=\"2\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/>\
+         <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>\
+         <cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" \
+         xfId=\"0\"/></cellXfs>{cell_styles}{dxfs}</styleSheet>"
+    )
+}
+
+/// Five differential styles: a font and fill with no `patternType`, a
+/// border with an inside side, a number format, a gradient fill, and a fill
+/// alone. Fictional.
+const NAMED_DXFS: &str = "<dxfs count=\"5\">\
+         <dxf><font><b/></font><fill><patternFill><bgColor rgb=\"FFFFC7CE\"/></patternFill>\
+         </fill></dxf>\
+         <dxf><border><left style=\"thin\"/><right/><top/><bottom/><diagonal/>\
+         <horizontal style=\"thin\"/></border></dxf>\
+         <dxf><numFmt numFmtId=\"170\" formatCode=\"0.0\"/></dxf>\
+         <dxf><fill><gradientFill degree=\"90\"><stop position=\"0\"><color theme=\"0\"/>\
+         </stop><stop position=\"1\"><color theme=\"4\"/></stop></gradientFill></fill></dxf>\
+         <dxf><fill><patternFill patternType=\"solid\"><fgColor theme=\"4\"/></patternFill>\
+         </fill></dxf></dxfs>";
+
+/// Three named styles over the two formats, one built in, one custom.
+/// Fictional.
+const NAMED_STYLES: &str = "<cellStyles count=\"3\"><cellStyle name=\"Normal\" xfId=\"0\" \
+                            builtinId=\"0\"/><cellStyle name=\"Fict\" xfId=\"1\" \
+                            customBuiltin=\"1\"/><cellStyle name=\"Fict 2\" xfId=\"1\"/>\
+                            </cellStyles>";
+
+#[test]
+fn the_namedstyles_sample_reads_every_style_and_writes_the_differential_ones_back() {
+    // `specs/0032-read-breadth-styles.md`, "Harness runs",
+    // `--namedstyles-sample`, and P1 rulings 1 and 2: three named styles
+    // over two formats; five `dxf`s, of which the font and fill one, the
+    // border one and the fill alone are written back (the number format one
+    // is not a differential style the writer takes, and the gradient one
+    // reads as no style at all).
+    let specs = styled_specs(A_CELL, &namedstyles_styles(NAMED_STYLES, NAMED_DXFS));
+    let dir = TempDir::new("namedstyles-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--namedstyles-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "namedstyles\tnamed=3\tnamed_xfs=2\tbuiltin=1\tcustom=1\tresolved=2\
+         \tdefault_font_size=10.5\tdxfs=5\tdxf_fonts=1\tdxf_fills=2\tdxf_borders=1\
+         \tdxf_numfmts=1\tdxf_alignments=0\tdxf_protections=0\tdxf_gradients=1\
+         \tdxf_implied_solid=1\tdxf_inside_sides=1\tdxf_written=3\tdxf_equal=3\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let styles = String::from_utf8(entry_named(&entries, b"xl/styles.xml").compressed.clone())
+        .expect("UTF-8");
+    // The appended elements are the ones read, in the writer's form: the
+    // implied solid written `solid`, the inside side absent.
+    let appended = "<dxf><font><b/></font><fill><patternFill patternType=\"solid\">\
+                    <bgColor rgb=\"FFFFC7CE\"/></patternFill></fill></dxf>\
+                    <dxf><border><left style=\"thin\"/><right/><top/><bottom/><diagonal/>\
+                    </border></dxf><dxf><fill><patternFill patternType=\"solid\">\
+                    <fgColor theme=\"4\"/></patternFill></fill></dxf></dxfs>";
+    assert!(styles.contains(appended), "the appended dxfs");
+    assert!(styles.contains("<dxfs count=\"8\">"), "the count");
+    untouched_but(&entries, &specs, &[b"xl/styles.xml"]);
+}
+
+#[test]
+fn the_namedstyles_sample_leaves_the_styles_part_identical_with_nothing_to_write() {
+    // No `dxf` the writer takes: nothing is recorded and every entry is
+    // kept byte for byte.
+    let styles = namedstyles_styles(
+        NAMED_STYLES,
+        "<dxfs count=\"1\"><dxf><numFmt numFmtId=\"170\" formatCode=\"0.0\"/></dxf></dxfs>",
+    );
+    let specs = styled_specs(A_CELL, &styles);
+    let dir = TempDir::new("namedstyles-sample-none");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--namedstyles-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert!(ran.stdout.contains("\tdxfs=1\t"), "{}", ran.stdout);
+    assert!(
+        ran.stdout.ends_with("\tdxf_written=0\tdxf_equal=0\n"),
+        "{}",
+        ran.stdout
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, &specs, &[]);
+}
+
+#[test]
+fn the_namedstyles_sample_refuses_an_xf_id_past_cell_style_xfs_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0032-read-breadth-styles.md`, "P1"): a `cellStyle` names
+    // `cellStyleXfs` format 2 of two.
+    let styles = namedstyles_styles(
+        &NAMED_STYLES.replace("xfId=\"1\"/>", "xfId=\"2\"/>"),
+        NAMED_DXFS,
+    );
+    styled_run_refused(
+        "namedstyles-sample-xf-id-past",
+        &styled_specs(A_CELL, &styles),
+        "a style cannot be read",
+        "--namedstyles-sample",
+    );
+}
+
 #[test]
 fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
     // `specs/0027-read-back.md`, "Planning verification and rulings on P1",

@@ -621,6 +621,33 @@
 //!   `styles_in`; a failure is exit 2 with the message and no output, and so
 //!   is a refusal by the layer (a style it cannot read, a value it cannot
 //!   write).
+//! - `--namedstyles-sample`: the named styles sample of
+//!   `specs/0032-read-breadth-styles.md`, "Harness runs", and "Planning
+//!   rulings during P1": every named style read (`named_style` of every
+//!   `cellStyleXfs` index), the default font and every differential style
+//!   read; then, for each differential style whose fields are a font, a
+//!   fill and a border alone (at least one given),
+//!   `add_differential_style` of the value read, the package written. The
+//!   output is reopened and its differential styles read again. One line:
+//!   the word `namedstyles` then `named` (`cellStyle` children),
+//!   `named_xfs` (`cellStyleXfs` children), `builtin` (named styles with a
+//!   `builtinId`), `custom` (with `customBuiltin`), `resolved` (named
+//!   styles resolved), `default_font_size` (the default font's size, 0 for
+//!   none), `dxfs`, `dxf_fonts`, `dxf_fills`, `dxf_borders`, `dxf_numfmts`,
+//!   `dxf_alignments`, `dxf_protections` (the `dxf`s read with each field
+//!   given), `dxf_gradients` (a `fill` child read as no fill),
+//!   `dxf_implied_solid` (a `patternFill` with no `patternType`, read as
+//!   solid), `dxf_inside_sides` (`vertical` and `horizontal` sides read
+//!   past), `dxf_written` (written back) and `dxf_equal` (appended ones that
+//!   read back equal to the value read from the input). `dxf_gradients`,
+//!   `dxf_implied_solid` and `dxf_inside_sides` are taken from the part's
+//!   own bytes beside the typed read. COUNTS ONLY: no reference, index, name,
+//!   code or text is printed, and a style name is counted, never printed.
+//!   Asserted: `resolved` equal to `named_xfs`, each implied solid fill read
+//!   as `Solid`, the output's differential styles the input's followed by
+//!   the ones written, and `dxf_equal` equal to `dxf_written`; a failure is
+//!   exit 2 with the message and no output, and so is a refusal by the
+//!   layer (a style it cannot read).
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -736,7 +763,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
-| --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]";
+| --namedstyles-sample | --commentbox-sample | --anchor-sample | --remove-image-sample | --copy-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -837,6 +864,9 @@ enum Operation {
     /// Every cell format W uses read back typed and added again, and the
     /// counts.
     RoundtripSample,
+    /// Every named and differential style read, the differential styles
+    /// written back, and the counts.
+    NamedstylesSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -892,6 +922,7 @@ enum Error {
     GroupSample(&'static str),
     LinestyleSample(&'static str),
     RoundtripSample(&'static str),
+    NamedstylesSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -998,6 +1029,9 @@ impl fmt::Display for Error {
             }
             Error::RoundtripSample(what) => {
                 write!(f, "the output's {what} is not what the round trip implies")
+            }
+            Error::NamedstylesSample(what) => {
+                write!(f, "the {what} is not what the named styles imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1183,6 +1217,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--copy-sample" => {
             run(Path::new(input), Path::new(output), Operation::CopySample)
         }
+        [input, output, flag] if flag == "--namedstyles-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::NamedstylesSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1337,6 +1376,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RoundtripSample) {
         return roundtrip_sample(input, output);
     }
+    if matches!(operation, Operation::NamedstylesSample) {
+        return namedstyles_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1409,6 +1451,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::GroupSample => unreachable!("the group sample has its own path"),
         Operation::LinestyleSample => unreachable!("the line style sample has its own path"),
         Operation::RoundtripSample => unreachable!("the round-trip sample has its own path"),
+        Operation::NamedstylesSample => {
+            unreachable!("the named styles sample has its own path")
+        }
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -6645,6 +6690,222 @@ fn roundtrip_read_back(
         return Err(Error::RoundtripSample("read-back style"));
     }
     Ok((after, equal))
+}
+
+/// What the named styles sample reads of one `dxf` from the styles part's
+/// own bytes, beside the typed read.
+#[derive(Default)]
+struct DxfBytes {
+    /// Whether it has a `fill` child.
+    fill: bool,
+    /// Whether its fill's `patternFill` has no `patternType`.
+    implied_solid: bool,
+    /// Its border's `vertical` and `horizontal` children.
+    inside_sides: u64,
+}
+
+/// The named styles sample (`specs/0032-read-breadth-styles.md`, "Harness
+/// runs", `--namedstyles-sample`, and "Planning rulings during P1"). A
+/// failure after the output is in place removes it; a refusal by the layer
+/// is exit 2 with no output.
+fn namedstyles_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (named, named_xfs, builtin, custom) = {
+        let styles = package.styles()?;
+        let named = &styles.cell_styles;
+        (
+            named.len() as u64,
+            styles.cell_style_xfs.len() as u64,
+            named
+                .iter()
+                .filter(|style| style.builtin_id.is_some())
+                .count() as u64,
+            named.iter().filter(|style| style.custom_builtin).count() as u64,
+        )
+    };
+    let mut resolved = 0u64;
+    for index in 0..named_xfs {
+        let index = u32::try_from(index).map_err(|_| Error::NamedstylesSample("input's index"))?;
+        package.named_style(index)?;
+        resolved += 1;
+    }
+    if resolved != named_xfs {
+        return Err(Error::NamedstylesSample("input's named style count"));
+    }
+    let default_font_size = package.default_font()?.size.unwrap_or(0.0);
+    let read = package.differential_styles()?.to_vec();
+    let bytes = dxf_bytes(&mut package)?;
+    if bytes.len() != read.len() {
+        return Err(Error::NamedstylesSample("input's dxf count"));
+    }
+    let count = |given: fn(&Style) -> bool| read.iter().filter(|style| given(style)).count() as u64;
+    let pairs = read.iter().zip(&bytes);
+    let gradients = pairs
+        .clone()
+        .filter(|(style, bytes)| bytes.fill && style.fill.is_none())
+        .count() as u64;
+    let mut implied_solid = 0u64;
+    for (style, bytes) in pairs.clone() {
+        if bytes.implied_solid {
+            if style.fill.map(|fill| fill.pattern) != Some(Pattern::Solid) {
+                return Err(Error::NamedstylesSample("input's implied solid fill"));
+            }
+            implied_solid += 1;
+        }
+    }
+    let inside_sides: u64 = bytes.iter().map(|bytes| bytes.inside_sides).sum();
+    let writable: Vec<&Style> = read
+        .iter()
+        .filter(|style| {
+            style.number_format.is_none()
+                && style.alignment.is_none()
+                && style.protection.is_none()
+                && (style.font.is_some() || style.fill.is_some() || style.border.is_some())
+        })
+        .collect();
+    for (at, style) in writable.iter().enumerate() {
+        let index = package.add_differential_style(style)?;
+        if u64::from(index) != (read.len() + at) as u64 {
+            return Err(Error::NamedstylesSample("input's dxf index"));
+        }
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = namedstyles_read_back(output, &read, &writable);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let equal = checked?;
+    let mut line = String::from("namedstyles");
+    let values = [
+        ("named", named.to_string()),
+        ("named_xfs", named_xfs.to_string()),
+        ("builtin", builtin.to_string()),
+        ("custom", custom.to_string()),
+        ("resolved", resolved.to_string()),
+        ("default_font_size", default_font_size.to_string()),
+        ("dxfs", read.len().to_string()),
+        ("dxf_fonts", count(|style| style.font.is_some()).to_string()),
+        ("dxf_fills", count(|style| style.fill.is_some()).to_string()),
+        (
+            "dxf_borders",
+            count(|style| style.border.is_some()).to_string(),
+        ),
+        (
+            "dxf_numfmts",
+            count(|style| style.number_format.is_some()).to_string(),
+        ),
+        (
+            "dxf_alignments",
+            count(|style| style.alignment.is_some()).to_string(),
+        ),
+        (
+            "dxf_protections",
+            count(|style| style.protection.is_some()).to_string(),
+        ),
+        ("dxf_gradients", gradients.to_string()),
+        ("dxf_implied_solid", implied_solid.to_string()),
+        ("dxf_inside_sides", inside_sides.to_string()),
+        ("dxf_written", writable.len().to_string()),
+        ("dxf_equal", equal.to_string()),
+    ];
+    for (key, value) in values {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value);
+    }
+    print_line(&line)
+}
+
+/// Reopens the named styles sample's output and asserts what
+/// `--namedstyles-sample` says it asserts; gives the number of appended
+/// differential styles that read back equal to the value read.
+fn namedstyles_read_back(output: &Path, read: &[Style], written: &[&Style]) -> Result<u64, Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let back = package.differential_styles()?;
+    if back.len() != read.len() + written.len() {
+        return Err(Error::NamedstylesSample("output's dxf count"));
+    }
+    if back[..read.len()] != *read {
+        return Err(Error::NamedstylesSample("output's kept dxf"));
+    }
+    let equal = back[read.len()..]
+        .iter()
+        .zip(written)
+        .filter(|(back, written)| back == *written)
+        .count() as u64;
+    if equal != written.len() as u64 {
+        return Err(Error::NamedstylesSample("output's appended dxf"));
+    }
+    Ok(equal)
+}
+
+/// The `dxf` children of the styles part's main-namespace `<dxfs>`, as
+/// [`DxfBytes`] reads them from the part's bytes, in part order.
+fn dxf_bytes<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<Vec<DxfBytes>, Error> {
+    let part = package
+        .workbook()?
+        .styles
+        .clone()
+        .ok_or(Error::NamedstylesSample("input's styles part"))?;
+    let index = package.part(&part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut root: Vec<u8> = Vec::new();
+    // Each open element's local name and whether it is of the main
+    // namespace, the root first.
+    let mut path: Vec<(Vec<u8>, bool)> = Vec::new();
+    let mut out: Vec<DxfBytes> = Vec::new();
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if raw.starts_with(b"</") {
+            path.pop();
+            continue;
+        }
+        if !raw.starts_with(b"<") || raw.starts_with(b"<?") || raw.starts_with(b"<!") {
+            continue;
+        }
+        if path.is_empty() {
+            root = raw.to_vec();
+        }
+        let main = MAIN.contains(&element_namespace(raw, &root).as_slice());
+        let local = tag_local_name(raw).to_vec();
+        let is = |at: usize, name: &[u8]| path.get(at).is_some_and(|(n, m)| *m && n == name);
+        if main && is(1, b"dxfs") {
+            match path.len() {
+                2 if local == b"dxf" => out.push(DxfBytes::default()),
+                3 if is(2, b"dxf") && local == b"fill" => {
+                    if let Some(last) = out.last_mut() {
+                        last.fill = true;
+                    }
+                }
+                4 if is(2, b"dxf")
+                    && is(3, b"fill")
+                    && local == b"patternFill"
+                    && tag_attribute(raw, b"patternType").is_none() =>
+                {
+                    if let Some(last) = out.last_mut() {
+                        last.implied_solid = true;
+                    }
+                }
+                4 if is(2, b"dxf")
+                    && is(3, b"border")
+                    && (local == b"vertical" || local == b"horizontal") =>
+                {
+                    if let Some(last) = out.last_mut() {
+                        last.inside_sides += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !raw.ends_with(b"/>") {
+            path.push((local, main));
+        }
+    }
+    Ok(out)
 }
 
 /// The attributes the line style sample's split and edit set on a `<col>`.
