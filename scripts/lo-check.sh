@@ -101,7 +101,7 @@ lo_check() {
     printf 'no ods file was written\n' >"$reason"
     return 1
   fi
-  counts=$(LO_REFERENCE=$reference LO_ODS=$ods LO_SHEET=$LO_SHEET_PATTERN python3 -c '
+  counts=$(LO_REFERENCE=$reference LO_ODS=$ods LO_SHEET=$LO_SHEET_PATTERN python3 -I -B -c '
 import os, re, sys, zipfile
 try:
     workbook = zipfile.ZipFile(os.environ["LO_REFERENCE"]).read("xl/workbook.xml").decode("utf-8", "replace")

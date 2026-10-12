@@ -194,7 +194,7 @@ if wanted licences; then
 # planning ruling.
 cargo metadata --format-version 1 --all-features >"$OUT/metadata.json" 2>"$OUT/metadata-err" ||
   fail licences "'cargo metadata' exited non-zero" "$OUT/metadata-err"
-if ! python3 - "$OUT/metadata.json" >"$OUT/licences" 2>&1 <<'PY'; then
+if ! python3 -I -B - "$OUT/metadata.json" >"$OUT/licences" 2>&1 <<'PY'; then
 import json
 import re
 import sys

@@ -129,7 +129,7 @@ reason_class() {
 # sheet_count <workbook package>: the sheet elements in its xl/workbook.xml,
 # by the library's pattern.
 sheet_count() {
-  LO_SHEET=$LO_SHEET_PATTERN python3 -c '
+  LO_SHEET=$LO_SHEET_PATTERN python3 -I -B -c '
 import os, re, sys, zipfile
 workbook = zipfile.ZipFile(sys.argv[1]).read("xl/workbook.xml").decode("utf-8", "replace")
 print(len(re.findall(os.environ["LO_SHEET"], workbook)))
@@ -168,7 +168,7 @@ done
 
 # The record pair, from the rows alone.
 summary=$(RECORD_ROWS=$rows RECORD_OUT=$OUT RECORD_STEM=$STEM RECORD_IMAGE=$LO_IMAGE \
-  RECORD_TIMEOUT=$LO_TIMEOUT RECORD_HEADER=$TXT_HEADER python3 -c '
+  RECORD_TIMEOUT=$LO_TIMEOUT RECORD_HEADER=$TXT_HEADER python3 -I -B -c '
 import datetime, os
 env = os.environ
 # Each scratch row carries the sheet count of the input after the nine record
