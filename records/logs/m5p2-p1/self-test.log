@@ -1,0 +1,109 @@
+command: git rev-parse HEAD
+about: gate self-test at commit 3865f303cab29342b187dc41e905caaa4860bfd0; HEAD at run: 3865f303cab29342b187dc41e905caaa4860bfd0
+phase: M5 part 2 P1 (specs/0033-read-breadth-survey.md, "P1: the survey": scripts/check.sh, a gate file, changed by the phase commit 3865f30, its python3 call given -I -B) (specs/0007-gate-self-test.md) self-test.log; run at 2026-10-12T12:40:50Z
+rerun: attempt 1 (launched 2026-10-12T12:40:17Z without PHASE_NOTE and LAUNCH_NOTE) was stopped by the session within a minute to name them; kept in <phase>/superseded/self-test-attempt-1: self-test.log sha256 0b7b91675ecf748e297614147710b8379aa9ffeefc362961a8064a6a940425f0, self-test.stderr sha256 deec52d33fc6c7118f1f5a636ec7dfb4bb61b8121fcb674040201db5e44d7212, SHA256SUMS.txt sha256 940ea8a683f298f319e4edbd7f1b8a24049575febf48873c2040b2f2c084073a
+invocation: scripts/gate-self-test.sh; launch form: detached with setsid nohup (specs/0001, the sessions rule), exit code written to a file; TMPDIR <phase>/self-test/tmp; the session ran no build and no other log during it, writing scripts only
+mode: default
+privacy invocation: full history, the invocation every source log used
+identity set in every clone from scripts/privacy-identity.txt
+scratch denylist per privacy case, mode 600, one sentinel; the sentinel is never printed
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the base clone
+cloned in 1s; HEAD 3865f303cab29342b187dc41e905caaa4860bfd0
+
+## hygiene cases, through scripts/check.sh --only hygiene
+case H0   source control, unchanged clone           expect [exit 0; PASS hygiene]; got [exit 0; PASS hygiene]; as-expected; 1s
+case H1a  source t0-p5 b1 via t0-p6b L842           expect [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H1b  source t0-p5 b2 via t0-p6b L842           expect [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H2a  source t0-p6c a1 + i L843                 expect [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H2b  source t0-p6c a2 + i L843                 expect [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H2c  source t0-p6c a3 + i L843                 expect [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 1 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H3   source t6-p1 negative N7 (established this phase) expect [exit 1; FAIL hygiene: 2 office file(s) tracked outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL hygiene: 2 office file(s) tracked outside tests/fixtures/ (paths not printed)]; as-expected; 1s
+case H4a  source t2-p0 g L837 (same wording as H4b, root path) expect [exit 1; FAIL hygiene: 1 tracked Zone.Identifier file(s) (paths not printed)]; got [exit 1; FAIL hygiene: 1 tracked Zone.Identifier file(s) (paths not printed)]; as-expected; 1s
+case H4b  source t2-p0 g L837                       expect [exit 1; FAIL hygiene: 1 tracked Zone.Identifier file(s) (paths not printed)]; got [exit 1; FAIL hygiene: 1 tracked Zone.Identifier file(s) (paths not printed)]; as-expected; 1s
+case H5   source t0-p5b d via t0-p6 L706            expect [exit 1; FAIL hygiene: 1 tracked path(s) containing emend-testing (paths not printed)]; got [exit 1; FAIL hygiene: 1 tracked path(s) containing emend-testing (paths not printed)]; as-expected; 1s
+case H6   source t0-p5b b L222                      expect [exit 1; FAIL hygiene: 1 tracked path(s) contain control bytes (paths not printed)]; got [exit 1; FAIL hygiene: 1 tracked path(s) contain control bytes (paths not printed)]; as-expected; 1s
+case H7   source t0-p5b a L204                      expect [exit 1; FAIL hygiene: U+2014 in tracked file(s): notes.txt]; got [exit 1; FAIL hygiene: U+2014 in tracked file(s): notes.txt]; as-expected; 1s
+case H8a  source t0-p5b c L240                      expect [exit 0; PASS hygiene]; got [exit 0; PASS hygiene]; as-expected; 2s
+case H8b  source t0-p5b h L349                      expect [exit 1; FAIL hygiene: U+2014 in tracked file(s): link-dangling]; got [exit 1; FAIL hygiene: U+2014 in tracked file(s): link-dangling]; as-expected; 2s
+case H9   source t0-p6b c L512 (PASS either step)   expect [exit 0; PASS hygiene]; got [exit 0; PASS hygiene]; as-expected; 1s
+case H10  source t0-p5b e L267,L274                 expect [exit 1; FAIL hygiene: ANTHROPIC_API_KEY is set in the environment; lines 1]; got [exit 1; FAIL hygiene: ANTHROPIC_API_KEY is set in the environment; lines 1]; as-expected; 1s
+
+## privacy cases, through scripts/privacy.sh with a scratch denylist
+case V0   source control, unchanged clone           expect [exit 0; PASS privacy]; got [exit 0; PASS privacy]; as-expected; full history, 189s
+case V1   source t0-p6 a L490                       expect [exit 1; FAIL identity: commit <sha> author email differs from scripts/privacy-identity.txt]; got [exit 1; FAIL identity: commit <sha> author email differs from scripts/privacy-identity.txt]; as-expected; full history, 190s
+case V2   source t0-p6 b L502                       expect [exit 1; FAIL message: commit <sha> has a Claude-Session line]; got [exit 1; FAIL message: commit <sha> has a Claude-Session line]; as-expected; full history, 190s
+case V3   source t0-p6 c L514                       expect [FAIL denylist: commit <sha> path c.txt denylist entry 1 line 1]; got [FAIL denylist: commit <sha> path c.txt denylist entry 1 line 1]; as-expected; full history, exit 1, 191s
+case V4   source t0-p6 d L528                       expect [exit 1; FAIL patterns: commit <sha> path d.txt pattern 1 line 2]; got [exit 1; FAIL patterns: commit <sha> path d.txt pattern 1 line 2]; as-expected; full history, 190s
+case V5   source t0-p6d a L352-354                  expect [FAIL patterns: commit <sha> path h.txt pattern 8 line 1 + FAIL patterns: commit <sha> path h.txt pattern 10 line 2 + FAIL patterns: commit <sha> path h.txt pattern 11 line 3]; got [FAIL patterns: commit <sha> path h.txt pattern 8 line 1 + FAIL patterns: commit <sha> path h.txt pattern 10 line 2 + FAIL patterns: commit <sha> path h.txt pattern 11 line 3]; as-expected; full history, exit 1, 190s
+case V6   source t0-p6d b L361-365                  expect [exit 0; PASS privacy]; got [exit 0; PASS privacy]; as-expected; full history, 191s
+case V7a  source t0-p6b g L789                      expect [exit 1; FAIL email: commit <sha> path g1.txt line 1]; got [exit 1; FAIL email: commit <sha> path g1.txt line 1]; as-expected; full history, 189s
+case V7b  source t0-p6b g2 L800                     expect [exit 1; FAIL message: commit <sha> email line 3]; got [exit 1; FAIL message: commit <sha> email line 3]; as-expected; full history, 190s
+case V7c  source t0-p6c e L651, ordinal normalised: it is the entry's position in this repository's root tree, not a property of the gate expect [exit 1; FAIL paths: commit <sha> tree entry <n> email (path not printed)]; got [exit 1; FAIL paths: commit <sha> tree entry <n> email (path not printed)]; as-expected; full history, 191s
+case V7d  source t0-p6c d L639                      expect [exit 1; FAIL header: commit <sha> email line 5]; got [exit 1; FAIL header: commit <sha> email line 5]; as-expected; full history, 190s
+case V8   source t0-p6c g-a L686-688 + t2-p0 b (archives wording) expect [FAIL paths: commit <sha> 1 path(s) containing emend-testing (paths not printed) + FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed) + FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; got [FAIL paths: commit <sha> 1 path(s) containing emend-testing (paths not printed) + FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed) + FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; as-expected; full history, exit 1, 192s
+case V9a  source t0-p6c c L590 via t2-p0 b1 L524 (wording) expect [exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; as-expected; full history, 191s
+case V9b  source t2-p0 b1 L524                      expect [exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL archives: commit <sha> 1 blob(s) with an archive or compound-file signature outside tests/fixtures/ (paths not printed)]; as-expected; full history, 190s
+case V10  source t0-p6b c L512                      expect [exit 0; PASS privacy]; got [exit 0; PASS privacy]; as-expected; full history, 191s
+case V11missing source t0-p6 e1 L539                      expect [exit 2; ERROR privacy: the private denylist is missing]; got [exit 2; ERROR privacy: the private denylist is missing]; as-expected; 1s
+case V11mode644 source t0-p6 e2 L548                      expect [exit 2; ERROR privacy: the private denylist must be mode 600]; got [exit 2; ERROR privacy: the private denylist must be mode 600]; as-expected; 1s
+case V11empty source t0-p6 e3 L557                      expect [exit 2; ERROR privacy: the private denylist holds no entries]; got [exit 2; ERROR privacy: the private denylist holds no entries]; as-expected; 1s
+case V11space source t0-p6b f L776                      expect [exit 2; ERROR privacy: denylist entry 1 contains whitespace]; got [exit 2; ERROR privacy: denylist entry 1 contains whitespace]; as-expected; 1s
+case V12remove source t0-p6b e L589,L677 (count read at run time) expect [exit 2; ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11]; got [exit 2; ERROR privacy: scripts/privacy-patterns.txt holds 10 pattern(s); expected 11]; as-expected; 1s
+case V12add source t0-p6b e L589,L677 (count read at run time) expect [exit 2; ERROR privacy: scripts/privacy-patterns.txt holds 12 pattern(s); expected 11]; got [exit 2; ERROR privacy: scripts/privacy-patterns.txt holds 12 pattern(s); expected 11]; as-expected; 1s
+case V13  source t0-p6 i L675                       expect [exit 2; ERROR privacy: git failed: cat-file blob <sha>]; got [exit 2; ERROR privacy: git failed: cat-file blob <sha>]; as-expected; 46s
+case V14  source t0-p6 o L760                       expect [exit 2; ERROR privacy: shallow repository or unreadable repository state; history cannot be checked]; got [exit 2; ERROR privacy: shallow repository or unreadable repository state; history cannot be checked]; as-expected; full history, 4s
+case V15  source t0-p6 p L770                       expect [exit 1; FAIL message: commit <sha> has non-ASCII bytes]; got [exit 1; FAIL message: commit <sha> has non-ASCII bytes]; as-expected; full history, 192s
+case V16  source t0-p6 q L779                       expect [exit 2; usage: scripts/privacy.sh [--range <rev>]]; got [exit 2; usage: scripts/privacy.sh [--range <rev>]]; as-expected; 1s
+case V17a source t0-p6c a1 L516                     expect [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; as-expected; full history, 191s
+case V17b source t0-p6c a2 L533                     expect [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; as-expected; full history, 191s
+case V17c source t0-p6c a3 L550                     expect [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; as-expected; full history, 191s
+case V17d source t0-p6c b1 L564                     expect [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; got [exit 1; FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed)]; as-expected; full history, 191s
+case V18  source t2-p0 a L487-488                   expect [FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed) + FAIL paths: commit <sha> 1 Zone.Identifier path(s) (paths not printed)]; got [FAIL paths: commit <sha> 1 office file path(s) outside tests/fixtures/ (paths not printed) + FAIL paths: commit <sha> 1 Zone.Identifier path(s) (paths not printed)]; as-expected; full history, exit 1, 191s
+
+## hook cases
+case K1   source t0-p6 g L578-L630 structure + t0-p6 d L528 (pattern class; the source's denylist route is refused by the hook since P6b) expect [install 0; clean push 0 with PASS privacy 1; blocked push 1 with FAIL patterns 1; remote refs 1; fixture printed 0 and 0]; got [install 0; clean push 0 with PASS privacy 1; blocked push 1 with FAIL patterns 1; remote refs 1; fixture printed 0 and 0]; as-expected; 388s
+case K2   source t0-p6b d3 L555                     expect [exit 1; refusal line 1]; got [exit 1; refusal line 1]; as-expected; 2s
+case K3   source t6-p1 negative N8 (first exercise of this refusal) expect [exit 1; install-hooks: core.hooksPath is set to '.githooks'; git would not run .git/hooks/pre-push; lines 1]; got [exit 1; install-hooks: core.hooksPath is set to '.githooks'; git would not run .git/hooks/pre-push; lines 1]; as-expected; 1s
+
+## build-level cases
+case B1   source t0-p3 a L100 via t0-p4 L319 (colour off, added after) expect [exit 1; FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero]; got [exit 1; FAIL fmt: 'cargo fmt --all --check -- --color never' exited non-zero]; as-expected; 2s
+
+## captured outputs
+  captured output files: 52
+  control bytes 0, non-ASCII bytes 0, sentinel 0 (expect 0, 0 and 0)
+
+## totals
+  clone failures: 0 (expect 0)
+  cases performed: 50; cases selected: 50
+  wall time: 4474s
+run ended at 2026-10-12T13:55:24Z
+self-test: 50 cases, 0 unexpected, 0 errors
+RESULT: PASS
