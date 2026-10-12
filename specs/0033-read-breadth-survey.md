@@ -664,6 +664,89 @@ push carries 3f2082e and this part's commits, on planning's word
 and the maintainer's authorisation typed in the implementing
 session.
 
+## Planning rulings on P1 (2026-10-12)
+
+The implementing session's report (its file, sha256 f2c8c6d2...)
+listed twelve departures and findings. Rulings, numbered as the
+report numbers them:
+
+1. `custom_xml` 30 in 10 workbooks: the sample is RIGHT and the
+   "Facts" bullet above was wrong. The bullet's 60 counted every
+   override under `customXml/` (the item and its properties part,
+   two per item); the table's rule is one `customXmlProperties+xml`
+   per item, and this section's own relationship line reads
+   `customXml` 30. Planning recounted on 2026-10-12: 30
+   `customXmlProperties+xml` overrides in 10 workbooks, 60
+   overrides under `customXml/`. Not a finding against the code;
+   no change. P2's run log carries 30 in 10 as planning's figure.
+2. `SLICER` and `TIMELINE` written as one form twice: accepted.
+   Microsoft's relationship types have no strict spelling; the
+   "Facts" sentence "each with its strict spelling" is wrong for
+   those two and is corrected by this ruling.
+3. Strict content types: accepted. A strict package writes the
+   transitional content types (only namespaces and relationship
+   type URIs differ), so one spelling counts both; the "The survey"
+   paragraph "The strict content types ... count beside the
+   transitional" is superseded by this ruling, and the test
+   `a_strict_package_counts_its_worksheet_with_the_transitional`
+   covers the case P1's test list called "a strict-typed worksheet
+   counted with the transitional".
+4. `PRINTER_SETTINGS`: accepted, a constant `SheetParts` needs; it
+   joins the catalogue in P3.
+5. `COMMENTS`, `VML_DRAWING`, `DRAWING`, `IMAGE` and `HYPERLINK`
+   gated with `read` as well: accepted, `sheet_parts` needs them
+   under `read` alone.
+6. The scripts commit (`python3 -I -B` in the three committed
+   scripts): accepted as this phase's commit; the gate self-test
+   was due and passed (50 cases).
+7. The keep's one new pair from the tool test: accepted; the open
+   record holds it (1100 pairs, findings 0).
+8. TMPDIR under `<phase>/test/tmp` and `<phase>/negative/tmp`, and
+   the gate's consumer directory under `<phase>/gate`: accepted,
+   each under the phase directory and printed with its root line.
+9. The P5 plant's wording: accepted (FACTS.md is not committed).
+10. The tool test's wrong comment ("the workbook's external
+    hyperlink is not a sheet's and is not counted"; the hyperlink
+    is the sheet's and the test asserts 1): a FINDING against the
+    tool commit. Fixed in P2's tool commit by rewriting the comment
+    to what the test asserts; P2's report names the fix. No
+    separate commit.
+11. Release binaries in P1's corpus runs: the carried form is
+    right. P3's sentence "byte-identical to P1's, P2's and this
+    phase's debug runs" is corrected by this ruling to "P3's
+    release binaries' outputs byte-identical to P1's and P2's
+    recorded outputs and to this phase's own runs"; the profile
+    the earlier runs used is whatever their logs state.
+12. The negative log's plain `mktemp` file after the TMPDIR check:
+    accepted for P1. From P2, every `mktemp` call of a logged
+    script, file or directory, is checked under TMPDIR with the
+    same control, or the script makes no plain file.
+
+The report's own corrections after the independent check (the
+self-test's last line, the run log's fixture reading 2, the rm
+list, the end times) are accepted as made; nothing in the code or
+the logs changed after the check.
+
+### Planning verification of P1 (2026-10-12)
+
+Verified from primaries: the doc commit a1f484c holds the three
+docs at the hashes planning handed over (b9f13b40, 59caeef2,
+f70d0ab3); the crate, tool and scripts commits change only the
+files the report names (the scripts commit: four `python3` lines);
+every commit message is ASCII and ends with the Co-Authored-By line
+alone; the record commit's eleven files hash as the report says;
+each log's last line is as reported; the gate pruned the four part
+1 target roots (the du lines as reported) and read "files scanned:
+18; Python calls: 4; calls without -B: 0" with its base control at
+4; the run log's corpus totals match planning's recount field by
+field (custom_xml per ruling 1); the scan read 0 hits over the four
+commits. Planning's own build at 3865f30 (worktree, offline): crate
+tests on both targets 515, 594, 632 and 966; workspace 1168;
+clippy and doc 0 warnings; `--kinds-sample` over the 27 corpus
+workbooks on both targets, every output and every line byte-equal
+to the run directory's; planning's privacy scan of the five commits
+through the record: 1624 blobs, 0 findings. P1 DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-12: 1, 2 and 3 as recommended (A
