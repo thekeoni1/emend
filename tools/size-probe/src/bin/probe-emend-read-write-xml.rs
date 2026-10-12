@@ -12,6 +12,14 @@
 //! `read_items` (the shared strings table's items walked one at a time), so
 //! every read path is linked and nothing is dead.
 //!
+//! Then, as `specs/0032-read-breadth-styles.md` "Size" grows it ("Planning
+//! rulings during P3", ruling 1), five more: `read_named` (`named_style` of
+//! every `cellStyleXfs` index), `read_dxfs` (`differential_styles`),
+//! `read_resolved` (the colours of the fonts `read_fonts` counts that
+//! `resolve_color` resolves), `read_tinted` (those whose `tinted` differs
+//! from their `rgb`) and `read_default_size` (`default_font`'s size, 0 for
+//! none).
+//!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area comes from the command line, so the compiler cannot prove an edit
 //! or a read path dead and drop it.
@@ -151,7 +159,8 @@ fn main() -> ExitCode {
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
                  full_border {}\nmerges {}\nread_fonts {}\nread_cols {}\nread_rows {}\n\
-                 read_merges {}\nread_items {}",
+                 read_merges {}\nread_items {}\nread_named {}\nread_dxfs {}\n\
+                 read_resolved {}\nread_tinted {}\nread_default_size {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -185,6 +194,11 @@ fn main() -> ExitCode {
                 read.rows,
                 read.merges,
                 read.items,
+                read.named,
+                read.dxfs,
+                read.resolved,
+                read.tinted,
+                read.default_size,
             );
             ExitCode::SUCCESS
         }
@@ -202,11 +216,20 @@ struct ReadBack {
     rows: u64,
     merges: u64,
     items: u64,
+    named: u64,
+    dxfs: u64,
+    resolved: u64,
+    tinted: u64,
+    default_size: f64,
 }
 
 /// The feature's own work: `second` opened and read back through
 /// `cell_style` for every cell of `sheet`, `columns`, `rows`,
-/// `sheet_settings` and `shared_string_items`.
+/// `sheet_settings` and `shared_string_items`; then `named_style` of every
+/// `cellStyleXfs` index, `differential_styles`, `resolve_color` of the
+/// colour of every font read with `tinted` of each one resolved, and
+/// `default_font` (`specs/0032-read-breadth-styles.md`, "Size"; "Planning
+/// rulings during P3", ruling 1).
 fn read_back(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<ReadBack, String> {
     let file = File::open(second).map_err(|e| e.kind().to_string())?;
     let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
@@ -239,12 +262,48 @@ fn read_back(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<ReadBack, String>
         item.map_err(|e| e.to_string())?;
         items += 1;
     }
+    let xfs = package
+        .styles()
+        .map_err(|e| e.to_string())?
+        .cell_style_xfs
+        .len();
+    let mut named = 0u64;
+    for at in 0..xfs {
+        let at = u32::try_from(at).map_err(|e| e.to_string())?;
+        package.named_style(at).map_err(|e| e.to_string())?;
+        named += 1;
+    }
+    let dxfs = package
+        .differential_styles()
+        .map_err(|e| e.to_string())?
+        .len() as u64;
+    let mut resolved = 0u64;
+    let mut tinted = 0u64;
+    for font in &fonts {
+        let Some(color) = &font.color else { continue };
+        if let Some(found) = package.resolve_color(color).map_err(|e| e.to_string())? {
+            resolved += 1;
+            if found.tinted() != found.rgb {
+                tinted += 1;
+            }
+        }
+    }
+    let default_size = package
+        .default_font()
+        .map_err(|e| e.to_string())?
+        .size
+        .unwrap_or(0.0);
     Ok(ReadBack {
         fonts: fonts.len() as u64,
         cols,
         rows,
         merges,
         items,
+        named,
+        dxfs,
+        resolved,
+        tinted,
+        default_size,
     })
 }
 
