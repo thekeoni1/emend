@@ -861,6 +861,164 @@ Rulings on the independent check's points and the disclosures:
    ruling 9's three accessors with `theme_colors`, `resolve_color`,
    `ResolvedColor` and `tinted`, the count stated.
 
+## Planning rulings during P3 (2026-10-12)
+
+Raised by the implementing session after the doc commit f84f905
+(this spec at 07bcd9f3 and ROADMAP.md at 43e4ed35, checked by
+planning), before any code commit.
+
+1. The probe's new reads ("Size"). After `read_back`'s present
+   reads: `named_style` of every `cellStyleXfs` index;
+   `differential_styles`; `resolve_color` of the colour of every
+   font the probe already reads (the cell fonts `read_fonts`
+   counts; "every font colour read" means those), with `tinted`
+   called on each resolved colour; `default_font`. Five lines
+   appended in this order: `read_named` (named styles resolved),
+   `read_dxfs`, `read_resolved` (the `Some` count), `read_tinted`
+   (resolved colours whose `tinted` differs from `rgb`, so the
+   formula is linked and used) and `read_default_size` (0 for
+   none). Any refusal fails the probe as today. The size log's
+   input workbook is checked at the dry run: a theme relationship
+   naming a part the archive lacks is a defect of the fixture, not
+   of the probe, and is fixed in the size log's fixture (a minimal
+   fictional theme part added, or the relationship dropped),
+   disclosed as a finding with the fixture's before and after
+   hashes; the probe does not code around it. No relationship
+   resolves theme colours to `None`, which is fine.
+2. Commits: (1) crate, ruling 2's test and doc clause, the
+   catalogue and limits, the styles header sentence and the
+   reflow; (2) the read probe grown; (3) `CHANGELOG.md` alone as
+   the phase commit. The bullet names what the feature `read`
+   gained in this part (named styles, differential styles, the
+   default font, colours resolved) and cites this spec.
+3. The carried checks: the API listing (M4 part 1 P3's T1 listing
+   program and T2 doc build) in test.log with the record written
+   by its formatter and the spec map extended to this part; the
+   citation check (M4 part 2 P1's) in run.log. As recommended.
+4. Log order gate, test, negative, size, run, scan. The size log
+   builds release emend-copy for both targets and prints both
+   sha256; run.log copies the two, checks them against size.log's
+   lines, and runs both samples on both targets. Identity is by
+   sha256 of every output and every line against the P1 run
+   directory (2026-10-11-c8b9391-namedstyles) and the P2 one
+   (2026-10-12-70b3e00-colors), both still on disk, every row
+   compared, the count of identical rows printed per sample and
+   label and asserted equal to 27; the per-row lo, lo_in and
+   entry checks the template makes stay; the namedcmp and
+   colorcmp comparisons are not rerun (they verified these bytes
+   in P1 and P2). Records `m5p1-p3-namedstyles-<utc-date>-
+   <shortsha>.{md,txt}`, `m5p1-p3-colors-...` and
+   `m5p1-open-...`.
+5. The negative log: the union of P1's and P2's cases (12,
+   renumbered, each with its source message and its original
+   number), one case for "no such part" (a theme relationship
+   naming a missing part, through `--colors-sample`), and the one
+   shared control B0. Stated unreachable, each with its covering
+   test: `named_style` past the list (the tool iterates within
+   `cellStyleXfs`); a tint out of range at `resolve_color` (the
+   styles read refuses it first); `default_font` with no `<fonts>`
+   only if the binary cannot reach it, which the dry run settles
+   (if `--namedstyles-sample` reaches it, it is a case).
+   `Error::Xml` and the unbound-prefix refusal are not this part's
+   messages and are left out, the log saying so in one line.
+6. The test log's figures: off 515, read 585, read,rules 623, all
+   957; workspace 1157. Plants: P2's ten carried and one for
+   ruling 2's test (the override ignored past 63), 11 in all.
+
+## Planning verification and rulings on P3 (2026-10-12)
+
+Verified from primaries: the four commits f84f905 (docs), c0ee63d
+(crate), 08070f7 (probe) and 6f51899 (CHANGELOG, the phase commit)
+read in full against "P3", "Size", P2 verification rulings 1, 2
+and 8 and P3 rulings 1 to 6; the record commit 2dfca6c holds the
+six logs, the independent check and the eight records at the
+hashes the report gives (gate 629ec669, test aca204b3, negative
+a15a5e9e, size 3ab98393, run 190bbe46, scan 780e6473, check
+db45c6f5; size record 8e4cbdc0, API record e3b7f27c, the sample
+records aa120792, 6218e9a0, 60dbf622, e2c78863, the open record
+04a4d97b, 1ca0a182). The test log passes 515, 585, 623 and 957 on
+both targets, workspace 1157, eleven plants each failing their
+set, the API listing 567 rows with 1 gone and 24 new; the
+negative log shows N1 to N12 carried with their sources, N13 "no
+such part" and N14 "a style cannot be read", each exit 2 with no
+output, two controls accepted; the size log gives the core's
+growth 0, the budget 436992 (21760 under 458752), the feature
+`read`'s cost 70044 (18056 over M4 part 2's 51988), the five new
+probe lines and no fixture fix needed; the run log proves both
+samples on both targets byte-identical by sha256 to the P1 and
+P2 run directories, 27 rows each, the citation check passed, the
+keep 1099 pairs unchanged; the scan PASS, 0 hits.
+Planning's own run: the phase commit built in a detached worktree,
+crate tests 515, 585, 623, 957 on both targets, workspace 1157,
+clippy and rustdoc 0, release emend-copy on both targets, the i686
+binary at the size log's hash df512f91; both samples over the 27
+corpus files on both targets, every output and every line
+byte-identical to the P1 and P2 run directories; the three size
+probes rebuilt with the size profile for i686 musl at the phase
+commit: `probe-zip-xml` 533216, `probe-emend-format-write-xml`
+970208 and `probe-emend-read-write-xml` 1040252 section bytes,
+the record's figures to the byte, so the budget, the growth and
+the cost are reproduced; the catalogue's two P2 messages sit in
+the paragraph "Reading back adds these, the Cargo feature
+`read`'s"; planning's privacy scan over e39d028..2dfca6c: 5
+commits, 1606 blobs, 0 findings.
+
+Rulings on the independent check's points and the disclosures:
+
+1. The run step's refused first attempt (check point 1,
+   disclosure 1). It logged nothing (an empty run.log, a 127-byte
+   stderr) because the script's own guard found the dry run's
+   records in place; attempt 2 is the one logged run, and attempt
+   1 is named and hashed in both scans through RERUN_NOTE and
+   RERUN_FILES. Accepted this once: `specs/0001` asks that a
+   superseded attempt be hashed before the next one starts, and
+   from the close-out on a refused or failed attempt is hashed
+   that way, in the step's own log through its RERUN inputs,
+   before the rerun is launched.
+2. Two B0 controls, one per fixture family (point 2): accepted;
+   ruling 5's "one shared control" meant one per fixture, which
+   is what two families need. The report names it (item 9).
+3. N14's attribution to `default_font` (point 3) is accepted on
+   the reasoning the log gives: with no `<cellStyleXfs>` the
+   sample resolves no named style, the read accepts a part with
+   no `<fonts>`, and `default_font` is the one call left that
+   refuses it, as P1's code reads. From the close-out on, a case
+   whose cause is argued rather than isolated carries a control
+   (here: the same part with `<fonts>` kept, accepted).
+4. The repeated breaches (point 4, disclosures 3 to 5). A hand
+   `rm -rf` for the third time, a generator run with `python3 -I`
+   leaving `gen/__pycache__`, and two forks writing `/tmp/x`.
+   Rulings: `python3 -I -B` is the form for every Python call in
+   a generator or a logged script from the close-out on, and the
+   gate prints and checks that no committed script calls
+   `python3` without `-B`; a hand `rm -rf` outside a script's own
+   directory is a disclosed breach each time and the implementing
+   session records the rule in its own memory; a session's
+   temporary files go under the phase directory, never `/tmp`.
+5. The report's wording corrections (point 5) stand as applied.
+6. "The messages by feature" (point 6): met by placement, checked
+   by planning in the source at 6f51899 (verification above).
+7. The API record's one gone row (point 7) is the re-export `use
+   read::CellStyle`, now listed as `use read::{CellStyle,
+   NamedStyle}` among the new items: a rename, no item lost. The
+   record stands; this section says so.
+8. The probe's `read_dxfs`, `read_tinted` and `read_default_size`
+   are 0 on the size input (check note d): the calls are linked
+   and run, which is what the size measures; a later part that
+   grows the read probe again gives the size fixture a `dxf`, a
+   tinted theme font and a default font with a size.
+9. The superseded commits and dry attempts stay unreferenced;
+   `m5p1-p3/target` stays beside the part's two other roots, all
+   pruned at the next part's first gate that builds.
+10. P3 is DONE and the part's code is complete. The close-out
+   follows "Close-out push (after P3)": its doc commit carries
+   this spec as amended (P3 rulings 1 to 6 and this section) and
+   ROADMAP.md with the P3 row DONE and the Close row IN PROGRESS;
+   then pre mode on a clean tree, one independent check, the push
+   on planning's word and the maintainer's authorisation typed in
+   the implementing session, the record commit with the three
+   logs.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-11: 1, 2 and 3 as recommended (A
