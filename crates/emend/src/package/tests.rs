@@ -7420,6 +7420,8 @@ mod conditional;
 mod copy;
 #[cfg(feature = "rules")]
 mod dxf;
+#[cfg(feature = "read")]
+mod extlink;
 #[cfg(feature = "rowcol")]
 mod grouping;
 #[cfg(feature = "images")]

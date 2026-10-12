@@ -1931,11 +1931,15 @@
 //! output archive itself; that is the caller's memory, not this layer's.
 
 #[cfg(feature = "read")]
+mod extlink;
+#[cfg(feature = "read")]
 mod pivot;
 #[cfg(feature = "read")]
 mod sheet_read;
 #[cfg(feature = "read")]
 mod survey;
+#[cfg(feature = "read")]
+pub use extlink::{ExternalLink, ExternalLinkKind};
 #[cfg(feature = "read")]
 pub use pivot::{
     Axis, DataField, FieldRef, PivotCache, PivotField, PivotSource, PivotTable, Subtotal,
@@ -2798,6 +2802,10 @@ pub struct Package<R: Read + Seek> {
     /// feature `read`.
     #[cfg(feature = "read")]
     pivot_tables: Option<Vec<PivotTable>>,
+    /// The external links, read once by [`Package::external_links`]. The
+    /// Cargo feature `read`.
+    #[cfg(feature = "read")]
+    external_links: Option<Vec<ExternalLink>>,
     /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
     ///
     /// Nothing is removed implicitly: a removed relationship's target, a
@@ -5397,6 +5405,8 @@ impl<R: Read + Seek> Package<R> {
             theme_colors: None,
             #[cfg(feature = "read")]
             pivot_tables: None,
+            #[cfg(feature = "read")]
+            external_links: None,
             edits: Recorded::default(),
         })
     }

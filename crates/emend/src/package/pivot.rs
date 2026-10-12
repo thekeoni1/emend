@@ -18,7 +18,10 @@ use std::io::{Read, Seek};
 use quick_xml::XmlVersion;
 use quick_xml::events::{BytesStart, Event};
 
-use super::{MAIN, NO_SUCH_PART, PIVOT_CACHE_DEFINITION, PIVOT_TABLE, Package, SheetKind};
+use super::{
+    MAIN, NO_SUCH_PART, PIVOT_CACHE_DEFINITION, PIVOT_TABLE, Package, SheetKind,
+    is_relationships_attribute,
+};
 use crate::archive::Error;
 use crate::cells::{Area, skip_subtree};
 use crate::xml::{Scope, Stream};
@@ -279,13 +282,15 @@ impl<R: Read + Seek> Package<R> {
 }
 
 /// An element met: whether it is in the main namespace, its local name, its
-/// unprefixed attributes unescaped and normalised, and whether it was an
-/// empty-element tag.
-struct Element {
+/// unprefixed attributes unescaped and normalised, its `r:id` (either form of
+/// the relationships namespace), and whether it was an empty-element tag.
+/// The external link reader walks its parts with the same helpers.
+pub(super) struct Element {
     main: bool,
     local: Vec<u8>,
     attributes: Vec<(Vec<u8>, String)>,
-    empty: bool,
+    relationship_id: Option<String>,
+    pub(super) empty: bool,
 }
 
 impl Element {
@@ -294,34 +299,46 @@ impl Element {
         let main = MAIN.contains(&namespace.unwrap_or_default());
         let local = local.to_vec();
         let mut attributes = Vec::new();
+        let mut relationship_id = None;
         for attribute in start.attributes() {
             let attribute = attribute.map_err(|_| Error::Xml(index))?;
             if attribute.key.as_namespace_binding().is_some() {
                 continue;
             }
             let (namespace, name) = scope.resolve_attribute(attribute.key)?;
-            if namespace.is_none() {
+            let relationship = is_relationships_attribute(namespace) && name == b"id";
+            if namespace.is_none() || relationship {
                 let value = attribute
                     .normalized_value(XmlVersion::Implicit1_0)
                     .map_err(|_| Error::Xml(index))?
                     .into_owned();
-                attributes.push((name.to_vec(), value));
+                if relationship {
+                    relationship_id = Some(value);
+                } else {
+                    attributes.push((name.to_vec(), value));
+                }
             }
         }
         Ok(Self {
             main,
             local,
             attributes,
+            relationship_id,
             empty,
         })
     }
 
     /// Whether this is the main-namespace element `local`.
-    fn is(&self, local: &[u8]) -> bool {
+    pub(super) fn is(&self, local: &[u8]) -> bool {
         self.main && self.local == local
     }
 
-    fn value(&self, name: &[u8]) -> Option<&str> {
+    /// Its `r:id`, as written.
+    pub(super) fn relationship_id(&self) -> Option<&str> {
+        self.relationship_id.as_deref()
+    }
+
+    pub(super) fn value(&self, name: &[u8]) -> Option<&str> {
         self.attributes
             .iter()
             .find(|(key, _)| key == name)
@@ -342,7 +359,7 @@ impl Element {
 }
 
 /// The root element of a part, its start given to `scope`.
-fn root<R: Read>(
+pub(super) fn root<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
@@ -364,7 +381,7 @@ fn root<R: Read>(
 /// not yet ended, its start given to `scope` in turn; `None` at the parent's
 /// end tag, which is consumed and given back to `scope`. A parent met as an
 /// empty-element tag has no children: the caller asks only when it is not.
-fn child<R: Read>(
+pub(super) fn child<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
@@ -387,7 +404,7 @@ fn child<R: Read>(
 }
 
 /// Walks past `element`'s subtree, through its end tag.
-fn past<R: Read>(
+pub(super) fn past<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
@@ -404,7 +421,7 @@ fn past<R: Read>(
 /// The children of `list` that are the main-namespace element `item`, in
 /// order, each given to `each` and then walked past; every other child is
 /// walked past unread.
-fn items<R: Read>(
+pub(super) fn items<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
