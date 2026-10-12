@@ -27,8 +27,7 @@ use crate::cells::{Area, skip_subtree};
 use crate::xml::{Scope, Stream};
 
 /// What a pivot table or cache definition this layer cannot read into the
-/// types is refused with; it joins [`crate::package`]'s catalogue with the
-/// part's other messages in P3 (`specs/0033-read-breadth-survey.md`, "P3").
+/// types is refused with; [`crate::package`]'s catalogue lists it.
 pub(crate) const PIVOT_UNREADABLE: Error = Error::Package("a pivot table cannot be read");
 
 /// The pivot table part's content type.

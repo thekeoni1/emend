@@ -19,7 +19,8 @@ use crate::archive::Error;
 use crate::xml::{Scope, Stream};
 
 /// What an external link part, or a workbook reference to one, this layer
-/// cannot read into the types is refused with.
+/// cannot read into the types is refused with; [`crate::package`]'s
+/// catalogue lists it.
 pub(crate) const EXTERNAL_LINK_UNREADABLE: Error =
     Error::Package("an external link cannot be read");
 

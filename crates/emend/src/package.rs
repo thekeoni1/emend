@@ -29,6 +29,16 @@
 //! lookup tries them in that order: [`MAIN`], [`RELATIONSHIPS_ATTRIBUTE`] and
 //! the eight relationship types below are pairs for that reason.
 //!
+//! The Cargo feature `read` adds the types its survey and readers follow
+//! (`specs/0033-read-breadth-survey.md`, "Design"): `EXTERNAL_LINK`,
+//! `EXTERNAL_LINK_PATH`, `PIVOT_CACHE_DEFINITION`, `CHART`, `SLICER`,
+//! `TIMELINE` and `PRINTER_SETTINGS` ("Planning rulings on P1", ruling 4),
+//! each a pair; `SLICER` and `TIMELINE` are Microsoft's extensions, which
+//! have one form, written twice so they are looked up as the pairs are
+//! (ruling 2). `TABLE`, `PIVOT_TABLE`, `COMMENTS`, `VML_DRAWING`,
+//! `DRAWING`, `IMAGE` and `HYPERLINK` are public under the feature as well
+//! as their own (ruling 5).
+//!
 //! # Errors
 //!
 //! [`Error::Xml`] carries the entry's index and comes from [`Stream`] or from
@@ -82,7 +92,11 @@
 //!   `styles::tests::a_styles_relationship_naming_no_entry_is_refused`,
 //!   `cells_on_a_sheet_added_and_not_yet_written_is_refused`, and with the
 //!   Cargo feature `metadata`
-//!   `properties::a_property_edit_on_a_missing_core_part_is_refused_at_the_write`).
+//!   `properties::a_property_edit_on_a_missing_core_part_is_refused_at_the_write`,
+//!   and with the Cargo feature `read`
+//!   `survey::sheet_parts_of_a_name_the_archive_lacks_is_refused`,
+//!   `pivot::a_cache_relationship_naming_no_entry_is_no_such_part` and
+//!   `extlink::a_link_relationship_naming_no_entry_is_no_such_part`).
 //! - "no Default covers rels" (`no_default_for_rels`).
 //!
 //! The cell edits add eight (`specs/0011-editing-cells.md`, "Errors"); the
@@ -727,6 +741,36 @@
 //!   (`sheetread::a_value_that_does_not_parse_or_lies_outside_the_writer_s_range_is_refused`,
 //!   `sheetread::a_ref_that_is_not_an_area_is_refused`,
 //!   `sheetread::a_hyperlink_naming_no_relationship_or_no_target_is_refused`).
+//!
+//! Read breadth adds two more, the Cargo feature `read`'s
+//! (`specs/0033-read-breadth-survey.md`, "Errors"; without the feature
+//! neither is raised). The survey adds none: it reads nothing the content
+//! types and relationships reads have not refused already. Each is raised
+//! at its reader's one call, which reads its parts on the first call and
+//! keeps the list:
+//!
+//! - "a pivot table cannot be read", raised at `Package::pivot_tables` for
+//!   a root other than `pivotTableDefinition` or `pivotCacheDefinition` in
+//!   the main namespace, a missing `name`, `cacheId` or `location` or a
+//!   `location` attribute, an area, enumeration value or number that does
+//!   not parse as its type, a field reference or `fld` past the table's
+//!   fields, a `cacheSource` absent or with no `type`, a `cacheField` with
+//!   no `name`, and two `location`, `pivotFields`, `cacheSource` or
+//!   `cacheFields` ("Planning rulings on P2", rulings 3, 8 and 9)
+//!   (`pivot::a_root_outside_the_main_namespace_or_of_another_name_is_refused`,
+//!   `pivot::the_spec_s_refusals_are_refused_with_the_message`).
+//! - "an external link cannot be read", raised at
+//!   `Package::external_links` for an `externalReference` with no `r:id`
+//!   or one naming no `externalLink` relationship of the workbook, a link
+//!   part whose root is not `externalLink` in the main namespace or which
+//!   holds none or more than one of `externalBook`, `ddeLink` and
+//!   `oleLink`, an `externalBook` or `oleLink` whose `r:id` is absent or
+//!   names no external relationship of the part, a `sheetName` with no
+//!   `val`, a `ddeLink` lacking `ddeService` or `ddeTopic`, and an
+//!   `oleLink` with no `progId`
+//!   (`extlink::a_reference_with_no_id_or_naming_no_link_relationship_is_refused`,
+//!   `extlink::a_root_outside_the_main_namespace_or_of_another_name_is_refused`,
+//!   `extlink::the_spec_s_refusals_are_refused_with_the_message`).
 //!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
@@ -1859,6 +1903,47 @@
 //!   `emend-copy --namedstyles-sample` writes a styles part, which the
 //!   harness opens in LibreOffice and which joins Milestone 2's Excel check
 //!   list.
+//!
+//! Read breadth B adds these, under the same Cargo feature `read`
+//! (`specs/0033-read-breadth-survey.md`, "Design", decisions 1 to 3 and the
+//! rulings of P1 and P2); each is a read and writes nothing:
+//!
+//! - What it reads: `Package::part_kinds` counts every entry by the content
+//!   type its override or its extension's default gives it, and
+//!   `Package::sheet_parts` one sheet's relationships, its drawings'
+//!   relationships and its sparkline groups; `Package::pivot_tables` every
+//!   pivot table part, in entry order, with the cache definition it
+//!   relates; `Package::external_links` the workbook's first
+//!   `<externalReferences>`, in order, and each link part it names.
+//! - The survey counts what the package says it holds: a content type is
+//!   compared whole, by exact bytes, and nothing is inferred from an entry's
+//!   name; a strict package writes the transitional content types, so one
+//!   spelling counts both ("Planning rulings on P1", ruling 3); a
+//!   relationship is counted as written, a target naming no entry counted
+//!   and not resolved; it reads no part beyond the content types but the
+//!   relationships parts and, for its sparkline groups, the sheet part.
+//! - A pivot table's cache is the definition the table part's own first
+//!   `pivotCacheDefinition` relationship names; its `cacheId` is given as
+//!   written and not joined to the workbook's `<pivotCaches>`. Its sheet is
+//!   the first worksheet or chartsheet, in `<sheets>` order, whose
+//!   relationships name the part, by the sheet's part name, and `None` for
+//!   a table the workbook part relates ("Planning rulings on P2", ruling
+//!   2). A field's name is the cache field at its position; a field past
+//!   the cache's fields has none.
+//! - What is never read: a pivot cache's records part; an external link's
+//!   `sheetDataSet`, `ddeItems` and `oleItems`, walked past with their
+//!   subtrees; the file an external link names. A link's target is the
+//!   `Target` of its part's relationship as written: nothing is decoded,
+//!   as the layer's names are not.
+//! - What streams: the pivot table, cache definition and external link
+//!   parts are streamed once each, and the models held, bounded by their
+//!   fields, sheet names and defined-name counts, never by the cached
+//!   records or values (the corpus's largest pivot table part is 31286
+//!   bytes, its largest cache definition 8703, with 28 cache fields in
+//!   all); the survey holds its counts, and the sparkline pass a count.
+//! - None of this has been through an Excel check: a read writes nothing,
+//!   and none of `--kinds-sample`, `--pivot-sample` and `--extlink-sample`
+//!   joins Milestone 2's Excel check list.
 //!
 //! # What streams and what is held
 //!
