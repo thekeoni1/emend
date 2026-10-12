@@ -680,6 +680,25 @@
 //!   `sheet_`. COUNTS ONLY: no name, reference, path or text is printed.
 //!   Asserted: `kinds_sum` equal to `entries` less one; a failure is exit 2
 //!   with the message and no output, and so is a refusal by the layer.
+//! - `--pivot-sample`: the pivot sample of
+//!   `specs/0033-read-breadth-survey.md`, "Harness runs": the input written
+//!   back unedited and `Package::pivot_tables`. One line: the word `pivots`
+//!   then `pivot_tables`, `with_sheet` (`sheet` `Some`), `with_cache`,
+//!   `source_worksheet`, `source_external`, `source_other`, `source_named`
+//!   (a worksheet source with a `name`), `source_ref` (with a `reference`),
+//!   `cache_fields`, `records_known` (`record_count` `Some`), `fields`,
+//!   `named_fields` (`name` `Some`), `axis_row`, `axis_column`,
+//!   `axis_page`, `axis_values`, `data_field_flags`, `row_fields`,
+//!   `column_fields`, `page_fields`, `values_refs` (`FieldRef::Values`
+//!   across the three lists), `data_fields`, `named_data_fields`,
+//!   `subtotal_sum`, `subtotal_other`, `location_cells` (the cells of every
+//!   `location` area summed), and `digest_names` and `digest_fields`:
+//!   64-bit FNV-1a over the pivot table names and over the cache field
+//!   names, tables in order and each cache's fields in order, each followed
+//!   by a newline. COUNTS AND DIGESTS ONLY: no name, sheet, reference or
+//!   field text is printed. Asserted: the three source counts summing to
+//!   `with_cache`; a failure is exit 2 with the message and no output, and
+//!   so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -796,7 +815,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
-| --remove-image-sample | --copy-sample | --kinds-sample]";
+| --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -906,6 +925,9 @@ enum Operation {
     /// Every part kind counted and every sheet's parts summed, the input
     /// written back unedited, and the counts.
     KindsSample,
+    /// Every pivot table read with its cache, the input written back
+    /// unedited, and the counts and digests.
+    PivotSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -964,6 +986,7 @@ enum Error {
     NamedstylesSample(&'static str),
     ColorsSample(&'static str),
     KindsSample(&'static str),
+    PivotSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1079,6 +1102,9 @@ impl fmt::Display for Error {
             }
             Error::KindsSample(what) => {
                 write!(f, "the input's {what} is not what the survey implies")
+            }
+            Error::PivotSample(what) => {
+                write!(f, "the input's {what} is not what the pivot tables imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1275,6 +1301,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--kinds-sample" => {
             run(Path::new(input), Path::new(output), Operation::KindsSample)
         }
+        [input, output, flag] if flag == "--pivot-sample" => {
+            run(Path::new(input), Path::new(output), Operation::PivotSample)
+        }
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1438,6 +1467,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::KindsSample) {
         return kinds_sample(input, output);
     }
+    if matches!(operation, Operation::PivotSample) {
+        return pivot_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1515,6 +1547,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         }
         Operation::ColorsSample => unreachable!("the colours sample has its own path"),
         Operation::KindsSample => unreachable!("the survey sample has its own path"),
+        Operation::PivotSample => unreachable!("the pivot sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7230,6 +7263,137 @@ fn kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
         line.push_str(key);
         line.push('=');
         line.push_str(&value.to_string());
+    }
+    print_line(&line)
+}
+
+/// The pivot sample (`specs/0033-read-breadth-survey.md`, "Harness runs",
+/// `--pivot-sample`). The input is written back unedited; a refusal by the
+/// layer is exit 2 with no output.
+fn pivot_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{Axis, FieldRef, PivotSource, Subtotal};
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let tables = package.pivot_tables()?.to_vec();
+    let mut counts: [(&str, u64); 26] = [
+        ("pivot_tables", 0),
+        ("with_sheet", 0),
+        ("with_cache", 0),
+        ("source_worksheet", 0),
+        ("source_external", 0),
+        ("source_other", 0),
+        ("source_named", 0),
+        ("source_ref", 0),
+        ("cache_fields", 0),
+        ("records_known", 0),
+        ("fields", 0),
+        ("named_fields", 0),
+        ("axis_row", 0),
+        ("axis_column", 0),
+        ("axis_page", 0),
+        ("axis_values", 0),
+        ("data_field_flags", 0),
+        ("row_fields", 0),
+        ("column_fields", 0),
+        ("page_fields", 0),
+        ("values_refs", 0),
+        ("data_fields", 0),
+        ("named_data_fields", 0),
+        ("subtotal_sum", 0),
+        ("subtotal_other", 0),
+        ("location_cells", 0),
+    ];
+    let mut add = |key: &str, by: u64| {
+        // Every key below is one of the array's.
+        let slot = counts.iter_mut().find(|(name, _)| *name == key).unwrap();
+        slot.1 = slot.1.saturating_add(by);
+    };
+    let flag = |yes: bool| u64::from(yes);
+    let mut names = Vec::new();
+    let mut cache_names = Vec::new();
+    for table in &tables {
+        add("pivot_tables", 1);
+        add("with_sheet", flag(table.sheet.is_some()));
+        names.push(table.name.clone());
+        if let Some(cache) = &table.cache {
+            add("with_cache", 1);
+            match &cache.source {
+                PivotSource::Worksheet {
+                    reference, name, ..
+                } => {
+                    add("source_worksheet", 1);
+                    add("source_named", flag(name.is_some()));
+                    add("source_ref", flag(reference.is_some()));
+                }
+                PivotSource::External { .. } => add("source_external", 1),
+                PivotSource::Consolidation | PivotSource::Scenario => add("source_other", 1),
+            }
+            add("cache_fields", cache.fields.len() as u64);
+            add("records_known", flag(cache.record_count.is_some()));
+            cache_names.extend(cache.fields.iter().cloned());
+        }
+        add("fields", table.fields.len() as u64);
+        for field in &table.fields {
+            add("named_fields", flag(field.name.is_some()));
+            match field.axis {
+                Some(Axis::Row) => add("axis_row", 1),
+                Some(Axis::Column) => add("axis_column", 1),
+                Some(Axis::Page) => add("axis_page", 1),
+                Some(Axis::Values) => add("axis_values", 1),
+                None => {}
+            }
+            add("data_field_flags", flag(field.data_field));
+        }
+        add("row_fields", table.row_fields.len() as u64);
+        add("column_fields", table.column_fields.len() as u64);
+        add("page_fields", table.page_fields.len() as u64);
+        let values = table
+            .row_fields
+            .iter()
+            .chain(&table.column_fields)
+            .chain(&table.page_fields)
+            .filter(|field| matches!(field, FieldRef::Values))
+            .count();
+        add("values_refs", values as u64);
+        add("data_fields", table.data_fields.len() as u64);
+        for data in &table.data_fields {
+            add("named_data_fields", flag(data.name.is_some()));
+            if data.subtotal == Subtotal::Sum {
+                add("subtotal_sum", 1);
+            } else {
+                add("subtotal_other", 1);
+            }
+        }
+        let rows = u64::from(table.location.last.row - table.location.first.row) + 1;
+        let cols = u64::from(table.location.last.col - table.location.first.col) + 1;
+        add("location_cells", rows.saturating_mul(cols));
+    }
+    let count = |key: &str| {
+        counts
+            .iter()
+            .find(|(name, _)| *name == key)
+            .map_or(0, |(_, value)| *value)
+    };
+    let sources = count("source_worksheet") + count("source_external") + count("source_other");
+    if sources != count("with_cache") {
+        return Err(Error::PivotSample("source count"));
+    }
+    write_into(package, output)?;
+    let mut line = String::from("pivots");
+    for (key, value) in counts {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value.to_string());
+    }
+    for (key, value) in [
+        ("digest_names", fnv_digest(&names)),
+        ("digest_fields", fnv_digest(&cache_names)),
+    ] {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value);
     }
     print_line(&line)
 }

@@ -5846,8 +5846,9 @@ fn the_kinds_sample_counts_every_kind_and_every_sheet_and_writes_the_input_back_
     // Thirteen entries: the six typed `other_typed` (the two rels defaults
     // beside the package's, the workbook, the styles part by the `xml`
     // default), the untyped `image1.bin`, a worksheet, a table, a drawing, a
-    // chart and a png image; the workbook's external hyperlink is not a
-    // sheet's and is not counted.
+    // chart and a png image. The sheet's external hyperlink is a
+    // relationship, not an entry: it counts once, in
+    // `sheet_external_hyperlinks`.
     let dir = TempDir::new("kinds-sample");
     let input = dir.path("in.xlsx");
     let output = dir.path("out.xlsx");
@@ -5894,6 +5895,154 @@ fn the_kinds_sample_refuses_content_types_that_are_not_well_formed_and_leaves_no
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(
         ran.stderr, "error: not well-formed XML or not UTF-8 (entry 0)\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+/// 64-bit FNV-1a over `entries`, each followed by a newline, written here
+/// apart from the tool's so the test checks the digest rather than repeats
+/// it.
+fn fnv(entries: &[&str]) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in entries.iter().flat_map(|entry| entry.bytes().chain(*b"\n")) {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// The package of `package_specs_with` with two pivot tables: the first
+/// the sheet relates, with a worksheet-sourced cache of three fields; the
+/// second the workbook relates, with no cache relationship. `dfld` is the
+/// first table's `dataField` `fld`.
+fn pivot_specs(dfld: &str) -> Vec<Spec> {
+    let vnd = "application/vnd.openxmlformats-officedocument.spreadsheetml";
+    let mut specs = package_specs_with(&format!(
+        "<Override PartName=\"/xl/pivotTables/pivotTable1.xml\" ContentType=\"{vnd}.pivotTable+xml\"/>\
+         <Override PartName=\"/xl/pivotTables/pivotTable2.xml\" ContentType=\"{vnd}.pivotTable+xml\"/>\
+         <Override PartName=\"/xl/pivotCache/pivotCacheDefinition1.xml\" \
+         ContentType=\"{vnd}.pivotCacheDefinition+xml\"/>"
+    ));
+    for spec in &mut specs {
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let rels = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace(
+                    "</Relationships>",
+                    &format!(
+                        "<Relationship Id=\"rId4\" Type=\"{ATTR_NS}/pivotTable\" \
+                         Target=\"pivotTables/pivotTable2.xml\"/></Relationships>"
+                    ),
+                );
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        }
+    }
+    let sheet_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/pivotTable\" \
+         Target=\"../pivotTables/pivotTable1.xml\"/></Relationships>"
+    );
+    let table_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/pivotCacheDefinition\" \
+         Target=\"../pivotCache/pivotCacheDefinition1.xml\"/></Relationships>"
+    );
+    let first = format!(
+        "<pivotTableDefinition xmlns=\"{MAIN_NS}\" name=\"Pivot One\" cacheId=\"3\">\
+         <location ref=\"A3:C8\" firstHeaderRow=\"1\" firstDataRow=\"1\" firstDataCol=\"1\"/>\
+         <pivotFields count=\"3\"><pivotField axis=\"axisRow\"/><pivotField axis=\"axisCol\"/>\
+         <pivotField dataField=\"1\"/></pivotFields>\
+         <rowFields count=\"1\"><field x=\"0\"/></rowFields>\
+         <colFields count=\"2\"><field x=\"1\"/><field x=\"-2\"/></colFields>\
+         <rowItems count=\"1\"><i/></rowItems>\
+         <dataFields count=\"2\"><dataField name=\"Total\" fld=\"{dfld}\"/>\
+         <dataField fld=\"2\" subtotal=\"count\"/></dataFields></pivotTableDefinition>"
+    );
+    let second = format!(
+        "<pivotTableDefinition xmlns=\"{MAIN_NS}\" name=\"Pivot Two\" cacheId=\"4\">\
+         <location ref=\"E1\" firstHeaderRow=\"0\" firstDataRow=\"1\" firstDataCol=\"0\"/>\
+         <pivotFields count=\"1\"><pivotField axis=\"axisPage\"/></pivotFields>\
+         <pageFields count=\"1\"><pageField fld=\"0\"/></pageFields></pivotTableDefinition>"
+    );
+    let cache = format!(
+        "<pivotCacheDefinition xmlns=\"{MAIN_NS}\" recordCount=\"5\">\
+         <cacheSource type=\"worksheet\"><worksheetSource ref=\"A1:C6\" sheet=\"Sheet1\"/></cacheSource>\
+         <cacheFields count=\"3\"><cacheField name=\"Region\" numFmtId=\"0\"><sharedItems/></cacheField>\
+         <cacheField name=\"Year\" numFmtId=\"0\"/><cacheField name=\"Amount\" numFmtId=\"0\"/>\
+         </cacheFields></pivotCacheDefinition>"
+    );
+    specs.push(Spec::stored(
+        b"xl/worksheets/_rels/sheet1.xml.rels",
+        sheet_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/pivotTables/pivotTable1.xml",
+        first.as_bytes(),
+    ));
+    specs.push(Spec::stored(
+        b"xl/pivotTables/_rels/pivotTable1.xml.rels",
+        table_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/pivotTables/pivotTable2.xml",
+        second.as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/pivotCache/pivotCacheDefinition1.xml",
+        cache.as_bytes(),
+    ));
+    specs
+}
+
+#[test]
+fn the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited() {
+    // `specs/0033-read-breadth-survey.md`, "Harness runs", `--pivot-sample`.
+    // Two tables: the first related by the sheet, with a cache of three
+    // fields (so its three fields are named), a row axis, a column axis
+    // and a data-field flag, one row field, two column fields of which one
+    // is the values field, and two data fields, one named and one a count;
+    // the second related by the workbook, with no cache, one page-axis
+    // field and one page field. The locations hold 18 and 1 cells.
+    let dir = TempDir::new("pivot-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let specs = pivot_specs("2");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--pivot-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        format!(
+            "pivots\tpivot_tables=2\twith_sheet=1\twith_cache=1\tsource_worksheet=1\
+             \tsource_external=0\tsource_other=0\tsource_named=0\tsource_ref=1\
+             \tcache_fields=3\trecords_known=1\tfields=4\tnamed_fields=3\taxis_row=1\
+             \taxis_column=1\taxis_page=1\taxis_values=0\tdata_field_flags=1\trow_fields=1\
+             \tcolumn_fields=2\tpage_fields=1\tvalues_refs=1\tdata_fields=2\
+             \tnamed_data_fields=1\tsubtotal_sum=1\tsubtotal_other=1\tlocation_cells=19\
+             \tdigest_names={}\tdigest_fields={}\n",
+            fnv(&["Pivot One", "Pivot Two"]),
+            fnv(&["Region", "Year", "Amount"]),
+        ),
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, &specs, &[]);
+}
+
+#[test]
+fn the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0033-read-breadth-survey.md`, "P2: pivot tables").
+    let dir = TempDir::new("pivot-sample-fld-past");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&pivot_specs("3"))).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--pivot-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a pivot table cannot be read\n",
         "the message"
     );
     assert_eq!(ran.stdout, "", "a line was printed");
