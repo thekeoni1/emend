@@ -747,6 +747,101 @@ workbooks on both targets, every output and every line byte-equal
 to the run directory's; planning's privacy scan of the five commits
 through the record: 1624 blobs, 0 findings. P1 DONE.
 
+## Planning rulings on P2 (2026-10-12)
+
+The implementing session's report (its file, sha256 ee575534...)
+listed ten departures and findings. Rulings, numbered as the
+report numbers them:
+
+1. `data_field_flags` 10 in 3 workbooks: the sample is RIGHT and
+   the "Facts" bullet above ("none with `dataField`") was wrong.
+   Planning recounted on 2026-10-12: 10 `pivotField` elements
+   carry `dataField="1"`, in 3 workbooks, one per `dataField`
+   child of `<dataFields>`, which is what the attribute marks.
+   The bullet is corrected by this ruling; not a finding against
+   the code; no change. P3's run log carries 10 in 3 as
+   planning's figure, so every pivot figure is planning's (18 of
+   18).
+2. `PivotTable::sheet` holding the sheet's part name: that is the
+   spec's type (`Option<Vec<u8>>`, "the first worksheet or
+   chartsheet ... whose relationships name the part"); not a
+   departure. The sheet's name is reached through
+   `Workbook::sheets` by its part.
+3. Booleans other than `1`, `true`, `0` and `false` refused:
+   accepted. Those four are the whole lexical space of
+   `xsd:boolean`; the refusal list's "as its type" covers it. No
+   change.
+4. The catalogue entry for "a pivot table cannot be read" deferred
+   to P3: accepted, as the brief said; P3's catalogue commit adds
+   it beside the external link message.
+5. N2 (the cache relationship naming no entry, "no such part")
+   beside the spec's N1: accepted, as P1's second case was.
+6. TMPDIR: the gate, run and scan at `<phase>/tmp`, the test and
+   negative at their carried `<build>/tmp` under the phase
+   directory: accepted (ruling 8 of P1).
+7. The counting library's control `mktemp -d` (scripts/counting.sh)
+   with no under-TMPDIR line: a FINDING against the logs' form,
+   not the code. Ruling 12 of P1 is read as the logged script's
+   own calls; the library's one call lies under TMPDIR because
+   every script exports TMPDIR before sourcing it, and that is
+   stated, not shown. From P3 the gate log prints one line checking
+   the library's directory under TMPDIR, with a control, once per
+   phase; the other logs need no line for it.
+8. A cache with no `cacheSource` refused: accepted; it follows from
+   `PivotCache::source` not being an `Option`, and the refusal
+   list is read to include it. No change.
+9. Every kept numeric attribute that does not parse refused
+   (`recordCount`, `firstHeaderRow`, `firstDataRow`,
+   `firstDataCol` beside `x`, `fld`, `cacheId` and
+   `connectionId`): accepted. The reader keeps no number it could
+   not parse, and drops nothing silently; the refusal list is read
+   to cover every numeric attribute the types carry. No change.
+10. Per table against per cache (`cache_fields` and
+    `digest_fields` per table, so one worksheet cache shared by
+    two tables counts twice: 3 against 2, 32 against 28):
+    accepted. The tool's line is per table by its definition; the
+    run log compares each figure with its own kind. The shared
+    cache is the session's reading, arithmetically consistent, and
+    needs no log line.
+
+Also ruled: the gate end time is read from the committed log
+(20:20:30Z), the report's correction giving both stamps accepted;
+the test fork's stray `/tmp/x`, removed with `rm -f` and disclosed,
+is accepted as disclosed, and from P3 a fork's temporary files are
+under the phase directory as the session's own are; the unlogged
+dry runs, the target root sizes and the fork rm list stand as the
+session's statements, as before. Nothing in the code or the logs
+changed after the independent check.
+
+### Planning verification of P2 (2026-10-12)
+
+Verified from primaries: the doc commit a9354ec holds specs/0033
+and ROADMAP.md at the hashes planning handed over (5067dfcc,
+448a94ba) and leaves specs/0032 as a1f484c had it; the crate commit
+adds `pivot.rs`, its tests and the `package.rs` lines the report
+names and nothing else, the reader as "Pivot tables" says (content
+type in entry order, the sheet join in `<sheets>` order, the first
+`pivotCacheDefinition` relationship, "no such part" for its missing
+entry, the records part never opened); the tool commit adds
+`--pivot-sample`, its two tests and the comment fix of ruling 10;
+every commit message is ASCII and ends with the Co-Authored-By line
+alone; the record commit's ten files and the report hash as the
+report says; each log's last line is as reported; the gate read 3
+mktemp calls and 0 plain files, "files scanned: 18; Python calls:
+4; calls without -B: 0" and no prune; the negative log's N1 line is
+exactly the message, with B0 and N2; the run log's corpus totals
+match planning's recount field by field (`data_field_flags` per
+ruling 1), the kinds figures 24 of 24, the keep one new pair and 0
+changed, the open check 0 findings; the scan read 0 hits over the
+three commits. Planning's own build at 61d23fc (worktree, offline):
+crate tests on both targets 515, 608, 646 and 980; workspace 1184;
+clippy and doc 0 warnings; `--pivot-sample` with release binaries
+over the 27 corpus workbooks on both targets, every output and
+every line byte-equal to the run directory's, the totals planning's
+own; planning's recount of `dataField` flags 10 in 3; planning's
+privacy scan of the four commits through the record: 1633 blobs, 0
+findings. P2 DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-12: 1, 2 and 3 as recommended (A
