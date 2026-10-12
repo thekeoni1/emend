@@ -1019,6 +1019,87 @@ Rulings on the independent check's points and the disclosures:
    the implementing session, the record commit with the three
    logs.
 
+## Planning rulings on the close-out (2026-10-12)
+
+Written here because the tree must stay clean through the close-out;
+copied into specs/0032 ("Planning rulings on the close-out") at the
+next doc commit (part 2's first).
+
+Verified by planning from the phase directory: the doc commit c02942e
+holds specs/0032 (8adf3393) and ROADMAP.md (7c7ed7cb) and nothing
+else, the tree clean; carried/ holds M4 part 2's three scripts
+byte-equal to the text printed in records/logs/m4p2-close/{push,
+ci-run,scan}.log (planning's own extraction); gen.py (bb9d9d09)
+replayed by planning with python3 -I -B gives the three generated
+scripts byte-equal (push a586c994, ci d4d2d7cf, scan 22c1cc31);
+close/ holds them byte-equal and counting.sh equal to HEAD's;
+run-pre.sh runs pre mode and the pre-stage scan from the repository
+with CARGO_TARGET_DIR m5p1-close/target; the generated scripts differ
+from the carried ones only by changes 28 to 32 (planning's diff, the
+non-comment lines); push.log (65e411bd) prints the 15 commits of
+ac5dc0d..c02942e in git's order, b0f0b1f once, identity 15 of 15,
+privacy 15 commits 1630 blobs 0 findings, the nine PASS lines, the
+tree clean before and after, no ": no" line; scan-pre.log (73f92e76)
+RESULT PASS, 0 hits, 0 structural failures, 0 undeclared
+placeholders; both exit files 0.
+
+1. Change 31 (TMPDIR exported to <scratch>/tmp before mktemp) is
+   accepted as generated. From part 2's first logged script on, a
+   script prints "input: TMPDIR=<scratch>/tmp" and checks that its
+   mktemp directory is under it, with a control; not required here.
+2. Change 30 (<scratch> names the phase directory) is accepted; it
+   follows from running under the phase directory as P3 verification
+   ruling 4 asks. The placeholder keeps its name.
+3. Dry run 1 passed and was superseded only so the label fix could be
+   dry-run; it is not a failed or refused attempt. Its hashes (push.log
+   c304950c, scan-pre.log 5d21fd6e, SHA256SUMS.txt 16da9362) are named
+   in the record commit's message, as disclosed; nothing more.
+4. m5p1-close/target joins the part's three roots in the pending
+   prunes, all pruned at part 2's first gate that builds.
+5. The run claims of the report (run-pre.sh, the fresh copies, the
+   library source, the generator's assert) are confirmed by planning
+   above.
+6. The gate check that no committed script calls python3 without -B
+   (P3 verification ruling 4) waits for part 2's first gate; the
+   close-out's own scripts use -I -B where they call Python.
+7. Planning's word: the scripts and the pre-mode logs are accepted;
+   the push of ac5dc0d..c02942e may proceed once the maintainer types
+   MAINTAINER_AUTH in the implementing session. After the push: the
+   CI run log, the post-push scan, and the record commit "M5 part 1
+   close-out record: the push, the CI run and the scan" holding the
+   three logs only.
+
+### Planning verification of the push, CI run and scan (2026-10-12)
+
+Verified from primaries after emend-6e's report: origin/main is
+c02942e (git fetch; git rev-parse origin/main); the repository is
+PRIVATE (gh repo view); the ci.yml run 38245207259 on c02942e has
+event push, status completed, conclusion success (gh run view); the
+local tree is clean with one commit ahead, 3f2082e, holding the three
+logs only (691 + 1270 + 1956 lines); the three log hashes recomputed
+with sha256sum equal the three named in the commit message; the
+message is ASCII, ends with the Co-Authored-By line only, and names
+gen.py, the three script hashes, changes 28 to 32 and dry run 1's three
+hashes; the committed push.log's first 76053 bytes are byte-equal to
+the pre-mode log planning verified before giving its word (sha256
+65e411bd...), with push mode appended after one blank line; push mode
+records the authorisation verbatim, the hook's PASS over
+ac5dc0d..c02942e (15 commits, 1630 blobs, 0 findings), remote equals
+local, "push checks all as expected: yes"; ci-run.log ends "ci-run log
+checks all as expected: yes" with 0 non-success steps and the privacy
+step skipped as CI mode requires; scan.log (stage post) ends "total
+hits: 0", "structural checks failed: 0", "RESULT: PASS"; planning's
+own privacy scan over ac5dc0d..c02942e: 15 commits, 1630 blobs, 0
+findings, PASS.
+
+8. The disclosure (the push runner's outer stderr file, 0 bytes, under
+   <phase>/close/out/) is accepted; it is the form change 3 requires.
+9. The record commit 3f2082e stays local until part 2's close-out
+   pushes it, as every close-out record has. The M5 part 1 close-out is
+   DONE. ROADMAP's Close row becomes DONE (record 3f2082e) at part 2's
+   first doc commit, together with the copy of this file into
+   specs/0032.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-11: 1, 2 and 3 as recommended (A

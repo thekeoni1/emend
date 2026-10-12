@@ -951,7 +951,7 @@ restored by the part whose push the maintainer makes it gate.
 | P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | DONE (phase 2c31aad, record 24b927c, 2026-10-10; `records/size-m4p2-2026-10-10-2c31aad.md` 0 of 28 moved; the package 56 files, 522253 bytes, verify build and publish dry run exit 0; finding: a package built outside a git checkout drops `template/_rels/.rels`, carried to the publish step, `specs/0031` P2 rulings 1 and 7) |
 | Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | DONE (doc ac5dc0d, pushed e4ab25b..ac5dc0d 10 commits 2026-10-11, 1568 blobs, 0 findings; CI run 38161194914 success; scan PASS with change 27's whole-word denylist form; pre attempt 1 superseded on the scan's own placeholder check, kept outside the repository; record b0f0b1f local, goes with the next push; decision 1 HOLD, `publish = false` stays; verified by planning from git, `gh`, the three logs and its own scan; `specs/0031` "Planning verification and rulings on the close-out") |
 
-## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 IN PROGRESS from 2026-10-11)
+## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 DONE 2026-10-12; part 2 IN PROGRESS from 2026-10-12)
 
 Theme chosen by the maintainer 2026-10-11 after Milestone 4's
 close-out, from planning's reading of emend against openpyxl: the
@@ -968,7 +968,7 @@ spec before it starts and is scoped into phases as before. The
 corpus holds 11 workbooks with charts and 4 with pivot tables
 (`records/corpus-coverage-2026-09-16.md`).
 
-### Part 1: read breadth A (`specs/0032-read-breadth-styles.md`, APPROVED 2026-10-11, decisions 1 to 3 A; IN PROGRESS from 2026-10-11)
+### Part 1: read breadth A (`specs/0032-read-breadth-styles.md`, APPROVED 2026-10-11, decisions 1 to 3 A; DONE 2026-10-12)
 
 The items `specs/0027` left out of scope: named styles (`cellStyles`
 and `cellStyleXfs`), differential styles (`dxfs`) as typed values,
@@ -983,15 +983,29 @@ A); a colour the file defines no RGB for resolves to `None`
 | P1 | `NamedStyle`, `named_style`, `cell_style_xfs` and `cell_styles` on `Styles`, `dxfs` and `differential_styles`, `default_font`; `--namedstyles-sample` with the `dxf` round trip; the prune of Milestone 4 part 2's three target roots | DONE (phase c8b9391, record 06f5cba, 2026-10-11; 27 of 27 ok on both targets, dxf_written and dxf_equal 831, totals the spec's 14 figures; tests 514, 562, 600, 934 both targets; 16 crate tests and 3 tool tests added; verified by planning from the diffs, the five logs, its own build and its own corpus run byte-identical; `specs/0032` "Planning verification and rulings on P1", rulings 1 to 8: the off-feature test and two comment wraps carried to P2, catalogue wording to P3) |
 | P2 | the palette and `indexed_colors`, `theme_colors`, `ResolvedColor`, `resolve_color`, `tinted`; `--colors-sample`; the carry from P1 (one off-feature test, two comment wraps) | DONE (phase 70b3e00, record e39d028, 2026-10-12; 27 of 27 ok on both targets, 870 entries identical and nothing changed, the comparison and the swap's proof 27 of 27, tints on other forms 1, totals the spec's 12 figures; tests 515, 584, 622, 956 both targets; 22 crate tests, 1 off-feature carry test and 3 tool tests added; verified by planning from the diffs, the five logs, its own build, its own corpus run byte-identical and its own resolution check 27 of 27; `specs/0032` "Planning verification and rulings on P2", rulings 1 to 8: the long-override test and doc clause and the catalogue reflow carried to P3) |
 | P3 | the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, both samples with the release binaries; the carry from P2 (the long-override test and doc clause, the catalogue reflow) | DONE (phase 6f51899, record 2dfca6c, 2026-10-12; `records/size-m5p1-2026-10-12-6f51899.md`: core growth 0, budget 436992 with 21760 under, `read` costs 70044 section bytes; `records/api-review-m5p1-2026-10-12-6f51899.md` 567 rows, 24 new; both samples byte-identical to P1's and P2's runs on both targets; tests 515, 585, 623, 957, workspace 1157; verified by planning from the diffs, the six logs, its own build, its own sample runs and its own three size probes reproducing the record's figures to the byte; `specs/0032` "Planning verification and rulings on P3", rulings 1 to 10) |
-| Close | close-out push after P3, carrying b0f0b1f, base ac5dc0d by its subject, `PREV` `^M4 part 2 close-out record`, no Excel-record check | IN PROGRESS (from 2026-10-12) |
+| Close | close-out push after P3, carrying b0f0b1f, base ac5dc0d by its subject, `PREV` `^M4 part 2 close-out record`, no Excel-record check | DONE 2026-10-12 (doc c02942e pushed, origin/main ac5dc0d..c02942e, 15 commits, 1630 blobs, 0 findings; CI run 38245207259 success; the post-push scan PASS; record 3f2082e local, goes with part 2's push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0032` "Planning rulings on the close-out", rulings 1 to 9) |
 
-### Part 2: read breadth B (planned)
+### Part 2: read breadth B (`specs/0033-read-breadth-survey.md`, APPROVED 2026-10-12, decisions 1 to 3 A; IN PROGRESS from 2026-10-12)
 
 A workbook survey call naming which part kinds the package holds,
-with counts (charts, pivot tables, macros, external links,
-sparklines, slicers, timelines, threaded comments, custom XML);
-pivot table definitions read (name, location, source range,
-fields); external link targets read.
+with counts, from the content types and the relationships alone
+(`part_kinds`, `sheet_parts`, with the sparkline groups counted by
+one streamed pass over a sheet); pivot table definitions read typed
+(name, location, source, the fields by axis, the data fields, the
+cache's field names); external link targets read typed (the book's
+target, sheet names and defined-name count, or the DDE or OLE
+identity). The corpus holds 9 pivot tables in 4 workbooks and no
+external link part (the coverage record's `external` tag names
+external data), so the external link reader is proven on built
+packages and on a generated fixture through the binary. Reads
+only; the `read` feature grows (decision 1 A); no writer changes.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `PartKinds`, `part_kinds`, `SheetParts`, `sheet_parts`, the relationship constants; `--kinds-sample`; the prune of part 1's four target roots; the `TMPDIR` line and the `python3 -B` gate check | IN PROGRESS (from 2026-10-12) |
+| P2 | the pivot types, `pivot_tables`, "a pivot table cannot be read"; `--pivot-sample` | planned |
+| P3 | the external link types, `external_links`, "an external link cannot be read"; `--extlink-sample` with the generated fixture; the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, the three samples with the release binaries | planned |
+| Close | close-out push after P3, carrying 3f2082e, base c02942e by its subject, `PREV` `^M5 part 1 close-out record`, no Excel-record check | planned |
 
 ### Part 3: charts read (planned)
 
