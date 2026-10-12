@@ -7432,6 +7432,8 @@ mod links;
 mod namedstyles;
 #[cfg(feature = "metadata")]
 mod names;
+#[cfg(feature = "read")]
+mod pivot;
 #[cfg(feature = "metadata")]
 mod properties;
 #[cfg(feature = "metadata")]

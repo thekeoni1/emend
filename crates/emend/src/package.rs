@@ -1931,9 +1931,15 @@
 //! output archive itself; that is the caller's memory, not this layer's.
 
 #[cfg(feature = "read")]
+mod pivot;
+#[cfg(feature = "read")]
 mod sheet_read;
 #[cfg(feature = "read")]
 mod survey;
+#[cfg(feature = "read")]
+pub use pivot::{
+    Axis, DataField, FieldRef, PivotCache, PivotField, PivotSource, PivotTable, Subtotal,
+};
 #[cfg(feature = "read")]
 pub use sheet_read::{
     ColumnFormat, HyperlinkEntry, HyperlinkTarget, RowFormat, Rows, SheetSettings,
@@ -2788,6 +2794,10 @@ pub struct Package<R: Read + Seek> {
     /// workbook with no theme relationship. The Cargo feature `read`.
     #[cfg(feature = "read")]
     theme_colors: Option<Option<[u32; 12]>>,
+    /// The pivot tables, read once by [`Package::pivot_tables`]. The Cargo
+    /// feature `read`.
+    #[cfg(feature = "read")]
+    pivot_tables: Option<Vec<PivotTable>>,
     /// Recorded edits, applied by [`Package::write_to`] and nowhere else.
     ///
     /// Nothing is removed implicitly: a removed relationship's target, a
@@ -5385,6 +5395,8 @@ impl<R: Read + Seek> Package<R> {
             styles: None,
             #[cfg(feature = "read")]
             theme_colors: None,
+            #[cfg(feature = "read")]
+            pivot_tables: None,
             edits: Recorded::default(),
         })
     }
