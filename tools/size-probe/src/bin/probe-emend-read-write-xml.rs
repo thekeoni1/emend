@@ -20,6 +20,11 @@
 //! from their `rgb`) and `read_default_size` (`default_font`'s size, 0 for
 //! none).
 //!
+//! Then, as `specs/0033-read-breadth-survey.md` "Size" grows it, four more:
+//! `read_worksheets` (`part_kinds`'s worksheet count), `read_drawings`
+//! (`sheet_parts` of the first sheet, its drawing count), `read_pivots`
+//! (`pivot_tables`) and `read_links` (`external_links`).
+//!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area comes from the command line, so the compiler cannot prove an edit
 //! or a read path dead and drop it.
@@ -160,7 +165,8 @@ fn main() -> ExitCode {
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
                  full_border {}\nmerges {}\nread_fonts {}\nread_cols {}\nread_rows {}\n\
                  read_merges {}\nread_items {}\nread_named {}\nread_dxfs {}\n\
-                 read_resolved {}\nread_tinted {}\nread_default_size {}",
+                 read_resolved {}\nread_tinted {}\nread_default_size {}\n\
+                 read_worksheets {}\nread_drawings {}\nread_pivots {}\nread_links {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -199,6 +205,10 @@ fn main() -> ExitCode {
                 read.resolved,
                 read.tinted,
                 read.default_size,
+                read.worksheets,
+                read.drawings,
+                read.pivots,
+                read.links,
             );
             ExitCode::SUCCESS
         }
@@ -221,6 +231,10 @@ struct ReadBack {
     resolved: u64,
     tinted: u64,
     default_size: f64,
+    worksheets: u32,
+    drawings: u32,
+    pivots: u64,
+    links: u64,
 }
 
 /// The feature's own work: `second` opened and read back through
@@ -229,7 +243,9 @@ struct ReadBack {
 /// `cellStyleXfs` index, `differential_styles`, `resolve_color` of the
 /// colour of every font read with `tinted` of each one resolved, and
 /// `default_font` (`specs/0032-read-breadth-styles.md`, "Size"; "Planning
-/// rulings during P3", ruling 1).
+/// rulings during P3", ruling 1); then `part_kinds`, `sheet_parts` of the
+/// first sheet, `pivot_tables` and `external_links`
+/// (`specs/0033-read-breadth-survey.md`, "Size").
 fn read_back(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<ReadBack, String> {
     let file = File::open(second).map_err(|e| e.kind().to_string())?;
     let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
@@ -293,6 +309,20 @@ fn read_back(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<ReadBack, String>
         .map_err(|e| e.to_string())?
         .size
         .unwrap_or(0.0);
+    let worksheets = package.part_kinds().map_err(|e| e.to_string())?.worksheets;
+    let first = package
+        .workbook()
+        .map_err(|e| e.to_string())?
+        .sheets
+        .first()
+        .map(|sheet| sheet.part.clone())
+        .ok_or("the output has no sheet")?;
+    let drawings = package
+        .sheet_parts(&first)
+        .map_err(|e| e.to_string())?
+        .drawings;
+    let pivots = package.pivot_tables().map_err(|e| e.to_string())?.len() as u64;
+    let links = package.external_links().map_err(|e| e.to_string())?.len() as u64;
     Ok(ReadBack {
         fonts: fonts.len() as u64,
         cols,
@@ -304,6 +334,10 @@ fn read_back(second: &std::ffi::OsStr, sheet: &[u8]) -> Result<ReadBack, String>
         resolved,
         tinted,
         default_size,
+        worksheets,
+        drawings,
+        pivots,
+        links,
     })
 }
 
