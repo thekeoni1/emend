@@ -57,6 +57,10 @@
   styles and the default font read as the types the writers take, and a colour
   resolved to the RGB the workbook defines for it through the palette and the
   theme (`specs/0032-read-breadth-styles.md`).
+- Read breadth, with the feature `read`: the part kinds a package holds and the
+  parts each sheet relates, counted; the pivot tables read with their caches'
+  sources and field names; and the external links read with their targets as
+  written (`specs/0033-read-breadth-survey.md`).
 
 ### Changed
 
