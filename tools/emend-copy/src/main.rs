@@ -699,6 +699,17 @@
 //!   field text is printed. Asserted: the three source counts summing to
 //!   `with_cache`; a failure is exit 2 with the message and no output, and
 //!   so is a refusal by the layer.
+//! - `--extlink-sample`: the external link sample of
+//!   `specs/0033-read-breadth-survey.md`, "Harness runs": the input written
+//!   back unedited and `Package::external_links`. One line: the word
+//!   `extlinks` then `links`, `books`, `dde`, `ole`, `sheet_names` (over
+//!   the books), `defined_names` (over the books), and `digest_targets`
+//!   and `digest_sheets`: 64-bit FNV-1a over the book and OLE targets and
+//!   over the books' sheet names, links in order, each followed by a
+//!   newline. COUNTS AND DIGESTS ONLY: no target, sheet name, service,
+//!   topic or program id is printed. Asserted: `books`, `dde` and `ole`
+//!   summing to `links`; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -815,7 +826,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
-| --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample]";
+| --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -928,6 +939,9 @@ enum Operation {
     /// Every pivot table read with its cache, the input written back
     /// unedited, and the counts and digests.
     PivotSample,
+    /// Every external link read, the input written back unedited, and the
+    /// counts and digests.
+    ExtlinkSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -987,6 +1001,7 @@ enum Error {
     ColorsSample(&'static str),
     KindsSample(&'static str),
     PivotSample(&'static str),
+    ExtlinkSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1105,6 +1120,9 @@ impl fmt::Display for Error {
             }
             Error::PivotSample(what) => {
                 write!(f, "the input's {what} is not what the pivot tables imply")
+            }
+            Error::ExtlinkSample(what) => {
+                write!(f, "the input's {what} is not what the external links imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1304,6 +1322,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--pivot-sample" => {
             run(Path::new(input), Path::new(output), Operation::PivotSample)
         }
+        [input, output, flag] if flag == "--extlink-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ExtlinkSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1470,6 +1493,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::PivotSample) {
         return pivot_sample(input, output);
     }
+    if matches!(operation, Operation::ExtlinkSample) {
+        return extlink_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1548,6 +1574,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ColorsSample => unreachable!("the colours sample has its own path"),
         Operation::KindsSample => unreachable!("the survey sample has its own path"),
         Operation::PivotSample => unreachable!("the pivot sample has its own path"),
+        Operation::ExtlinkSample => unreachable!("the external link sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7389,6 +7416,62 @@ fn pivot_sample(input: &Path, output: &Path) -> Result<(), Error> {
     for (key, value) in [
         ("digest_names", fnv_digest(&names)),
         ("digest_fields", fnv_digest(&cache_names)),
+    ] {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value);
+    }
+    print_line(&line)
+}
+
+/// The external link sample (`specs/0033-read-breadth-survey.md`, "Harness
+/// runs", `--extlink-sample`). The input is written back unedited; a refusal
+/// by the layer is exit 2 with no output.
+fn extlink_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::ExternalLinkKind;
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let links = package.external_links()?.to_vec();
+    let (mut books, mut dde, mut ole, mut sheet_names, mut defined_names) =
+        (0u64, 0u64, 0u64, 0u64, 0u64);
+    let mut targets = Vec::new();
+    let mut sheets = Vec::new();
+    for link in &links {
+        match &link.kind {
+            ExternalLinkKind::Book {
+                target,
+                sheet_names: names,
+                defined_names: defined,
+            } => {
+                books += 1;
+                sheet_names += names.len() as u64;
+                defined_names += u64::from(*defined);
+                targets.push(target.clone());
+                sheets.extend(names.iter().cloned());
+            }
+            ExternalLinkKind::Dde { .. } => dde += 1,
+            ExternalLinkKind::Ole { target, .. } => {
+                ole += 1;
+                targets.push(target.clone());
+            }
+        }
+    }
+    let count = links.len() as u64;
+    if books + dde + ole != count {
+        return Err(Error::ExtlinkSample("link count"));
+    }
+    write_into(package, output)?;
+    let mut line = String::from("extlinks");
+    for (key, value) in [
+        ("links", count.to_string()),
+        ("books", books.to_string()),
+        ("dde", dde.to_string()),
+        ("ole", ole.to_string()),
+        ("sheet_names", sheet_names.to_string()),
+        ("defined_names", defined_names.to_string()),
+        ("digest_targets", fnv_digest(&targets)),
+        ("digest_sheets", fnv_digest(&sheets)),
     ] {
         line.push('\t');
         line.push_str(key);

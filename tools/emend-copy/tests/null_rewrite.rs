@@ -6048,3 +6048,133 @@ fn the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing() {
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
 }
+
+/// The package of `package_specs_with` with three external links in
+/// `<externalReferences>` order: a book with two sheet names, one defined
+/// name and cached values, a DDE link, and an OLE link. `book_mode` is the
+/// book relationship's `TargetMode` attribute, written whole (empty for an
+/// internal one).
+fn extlink_specs(book_mode: &str) -> Vec<Spec> {
+    let vnd = "application/vnd.openxmlformats-officedocument.spreadsheetml";
+    let mut specs = package_specs_with(&format!(
+        "<Override PartName=\"/xl/externalLinks/externalLink1.xml\" ContentType=\"{vnd}.externalLink+xml\"/>\
+         <Override PartName=\"/xl/externalLinks/externalLink2.xml\" ContentType=\"{vnd}.externalLink+xml\"/>\
+         <Override PartName=\"/xl/externalLinks/externalLink3.xml\" ContentType=\"{vnd}.externalLink+xml\"/>"
+    ));
+    for spec in &mut specs {
+        if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let links: String = (1..=3)
+                .map(|n| {
+                    format!(
+                        "<Relationship Id=\"rIdE{n}\" Type=\"{ATTR_NS}/externalLink\" \
+                         Target=\"externalLinks/externalLink{n}.xml\"/>"
+                    )
+                })
+                .collect();
+            let rels = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("</Relationships>", &format!("{links}</Relationships>"));
+            *spec = Spec::stored(b"xl/_rels/workbook.xml.rels", rels.as_bytes());
+        } else if spec.name == b"xl/workbook.xml" {
+            let workbook = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace(
+                    "</workbook>",
+                    "<externalReferences><externalReference r:id=\"rIdE1\"/>\
+                     <externalReference r:id=\"rIdE2\"/><externalReference r:id=\"rIdE3\"/>\
+                     </externalReferences></workbook>",
+                );
+            *spec = Spec::deflated(b"xl/workbook.xml", workbook.as_bytes());
+        }
+    }
+    let link = |body: &str| {
+        format!("<externalLink xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">{body}</externalLink>")
+    };
+    let path_rels = |kind: &str, target: &str, mode: &str| {
+        format!(
+            "<Relationships xmlns=\"{RELS_NS}\">\
+             <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/{kind}\" Target=\"{target}\"{mode}/>\
+             </Relationships>"
+        )
+    };
+    let book = link(
+        "<externalBook r:id=\"rId1\"><sheetNames><sheetName val=\"North\"/>\
+         <sheetName val=\"South\"/></sheetNames><definedNames>\
+         <definedName name=\"Rate\" refersTo=\"=North!$A$1\"/></definedNames>\
+         <sheetDataSet><sheetData sheetId=\"0\"><row r=\"1\"><cell r=\"A1\"><v>2</v></cell>\
+         </row></sheetData></sheetDataSet></externalBook>",
+    );
+    let dde = link("<ddeLink ddeService=\"Service\" ddeTopic=\"Topic\"><ddeItems/></ddeLink>");
+    let ole = link("<oleLink r:id=\"rId1\" progId=\"Package\"><oleItems/></oleLink>");
+    specs.push(Spec::deflated(
+        b"xl/externalLinks/externalLink1.xml",
+        book.as_bytes(),
+    ));
+    specs.push(Spec::stored(
+        b"xl/externalLinks/_rels/externalLink1.xml.rels",
+        path_rels("externalLinkPath", "other.xlsx", book_mode).as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/externalLinks/externalLink2.xml",
+        dde.as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/externalLinks/externalLink3.xml",
+        ole.as_bytes(),
+    ));
+    specs.push(Spec::stored(
+        b"xl/externalLinks/_rels/externalLink3.xml.rels",
+        path_rels(
+            "oleObject",
+            "file:///objects/thing.bin",
+            " TargetMode=\"External\"",
+        )
+        .as_bytes(),
+    ));
+    specs
+}
+
+#[test]
+fn the_extlink_sample_counts_and_digests_every_link_and_writes_the_input_back_unedited() {
+    // `specs/0033-read-breadth-survey.md`, "Harness runs", `--extlink-sample`.
+    // Three links: a book with two sheet names and one defined name, a DDE
+    // link and an OLE link; the targets digested are the book's and the
+    // OLE link's, in order.
+    let dir = TempDir::new("extlink-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let specs = extlink_specs(" TargetMode=\"External\"");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--extlink-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        format!(
+            "extlinks\tlinks=3\tbooks=1\tdde=1\tole=1\tsheet_names=2\tdefined_names=1\
+             \tdigest_targets={}\tdigest_sheets={}\n",
+            fnv(&["other.xlsx", "file:///objects/thing.bin"]),
+            fnv(&["North", "South"]),
+        ),
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, &specs, &[]);
+}
+
+#[test]
+fn the_extlink_sample_refuses_a_book_whose_relationship_is_internal_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0033-read-breadth-survey.md`, "P3").
+    let dir = TempDir::new("extlink-sample-internal");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&extlink_specs(""))).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--extlink-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: an external link cannot be read\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
