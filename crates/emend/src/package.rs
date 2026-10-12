@@ -1933,9 +1933,13 @@
 #[cfg(feature = "read")]
 mod sheet_read;
 #[cfg(feature = "read")]
+mod survey;
+#[cfg(feature = "read")]
 pub use sheet_read::{
     ColumnFormat, HyperlinkEntry, HyperlinkTarget, RowFormat, Rows, SheetSettings,
 };
+#[cfg(feature = "read")]
+pub use survey::{PartKinds, SheetParts};
 #[cfg(test)]
 mod tests;
 
@@ -2033,10 +2037,12 @@ pub const THEME: [&[u8]; 2] = [
 
 /// The `table` relationship type, transitional then strict
 /// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`,
-/// and feature `tables` for `specs/0021-tables.md`).
+/// feature `tables` for `specs/0021-tables.md`, and feature `read` for
+/// `specs/0033-read-breadth-survey.md`).
 #[cfg(any(
     feature = "rowcol",
     feature = "tables",
+    feature = "read",
     all(feature = "sheetprops", feature = "metadata")
 ))]
 pub const TABLE: [&[u8]; 2] = [
@@ -2045,8 +2051,8 @@ pub const TABLE: [&[u8]; 2] = [
 ];
 
 /// The `pivotTable` relationship type, transitional then strict (feature
-/// `rowcol`, and feature `tables`).
-#[cfg(any(feature = "rowcol", feature = "tables"))]
+/// `rowcol`, feature `tables`, and feature `read`).
+#[cfg(any(feature = "rowcol", feature = "tables", feature = "read"))]
 pub const PIVOT_TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotTable",
@@ -2060,16 +2066,18 @@ const TABLE_CONTENT_TYPE: &[u8] =
 
 /// The `comments` relationship type, transitional then strict (the Cargo
 /// feature `comments`; `specs/0022-comments-and-images.md`, "Comments: the
-/// parts"), which the Cargo feature `copy` looks for on a copy's source.
-#[cfg(any(feature = "comments", feature = "copy"))]
+/// parts"), which the Cargo feature `copy` looks for on a copy's source and
+/// the Cargo feature `read` counts.
+#[cfg(any(feature = "comments", feature = "copy", feature = "read"))]
 pub const COMMENTS: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/comments",
 ];
 
 /// The `vmlDrawing` relationship type, transitional then strict, which a
-/// worksheet's `<legacyDrawing>` names (the Cargo feature `comments`).
-#[cfg(feature = "comments")]
+/// worksheet's `<legacyDrawing>` names (the Cargo feature `comments`; the
+/// Cargo feature `read` counts it).
+#[cfg(any(feature = "comments", feature = "read"))]
 pub const VML_DRAWING: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/vmlDrawing",
@@ -2103,16 +2111,18 @@ const VML_NAMESPACES: [&[u8]; 3] = [
 
 /// The `drawing` relationship type, transitional then strict, which a
 /// worksheet's `<drawing>` names (the Cargo feature `images`;
-/// `specs/0022-comments-and-images.md`, "Images: the parts").
-#[cfg(feature = "images")]
+/// `specs/0022-comments-and-images.md`, "Images: the parts"; the Cargo
+/// feature `read` counts it).
+#[cfg(any(feature = "images", feature = "read"))]
 pub const DRAWING: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/drawing",
 ];
 
 /// The `image` relationship type, transitional then strict, which a
-/// drawing's `blip` names (the Cargo feature `images`).
-#[cfg(feature = "images")]
+/// drawing's `blip` names (the Cargo feature `images`; the Cargo feature
+/// `read` counts it).
+#[cfg(any(feature = "images", feature = "read"))]
 pub const IMAGE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/image",
@@ -2149,12 +2159,71 @@ const EMU_PER_PIXEL: u64 = 9525;
 /// The `hyperlink` relationship type, transitional then strict, the type a
 /// link to a target outside the package is written with (the Cargo feature
 /// `metadata`; `specs/0019-names-links-properties-protection.md`,
-/// "Hyperlinks"), and the one a sheet copy carries (the Cargo feature
-/// `copy`).
-#[cfg(any(feature = "metadata", feature = "copy"))]
+/// "Hyperlinks"), the one a sheet copy carries (the Cargo feature `copy`),
+/// and the one the Cargo feature `read` counts when external.
+#[cfg(any(feature = "metadata", feature = "copy", feature = "read"))]
 pub const HYPERLINK: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/hyperlink",
+];
+
+/// The `externalLink` relationship type, the workbook's to an external link
+/// part, transitional then strict (the Cargo feature `read`;
+/// `specs/0033-read-breadth-survey.md`).
+#[cfg(feature = "read")]
+pub const EXTERNAL_LINK: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/externalLink",
+];
+
+/// The `externalLinkPath` relationship type, an external link part's to the
+/// file it names, transitional then strict (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const EXTERNAL_LINK_PATH: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLinkPath",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/externalLinkPath",
+];
+
+/// The `pivotCacheDefinition` relationship type, a pivot table's to its
+/// cache definition, transitional then strict (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const PIVOT_CACHE_DEFINITION: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotCacheDefinition",
+];
+
+/// The `chart` relationship type, a drawing's to a chart part, transitional
+/// then strict (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const CHART: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/chart",
+];
+
+/// The `slicer` relationship type, a worksheet's to a slicer part. Microsoft's
+/// 2007 extension has one form, written twice so it is looked up as the
+/// pairs are (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const SLICER: [&[u8]; 2] = [
+    b"http://schemas.microsoft.com/office/2007/relationships/slicer",
+    b"http://schemas.microsoft.com/office/2007/relationships/slicer",
+];
+
+/// The `timeline` relationship type, a worksheet's to a timeline part.
+/// Microsoft's 2011 extension has one form, written twice as [`SLICER`] is
+/// (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const TIMELINE: [&[u8]; 2] = [
+    b"http://schemas.microsoft.com/office/2011/relationships/timeline",
+    b"http://schemas.microsoft.com/office/2011/relationships/timeline",
+];
+
+/// The `printerSettings` relationship type, a sheet's to its printer
+/// settings, transitional then strict (the Cargo feature `read`).
+#[cfg(feature = "read")]
+pub const PRINTER_SETTINGS: [&[u8]; 2] = [
+    b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings",
+    b"http://purl.oclc.org/ooxml/officeDocument/relationships/printerSettings",
 ];
 
 /// The core-properties relationship type of the package: the package

@@ -7447,6 +7447,8 @@ mod sheetprops;
 mod sheetread;
 #[cfg(feature = "rowcol")]
 mod shift;
+#[cfg(feature = "read")]
+mod survey;
 #[cfg(feature = "tables")]
 mod tables;
 #[cfg(feature = "rules")]
