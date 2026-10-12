@@ -175,6 +175,22 @@ fn indexes_64_and_81_resolve_to_none() {
 }
 
 #[test]
+fn an_override_of_65_entries_resolves_64_to_its_entry_and_65_to_none() {
+    // "Planning verification and rulings on P2", ruling 2: an index within
+    // the override resolves to it, 64 included; past it and past 63, `None`.
+    let mut body = String::from("<colors><indexedColors>");
+    for at in 0..65u32 {
+        body.push_str(&format!("<rgbColor rgb=\"FF0000{at:02X}\"/>"));
+    }
+    body.push_str("</indexedColors></colors>");
+    assert_eq!(
+        resolved(&body, Color::Indexed(64)).expect("64"),
+        plain(0xFF000040)
+    );
+    assert_eq!(resolved(&body, Color::Indexed(65)).expect("65"), None);
+}
+
+#[test]
 fn mru_colors_and_a_foreign_child_are_walked_past() {
     let body = "<colors><mruColors><color rgb=\"FF000000\"/><x/></mruColors>\
                 <o:any xmlns:o=\"urn:other\"><o:rgbColor/></o:any>\

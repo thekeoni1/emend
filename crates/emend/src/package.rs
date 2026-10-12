@@ -687,8 +687,7 @@
 //! than `rgbColor`; `Package::named_style` refuses an index past
 //! `<cellStyleXfs>` and `Package::default_font` a part with no `<fonts>`
 //! (`specs/0032-read-breadth-styles.md`, "Errors", P1 ruling 3 and P2
-//! ruling 1). The
-//! second is raised at the read of a worksheet, for a value that
+//! ruling 1). The second is raised at the read of a worksheet, for a value that
 //! does not parse and for one outside its writer's range ("Planning
 //! verification and rulings on P2", ruling 1, the ranges in Limits). The
 //! reads also meet the writers' messages for two of an element: "a
@@ -1765,8 +1764,8 @@
 //!   over `theme` with its `tint` over `indexed`, so an `rgb`'s `tint` is
 //!   dropped); a sheet's second and later `<sheetView>`, every `<pane>` but
 //!   the first view's first, and a `<selection>`; the theme's colours,
-//!   which a `Color::Theme` or `Indexed` gives as the index it is; `dxfs`,
-//!   `cellStyles` and `cellStyleXfs`, which are not read.
+//!   which a `Color::Theme` or `Indexed` gives as the index it is, and
+//!   `Package::resolve_color` resolves (below).
 //! - What reads as `None`: a `<fill>` holding no `patternFill`, a gradient
 //!   or an empty fill (decision 3 A, P1 verification ruling 2); a border
 //!   side with no `style` or `style="none"`, its colour with it; a pane
@@ -1816,6 +1815,50 @@
 //!   `emend-copy --roundtrip-sample` writes a styles part, which the
 //!   harness opens in LibreOffice and which joins Milestone 2's Excel check
 //!   list at this part's close-out (P1 verification ruling 3).
+//!
+//! Read breadth adds these, under the same Cargo feature `read`
+//! (`specs/0032-read-breadth-styles.md`, "Design", decisions 1 to 3 and the
+//! rulings of P1 and P2), each typed value one a writer of this crate takes:
+//!
+//! - What it reads: `Package::named_style` resolves a `<cellStyleXfs>`
+//!   format as `Package::cell_style` resolves a cell format, the part's
+//!   `<cellStyles>` read as `Styles::cell_styles`;
+//!   `Package::differential_styles` lends the main namespace's `<dxfs>` as
+//!   the [`crate::styles::Style`] values `Package::add_differential_style`
+//!   takes; `Package::default_font` gives the font the named style at
+//!   `cellStyleXfs` index 0 names; `Styles::indexed_colors` holds
+//!   `<colors>`'s `<indexedColors>`; `Package::theme_colors` reads the theme
+//!   part's twelve scheme colours; `Package::resolve_color` resolves a
+//!   colour to the RGB the workbook defines for it, and
+//!   `ResolvedColor::tinted` applies its tint by the standard's HLS formula.
+//! - What the typed view drops: in a `dxf`, a border's `vertical` and
+//!   `horizontal` sides and its `outline`, read past, and a `numFmt`'s
+//!   `numFmtId`, not read, the writer assigning its own (P1 verification
+//!   rulings 1 and 2); the `x14` `dxfs` inside an `extLst`; `<mruColors>`;
+//!   in the theme part, everything but `a:themeElements/a:clrScheme`, an
+//!   `extraClrSchemeLst`'s schemes and the font and format schemes among it.
+//! - The `dxf` pattern rule: a `dxf`'s `patternFill` with no `patternType`
+//!   reads as `Pattern::Solid`, Excel's rendering, where a cell format's
+//!   reads as `None`; written back through `add_differential_style` it
+//!   carries `patternType="solid"`, the one named difference in the bytes
+//!   (decision 2 A).
+//! - What resolves to `None`: `Auto`; an `Indexed` past the part's
+//!   `<indexedColors>` and past 63, the system colours 64 to 81 among them
+//!   (decision 3 A), an override longer than 64 entries resolving an index
+//!   within it ("Planning verification and rulings on P2", ruling 2); a
+//!   `Theme` with no theme part. A theme index past 11 and a tint not
+//!   finite or outside `-1.0..=1.0` are refused, "a colour cannot be
+//!   resolved".
+//! - What streams: the theme part is streamed once and only its scheme's
+//!   twelve colours kept, 48 bytes, cached for the package; the default
+//!   palette is a 256-byte constant; the named styles, `dxf` styles and
+//!   `indexedColors` are held with the styles part's typed lists, bounded
+//!   by the part (the corpus's largest `<dxfs>` holds 440 `dxf`, its
+//!   largest `<cellStyles>` 25).
+//! - None of this has been through an Excel check: a read writes nothing;
+//!   `emend-copy --namedstyles-sample` writes a styles part, which the
+//!   harness opens in LibreOffice and which joins Milestone 2's Excel check
+//!   list.
 //!
 //! # What streams and what is held
 //!
@@ -5560,7 +5603,9 @@ impl<R: Read + Seek> Package<R> {
     /// (`specs/0032-read-breadth-styles.md`, "Colours"): an `Rgb` as it is;
     /// an `Indexed` through the styles part's `<indexedColors>` when it has
     /// one and the index is within it, else the default palette, and `None`
-    /// past 63 (the system colours); a `Theme` through the theme's scheme
+    /// past the override and past 63 (the system colours; an override longer
+    /// than 64 entries resolves an index within it, "Planning verification
+    /// and rulings on P2", ruling 2); a `Theme` through the theme's scheme
     /// colours, theme 0 `lt1`, 1 `dk1`, 2 `lt2`, 3 `dk2`, 4 to 9 the
     /// accents, 10 `hlink` and 11 `folHlink`, its tint carried, and `None`
     /// with no theme part; `Auto` as `None`. The Cargo feature `read`.

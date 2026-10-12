@@ -5,11 +5,13 @@
 //! the `numFmt` children of `<numFmts>` and the `xf` children of `<cellXfs>`,
 //! both in part order, so `cell_xfs[i]` is what a cell's `s="i"` names, and
 //! counts the children of `<fonts>`, `<fills>` and `<borders>`
-//! (`specs/0017-fuller-styles.md`, "Module `styles`: the counts"). Every
-//! other element of the part is walked past with its subtree: what a font, a
-//! fill or a border holds, `cellStyleXfs`, `cellStyles`, `dxfs`, table
-//! styles, colours and extensions are not modelled here, and nothing about
-//! them is read.
+//! (`specs/0017-fuller-styles.md`, "Module `styles`: the counts"). Without
+//! the Cargo feature `read`, every other element of the part is walked past
+//! with its subtree: what a font, a fill or a border holds, `cellStyleXfs`,
+//! `cellStyles`, `dxfs`, table styles, colours and extensions are not
+//! modelled, and nothing about them is read. With it, table styles,
+//! `<mruColors>`, extensions and elements of other namespaces are still
+//! walked past.
 //!
 //! [`crate::package::Package::styles`] reads the part once and keeps the
 //! answer, as [`crate::package::Package::workbook`] does.
@@ -19,7 +21,11 @@
 //! `protection`, into the types [`Style`] carries, and
 //! `Package::cell_style` resolves a cell format into them as a `CellStyle`
 //! (`specs/0027-read-back.md`, "Cell formats"); what they
-//! cannot hold is read past or refused as that module says.
+//! cannot hold is read past or refused as that module says. The same read
+//! also reads `cellStyleXfs`, `cellStyles`, the main namespace's `dxfs`
+//! and `<colors>`'s `indexedColors`, and `Package::resolve_color` resolves
+//! a colour through them, the default palette and the theme
+//! (`specs/0032-read-breadth-styles.md`).
 //!
 //! # Number formats
 //!

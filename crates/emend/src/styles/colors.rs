@@ -143,9 +143,10 @@ fn from_hls(hue: f64, luminance: f64, saturation: f64) -> (f64, f64, f64) {
 }
 
 /// `color` resolved against the part's `indexedColors` and the theme's
-/// scheme colours in element order: `None` for `Auto`, an index past 63
-/// and a theme colour with no theme; "a colour cannot be resolved" for a
-/// theme index past 11 or a tint not finite or outside `-1.0..=1.0`.
+/// scheme colours in element order: `None` for `Auto`, an index past the
+/// override and past 63 and a theme colour with no theme; "a colour
+/// cannot be resolved" for a theme index past 11 or a tint not finite or
+/// outside `-1.0..=1.0`.
 pub(crate) fn resolve(
     color: &Color,
     indexed: Option<&[u32]>,
