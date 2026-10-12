@@ -53,6 +53,10 @@
 - The worksheet copy, with the feature `copy`: a sheet copied within its
   workbook, its comments carried with `comments` too
   (`specs/0028-images-and-comments-second-half.md`).
+- Read breadth, with the feature `read`: the named styles, the differential
+  styles and the default font read as the types the writers take, and a colour
+  resolved to the RGB the workbook defines for it through the palette and the
+  theme (`specs/0032-read-breadth-styles.md`).
 
 ### Changed
 
