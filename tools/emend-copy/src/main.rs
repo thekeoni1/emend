@@ -670,6 +670,16 @@
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer (a style or theme it cannot read, a colour it cannot
 //!   resolve).
+//! - `--kinds-sample`: the survey sample of
+//!   `specs/0033-read-breadth-survey.md`, "Harness runs": the input written
+//!   back unedited, `Package::part_kinds`, then `Package::sheet_parts` of
+//!   every sheet of the workbook's sheet list. One line: the word `kinds`
+//!   then every `PartKinds` field by its name, `entries` (the archive's
+//!   entries), `kinds_sum` (every field summed), `sheets` (sheets walked),
+//!   then every `SheetParts` field summed over the sheets, under the prefix
+//!   `sheet_`. COUNTS ONLY: no name, reference, path or text is printed.
+//!   Asserted: `kinds_sum` equal to `entries` less one; a failure is exit 2
+//!   with the message and no output, and so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -766,8 +776,8 @@ use emend::package::{
     CommentEntry, DRAWING, EditAs, ErrorStyle, HYPERLINK, HeaderFooter, IconSetKind, Image,
     ImageAnchor, LinkTarget, MAIN, Operator, Orientation, PIVOT_TABLE, Package, PageMargins,
     PageSetup, PrintOptions, Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind,
-    SheetProtection, SheetView, TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING, Validation,
-    ValidationKind, legacy_password_hash, rels_part_source,
+    SheetParts, SheetProtection, SheetView, TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING,
+    Validation, ValidationKind, legacy_password_hash, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -786,7 +796,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
-| --remove-image-sample | --copy-sample]";
+| --remove-image-sample | --copy-sample | --kinds-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -893,6 +903,9 @@ enum Operation {
     /// Every colour of every font, fill, border and differential style
     /// resolved, the input written back unedited, and the counts.
     ColorsSample,
+    /// Every part kind counted and every sheet's parts summed, the input
+    /// written back unedited, and the counts.
+    KindsSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -950,6 +963,7 @@ enum Error {
     RoundtripSample(&'static str),
     NamedstylesSample(&'static str),
     ColorsSample(&'static str),
+    KindsSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1062,6 +1076,9 @@ impl fmt::Display for Error {
             }
             Error::ColorsSample(what) => {
                 write!(f, "the input's {what} is not what the colours imply")
+            }
+            Error::KindsSample(what) => {
+                write!(f, "the input's {what} is not what the survey implies")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1255,6 +1272,9 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--colors-sample" => {
             run(Path::new(input), Path::new(output), Operation::ColorsSample)
         }
+        [input, output, flag] if flag == "--kinds-sample" => {
+            run(Path::new(input), Path::new(output), Operation::KindsSample)
+        }
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1415,6 +1435,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ColorsSample) {
         return colors_sample(input, output);
     }
+    if matches!(operation, Operation::KindsSample) {
+        return kinds_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1491,6 +1514,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
             unreachable!("the named styles sample has its own path")
         }
         Operation::ColorsSample => unreachable!("the colours sample has its own path"),
+        Operation::KindsSample => unreachable!("the survey sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7103,6 +7127,109 @@ fn colors_sample(input: &Path, output: &Path) -> Result<(), Error> {
         line.push_str(key);
         line.push('=');
         line.push_str(&value);
+    }
+    print_line(&line)
+}
+
+/// The survey sample (`specs/0033-read-breadth-survey.md`, "Harness runs",
+/// `--kinds-sample`). The input is written back unedited; a refusal by the
+/// layer is exit 2 with no output.
+fn kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let kinds = package.part_kinds()?;
+    let entries = package.archive().entries().len() as u64;
+    let parts: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut sheets = SheetParts::default();
+    for part in &parts {
+        let one = package.sheet_parts(part)?;
+        for (sum, count) in [
+            (&mut sheets.drawings, one.drawings),
+            (&mut sheets.charts, one.charts),
+            (&mut sheets.images, one.images),
+            (&mut sheets.comments, one.comments),
+            (&mut sheets.vml_drawings, one.vml_drawings),
+            (&mut sheets.tables, one.tables),
+            (&mut sheets.pivot_tables, one.pivot_tables),
+            (&mut sheets.slicers, one.slicers),
+            (&mut sheets.timelines, one.timelines),
+            (&mut sheets.printer_settings, one.printer_settings),
+            (&mut sheets.external_hyperlinks, one.external_hyperlinks),
+            (&mut sheets.sparkline_groups, one.sparkline_groups),
+        ] {
+            *sum = sum.saturating_add(count);
+        }
+    }
+    let fields = [
+        ("worksheets", kinds.worksheets),
+        ("chartsheets", kinds.chartsheets),
+        ("dialogsheets", kinds.dialogsheets),
+        ("macrosheets", kinds.macrosheets),
+        ("charts", kinds.charts),
+        ("chartex", kinds.chartex),
+        ("drawings", kinds.drawings),
+        ("images", kinds.images),
+        ("tables", kinds.tables),
+        ("pivot_tables", kinds.pivot_tables),
+        ("pivot_caches", kinds.pivot_caches),
+        ("pivot_cache_records", kinds.pivot_cache_records),
+        ("external_links", kinds.external_links),
+        ("vba_projects", kinds.vba_projects),
+        ("slicers", kinds.slicers),
+        ("slicer_caches", kinds.slicer_caches),
+        ("timelines", kinds.timelines),
+        ("timeline_caches", kinds.timeline_caches),
+        ("comments", kinds.comments),
+        ("threaded_comments", kinds.threaded_comments),
+        ("persons", kinds.persons),
+        ("custom_xml", kinds.custom_xml),
+        ("connections", kinds.connections),
+        ("query_tables", kinds.query_tables),
+        ("custom_properties", kinds.custom_properties),
+        ("printer_settings", kinds.printer_settings),
+        ("calc_chains", kinds.calc_chains),
+        ("other_typed", kinds.other_typed),
+        ("untyped", kinds.untyped),
+    ];
+    let kinds_sum: u64 = fields.iter().map(|(_, count)| u64::from(*count)).sum();
+    if kinds_sum + 1 != entries {
+        return Err(Error::KindsSample("kinds sum"));
+    }
+    write_into(package, output)?;
+    let mut line = String::from("kinds");
+    let mut values: Vec<(&str, u64)> = fields
+        .iter()
+        .map(|(key, count)| (*key, u64::from(*count)))
+        .collect();
+    values.push(("entries", entries));
+    values.push(("kinds_sum", kinds_sum));
+    values.push(("sheets", parts.len() as u64));
+    for (key, count) in [
+        ("sheet_drawings", sheets.drawings),
+        ("sheet_charts", sheets.charts),
+        ("sheet_images", sheets.images),
+        ("sheet_comments", sheets.comments),
+        ("sheet_vml_drawings", sheets.vml_drawings),
+        ("sheet_tables", sheets.tables),
+        ("sheet_pivot_tables", sheets.pivot_tables),
+        ("sheet_slicers", sheets.slicers),
+        ("sheet_timelines", sheets.timelines),
+        ("sheet_printer_settings", sheets.printer_settings),
+        ("sheet_external_hyperlinks", sheets.external_hyperlinks),
+        ("sheet_sparkline_groups", sheets.sparkline_groups),
+    ] {
+        values.push((key, u64::from(count)));
+    }
+    for (key, value) in values {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value.to_string());
     }
     print_line(&line)
 }

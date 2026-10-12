@@ -5787,3 +5787,115 @@ fn the_copy_sample_refuses_a_workbook_whose_only_sheet_is_a_chartsheet_and_leave
         "--copy-sample",
     );
 }
+
+/// `package_specs` with a table, a drawing holding a chart and an image, an
+/// external hyperlink and one sparkline group on its sheet, each part typed
+/// as the survey reads it. Fictional.
+fn kinds_specs() -> Vec<Spec> {
+    let vnd = "application/vnd.openxmlformats-officedocument";
+    let mut specs = package_specs_with(&format!(
+        "<Override PartName=\"/xl/tables/table1.xml\" ContentType=\"{vnd}.spreadsheetml.table+xml\"/>\
+         <Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"{vnd}.drawing+xml\"/>\
+         <Override PartName=\"/xl/charts/chart1.xml\" ContentType=\"{vnd}.drawingml.chart+xml\"/>\
+         <Default Extension=\"png\" ContentType=\"image/png\"/>"
+    ));
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            let sheet = format!(
+                "<worksheet xmlns=\"{MAIN_NS}\" \
+                 xmlns:x14=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/main\">\
+                 <sheetData/><extLst><ext uri=\"{{05C60535-1F16-4fd2-B633-F4F36F0B64E0}}\">\
+                 <x14:sparklineGroups><x14:sparklineGroup><x14:sparklines/></x14:sparklineGroup>\
+                 </x14:sparklineGroups></ext></extLst></worksheet>"
+            );
+            *spec = Spec::deflated(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    let sheet_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/table\" Target=\"../tables/table1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/drawing\" Target=\"../drawings/drawing1.xml\"/>\
+         <Relationship Id=\"rId3\" Type=\"{ATTR_NS}/hyperlink\" \
+         Target=\"https://example.invalid/y\" TargetMode=\"External\"/>\
+         </Relationships>"
+    );
+    let drawing_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/chart\" Target=\"../charts/chart1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/image\" Target=\"../media/image2.png\"/>\
+         </Relationships>"
+    );
+    specs.push(Spec::stored(
+        b"xl/worksheets/_rels/sheet1.xml.rels",
+        sheet_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(b"xl/tables/table1.xml", b"<table/>"));
+    specs.push(Spec::deflated(b"xl/drawings/drawing1.xml", b"<wsDr/>"));
+    specs.push(Spec::stored(
+        b"xl/drawings/_rels/drawing1.xml.rels",
+        drawing_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(b"xl/charts/chart1.xml", b"<chartSpace/>"));
+    specs.push(Spec::stored(b"xl/media/image2.png", &binary_part()));
+    specs
+}
+
+#[test]
+fn the_kinds_sample_counts_every_kind_and_every_sheet_and_writes_the_input_back_unedited() {
+    // `specs/0033-read-breadth-survey.md`, "Harness runs", `--kinds-sample`.
+    // Thirteen entries: the six typed `other_typed` (the two rels defaults
+    // beside the package's, the workbook, the styles part by the `xml`
+    // default), the untyped `image1.bin`, a worksheet, a table, a drawing, a
+    // chart and a png image; the workbook's external hyperlink is not a
+    // sheet's and is not counted.
+    let dir = TempDir::new("kinds-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let specs = kinds_specs();
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--kinds-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "kinds\tworksheets=1\tchartsheets=0\tdialogsheets=0\tmacrosheets=0\tcharts=1\
+         \tchartex=0\tdrawings=1\timages=1\ttables=1\tpivot_tables=0\tpivot_caches=0\
+         \tpivot_cache_records=0\texternal_links=0\tvba_projects=0\tslicers=0\
+         \tslicer_caches=0\ttimelines=0\ttimeline_caches=0\tcomments=0\tthreaded_comments=0\
+         \tpersons=0\tcustom_xml=0\tconnections=0\tquery_tables=0\tcustom_properties=0\
+         \tprinter_settings=0\tcalc_chains=0\tother_typed=6\tuntyped=1\tentries=13\
+         \tkinds_sum=12\tsheets=1\tsheet_drawings=1\tsheet_charts=1\tsheet_images=1\
+         \tsheet_comments=0\tsheet_vml_drawings=0\tsheet_tables=1\tsheet_pivot_tables=0\
+         \tsheet_slicers=0\tsheet_timelines=0\tsheet_printer_settings=0\
+         \tsheet_external_hyperlinks=1\tsheet_sparkline_groups=1\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, &specs, &[]);
+}
+
+#[test]
+fn the_kinds_sample_refuses_content_types_that_are_not_well_formed_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0033-read-breadth-survey.md`, "P1: the survey").
+    let mut specs = kinds_specs();
+    for spec in &mut specs {
+        if spec.name == b"[Content_Types].xml" {
+            let types = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("</Types>", "</Typos>");
+            *spec = Spec::deflated(b"[Content_Types].xml", types.as_bytes());
+        }
+    }
+    let dir = TempDir::new("kinds-sample-types-malformed");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--kinds-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: not well-formed XML or not UTF-8 (entry 0)\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
