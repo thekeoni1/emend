@@ -655,6 +655,212 @@ Rulings on the independent check's points and the disclosures:
    (rulings 1 to 5 and this section) and ROADMAP.md with the P1
    row DONE and the P2 row IN PROGRESS.
 
+## Planning rulings during P2 (2026-10-11)
+
+Raised by the implementing session after the doc commit 76f489f
+(this spec at 01c1d194 and ROADMAP.md at 50e2bd01, checked by
+planning), before any code commit. Planning recounted every
+figure below with a namespace-aware parser over the 27 workbooks
+(counts only) and checked `color_from`'s precedence and rgb form
+in the source.
+
+1. `<colors>` in the styles part, with the feature: "a style
+   cannot be read" for a second main-namespace `<colors>` or a
+   second `<indexedColors>` in it (as P1 ruling 3), an `rgbColor`
+   with no `rgb` or an `rgb` that `color_from` would refuse (not
+   eight hex digits), and a main-namespace child of
+   `<indexedColors>` other than `rgbColor`. `<mruColors>` and
+   anything outside the main namespace are walked past; without
+   the feature everything is walked past as today. Corpus: 23
+   `<colors>`, 18 `indexedColors` (1016 `rgbColor`, every one
+   eight hex digits), 5 `mruColors`. A test for each refusal and
+   one for `mruColors` walked past.
+2. The scheme read is `a:theme/a:themeElements/a:clrScheme` alone;
+   a second one at that path is refused, a `clrScheme` under
+   `extraClrSchemeLst` is walked past, and a theme with none at
+   the path is refused, each "a theme cannot be read". "Two
+   `clrScheme` elements" under "Errors" reads so. Corpus: 27
+   themes, one `clrScheme` each at the path and none elsewhere.
+3. The scheme's children, "a theme cannot be read" for: one of the
+   twelve missing or met twice; a DrawingML child the type does
+   not know (`a:extLst` walked past); a colour element holding
+   children (a transform such as `a:lumMod` would make `val` not
+   the colour); a scheme child holding a colour form other than
+   `srgbClr` or `sysClr`. Hex in either case. Corpus: 324 scheme
+   children, each exactly one colour element with no children,
+   318 `srgbClr` and 6 `sysClr`.
+4. `tinted` computes in `f64`: RGB to HLS with HLSMAX 255, the
+   tint applied to L as 18.8.19 says, back to RGB, each channel
+   rounded to nearest with halves away from zero (`f64::round`),
+   the alpha byte kept. The P2 tests' known cases read: tint 0.5
+   on `FF000000` gives `FF808080` (L 127.5 rounds to 128), tint
+   -0.5 on `FFFFFFFF` gives `FF808080`.
+5. The swap's proof (`scheme_dark_text`, `scheme_light_fill`)
+   tests `ResolvedColor::rgb`, the scheme colour before the tint
+   (a tinted theme-1 font may be light). "Fonts" means every font
+   colour read, cell fonts and `dxf` fonts both; "fill colours"
+   means `fgColor` and `bgColor` both, cell fills and `dxf` fills.
+6. A tint on a non-theme colour: `color_from` keeps a tint on
+   `Theme` alone (the corpus has 1 indexed colour with a tint,
+   which the type drops). `tinted` counts the resolved colours
+   carrying a tint, theme only; the run log's check counts `tint`
+   attributes on theme-form colours against `tinted` and prints
+   the tints on other forms (expected 1) as a count beside it,
+   not a failure. The check's counts by form follow
+   `color_from`'s precedence (`auto`, `rgb`, `theme`, `indexed`)
+   over font `color`, `patternFill` `fgColor` and `bgColor`, and
+   border `left`, `right`, `top`, `bottom` and `diagonal` `color`
+   in `<fonts>`, `<fills>`, `<borders>` and the main `<dxfs>`; not
+   a `dxf` border's `vertical` or `horizontal` side (read past, P1
+   ruling 1) and not gradient stops.
+7. Code: `package.rs`'s `DRAWINGML` constant is gated
+   `any(images, read)`, nothing else changed in it; the theme
+   cache is a `cfg(read)` field `Option<Option<[u32; 12]>>` on
+   `Package` and on its `Parts` view, read once.
+8. The default palette's alpha byte. ECMA-376 18.8.27 gives each
+   entry as `00RRGGBB`; the constant holds the RGB transcribed
+   from the table with the top byte `FF` (`FF000000`, `FFFFFFFF`,
+   ...), so a resolved indexed colour is the opaque colour a
+   writer would write, as `theme_colors` gives and as `Color::Rgb`
+   documents; its doc comment says so. The palette test asserts
+   the `FF` form; the run log's typed-in palette holds the same.
+   An `indexedColors` override keeps its `rgb` as written, with
+   whatever alpha it carries.
+9. "Resolves every colour of every font, fill (both), border side
+   and differential style read" under "Harness runs" assumed the
+   tool could list the typed fonts, fills and borders, which live
+   in the crate-private `read::Typed` and are reached only through
+   a resolved format (the corpus has 54 fonts and 27 fills no
+   format names, and 1451 format references). Ruling (option B):
+   `Styles` gains three read-only accessors with the feature, each
+   lending its list in part order: `typed_fonts(&self) ->
+   &[Font]`, `typed_fills(&self) -> &[Option<Fill>]` (a gradient
+   `None`, as the read gives it) and `typed_borders(&self) ->
+   &[Border]`; the count accessors `fonts`, `fills` and `borders`
+   are unchanged. The sample reads each element once through
+   them, plus every differential style; the run log's check counts
+   elements directly; P3's API listing grows by three, noted in
+   its record. Nothing existing changes. A test that each accessor
+   lends the part's elements in order, with a gradient `None`.
+10. The resolved list's comparison. "Hashed and printed, not the
+   values" and "the samples print counts and flags" are met
+   together by option A: the tool prints no value. The list, in a
+   fixed order: each typed font's colour in part order; each typed
+   fill's `fgColor` then `bgColor`; each typed border's `left`,
+   `right`, `top`, `bottom`, `diagonal` colour; then each `dxf` in
+   part order, its font colour, fill `fgColor` and `bgColor`, and
+   border sides in the same order. Each present colour gives one
+   entry, `rgb:tinted` as eight plus eight lower-case hex digits
+   or `none` for an unresolved one; absent colours give nothing.
+   The tool digests the entries with 64-bit FNV-1a (its own ten
+   lines, no dependency; the algorithm's public constants), each
+   entry's bytes followed by a newline, and prints four fields in
+   its line, `digest_fonts`, `digest_fills`, `digest_borders` and
+   `digest_dxfs`, each 16 lower-case hex digits, so a mismatch is
+   located to a group. The check builds the same four lists
+   independently, digests them the same way, and compares; the
+   log prints the eight digests per workbook, never a value. A
+   mismatch is a finding examined by hand outside the log. The
+   tool's test asserts the digest of a known small list against
+   a value computed by hand in the test.
+
+## Planning verification and rulings on P2 (2026-10-12)
+
+Verified from primaries: the three commits 76f489f (docs), 85bb33f
+(crate) and 70b3e00 (tool, the phase commit) read in full against
+"Colours", "Errors", "P2", P1 verification rulings 3 and 4 and P2
+rulings 1 to 10; the record commit e39d028 holds the five logs,
+the independent check and the four records at the hashes and line
+counts the report gives (gate 8eded48f, test ba4b6db5, negative
+6fb87668, run e81d9d30, scan 3e78407b, check 5496bed3; records
+c89d8e9b, 8453c8d0, bb0fdf20, 1ca0a182). The gate builds under
+one root with no prune; the test log passes 515, 584, 622 and 956
+on both targets (P1's figures plus the 22 colors tests each set
+compiles and the carry test under off), ten plants each failing
+their set; the negative log shows N1 to N3 exit 2 with "a theme
+cannot be read", N4 with "a colour cannot be resolved", N5 and N6
+with "a style cannot be read", no output each, B0 accepted with
+the tool test's line; the run log shows 27 of 27 ok on both
+targets, 870 entries identical, nothing changed, added, dropped,
+recompressed or flagged, files_identical yes 27, the outputs and
+lines the same on both targets, the comparison (its own palette,
+colorsys and FNV-1a) agreeing with the tool's counts and four
+digests 27 of 27, the swap's proof 27 of 27 (scheme_dark_text 498
+of 498 theme-1 font colours, scheme_light_fill 32 of 32 theme-0
+fill colours), tints on other forms 1, the keep 1099 pairs (2 new,
+none changed or gone), no verdict of the named record moved; the
+scan PASS with 0 hits and 0 structural failures. The totals over
+the corpus, recorded here: colors 2511, rgb 390, theme 1606,
+indexed 326, auto 189, resolved 1998, unresolved 513, tinted 985,
+theme_part 27, scheme_dark_text 498, scheme_light_fill 32,
+palette_override 18.
+Planning's own run: the phase commit built in a detached worktree,
+crate tests on both targets with the four feature sets 515, 584,
+622, 956 (1 ignored each), workspace tests 1156 on both, clippy
+and rustdoc 0 warning lines (all features, and read alone),
+release emend-copy on both targets, the i686 binary at the
+record's hash 76b966da; `--colors-sample` over the 27 corpus files
+on both targets, every output and every line byte-identical to
+the phase's run directory, 0 refused; planning's own resolution
+check (its own transcription of the palette, Python's colorsys,
+its own FNV-1a, written without reading the phase's comparison
+first) gives the tool's line, counts and four digests, in 27 of 27
+workbooks and the 12 totals above; the seven digests the tool
+tests assert recomputed by planning; planning's privacy scan over
+06f5cba..e39d028: 4 commits, 1594 blobs, 0 findings.
+
+Rulings on the independent check's points and the disclosures:
+
+1. The `package.rs` catalogue carry (check point a). The sentence
+   had to name ruling 1's refusals, so "text unchanged" could not
+   hold for it; the rewording is accepted as the carry of P1
+   verification ruling 4 and of ruling 1 together. The short line
+   it leaves ("ruling 1). The") is reflowed by P3's catalogue
+   work, which rewrites that paragraph; no P2 fix.
+2. An `indexedColors` override longer than 64 entries (point b).
+   `resolve` consults the override wherever the index is within
+   it, so an override of 65 entries resolves index 64 to its entry
+   and 65 to `None`. Ruling: that reading of "when it has one and
+   `i` is within it" stands; Excel writes exactly 64, and a longer
+   override is the part's own statement. P3's catalogue says so
+   under the limits ("`None` for an index past the override and
+   past 63"), `resolve_color`'s doc gains the clause, and P3's
+   carry adds one test to `package/tests/colors.rs`: an override
+   of 65 entries resolves 64 to its entry and 65 to `None`. The
+   read, read,rules and all figures grow by 1 in P3's test log.
+3. The digests "computed by hand in the test" (point c). Ruling 10
+   meant a value not produced by the code under test; constants
+   worked out by hand, commented so, and recomputed by the checker
+   and by planning (all seven agree) meet it. No change.
+4. The two messages catalogued in P2 (point d): as "Errors" says
+   and as P1 did. Accepted; P3's catalogue work edits the entries
+   as it needs.
+5. Disclosures accepted: the message-only amend before any logged
+   run (8469e5a unreferenced); the dropped binary tint case (the
+   styles read refuses the tint first, and the crate test
+   `a_theme_index_past_11_or_a_tint_out_of_range_or_not_finite_is_refused`
+   covers `resolve_color`); the dry-run fixes O48 and MI through
+   the generators; the development builds in the repository's
+   ignored `target/` (the logged gate built under its own root
+   alone); the report's two wording corrections, applied.
+6. The `git stash --keep-index` that took planning's working spec
+   (disclosure 5): restored with the hash unchanged, no harm done;
+   the rule stands for both sessions: `git stash` is never run in
+   the main tree while the working spec is uncommitted. The two
+   hand `rm -rf` of `gen/__pycache__` (disclosure 7): against the
+   rule, accepted this once; `PYTHONDONTWRITEBYTECODE=1` for every
+   generator run from P3 on, the log printing that it is set.
+7. The superseded commit stays unreferenced. The phase's target
+   root `m5p1-p2/target` stays beside `m5p1-p1/target`; both are
+   pruned at the next part's first gate that builds.
+8. P2 is DONE. P3's doc commit carries this spec as amended (P2
+   rulings 1 to 10 and this section) and ROADMAP.md with the P2
+   row DONE and the P3 row IN PROGRESS. P3's carry: ruling 2's
+   test and doc clause; P1 verification rulings 1 and 2's
+   catalogue wording; ruling 1's reflow; the API listing names
+   ruling 9's three accessors with `theme_colors`, `resolve_color`,
+   `ResolvedColor` and `tinted`, the count stated.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-11: 1, 2 and 3 as recommended (A
